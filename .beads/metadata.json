@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "leafblower",
+  "project_id": "720b16c4-5f39-4561-8754-67990c28bc23"
+}
