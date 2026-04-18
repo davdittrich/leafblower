@@ -48,6 +48,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
     bool is_infeasible = false;
 
+    int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
+    std::vector<double> bucket(max_cats), scale(max_cats);
+
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -56,7 +59,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         for (int k = 0; k < st.K; k++) {
             // Bucket accumulation for IPF scale computation
             double W = 0.0;
-            std::vector<double> bucket(st.cat_counts[k], 0.0);
+            std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
             for (int i = 0; i < st.n; i++) {
                 W += w[i];
                 int g = st.group_ids[k][i];
@@ -64,7 +67,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
 
             // IPF scale factors
-            std::vector<double> scale(st.cat_counts[k], 1.0);
+            std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 double Tkj = st.targets[k][j] * W;
                 if (bucket[j] < 1e-15 * W) {
