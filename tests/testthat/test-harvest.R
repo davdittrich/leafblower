@@ -1,4 +1,13 @@
-# BADARG validation RED test deferred to Task 7 where harvest() first exists.
-# Calling .Call("C_rk_calibrate") before R_init_leafblower registers the symbol
-# crashes R with an opaque symbol-not-found error — not a named assertion failure.
-# Task 7 adds the real RED test: expect_error(harvest(df, tgt, min_weight=5, max_weight=5), "min_weight")
+test_that("method='rake' emits warning about L-BFGS-B", {
+  set.seed(1)
+  df  <- data.frame(x = factor(sample(c("a","b"), 200, replace=TRUE)))
+  tgt <- list(x = c(a=0.5, b=0.5))
+  expect_warning(harvest(df, tgt, method="rake"), regexp = "L-BFGS-B")
+})
+
+test_that("method='nr' emits warning about L-BFGS-B", {
+  set.seed(1)
+  df  <- data.frame(x = factor(sample(c("a","b"), 200, replace=TRUE)))
+  tgt <- list(x = c(a=0.5, b=0.5))
+  expect_warning(harvest(df, tgt, method="nr"), regexp = "L-BFGS-B")
+})

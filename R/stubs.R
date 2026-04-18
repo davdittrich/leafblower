@@ -2,9 +2,6 @@
 # These exist solely so NAMESPACE exports resolve and the package loads.
 
 #' @export
-harvest <- function(...) stop("Not yet implemented")
-
-#' @export
 anesrake <- function(...) stop("Not yet implemented")
 
 #' @export
