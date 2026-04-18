@@ -26,7 +26,7 @@ void rk_params_init(rk_params_t* p) {
     p->tol_abs       = 1e-6;
     p->algorithm     = RK_ALG_AUTO;
     p->verbose       = 0;
-    p->epsilon       = 0.05;
+    p->epsilon       = 0.0;   /* deprecated: not read by any solver; see leafblower.h */
     p->lbfgs_m       = 10;
     p->log_fn        = nullptr;
     p->log_ctx       = nullptr;

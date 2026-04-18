@@ -38,7 +38,7 @@ static double compute_errRp(const CalibState& st,
 // Box step: Dykstra additive correction q[i] prevents cycling at the [lo,hi]^n boundary.
 // inner_max_iter is the single iteration budget; outer_max_iter is unused.
 IEPPAResult ieppa_solve(CalibState& st) {
-    static constexpr double kEmptyBucketThreshold   = 1e-15;   // bucket near-zero: skip scale
+    static constexpr double kEmptyBucketThreshold   = 1e-15;   // relative threshold: bucket[j] < 1e-15*W → treat as empty, skip IPF scale
     static constexpr double kWeightCollapseThreshold = 1e-300;  // weights collapsed: skip norm
     static constexpr int    kMaxFixupIterations      = 20;      // post-convergence fixup cap
 
