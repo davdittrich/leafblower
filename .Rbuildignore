@@ -1,0 +1,9 @@
+^\.beads$
+^\.claude$
+^\.wolf$
+^tasks$
+^python$
+^docs/iEPPA$
+^\.git$
+^cran-comments\.md$
+^\.github$
