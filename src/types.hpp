@@ -20,7 +20,6 @@ struct CalibState {
     double tol_abs;
     int inner_max_iter;
     int outer_max_iter;
-    double epsilon;
     int lbfgs_m;
     int verbose;
     void (*log_fn)(const char* msg, void* ctx);

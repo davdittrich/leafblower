@@ -8,7 +8,6 @@
 #include <vector>
 #include "logit.hpp"
 
-// Existing logit test bridges (from Task 4)
 extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
 SEXP C_logit_range_check(SEXP, SEXP, SEXP);

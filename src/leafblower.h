@@ -26,11 +26,13 @@ typedef struct {
     double          min_weight;      /* default 0.0 */
     double          max_weight;      /* default 5.0 */
     int             inner_max_iter;  /* inner BCD cap per outer iter, default 500 */
-    int             outer_max_iter;  /* outer EPP / L-BFGS max iters, default 50 */
+    int             outer_max_iter;  /* outer EPP / L-BFGS max iters, default 50.
+                                       * Note: R bridge sets outer_max_iter = inner_max_iter;
+                                       * independent control requires direct C API use. */
     double          tol_abs;         /* convergence tolerance, default 1e-6 */
     rk_algorithm_t  algorithm;       /* default RK_ALG_AUTO */
     int             verbose;         /* 0=silent, 1=progress, 2=debug */
-    double          epsilon;         /* iEPPA entropic parameter, default 0.05 */
+    double          epsilon;         /* deprecated: no longer read by any solver; kept for ABI compat */
     int             lbfgs_m;         /* L-BFGS history size, default 10 */
     void            (*log_fn)(const char* msg, void* ctx);
     void*           log_ctx;

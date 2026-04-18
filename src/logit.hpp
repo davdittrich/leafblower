@@ -35,15 +35,6 @@ struct LinkFn {
         return (L * (U - 1.0) + U * (1.0 - L) * e) / ((U - 1.0) + (1.0 - L) * e);
     }
 
-    // dF(u): derivative of F w.r.t. u; from quotient rule on F
-    double dF(double u) const {
-        if (exponential) {
-            return safe_exp(u);
-        }
-        double fu = F(u);
-        return logit_scale * (fu - L) * (U - fu) / (U - L);
-    }
-
     // H(u): antiderivative of F(u).
     // Logit branch: H(0) = 0 by construction (constant of integration chosen).
     // Exp branch: H(u) = exp(u); H(0) = 1 (additive constant irrelevant for optimization).

@@ -178,7 +178,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.tol_abs       = p->tol_abs;
     st.inner_max_iter = p->inner_max_iter;
     st.outer_max_iter = p->outer_max_iter;
-    st.epsilon       = p->epsilon;
     st.lbfgs_m       = p->lbfgs_m;
     st.verbose       = p->verbose;
     st.log_fn        = p->log_fn;
@@ -193,8 +192,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             snprintf(msg, 256, "Auto-selected iEPPA: complexity=%lld, max_weight=%.2f, min_weight=%.2f",
                      (long long)complexity, p->max_weight, p->min_weight);
         else
-            snprintf(msg, 256, "Auto-selected L-BFGS-B: complexity=%lld <= 500000, max_weight=%.2f, min_weight=%.2f",
-                     (long long)complexity, p->max_weight, p->min_weight);
+            snprintf(msg, 256, "Auto-selected L-BFGS-B: complexity=%lld <= %lld, max_weight=%.2f, min_weight=%.2f",
+                     (long long)complexity, (long long)kComplexityThreshold, p->max_weight, p->min_weight);
         st.log(msg);
     }
 
