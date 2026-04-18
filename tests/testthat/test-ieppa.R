@@ -14,7 +14,7 @@ test_that("iEPPA respects max_weight=2 on tight bounds", {
   set.seed(7)
   n   <- 10000L
   df  <- data.frame(
-    age = factor(sample(c("Y","M","O"), n, replace=TRUE, prob=c(0.6,0.3,0.1))),
+    age = factor(sample(c("Y","M","O"), n, replace=TRUE, prob=c(0.40,0.33,0.27))),
     sex = factor(sample(c("M","F"), n, replace=TRUE, prob=c(0.55,0.45))),
     edu = factor(sample(c("HS","Col","Grad"), n, replace=TRUE, prob=c(0.4,0.4,0.2)))
   )
