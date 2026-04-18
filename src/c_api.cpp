@@ -199,7 +199,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         max_error = res.max_error;
         used = RK_ALG_LBFGSB;
     } else {
-        // iEPPA — stub for now (Task 10)
+        // iEPPA Sinkhorn-BCD solver
         auto res = lbw::ieppa_solve(st);
         status = res.status;
         iterations = res.iterations;

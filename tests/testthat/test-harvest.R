@@ -18,8 +18,8 @@ test_that("auto-routing selects iEPPA for large complexity", {
   df  <- data.frame(x = factor(sample(c("a","b","c"), n, replace=TRUE)))
   tgt <- list(x = c(a=0.33, b=0.34, c=0.33))
   # complexity = 200000 * 3 = 600000 > 500000 → iEPPA
-  result <- harvest(df, tgt, method="auto", verbose=1)
-  expect_equal(attr(result, "algorithm"), "ieppa")
+  result <- harvest(df, tgt, method="auto")
+  expect_identical(attr(result, "algorithm"), "ieppa")
 })
 
 test_that("auto-routing selects lbfgsb for small complexity", {
@@ -27,7 +27,7 @@ test_that("auto-routing selects lbfgsb for small complexity", {
   n   <- 1000L
   df  <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5))
-  # complexity = 1000 * 2 = 2000 << 500000, max_weight=5 >= 3, min_weight=0
+  # complexity = 1000 * 2 = 2000 << 500000; max_weight=5 (not < 3); min_weight=0
   result <- harvest(df, tgt, method="auto")
-  expect_equal(attr(result, "algorithm"), "lbfgsb")
+  expect_identical(attr(result, "algorithm"), "lbfgsb")
 })
