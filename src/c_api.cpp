@@ -119,6 +119,9 @@ static int validate_inputs(int n, int K,
         }
     }
 
+    if (!std::isfinite(p->tol_abs) || p->tol_abs <= 0.0)
+        return err("tol_abs must be finite and positive");
+
     return RK_OK;
 }
 

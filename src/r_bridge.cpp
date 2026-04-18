@@ -12,7 +12,7 @@ extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
 SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
-SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 }
 
 // R log trampoline: forwards CalibState.log() calls to Rprintf
@@ -27,7 +27,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       8},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       9},
         {NULL, NULL, 0}
     };
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
@@ -75,7 +75,8 @@ SEXP C_logit_Hprime_check(SEXP Lsxp, SEXP Usxp, SEXP u0sxp) {
 SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP min_weight_sexp, SEXP max_weight_sexp,
                     SEXP method_sexp, SEXP verbose_sexp,
-                    SEXP inner_max_iter_sexp, SEXP start_weights_sexp) {
+                    SEXP inner_max_iter_sexp, SEXP start_weights_sexp,
+                    SEXP tol_abs_sexp) {
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -161,6 +162,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     // outer step budget via the same parameter. With the O(n) Wolfe inner loop, 500
     // outer steps costs ~500 O(K*n) grad evals — acceptable; typical convergence is <50.
     p.outer_max_iter = INTEGER(inner_max_iter_sexp)[0];
+    p.tol_abs        = REAL(tol_abs_sexp)[0];
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
 
     if (LENGTH(method_sexp) != 1)

@@ -60,7 +60,7 @@ harvest <- function(
   method  <- map_method(method, verbose)
   # Emit deprecation warning if convergence['pct'] supplied; tol_abs forwarding
   # is a v1 TODO (C_rk_calibrate takes fixed default 1e-6 from rk_params_init).
-  parse_convergence(convergence)
+  tol_abs <- parse_convergence(convergence)
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
 
   # Ignored-param verbose notes
@@ -79,6 +79,7 @@ harvest <- function(
                as.integer(verbose),
                as.integer(max_iterations),
                sw_vec,
+               as.double(tol_abs),
                PACKAGE = "leafblower")
 
   weights <- raw$weights

@@ -32,3 +32,30 @@ test_that("auto-routing selects lbfgsb for small unconstrained problems", {
   result <- harvest(df, tgt, method="auto", max_weight=Inf)
   expect_identical(attr(result, "algorithm"), "lbfgsb")
 })
+
+test_that("convergence$absolute is forwarded to solver", {
+  set.seed(42)
+  n <- 10000L
+  df <- data.frame(
+    age = factor(sample(c("Y","M","O"), n, replace=TRUE,
+                        prob=c(0.60, 0.30, 0.10))),
+    sex = factor(sample(c("M","F"),     n, replace=TRUE,
+                        prob=c(0.70, 0.30)))
+  )
+  tgt <- list(
+    age = c(Y=0.33, M=0.40, O=0.27),
+    sex = c(M=0.49, F=0.51)
+  )
+  # 2 iterations with default tol (1e-6): competing margins cannot converge -> warning
+  expect_warning(
+    harvest(df, tgt, method="ieppa", max_iterations=2),
+    regexp="did not converge"
+  )
+  # 2 iterations with loose tol (0.3): error after 2 iters < 0.3 -> no warning
+  # Before fix: tol_abs ignored, tol=1e-6 used, warning fires -> test fails
+  # After fix:  tol_abs=0.3 forwarded, error < 0.3 accepted -> no warning
+  expect_no_warning(
+    harvest(df, tgt, method="ieppa", max_iterations=2,
+            convergence=list(absolute=0.3))
+  )
+})
