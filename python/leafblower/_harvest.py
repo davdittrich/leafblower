@@ -1,13 +1,15 @@
 from __future__ import annotations
 import warnings
 import numpy as np
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
+
+if TYPE_CHECKING:
+    import pandas as pd  # only for type checker; runtime import below
 
 try:
-    import pandas as pd
+    import pandas as pd  # type: ignore[no-redef]
     _PANDAS_AVAILABLE = True
 except ImportError:
-    pd = None  # type: ignore[assignment]
     _PANDAS_AVAILABLE = False
 
 from ._leafblower import calibrate
