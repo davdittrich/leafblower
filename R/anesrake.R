@@ -25,9 +25,6 @@ anesrake <- function(inputter, targets, weightvec = NULL, caseid = NULL,
             paste(names(dots), collapse = ", "))
   if (!is.null(caseid))
     message("anesrake: caseid is ignored (not used by leafblower calibration)")
-  if (choosemethod %in% c("rake", "nrake"))
-    warning("anesrake: choosemethod='", choosemethod,
-            "' not implemented; using lbfgsb")
   conv <- list()
   if (!is.null(pctlim)) conv[["pct"]] <- pctlim
   harvest(
