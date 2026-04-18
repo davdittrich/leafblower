@@ -20,9 +20,9 @@ design_effect <- function(weights, outcome = NULL, data = NULL, target = NULL) {
   n <- length(weights)
   if (length(outcome) != n)
     stop("design_effect: 'outcome' length must equal length(weights)")
-  y_bar <- mean(outcome)
-  var_w <- sum(weights * (outcome - y_bar)^2) / sum(weights)
-  var_u <- var(outcome)
+  y_bar_w <- sum(weights * outcome) / sum(weights)
+  var_w   <- sum(weights * (outcome - y_bar_w)^2) / sum(weights)
+  var_u   <- var(outcome)
   if (var_u < 1e-20 || var_w < 1e-20) return(1.0)
   var_w / var_u
 }
