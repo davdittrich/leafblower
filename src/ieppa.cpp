@@ -29,9 +29,10 @@ static double compute_errRp(const CalibState& st,
     return err;
 }
 
-// Dykstra's alternating projections for constrained raking.
-// Finds w in the intersection of K marginal constraint sets {C_k} and box [lo,hi]^n.
-// Correction vectors p[k] (marginal) and q (box) prevent cycling at constraint boundary.
+// Constrained raking solver: cyclic IPF for marginal projections + Dykstra box correction.
+// Marginal step: pure IPF (Bregman/multiplicative projection — Euclidean Dykstra corrections
+// diverge on multiplicative projections and are not used here).
+// Box step: Dykstra additive correction q[i] prevents cycling at the [lo,hi]^n boundary.
 // inner_max_iter is the single iteration budget; outer_max_iter is unused.
 IEPPAResult ieppa_solve(CalibState& st) {
     IEPPAResult res;
@@ -41,10 +42,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     std::vector<double> w(st.weights, st.weights + st.n);
 
-    // Dykstra correction vectors: one per margin (p) and one for box (q).
-    // p[k] is used for the Dykstra Euclidean box correction only; IPF steps
-    // are Bregman (multiplicative) projections and use no correction vectors.
-    std::vector<std::vector<double>> p(st.K, std::vector<double>(st.n, 0.0));
     std::vector<double> q(st.n, 0.0);
 
     double lo = st.min_weight;
