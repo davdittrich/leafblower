@@ -1,7 +1,6 @@
 #pragma once
 #include <cmath>
 #include <algorithm>
-#include <limits>
 
 namespace lbw {
 
@@ -21,7 +20,8 @@ struct LinkFn {
         logit_scale = exponential ? 0.0 : (U - L) / ((U - 1.0) * (1.0 - L));
     }
 
-    // Clamp exp(x) to exp(700) to prevent IEEE 754 overflow
+    // Clamp exp(x) to prevent IEEE 754 overflow.
+    // 700.0 chosen s.t. exp(700) ≈ 1.01e304 < DBL_MAX ≈ 1.8e308.
     static double safe_exp(double x) {
         return std::exp(std::min(x, 700.0));
     }
@@ -44,8 +44,9 @@ struct LinkFn {
         return logit_scale * (fu - L) * (U - fu) / (U - L);
     }
 
-    // H(u): antiderivative of F(u); H(0) = 0 by construction
-    // Exponential: H(u) = exp(u)
+    // H(u): antiderivative of F(u).
+    // Logit branch: H(0) = 0 by construction (constant of integration chosen).
+    // Exp branch: H(u) = exp(u); H(0) = 1 (additive constant irrelevant for optimization).
     // Logit (Deville-Sarndal 1992):
     //   H(u) = L*u + (U-L)/logit_scale * ln(((U-1)+(1-L)*exp(logit_scale*u)) / (U-L))
     double H(double u) const {
