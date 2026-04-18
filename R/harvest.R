@@ -84,17 +84,21 @@ harvest <- function(
                PACKAGE = "leafblower")
 
   weights <- raw$weights
-  # Normalize to mean=1 (preserves calibration constraints which are proportional)
-  weights <- weights / mean(weights)
   cres    <- raw$result
 
-  if (cres$status == 1L)
-    warning("leafblower: calibration did not converge (max_error=",
-            signif(cres$max_error, 3), "). Weights reflect last iterate.")
+  # Check hard-stop statuses before normalization: status 2/3 mean weights are
+  # meaningless; normalizing near-zero weights before stopping produces NaN.
   if (cres$status == 2L)
     stop("leafblower: infeasible problem \u2014 empty cell with positive target.")
   if (cres$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", cres$message)
+
+  # Normalize to mean=1 (preserves calibration constraints which are proportional)
+  weights <- weights / mean(weights)
+
+  if (cres$status == 1L)
+    warning("leafblower: calibration did not converge (max_error=",
+            signif(cres$max_error, 3), "). Weights reflect last iterate.")
 
   # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2
   alg_names <- c("auto", "ieppa", "lbfgsb")
@@ -122,7 +126,8 @@ parse_target <- function(target, target_map) {
   } else if (all(c("variable","level","proportion") %in% names(target))) {
     vcol <- "variable"; lcol <- "level"; pcol <- "proportion"
   } else if (ncol(target) == 3) {
-    warning("Assuming target data frame columns are variable, level, proportion.")
+    stop("target data frame has 3 columns but no 'variable'/'level'/'proportion' names. ",
+         "Add column names or pass target_map=list(variable=..., level=..., proportion=...).")
     vcol <- 1; lcol <- 2; pcol <- 3
   } else {
     stop("Cannot determine variable/level/proportion columns in target data frame.")
@@ -161,5 +166,7 @@ normalize_start_weights <- function(start_weights, n) {
       stop("start_weights length must equal nrow(data)")
     sw <- as.double(start_weights)
   }
+  if (sum(sw) < 1e-15)
+    stop("start_weights must sum to a positive value")
   sw * length(sw) / sum(sw)
 }

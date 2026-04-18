@@ -59,3 +59,21 @@ test_that("convergence$absolute is forwarded to solver", {
             convergence=list(absolute=0.3))
   )
 })
+
+test_that("normalize_start_weights rejects all-zero vector", {
+  df  <- data.frame(x = factor(c("a","b","a")))
+  tgt <- list(x = c(a=0.5, b=0.5))
+  expect_error(
+    harvest(df, tgt, start_weights = c(0, 0, 0)),
+    regexp = "start_weights must sum to a positive value"
+  )
+})
+
+test_that("parse_target stops on unnamed 3-column data frame", {
+  tgt_df <- data.frame(v = c("x","x"), l = c("a","b"), p = c(0.5, 0.5))
+  df     <- data.frame(x = factor(c("a","b")))
+  expect_error(
+    harvest(df, tgt_df),
+    regexp = "no 'variable'/'level'/'proportion' names"
+  )
+})
