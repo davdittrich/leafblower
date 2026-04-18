@@ -1,0 +1,15 @@
+Package: leafblower
+Title: High-Performance Survey Calibration via iEPPA and L-BFGS-B
+Version: 0.1.0
+Authors@R: person("Dennis Alexis Valin", "Dittrich",
+    email = "davdittrich@gmail.com", role = c("aut", "cre"))
+Description: Drop-in replacement for autumn::harvest() implementing iEPPA
+    (Sinkhorn block-coordinate descent) and L-BFGS-B over the Deville-Sarndal
+    logit dual. Adds min_weight lower bound; shares a single C++17 core with
+    the Python bindings.
+License: MIT + file LICENSE
+Encoding: UTF-8
+NeedsCompilation: yes
+SystemRequirements: C++17 compiler
+Suggests: autumn (>= 0.2.0), testthat (>= 3.0.0), bench
+RoxygenNote: 7.3.2
