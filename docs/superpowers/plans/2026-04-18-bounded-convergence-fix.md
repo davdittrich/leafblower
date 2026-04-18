@@ -19,7 +19,7 @@
 | `src/c_api.cpp` | **Modify** | Line 61: `bool use_logit = std::isfinite(p->max_weight);` |
 | `src/ieppa.cpp` | **Modify** | Delete `bregman_dist` + `bcd_sweep`; replace `ieppa_solve` body with Dykstra's |
 
-Existing tests: 19 test_that blocks across `test-compat.R`, `test-design.R`, `test-harvest.R`, `test-ieppa.R`, `test-lbfgsb.R`, `test-logit.R`. All must remain GREEN after every task.
+Existing tests: 6 test files across `test-compat.R`, `test-design.R`, `test-harvest.R`, `test-ieppa.R`, `test-lbfgsb.R`, `test-logit.R`. All must remain GREEN after every task. Do not rely on any hardcoded test count — use `devtools::test()` output as the authority.
 
 ---
 
@@ -187,7 +187,7 @@ Expected: **L-BFGS-B test GREEN; iEPPA test still RED** (iEPPA not yet fixed). I
 Rscript -e "devtools::test()"
 ```
 
-Expected: All 19 existing test_that blocks GREEN (1 new iEPPA block still RED is acceptable). Any newly failing existing test is a regression — investigate before continuing.
+Expected: All existing test blocks GREEN (1 new iEPPA block still RED is acceptable). Any newly failing existing test is a regression — investigate before continuing.
 
 - [ ] **Step 7: Commit**
 
@@ -407,7 +407,7 @@ If errRp decreases monotonically but stops above 1e-6, increase `max_iterations`
 Rscript -e "devtools::test()"
 ```
 
-Expected: All 21 test_that blocks GREEN. Pay particular attention to:
+Expected: All test blocks GREEN (existing + 2 new). Pay particular attention to:
 - `test-ieppa.R` "iEPPA respects max_weight=2 on tight bounds" — exercises box constraint on different data
 - `test-ieppa.R` "iEPPA respects min_weight=0.5" — exercises lo > 0 in box projection
 - `test-logit.R` — unaffected (logit math unchanged); must remain GREEN
@@ -456,13 +456,15 @@ cd /home/dd/Gemini/leafblower
 Rscript -e "devtools::test()"
 ```
 
-Expected: All 21 test_that blocks GREEN. Record the output. Any failure is a blocker.
+Expected: All test blocks GREEN (existing + 2 new). Record the output. Any failure is a blocker.
 
-- [ ] **Step 3: Verify convergence on the benchmark that previously failed**
+- [ ] **Step 3: Verify convergence on the benchmark that previously failed (warnings asserted)**
 
 ```bash
 Rscript -e "
 library(leafblower)
+# options(warn=2) converts any warning to an error — failure here means a warning was emitted
+options(warn=2)
 set.seed(42); n <- 10000L
 df <- data.frame(
   age = factor(sample(c('18-34','35-54','55+'), n, replace=TRUE, prob=c(0.60,0.30,0.10))),
@@ -476,15 +478,23 @@ r_ep <- harvest(df, tgt, method='ieppa', max_weight=5)
 r_lb <- harvest(df, tgt, method='lbfgsb', max_weight=5)
 diag_ep <- diagnose_weights(r_ep, tgt, r_ep\$weights)
 diag_lb <- diagnose_weights(r_lb, tgt, r_lb\$weights)
-cat('iEPPA    max|error_weighted|:', max(abs(diag_ep\$error_weighted)), '\n')
-cat('L-BFGS-B max|error_weighted|:', max(abs(diag_lb\$error_weighted)), '\n')
+ep_err <- max(abs(diag_ep\$error_weighted))
+lb_err <- max(abs(diag_lb\$error_weighted))
+cat('iEPPA    max|error_weighted|:', ep_err, '\n')
+cat('L-BFGS-B max|error_weighted|:', lb_err, '\n')
+stopifnot(ep_err < 1e-6)
+stopifnot(lb_err < 1e-6)
+cat('All success criteria met.\n')
 "
 ```
 
+Expected output ends with `All success criteria met.` Any warning emitted by `harvest()` will raise an error (via `options(warn=2)`) before `stopifnot` is reached. If the script exits non-zero, check the error message.
+
 Success criteria (from spec):
-- `iEPPA max|error_weighted|` < 1e-6
-- `L-BFGS-B max|error_weighted|` < 1e-6
-- No convergence warnings emitted by either solver
+- Script exits 0 with `All success criteria met.` printed
+- `iEPPA max|error_weighted|` < 1e-6 (enforced by `stopifnot`)
+- `L-BFGS-B max|error_weighted|` < 1e-6 (enforced by `stopifnot`)
+- No convergence warnings emitted (enforced by `options(warn=2)`)
 
 - [ ] **Step 4: Close tracking**
 
