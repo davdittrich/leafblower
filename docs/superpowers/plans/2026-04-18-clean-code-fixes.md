@@ -145,7 +145,7 @@ Expected last line: `* DONE (leafblower)`
 Rscript -e "devtools::test()" 2>&1 | tail -5
 ```
 
-Expected: `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 42 ]` (41 previous + 2 new ieppa/auto assertions)
+Expected: `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 43 ]` (41 previous + 2 new ieppa/auto assertions; the replaced test block goes from 4 assertions to 6, net +2)
 
 - [ ] **Step 7: Commit**
 
@@ -346,7 +346,7 @@ Before `select_algorithm`, add a file-scope constant:
 static constexpr int64_t kComplexityThreshold = 500000L;
 ```
 
-Replace `500000L` in `select_algorithm` (line 132):
+Replace **only the `500000L` literal** in `select_algorithm` (line 132). The surrounding predicate was already rewritten by Task 1; do NOT re-introduce the old condition. The line after both Task 1 and this step should read:
 
 ```cpp
     if (complexity_out > kComplexityThreshold || std::isfinite(p->max_weight) || p->min_weight > 0.0)
@@ -381,6 +381,38 @@ if (p->verbose >= 1 && p->algorithm == RK_ALG_AUTO) {
     st.log(msg);
 }
 ```
+
+- [ ] **Step 3b: Write and run a test verifying the verbose guard**
+
+Add to `tests/testthat/test-harvest.R` (append after the last test):
+
+```r
+test_that("verbose routing message only fires for auto-routing", {
+  set.seed(1)
+  df  <- data.frame(x = factor(sample(c("a","b"), 500, replace=TRUE)))
+  tgt <- list(x = c(a=0.5, b=0.5))
+  msgs_auto     <- character(0)
+  msgs_explicit <- character(0)
+  log_fn <- function(m) msgs_auto <<- c(msgs_auto, m)
+  # method="auto" + verbose=1 → should emit "Auto-selected" message
+  harvest(df, tgt, method="auto",   max_weight=Inf, verbose=1, log_fn=log_fn)
+  expect_true(any(grepl("Auto-selected", msgs_auto)))
+  log_fn2 <- function(m) msgs_explicit <<- c(msgs_explicit, m)
+  # method="ieppa" explicit + verbose=1 → should NOT emit "Auto-selected"
+  harvest(df, tgt, method="ieppa",  max_weight=5,   verbose=1, log_fn=log_fn2)
+  expect_false(any(grepl("Auto-selected", msgs_explicit)))
+})
+```
+
+> **Note:** `log_fn` is the R-level logging callback wired through `r_bridge.cpp`. Check `R/harvest.R` to confirm the parameter name before adding. If `harvest()` does not expose a `log_fn` argument, test this via the C API directly in `test-design.R` instead, or skip and add a `# TODO` comment — do not invent a non-existent API.
+
+Run:
+
+```bash
+Rscript -e "devtools::test(filter='harvest')" 2>&1 | tail -5
+```
+
+Expected: all harvest tests pass. If `log_fn` is not exposed via `harvest()`, skip the test and note it in the commit message.
 
 - [ ] **Step 4: Remove stale TDD comment from `tests/testthat/test-lbfgsb.R`**
 
