@@ -120,11 +120,12 @@ static int validate_inputs(int n, int K,
 
 static rk_algorithm_t select_algorithm(int n, int K,
                                         const int* cat_counts,
-                                        const rk_params_t* p) {
+                                        const rk_params_t* p,
+                                        int64_t& complexity_out) {
+    complexity_out = INT64_C(0);
+    for (int k = 0; k < K; k++) complexity_out += (int64_t)n * cat_counts[k];
     if (p->algorithm != RK_ALG_AUTO) return p->algorithm;
-    int64_t complexity = INT64_C(0);
-    for (int k = 0; k < K; k++) complexity += (int64_t)n * cat_counts[k];
-    if (complexity > 500000L || p->max_weight < 3.0 || p->min_weight > 0.0)
+    if (complexity_out > 500000L || p->max_weight < 3.0 || p->min_weight > 0.0)
         return RK_ALG_IEPPA;
     return RK_ALG_LBFGSB;
 }
@@ -151,7 +152,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     int rc = validate_inputs(n, K, weights, group_ids, cat_counts, targets, p, result);
     if (rc != RK_OK) return rc;
 
-    rk_algorithm_t alg = select_algorithm(n, K, cat_counts, p);
+    int64_t complexity = INT64_C(0);
+    rk_algorithm_t alg = select_algorithm(n, K, cat_counts, p, complexity);
 
     // Build CalibState
     lbw::CalibState st;
@@ -173,10 +175,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.total_cats    = 0;
     for (int k = 0; k < K; k++) st.total_cats += cat_counts[k];
 
-    // Verbose routing report
+    // Verbose routing report (complexity already computed by select_algorithm)
     if (p->verbose >= 1) {
-        int64_t complexity = INT64_C(0);
-        for (int k = 0; k < K; k++) complexity += (int64_t)n * cat_counts[k];
         char msg[256];
         if (alg == RK_ALG_IEPPA)
             snprintf(msg, 256, "Auto-selected iEPPA: complexity=%lld, max_weight=%.2f, min_weight=%.2f",
