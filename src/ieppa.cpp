@@ -46,7 +46,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     double lo = st.min_weight;
     double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
-    bool infeas_flag = false;
+    bool is_infeasible = false;
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
@@ -68,7 +68,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 double Tkj = st.targets[k][j] * W;
                 if (bucket[j] < 1e-15 * W) {
-                    if (Tkj > 0.0) infeas_flag = true;
+                    if (Tkj > 0.0) is_infeasible = true;
                 } else {
                     scale[j] = Tkj / bucket[j];
                 }
@@ -88,9 +88,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
             double Wsum = 0.0;
             for (int i = 0; i < st.n; i++) Wsum += w[i];
             double wm = Wsum / st.n;
-            if (wm > 1e-300) for (int i = 0; i < st.n; i++) w[i] /= wm;
-            // Scale the Dykstra box correction to stay consistent after renormalization.
-            if (wm > 1e-300) for (int i = 0; i < st.n; i++) q[i] /= wm;
+            if (wm > 1e-300) {
+                for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
+            }
         }
 
         // Box projection [lo, hi]^n with Dykstra correction (mean=1 scale).
@@ -113,7 +113,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
 
         if (errRp < st.tol_abs) {
-            res.status = infeas_flag ? RK_ERR_INFEAS : RK_OK;
+            res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
             break;
         }
     }
@@ -124,9 +124,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // mean slightly, causing post-R-normalization to push max fractionally above hi.
     // Fix: iterate renormalize→reclamp until the fixed point max(w)<=hi*mean(w) holds.
     for (int fixup = 0; fixup < 20; fixup++) {
-        double Wf = 0.0;
-        for (int i = 0; i < st.n; i++) Wf += w[i];
-        double wm = (Wf > 1e-300) ? Wf / st.n : 1.0;
+        double Wsum = 0.0;
+        for (int i = 0; i < st.n; i++) Wsum += w[i];
+        double wm = (Wsum > 1e-300) ? Wsum / st.n : 1.0;
         bool changed = false;
         for (int i = 0; i < st.n; i++) {
             w[i] /= wm;  // normalize to mean=1
