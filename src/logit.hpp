@@ -21,7 +21,10 @@ struct LinkFn {
     }
 
     // Clamp exp(x) to prevent IEEE 754 overflow.
-    // 700.0 chosen s.t. exp(700) ≈ 1.01e304 < DBL_MAX ≈ 1.8e308.
+    // 700.0: exp(700) ≈ 1.01e304 < DBL_MAX ≈ 1.8e308.
+    // Clamp-safety: both F(u) and H(u) use safe_exp(logit_scale*u) for the
+    // same clamped value e, so the identity H'(u) = F(u) is preserved algebraically
+    // even when the clamp fires. L-BFGS-B gradient correctness is maintained.
     static double safe_exp(double x) {
         return std::exp(std::min(x, 700.0));
     }
