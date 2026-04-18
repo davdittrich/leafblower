@@ -128,7 +128,6 @@ parse_target <- function(target, target_map) {
   } else if (ncol(target) == 3) {
     stop("target data frame has 3 columns but no 'variable'/'level'/'proportion' names. ",
          "Add column names or pass target_map=list(variable=..., level=..., proportion=...).")
-    vcol <- 1; lcol <- 2; pcol <- 3
   } else {
     stop("Cannot determine variable/level/proportion columns in target data frame.")
   }
