@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(pybind11 2.11 REQUIRED)
+# If building manually: cmake -Dpybind11_DIR=$(python -m pybind11 --cmakedir) ..
+# scikit-build-core sets this automatically via pyproject.toml.
 
 # Sources: all src/*.cpp EXCEPT r_bridge.cpp (includes Rinternals.h unavailable here)
 set(CORE_SOURCES

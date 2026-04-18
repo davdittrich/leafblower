@@ -11,11 +11,13 @@ namespace py = pybind11;
 // GIL is held throughout rk_calibrate() call.
 // py_log_trampoline casts ctx to PyObject* (a callable) and invokes it.
 static void py_log_trampoline(const char* msg, void* ctx) {
+    py::gil_scoped_acquire gil;
     PyObject* callable = reinterpret_cast<PyObject*>(ctx);
     if (callable && PyCallable_Check(callable)) {
         PyObject* str = PyUnicode_FromString(msg);
         if (str) {
             PyObject* res = PyObject_CallOneArg(callable, str);
+            if (!res) PyErr_Clear();  // log failure must not abort calibration
             Py_XDECREF(res);
             Py_DECREF(str);
         }
@@ -45,6 +47,8 @@ PYBIND11_MODULE(_leafblower, m) {
 
             // Build group_ids pointers
             std::vector<const int32_t*> gid_ptrs(K);
+            // group_ids_list elements outlive rk_calibrate() — raw pointer capture is safe.
+            // forcecast may allocate a temporary; that temporary lives in group_ids_list[k].
             for (int k = 0; k < K; k++) {
                 auto& arr = group_ids_list[k];
                 if (arr.size() != (size_t)n)
@@ -92,7 +96,7 @@ PYBIND11_MODULE(_leafblower, m) {
             int rc = rk_calibrate(n, K, weights_copy.data(),
                                   gid_ptrs.data(),
                                   cat_counts_list.data(),
-                                  (const double**)tgt_ptrs.data(),
+                                  tgt_ptrs.data(),
                                   &p, &result);
 
             // Return (status, weights_out_copy, result_dict)
