@@ -312,6 +312,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
 
     int max_iter = st.outer_max_iter;
     int final_iter = 0;
+    std::vector<double> lam_new(total), s_new(total), y_new(total);
     for (int iter = 0; iter < max_iter; iter++) {
         final_iter = iter + 1;
 
@@ -329,13 +330,11 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
         // Wolfe evals then cost O(n) each instead of O(K*n).
         compute_du(st, off, dir, du);
 
-        std::vector<double> lam_new(total);
         double phi_new = phi_curr;
 
         wolfe_line_search(st, fn, off, T, d, lam, phi_curr, slope_0,
                           u, du, u_work, dir, lam_new, grad_new, phi_new);
 
-        std::vector<double> s_new(total), y_new(total);
         for (int i = 0; i < total; i++) {
             s_new[i] = lam_new[i] - lam[i];
             y_new[i] = grad_new[i] - grad[i];
