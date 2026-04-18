@@ -22,4 +22,7 @@ pybind11_add_module(_leafblower
 )
 
 target_include_directories(_leafblower PRIVATE ../src)
+target_compile_definitions(_leafblower PRIVATE LBW_NO_R)
 target_compile_options(_leafblower PRIVATE -O3)
+
+install(TARGETS _leafblower LIBRARY DESTINATION leafblower)

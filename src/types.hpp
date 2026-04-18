@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
-#include <R_ext/Print.h>
+#include <cstdio>
+#ifndef LBW_NO_R
+#  include <R_ext/Print.h>
+#endif
 
 namespace lbw {
 
@@ -30,7 +33,11 @@ struct CalibState {
         if (log_fn) {
             log_fn(msg, log_ctx);
         } else {
+#ifndef LBW_NO_R
             REprintf("%s\n", msg);
+#else
+            fprintf(stderr, "%s\n", msg);
+#endif
         }
     }
 };
