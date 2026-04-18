@@ -3,7 +3,6 @@ test_that("iEPPA converges: 1 margin, 2 cats, no bounds", {
   n   <- 100L
   df  <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE, prob=c(0.7,0.3))))
   tgt <- list(x = c(a=0.5, b=0.5))
-  # RED: iEPPA not implemented
   result <- harvest(df, tgt, method="ieppa")
   expect_true(attr(result, "algorithm") == "ieppa")
   diag <- diagnose_weights(result, tgt, result$weights)

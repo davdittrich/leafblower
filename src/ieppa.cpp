@@ -154,7 +154,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
 
-    res.max_error = compute_errRp(st, std::vector<double>(st.weights, st.weights + st.n));
+    res.max_error = compute_errRp(st, w);
 
     return res;
 }
