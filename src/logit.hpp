@@ -15,8 +15,8 @@ struct LinkFn {
     explicit LinkFn(double min_weight, double max_weight)
         : L(min_weight), U(max_weight)
     {
-        // Use exponential link when min_weight==0 OR max_weight==Inf
-        exponential = (L == 0.0 || !std::isfinite(U));
+        // Use exponential link only when max_weight is infinite
+        exponential = !std::isfinite(U);
         logit_scale = exponential ? 0.0 : (U - L) / ((U - 1.0) * (1.0 - L));
     }
 

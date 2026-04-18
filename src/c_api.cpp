@@ -58,7 +58,7 @@ static int validate_inputs(int n, int K,
         return err("min_weight must be strictly less than max_weight");
 
     // Logit singularity guard — each checked independently
-    bool use_logit = (p->min_weight > 0.0) && std::isfinite(p->max_weight);
+    bool use_logit = std::isfinite(p->max_weight);
     if (use_logit) {
         if (p->min_weight == 1.0)
             return err("logit link undefined: min_weight=1 makes denominator (1-L)=0");
