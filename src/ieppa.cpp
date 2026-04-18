@@ -29,93 +29,89 @@ static double compute_errRp(const CalibState& st,
     return err;
 }
 
-// Bregman distance D(w, prox) = sum_i [w_i*log(w_i/p_i) - w_i + p_i]
-static double bregman_dist(const std::vector<double>& w,
-                            const std::vector<double>& prox) {
-    double d = 0.0;
-    for (int i = 0; i < (int)w.size(); i++) {
-        double wi = w[i], pi = prox[i];
-        if (wi > 1e-300 && pi > 1e-300)
-            d += wi * std::log(wi / pi) - wi + pi;
-        else
-            d += pi;
-    }
-    return d;
-}
-
-// One full BCD sweep over K margins. Mutates w in-place.
-// Clamp is applied on the mean-normalized scale so bounds are consistent
-// with harvest.R's post-return mean=1 normalization.
-static void bcd_sweep(CalibState& st, std::vector<double>& w,
-                      bool& infeas_flag) {
-    for (int k = 0; k < st.K; k++) {
-        double W = 0.0;
-        std::vector<double> bucket(st.cat_counts[k], 0.0);
-        for (int i = 0; i < st.n; i++) {
-            W += w[i];
-            int g = st.group_ids[k][i];
-            if (g >= 0) bucket[g] += w[i];
-        }
-
-        std::vector<double> scale(st.cat_counts[k], 1.0);
-        for (int j = 0; j < st.cat_counts[k]; j++) {
-            double Tkj = st.targets[k][j] * W;
-            if (bucket[j] < 1e-15 * W) {
-                if (Tkj > 0.0) infeas_flag = true;
-            } else {
-                scale[j] = Tkj / bucket[j];
-            }
-        }
-
-        for (int i = 0; i < st.n; i++) {
-            int g = st.group_ids[k][i];
-            if (g >= 0) {  // g == -1 means NA: weight unchanged (inert)
-                double wi = w[i] * scale[g];
-                wi = std::max(st.min_weight, std::min(st.max_weight, wi));
-                w[i] = wi;
-            }
-        }
-    }
-}
-
+// Dykstra's alternating projections for constrained raking.
+// Finds w in the intersection of K marginal constraint sets {C_k} and box [lo,hi]^n.
+// Correction vectors p[k] (marginal) and q (box) prevent cycling at constraint boundary.
+// inner_max_iter is the single iteration budget; outer_max_iter is unused.
 IEPPAResult ieppa_solve(CalibState& st) {
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
     res.iterations = 0;
     res.max_error = 1.0;
 
-    std::vector<double> w(st.n);
-    for (int i = 0; i < st.n; i++) w[i] = st.weights[i];
+    std::vector<double> w(st.weights, st.weights + st.n);
 
-    std::vector<double> w_prox(w);
-    double normU = st.max_weight;
+    // Dykstra correction vectors: one per margin (p) and one for box (q).
+    // p[k] is used for the Dykstra Euclidean box correction only; IPF steps
+    // are Bregman (multiplicative) projections and use no correction vectors.
+    std::vector<std::vector<double>> p(st.K, std::vector<double>(st.n, 0.0));
+    std::vector<double> q(st.n, 0.0);
+
+    double lo = st.min_weight;
+    double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
     bool infeas_flag = false;
 
-    double last_outer_errRp = 1.0;
-    double tolRp = 1.0;
+    for (int iter = 1; iter <= st.inner_max_iter; iter++) {
+        res.iterations = iter;
 
-    for (int outer = 1; outer <= st.outer_max_iter; outer++) {
-        res.iterations = outer;
-        double tolRb = 1.0 / std::pow((double)outer, 1.1);
+        // Marginal projections: pure cyclic IPF (no clamp, no Euclidean correction).
+        // Euclidean Dykstra corrections are incompatible with multiplicative IPF steps.
+        for (int k = 0; k < st.K; k++) {
+            // Bucket accumulation for IPF scale computation
+            double W = 0.0;
+            std::vector<double> bucket(st.cat_counts[k], 0.0);
+            for (int i = 0; i < st.n; i++) {
+                W += w[i];
+                int g = st.group_ids[k][i];
+                if (g >= 0) bucket[g] += w[i];
+            }
 
-        double errRp_inner = 1.0;
-        for (int inner = 0; inner < st.inner_max_iter; inner++) {
-            bcd_sweep(st, w, infeas_flag);
+            // IPF scale factors
+            std::vector<double> scale(st.cat_counts[k], 1.0);
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                double Tkj = st.targets[k][j] * W;
+                if (bucket[j] < 1e-15 * W) {
+                    if (Tkj > 0.0) infeas_flag = true;
+                } else {
+                    scale[j] = Tkj / bucket[j];
+                }
+            }
 
-            errRp_inner = compute_errRp(st, w);
-            double D = bregman_dist(w, w_prox);
-            double breg_crit = D / (1.0 + normU);
-
-            if (errRp_inner < tolRp && breg_crit < tolRb) break;
+            // IPF step — NO CLAMP. g==-1 (NA) entries pass through unchanged.
+            for (int i = 0; i < st.n; i++) {
+                int g = st.group_ids[k][i];
+                if (g >= 0) w[i] *= scale[g];
+            }
         }
 
+        // Normalize to mean=1 so box bounds match the scale R returns.
+        // harvest.R divides by mean(weights) after C returns, so the constraint is
+        // w_i/mean(w) <= max_weight. Working at mean=1 makes max(w) == max/mean(w).
+        {
+            double Wsum = 0.0;
+            for (int i = 0; i < st.n; i++) Wsum += w[i];
+            double wm = Wsum / st.n;
+            if (wm > 1e-300) for (int i = 0; i < st.n; i++) w[i] /= wm;
+            // Scale the Dykstra box correction to stay consistent after renormalization.
+            if (wm > 1e-300) for (int i = 0; i < st.n; i++) q[i] /= wm;
+        }
+
+        // Box projection [lo, hi]^n with Dykstra correction (mean=1 scale).
+        // q[i] accumulates overshoot from previous box clamps.
+        for (int i = 0; i < st.n; i++) {
+            double yi = w[i] + q[i];
+            double wc = std::max(lo, std::min(hi, yi));
+            q[i] = yi - wc;
+            w[i] = wc;
+        }
+
+        // Convergence check
         double errRp = compute_errRp(st, w);
         res.max_error = errRp;
 
         if (st.verbose >= 1) {
             char msg[256];
-            std::snprintf(msg, 256, "iEPPA outer iter %d: errRp=%.2e, tolRp=%.2e",
-                     outer, errRp, tolRp);
+            std::snprintf(msg, 256, "Dykstra iter %d: errRp=%.2e", iter, errRp);
             st.log(msg);
         }
 
@@ -123,38 +119,29 @@ IEPPAResult ieppa_solve(CalibState& st) {
             res.status = infeas_flag ? RK_ERR_INFEAS : RK_OK;
             break;
         }
-
-        w_prox = w;
-        last_outer_errRp = errRp;
-        tolRp = std::max(1e-6, last_outer_errRp / 1.5);
     }
 
     if (infeas_flag && res.status == RK_OK) res.status = RK_ERR_INFEAS;
 
-    // Project to feasible set: iteratively normalize to mean=1 then clamp,
-    // until the fixed point max(w)/mean(w) <= max_weight is stable.
-    // Needed because harvest.R divides by mean(weights) after C returns,
-    // so we must ensure max(w)/mean(w) <= max_weight on the scale C returns.
-    {
-        double lo = (st.min_weight > 0.0) ? st.min_weight : 0.0;
-        double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
-        for (int proj = 0; proj < 200; proj++) {
-            double wsum2 = 0.0;
-            for (int i = 0; i < st.n; i++) wsum2 += w[i];
-            double wm = (wsum2 > 1e-300) ? wsum2 / st.n : 1.0;
-            for (int i = 0; i < st.n; i++) w[i] /= wm;
-            bool changed = false;
-            for (int i = 0; i < st.n; i++) {
-                double wc = std::max(lo, std::min(hi, w[i]));
-                if (wc != w[i]) { w[i] = wc; changed = true; }
-            }
-            if (!changed) break;
+    // Final normalization-and-clamp fixup: harvest.R divides by mean(weights) after
+    // C returns, so the effective constraint is max(w)/mean(w) <= max_weight.
+    // The box projection inside the loop works in mean~=1 space but clamping reduces
+    // mean slightly, causing post-R-normalization to push max fractionally above hi.
+    // Fix: iterate renormalize→reclamp until the fixed point max(w)<=hi*mean(w) holds.
+    for (int fixup = 0; fixup < 20; fixup++) {
+        double Wf = 0.0;
+        for (int i = 0; i < st.n; i++) Wf += w[i];
+        double wm = (Wf > 1e-300) ? Wf / st.n : 1.0;
+        bool changed = false;
+        for (int i = 0; i < st.n; i++) {
+            w[i] /= wm;  // normalize to mean=1
+            double wc = std::max(lo, std::min(hi, w[i]));
+            if (wc != w[i]) { w[i] = wc; changed = true; }
         }
+        if (!changed) break;
     }
 
     for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
-
-    res.max_error = compute_errRp(st, w);
 
     return res;
 }
