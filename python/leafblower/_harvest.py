@@ -1,12 +1,13 @@
 from __future__ import annotations
 import warnings
 import numpy as np
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
 try:
     import pandas as pd
     _PANDAS_AVAILABLE = True
 except ImportError:
+    pd = None  # type: ignore[assignment]
     _PANDAS_AVAILABLE = False
 
 from ._leafblower import calibrate
@@ -106,7 +107,9 @@ def harvest(
 
         gid = np.empty(n, dtype=np.int32)
         for i, val in enumerate(col):
-            if val is None or (isinstance(val, float) and np.isnan(val)):
+            if _PANDAS_AVAILABLE and pd.isna(val):
+                gid[i] = -1
+            elif val is None or (isinstance(val, float) and np.isnan(val)):
                 gid[i] = -1
             else:
                 gid[i] = level_to_idx.get(str(val), -1)
@@ -139,7 +142,7 @@ def harvest(
 
     log_fn = print if verbose > 0 else None
 
-    rc, weights_out, result_dict = calibrate(
+    _, weights_out, result_dict = calibrate(
         n, K, w, group_ids_list, cat_counts_list, targets_list, params, log_fn
     )
 
@@ -182,8 +185,6 @@ def diagnose_weights(data, targets, weights):
     """
     if not _PANDAS_AVAILABLE:
         raise ImportError("pandas required for diagnose_weights; pip install pandas")
-    import pandas as pd
-    import numpy as np
 
     weights = np.asarray(weights, dtype=float)
     if len(weights) != len(data):
