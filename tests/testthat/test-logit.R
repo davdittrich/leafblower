@@ -23,5 +23,5 @@ test_that("H'(u) = F(u) holds near safe_exp clamp boundary (u=559 for L=0,U=5)",
   # safe_exp clamp preserves H'(u) = F(u) because both F and H use the same
   # safe_exp(logit_scale*u) value; the algebraic identity is maintained.
   result <- .Call("C_logit_Hprime_check", 0.0, 5.0, 559.0)
-  expect_equal(result, 0.0, tolerance = 1e-4)  # wider tol: central diff step 1e-7 spans clamped region
+  expect_equal(result, 0.0, tolerance = 1e-4)  # wider tol: finite-diff truncation error near saturation (F(u)≈U=5)
 })
