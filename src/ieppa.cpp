@@ -108,7 +108,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
         if (st.verbose >= 1) {
             char msg[256];
-            std::snprintf(msg, 256, "Dykstra iter %d: errRp=%.2e", iter, errRp);
+            std::snprintf(msg, 256, "iEPPA iter %d: errRp=%.2e", iter, errRp);
             st.log(msg);
         }
 
@@ -117,8 +117,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
             break;
         }
     }
-
-    if (infeas_flag && res.status == RK_OK) res.status = RK_ERR_INFEAS;
 
     // Final normalization-and-clamp fixup: harvest.R divides by mean(weights) after
     // C returns, so the effective constraint is max(w)/mean(w) <= max_weight.
