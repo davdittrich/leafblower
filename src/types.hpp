@@ -1,8 +1,9 @@
 #pragma once
 #include <cstdint>
-#include <cstdio>
 #ifndef LBW_NO_R
 #  include <R_ext/Print.h>
+#else
+#  include <cstdio>
 #endif
 
 namespace lbw {
