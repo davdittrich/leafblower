@@ -1,5 +1,7 @@
 #include "leafblower.h"
 #include "types.hpp"
+#include "lbfgsb_solver.hpp"
+#include "ieppa.hpp"
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -116,6 +118,17 @@ static int validate_inputs(int n, int K,
     return RK_OK;
 }
 
+static rk_algorithm_t select_algorithm(int n, int K,
+                                        const int* cat_counts,
+                                        const rk_params_t* p) {
+    if (p->algorithm != RK_ALG_AUTO) return p->algorithm;
+    int64_t complexity = INT64_C(0);
+    for (int k = 0; k < K; k++) complexity += (int64_t)n * cat_counts[k];
+    if (complexity > 500000L || p->max_weight < 3.0 || p->min_weight > 0.0)
+        return RK_ALG_IEPPA;
+    return RK_ALG_LBFGSB;
+}
+
 LBW_NODISCARD int rk_calibrate(int n, int K,
                                 double* weights,
                                 const int32_t** group_ids,
@@ -138,12 +151,75 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     int rc = validate_inputs(n, K, weights, group_ids, cat_counts, targets, p, result);
     if (rc != RK_OK) return rc;
 
-    // Stub: algorithm dispatch not yet implemented
-    if (result) {
-        result->status = RK_ERR_NOCONV;
-        snprintf(result->message, 256, "rk_calibrate not fully implemented");
+    rk_algorithm_t alg = select_algorithm(n, K, cat_counts, p);
+
+    // Build CalibState
+    lbw::CalibState st;
+    st.n = n; st.K = K;
+    st.weights = weights;
+    st.group_ids = group_ids;
+    st.cat_counts = cat_counts;
+    st.targets = targets;
+    st.min_weight    = p->min_weight;
+    st.max_weight    = p->max_weight;
+    st.tol_abs       = p->tol_abs;
+    st.inner_max_iter = p->inner_max_iter;
+    st.outer_max_iter = p->outer_max_iter;
+    st.epsilon       = p->epsilon;
+    st.lbfgs_m       = p->lbfgs_m;
+    st.verbose       = p->verbose;
+    st.log_fn        = p->log_fn;
+    st.log_ctx       = p->log_ctx;
+    st.total_cats    = 0;
+    for (int k = 0; k < K; k++) st.total_cats += cat_counts[k];
+
+    // Verbose routing report
+    if (p->verbose >= 1) {
+        int64_t complexity = INT64_C(0);
+        for (int k = 0; k < K; k++) complexity += (int64_t)n * cat_counts[k];
+        char msg[256];
+        if (alg == RK_ALG_IEPPA)
+            snprintf(msg, 256, "Auto-selected iEPPA: complexity=%lld, max_weight=%.2f, min_weight=%.2f",
+                     (long long)complexity, p->max_weight, p->min_weight);
+        else
+            snprintf(msg, 256, "Auto-selected L-BFGS-B: complexity=%lld <= 500000, max_weight=%.2f, min_weight=%.2f",
+                     (long long)complexity, p->max_weight, p->min_weight);
+        st.log(msg);
     }
-    return RK_ERR_NOCONV;
+
+    int status;
+    int iterations;
+    double max_error;
+    rk_algorithm_t used;
+
+    if (alg == RK_ALG_LBFGSB) {
+        auto res = lbw::lbfgsb_solve(st);
+        status = res.status;
+        iterations = res.iterations;
+        max_error = res.max_error;
+        used = RK_ALG_LBFGSB;
+    } else {
+        // iEPPA — stub for now (Task 10)
+        auto res = lbw::ieppa_solve(st);
+        status = res.status;
+        iterations = res.iterations;
+        max_error = res.max_error;
+        used = RK_ALG_IEPPA;
+    }
+
+    if (result) {
+        result->status = status;
+        result->iterations = iterations;
+        result->max_error = max_error;
+        result->algorithm_used = used;
+        if (result->message[0] == '\0') {
+            snprintf(result->message, 256,
+                     "%s: %d iters, max_error=%.2e",
+                     used == RK_ALG_LBFGSB ? "L-BFGS-B" : "iEPPA",
+                     iterations, max_error);
+        }
+    }
+    return status;
 }
 
 } // extern "C"
