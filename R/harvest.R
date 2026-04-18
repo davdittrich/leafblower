@@ -49,14 +49,18 @@ harvest <- function(
   ...
 ) {
   # Not-in-v1 hard stops
-  if (!isFALSE(add_na_proportion) && !identical(add_na_proportion, FALSE))
+  if (!isFALSE(add_na_proportion))
     stop("add_na_proportion is not supported in leafblower v1.")
   if (isTRUE(auto_collapse))
     stop("auto_collapse is not supported in leafblower v1.")
+  if (!is.null(collapse_vars))
+    stop("collapse_vars is not supported in leafblower v1.")
 
   target  <- parse_target(target, target_map)
   method  <- map_method(method, verbose)
-  tol_abs <- parse_convergence(convergence)
+  # Emit deprecation warning if convergence['pct'] supplied; tol_abs forwarding
+  # is a v1 TODO (C_rk_calibrate takes fixed default 1e-6 from rk_params_init).
+  parse_convergence(convergence)
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
 
   # Ignored-param verbose notes

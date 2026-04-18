@@ -158,9 +158,13 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     p.max_weight     = REAL(max_weight_sexp)[0];
     p.verbose        = INTEGER(verbose_sexp)[0];
     p.inner_max_iter = INTEGER(inner_max_iter_sexp)[0];
-    p.outer_max_iter = INTEGER(inner_max_iter_sexp)[0];  // max_iterations controls both
+    // outer_max_iter also set from max_iterations; 50-iter default (rk_params_init) is
+    // too low for large problems. Both limits scale with user-supplied max_iterations.
+    p.outer_max_iter = INTEGER(inner_max_iter_sexp)[0];
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
 
+    if (LENGTH(method_sexp) != 1)
+        Rf_error("method must be a length-1 character string");
     const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
     if      (strcmp(method_str, "ieppa")  == 0) p.algorithm = RK_ALG_IEPPA;
     else if (strcmp(method_str, "lbfgsb") == 0) p.algorithm = RK_ALG_LBFGSB;
