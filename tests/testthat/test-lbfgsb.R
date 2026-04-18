@@ -27,19 +27,30 @@ test_that("L-BFGS-B max_weight bound respected", {
   expect_true(max(result$weights) <= 5.0 + 1e-10)
 })
 
-test_that("near-one max_weight rejected with informative error", {
+test_that("near-one max_weight rejected for lbfgsb, accepted for ieppa", {
   set.seed(1)
   df <- data.frame(x = factor(sample(c("a","b"), 200, replace=TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5))
-  # max_weight=1.0 (exact) — denominator (U-1)=0
+
+  # lbfgsb: exact and near-1 max_weight → logit singularity error
   expect_error(harvest(df, tgt, method="lbfgsb", max_weight=1.0),
                regexp="logit link undefined")
-  # max_weight=1+5e-7 (within eps=1e-6) — catastrophic cancellation
   expect_error(harvest(df, tgt, method="lbfgsb", max_weight=1.0 + 5e-7),
                regexp="logit link undefined")
-  # max_weight=1-5e-7 (within eps=1e-6) — catastrophic cancellation
   expect_error(harvest(df, tgt, method="lbfgsb", max_weight=1.0 - 5e-7),
                regexp="logit link undefined")
-  # max_weight=2.0 (outside eps) — valid, should NOT error
+
+  # ieppa: near-1 max_weight → valid (no logit link); may or may not converge
+  expect_no_error(suppressWarnings(
+    harvest(df, tgt, method="ieppa", max_weight=1.0 + 5e-7)
+  ))
+
+  # auto: near-1 max_weight → valid (routes to ieppa)
+  expect_no_error(suppressWarnings(
+    harvest(df, tgt, method="auto", max_weight=1.0 + 5e-7)
+  ))
+
+  # lbfgsb: max_weight=2.0 (well outside eps) → valid
+  # suppressWarnings: small n=200 balanced sample may emit convergence warning; not the assertion under test
   expect_no_error(suppressWarnings(harvest(df, tgt, method="lbfgsb", max_weight=2.0)))
 })
