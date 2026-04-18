@@ -29,7 +29,9 @@ typedef struct {
     int             outer_max_iter;  /* outer EPP / L-BFGS max iters, default 50.
                                        * Note: R bridge sets outer_max_iter = inner_max_iter;
                                        * independent control requires direct C API use. */
-    double          tol_abs;         /* convergence tolerance, default 1e-6 */
+    double          tol_abs;         /* convergence tolerance, default 1e-6.
+                                       * iEPPA: max absolute primal error max_k max_j |S_kj/W - tau_kj|.
+                                       * L-BFGS-B: normalized dual gradient norm maxAbs(grad)/W. */
     rk_algorithm_t  algorithm;       /* default RK_ALG_AUTO */
     int             verbose;         /* 0=silent, 1=progress, 2=debug */
     double          epsilon;         /* deprecated: no longer read by any solver; kept for ABI compat */

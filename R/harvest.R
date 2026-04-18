@@ -58,8 +58,8 @@ harvest <- function(
 
   target  <- parse_target(target, target_map)
   method  <- map_method(method, verbose)
-  # Emit deprecation warning if convergence['pct'] supplied; tol_abs forwarding
-  # is a v1 TODO (C_rk_calibrate takes fixed default 1e-6 from rk_params_init).
+  # Emit deprecation warning if convergence['pct'] supplied.
+  # tol_abs is forwarded to C_rk_calibrate as the 9th argument.
   tol_abs <- parse_convergence(convergence)
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
 
