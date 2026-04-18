@@ -42,34 +42,6 @@ static void compute_u(const CalibState& st, const std::vector<int>& off,
     }
 }
 
-// phi(lambda) = sum_kj T_kj*lam_kj - sum_i d_i*H(u_i)
-// grad[off_k+j] = T_kj - S_kj where S_kj = sum_{i:g_k(i)==j} d_i*F(u_i)
-static double phi_and_grad(const CalibState& st,
-                            const LinkFn& fn,
-                            const std::vector<int>& off,
-                            const std::vector<double>& lam,
-                            const std::vector<double>& T,
-                            const std::vector<double>& d,
-                            std::vector<double>& grad,
-                            std::vector<double>& u) {
-    int total = off[st.K];
-    compute_u(st, off, lam, u);
-
-    double obj = 0.0;
-    for (int idx = 0; idx < total; idx++) obj += T[idx] * lam[idx];
-    for (int i = 0; i < st.n; i++) obj -= d[i] * fn.H(u[i]);
-
-    std::fill(grad.begin(), grad.end(), 0.0);
-    for (int idx = 0; idx < total; idx++) grad[idx] = T[idx];
-    for (int k = 0; k < st.K; k++) {
-        for (int i = 0; i < st.n; i++) {
-            int g = st.group_ids[k][i];
-            if (g >= 0) grad[off[k] + g] -= d[i] * fn.F(u[i]);
-        }
-    }
-    return obj;
-}
-
 // phi_from_u: evaluate objective and gradient given pre-computed u.
 // Avoids re-running compute_u; gradient in lambda-space still requires K*n pass.
 static double phi_from_u(const CalibState& st,
@@ -95,6 +67,21 @@ static double phi_from_u(const CalibState& st,
         }
     }
     return obj;
+}
+
+// phi(lambda) = sum_kj T_kj*lam_kj - sum_i d_i*H(u_i)
+// grad[off_k+j] = T_kj - S_kj where S_kj = sum_{i:g_k(i)==j} d_i*F(u_i)
+// Computes u from lam, then delegates to phi_from_u.
+static double phi_and_grad(const CalibState& st,
+                            const LinkFn& fn,
+                            const std::vector<int>& off,
+                            const std::vector<double>& lam,
+                            const std::vector<double>& T,
+                            const std::vector<double>& d,
+                            std::vector<double>& grad,
+                            std::vector<double>& u) {
+    compute_u(st, off, lam, u);
+    return phi_from_u(st, fn, off, lam, T, d, grad, u);
 }
 
 // Precompute per-observation directional derivative: du[i] = sum_k dir[off[k]+g_k(i)]
@@ -320,9 +307,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     std::deque<double> rho_hist;
     double gamma = 1.0;
 
-    compute_targets_abs(st, T);
-    double W_sum = 0.0;
-    for (int i = 0; i < st.n; i++) W_sum += d[i];
+    double W_sum = compute_targets_abs(st, T);
     double phi_curr = phi_and_grad(st, fn, off, lam, T, d, grad, u);
 
     int max_iter = st.outer_max_iter;
