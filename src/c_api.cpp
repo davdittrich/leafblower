@@ -125,7 +125,7 @@ static rk_algorithm_t select_algorithm(int n, int K,
     complexity_out = INT64_C(0);
     for (int k = 0; k < K; k++) complexity_out += (int64_t)n * cat_counts[k];
     if (p->algorithm != RK_ALG_AUTO) return p->algorithm;
-    if (complexity_out > 500000L || p->max_weight < 3.0 || p->min_weight > 0.0)
+    if (complexity_out > 500000L || std::isfinite(p->max_weight) || p->min_weight > 0.0)
         return RK_ALG_IEPPA;
     return RK_ALG_LBFGSB;
 }

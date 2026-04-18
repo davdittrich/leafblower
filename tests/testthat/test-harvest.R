@@ -22,12 +22,13 @@ test_that("auto-routing selects iEPPA for large complexity", {
   expect_identical(attr(result, "algorithm"), "ieppa")
 })
 
-test_that("auto-routing selects lbfgsb for small complexity", {
+test_that("auto-routing selects lbfgsb for small unconstrained problems", {
   set.seed(1)
   n   <- 1000L
   df  <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5))
-  # complexity = 1000 * 2 = 2000 << 500000; max_weight=5 (not < 3); min_weight=0
-  result <- harvest(df, tgt, method="auto")
+  # complexity = 1000 * 2 = 2000 << 500000; max_weight=Inf (unconstrained); min_weight=0
+  # New routing: L-BFGS-B only for unconstrained problems (max_weight=Inf)
+  result <- harvest(df, tgt, method="auto", max_weight=Inf)
   expect_identical(attr(result, "algorithm"), "lbfgsb")
 })
