@@ -101,6 +101,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
             for (int i = 0; i < st.n; i++) Wsum += w[i];
             double wm = Wsum / st.n;
             if (wm > kWeightCollapseThreshold) {
+                // Rescale q[] proportionally to w[]: q[i] represents Dykstra overshoot
+                // in the same unit as w[i]. After renormalizing w[i] /= wm, the corrected
+                // iterate y[i] = w[i] + q[i] must shift by the same factor to keep
+                // the Dykstra fixed-point invariant intact.
                 for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
             }
         }
@@ -135,6 +139,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // The box projection inside the loop works in mean~=1 space but clamping reduces
     // mean slightly, causing post-R-normalization to push max fractionally above hi.
     // Fix: iterate renormalize→reclamp until the fixed point max(w)<=hi*mean(w) holds.
+    bool fixup_converged = false;
     for (int fixup = 0; fixup < kMaxFixupIterations; fixup++) {
         double Wsum = 0.0;
         for (int i = 0; i < st.n; i++) Wsum += w[i];
@@ -145,8 +150,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
             double wc = std::max(lo, std::min(hi, w[i]));
             if (wc != w[i]) { w[i] = wc; changed = true; }
         }
-        if (!changed) break;
+        if (!changed) { fixup_converged = true; break; }
     }
+    if (!fixup_converged)
+        st.log("iEPPA: fixup loop did not reach fixed point in 20 iterations; "
+               "weights may exceed max_weight by floating-point rounding");
 
     for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
 
