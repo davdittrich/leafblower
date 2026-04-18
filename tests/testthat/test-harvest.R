@@ -77,3 +77,14 @@ test_that("parse_target stops on unnamed 3-column data frame", {
     regexp = "no 'variable'/'level'/'proportion' names"
   )
 })
+
+test_that("infeasible problem (empty cell with positive target) stops with infeasible error", {
+  # All 3 observations are in group "a"; no observation is in group "b".
+  # Target for "b" = 0.4 > 0 → empty cell with positive target → infeasible.
+  df  <- data.frame(x = factor(c("a", "a", "a"), levels = c("a", "b")))
+  tgt <- list(x = c(a = 0.6, b = 0.4))
+  expect_error(
+    harvest(df, tgt, method = "ieppa"),
+    regexp = "infeasible problem"
+  )
+})

@@ -134,6 +134,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
     }
 
+    // Infeasibility detected during iteration: override NOCONV with INFEAS.
+    // Truly infeasible problems (empty bucket with positive target) can never
+    // converge — the empty bucket always contributes τ_kj > 0 to errRp,
+    // so errRp never drops below tol_abs and the convergence break never fires.
+    // Check the flag here and return the correct status code.
+    if (is_infeasible && res.status == RK_ERR_NOCONV)
+        res.status = RK_ERR_INFEAS;
+
     // Final normalization-and-clamp fixup: harvest.R divides by mean(weights) after
     // C returns, so the effective constraint is max(w)/mean(w) <= max_weight.
     // The box projection inside the loop works in mean~=1 space but clamping reduces
