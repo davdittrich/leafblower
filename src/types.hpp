@@ -25,9 +25,6 @@ struct CalibState {
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;
 
-    // Derived
-    int total_cats;                    // sum of cat_counts[k]
-
     void log(const char* msg) const {
         if (verbose <= 0) return;
         if (log_fn) {

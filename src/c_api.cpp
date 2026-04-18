@@ -125,6 +125,11 @@ static int validate_inputs(int n, int K,
     return RK_OK;
 }
 
+// Routing note: std::isfinite(max_weight) fires for any finite upper bound (including
+// the default 5.0), so iEPPA is the default for all bounded problems.
+// kComplexityThreshold only differentiates between iEPPA and L-BFGS-B for
+// UNCONSTRAINED problems (max_weight=Inf, min_weight=0.0) — those are the only
+// cases where both solvers are feasible and problem size is the deciding factor.
 static constexpr int64_t kComplexityThreshold = 500000L;
 
 static rk_algorithm_t select_algorithm(int n, int K,
@@ -185,9 +190,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.verbose       = p->verbose;
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
-    st.total_cats    = 0;
-    for (int k = 0; k < K; k++) st.total_cats += cat_counts[k];
-
     // Verbose routing report (complexity already computed by select_algorithm)
     if (p->verbose >= 1 && p->algorithm == RK_ALG_AUTO) {
         char msg[256];
