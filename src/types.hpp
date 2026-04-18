@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <cstdio>
 #include <R_ext/Print.h>
 
 namespace lbw {

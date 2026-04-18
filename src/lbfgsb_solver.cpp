@@ -97,36 +97,6 @@ static double phi_from_u(const CalibState& st,
     return obj;
 }
 
-// phi_and_slope_from_u: objective + directional slope only. O(n) — no full gradient.
-// Used inside Wolfe search to avoid O(K*n) gradient computation at each trial point.
-// slope = sum_i d_i * F(u_i) * du[i] - sum_j T_j * dir_j
-// (which equals dot(grad, dir) evaluated from u without materializing grad)
-static double phi_and_slope_from_u(const CalibState& st,
-                                    const LinkFn& fn,
-                                    const std::vector<double>& lam,
-                                    const std::vector<double>& T,
-                                    const std::vector<double>& d,
-                                    const std::vector<double>& u,
-                                    const std::vector<double>& du,
-                                    const std::vector<double>& dir,
-                                    double& slope_out) {
-    int total = (int)lam.size();
-
-    double obj = 0.0;
-    for (int idx = 0; idx < total; idx++) obj += T[idx] * lam[idx];
-    // slope from T-part: sum_j T_j * dir_j (= dot(T, dir))
-    double slope = 0.0;
-    for (int idx = 0; idx < total; idx++) slope += T[idx] * dir[idx];
-    for (int i = 0; i < st.n; i++) {
-        double Fi = fn.F(u[i]);
-        double Hi = fn.H(u[i]);
-        obj -= d[i] * Hi;
-        slope -= d[i] * Fi * du[i];  // grad contribution: -d[i]*F(u[i]) per group
-    }
-    slope_out = slope;
-    return obj;
-}
-
 // Precompute per-observation directional derivative: du[i] = sum_k dir[off[k]+g_k(i)]
 // Used to update u incrementally in Wolfe search: u_new = u_base + alpha * du
 static void compute_du(const CalibState& st,
@@ -213,8 +183,8 @@ static LBFGSResult compute_final_weights_and_error(
 }
 
 // Zoom phase (Nocedal & Wright Alg 3.6): bisect until strong Wolfe satisfied.
-// Intermediate trials use phi_and_slope_from_u (O(n)) — no K*n gradient.
-// Final accepted alpha returns with full gradient computed at caller.
+// Phi and slope computed in O(n) using precomputed du[]; full O(K*n) gradient
+// computed once at the accepted alpha via phi_from_u.
 static double wolfe_zoom(
         const CalibState& st, const LinkFn& fn,
         const std::vector<int>& off, const std::vector<double>& T,
@@ -230,23 +200,22 @@ static double wolfe_zoom(
     constexpr double kC2 = 0.9;
     const int total = (int)lam.size();
 
+    // Precompute T*dir and T*lam (both constant across all bisection trials)
+    double Tdir = 0.0;
+    double Tlam = 0.0;
+    for (int idx = 0; idx < total; idx++) { Tdir += T[idx] * dir[idx]; Tlam += T[idx] * lam[idx]; }
+
     double alpha_accepted = -1.0;
     for (int j = 0; j < 20; j++) {
         double alpha = 0.5 * (alpha_lo + alpha_hi);
         for (int i = 0; i < st.n; i++) u_work[i] = u_base[i] + alpha * du[i];
-        double lam_dot_T = 0.0;
-        for (int idx = 0; idx < total; idx++) lam_dot_T += T[idx] * (lam[idx] + alpha * dir[idx]);
-        double slope = 0.0;
-        double phi_trial = lam_dot_T;
+        double phi_trial = Tlam + alpha * Tdir;
+        double slope = Tdir;
         for (int i = 0; i < st.n; i++) {
             double Fi = fn.F(u_work[i]);
             phi_trial -= d[i] * fn.H(u_work[i]);
             slope -= d[i] * Fi * du[i];
         }
-        // slope includes T*dir part
-        double Tdir = 0.0;
-        for (int idx = 0; idx < total; idx++) Tdir += T[idx] * dir[idx];
-        slope += Tdir;
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || phi_trial <= phi_lo) {
             alpha_hi = alpha;
@@ -401,9 +370,10 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
 
         lam = lam_new;
         grad = grad_new;
-        // Recompute u exactly at accepted step (phi_from_u in Wolfe left u_work
-        // at the last trial point, not necessarily the accepted one).
-        // compute_u is O(K*n) but called only once per outer iteration.
+        // Recompute u from scratch rather than using u_work from the Wolfe search.
+        // Incremental du accumulation (u = u_base + alpha*du) can drift over many
+        // outer steps; recomputing ensures u stays exactly consistent with lam.
+        // Cost: one O(K*n) pass per outer iteration — same order as gradient computation.
         compute_u(st, off, lam, u);
         phi_curr = phi_new;
     }

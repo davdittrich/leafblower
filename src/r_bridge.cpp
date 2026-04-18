@@ -158,11 +158,10 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     p.max_weight     = REAL(max_weight_sexp)[0];
     p.verbose        = INTEGER(verbose_sexp)[0];
     p.inner_max_iter = INTEGER(inner_max_iter_sexp)[0];
-    // outer_max_iter: L-BFGS-B outer iteration cap.
-    // max_iterations parameter is documented as the iEPPA inner BCD limit (default 500).
-    // For L-BFGS-B, 100 outer iterations is sufficient for convergence on well-conditioned
-    // problems; using 500 wastes ~5x CPU because each outer step has Wolfe line search.
-    p.outer_max_iter = 100;
+    // outer_max_iter = max_iterations: user controls both iEPPA inner BCD and L-BFGS-B
+    // outer step budget via the same parameter. With the O(n) Wolfe inner loop, 500
+    // outer steps costs ~500 O(K*n) grad evals — acceptable; typical convergence is <50.
+    p.outer_max_iter = INTEGER(inner_max_iter_sexp)[0];
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
 
     if (LENGTH(method_sexp) != 1)
