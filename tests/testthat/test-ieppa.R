@@ -37,4 +37,6 @@ test_that("iEPPA respects min_weight=0.5", {
   tgt <- list(x = c(a=0.2, b=0.2, c=0.2, d=0.2, e=0.2))
   result <- harvest(df, tgt, method="ieppa", min_weight=0.5, max_weight=5)
   expect_true(min(result$weights) >= 0.5 - 1e-10)
+  diag <- diagnose_weights(result, tgt, result$weights)
+  expect_true(all(abs(diag$error_weighted) < 1e-6))
 })

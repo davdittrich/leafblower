@@ -69,7 +69,7 @@ static void bcd_sweep(CalibState& st, std::vector<double>& w,
 
         for (int i = 0; i < st.n; i++) {
             int g = st.group_ids[k][i];
-            if (g >= 0) {
+            if (g >= 0) {  // g == -1 means NA: weight unchanged (inert)
                 double wi = w[i] * scale[g];
                 wi = std::max(st.min_weight, std::min(st.max_weight, wi));
                 w[i] = wi;
