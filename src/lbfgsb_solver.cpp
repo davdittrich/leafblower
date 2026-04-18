@@ -241,17 +241,20 @@ static double wolfe_line_search(
     constexpr double kC2 = 0.9;
     const int total = (int)lam.size();
 
-    // Precompute T*dir (constant per Wolfe search)
+    // Precompute T*dir and T*lam (both constant per Wolfe search)
     double Tdir = 0.0;
-    for (int idx = 0; idx < total; idx++) Tdir += T[idx] * dir[idx];
+    double Tlam = 0.0;
+    for (int idx = 0; idx < total; idx++) {
+        Tdir += T[idx] * dir[idx];
+        Tlam += T[idx] * lam[idx];
+    }
 
     double alpha_prev = 0.0, phi_prev = phi_0;
     double alpha = 1.0;
 
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < st.n; j++) u_work[j] = u_base[j] + alpha * du[j];
-        double phi_trial = Tdir * alpha;
-        for (int idx = 0; idx < total; idx++) phi_trial += T[idx] * lam[idx];
+        double phi_trial = Tlam + Tdir * alpha;
         double slope = Tdir;
         for (int j = 0; j < st.n; j++) {
             double Fj = fn.F(u_work[j]);
