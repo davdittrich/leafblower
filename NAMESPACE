@@ -1,4 +1,5 @@
 useDynLib(leafblower, .registration = TRUE)
+importFrom("stats", "setNames", "var")
 export(harvest)
 export(anesrake)
 export(diagnose_weights)

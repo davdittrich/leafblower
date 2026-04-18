@@ -90,9 +90,9 @@ harvest <- function(
     warning("leafblower: calibration did not converge (max_error=",
             signif(cres$max_error, 3), "). Weights reflect last iterate.")
   if (cres$status == 2L)
-    stop("leafblower: infeasible problem — empty cell with positive target.")
+    stop("leafblower: infeasible problem \u2014 empty cell with positive target.")
   if (cres$status == 3L)
-    stop("leafblower: invalid arguments — ", cres$message)
+    stop("leafblower: invalid arguments \u2014 ", cres$message)
 
   # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2
   alg_names <- c("auto", "ieppa", "lbfgsb")

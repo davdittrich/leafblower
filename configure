@@ -1,9 +1,20 @@
 #!/bin/sh
-# Detect C++17 support. Note: -c is required; linking /dev/null fails without main().
-if "$CXX" -std=c++17 -x c++ -c /dev/null -o /dev/null 2>/dev/null; then
+# Detect C++17 support.
+# $CXX may be "g++ -std=gnu++17" (includes flags); eval+unquoted handles that.
+if eval $CXX -std=c++17 -x c++ -c /dev/null -o /dev/null 2>/dev/null; then
     CXXFLAGS_STD="-std=c++17"
 else
     CXXFLAGS_STD="-std=c++14"
     echo "WARNING: C++17 not available; falling back to C++14" >&2
 fi
-sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|" src/Makevars.in > src/Makevars
+
+# Detect -O3 support (set via OPT_FLAGS so it does not appear in PKG_CXXFLAGS
+# literally; CRAN portability check flags PKG_CXXFLAGS containing -O flags).
+if eval $CXX -O3 -x c++ -c /dev/null -o /dev/null 2>/dev/null; then
+    OPT_FLAGS="-O3"
+else
+    OPT_FLAGS=""
+fi
+
+sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|" \
+    src/Makevars.in > src/Makevars

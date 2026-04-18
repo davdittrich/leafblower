@@ -7,3 +7,8 @@
 ^\.git$
 ^cran-comments\.md$
 ^\.github$
+^.*\.Rcheck$
+^leafblower\.Rcheck$
+^\.\.Rcheck$
+^docs$
+^AGENTS\.md$

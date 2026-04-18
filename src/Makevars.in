@@ -1,2 +1,2 @@
-PKG_CXXFLAGS = @CXXFLAGS_STD@ -I. -O3 -DSTRICT_R_HEADERS
+PKG_CXXFLAGS = @CXXFLAGS_STD@ @OPT_FLAGS@ -I. -DSTRICT_R_HEADERS
 PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp r_bridge.cpp
