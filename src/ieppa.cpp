@@ -9,14 +9,14 @@ namespace lbw {
 
 // Compute errRp = max_k max_j |S_kj/W - tau_kj|
 // O(n*K): single O(n) bucket accumulation pass per margin.
-// bucket pre-allocated to max_cats to avoid per-call heap allocation.
+// bucket must be pre-allocated to at least max_cats elements by the caller;
+// it is filled and reused across margins to avoid per-call heap allocation.
 static double compute_errRp(const CalibState& st,
-                              const std::vector<double>& w) {
+                              const std::vector<double>& w,
+                              std::vector<double>& bucket) {
     double W = 0.0;
     for (int i = 0; i < st.n; i++) W += w[i];
 
-    int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
-    std::vector<double> bucket(max_cats);
     double err = 0.0;
     for (int k = 0; k < st.K; k++) {
         std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
@@ -119,7 +119,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
 
         // Convergence check
-        double errRp = compute_errRp(st, w);
+        double errRp = compute_errRp(st, w, bucket);
         res.max_error = errRp;
 
         if (st.verbose >= 1) {
