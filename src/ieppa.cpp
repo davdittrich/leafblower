@@ -35,6 +35,10 @@ static double compute_errRp(const CalibState& st,
 // Box step: Dykstra additive correction q[i] prevents cycling at the [lo,hi]^n boundary.
 // inner_max_iter is the single iteration budget; outer_max_iter is unused.
 IEPPAResult ieppa_solve(CalibState& st) {
+    static constexpr double kEmptyBucketThreshold   = 1e-15;   // bucket near-zero: skip scale
+    static constexpr double kWeightCollapseThreshold = 1e-300;  // weights collapsed: skip norm
+    static constexpr int    kMaxFixupIterations      = 20;      // post-convergence fixup cap
+
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
     res.iterations = 0;
@@ -70,7 +74,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 double Tkj = st.targets[k][j] * W;
-                if (bucket[j] < 1e-15 * W) {
+                if (bucket[j] < kEmptyBucketThreshold * W) {
                     if (Tkj > 0.0) is_infeasible = true;
                 } else {
                     scale[j] = Tkj / bucket[j];
@@ -91,7 +95,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             double Wsum = 0.0;
             for (int i = 0; i < st.n; i++) Wsum += w[i];
             double wm = Wsum / st.n;
-            if (wm > 1e-300) {
+            if (wm > kWeightCollapseThreshold) {
                 for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
             }
         }
@@ -126,10 +130,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // The box projection inside the loop works in mean~=1 space but clamping reduces
     // mean slightly, causing post-R-normalization to push max fractionally above hi.
     // Fix: iterate renormalize→reclamp until the fixed point max(w)<=hi*mean(w) holds.
-    for (int fixup = 0; fixup < 20; fixup++) {
+    for (int fixup = 0; fixup < kMaxFixupIterations; fixup++) {
         double Wsum = 0.0;
         for (int i = 0; i < st.n; i++) Wsum += w[i];
-        double wm = (Wsum > 1e-300) ? Wsum / st.n : 1.0;
+        double wm = (Wsum > kWeightCollapseThreshold) ? Wsum / st.n : 1.0;
         bool changed = false;
         for (int i = 0; i < st.n; i++) {
             w[i] /= wm;  // normalize to mean=1

@@ -10,7 +10,6 @@ test_that("L-BFGS-B converges on 3-margin no-bounds case", {
     sex = c(M=0.50, F=0.50),
     edu = c(HS=0.35, College=0.45, Grad=0.20)
   )
-  # RED: harvest() not yet implemented
   result <- harvest(df, tgt, method="lbfgsb")
   expect_s3_class(result, "data.frame")
   expect_true("weights" %in% names(result))

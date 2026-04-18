@@ -122,6 +122,8 @@ static int validate_inputs(int n, int K,
     return RK_OK;
 }
 
+static constexpr int64_t kComplexityThreshold = 500000L;
+
 static rk_algorithm_t select_algorithm(int n, int K,
                                         const int* cat_counts,
                                         const rk_params_t* p,
@@ -129,7 +131,7 @@ static rk_algorithm_t select_algorithm(int n, int K,
     complexity_out = INT64_C(0);
     for (int k = 0; k < K; k++) complexity_out += (int64_t)n * cat_counts[k];
     if (p->algorithm != RK_ALG_AUTO) return p->algorithm;
-    if (complexity_out > 500000L || std::isfinite(p->max_weight) || p->min_weight > 0.0)
+    if (complexity_out > kComplexityThreshold || std::isfinite(p->max_weight) || p->min_weight > 0.0)
         return RK_ALG_IEPPA;
     return RK_ALG_LBFGSB;
 }
@@ -185,7 +187,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     for (int k = 0; k < K; k++) st.total_cats += cat_counts[k];
 
     // Verbose routing report (complexity already computed by select_algorithm)
-    if (p->verbose >= 1) {
+    if (p->verbose >= 1 && p->algorithm == RK_ALG_AUTO) {
         char msg[256];
         if (alg == RK_ALG_IEPPA)
             snprintf(msg, 256, "Auto-selected iEPPA: complexity=%lld, max_weight=%.2f, min_weight=%.2f",
