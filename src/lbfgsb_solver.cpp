@@ -99,7 +99,7 @@ static void compute_du(const CalibState& st,
     }
 }
 
-static double linf(const std::vector<double>& v) {
+static double maxAbs(const std::vector<double>& v) {
     double mx = 0.0;
     for (double x : v) mx = std::max(mx, std::fabs(x));
     return mx;
@@ -316,7 +316,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     for (int iter = 0; iter < max_iter; iter++) {
         final_iter = iter + 1;
 
-        double gn = linf(grad) / W_sum;
+        double gn = maxAbs(grad) / W_sum;
         if (gn < st.tol_abs) break;
 
         if (svec.empty()) {

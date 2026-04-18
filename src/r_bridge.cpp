@@ -90,17 +90,19 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
 
     SEXP col_names = Rf_getAttrib(data_sexp, R_NamesSymbol);
 
+    // Build column name → index map once (O(C)) for O(1) per-margin lookup.
+    std::unordered_map<std::string, int> col_map;
+    col_map.reserve(LENGTH(col_names));
+    for (int c = 0; c < LENGTH(col_names); c++)
+        col_map[CHAR(STRING_ELT(col_names, c))] = c;
+
     for (int k = 0; k < K; k++) {
         const char* varname = CHAR(STRING_ELT(target_names, k));
         // Find column in data frame
-        int col_idx = -1;
-        for (int c = 0; c < LENGTH(col_names); c++) {
-            if (strcmp(CHAR(STRING_ELT(col_names, c)), varname) == 0) {
-                col_idx = c; break;
-            }
-        }
-        if (col_idx < 0)
+        auto col_it = col_map.find(varname);
+        if (col_it == col_map.end())
             Rf_error("Variable '%s' not found in data", varname);
+        int col_idx = col_it->second;
 
         SEXP col     = VECTOR_ELT(data_sexp, col_idx);
         SEXP tgt_vec = VECTOR_ELT(target_sexp, k);

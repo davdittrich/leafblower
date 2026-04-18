@@ -64,8 +64,9 @@ harvest <- function(
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
 
   # Ignored-param verbose notes
+  # enforce_mean is always TRUE: normalization is unconditional (line ~86).
   ignored <- c("select_params", "select_function", "error_function",
-                "adaptive_order", "accelerate")
+                "adaptive_order", "accelerate", "enforce_mean")
   supplied_ignored <- intersect(ignored, names(match.call(expand.dots = FALSE)))
   if (verbose >= 2 && length(supplied_ignored) > 0)
     message("[leafblower] Ignoring autumn params: ", paste(supplied_ignored, collapse = ", "))
