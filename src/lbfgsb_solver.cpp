@@ -1,8 +1,6 @@
 #include "lbfgsb_solver.hpp"
 #include "leafblower.h"
 #include <cmath>
-#include <cstring>
-#include <cstdio>
 #include <algorithm>
 #include <vector>
 #include <deque>
@@ -128,12 +126,13 @@ static LBFGSResult compute_final_weights_and_error(
     for (int i = 0; i < st.n; i++) Wn += st.weights[i];
     double max_err = 0.0;
     for (int k = 0; k < st.K; k++) {
+        std::vector<double> S(st.cat_counts[k], 0.0);
+        for (int i = 0; i < st.n; i++) {
+            int g = st.group_ids[k][i];
+            if (g >= 0) S[g] += st.weights[i];
+        }
         for (int j = 0; j < st.cat_counts[k]; j++) {
-            double Skj = 0.0;
-            for (int i = 0; i < st.n; i++) {
-                if (st.group_ids[k][i] == j) Skj += st.weights[i];
-            }
-            max_err = std::max(max_err, std::fabs(Skj / Wn - st.targets[k][j]));
+            max_err = std::max(max_err, std::fabs(S[j] / Wn - st.targets[k][j]));
         }
     }
     res.max_error = max_err;
@@ -231,6 +230,8 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     double gamma = 1.0;
 
     compute_targets_abs(st, T);
+    double W_sum = 0.0;
+    for (int i = 0; i < st.n; i++) W_sum += d[i];
     double phi_curr = phi_and_grad(st, fn, off, lam, T, d, grad, u);
 
     int max_iter = st.outer_max_iter;
@@ -238,7 +239,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     for (int iter = 0; iter < max_iter; iter++) {
         final_iter = iter + 1;
 
-        double gn = linf(grad);
+        double gn = linf(grad) / W_sum;
         if (gn < st.tol_abs) break;
 
         if (svec.empty()) {
