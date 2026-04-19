@@ -275,6 +275,28 @@ These two O(n) loops in `ieppa_solve` are element-wise with no scatter — the c
 **Files:**
 - Modify: `src/ieppa.cpp`
 
+- [ ] **Step 0: Pre-create a stub `src/lbw_config.h` and add the include to `ieppa.cpp`**
+
+  `LBW_HAS_OMP_SIMD` is used in Steps 1 and 2 but `lbw_config.h` is only generated
+  by configure in Task 5. Without a pre-existing header, the `#if LBW_HAS_OMP_SIMD`
+  guard causes an undefined-identifier warning from `-Wundef` (treated as error in
+  CRAN checks). Create a stub now; Task 5 Step 3 will overwrite it with real values.
+
+  ```sh
+  cat > src/lbw_config.h << 'EOF'
+  /* Stub — overwritten by configure (Task 5). All features disabled. */
+  #ifndef LBW_CONFIG_H
+  #define LBW_CONFIG_H
+  #define LBW_HAS_OMP_SIMD 0
+  #define LBW_HAS_OMP 0
+  #define LBW_HAS_GLIBC_MVEC 0
+  #endif
+  EOF
+  ```
+
+  Add `#include "lbw_config.h"` near the top of `src/ieppa.cpp` (after existing
+  `#include` lines). Do NOT add it to `lbfgsb_solver.cpp` yet — that is done in Task 5 Step 6.
+
 - [ ] **Step 1: Add simd pragma to the normalise loop (lines 108)**
 
   Replace:
@@ -385,8 +407,11 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
   ```sh
   # Detect glibc libmvec vectorised exp (_ZGVdN4v_exp — AVX2, 4-wide double).
   # Linux/glibc only; graceful fallback on macOS and Windows.
+  # _ZGVdN4v_exp lives in libmvec.so (glibc >= 2.22) — must link -lmvec, NOT just -lm.
+  # -mavx2 must also be added to PKG_CXXFLAGS so __m256d intrinsics compile.
   LBW_HAS_GLIBC_MVEC=0
   MVEC_LIBS=""
+  MAVX2_FLAG=""
   cat > /tmp/lbw_mvec_test.cpp << 'EOF'
   #include <immintrin.h>
   extern "C" __m256d _ZGVdN4v_exp(__m256d);
@@ -397,10 +422,11 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
   }
   EOF
       if eval $CXX -mavx2 /tmp/lbw_mvec_test.cpp \
-             -o /tmp/lbw_mvec_test -lm 2>/dev/null && \
+             -o /tmp/lbw_mvec_test -lm -lmvec 2>/dev/null && \
          /tmp/lbw_mvec_test 2>/dev/null; then
           LBW_HAS_GLIBC_MVEC=1
-          MVEC_LIBS="-lm"
+          MVEC_LIBS="-lm -lmvec"   # _ZGVdN4v_exp is in libmvec.so, not libm.so
+          MAVX2_FLAG="-mavx2"       # required to compile __m256d intrinsics in lbw_math.hpp
           echo "configure: glibc libmvec detected — vectorised exp enabled for L-BFGS-B"
       else
           echo "configure: glibc libmvec not available — scalar exp fallback"
@@ -435,9 +461,9 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
       src/Makevars.in > src/Makevars
   ```
 
-  New (extends to also substitute the two new Makevars.in placeholders):
+  New (extends to also substitute the three new Makevars.in placeholders):
   ```sh
-  sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|;s|@OMP_FLAGS@|${OMP_FLAGS}|;s|@MVEC_LIBS@|${MVEC_LIBS}|" \
+  sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|;s|@OMP_FLAGS@|${OMP_FLAGS}|;s|@MAVX2_FLAG@|${MAVX2_FLAG}|;s|@MVEC_LIBS@|${MVEC_LIBS}|" \
       src/Makevars.in > src/Makevars
   ```
 
@@ -453,10 +479,14 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
   ```
   With:
   ```makefile
-  PKG_CXXFLAGS = @CXXFLAGS_STD@ @OPT_FLAGS@ @OMP_FLAGS@ -I. -DSTRICT_R_HEADERS
+  PKG_CXXFLAGS = @CXXFLAGS_STD@ @OPT_FLAGS@ @OMP_FLAGS@ @MAVX2_FLAG@ -I. -DSTRICT_R_HEADERS
   PKG_LIBS = @MVEC_LIBS@
   PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp r_bridge.cpp
   ```
+
+  `@MAVX2_FLAG@` resolves to `-mavx2` on Linux/glibc when libmvec is detected, empty
+  string otherwise. Without this, `__m256d` and `_mm256_*` in `lbw_math.hpp` produce
+  a hard compile error on the very platform the feature targets.
 
 - [ ] **Step 5: Add `src/lbw_config.h` to `.Rbuildignore` and `src/.gitignore`**
 
@@ -550,10 +580,32 @@ Provides `lbw::bulk_scaled_exp(scale, u, out, n)`: batches the `exp(scale * u[i]
   ```
   The header is not yet included by anything — compile gate verifies the file is syntactically valid by checking the package builds cleanly.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Numerical correctness marker (end-to-end)**
+
+  `bulk_scaled_exp` has no unit-testable surface at the R level. Establish a reference
+  weight vector NOW (before Task 7 wires in the vectorised path) so that Task 7 Step 6
+  can assert bit-level agreement between scalar and AVX2 paths.
+
+  ```r
+  library(leafblower)
+  set.seed(42); n <- 20000L
+  df  <- data.frame(
+    age = factor(sample(c("18-34","35-54","55+"), n, replace=TRUE)),
+    sex = factor(sample(c("M","F"), n, replace=TRUE))
+  )
+  tgt <- list(age=c("18-34"=0.30,"35-54"=0.45,"55+"=0.25), sex=c(M=0.50,F=0.50))
+  w_ref <- harvest(df, tgt, method="lbfgsb", attach_weights=FALSE)
+  saveRDS(w_ref, "tests/testthat/lbfgsb_ref_weights.rds")
+  cat("Reference weights saved. max:", max(w_ref), "mean:", mean(w_ref), "\n")
+  ```
+
+  Commit `tests/testthat/lbfgsb_ref_weights.rds`. After Task 7, Task 7 Step 6 loads
+  this and asserts `max(abs(w_new - w_ref)) < 1e-10`.
+
+- [ ] **Step 5: Commit**
 
   ```bash
-  git add src/lbw_math.hpp
+  git add src/lbw_math.hpp tests/testthat/lbfgsb_ref_weights.rds
   git commit -m "perf: add lbw_math.hpp with bulk_scaled_exp dispatch (libmvec / scalar)"
   ```
 
@@ -782,13 +834,30 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   R CMD INSTALL --preclean . 2>&1 | tail -5
   ```
 
-- [ ] **Step 6: Run full tests**
+- [ ] **Step 6: Run full tests and validate vectorised path numerically**
 
   ```bash
   Rscript -e "testthat::test_local()" 2>&1 | tail -20
   ```
   `test-lbfgsb.R` checks weight correctness and bound enforcement. All must pass.
-  Weights must agree with pre-change reference within `tolerance = 1e-10` (numerical identity preserved; only execution order of exp evaluation changes).
+
+  Then compare against the reference weights saved in Task 6 Step 3:
+  ```r
+  library(leafblower)
+  set.seed(42); n <- 20000L
+  df  <- data.frame(
+    age = factor(sample(c("18-34","35-54","55+"), n, replace=TRUE)),
+    sex = factor(sample(c("M","F"), n, replace=TRUE))
+  )
+  tgt <- list(age=c("18-34"=0.30,"35-54"=0.45,"55+"=0.25), sex=c(M=0.50,F=0.50))
+  w_new <- harvest(df, tgt, method="lbfgsb", attach_weights=FALSE)
+  w_ref <- readRDS("tests/testthat/lbfgsb_ref_weights.rds")
+  cat("max diff (vectorised vs scalar ref):", max(abs(w_new - w_ref)), "\n")
+  stopifnot(max(abs(w_new - w_ref)) < 1e-10)
+  cat("PASS: vectorised exp numerically identical to scalar path\n")
+  ```
+  This directly validates that `bulk_scaled_exp` on the AVX2 path produces
+  identical values to the scalar `std::exp` path used when building the reference.
 
 - [ ] **Step 7: Benchmark L-BFGS-B path before/after**
 
@@ -884,7 +953,11 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   Check configure output confirms OpenMP is detected on Linux/gcc.
   On macOS (no OpenMP by default): serial path compiles cleanly.
 
-- [ ] **Step 3: Correctness test — parallel must match serial to within 1e-14**
+- [ ] **Step 3: Correctness test — parallel output must match serial to within fp tolerance**
+
+  OpenMP `reduction(max:err)` is correct, but a race in the bucket scatter-add or
+  thread-local allocation error would produce silently wrong results that still satisfy
+  `mean ≈ 1` and `max ≤ 5`. Compare parallel vs serial explicitly:
 
   ```bash
   Rscript -e "
@@ -893,16 +966,29 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   age <- sample(c('u25','25-54','55p'), n, replace=TRUE)
   sex <- sample(c('M','F'), n, replace=TRUE)
   reg <- sample(letters[1:5], n, replace=TRUE)
-  df <- data.frame(age=factor(age), sex=factor(sex), reg=factor(reg))
-  tgt <- list(age=c(u25=0.2,\`25-54\`=0.6,\`55p\`=0.2),
-              sex=c(M=0.5,F=0.5),
-              reg=setNames(rep(0.2,5), letters[1:5]))
-  w <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
-  cat('max_weight:', max(w), '\n')  # must be <= 5
-  cat('mean:', mean(w), '\n')        # must be ~1
+  df  <- data.frame(age=factor(age), sex=factor(sex), reg=factor(reg))
+  tgt <- list(age=c(u25=0.2, \`25-54\`=0.6, \`55p\`=0.2),
+              sex=c(M=0.5, F=0.5),
+              reg=setNames(rep(0.2, 5), letters[1:5]))
+
+  # Parallel run (default OMP_NUM_THREADS)
+  w_par  <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
+
+  # Serial run (force 1 thread)
+  old <- Sys.getenv('OMP_NUM_THREADS')
+  Sys.setenv(OMP_NUM_THREADS='1')
+  w_ser  <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
+  Sys.setenv(OMP_NUM_THREADS=old)
+
+  delta <- max(abs(w_par - w_ser))
+  cat('max diff parallel vs serial:', delta, '\n')  # must be < 1e-12
+  cat('max_weight:', max(w_par), '\n')               # must be <= 5
+  cat('mean:', mean(w_par), '\n')                    # must be ~1
+  stopifnot(delta < 1e-12)
+  cat('PASS\n')
   " 2>&1
   ```
-  Expected: `mean ≈ 1.0`, `max ≤ 5.0`.
+  Expected: `delta < 1e-12`, `mean ≈ 1.0`, `max ≤ 5.0`.
 
 - [ ] **Step 4: Run full test suite**
 
@@ -928,14 +1014,45 @@ Run the full Stepstone benchmark (n=1,582,732) comparing the original code to th
 - Read: `benchmarks/stepstone_fulldata_benchmark.py` (existing)
 - No new files — use existing benchmark infrastructure
 
-- [ ] **Step 1: Run full test suite as final regression gate**
+- [ ] **Step 1: Update DESCRIPTION for CRAN OpenMP policy**
+
+  CRAN requires `SystemRequirements` to list OpenMP when a package conditionally uses it.
+  The package builds without OpenMP (serial fallback always available) but must declare it.
+
+  In `DESCRIPTION`, find:
+  ```
+  SystemRequirements: C++17 compiler
+  ```
+  Replace with:
+  ```
+  SystemRequirements: C++17 compiler, OpenMP (optional, for parallel errRp)
+  ```
+
+  Commit:
+  ```bash
+  git add DESCRIPTION
+  git commit -m "chore: add OpenMP to SystemRequirements per CRAN policy"
+  ```
+
+- [ ] **Step 2: Run full test suite as final regression gate**
 
   ```bash
   Rscript -e "testthat::test_local()" 2>&1
   ```
   Expected: 0 failures, 0 errors.
 
-- [ ] **Step 2: Run the Python Stepstone benchmark (requires parquet data already generated)**
+- [ ] **Step 3: R CMD check --as-cran**
+
+  ```bash
+  R CMD build . && R CMD check --as-cran leafblower_*.tar.gz 2>&1 | grep -E "^(ERROR|WARNING|NOTE|checking)"
+  ```
+  Expected: 0 ERRORs, 0 WARNINGs. Any NOTEs about `#pragma omp` or `-mavx2` must be
+  assessed individually. The package must pass this check before submission.
+  Common NOTEs to anticipate and address:
+  - "Note: `#pragma omp` needs `SystemRequirements: OpenMP`" — fixed by Step 1
+  - "Note: '-mavx2' in PKG_CXXFLAGS" — acceptable on x86-64 when guarded by configure
+
+- [ ] **Step 4: Run the Python Stepstone benchmark (requires parquet data already generated)**
 
   ```bash
   python3 benchmarks/stepstone_fulldata_benchmark.py 2>&1
@@ -944,7 +1061,7 @@ Run the full Stepstone benchmark (n=1,582,732) comparing the original code to th
   Baseline: 127,000 ms (Python), 133,000 ms (R).
   Target: ≥ 15% reduction (≤ 108,000 ms Python).
 
-- [ ] **Step 3: Run L-BFGS-B micro-benchmark (n=50K, 3 margins)**
+- [ ] **Step 5: Run L-BFGS-B micro-benchmark (n=50K, 3 margins)**
 
   ```r
   library(leafblower); library(bench)
@@ -960,7 +1077,7 @@ Run the full Stepstone benchmark (n=1,582,732) comparing the original code to th
   ```
   Document median time. Baseline: measure before changes. Target: ≥ 25% reduction.
 
-- [ ] **Step 4: Final commit with benchmark results**
+- [ ] **Step 6: Final commit with benchmark results**
 
   ```bash
   git add -A
