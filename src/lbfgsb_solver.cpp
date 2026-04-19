@@ -199,9 +199,9 @@ static double wolfe_zoom(
         double phi_trial = Tlam + alpha * Tdir;
         double slope = Tdir;
         for (int i = 0; i < st.n; i++) {
-            double Fi = fn.F(u_work[i]);
-            phi_trial -= d[i] * fn.H(u_work[i]);
-            slope -= d[i] * Fi * du[i];
+            auto fh = fn.FH(u_work[i]);
+            phi_trial -= d[i] * fh.H;
+            slope    -= d[i] * fh.F * du[i];
         }
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || phi_trial <= phi_lo) {
