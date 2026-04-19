@@ -140,7 +140,7 @@ def harvest(
         "min_weight":     min_weight,
         "max_weight":     max_weight,
         "inner_max_iter": max_iterations,
-        "outer_max_iter": 50,
+        "outer_max_iter": max_iterations,  # mirrors R bridge: outer = inner = max_iterations
         "tol_abs":        tol_abs,
         "verbose":        verbose,
         "algorithm":      alg_int,
