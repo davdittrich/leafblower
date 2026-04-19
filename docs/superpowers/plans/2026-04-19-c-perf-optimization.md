@@ -8,29 +8,67 @@
 
 **Tech Stack:** C++17; glibc libmvec (optional, Linux/gcc only, configure-detected); OpenMP (optional, via R's `SHLIB_OPENMP_CXXFLAGS`, no new package dep).
 
-**Compile gate:** `R CMD INSTALL --preclean . && Rscript -e "testthat::test_local()"` after every file change. Never advance to the next file before this passes.
+## TDD Convention
 
-**Test command:** `cd /home/dd/Gemini/leafblower && Rscript -e "testthat::test_local()"`
+Every task that introduces a **new function** has a RED step before code exists:
+- Write the test → confirm it fails (function not found or assertion fails)
+- Implement the function
+- Run the test → GREEN
+
+Every task that **modifies existing behavior** has a reference snapshot before the edit:
+- Save reference weights → implement → assert `max(abs(w_new - w_ref)) < tol`
+
+**Compile gate (mandatory after every single file change):**
+```bash
+R CMD INSTALL --preclean . 2>&1 | tail -1
+```
+Expected: `* DONE (leafblower)`. Never advance to the next file before this passes.
+
+**Test gate (mandatory before every commit):**
+```bash
+Rscript -e "testthat::test_local()" 2>&1 | grep -E "^(FAIL|ERROR)" | wc -l
+```
+Expected: `0`. Any non-zero count = STOP, diagnose, fix.
 
 ---
 
 ## Phase 1 — Zero-dep scalar wins
 
-### Task 1: Fix shared-exp redundancy in logit.hpp and lbfgsb_solver.cpp
+---
 
-Both `F(u)` and `H(u)` independently call `safe_exp(logit_scale * u)`. In the Wolfe trial loop this means 2× exp per observation. Adding `FH(u)` computes the shared `e` once.
+### Task 1a: Add FH() to LinkFn in logit.hpp
 
-**Files:**
-- Modify: `src/logit.hpp` — add `FH()` method
-- Modify: `src/lbfgsb_solver.cpp` — use `FH()` in Wolfe loops
+Both `F(u)` and `H(u)` call `safe_exp(logit_scale * u)` independently. `FH(u)` computes one shared `e` and returns both, halving transcendental calls in Wolfe loops.
 
-- [ ] **Step 1: Add `FH()` to `LinkFn` in logit.hpp**
+**Files:** `src/logit.hpp` only — no other file touched.
 
-  Insert after the existing `H()` method (line 52, before the closing `};`):
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] FH formula verified: `FH(1.0).F == F(1.0)` and `FH(1.0).H == H(1.0)` (traced in Step 1)
+- [ ] Committed with message `perf: add FH() to LinkFn — single exp for Wolfe loop`
+
+- [ ] **Step 1 (RED): Verify F() and H() separately as reference before FH() exists**
+
+  Record exact values to detect any formula drift after implementation:
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  # harvest with lbfgsb to exercise F() and H() paths — weights are our reference
+  set.seed(7); n <- 5000L
+  df  <- data.frame(x = factor(sample(c('A','B','C'), n, replace=TRUE)))
+  tgt <- list(x = c(A=0.4, B=0.35, C=0.25))
+  w_before <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  saveRDS(w_before, 'tests/testthat/task1_ref.rds')
+  cat('ref saved. mean:', mean(w_before), 'max:', max(w_before), '\n')
+  "
+  ```
+
+- [ ] **Step 2 (GREEN): Add FH() to logit.hpp after the H() method (line 52, before `};`)**
 
   ```cpp
-  // FH(u): compute F(u) and H(u) simultaneously from a single safe_exp call.
-  // Cuts transcendental calls in the Wolfe inner loop from 2× to 1× per obs.
+  // FH(u): F and H from a single safe_exp call.
+  // Halves transcendental evaluations in the Wolfe inner loop.
   struct FHResult { double F; double H; };
   FHResult FH(double u) const {
       if (exponential) {
@@ -45,9 +83,59 @@ Both `F(u)` and `H(u)` independently call `safe_exp(logit_scale * u)`. In the Wo
   }
   ```
 
-- [ ] **Step 2: Update Wolfe trial loop in `wolfe_line_search` (lbfgsb_solver.cpp:259–263)**
+  Trace for u=1.0, L=0.2, U=5.0, logit_scale=1.5:
+  - `e = exp(1.5) ≈ 4.4817`
+  - `denom = (5-1) + (1-0.2)*4.4817 ≈ 7.585`
+  - `f = (0.2*4 + 5*0.8*4.4817)/7.585 ≈ 2.508` ← must equal `F(1.0)`
+  - `h = 0.2 + (4.8/1.5)*log(7.585/4.8) ≈ 1.453` ← must equal `H(1.0)`
 
-  Replace:
+- [ ] **Step 3: Compile gate**
+
+  ```bash
+  R CMD INSTALL --preclean . 2>&1 | tail -1
+  ```
+
+- [ ] **Step 4 (GREEN check): Assert FH() matches F()+H() and no weight regression**
+
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(7); n <- 5000L
+  df  <- data.frame(x = factor(sample(c('A','B','C'), n, replace=TRUE)))
+  tgt <- list(x = c(A=0.4, B=0.35, C=0.25))
+  w_after <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/task1_ref.rds')
+  delta   <- max(abs(w_after - w_ref))
+  cat('delta:', delta, '\n')
+  stopifnot(delta < 1e-12)
+  cat('PASS\n')
+  "
+  ```
+  (FH() is not yet called anywhere — this confirms logit.hpp change doesn't break the build.)
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/logit.hpp tests/testthat/task1_ref.rds
+  git commit -m "perf: add FH() to LinkFn — single exp for Wolfe loop"
+  ```
+
+---
+
+### Task 1b: Use FH() in wolfe_line_search trial loop
+
+Replace the two separate `fn.F()` / `fn.H()` calls in the Wolfe bracketing trial loop with one `fn.FH()` call.
+
+**Files:** `src/lbfgsb_solver.cpp` only — `wolfe_line_search` function, lines 259–263.
+
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `max(abs(w_after - w_ref)) < 1e-12` (same `task1_ref.rds` from Task 1a)
+- [ ] Committed with message `perf: use FH() in wolfe_line_search trial loop`
+
+- [ ] **Step 1: Replace the trial loop body in wolfe_line_search (lines 259–263)**
+
+  Old (lines 259–263 inside `for (int i = 0; i < 20; i++)` loop):
   ```cpp
   for (int j = 0; j < st.n; j++) {
       double Fj = fn.F(u_work[j]);
@@ -55,7 +143,7 @@ Both `F(u)` and `H(u)` independently call `safe_exp(logit_scale * u)`. In the Wo
       slope -= d[j] * Fj * du[j];
   }
   ```
-  With:
+  New:
   ```cpp
   for (int j = 0; j < st.n; j++) {
       auto fh = fn.FH(u_work[j]);
@@ -64,9 +152,51 @@ Both `F(u)` and `H(u)` independently call `safe_exp(logit_scale * u)`. In the Wo
   }
   ```
 
-- [ ] **Step 3: Apply the same fix in `wolfe_zoom` (lbfgsb_solver.cpp:201–205)**
+- [ ] **Step 2: Compile gate**
 
-  Replace:
+  ```bash
+  R CMD INSTALL --preclean . 2>&1 | tail -1
+  ```
+
+- [ ] **Step 3 (GREEN): Assert weights unchanged**
+
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(7); n <- 5000L
+  df  <- data.frame(x = factor(sample(c('A','B','C'), n, replace=TRUE)))
+  tgt <- list(x = c(A=0.4, B=0.35, C=0.25))
+  w_after <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/task1_ref.rds')
+  stopifnot(max(abs(w_after - w_ref)) < 1e-12)
+  cat('PASS\n')
+  "
+  ```
+
+- [ ] **Step 4: Commit**
+
+  ```bash
+  git add src/lbfgsb_solver.cpp
+  git commit -m "perf: use FH() in wolfe_line_search trial loop"
+  ```
+
+---
+
+### Task 1c: Use FH() in wolfe_zoom bisection trial loop
+
+Same FH() substitution in `wolfe_zoom`, which is called when Wolfe bracketing finds an interval to zoom into.
+
+**Files:** `src/lbfgsb_solver.cpp` only — `wolfe_zoom` function, lines 201–205.
+
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `max(abs(w_after - w_ref)) < 1e-12` (same `task1_ref.rds`)
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `perf: use FH() in wolfe_zoom bisection loop`
+
+- [ ] **Step 1: Replace the trial loop body in wolfe_zoom (lines 201–205)**
+
+  Old:
   ```cpp
   for (int i = 0; i < st.n; i++) {
       double Fi = fn.F(u_work[i]);
@@ -74,7 +204,7 @@ Both `F(u)` and `H(u)` independently call `safe_exp(logit_scale * u)`. In the Wo
       slope -= d[i] * Fi * du[i];
   }
   ```
-  With:
+  New:
   ```cpp
   for (int i = 0; i < st.n; i++) {
       auto fh = fn.FH(u_work[i]);
@@ -83,37 +213,66 @@ Both `F(u)` and `H(u)` independently call `safe_exp(logit_scale * u)`. In the Wo
   }
   ```
 
-- [ ] **Step 4: Compile gate**
+- [ ] **Step 2: Compile gate**
 
   ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -5
+  R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
-  Expected: `* DONE (leafblower)`
 
-- [ ] **Step 5: Run tests — verify FH() preserves numerical identity**
+- [ ] **Step 3 (GREEN): Assert weights unchanged + full test suite**
 
   ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -20
+  Rscript -e "
+  library(leafblower)
+  set.seed(7); n <- 5000L
+  df  <- data.frame(x = factor(sample(c('A','B','C'), n, replace=TRUE)))
+  tgt <- list(x = c(A=0.4, B=0.35, C=0.25))
+  w_after <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/task1_ref.rds')
+  stopifnot(max(abs(w_after - w_ref)) < 1e-12)
+  cat('PASS\n')
+  " && Rscript -e "testthat::test_local()" 2>&1 | tail -5
   ```
-  Expected: All tests pass. The existing `test-logit.R` tests `H'(u) = F(u)` numerically — this catches any FH() regression. Weights from `harvest(..., method='lbfgsb')` must be bit-for-bit identical before/after (same arithmetic, just shared intermediate).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: Commit**
 
   ```bash
-  git add src/logit.hpp src/lbfgsb_solver.cpp
-  git commit -m "perf: share exp in logit FH() — halves transcendentals in Wolfe loop"
+  git add src/lbfgsb_solver.cpp
+  git commit -m "perf: use FH() in wolfe_zoom bisection loop"
   ```
 
 ---
 
 ### Task 2: Hoist W-sum from bucket loop + 4-way ILP unroll (ieppa.cpp)
 
-Currently `W += w[i]` is inside the bucket scatter-add loop, serialising both. Separating them lets the compiler vectorise the W reduction. The 4-way accumulator pattern (from revss_temp `adm_core_scalar`) hides FP latency.
+`W += w[i]` is serialised inside the scatter-add loop. Separating into a 4-way ILP reduction lets the compiler vectorise the sum. Two sites: the IPF margin loop (lines 70–76) and `compute_errRp` (lines 17–18).
 
-**Files:**
-- Modify: `src/ieppa.cpp`
+**Files:** `src/ieppa.cpp` only.
 
-- [ ] **Step 1: Replace the combined W + bucket loop (lines 70–76) with two separate loops**
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `max(abs(w_after - w_ref)) < 1e-6` (acceptable: FP reassociation changes sum order)
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `perf: hoist W-sum from scatter loop, 4-way ILP unroll`
+
+- [ ] **Step 1 (RED): Save iEPPA reference weights before any change**
+
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(1); n <- 10000L
+  df  <- data.frame(
+    age = factor(sample(c('A','B','C'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c(A=0.4,B=0.35,C=0.25), sex=c(M=0.5,F=0.5))
+  w_ref <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
+  saveRDS(w_ref, 'tests/testthat/task2_ieppa_ref.rds')
+  cat('ref saved. mean:', mean(w_ref), '\n')
+  "
+  ```
+
+- [ ] **Step 2: Replace the combined W + bucket loop (lines 70–76) with two separate loops**
 
   Replace:
   ```cpp
@@ -127,10 +286,9 @@ Currently `W += w[i]` is inside the bucket scatter-add loop, serialising both. S
   ```
   With:
   ```cpp
-  // W sum: 4-way ILP, compiler-vectorisable (no scatter aliases).
+  // W sum separated from scatter-add so the compiler can vectorise it.
   double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
-  int ni = st.n;
-  int i4 = ni & ~3;
+  int ni = st.n, i4 = ni & ~3;
   for (int i = 0; i < i4; i += 4) {
       W  += w[i];   W1 += w[i+1];
       W2 += w[i+2]; W3 += w[i+3];
@@ -138,7 +296,7 @@ Currently `W += w[i]` is inside the bucket scatter-add loop, serialising both. S
   for (int i = i4; i < ni; ++i) W += w[i];
   W += W1 + W2 + W3;
 
-  // Bucket scatter-add (cannot vectorise due to write aliases).
+  // Bucket scatter-add: write aliases prevent vectorisation.
   std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
   for (int i = 0; i < ni; i++) {
       int g = st.group_ids[k][i];
@@ -146,9 +304,7 @@ Currently `W += w[i]` is inside the bucket scatter-add loop, serialising both. S
   }
   ```
 
-  Note: `W` is only used for normalisation and IPF scale factors within this margin pass. It does NOT need to be accumulated across the outer k-loop. The existing code recomputes W fresh per margin, which is correct.
-
-- [ ] **Step 2: Apply the same W-sum fix in `compute_errRp` (lines 17–18)**
+- [ ] **Step 3: Apply the same ILP pattern to compute_errRp W-sum (lines 17–18)**
 
   Replace:
   ```cpp
@@ -167,43 +323,59 @@ Currently `W += w[i]` is inside the bucket scatter-add loop, serialising both. S
   W += W1 + W2 + W3;
   ```
 
-- [ ] **Step 3: Compile gate**
+- [ ] **Step 4: Compile gate**
 
   ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -5
+  R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 5 (GREEN): Assert weights within tolerance + test suite**
 
   ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -20
+  Rscript -e "
+  library(leafblower)
+  set.seed(1); n <- 10000L
+  df  <- data.frame(
+    age = factor(sample(c('A','B','C'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c(A=0.4,B=0.35,C=0.25), sex=c(M=0.5,F=0.5))
+  w_after <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/task2_ieppa_ref.rds')
+  delta   <- max(abs(w_after - w_ref))
+  cat('delta:', delta, '\n')   # FP reorder ok; tolerance is 1e-6
+  stopifnot(delta < 1e-6)
+  cat('PASS\n')
+  " && Rscript -e "testthat::test_local()" 2>&1 | tail -5
   ```
-  Expected: All pass. Weights must match to within 1e-12 of pre-change reference (floating-point reassociation changes sum order — this is acceptable; `test-ieppa.R` uses `tolerance = 1e-6`).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
   ```bash
-  git add src/ieppa.cpp
-  git commit -m "perf: hoist W-sum from scatter loop, 4-way ILP unroll in ieppa"
+  git add src/ieppa.cpp tests/testthat/task2_ieppa_ref.rds
+  git commit -m "perf: hoist W-sum from scatter loop, 4-way ILP unroll"
   ```
 
 ---
 
-### Task 3: Reduce errRp check frequency to every 10 iterations
+### Task 3: Reduce errRp check frequency to every 10 iterations (ieppa.cpp)
 
-`compute_errRp` does K+1 O(n) passes per call — nearly as expensive as a full IPF sweep. Checking every 10 iterations eliminates 90% of that cost. Worst-case overshoot: 9 extra iterations past true convergence.
+`compute_errRp` costs ~K O(n) passes per call — nearly as expensive as a full IPF sweep. Checking every 10 iterations cuts that overhead by 90%. Worst-case overshoot: 9 extra iterations past true convergence.
 
-**Files:**
-- Modify: `src/ieppa.cpp`
+**Files:** `src/ieppa.cpp` only.
 
-- [ ] **Step 1: Add the interval constant at the top of `ieppa_solve`**
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Margin error ≤ tol_abs after calibration (confirmed by existing `test-bounded-convergence.R`)
+- [ ] Committed with message `perf: check errRp every 10 iters — ~30% iEPPA speedup`
 
-  After `static constexpr int kMaxFixupIterations = 20;` (line 43), add:
+- [ ] **Step 1: Add the interval constant after `static constexpr int kMaxFixupIterations = 20;` (line 43)**
+
   ```cpp
   // Check convergence every N iterations instead of every 1.
-  // compute_errRp costs ~K O(n) passes — as expensive as a full sweep.
-  // Checking every 10 iters cuts that overhead by 90% at the cost of
-  // at most 9 extra iterations past true convergence.
+  // compute_errRp costs K O(n) passes — nearly as expensive as a full sweep.
+  // Every-10 reduces that overhead by 90% at the cost of ≤9 extra IPF iters.
   static constexpr int kErrCheckInterval = 10;
   ```
 
@@ -249,40 +421,52 @@ Currently `W += w[i]` is inside the bucket scatter-add loop, serialising both. S
 - [ ] **Step 3: Compile gate**
 
   ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -5
+  R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
 
-- [ ] **Step 4: Run tests — verify convergence behaviour preserved**
+- [ ] **Step 4 (GREEN): Verify convergence preserved**
 
   ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -20
+  Rscript -e "
+  library(leafblower)
+  set.seed(1); n <- 10000L
+  df  <- data.frame(
+    age = factor(sample(c('A','B','C'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c(A=0.4,B=0.35,C=0.25), sex=c(M=0.5,F=0.5))
+  r   <- harvest(df, tgt, method='ieppa')
+  cat('max_error:', r\$max_error, '\n')  # must be < 1e-3 (default tol)
+  stopifnot(r\$max_error < 1e-3)
+  cat('PASS\n')
+  " && Rscript -e "testthat::test_local()" 2>&1 | tail -5
   ```
-  `test-bounded-convergence.R` and `test-ieppa.R` check that weights satisfy margin constraints after calibration. They must all pass. Convergence iteration count may increase by up to 9, which is fine.
 
 - [ ] **Step 5: Commit**
 
   ```bash
   git add src/ieppa.cpp
-  git commit -m "perf: check errRp every 10 iters — eliminates ~30% of iEPPA work"
+  git commit -m "perf: check errRp every 10 iters — ~30% iEPPA speedup"
   ```
 
 ---
 
-### Task 4: `#pragma omp simd` on box-projection and normalise loops
+### Task 4a: Create stub lbw_config.h and wire include into ieppa.cpp
 
-These two O(n) loops in `ieppa_solve` are element-wise with no scatter — the compiler can auto-vectorise them with a hint. No OpenMP threading required; `omp simd` is a SIMD-only pragma.
+Required before Task 4b/4c. The `#pragma omp simd` guards reference `LBW_HAS_OMP_SIMD`, which lives in `lbw_config.h`. Without a pre-existing header, the `#if LBW_HAS_OMP_SIMD` evaluates an undefined identifier — a `-Wundef` error under CRAN checks. The real values are filled in by Task 5.
 
-**Files:**
-- Modify: `src/ieppa.cpp`
+**Files:** Create `src/lbw_config.h`; modify `src/ieppa.cpp` (add include only).
 
-- [ ] **Step 0: Pre-create a stub `src/lbw_config.h` and add the include to `ieppa.cpp`**
+**DoD:**
+- [ ] `src/lbw_config.h` exists with all features set to 0
+- [ ] `src/ieppa.cpp` has `#include "lbw_config.h"` after existing includes
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `src/lbw_config.h` listed in `src/.gitignore` and `.Rbuildignore`
+- [ ] Committed with message `build: add stub lbw_config.h with all features disabled`
 
-  `LBW_HAS_OMP_SIMD` is used in Steps 1 and 2 but `lbw_config.h` is only generated
-  by configure in Task 5. Without a pre-existing header, the `#if LBW_HAS_OMP_SIMD`
-  guard causes an undefined-identifier warning from `-Wundef` (treated as error in
-  CRAN checks). Create a stub now; Task 5 Step 3 will overwrite it with real values.
+- [ ] **Step 1: Create stub src/lbw_config.h**
 
-  ```sh
+  ```bash
   cat > src/lbw_config.h << 'EOF'
   /* Stub — overwritten by configure (Task 5). All features disabled. */
   #ifndef LBW_CONFIG_H
@@ -294,93 +478,174 @@ These two O(n) loops in `ieppa_solve` are element-wise with no scatter — the c
   EOF
   ```
 
-  Add `#include "lbw_config.h"` near the top of `src/ieppa.cpp` (after existing
-  `#include` lines). Do NOT add it to `lbfgsb_solver.cpp` yet — that is done in Task 5 Step 6.
+- [ ] **Step 2: Add include to ieppa.cpp (after existing #include lines)**
 
-- [ ] **Step 1: Add simd pragma to the normalise loop (lines 108)**
-
-  Replace:
+  Add:
   ```cpp
-  for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
-  ```
-  With:
-  ```cpp
-  // LBW_HAS_OMP_SIMD is a numeric value (0/1) from lbw_config.h, not a presence
-  // macro — use #if VALUE, not #if defined(VALUE). _OPENMP is a presence guard.
-  #if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-  #pragma omp simd
-  #endif
-  for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
+  #include "lbw_config.h"
   ```
 
-- [ ] **Step 2: Add simd pragma to the box-projection loop (lines 114–119)**
-
-  Replace:
-  ```cpp
-  for (int i = 0; i < st.n; i++) {
-      double yi = w[i] + q[i];
-      double wc = std::max(lo, std::min(hi, yi));
-      q[i] = yi - wc;
-      w[i] = wc;
-  }
-  ```
-  With:
-  ```cpp
-  #if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-  #pragma omp simd
-  #endif
-  for (int i = 0; i < st.n; i++) {
-      double yi = w[i] + q[i];
-      double wc = std::max(lo, std::min(hi, yi));
-      q[i] = yi - wc;
-      w[i] = wc;
-  }
-  ```
-
-- [ ] **Step 3: Compile gate**
+- [ ] **Step 3: Add to .Rbuildignore and src/.gitignore**
 
   ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -5
+  echo "^src/lbw_config\\.h$" >> .Rbuildignore
+  echo "lbw_config.h" >> src/.gitignore
   ```
-  `LBW_HAS_OMP_SIMD` is 0 until Task 5 generates `lbw_config.h` — the guard evaluates
-  `#if 0` (inactive), so the pragma is absent and the build is clean. After Task 5 the
-  guard becomes `#if 1` and the pragma is active.
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Compile gate**
 
   ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -20
+  R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
-  Expected: all pass, identical results (simd pragma must not alter semantics).
 
 - [ ] **Step 5: Commit**
 
   ```bash
+  git add src/lbw_config.h src/ieppa.cpp .Rbuildignore src/.gitignore
+  git commit -m "build: add stub lbw_config.h with all features disabled"
+  ```
+
+---
+
+### Task 4b: Add #pragma omp simd to normalise loop (ieppa.cpp)
+
+The normalise loop `w[i] /= wm; q[i] /= wm` is element-wise with no scatter — the compiler can auto-vectorise with a hint. The guard falls back to no-op when OpenMP is absent.
+
+**Files:** `src/ieppa.cpp` only — normalise loop at line 108.
+
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `perf: omp simd hint on normalise loop`
+
+- [ ] **Step 1: Wrap the normalise loop with the simd pragma**
+
+  Replace:
+  ```cpp
+  for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
+  ```
+  With:
+  ```cpp
+  // LBW_HAS_OMP_SIMD is numeric (0/1) from lbw_config.h — use #if VALUE not #if defined(VALUE).
+  // _OPENMP is a presence macro (undef or defined) — use #if defined(_OPENMP).
+  #if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+  #pragma omp simd
+  #endif
+  for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
+  ```
+
+- [ ] **Step 2: Compile gate**
+
+  ```bash
+  R CMD INSTALL --preclean . 2>&1 | tail -1
+  ```
+
+- [ ] **Step 3 (GREEN): Test suite**
+
+  ```bash
+  Rscript -e "testthat::test_local()" 2>&1 | tail -5
+  ```
+
+- [ ] **Step 4: Commit**
+
+  ```bash
   git add src/ieppa.cpp
-  git commit -m "perf: omp simd hint on box-projection and normalise loops"
+  git commit -m "perf: omp simd hint on normalise loop"
+  ```
+
+---
+
+### Task 4c: Add #pragma omp simd to box-projection loop (ieppa.cpp)
+
+Same SIMD hint for the Dykstra box-projection loop — element-wise clamp with no dependencies.
+
+**Files:** `src/ieppa.cpp` only — box-projection loop at lines 114–119.
+
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `max(abs(w_after - w_ref)) < 1e-12` (box semantics must be bit-identical)
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `perf: omp simd hint on box-projection loop`
+
+- [ ] **Step 1: Wrap the box-projection loop**
+
+  Replace:
+  ```cpp
+  for (int i = 0; i < st.n; i++) {
+      double yi = w[i] + q[i];
+      double wc = std::max(lo, std::min(hi, yi));
+      q[i] = yi - wc;
+      w[i] = wc;
+  }
+  ```
+  With:
+  ```cpp
+  #if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+  #pragma omp simd
+  #endif
+  for (int i = 0; i < st.n; i++) {
+      double yi = w[i] + q[i];
+      double wc = std::max(lo, std::min(hi, yi));
+      q[i] = yi - wc;
+      w[i] = wc;
+  }
+  ```
+
+- [ ] **Step 2: Compile gate**
+
+  ```bash
+  R CMD INSTALL --preclean . 2>&1 | tail -1
+  ```
+
+- [ ] **Step 3 (GREEN): Assert box semantics preserved + test suite**
+
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(1); n <- 10000L
+  df  <- data.frame(
+    age = factor(sample(c('A','B','C'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c(A=0.4,B=0.35,C=0.25), sex=c(M=0.5,F=0.5))
+  w_after <- harvest(df, tgt, method='ieppa', max_weight=3, attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/task2_ieppa_ref.rds')
+  cat('max_weight:', max(w_after), '\n')  # must be <= 3
+  stopifnot(max(w_after) <= 3.0 + 1e-10)
+  cat('PASS\n')
+  " && Rscript -e "testthat::test_local()" 2>&1 | tail -5
+  ```
+
+- [ ] **Step 4: Commit**
+
+  ```bash
+  git add src/ieppa.cpp
+  git commit -m "perf: omp simd hint on box-projection loop"
   ```
 
 ---
 
 ## Phase 2 — Configure-detected libmvec + OpenMP
 
-### Task 5: Configure detection — libmvec, OpenMP, lbw_config.h
+---
 
-Extends the existing `configure` script (which currently detects c++17 and -O3) with libmvec and OpenMP probes. Generates `src/lbw_config.h` with feature macros. Fallback to scalar/serial on all platforms.
+### Task 5: Configure detection — OpenMP, libmvec, lbw_config.h
 
-**Files:**
-- Modify: `configure`
-- Modify: `src/Makevars.in`
-- Create: `src/lbw_config.h` (generated by configure; add to `.Rbuildignore`)
+Extends the existing `configure` script (currently detects C++17 and -O3) with libmvec and OpenMP probes. Overwrites the stub `src/lbw_config.h` from Task 4a with real values. Adds `@OMP_FLAGS@`, `@MAVX2_FLAG@`, and `@MVEC_LIBS@` to `src/Makevars.in`.
 
-- [ ] **Step 1: Extend `configure` with OpenMP probe**
+**Files:** `configure`, `src/Makevars.in`. (`src/lbw_config.h` is overwritten by configure at install time — not committed.)
 
-  Append to `configure` (after the existing `-O3` detection, before the final `sed` call):
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | grep -E "(OpenMP|libmvec|DONE)"` shows detection result and `DONE`
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)` on Linux AND macOS paths
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `build: configure detection for OpenMP, -mavx2, and glibc libmvec`
+
+- [ ] **Step 1: Append OpenMP probe to configure (after the -O3 detection, before the final sed call)**
 
   ```sh
   # Detect OpenMP: use R's SHLIB_OPENMP_CXXFLAGS (no new package dep).
   OMP_FLAGS=""
-  OMP_LIBS=""
   LBW_HAS_OMP_SIMD=0
   LBW_HAS_OMP=0
   if [ -n "${SHLIB_OPENMP_CXXFLAGS}" ]; then
@@ -391,7 +656,6 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
       if eval $CXX ${SHLIB_OPENMP_CXXFLAGS} -x c++ /tmp/lbw_omp_test.cpp \
              -o /tmp/lbw_omp_test ${SHLIB_OPENMP_CXXFLAGS} 2>/dev/null; then
           OMP_FLAGS="${SHLIB_OPENMP_CXXFLAGS}"
-          OMP_LIBS="${SHLIB_OPENMP_CXXFLAGS}"
           LBW_HAS_OMP_SIMD=1
           LBW_HAS_OMP=1
           echo "configure: OpenMP detected — parallel errRp and simd enabled"
@@ -402,13 +666,12 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
   fi
   ```
 
-- [ ] **Step 2: Extend `configure` with libmvec probe (after OpenMP probe)**
+- [ ] **Step 2: Append libmvec probe (after OpenMP probe, before sed call)**
 
   ```sh
-  # Detect glibc libmvec vectorised exp (_ZGVdN4v_exp — AVX2, 4-wide double).
-  # Linux/glibc only; graceful fallback on macOS and Windows.
-  # _ZGVdN4v_exp lives in libmvec.so (glibc >= 2.22) — must link -lmvec, NOT just -lm.
-  # -mavx2 must also be added to PKG_CXXFLAGS so __m256d intrinsics compile.
+  # Detect glibc libmvec (_ZGVdN4v_exp — AVX2, 4-wide double, glibc >= 2.22).
+  # _ZGVdN4v_exp is in libmvec.so, NOT libm.so. Linker flag must be -lmvec.
+  # -mavx2 is required in PKG_CXXFLAGS so __m256d intrinsics compile.
   LBW_HAS_GLIBC_MVEC=0
   MVEC_LIBS=""
   MAVX2_FLAG=""
@@ -421,56 +684,41 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
       (void)r; return 0;
   }
   EOF
-      if eval $CXX -mavx2 /tmp/lbw_mvec_test.cpp \
-             -o /tmp/lbw_mvec_test -lm -lmvec 2>/dev/null && \
-         /tmp/lbw_mvec_test 2>/dev/null; then
-          LBW_HAS_GLIBC_MVEC=1
-          MVEC_LIBS="-lm -lmvec"   # _ZGVdN4v_exp is in libmvec.so, not libm.so
-          MAVX2_FLAG="-mavx2"       # required to compile __m256d intrinsics in lbw_math.hpp
-          echo "configure: glibc libmvec detected — vectorised exp enabled for L-BFGS-B"
-      else
-          echo "configure: glibc libmvec not available — scalar exp fallback"
-      fi
+  if eval $CXX -mavx2 /tmp/lbw_mvec_test.cpp \
+         -o /tmp/lbw_mvec_test -lm -lmvec 2>/dev/null && \
+     /tmp/lbw_mvec_test 2>/dev/null; then
+      LBW_HAS_GLIBC_MVEC=1
+      MVEC_LIBS="-lm -lmvec"
+      MAVX2_FLAG="-mavx2"
+      echo "configure: glibc libmvec detected — vectorised exp enabled for L-BFGS-B"
+  else
+      echo "configure: glibc libmvec not available — scalar exp fallback"
+  fi
   rm -f /tmp/lbw_mvec_test.cpp /tmp/lbw_mvec_test
   ```
 
-- [ ] **Step 3: Generate `src/lbw_config.h` and update the final sed call in configure**
+- [ ] **Step 3: Overwrite lbw_config.h with real probe values and update the sed call**
 
-  After the probes, add the `lbw_config.h` generator:
+  After the probes, add:
   ```sh
   cat > src/lbw_config.h << EOF
   /* Auto-generated by configure — do not edit. */
   #ifndef LBW_CONFIG_H
   #define LBW_CONFIG_H
-  /* OpenMP SIMD hint: active when omp simd is supported. */
   #define LBW_HAS_OMP_SIMD ${LBW_HAS_OMP_SIMD}
-  /* OpenMP threading: active when full OpenMP is available. */
   #define LBW_HAS_OMP ${LBW_HAS_OMP}
-  /* glibc libmvec vectorised exp/log (AVX2, Linux/gcc only). */
   #define LBW_HAS_GLIBC_MVEC ${LBW_HAS_GLIBC_MVEC}
   #endif /* LBW_CONFIG_H */
   EOF
   ```
 
-  Then **replace** the existing final sed call (line 19-20 of configure, which currently only
-  substitutes `@CXXFLAGS_STD@` and `@OPT_FLAGS@`) with a 4-variable substitution:
-
-  Old (current configure, lines 19-20):
-  ```sh
-  sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|" \
-      src/Makevars.in > src/Makevars
-  ```
-
-  New (extends to also substitute the three new Makevars.in placeholders):
+  Replace the existing final sed call (current line 19–20 of configure, 2 substitutions) with 5:
   ```sh
   sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|;s|@OMP_FLAGS@|${OMP_FLAGS}|;s|@MAVX2_FLAG@|${MAVX2_FLAG}|;s|@MVEC_LIBS@|${MVEC_LIBS}|" \
       src/Makevars.in > src/Makevars
   ```
 
-  Without this change the two new placeholders remain literal in `src/Makevars` and the
-  package fails to compile with flags containing `@OMP_FLAGS@` verbatim.
-
-- [ ] **Step 4: Update `src/Makevars.in` to include new flags**
+- [ ] **Step 4: Update src/Makevars.in**
 
   Replace current content:
   ```makefile
@@ -484,58 +732,68 @@ Extends the existing `configure` script (which currently detects c++17 and -O3) 
   PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp r_bridge.cpp
   ```
 
-  `@MAVX2_FLAG@` resolves to `-mavx2` on Linux/glibc when libmvec is detected, empty
-  string otherwise. Without this, `__m256d` and `_mm256_*` in `lbw_math.hpp` produce
-  a hard compile error on the very platform the feature targets.
+- [ ] **Step 5: Add lbw_config.h include to lbfgsb_solver.cpp (after existing includes)**
 
-- [ ] **Step 5: Add `src/lbw_config.h` to `.Rbuildignore` and `src/.gitignore`**
-
-  ```bash
-  echo "^src/lbw_config\\.h$" >> .Rbuildignore
-  echo "lbw_config.h" >> src/.gitignore
-  ```
-  (The file is generated at install time, not shipped in the tarball.)
-
-- [ ] **Step 6: Add `include "lbw_config.h"` to ieppa.cpp and lbfgsb_solver.cpp**
-
-  Add at the top of each file, after existing `#include` lines:
   ```cpp
   #include "lbw_config.h"
   ```
-  This makes `LBW_HAS_OMP_SIMD` and `LBW_HAS_OMP` available to both files.
+  (`ieppa.cpp` already has this from Task 4a.)
 
-- [ ] **Step 7: Compile gate**
+- [ ] **Step 6: Compile gate**
 
   ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -10
+  R CMD INSTALL --preclean . 2>&1 | grep -E "(OpenMP|libmvec|DONE)"
   ```
-  On Linux/gcc with glibc: expect "vectorised exp enabled" and "OpenMP detected" in configure output.
-  On macOS/Windows: expect both "not available" messages — scalar fallback, package still builds.
+  On Linux/gcc: expect "OpenMP detected" and "libmvec detected" and "DONE".
+  On macOS: expect both "not available" messages and "DONE".
 
-- [ ] **Step 8: Run tests**
+- [ ] **Step 7: Test suite**
 
   ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -20
+  Rscript -e "testthat::test_local()" 2>&1 | tail -5
   ```
-  Expected: all pass on all platforms.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
   ```bash
-  git add configure src/Makevars.in src/.gitignore .Rbuildignore src/ieppa.cpp src/lbfgsb_solver.cpp
-  git commit -m "build: configure detection for OpenMP and glibc libmvec"
+  git add configure src/Makevars.in src/lbfgsb_solver.cpp
+  git commit -m "build: configure detection for OpenMP, -mavx2, and glibc libmvec"
   ```
 
 ---
 
-### Task 6: Bulk vectorised exp/log dispatch header (lbw_math.hpp)
+### Task 6: Create lbw_math.hpp + save lbfgsb reference weights
 
-Provides `lbw::bulk_scaled_exp(scale, u, out, n)`: batches the `exp(scale * u[i])` call that appears in every L-BFGS-B iteration. Dispatches to `_ZGVdN4v_exp` when available; falls back to scalar loop.
+Adds `lbw::bulk_scaled_exp()` — dispatches to `_ZGVdN4v_exp` (glibc libmvec AVX2) when available, scalar fallback otherwise. Also saves reference lbfgsb weights NOW (before the AVX2 path is wired in Task 7) to enable numerical regression testing.
 
-**Files:**
-- Create: `src/lbw_math.hpp`
+**Files:** Create `src/lbw_math.hpp` only.
 
-- [ ] **Step 1: Write `lbw_math.hpp`**
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)` (header not yet included)
+- [ ] `tests/testthat/lbfgsb_ref_weights.rds` exists and committed
+- [ ] `max(w_ref) <= max_weight` and `mean(w_ref) ≈ 1.0` (confirmed in Step 3)
+- [ ] Committed with message `perf: add lbw_math.hpp + save lbfgsb reference weights`
+
+- [ ] **Step 1 (RED): Save lbfgsb reference weights before vectorised path is wired in**
+
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(42); n <- 20000L
+  df  <- data.frame(
+    age = factor(sample(c('18-34','35-54','55+'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c('18-34'=0.30,'35-54'=0.45,'55+'=0.25), sex=c(M=0.50,F=0.50))
+  w_ref <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  saveRDS(w_ref, 'tests/testthat/lbfgsb_ref_weights.rds')
+  cat('ref saved. max:', max(w_ref), 'mean:', mean(w_ref), '\n')
+  stopifnot(abs(mean(w_ref) - 1.0) < 0.01)
+  cat('PASS\n')
+  "
+  ```
+
+- [ ] **Step 2: Write src/lbw_math.hpp**
 
   ```cpp
   #pragma once
@@ -550,8 +808,8 @@ Provides `lbw::bulk_scaled_exp(scale, u, out, n)`: batches the `exp(scale * u[i]
   namespace lbw {
 
   // Compute out[i] = exp(scale * u[i]) for i in [0, n).
-  // When glibc libmvec is available: processes 4 doubles/cycle via AVX2.
-  // Otherwise: scalar std::exp loop.
+  // With glibc libmvec: 4 doubles/cycle via AVX2 _ZGVdN4v_exp.
+  // Otherwise: scalar std::exp.
   inline void bulk_scaled_exp(double scale,
                                const double* __restrict__ u,
                                double*       __restrict__ out,
@@ -573,60 +831,51 @@ Provides `lbw::bulk_scaled_exp(scale, u, out, n)`: batches the `exp(scale * u[i]
   } // namespace lbw
   ```
 
-- [ ] **Step 2: Compile gate (include check)**
+- [ ] **Step 3: Compile gate (header not yet included — tests package builds)**
 
   ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -5
-  ```
-  The header is not yet included by anything — compile gate verifies the file is syntactically valid by checking the package builds cleanly.
-
-- [ ] **Step 3: Numerical correctness marker (end-to-end)**
-
-  `bulk_scaled_exp` has no unit-testable surface at the R level. Establish a reference
-  weight vector NOW (before Task 7 wires in the vectorised path) so that Task 7 Step 6
-  can assert bit-level agreement between scalar and AVX2 paths.
-
-  ```r
-  library(leafblower)
-  set.seed(42); n <- 20000L
-  df  <- data.frame(
-    age = factor(sample(c("18-34","35-54","55+"), n, replace=TRUE)),
-    sex = factor(sample(c("M","F"), n, replace=TRUE))
-  )
-  tgt <- list(age=c("18-34"=0.30,"35-54"=0.45,"55+"=0.25), sex=c(M=0.50,F=0.50))
-  w_ref <- harvest(df, tgt, method="lbfgsb", attach_weights=FALSE)
-  saveRDS(w_ref, "tests/testthat/lbfgsb_ref_weights.rds")
-  cat("Reference weights saved. max:", max(w_ref), "mean:", mean(w_ref), "\n")
+  R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
 
-  Commit `tests/testthat/lbfgsb_ref_weights.rds`. After Task 7, Task 7 Step 6 loads
-  this and asserts `max(abs(w_new - w_ref)) < 1e-10`.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
   ```bash
   git add src/lbw_math.hpp tests/testthat/lbfgsb_ref_weights.rds
-  git commit -m "perf: add lbw_math.hpp with bulk_scaled_exp dispatch (libmvec / scalar)"
+  git commit -m "perf: add lbw_math.hpp + save lbfgsb reference weights"
   ```
 
 ---
 
-### Task 7: Apply vectorised exp to L-BFGS-B Wolfe loops
+### Task 7a: Add F_from_e() and H_from_e() to logit.hpp
 
-Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs trial loop, using `bulk_scaled_exp`. F and H then read from `e[]` with no further exp calls.
+These read from a pre-computed `e = exp(logit_scale * u)` array. Used in Tasks 7c/7d where `bulk_scaled_exp` pre-fills the array before the per-obs loop.
 
-**Files:**
-- Modify: `src/lbfgsb_solver.cpp`
-- Modify: `src/logit.hpp` — add `F_from_e()` and `H_from_e()` helpers
+**Files:** `src/logit.hpp` only.
 
-- [ ] **Step 1: Add `F_from_e()` and `H_from_e()` to `LinkFn` in logit.hpp**
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `F_from_e(e) == F(u)` for 3 test values (traced in Step 1)
+- [ ] `H_from_e(e, u) == H(u)` for 3 test values (traced in Step 1)
+- [ ] `max(abs(w_after - w_ref)) < 1e-12` (functions not yet called — no change expected)
+- [ ] Committed with message `perf: add F_from_e/H_from_e to LinkFn for pre-computed exp`
 
-  After the `FH()` method, add:
+- [ ] **Step 1 (RED): Trace F_from_e and H_from_e on concrete values before implementing**
+
+  For u=0.5, L=0.2, U=5.0, logit_scale=1.5:
+  - `e = exp(1.5 * 0.5) = exp(0.75) ≈ 2.117`
+  - `F_from_e(2.117)`: `num = 0.2*4 + 5*0.8*2.117 = 9.268`, `denom = 4 + 0.8*2.117 = 5.694` → `f = 9.268/5.694 ≈ 1.628`
+  - `F(0.5)` must equal `1.628` — verify against existing F() before implementing F_from_e
+  - `H_from_e(2.117, 0.5)`: `num = 4 + 0.8*2.117 = 5.694` → `h = 0.2*0.5 + (4.8/1.5)*ln(5.694/4.8) ≈ 0.395`
+  - `H(0.5)` must equal `0.395`
+
+- [ ] **Step 2 (GREEN): Add F_from_e() and H_from_e() after FH() in logit.hpp**
+
   ```cpp
-  // F and H computed from pre-computed e = exp(logit_scale * u).
-  // Used in vectorised Wolfe loops where e[] is batch-computed by bulk_scaled_exp.
+  // F and H from pre-computed e = exp(logit_scale * u).
+  // Precondition: e was computed as exp(logit_scale * u) — not for exponential link.
+  // Callers must branch on fn.exponential and fall back to FH() when true.
   double F_from_e(double e) const {
-      if (exponential) return e;  // e = exp(u) in exp-link case
+      if (exponential) return e;
       return (L * (U - 1.0) + U * (1.0 - L) * e) /
              ((U - 1.0) + (1.0 - L) * e);
   }
@@ -637,26 +886,111 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   }
   ```
 
-- [ ] **Step 2: Add include and scratch buffer to `lbfgsb_solve`**
+- [ ] **Step 3: Compile gate**
 
-  At the top of lbfgsb_solver.cpp, after existing includes:
+  ```bash
+  R CMD INSTALL --preclean . 2>&1 | tail -1
+  ```
+
+- [ ] **Step 4 (GREEN): Assert no weight regression (functions unused yet)**
+
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(42); n <- 20000L
+  df  <- data.frame(
+    age = factor(sample(c('18-34','35-54','55+'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c('18-34'=0.30,'35-54'=0.45,'55+'=0.25), sex=c(M=0.50,F=0.50))
+  w_after <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/lbfgsb_ref_weights.rds')
+  stopifnot(max(abs(w_after - w_ref)) < 1e-12)
+  cat('PASS\n')
+  "
+  ```
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/logit.hpp
+  git commit -m "perf: add F_from_e/H_from_e to LinkFn for pre-computed exp"
+  ```
+
+---
+
+### Task 7b: Add lbw_math.hpp include and e_vec scratch buffer to lbfgsb_solve
+
+Wire `lbw_math.hpp` into `lbfgsb_solver.cpp` and allocate the `e_vec` scratch buffer in `lbfgsb_solve`. No loop bodies changed yet — this is a pure plumbing step.
+
+**Files:** `src/lbfgsb_solver.cpp` only — two additions: one include, one vector declaration.
+
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `max(abs(w_after - w_ref)) < 1e-12` (e_vec unused — no change expected)
+- [ ] Committed with message `perf: wire lbw_math.hpp and e_vec scratch into lbfgsb_solve`
+
+- [ ] **Step 1: Add #include "lbw_math.hpp" to lbfgsb_solver.cpp (after existing includes)**
+
   ```cpp
   #include "lbw_math.hpp"
   ```
 
-  In `lbfgsb_solve`, after the existing scratch buffer declarations (around line 305):
+- [ ] **Step 2: Add e_vec declaration in lbfgsb_solve after the existing scratch buffers (~line 306)**
+
+  After `std::vector<double> u_work(st.n);`:
   ```cpp
-  std::vector<double> e_vec(st.n);   // scratch: exp(logit_scale * u_work[i])
+  std::vector<double> e_vec(st.n);   // scratch: exp(logit_scale * u_work[i]) per trial
   ```
 
-- [ ] **Step 3: Update `wolfe_line_search` signature and trial loop to use `e_vec`**
+- [ ] **Step 3: Compile gate**
 
-  `e_vec` is allocated in `lbfgsb_solve` and must be threaded through both
-  `wolfe_line_search` and `wolfe_zoom`. Start with `wolfe_line_search`.
+  ```bash
+  R CMD INSTALL --preclean . 2>&1 | tail -1
+  ```
 
-  **3a. Add `e_vec` to `wolfe_line_search` signature** (insert after `u_work` parameter):
+- [ ] **Step 4 (GREEN): Assert no weight regression**
 
-  Old declaration (line 230-239):
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(42); n <- 20000L
+  df  <- data.frame(
+    age = factor(sample(c('18-34','35-54','55+'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c('18-34'=0.30,'35-54'=0.45,'55+'=0.25), sex=c(M=0.50,F=0.50))
+  w_after <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/lbfgsb_ref_weights.rds')
+  stopifnot(max(abs(w_after - w_ref)) < 1e-12)
+  cat('PASS\n')
+  "
+  ```
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/lbfgsb_solver.cpp
+  git commit -m "perf: wire lbw_math.hpp and e_vec scratch into lbfgsb_solve"
+  ```
+
+---
+
+### Task 7c: Update wolfe_line_search to use bulk_scaled_exp + e_vec
+
+Adds `e_vec` as a parameter to `wolfe_line_search`, calls `bulk_scaled_exp` before the trial loop, and replaces FH() with F_from_e/H_from_e per observation. Also updates both `wolfe_zoom` call sites in this function to pass `e_vec`.
+
+**Files:** `src/lbfgsb_solver.cpp` only — `wolfe_line_search` function (lines 230–291) and its two `wolfe_zoom` call sites (lines 266, 278). Also update `lbfgsb_solve`'s call to `wolfe_line_search` (line 338).
+
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `max(abs(w_after - w_ref)) < 1e-10` (AVX2 vs scalar exp may differ by ≤ ULP)
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `perf: bulk_scaled_exp in wolfe_line_search trial loop`
+
+- [ ] **Step 1: Add e_vec to wolfe_line_search signature (after u_work)**
+
+  Old signature (lines 230–239):
   ```cpp
   static double wolfe_line_search(
           const CalibState& st, const LinkFn& fn,
@@ -669,7 +1003,7 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
           std::vector<double>& lam_new, std::vector<double>& grad_new,
           double& phi_new) {
   ```
-  New:
+  New (insert `std::vector<double>& e_vec,` after `u_work`):
   ```cpp
   static double wolfe_line_search(
           const CalibState& st, const LinkFn& fn,
@@ -684,9 +1018,9 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
           double& phi_new) {
   ```
 
-  **3b. Replace the trial loop body** (lines 256-263, inside the `for (int i = 0; i < 20; i++)` bracket loop):
+- [ ] **Step 2: Replace trial loop body in wolfe_line_search (lines 256–263)**
 
-  Old:
+  Old (lines 256–263 inside the `for (int i = 0; i < 20; i++)` bracket loop):
   ```cpp
   for (int j = 0; j < st.n; j++) u_work[j] = u_base[j] + alpha * du[j];
   double phi_trial = Tlam + Tdir * alpha;
@@ -713,10 +1047,9 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   }
   ```
 
-  **3c. Update BOTH `wolfe_zoom` call sites in `wolfe_line_search`** to pass `e_vec`.
-  There are exactly two call sites; both must be updated or the code will not compile.
+- [ ] **Step 3: Update BOTH wolfe_zoom call sites to pass e_vec**
 
-  Call site 1 (lines 266-269, Armijo violation or non-first-iter phi increase):
+  Call site 1 (lines 266–269, Armijo-fail or phi-increase):
   Old:
   ```cpp
   return wolfe_zoom(st, fn, off, T, d, phi_0, slope_0,
@@ -732,7 +1065,7 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
                     lam_new, grad_new, phi_new);
   ```
 
-  Call site 2 (lines 278-281, negative slope — zoom from other side):
+  Call site 2 (lines 278–281, negative slope):
   Old:
   ```cpp
   return wolfe_zoom(st, fn, off, T, d, phi_0, slope_0,
@@ -748,7 +1081,7 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
                     lam_new, grad_new, phi_new);
   ```
 
-  **3d. Update `lbfgsb_solve`'s call to `wolfe_line_search`** (line 338-339) to pass `e_vec`:
+- [ ] **Step 4: Update lbfgsb_solve's call to wolfe_line_search (line 338)**
 
   Old:
   ```cpp
@@ -761,11 +1094,56 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
                     u, du, u_work, e_vec, dir, lam_new, grad_new, phi_new);
   ```
 
-- [ ] **Step 4: Update `wolfe_zoom` signature and bisection trial loop**
+- [ ] **Step 5: Compile gate**
 
-  **4a. Add `e_vec` to `wolfe_zoom` signature** (insert after `u_work` parameter).
+  ```bash
+  R CMD INSTALL --preclean . 2>&1 | tail -1
+  ```
 
-  Old declaration (line 175-185):
+- [ ] **Step 6 (GREEN): Assert weights within AVX2/scalar ULP tolerance**
+
+  ```bash
+  Rscript -e "
+  library(leafblower)
+  set.seed(42); n <- 20000L
+  df  <- data.frame(
+    age = factor(sample(c('18-34','35-54','55+'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
+  )
+  tgt <- list(age=c('18-34'=0.30,'35-54'=0.45,'55+'=0.25), sex=c(M=0.50,F=0.50))
+  w_after <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/lbfgsb_ref_weights.rds')
+  delta   <- max(abs(w_after - w_ref))
+  cat('delta:', delta, '\n')
+  stopifnot(delta < 1e-10)
+  cat('PASS\n')
+  " && Rscript -e "testthat::test_local()" 2>&1 | tail -5
+  ```
+
+- [ ] **Step 7: Commit**
+
+  ```bash
+  git add src/lbfgsb_solver.cpp
+  git commit -m "perf: bulk_scaled_exp in wolfe_line_search trial loop"
+  ```
+
+---
+
+### Task 7d: Update wolfe_zoom to use bulk_scaled_exp + e_vec
+
+Same vectorised exp pattern for the zoom bisection loop. `wolfe_zoom` is called with `u_work` already passed by reference; `e_vec` needs to be added to its signature.
+
+**Files:** `src/lbfgsb_solver.cpp` only — `wolfe_zoom` function (lines 175–225).
+
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
+- [ ] `max(abs(w_after - w_ref)) < 1e-10` (same lbfgsb_ref_weights.rds)
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `perf: bulk_scaled_exp in wolfe_zoom bisection loop`
+
+- [ ] **Step 1: Add e_vec to wolfe_zoom signature (after u_work)**
+
+  Old signature (lines 175–185):
   ```cpp
   static double wolfe_zoom(
           const CalibState& st, const LinkFn& fn,
@@ -779,7 +1157,7 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
           std::vector<double>& lam_new, std::vector<double>& grad_new,
           double& phi_new) {
   ```
-  New:
+  New (insert `std::vector<double>& e_vec,` after `u_work`):
   ```cpp
   static double wolfe_zoom(
           const CalibState& st, const LinkFn& fn,
@@ -795,9 +1173,9 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
           double& phi_new) {
   ```
 
-  **4b. Replace the bisection trial loop body** (lines 198-205, inside the `for (int j = 0; j < 20; j++)` zoom loop):
+- [ ] **Step 2: Replace bisection trial loop body in wolfe_zoom (lines 198–205)**
 
-  Old:
+  Old (inside `for (int j = 0; j < 20; j++)` zoom loop):
   ```cpp
   for (int i = 0; i < st.n; i++) u_work[i] = u_base[i] + alpha * du[i];
   double phi_trial = Tlam + alpha * Tdir;
@@ -824,81 +1202,64 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   }
   ```
 
-  Note: the second `u_work` update at line 222 (`for (int i...) u_work[i] = u_base[i] + alpha_accepted * du[i]`)
-  is for the final accepted-point recompute passed to `phi_from_u` — it does NOT need `bulk_scaled_exp`
-  because `phi_from_u` calls `phi_and_grad` which computes its own full O(K·n) computation internally.
+  Note: the second `u_work` update at line 222 (final accepted-point recompute before
+  `phi_from_u`) does NOT need `bulk_scaled_exp` — `phi_from_u` runs its own full O(K·n)
+  computation internally.
 
-- [ ] **Step 5: Compile gate**
-
-  ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -5
-  ```
-
-- [ ] **Step 6: Run full tests and validate vectorised path numerically**
+- [ ] **Step 3: Compile gate**
 
   ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -20
+  R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
-  `test-lbfgsb.R` checks weight correctness and bound enforcement. All must pass.
 
-  Then compare against the reference weights saved in Task 6 Step 3:
-  ```r
+- [ ] **Step 4 (GREEN): Assert weights + full test suite**
+
+  ```bash
+  Rscript -e "
   library(leafblower)
   set.seed(42); n <- 20000L
   df  <- data.frame(
-    age = factor(sample(c("18-34","35-54","55+"), n, replace=TRUE)),
-    sex = factor(sample(c("M","F"), n, replace=TRUE))
+    age = factor(sample(c('18-34','35-54','55+'), n, replace=TRUE)),
+    sex = factor(sample(c('M','F'), n, replace=TRUE))
   )
-  tgt <- list(age=c("18-34"=0.30,"35-54"=0.45,"55+"=0.25), sex=c(M=0.50,F=0.50))
-  w_new <- harvest(df, tgt, method="lbfgsb", attach_weights=FALSE)
-  w_ref <- readRDS("tests/testthat/lbfgsb_ref_weights.rds")
-  cat("max diff (vectorised vs scalar ref):", max(abs(w_new - w_ref)), "\n")
-  stopifnot(max(abs(w_new - w_ref)) < 1e-10)
-  cat("PASS: vectorised exp numerically identical to scalar path\n")
+  tgt <- list(age=c('18-34'=0.30,'35-54'=0.45,'55+'=0.25), sex=c(M=0.50,F=0.50))
+  w_after <- harvest(df, tgt, method='lbfgsb', attach_weights=FALSE)
+  w_ref   <- readRDS('tests/testthat/lbfgsb_ref_weights.rds')
+  delta   <- max(abs(w_after - w_ref))
+  cat('delta:', delta, '\n')
+  stopifnot(delta < 1e-10)
+  cat('PASS\n')
+  " && Rscript -e "testthat::test_local()" 2>&1 | tail -5
   ```
-  This directly validates that `bulk_scaled_exp` on the AVX2 path produces
-  identical values to the scalar `std::exp` path used when building the reference.
 
-- [ ] **Step 7: Benchmark L-BFGS-B path before/after**
-
-  ```r
-  library(leafblower); library(bench)
-  set.seed(42); n <- 50000L
-  age <- sample(c("18-34","35-54","55+"), n, replace=TRUE, prob=c(0.35,0.40,0.25))
-  sex <- sample(c("M","F"), n, replace=TRUE, prob=c(0.52,0.48))
-  edu <- sample(c("HS","College","Grad"), n, replace=TRUE, prob=c(0.40,0.40,0.20))
-  df  <- data.frame(age=factor(age), sex=factor(sex), edu=factor(edu))
-  tgt <- list(age=c("18-34"=0.30,"35-54"=0.45,"55+"=0.25),
-              sex=c(M=0.50,F=0.50), edu=c(HS=0.35,College=0.45,Grad=0.20))
-  bench::mark(harvest(df, tgt, method="lbfgsb"), iterations=10)
-  ```
-  Expected improvement on Linux/gcc: 25-50% reduction in median time.
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 5: Commit**
 
   ```bash
-  git add src/lbfgsb_solver.cpp src/logit.hpp
-  git commit -m "perf: vectorise Wolfe exp via bulk_scaled_exp (libmvec / scalar fallback)"
+  git add src/lbfgsb_solver.cpp
+  git commit -m "perf: bulk_scaled_exp in wolfe_zoom bisection loop"
   ```
 
 ---
 
-### Task 8: OpenMP parallel `compute_errRp` with thread-local buckets
+### Task 8: OpenMP-parallel compute_errRp (ieppa.cpp)
 
-`compute_errRp`'s K margin passes are fully independent (read-only on `w[]`). Parallelise across K with `#pragma omp parallel for`, each thread using a private bucket array. With K=9 and 4–8 cores this yields near-linear speedup on the errRp component.
+K margin passes in `compute_errRp` are read-only on `w[]` — fully independent. Parallelise with `#pragma omp parallel for`, each thread using a private bucket. With K=9 and 4–8 cores this yields near-linear speedup on the errRp component (which after Task 3 fires only every 10 iters).
 
-**Files:**
-- Modify: `src/ieppa.cpp`
+**Files:** `src/ieppa.cpp` only — `compute_errRp` function (lines 14–33).
 
-- [ ] **Step 1: Rewrite `compute_errRp` with OpenMP guard**
+**DoD:**
+- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)` on Linux/gcc
+- [ ] `delta_par_vs_ser < 1e-12` (explicit parallel vs serial comparison, Step 3)
+- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
+- [ ] Committed with message `perf: OpenMP-parallel compute_errRp — K margins concurrent`
 
-  Replace the current `compute_errRp` function (lines 14–33) with:
+- [ ] **Step 1: Rewrite compute_errRp with OpenMP guard (replace lines 14–33)**
 
   ```cpp
   static double compute_errRp(const CalibState& st,
                                const std::vector<double>& w,
                                std::vector<double>& bucket) {
-      // W sum: 4-way ILP (same pattern as hot loop — vectorisable).
+      // W sum: 4-way ILP (vectorisable).
       double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
       int i4 = st.n & ~3;
       for (int i = 0; i < i4; i += 4) {
@@ -911,10 +1272,8 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
       double err = 0.0;
   #if LBW_HAS_OMP
       // K margin passes are read-only on w[] — fully independent.
-      // Thread-local bucket avoids false sharing and scatter conflicts.
       int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
-      #pragma omp parallel for schedule(static) reduction(max:err) \
-              firstprivate(max_cats)
+      #pragma omp parallel for schedule(static) reduction(max:err)
       for (int k = 0; k < st.K; k++) {
           std::vector<double> local_bucket(max_cats, 0.0);
           for (int i = 0; i < st.n; i++) {
@@ -943,21 +1302,14 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   }
   ```
 
-  Note: `max_cats` is already computed before the main loop in `ieppa_solve` and passed in `bucket`. The function currently receives `bucket` as scratch; with OpenMP it allocates thread-local storage internally. The `bucket` parameter is still used in the serial path.
-
-- [ ] **Step 2: Compile gate — test with and without OpenMP**
+- [ ] **Step 2: Compile gate**
 
   ```bash
   R CMD INSTALL --preclean . 2>&1 | tail -10
   ```
-  Check configure output confirms OpenMP is detected on Linux/gcc.
-  On macOS (no OpenMP by default): serial path compiles cleanly.
+  On Linux/gcc: confirm "OpenMP detected" in configure output.
 
-- [ ] **Step 3: Correctness test — parallel output must match serial to within fp tolerance**
-
-  OpenMP `reduction(max:err)` is correct, but a race in the bucket scatter-add or
-  thread-local allocation error would produce silently wrong results that still satisfy
-  `mean ≈ 1` and `max ≤ 5`. Compare parallel vs serial explicitly:
+- [ ] **Step 3 (GREEN): Parallel vs serial agreement test**
 
   ```bash
   Rscript -e "
@@ -970,54 +1322,46 @@ Pre-computes `e[i] = exp(logit_scale * u_work[i])` for all n before the per-obs 
   tgt <- list(age=c(u25=0.2, \`25-54\`=0.6, \`55p\`=0.2),
               sex=c(M=0.5, F=0.5),
               reg=setNames(rep(0.2, 5), letters[1:5]))
-
-  # Parallel run (default OMP_NUM_THREADS)
-  w_par  <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
-
-  # Serial run (force 1 thread)
-  old <- Sys.getenv('OMP_NUM_THREADS')
+  w_par <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
+  old   <- Sys.getenv('OMP_NUM_THREADS')
   Sys.setenv(OMP_NUM_THREADS='1')
-  w_ser  <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
+  w_ser <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
   Sys.setenv(OMP_NUM_THREADS=old)
-
   delta <- max(abs(w_par - w_ser))
-  cat('max diff parallel vs serial:', delta, '\n')  # must be < 1e-12
-  cat('max_weight:', max(w_par), '\n')               # must be <= 5
-  cat('mean:', mean(w_par), '\n')                    # must be ~1
+  cat('delta par vs ser:', delta, '\n')
   stopifnot(delta < 1e-12)
+  cat('max_weight:', max(w_par), '\n')
+  stopifnot(max(w_par) <= 5.0 + 1e-10)
   cat('PASS\n')
   " 2>&1
   ```
-  Expected: `delta < 1e-12`, `mean ≈ 1.0`, `max ≤ 5.0`.
 
-- [ ] **Step 4: Run full test suite**
+- [ ] **Step 4: Full test suite**
 
   ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -20
+  Rscript -e "testthat::test_local()" 2>&1 | tail -5
   ```
-  All tests must pass on both OpenMP and non-OpenMP builds.
 
 - [ ] **Step 5: Commit**
 
   ```bash
   git add src/ieppa.cpp
-  git commit -m "perf: OpenMP-parallel compute_errRp — K margins computed concurrently"
+  git commit -m "perf: OpenMP-parallel compute_errRp — K margins concurrent"
   ```
 
 ---
 
-### Task 9: Full regression + before/after benchmark
+### Task 9: Final regression, CRAN check, and benchmark
 
-Run the full Stepstone benchmark (n=1,582,732) comparing the original code to the fully optimised build.
+**Files:** `DESCRIPTION` (update SystemRequirements). No source changes.
 
-**Files:**
-- Read: `benchmarks/stepstone_fulldata_benchmark.py` (existing)
-- No new files — use existing benchmark infrastructure
+**DoD:**
+- [ ] `R CMD check --as-cran leafblower_*.tar.gz` produces 0 ERRORs, 0 WARNINGs
+- [ ] `Rscript -e "testthat::test_local()"` produces 0 failures
+- [ ] Benchmark median time documented in commit message
+- [ ] Committed with message `perf: benchmark results + CRAN-ready`
 
-- [ ] **Step 1: Update DESCRIPTION for CRAN OpenMP policy**
-
-  CRAN requires `SystemRequirements` to list OpenMP when a package conditionally uses it.
-  The package builds without OpenMP (serial fallback always available) but must declare it.
+- [ ] **Step 1: Update DESCRIPTION SystemRequirements**
 
   In `DESCRIPTION`, find:
   ```
@@ -1034,7 +1378,7 @@ Run the full Stepstone benchmark (n=1,582,732) comparing the original code to th
   git commit -m "chore: add OpenMP to SystemRequirements per CRAN policy"
   ```
 
-- [ ] **Step 2: Run full test suite as final regression gate**
+- [ ] **Step 2: Full test suite (final regression gate)**
 
   ```bash
   Rscript -e "testthat::test_local()" 2>&1
@@ -1044,24 +1388,12 @@ Run the full Stepstone benchmark (n=1,582,732) comparing the original code to th
 - [ ] **Step 3: R CMD check --as-cran**
 
   ```bash
-  R CMD build . && R CMD check --as-cran leafblower_*.tar.gz 2>&1 | grep -E "^(ERROR|WARNING|NOTE|checking)"
+  R CMD build . && R CMD check --as-cran leafblower_*.tar.gz 2>&1 \
+    | grep -E "^(ERROR|WARNING|NOTE|checking)"
   ```
-  Expected: 0 ERRORs, 0 WARNINGs. Any NOTEs about `#pragma omp` or `-mavx2` must be
-  assessed individually. The package must pass this check before submission.
-  Common NOTEs to anticipate and address:
-  - "Note: `#pragma omp` needs `SystemRequirements: OpenMP`" — fixed by Step 1
-  - "Note: '-mavx2' in PKG_CXXFLAGS" — acceptable on x86-64 when guarded by configure
+  Expected: 0 ERRORs, 0 WARNINGs. Address any NOTEs before proceeding.
 
-- [ ] **Step 4: Run the Python Stepstone benchmark (requires parquet data already generated)**
-
-  ```bash
-  python3 benchmarks/stepstone_fulldata_benchmark.py 2>&1
-  ```
-  Document median time and max_error in the commit message.
-  Baseline: 127,000 ms (Python), 133,000 ms (R).
-  Target: ≥ 15% reduction (≤ 108,000 ms Python).
-
-- [ ] **Step 5: Run L-BFGS-B micro-benchmark (n=50K, 3 margins)**
+- [ ] **Step 4: L-BFGS-B micro-benchmark (n=50K, 3 margins)**
 
   ```r
   library(leafblower); library(bench)
@@ -1075,11 +1407,19 @@ Run the full Stepstone benchmark (n=1,582,732) comparing the original code to th
               sex=c(M=.50,F=.50), edu=c(HS=.35,College=.45,Grad=.20))
   bench::mark(harvest(df, tgt, method="lbfgsb"), iterations=20)
   ```
-  Document median time. Baseline: measure before changes. Target: ≥ 25% reduction.
+  Document median time. Baseline: ~TBD ms (measure before Task 1a). Target: ≥ 25% reduction.
+
+- [ ] **Step 5: Stepstone full-data benchmark (n=1,582,732)**
+
+  ```bash
+  python3 benchmarks/stepstone_fulldata_benchmark.py 2>&1
+  ```
+  Baseline: 127,000 ms (Python), 133,000 ms (R).
+  Target: ≥ 15% reduction (≤ 108,000 ms Python).
 
 - [ ] **Step 6: Final commit with benchmark results**
 
   ```bash
-  git add -A
-  git commit -m "perf: benchmark results — document iEPPA and L-BFGS-B speedups"
+  git add DESCRIPTION
+  git commit -m "perf: benchmark results — <X>ms lbfgsb (<Y>% speedup), <Z>ms stepstone"
   ```
