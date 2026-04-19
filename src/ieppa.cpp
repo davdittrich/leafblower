@@ -47,6 +47,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     static constexpr double kEmptyBucketThreshold   = 1e-15;   // relative threshold: bucket[j] < 1e-15*W → treat as empty, skip IPF scale
     static constexpr double kWeightCollapseThreshold = 1e-300;  // weights collapsed: skip norm
     static constexpr int    kMaxFixupIterations      = 20;      // post-convergence fixup cap
+    static constexpr int    kErrCheckInterval        = 10;      // Check convergence every N iterations instead of every 1.
+                                                                 // compute_errRp costs K O(n) passes — nearly as expensive as a full sweep.
+                                                                 // Every-10 reduces that overhead by 90% at the cost of ≤9 extra IPF iters.
 
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
@@ -133,19 +136,21 @@ IEPPAResult ieppa_solve(CalibState& st) {
             w[i] = wc;
         }
 
-        // Convergence check
-        double errRp = compute_errRp(st, w, bucket);
-        res.max_error = errRp;
+        // Convergence check: run every kErrCheckInterval iters and on the final iter.
+        if (iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+            double errRp = compute_errRp(st, w, bucket);
+            res.max_error = errRp;
 
-        if (st.verbose >= 1) {
-            char msg[256];
-            std::snprintf(msg, 256, "iEPPA iter %d: errRp=%.2e", iter, errRp);
-            st.log(msg);
-        }
+            if (st.verbose >= 1) {
+                char msg[256];
+                std::snprintf(msg, 256, "iEPPA iter %d: errRp=%.2e", iter, errRp);
+                st.log(msg);
+            }
 
-        if (errRp < st.tol_abs) {
-            res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
-            break;
+            if (errRp < st.tol_abs) {
+                res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                break;
+            }
         }
     }
 
