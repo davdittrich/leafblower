@@ -12,3 +12,4 @@
 ^\.\.Rcheck$
 ^docs$
 ^AGENTS\.md$
+^src/lbw_config\.h$
