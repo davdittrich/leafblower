@@ -257,9 +257,9 @@ static double wolfe_line_search(
         double phi_trial = Tlam + Tdir * alpha;
         double slope = Tdir;
         for (int j = 0; j < st.n; j++) {
-            double Fj = fn.F(u_work[j]);
-            phi_trial -= d[j] * fn.H(u_work[j]);
-            slope -= d[j] * Fj * du[j];
+            auto fh = fn.FH(u_work[j]);
+            phi_trial -= d[j] * fh.H;
+            slope    -= d[j] * fh.F * du[j];
         }
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || (i > 0 && phi_trial <= phi_prev)) {
