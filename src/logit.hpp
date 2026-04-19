@@ -68,15 +68,14 @@ struct LinkFn {
     }
 
     // F and H from pre-computed e = exp(logit_scale * u).
-    // Precondition: e was computed as exp(logit_scale * u) — not for exponential link.
-    // Callers must branch on fn.exponential and fall back to FH() when true.
+    // Precondition: !exponential and e == exp(logit_scale * u).
+    // Callers MUST check fn.exponential and fall back to FH() when true;
+    // calling these with exponential==true produces incorrect results.
     double F_from_e(double e) const {
-        if (exponential) return e;
         return (L * (U - 1.0) + U * (1.0 - L) * e) /
                ((U - 1.0) + (1.0 - L) * e);
     }
     double H_from_e(double e, double u) const {
-        if (exponential) return e;
         double num = (U - 1.0) + (1.0 - L) * e;
         return L * u + (U - L) / logit_scale * std::log(num / (U - L));
     }
