@@ -48,13 +48,28 @@ Both `F(u)` and `H(u)` call `safe_exp(logit_scale * u)` independently. `FH(u)` c
 - [ ] FH formula verified: `FH(1.0).F == F(1.0)` and `FH(1.0).H == H(1.0)` (traced in Step 1)
 - [ ] Committed with message `perf: add FH() to LinkFn — single exp for Wolfe loop`
 
-- [ ] **Step 1 (RED): Verify F() and H() separately as reference before FH() exists**
+- [ ] **Step 1 (RED): Capture timing baseline and save reference weights — BEFORE any code change**
 
-  Record exact values to detect any formula drift after implementation:
+  This baseline is referenced in Task 9 Step 4 DoD ("≥25% reduction"). It must be
+  measured BEFORE Task 1a modifies any source file. Save it now.
+
   ```bash
   Rscript -e "
-  library(leafblower)
-  # harvest with lbfgsb to exercise F() and H() paths — weights are our reference
+  library(leafblower); library(bench)
+  # ── lbfgsb timing baseline ──────────────────────────────────────────────────
+  set.seed(42); n <- 50000L
+  df_bench <- data.frame(
+    age = factor(sample(c('18-34','35-54','55+'), n, replace=TRUE, prob=c(.35,.40,.25))),
+    sex = factor(sample(c('M','F'), n, replace=TRUE, prob=c(.52,.48))),
+    edu = factor(sample(c('HS','College','Grad'), n, replace=TRUE, prob=c(.40,.40,.20)))
+  )
+  tgt_bench <- list(age=c('18-34'=.30,'35-54'=.45,'55+'=.25),
+                    sex=c(M=.50,F=.50), edu=c(HS=.35,College=.45,Grad=.20))
+  bm <- bench::mark(harvest(df_bench, tgt_bench, method='lbfgsb'), iterations=10)
+  cat('lbfgsb baseline median ms:', as.numeric(bm\$median) * 1000, '\n')
+  saveRDS(bm\$median, 'tests/testthat/lbfgsb_baseline_time.rds')
+
+  # ── regression weight reference ─────────────────────────────────────────────
   set.seed(7); n <- 5000L
   df  <- data.frame(x = factor(sample(c('A','B','C'), n, replace=TRUE)))
   tgt <- list(x = c(A=0.4, B=0.35, C=0.25))
@@ -84,10 +99,11 @@ Both `F(u)` and `H(u)` call `safe_exp(logit_scale * u)` independently. `FH(u)` c
   ```
 
   Trace for u=1.0, L=0.2, U=5.0, logit_scale=1.5:
-  - `e = exp(1.5) ≈ 4.4817`
-  - `denom = (5-1) + (1-0.2)*4.4817 ≈ 7.585`
-  - `f = (0.2*4 + 5*0.8*4.4817)/7.585 ≈ 2.508` ← must equal `F(1.0)`
-  - `h = 0.2 + (4.8/1.5)*log(7.585/4.8) ≈ 1.453` ← must equal `H(1.0)`
+  - `e = exp(1.5 * 1.0) = exp(1.5) ≈ 4.4817`
+  - `denom = (U-1) + (1-L)*e = 4 + 0.8*4.4817 ≈ 7.5854`
+  - `f = (L*(U-1) + U*(1-L)*e) / denom = (0.8 + 5*0.8*4.4817) / 7.5854 ≈ 18.726/7.5854 ≈ 2.469`
+  - `h = L*u + (U-L)/logit_scale * log(denom/(U-L)) = 0.2 + (4.8/1.5)*log(7.5854/4.8) ≈ 0.2 + 3.2*0.456 ≈ 1.659`
+  - These must equal `F(1.0) ≈ 2.469` and `H(1.0) ≈ 1.659` respectively (verify against the actual logit.hpp F() and H() formulas before implementing FH()).
 
 - [ ] **Step 3: Compile gate**
 
@@ -116,7 +132,7 @@ Both `F(u)` and `H(u)` call `safe_exp(logit_scale * u)` independently. `FH(u)` c
 - [ ] **Step 5: Commit**
 
   ```bash
-  git add src/logit.hpp tests/testthat/task1_ref.rds
+  git add src/logit.hpp tests/testthat/task1_ref.rds tests/testthat/lbfgsb_baseline_time.rds
   git commit -m "perf: add FH() to LinkFn — single exp for Wolfe loop"
   ```
 
@@ -458,11 +474,11 @@ Required before Task 4b/4c. The `#pragma omp simd` guards reference `LBW_HAS_OMP
 **Files:** Create `src/lbw_config.h`; modify `src/ieppa.cpp` (add include only).
 
 **DoD:**
-- [ ] `src/lbw_config.h` exists with all features set to 0
+- [ ] `src/lbw_config.h` exists with all features set to 0 (generated locally; NOT committed)
 - [ ] `src/ieppa.cpp` has `#include "lbw_config.h"` after existing includes
 - [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)`
-- [ ] `src/lbw_config.h` listed in `src/.gitignore` and `.Rbuildignore`
-- [ ] Committed with message `build: add stub lbw_config.h with all features disabled`
+- [ ] `lbw_config.h` in `src/.gitignore` (so it is never accidentally staged); `^src/lbw_config\\.h$` in `.Rbuildignore`
+- [ ] Committed with message `build: add stub lbw_config.h with all features disabled` — but WITHOUT `src/lbw_config.h` itself (it is gitignored and configure-generated)
 
 - [ ] **Step 1: Create stub src/lbw_config.h**
 
@@ -485,11 +501,30 @@ Required before Task 4b/4c. The `#pragma omp simd` guards reference `LBW_HAS_OMP
   #include "lbw_config.h"
   ```
 
-- [ ] **Step 3: Add to .Rbuildignore and src/.gitignore**
+- [ ] **Step 3: Add to .Rbuildignore and src/.gitignore BEFORE creating the stub**
 
+  Write the gitignore entry FIRST so the stub file is never accidentally staged:
   ```bash
   echo "^src/lbw_config\\.h$" >> .Rbuildignore
   echo "lbw_config.h" >> src/.gitignore
+  ```
+
+  Then create the stub (Step 1 above should run after Step 3's gitignore entries are written):
+  ```bash
+  cat > src/lbw_config.h << 'EOF'
+  /* Stub — overwritten by configure (Task 5). All features disabled. */
+  #ifndef LBW_CONFIG_H
+  #define LBW_CONFIG_H
+  #define LBW_HAS_OMP_SIMD 0
+  #define LBW_HAS_OMP 0
+  #define LBW_HAS_GLIBC_MVEC 0
+  #endif
+  EOF
+  ```
+
+  Verify the stub is correctly gitignored (git status must NOT show it):
+  ```bash
+  git status src/lbw_config.h  # expected: "Ignored: src/lbw_config.h" or absent from output
   ```
 
 - [ ] **Step 4: Compile gate**
@@ -498,10 +533,12 @@ Required before Task 4b/4c. The `#pragma omp simd` guards reference `LBW_HAS_OMP
   R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit (WITHOUT src/lbw_config.h — it is gitignored and configure-generated)**
 
   ```bash
-  git add src/lbw_config.h src/ieppa.cpp .Rbuildignore src/.gitignore
+  # NOTE: src/lbw_config.h is intentionally NOT staged here.
+  # configure regenerates it at install time from the real probe values (Task 5).
+  git add src/ieppa.cpp .Rbuildignore src/.gitignore
   git commit -m "build: add stub lbw_config.h with all features disabled"
   ```
 
@@ -1241,117 +1278,15 @@ Same vectorised exp pattern for the zoom bisection loop. `wolfe_zoom` is called 
 
 ---
 
-### Task 8: OpenMP-parallel compute_errRp (ieppa.cpp)
+### Task 8 (removed): OpenMP-parallel compute_errRp
 
-K margin passes in `compute_errRp` are read-only on `w[]` — fully independent. Parallelise with `#pragma omp parallel for`, each thread using a private bucket. With K=9 and 4–8 cores this yields near-linear speedup on the errRp component (which after Task 3 fires only every 10 iters).
-
-**Files:** `src/ieppa.cpp` only — `compute_errRp` function (lines 14–33).
-
-**DoD:**
-- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -1` = `* DONE (leafblower)` on Linux/gcc
-- [ ] `delta_par_vs_ser < 1e-12` (explicit parallel vs serial comparison, Step 3)
-- [ ] `Rscript -e "testthat::test_local()" 2>&1 | grep -c 'FAIL\|ERROR'` = `0`
-- [ ] Committed with message `perf: OpenMP-parallel compute_errRp — K margins concurrent`
-
-- [ ] **Step 1: Rewrite compute_errRp with OpenMP guard (replace lines 14–33)**
-
-  ```cpp
-  static double compute_errRp(const CalibState& st,
-                               const std::vector<double>& w,
-                               std::vector<double>& bucket) {
-      // W sum: 4-way ILP (vectorisable).
-      double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
-      int i4 = st.n & ~3;
-      for (int i = 0; i < i4; i += 4) {
-          W  += w[i];   W1 += w[i+1];
-          W2 += w[i+2]; W3 += w[i+3];
-      }
-      for (int i = i4; i < st.n; ++i) W += w[i];
-      W += W1 + W2 + W3;
-
-      double err = 0.0;
-  #if LBW_HAS_OMP
-      // K margin passes are read-only on w[] — fully independent.
-      int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
-      #pragma omp parallel for schedule(static) reduction(max:err)
-      for (int k = 0; k < st.K; k++) {
-          std::vector<double> local_bucket(max_cats, 0.0);
-          for (int i = 0; i < st.n; i++) {
-              int g = st.group_ids[k][i];
-              if (g >= 0) local_bucket[g] += w[i];
-          }
-          for (int j = 0; j < st.cat_counts[k]; j++) {
-              double e = std::fabs(local_bucket[j] / W - st.targets[k][j]);
-              if (e > err) err = e;
-          }
-      }
-  #else
-      for (int k = 0; k < st.K; k++) {
-          std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-          for (int i = 0; i < st.n; i++) {
-              int g = st.group_ids[k][i];
-              if (g >= 0) bucket[g] += w[i];
-          }
-          for (int j = 0; j < st.cat_counts[k]; j++) {
-              double e = std::fabs(bucket[j] / W - st.targets[k][j]);
-              if (e > err) err = e;
-          }
-      }
-  #endif
-      return err;
-  }
-  ```
-
-- [ ] **Step 2: Compile gate**
-
-  ```bash
-  R CMD INSTALL --preclean . 2>&1 | tail -10
-  ```
-  On Linux/gcc: confirm "OpenMP detected" in configure output.
-
-- [ ] **Step 3 (GREEN): Parallel vs serial agreement test**
-
-  ```bash
-  Rscript -e "
-  library(leafblower)
-  set.seed(123); n <- 200000L
-  age <- sample(c('u25','25-54','55p'), n, replace=TRUE)
-  sex <- sample(c('M','F'), n, replace=TRUE)
-  reg <- sample(letters[1:5], n, replace=TRUE)
-  df  <- data.frame(age=factor(age), sex=factor(sex), reg=factor(reg))
-  tgt <- list(age=c(u25=0.2, \`25-54\`=0.6, \`55p\`=0.2),
-              sex=c(M=0.5, F=0.5),
-              reg=setNames(rep(0.2, 5), letters[1:5]))
-  w_par <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
-  old   <- Sys.getenv('OMP_NUM_THREADS')
-  Sys.setenv(OMP_NUM_THREADS='1')
-  w_ser <- harvest(df, tgt, method='ieppa', attach_weights=FALSE)
-  Sys.setenv(OMP_NUM_THREADS=old)
-  delta <- max(abs(w_par - w_ser))
-  cat('delta par vs ser:', delta, '\n')
-  stopifnot(delta < 1e-12)
-  cat('max_weight:', max(w_par), '\n')
-  stopifnot(max(w_par) <= 5.0 + 1e-10)
-  cat('PASS\n')
-  " 2>&1
-  ```
-
-- [ ] **Step 4: Full test suite**
-
-  ```bash
-  Rscript -e "testthat::test_local()" 2>&1 | tail -5
-  ```
-
-- [ ] **Step 5: Commit**
-
-  ```bash
-  git add src/ieppa.cpp
-  git commit -m "perf: OpenMP-parallel compute_errRp — K margins concurrent"
-  ```
+> **Deferred.** After Task 3 reduces errRp frequency to every-10 iterations,
+> `compute_errRp` is ~0.7% of total runtime. K=9 OpenMP adds Windows/Rtools
+> risk for negligible gain. Tasks 1–7 cover the remaining ~97% of runtime.
 
 ---
 
-### Task 9: Final regression, CRAN check, and benchmark
+### Task 8: Final regression, CRAN check, and benchmark
 
 **Files:** `DESCRIPTION` (update SystemRequirements). No source changes.
 
@@ -1393,7 +1328,7 @@ K margin passes in `compute_errRp` are read-only on `w[]` — fully independent.
   ```
   Expected: 0 ERRORs, 0 WARNINGs. Address any NOTEs before proceeding.
 
-- [ ] **Step 4: L-BFGS-B micro-benchmark (n=50K, 3 margins)**
+- [ ] **Step 4: L-BFGS-B micro-benchmark (n=50K, 3 margins) — compare to baseline**
 
   ```r
   library(leafblower); library(bench)
@@ -1405,9 +1340,16 @@ K margin passes in `compute_errRp` are read-only on `w[]` — fully independent.
   )
   tgt <- list(age=c("18-34"=.30,"35-54"=.45,"55+"=.25),
               sex=c(M=.50,F=.50), edu=c(HS=.35,College=.45,Grad=.20))
-  bench::mark(harvest(df, tgt, method="lbfgsb"), iterations=20)
+  bm_after   <- bench::mark(harvest(df, tgt, method="lbfgsb"), iterations=20)
+  bm_before  <- readRDS("tests/testthat/lbfgsb_baseline_time.rds")
+  pct_faster <- (1 - as.numeric(bm_after$median) / as.numeric(bm_before)) * 100
+  cat(sprintf("before: %.0f ms  after: %.0f ms  speedup: %.1f%%\n",
+              as.numeric(bm_before)*1000,
+              as.numeric(bm_after$median)*1000,
+              pct_faster))
+  stopifnot(pct_faster >= 20)  # 20% floor; target is ≥25%
   ```
-  Document median time. Baseline: ~TBD ms (measure before Task 1a). Target: ≥ 25% reduction.
+  Target: ≥ 25% reduction on Linux/gcc (libmvec active).
 
 - [ ] **Step 5: Stepstone full-data benchmark (n=1,582,732)**
 
