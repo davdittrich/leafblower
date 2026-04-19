@@ -14,8 +14,14 @@ namespace lbw {
 static double compute_errRp(const CalibState& st,
                               const std::vector<double>& w,
                               std::vector<double>& bucket) {
-    double W = 0.0;
-    for (int i = 0; i < st.n; i++) W += w[i];
+    double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
+    int i4e = st.n & ~3;
+    for (int i = 0; i < i4e; i += 4) {
+        W  += w[i];   W1 += w[i+1];
+        W2 += w[i+2]; W3 += w[i+3];
+    }
+    for (int i = i4e; i < st.n; ++i) W += w[i];
+    W += W1 + W2 + W3;
 
     double err = 0.0;
     for (int k = 0; k < st.K; k++) {
@@ -67,10 +73,19 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // Euclidean Dykstra corrections are incompatible with multiplicative IPF steps.
         for (int k = 0; k < st.K; k++) {
             // Bucket accumulation for IPF scale computation
-            double W = 0.0;
+            // W sum separated from scatter-add so the compiler can vectorise it.
+            double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
+            int ni = st.n, i4 = ni & ~3;
+            for (int i = 0; i < i4; i += 4) {
+                W  += w[i];   W1 += w[i+1];
+                W2 += w[i+2]; W3 += w[i+3];
+            }
+            for (int i = i4; i < ni; ++i) W += w[i];
+            W += W1 + W2 + W3;
+
+            // Bucket scatter-add: write aliases prevent vectorisation.
             std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-            for (int i = 0; i < st.n; i++) {
-                W += w[i];
+            for (int i = 0; i < ni; i++) {
                 int g = st.group_ids[k][i];
                 if (g >= 0) bucket[g] += w[i];
             }
