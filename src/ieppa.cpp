@@ -133,6 +133,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
         // Box projection [lo, hi]^n with Dykstra correction (mean=1 scale).
         // q[i] accumulates overshoot from previous box clamps.
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
         for (int i = 0; i < st.n; i++) {
             double yi = w[i] + q[i];
             double wc = std::max(lo, std::min(hi, yi));
