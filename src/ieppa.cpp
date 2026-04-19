@@ -124,6 +124,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // in the same unit as w[i]. After renormalizing w[i] /= wm, the corrected
                 // iterate y[i] = w[i] + q[i] must shift by the same factor to keep
                 // the Dykstra fixed-point invariant intact.
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
                 for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
             }
         }
