@@ -1,3 +1,4 @@
+#include "lbw_config.h"
 #include "lbfgsb_solver.hpp"
 #include "leafblower.h"
 #include <cmath>
