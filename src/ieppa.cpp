@@ -48,9 +48,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     static constexpr double kEmptyBucketThreshold   = 1e-15;   // relative threshold: bucket[j] < 1e-15*W → treat as empty, skip IPF scale
     static constexpr double kWeightCollapseThreshold = 1e-300;  // weights collapsed: skip norm
     static constexpr int    kMaxFixupIterations      = 20;      // post-convergence fixup cap
-    static constexpr int    kErrCheckInterval        = 10;      // Check convergence every N iterations instead of every 1.
+    static constexpr int    kErrCheckInterval        = 10;      // Check convergence every N inner iterations.
                                                                  // compute_errRp costs K O(n) passes — nearly as expensive as a full sweep.
                                                                  // Every-10 reduces that overhead by 90% at the cost of ≤9 extra IPF iters.
+                                                                 // Exception: always check on iter 1 to catch problems that converge immediately.
 
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
@@ -144,7 +145,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
 
         // Convergence check: run every kErrCheckInterval iters and on the final iter.
-        if (iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+        if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
             double errRp = compute_errRp(st, w, bucket);
             res.max_error = errRp;
 
