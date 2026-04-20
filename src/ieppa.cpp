@@ -8,6 +8,20 @@
 
 namespace lbw {
 
+// Sum weights with 4-way ILP unroll.
+// Separate accumulators break the loop-carried dependency chain, letting
+// the compiler pipeline four additions in parallel. The tail loop handles n % 4.
+static double sum_weights_ilp(const std::vector<double>& w, int n) {
+    double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
+    const int n4 = n & ~3;
+    for (int i = 0; i < n4; i += 4) {
+        W  += w[i];   W1 += w[i+1];
+        W2 += w[i+2]; W3 += w[i+3];
+    }
+    for (int i = n4; i < n; ++i) W += w[i];
+    return W + W1 + W2 + W3;
+}
+
 // Compute errRp = max_k max_j |S_kj/W - tau_kj|
 // O(n*K): single O(n) bucket accumulation pass per margin.
 // bucket must be pre-allocated to at least max_cats elements by the caller;
@@ -15,14 +29,7 @@ namespace lbw {
 static double compute_errRp(const CalibState& st,
                               const std::vector<double>& w,
                               std::vector<double>& bucket) {
-    double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
-    int i4e = st.n & ~3;
-    for (int i = 0; i < i4e; i += 4) {
-        W  += w[i];   W1 += w[i+1];
-        W2 += w[i+2]; W3 += w[i+3];
-    }
-    for (int i = i4e; i < st.n; ++i) W += w[i];
-    W += W1 + W2 + W3;
+    double W = sum_weights_ilp(w, st.n);
 
     double err = 0.0;
     for (int k = 0; k < st.K; k++) {
@@ -79,18 +86,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
         for (int k = 0; k < st.K; k++) {
             // Bucket accumulation for IPF scale computation
             // W sum separated from scatter-add so the compiler can vectorise it.
-            double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
-            int ni = st.n, i4 = ni & ~3;
-            for (int i = 0; i < i4; i += 4) {
-                W  += w[i];   W1 += w[i+1];
-                W2 += w[i+2]; W3 += w[i+3];
-            }
-            for (int i = i4; i < ni; ++i) W += w[i];
-            W += W1 + W2 + W3;
+            double W = sum_weights_ilp(w, st.n);
 
             // Bucket scatter-add: write aliases prevent vectorisation.
             std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-            for (int i = 0; i < ni; i++) {
+            for (int i = 0; i < st.n; i++) {
                 int g = st.group_ids[k][i];
                 if (g >= 0) bucket[g] += w[i];
             }
