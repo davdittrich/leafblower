@@ -51,6 +51,34 @@ struct LinkFn {
         double num = (U - 1.0) + (1.0 - L) * e;
         return L * u + (U - L) / logit_scale * std::log(num / (U - L));
     }
+
+    // FH(u): F and H from a single safe_exp call.
+    // Halves transcendental evaluations in the Wolfe inner loop.
+    struct FHResult { double F; double H; };
+    FHResult FH(double u) const {
+        if (exponential) {
+            double e = safe_exp(u);
+            return {e, e};
+        }
+        double e = safe_exp(logit_scale * u);
+        double denom = (U - 1.0) + (1.0 - L) * e;
+        double f = (L * (U - 1.0) + U * (1.0 - L) * e) / denom;
+        double h = L * u + (U - L) / logit_scale * std::log(denom / (U - L));
+        return {f, h};
+    }
+
+    // F and H from pre-computed e = exp(logit_scale * u).
+    // Precondition: !exponential and e == exp(logit_scale * u).
+    // Callers MUST check fn.exponential and fall back to FH() when true;
+    // calling these with exponential==true produces incorrect results.
+    double F_from_e(double e) const {
+        return (L * (U - 1.0) + U * (1.0 - L) * e) /
+               ((U - 1.0) + (1.0 - L) * e);
+    }
+    double H_from_e(double e, double u) const {
+        double num = (U - 1.0) + (1.0 - L) * e;
+        return L * u + (U - L) / logit_scale * std::log(num / (U - L));
+    }
 };
 
 } // namespace lbw

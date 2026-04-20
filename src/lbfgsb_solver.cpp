@@ -1,9 +1,11 @@
+#include "lbw_config.h"
 #include "lbfgsb_solver.hpp"
 #include "leafblower.h"
 #include <cmath>
 #include <algorithm>
 #include <vector>
 #include <deque>
+#include "lbw_math.hpp"
 
 namespace lbw {
 
@@ -181,6 +183,7 @@ static double wolfe_zoom(
         const std::vector<double>& lam,
         const std::vector<double>& dir,
         std::vector<double>& u_work,
+        std::vector<double>& e_vec,
         std::vector<double>& lam_new, std::vector<double>& grad_new,
         double& phi_new) {
     constexpr double kC1 = 1e-4;
@@ -196,12 +199,16 @@ static double wolfe_zoom(
     for (int j = 0; j < 20; j++) {
         double alpha = 0.5 * (alpha_lo + alpha_hi);
         for (int i = 0; i < st.n; i++) u_work[i] = u_base[i] + alpha * du[i];
+        if (!fn.exponential)
+            lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + alpha * Tdir;
         double slope = Tdir;
         for (int i = 0; i < st.n; i++) {
-            double Fi = fn.F(u_work[i]);
-            phi_trial -= d[i] * fn.H(u_work[i]);
-            slope -= d[i] * Fi * du[i];
+            double Fi, Hi;
+            if (fn.exponential) { auto fh = fn.FH(u_work[i]); Fi = fh.F; Hi = fh.H; }
+            else                { Fi = fn.F_from_e(e_vec[i]); Hi = fn.H_from_e(e_vec[i], u_work[i]); }
+            phi_trial -= d[i] * Hi;
+            slope    -= d[i] * Fi * du[i];
         }
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || phi_trial <= phi_lo) {
@@ -234,6 +241,7 @@ static double wolfe_line_search(
         const std::vector<double>& lam, double phi_0, double slope_0,
         const std::vector<double>& u_base, const std::vector<double>& du,
         std::vector<double>& u_work,
+        std::vector<double>& e_vec,
         const std::vector<double>& dir,
         std::vector<double>& lam_new, std::vector<double>& grad_new,
         double& phi_new) {
@@ -254,18 +262,22 @@ static double wolfe_line_search(
 
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < st.n; j++) u_work[j] = u_base[j] + alpha * du[j];
+        if (!fn.exponential)
+            lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + Tdir * alpha;
         double slope = Tdir;
         for (int j = 0; j < st.n; j++) {
-            double Fj = fn.F(u_work[j]);
-            phi_trial -= d[j] * fn.H(u_work[j]);
-            slope -= d[j] * Fj * du[j];
+            double Fj, Hj;
+            if (fn.exponential) { auto fh = fn.FH(u_work[j]); Fj = fh.F; Hj = fh.H; }
+            else                { Fj = fn.F_from_e(e_vec[j]); Hj = fn.H_from_e(e_vec[j], u_work[j]); }
+            phi_trial -= d[j] * Hj;
+            slope    -= d[j] * Fj * du[j];
         }
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || (i > 0 && phi_trial <= phi_prev)) {
             return wolfe_zoom(st, fn, off, T, d, phi_0, slope_0,
                               alpha_prev, phi_prev, alpha,
-                              u_base, du, lam, dir, u_work,
+                              u_base, du, lam, dir, u_work, e_vec,
                               lam_new, grad_new, phi_new);
         }
         if (std::fabs(slope) <= kC2 * std::fabs(slope_0)) {
@@ -277,7 +289,7 @@ static double wolfe_line_search(
         if (slope <= 0) {
             return wolfe_zoom(st, fn, off, T, d, phi_0, slope_0,
                               alpha, phi_trial, alpha_prev,
-                              u_base, du, lam, dir, u_work,
+                              u_base, du, lam, dir, u_work, e_vec,
                               lam_new, grad_new, phi_new);
         }
         alpha_prev = alpha; phi_prev = phi_trial;
@@ -304,6 +316,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     std::vector<double> u(st.n);       // u at current lam
     std::vector<double> du(st.n);      // per-obs directional derivative for Wolfe
     std::vector<double> u_work(st.n);  // scratch for Wolfe trial u
+    std::vector<double> e_vec(st.n);   // scratch: exp(logit_scale * u_work[i]) per trial
     std::vector<double> dir(total);
 
     std::deque<std::vector<double>> svec, yvec;
@@ -336,7 +349,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
         double phi_new = phi_curr;
 
         wolfe_line_search(st, fn, off, T, d, lam, phi_curr, slope_0,
-                          u, du, u_work, dir, lam_new, grad_new, phi_new);
+                          u, du, u_work, e_vec, dir, lam_new, grad_new, phi_new);
 
         for (int i = 0; i < total; i++) {
             s_new[i] = lam_new[i] - lam[i];

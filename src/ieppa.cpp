@@ -1,5 +1,6 @@
 #include "ieppa.hpp"
 #include "leafblower.h"
+#include "lbw_config.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -14,8 +15,14 @@ namespace lbw {
 static double compute_errRp(const CalibState& st,
                               const std::vector<double>& w,
                               std::vector<double>& bucket) {
-    double W = 0.0;
-    for (int i = 0; i < st.n; i++) W += w[i];
+    double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
+    int i4e = st.n & ~3;
+    for (int i = 0; i < i4e; i += 4) {
+        W  += w[i];   W1 += w[i+1];
+        W2 += w[i+2]; W3 += w[i+3];
+    }
+    for (int i = i4e; i < st.n; ++i) W += w[i];
+    W += W1 + W2 + W3;
 
     double err = 0.0;
     for (int k = 0; k < st.K; k++) {
@@ -41,6 +48,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     static constexpr double kEmptyBucketThreshold   = 1e-15;   // relative threshold: bucket[j] < 1e-15*W → treat as empty, skip IPF scale
     static constexpr double kWeightCollapseThreshold = 1e-300;  // weights collapsed: skip norm
     static constexpr int    kMaxFixupIterations      = 20;      // post-convergence fixup cap
+    static constexpr int    kErrCheckInterval        = 10;      // Check convergence every N iterations instead of every 1.
+                                                                 // compute_errRp costs K O(n) passes — nearly as expensive as a full sweep.
+                                                                 // Every-10 reduces that overhead by 90% at the cost of ≤9 extra IPF iters.
 
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
@@ -67,10 +77,19 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // Euclidean Dykstra corrections are incompatible with multiplicative IPF steps.
         for (int k = 0; k < st.K; k++) {
             // Bucket accumulation for IPF scale computation
-            double W = 0.0;
+            // W sum separated from scatter-add so the compiler can vectorise it.
+            double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
+            int ni = st.n, i4 = ni & ~3;
+            for (int i = 0; i < i4; i += 4) {
+                W  += w[i];   W1 += w[i+1];
+                W2 += w[i+2]; W3 += w[i+3];
+            }
+            for (int i = i4; i < ni; ++i) W += w[i];
+            W += W1 + W2 + W3;
+
+            // Bucket scatter-add: write aliases prevent vectorisation.
             std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-            for (int i = 0; i < st.n; i++) {
-                W += w[i];
+            for (int i = 0; i < ni; i++) {
                 int g = st.group_ids[k][i];
                 if (g >= 0) bucket[g] += w[i];
             }
@@ -105,12 +124,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // in the same unit as w[i]. After renormalizing w[i] /= wm, the corrected
                 // iterate y[i] = w[i] + q[i] must shift by the same factor to keep
                 // the Dykstra fixed-point invariant intact.
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
                 for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
             }
         }
 
         // Box projection [lo, hi]^n with Dykstra correction (mean=1 scale).
         // q[i] accumulates overshoot from previous box clamps.
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
         for (int i = 0; i < st.n; i++) {
             double yi = w[i] + q[i];
             double wc = std::max(lo, std::min(hi, yi));
@@ -118,19 +143,21 @@ IEPPAResult ieppa_solve(CalibState& st) {
             w[i] = wc;
         }
 
-        // Convergence check
-        double errRp = compute_errRp(st, w, bucket);
-        res.max_error = errRp;
+        // Convergence check: run every kErrCheckInterval iters and on the final iter.
+        if (iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+            double errRp = compute_errRp(st, w, bucket);
+            res.max_error = errRp;
 
-        if (st.verbose >= 1) {
-            char msg[256];
-            std::snprintf(msg, 256, "iEPPA iter %d: errRp=%.2e", iter, errRp);
-            st.log(msg);
-        }
+            if (st.verbose >= 1) {
+                char msg[256];
+                std::snprintf(msg, 256, "iEPPA iter %d: errRp=%.2e", iter, errRp);
+                st.log(msg);
+            }
 
-        if (errRp < st.tol_abs) {
-            res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
-            break;
+            if (errRp < st.tol_abs) {
+                res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                break;
+            }
         }
     }
 

@@ -12,3 +12,9 @@
 ^\.\.Rcheck$
 ^docs$
 ^AGENTS\.md$
+^src/lbw_config\.h$
+^CLAUDE\.md$
+^benchmarks$
+^conftest\.py$
+^\.metaswarm$
+^\.worktrees$
