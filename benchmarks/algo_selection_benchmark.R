@@ -239,7 +239,7 @@ run_benchmark <- function(budget          = 25L,
       cat(sprintf("  LHC %d/8: lc=%.2f, lt=%.2f ... ", i, lhc_pts[i, 1L], lhc_pts[i, 2L]))
       yi <- tryCatch(time_cell(lhc_pts[i, 1L], lhc_pts[i, 2L]),
                      error = function(e) { cat("ERROR:", conditionMessage(e), "\n"); NA_real_ })
-      cat(sprintf("y=%.3f\n", yi))
+      cat(sprintf("y=%s\n", if (is.finite(yi)) sprintf("%.3f", yi) else "FAILED"))
       design <- rbind(design, lhc_pts[i, , drop = FALSE])
       y      <- c(y, yi)
     }
@@ -258,7 +258,8 @@ run_benchmark <- function(budget          = 25L,
   }
 
   # ── Adaptive acquisitions ──────────────────────────────────────────────────
-  for (i in seq_len(budget)) {
+  remaining <- max(0L, as.integer(budget) - state$iter)
+  for (i in seq_len(remaining)) {
     state$classified <- classified_fraction(state$gp, candidates, threshold)
     cat(sprintf("Iter %d/%d: classified=%.2f\n", state$iter + 1L, budget, state$classified))
     if (state$classified >= 0.90) {
@@ -271,7 +272,7 @@ run_benchmark <- function(budget          = 25L,
     cat(sprintf("  Next: lc=%.3f, lt=%.3f ... ", next_pt[1L, 1L], next_pt[1L, 2L]))
     yi <- tryCatch(time_cell(next_pt[1L, 1L], next_pt[1L, 2L]),
                    error = function(e) { cat("ERROR:", conditionMessage(e), "\n"); NA_real_ })
-    cat(sprintf("y=%.3f\n", yi))
+    cat(sprintf("y=%s\n", if (is.finite(yi)) sprintf("%.3f", yi) else "FAILED"))
 
     if (is.finite(yi)) {
       state$design <- rbind(state$design, next_pt)
