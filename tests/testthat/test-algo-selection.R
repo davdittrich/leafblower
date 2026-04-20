@@ -164,3 +164,51 @@ test_that("save_checkpoint leaves no .tmp file on success", {
   save_checkpoint(list(x = 1L), tmp_path)
   expect_false(file.exists(paste0(tmp_path, ".tmp")))
 })
+
+# ── Algorithm routing regression tests ────────────────────────────────────────
+# These tests verify select_algorithm() routing via harvest().
+# Test 3 (L-BFGS-B path) is skipped until the benchmark runs and
+# Case B constants are confirmed.
+
+test_that("constrained (max_weight=5) always routes to iEPPA", {
+  set.seed(99L)
+  n   <- 500L
+  df  <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))
+  tgt <- list(x = c(a = 0.5, b = 0.5))
+  res <- leafblower::harvest(df, tgt, method = "auto", max_weight = 5)
+  expect_equal(attr(res, "algorithm"), "ieppa")
+})
+
+test_that("unconstrained large complexity routes to L-BFGS-B", {
+  # complexity = 30000 * 2 * 4 = 240000; unconstrained, loose tol=1e-3
+  # Current routing: unconstrained → L-BFGS-B (pre-benchmark default)
+  set.seed(7L)
+  n  <- 30000L
+  df <- data.frame(
+    m1 = factor(sample(paste0("c", 1:4), n, replace = TRUE)),
+    m2 = factor(sample(paste0("c", 1:4), n, replace = TRUE))
+  )
+  tgt <- list(
+    m1 = c(c1 = 0.25, c2 = 0.25, c3 = 0.25, c4 = 0.25),
+    m2 = c(c1 = 0.25, c2 = 0.25, c3 = 0.25, c4 = 0.25)
+  )
+  res <- leafblower::harvest(df, tgt, method = "auto",
+                              max_weight = Inf,
+                              convergence = list(absolute = 1e-3))
+  # Unconstrained path: current default is L-BFGS-B
+  expect_equal(attr(res, "algorithm"), "lbfgsb")
+})
+
+test_that("unconstrained tight-tol small complexity routes to L-BFGS-B (Case B only)", {
+  skip("Add after benchmark run confirms Case B — update kTolThreshold in c_api.cpp first")
+  # Placeholder: n=200, K=2, cats=2 → complexity=800, tol=1e-8 (tight)
+  # Expected after constant update: attr(result, "algorithm") == "lbfgsb"
+  set.seed(11L)
+  n  <- 200L
+  df <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))
+  tgt <- list(x = c(a = 0.5, b = 0.5))
+  res <- leafblower::harvest(df, tgt, method = "auto",
+                              max_weight = Inf, min_weight = 0,
+                              convergence = list(absolute = 1e-8))
+  expect_equal(attr(res, "algorithm"), "lbfgsb")
+})
