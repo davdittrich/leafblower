@@ -151,11 +151,13 @@ The comment on `kErrCheckInterval` must be updated to document the iter-1 except
 
 ---
 
-## Task 3: Extract `sum_weights_ilp` and apply uniformly
+## Task 3: Extract `sum_weights_ilp` and unify the two ILP W-sum sites
 
-**Files:** `src/ieppa.cpp` only — new static helper, four call sites.
+**Files:** `src/ieppa.cpp` only — new static helper, two call sites.
 
-The 4-way ILP W-sum unroll appears at two sites (`compute_errRp`, margin loop) with inconsistent variable names (`i4e` vs `i4`, `st.n` vs `ni`) and is missing at two others (normalize block, post-loop fixup). Extract a single `sum_weights_ilp` helper that owns the pattern. All four call sites use the helper. This also eliminates the `ni` alias and the naming divergence.
+The 4-way ILP W-sum unroll appears at exactly two sites: `compute_errRp` (lines 18–25, variables `W/W1/W2/W3/i4e`) and the margin loop (lines 81–88, variables `W/W1/W2/W3/i4/ni`). These two sites are structurally identical but use different variable names, which is a maintenance hazard — a future change to one will silently miss the other. The normalize block (line 119) and post-loop fixup (line 180) use plain scalar `Wsum += w[i]` loops — a different and correct pattern; those are left unchanged.
+
+Extract a single `sum_weights_ilp` static helper that owns the ILP pattern. Both ILP sites call the helper. This eliminates the naming divergence (`i4e` vs `i4`, `st.n` vs `ni`).
 
 **Trace:** For w = [1.0, 2.0, 3.0, 4.0, 5.0] (n=5):
 - `n4 = 5 & ~3 = 4`
@@ -164,14 +166,15 @@ The 4-way ILP W-sum unroll appears at two sites (`compute_errRp`, margin loop) w
 
 **DoD:**
 - [ ] `sum_weights_ilp` is a file-scope `static` helper declared before `compute_errRp`
-- [ ] All four W-sum sites call `sum_weights_ilp(w, st.n)` (or `w.data(), n` form for the helper with raw pointer)
+- [ ] Both ILP W-sum sites (`compute_errRp` and margin loop) call `sum_weights_ilp(w, st.n)`
 - [ ] No `W1`/`W2`/`W3`/`i4e`/`i4`/`ni` variables exist outside the helper
+- [ ] Normalize block (`Wsum` scalar loop) and post-loop fixup (`Wsum` scalar loop) are **unchanged**
 - [ ] Compile gate passes
 - [ ] Weight regression: `max(abs(w_after - w_ref)) < 1e-12` (iEPPA path)
 - [ ] Test suite: 49 PASS, 0 FAIL
-- [ ] Committed: `refactor: extract sum_weights_ilp helper, apply uniformly in ieppa.cpp`
+- [ ] Committed: `refactor: extract sum_weights_ilp helper for the two ILP W-sum sites in ieppa.cpp`
 
-- [ ] **Step 1: Read ieppa.cpp** — find all four W-sum sites to confirm exact current text at each
+- [ ] **Step 1: Read ieppa.cpp** — confirm exact text of the two ILP unroll blocks (lines 18–25 and 81–88)
 
 - [ ] **Step 2: Add `sum_weights_ilp` before `compute_errRp`**
 
@@ -193,14 +196,14 @@ The 4-way ILP W-sum unroll appears at two sites (`compute_errRp`, margin loop) w
   }
   ```
 
-- [ ] **Step 3: Replace site 1 — `compute_errRp`**
+- [ ] **Step 3: Replace ILP site 1 — `compute_errRp`**
 
   Remove the inline unroll block (lines 18–25), replace with:
   ```cpp
   double W = sum_weights_ilp(w, st.n);
   ```
 
-- [ ] **Step 4: Replace site 2 — margin loop**
+- [ ] **Step 4: Replace ILP site 2 — margin loop**
 
   Remove the inline unroll block (lines 81–88, including `int ni = st.n, i4 = ...`), replace with:
   ```cpp
@@ -208,41 +211,15 @@ The 4-way ILP W-sum unroll appears at two sites (`compute_errRp`, margin loop) w
   ```
   Replace all remaining `ni` references in that scope with `st.n`.
 
-- [ ] **Step 5: Replace site 3 — normalize block**
-
-  Old:
-  ```cpp
-  double Wsum = 0.0;
-  for (int i = 0; i < st.n; i++) Wsum += w[i];
-  double wm = Wsum / st.n;
-  ```
-  New:
-  ```cpp
-  double wm = sum_weights_ilp(w, st.n) / st.n;
-  ```
-
-- [ ] **Step 6: Replace site 4 — post-loop fixup**
-
-  Old:
-  ```cpp
-  double Wsum = 0.0;
-  for (int i = 0; i < st.n; i++) Wsum += w[i];
-  double wm = (Wsum > kWeightCollapseThreshold) ? Wsum / st.n : 1.0;
-  ```
-  New:
-  ```cpp
-  const double Wfixup = sum_weights_ilp(w, st.n);
-  double wm = (Wfixup > kWeightCollapseThreshold) ? Wfixup / st.n : 1.0;
-  ```
-  (`Wfixup` distinguishes it from the loop-scoped `W` and avoids shadowing.)
-
-- [ ] **Step 7: Compile gate**
+- [ ] **Step 5: Compile gate**
 
   ```bash
   R CMD INSTALL --preclean . 2>&1 | tail -1
   ```
 
-- [ ] **Step 8: Weight regression (iEPPA)**
+- [ ] **Step 6: Weight regression (iEPPA)**
+
+  `tests/testthat/task2_ieppa_ref.rds` is a frozen reference computed from the iEPPA solver output during the prior performance optimisation branch. None of Tasks 1–5 change the numerical weight computation (include reordering, convergence-check timing for problems that converge in <10 iters, helper extraction, configure/Makevars edits, and std::clamp are all algebraically neutral for n=10000 with 2 margins). The regression asserts this is still true post-refactor.
 
   ```bash
   Rscript -e "
@@ -262,17 +239,17 @@ The 4-way ILP W-sum unroll appears at two sites (`compute_errRp`, margin loop) w
   "
   ```
 
-- [ ] **Step 9: Test suite**
+- [ ] **Step 7: Test suite**
 
   ```bash
   Rscript -e "testthat::test_local()" 2>&1 | tail -3
   ```
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 8: Commit**
 
   ```bash
   git add src/ieppa.cpp
-  git commit -m "refactor: extract sum_weights_ilp helper, apply uniformly in ieppa.cpp"
+  git commit -m "refactor: extract sum_weights_ilp helper for the two ILP W-sum sites in ieppa.cpp"
   ```
 
 ---
@@ -382,7 +359,7 @@ fi
       src/Makevars.in > src/Makevars
   ```
 
-- [ ] **Step 5: Compile gate**
+- [ ] **Step 5: Compile gate and substitution verification**
 
   ```bash
   R CMD INSTALL --preclean . 2>&1 | tail -1
@@ -391,6 +368,11 @@ fi
   ```bash
   grep "LBW_HAS" src/lbw_config.h
   ```
+  Verify `@SIMD_FLAGS@` was substituted into the generated `src/Makevars`:
+  ```bash
+  grep "^PKG_CXXFLAGS" src/Makevars
+  ```
+  The `@SIMD_FLAGS@` placeholder must not appear literally — it must be gone (replaced by either `-fopenmp-simd` or the empty string). On this machine (no -fopenmp-simd support per prior configure output) it will be an empty substitution, so the line will show `@OMP_FLAGS@` and `@MAVX2_FLAG@` regions also collapsed to their values.
 
 - [ ] **Step 6: Test suite**
 
