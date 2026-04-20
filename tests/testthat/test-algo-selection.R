@@ -28,3 +28,26 @@ test_that("bench_seed differs for different inputs", {
   seeds2 <- sapply(c(-3.2, -4.5, -5.1, -5.9), function(x) bench_seed(5.0, x))
   expect_equal(length(unique(seeds2)), 4L)
 })
+
+test_that("make_bench_data returns correct structure", {
+  set.seed(1L)
+  out <- make_bench_data(n = 200L, K = 3L, cats_per_margin = 4L)
+  expect_named(out, c("df", "targets"))
+  expect_equal(nrow(out$df), 200L)
+  expect_equal(ncol(out$df), 3L)
+  expect_equal(length(out$targets), 3L)
+})
+
+test_that("make_bench_data targets sum to 1", {
+  set.seed(2L)
+  out <- make_bench_data(n = 100L, K = 2L, cats_per_margin = 5L)
+  sums <- sapply(out$targets, sum)
+  expect_true(all(abs(sums - 1.0) < 1e-12))
+})
+
+test_that("make_bench_data df columns are factors with correct levels", {
+  set.seed(3L)
+  out <- make_bench_data(n = 50L, K = 2L, cats_per_margin = 3L)
+  expect_true(all(sapply(out$df, is.factor)))
+  expect_true(all(sapply(out$df, nlevels) == 3L))
+})

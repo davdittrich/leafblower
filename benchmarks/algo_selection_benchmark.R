@@ -34,3 +34,32 @@ bench_seed <- function(log_complexity, log_tol) {
   b <- as.integer(round(-log_tol * 1e4)) %% 10000L
   (a * 10000L) + b
 }
+
+# ── make_bench_data ───────────────────────────────────────────────────────────
+# Generates n-row survey data with K categorical margins of cats_per_margin levels.
+# Population proportions: Dirichlet(1,...,1) via normalised Exp(1) draws.
+# Sample proportions: population * |Normal(1, 0.1)| noise, renormalised (~10% bias).
+make_bench_data <- function(n, K, cats_per_margin) {
+  stopifnot(n >= 1L, K >= 1L, cats_per_margin >= 2L)
+  col_names <- paste0("m", seq_len(K))
+  lvl_names <- lapply(seq_len(K), function(k) paste0("c", seq_len(cats_per_margin)))
+
+  pop_props  <- lapply(seq_len(K), function(k) {
+    x <- rexp(cats_per_margin); x / sum(x)
+  })
+  samp_props <- lapply(pop_props, function(p) {
+    q <- p * abs(rnorm(length(p), mean = 1, sd = 0.1)); q / sum(q)
+  })
+
+  df_cols <- lapply(seq_len(K), function(k) {
+    factor(sample(lvl_names[[k]], n, replace = TRUE, prob = samp_props[[k]]),
+           levels = lvl_names[[k]])
+  })
+  df <- as.data.frame(setNames(df_cols, col_names))
+
+  targets <- setNames(
+    lapply(seq_len(K), function(k) setNames(pop_props[[k]], lvl_names[[k]])),
+    col_names
+  )
+  list(df = df, targets = targets)
+}
