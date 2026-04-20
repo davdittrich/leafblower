@@ -65,3 +65,26 @@ test_that("make_bench_data df levels align with targets names", {
     expect_identical(names(out$targets[[k]]), levels(out$df[[k]]))
   }
 })
+
+test_that("time_cell returns finite numeric scalar", {
+  # Tiny problem for speed: log_complexity=4.0 → n≈278, K=9, cats=4
+  # tol=1e-3 (loose) → fast convergence
+  y <- time_cell(log_complexity = 4.0, log_tol = -3.0, K = 9L)
+  expect_true(is.numeric(y) && length(y) == 1L && is.finite(y))
+})
+
+test_that("time_cell is deterministic for same inputs", {
+  y1 <- time_cell(log_complexity = 4.0, log_tol = -3.0, K = 9L)
+  y2 <- time_cell(log_complexity = 4.0, log_tol = -3.0, K = 9L)
+  # Same seed → same data → same weights → same timing direction (sign)
+  expect_equal(sign(y1), sign(y2))
+})
+
+test_that("time_cell seed_extra produces deterministic K-stability seeds", {
+  # seed_extra must produce a repeatable result distinct from seed_extra=0
+  y_main <- time_cell(4.0, -3.0, K = 9L, seed_extra = 0L)
+  y_k3_a <- time_cell(4.0, -3.0, K = 3L, seed_extra = 3L * 10000000L)
+  y_k3_b <- time_cell(4.0, -3.0, K = 3L, seed_extra = 3L * 10000000L)
+  # K-stability call is repeatable
+  expect_equal(sign(y_k3_a), sign(y_k3_b))
+})

@@ -63,3 +63,63 @@ make_bench_data <- function(n, K, cats_per_margin) {
   )
   list(df = df, targets = targets)
 }
+
+# ── time_cell ─────────────────────────────────────────────────────────────────
+# Times iEPPA vs L-BFGS-B at one (log_complexity, log_tol) point.
+# Returns log(median_t_iEPPA / median_t_LBFGSB):
+#   positive → iEPPA is slower → L-BFGS-B wins.
+# Threshold: log(1.2) ≈ 0.182.
+#
+# n derivation: cats_per_margin fixed by complexity tercile, n = round(complexity/(K*cats)).
+# Both solvers run with max_weight=Inf (unconstrained, exponential link).
+# seed_extra: K-specific seed offset for K-stability sweeps (default 0L = main sweep)
+#   K=3 stability: pass seed_extra = 3L * 10000000L
+#   K=18 stability: pass seed_extra = 18L * 10000000L
+time_cell <- function(log_complexity, log_tol, K = 9L, seed_extra = 0L) {
+  K <- as.integer(K)
+  cats_per_margin <- if (log_complexity <= 5.5) 4L else if (log_complexity <= 6.5) 8L else 16L
+  n <- max(50L, as.integer(round(10^log_complexity / (K * cats_per_margin))))
+
+  # Round-trip sanity check
+  actual_log_c <- log10(n * K * cats_per_margin)
+  if (abs(actual_log_c - log_complexity) > 0.2)
+    warning(sprintf("time_cell: complexity round-trip %.2f log-units (lc=%.2f K=%d cats=%d n=%d)",
+                    abs(actual_log_c - log_complexity), log_complexity, K, cats_per_margin, n))
+
+  # Generate data; retry with progressively larger n if any margin has empty cells.
+  # Empty cells make harvest() infeasible regardless of solver.
+  seed_base <- bench_seed(log_complexity, log_tol) + seed_extra
+  bd <- NULL
+  n_try <- n
+  for (.attempt in seq_len(5L)) {
+    set.seed(seed_base + .attempt - 1L)
+    cand <- make_bench_data(n_try, K, cats_per_margin)
+    all_filled <- all(sapply(cand$df, function(col) min(table(col)) > 0L))
+    if (all_filled) { bd <- cand; break }
+    n_try <- as.integer(ceiling(n_try * 1.5))
+  }
+  if (is.null(bd)) stop("time_cell: could not generate feasible data after 5 attempts")
+  conv <- list(absolute = 10^log_tol)
+
+  time_algo <- function(method) {
+    # 2 warmup runs (discarded)
+    for (i in seq_len(2L))
+      suppressWarnings(invisible(leafblower::harvest(
+        bd$df, bd$targets, method = method,
+        max_weight = Inf, min_weight = 0, convergence = conv, max_iterations = 500L)))
+    # 5 timed runs
+    median(replicate(5L, {
+      t0 <- proc.time()[["elapsed"]]
+      suppressWarnings(invisible(leafblower::harvest(
+        bd$df, bd$targets, method = method,
+        max_weight = Inf, min_weight = 0, convergence = conv, max_iterations = 500L)))
+      proc.time()[["elapsed"]] - t0
+    }))
+  }
+
+  t_ieppa  <- time_algo("ieppa")
+  t_lbfgsb <- time_algo("lbfgsb")
+  # Floor at 0.1ms to guard against proc.time() resolution yielding exact zeros.
+  t_min <- 1e-4
+  log(max(t_ieppa, t_min) / max(t_lbfgsb, t_min))
+}
