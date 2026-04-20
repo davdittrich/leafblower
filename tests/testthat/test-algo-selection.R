@@ -51,3 +51,17 @@ test_that("make_bench_data df columns are factors with correct levels", {
   expect_true(all(sapply(out$df, is.factor)))
   expect_true(all(sapply(out$df, nlevels) == 3L))
 })
+
+test_that("make_bench_data validates inputs", {
+  expect_error(make_bench_data(n = 0L,  K = 2L, cats_per_margin = 3L))
+  expect_error(make_bench_data(n = 10L, K = 0L, cats_per_margin = 3L))
+  expect_error(make_bench_data(n = 10L, K = 2L, cats_per_margin = 1L))
+})
+
+test_that("make_bench_data df levels align with targets names", {
+  set.seed(7L)
+  out <- make_bench_data(n = 30L, K = 3L, cats_per_margin = 4L)
+  for (k in seq_along(out$targets)) {
+    expect_identical(names(out$targets[[k]]), levels(out$df[[k]]))
+  }
+})
