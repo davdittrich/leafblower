@@ -201,7 +201,7 @@ run_k_stability <- function(state, K_vals = c(3L, 18L), threshold, out_dir = "be
   grid   <- expand.grid(log_complexity = x1_pts, log_tol = x2_pts)
 
   results_list <- lapply(K_vals, function(K) {
-    cat(sprintf("  K-stability: evaluating K=%d (16 points)...\n", K))
+    cat(sprintf("  K-stability: evaluating K=%d (%d points)...\n", K, nrow(grid)))
     y_K <- numeric(nrow(grid))
     for (i in seq_len(nrow(grid))) {
       # seed_extra = K * 10000000L ensures K-stability data is independent of main K=9 sweep.
