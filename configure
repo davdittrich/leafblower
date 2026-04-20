@@ -16,24 +16,50 @@ else
     OPT_FLAGS=""
 fi
 
-# Detect OpenMP: use R's SHLIB_OPENMP_CXXFLAGS (no new package dep).
+# Detect OpenMP simd hints (-fopenmp-simd, no threading runtime required).
+# This is probed independently: a user may have simd vectorisation annotations
+# supported by the compiler (-fopenmp-simd) without a full OMP threading runtime.
 _lbw_tmp=$(mktemp -d /tmp/lbw_XXXXXX)
-OMP_FLAGS=""
 LBW_HAS_OMP_SIMD=0
+SIMD_FLAGS=""
+cat > ${_lbw_tmp}/simd_test.cpp << 'EOF'
+int main() {
+    double a[8] = {};
+    #pragma omp simd
+    for (int i = 0; i < 8; i++) a[i] = i * 2.0;
+    return a[0] != 0.0;   /* prevents dead-code elim */
+}
+EOF
+if eval $CXX -fopenmp-simd -x c++ ${_lbw_tmp}/simd_test.cpp \
+       -o ${_lbw_tmp}/simd_test 2>/dev/null && \
+   ${_lbw_tmp}/simd_test 2>/dev/null; then
+    LBW_HAS_OMP_SIMD=1
+    SIMD_FLAGS="-fopenmp-simd"   # provisional; cleared below if full OMP takes over
+    echo "configure: -fopenmp-simd detected — omp simd hints enabled"
+fi
+
+# Detect full OpenMP (threading runtime required for LBW_HAS_OMP).
+# Compile and link in separate steps so SHLIB_OPENMP_CXXFLAGS appears only once
+# per eval $CXX invocation. Run the binary to confirm the runtime works.
 LBW_HAS_OMP=0
+OMP_FLAGS=""
 if [ -n "${SHLIB_OPENMP_CXXFLAGS}" ]; then
     cat > ${_lbw_tmp}/omp_test.cpp << 'EOF'
 #include <omp.h>
 int main() { return omp_get_max_threads() > 0 ? 0 : 1; }
 EOF
-    if eval $CXX ${SHLIB_OPENMP_CXXFLAGS} -x c++ ${_lbw_tmp}/omp_test.cpp \
-           -o ${_lbw_tmp}/omp_test ${SHLIB_OPENMP_CXXFLAGS} 2>/dev/null; then
+    if eval $CXX ${SHLIB_OPENMP_CXXFLAGS} -x c++ -c ${_lbw_tmp}/omp_test.cpp \
+           -o ${_lbw_tmp}/omp_test.o 2>/dev/null && \
+       eval $CXX ${SHLIB_OPENMP_CXXFLAGS} ${_lbw_tmp}/omp_test.o \
+           -o ${_lbw_tmp}/omp_test 2>/dev/null && \
+       ${_lbw_tmp}/omp_test 2>/dev/null; then
         OMP_FLAGS="${SHLIB_OPENMP_CXXFLAGS}"
-        LBW_HAS_OMP_SIMD=1
         LBW_HAS_OMP=1
-        echo "configure: OpenMP detected — simd and parallel exp enabled"
+        LBW_HAS_OMP_SIMD=1   # full OMP implies simd support
+        SIMD_FLAGS=""          # -fopenmp already covers simd; no redundant flag needed
+        echo "configure: OpenMP detected — threading and simd enabled"
     else
-        echo "configure: OpenMP not available — falling back to serial"
+        echo "configure: OpenMP not available — serial / simd-only fallback"
     fi
 fi
 
@@ -74,5 +100,5 @@ cat > src/lbw_config.h << EOF
 #endif /* LBW_CONFIG_H */
 EOF
 
-sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|;s|@OMP_FLAGS@|${OMP_FLAGS}|;s|@MAVX2_FLAG@|${MAVX2_FLAG}|;s|@MVEC_LIBS@|${MVEC_LIBS}|" \
+sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|;s|@OMP_FLAGS@|${OMP_FLAGS}|;s|@SIMD_FLAGS@|${SIMD_FLAGS}|;s|@MAVX2_FLAG@|${MAVX2_FLAG}|;s|@MVEC_LIBS@|${MVEC_LIBS}|" \
     src/Makevars.in > src/Makevars
