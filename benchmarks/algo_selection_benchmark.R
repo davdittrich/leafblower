@@ -186,6 +186,78 @@ load_checkpoint <- function(path) {
   readRDS(path)
 }
 
+# ── run_k_stability ───────────────────────────────────────────────────────────
+# Evaluates a 4×4 fixed grid at K ∈ K_vals to check whether the 1.2× contour
+# shifts with margin count. Overlays all contours on a single PDF.
+#
+# Decision rule: if the K=3 or K=18 contour shifts >0.5 log-units from the
+# K=9 GP contour at any tol level, prints a scope warning.
+run_k_stability <- function(state, K_vals = c(3L, 18L), threshold, out_dir = "benchmarks",
+                             grid_size = 4L) {
+  # grid_size: number of points per axis (default 4 → 4×4 production grid).
+  #   Use grid_size=1 in tests to call a single time_cell() per K value.
+  x1_pts <- seq(4.5, 7.2, length.out = grid_size)
+  x2_pts <- seq(-5.5, -3.5, length.out = grid_size)
+  grid   <- expand.grid(log_complexity = x1_pts, log_tol = x2_pts)
+
+  results_list <- lapply(K_vals, function(K) {
+    cat(sprintf("  K-stability: evaluating K=%d (16 points)...\n", K))
+    y_K <- numeric(nrow(grid))
+    for (i in seq_len(nrow(grid))) {
+      # seed_extra = K * 10000000L ensures K-stability data is independent of main K=9 sweep.
+      # The offset fits in 32-bit integer for K <= 214.
+      # NOTE: seed_extra is passed INTO time_cell() — do NOT call set.seed() here.
+      #       time_cell() internally calls set.seed(bench_seed(...) + seed_extra).
+      y_K[i] <- tryCatch(
+        time_cell(grid$log_complexity[i], grid$log_tol[i], K = K,
+                  seed_extra = K * 10000000L),
+        error = function(e) NA_real_
+      )
+    }
+    data.frame(grid, y = y_K, K = K)
+  })
+
+  # Add K=9 GP posterior mean at the same grid points for comparison
+  cands_grid <- as.matrix(grid)
+  pred_k9    <- DiceKriging::predict(state$gp,
+                                     newdata    = as.data.frame(cands_grid),
+                                     type       = "UK",
+                                     checkNames = FALSE)
+  k9_df <- data.frame(grid, y = pred_k9$mean, K = 9L)
+
+  all_df <- rbind(k9_df, do.call(rbind, results_list))
+  all_df$K_label <- paste0("K=", all_df$K)
+
+  # Contour shift check: compare each K_val contour against K=9 at each x2 level
+  k9_vals <- k9_df$y
+  for (K in K_vals) {
+    kv <- all_df[all_df$K == K, "y"]
+    if (any(is.finite(kv)) && any(is.finite(k9_vals))) {
+      max_shift <- max(abs(kv[is.finite(kv) & is.finite(k9_vals)] -
+                           k9_vals[is.finite(kv) & is.finite(k9_vals)]))
+      if (max_shift > 0.5) {
+        warning(sprintf(paste0(
+          "K-stability: K=%d contour shifts %.2f log-units from K=9.\n",
+          "Constants are valid only for K≈9 (Stepstone regime).\n",
+          "Add comment to kComplexityThreshold/kTolThreshold in src/c_api.cpp:\n",
+          "  // Threshold calibrated for K≈9, uniform-category problems."),
+          K, max_shift))
+      }
+    }
+  }
+
+  # K-stability overlay plot
+  p <- ggplot2::ggplot(all_df[is.finite(all_df$y), ],
+                       ggplot2::aes(log_complexity, log_tol, z = y, colour = K_label)) +
+    ggplot2::geom_contour(breaks = threshold, linewidth = 1) +
+    ggplot2::labs(title = "K-stability: 1.2× contour at K=3, 9, 18",
+                  x = "log10(complexity)", y = "log10(tol_abs)", colour = "K") +
+    ggplot2::theme_minimal()
+  ggplot2::ggsave(file.path(out_dir, "algo_selection_k_stability.pdf"), p, width = 8, height = 6)
+  cat(sprintf("  K-stability plot saved to %s/algo_selection_k_stability.pdf\n", out_dir))
+  invisible(all_df)
+}
+
 # ── run_benchmark ─────────────────────────────────────────────────────────────
 # Main entry point. Runs the Bayesian LSE loop.
 #
