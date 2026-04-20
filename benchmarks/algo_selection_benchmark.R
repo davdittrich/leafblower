@@ -78,7 +78,8 @@ make_bench_data <- function(n, K, cats_per_margin) {
 time_cell <- function(log_complexity, log_tol, K = 9L, seed_extra = 0L) {
   K <- as.integer(K)
   cats_per_margin <- if (log_complexity <= 5.5) 4L else if (log_complexity <= 6.5) 8L else 16L
-  n <- max(50L, as.integer(round(10^log_complexity / (K * cats_per_margin))))
+  n <- max(50L, 2L * K * cats_per_margin,
+         as.integer(round(10^log_complexity / (K * cats_per_margin))))
 
   # Round-trip sanity check
   actual_log_c <- log10(n * K * cats_per_margin)

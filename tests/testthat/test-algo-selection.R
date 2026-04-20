@@ -87,4 +87,12 @@ test_that("time_cell seed_extra produces deterministic K-stability seeds", {
   y_k3_b <- time_cell(4.0, -3.0, K = 3L, seed_extra = 3L * 10000000L)
   # K-stability call is repeatable
   expect_equal(sign(y_k3_a), sign(y_k3_b))
+  # seed_extra actually shifts the RNG state — verify seeds are distinct
+  s_main <- bench_seed(4.0, -3.0) + 0L
+  s_k3   <- bench_seed(4.0, -3.0) + 3L * 10000000L
+  expect_false(s_main == s_k3)
+  # Distinct seeds produce distinct data
+  set.seed(s_main); d_main <- make_bench_data(100L, 3L, 4L)
+  set.seed(s_k3);   d_k3   <- make_bench_data(100L, 3L, 4L)
+  expect_false(identical(d_main$df, d_k3$df))
 })
