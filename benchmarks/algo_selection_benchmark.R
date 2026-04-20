@@ -186,6 +186,65 @@ load_checkpoint <- function(path) {
   readRDS(path)
 }
 
+# ── make_plots ────────────────────────────────────────────────────────────────
+# Generates two PDFs from the final GP:
+#   algo_selection_contour.pdf     — posterior mean heatmap + 1.2× contour
+#   algo_selection_uncertainty.pdf — posterior σ surface
+make_plots <- function(state, candidates, threshold, out_dir = "benchmarks") {
+  pred    <- DiceKriging::predict(state$gp,
+                                  newdata    = as.data.frame(candidates),
+                                  type       = "UK",
+                                  checkNames = FALSE)
+  cand_df <- as.data.frame(candidates)
+  names(cand_df) <- c("log_complexity", "log_tol")
+  cand_df$mean <- pred$mean
+  cand_df$sd   <- pred$sd
+
+  # Mark evaluated points: circle = LHC initial, cross = adaptive
+  n_lhc    <- 8L
+  n_total  <- nrow(state$design)
+  pt_df    <- as.data.frame(state$design)
+  names(pt_df) <- c("log_complexity", "log_tol")
+  pt_df$type <- c(rep("LHC", min(n_lhc, n_total)),
+                  rep("Adaptive", max(0L, n_total - n_lhc)))
+
+  # ── Contour plot ───────────────────────────────────────────────────────────
+  p1 <- ggplot2::ggplot(cand_df, ggplot2::aes(log_complexity, log_tol)) +
+    ggplot2::geom_tile(ggplot2::aes(fill = mean)) +
+    ggplot2::geom_contour(ggplot2::aes(z = mean),
+                          breaks    = threshold,
+                          colour    = "red",
+                          linewidth = 1.2) +
+    ggplot2::geom_point(data  = pt_df,
+                        ggplot2::aes(shape = type),
+                        colour = "white", size = 2) +
+    ggplot2::scale_fill_viridis_c(name = "log(t_iEPPA/t_LBFGSB)") +
+    ggplot2::scale_shape_manual(values = c(LHC = 16L, Adaptive = 4L)) +
+    ggplot2::labs(
+      title   = "GP posterior mean — red line = 1.2× contour (L-BFGS-B wins above)",
+      x       = "log10(complexity = n × Σcat_counts)",
+      y       = "log10(tol_abs)",
+      shape   = "Design point"
+    ) +
+    ggplot2::theme_minimal()
+  ggplot2::ggsave(file.path(out_dir, "algo_selection_contour.pdf"), p1, width = 9, height = 6)
+
+  # ── Uncertainty plot ───────────────────────────────────────────────────────
+  p2 <- ggplot2::ggplot(cand_df, ggplot2::aes(log_complexity, log_tol)) +
+    ggplot2::geom_tile(ggplot2::aes(fill = sd)) +
+    ggplot2::scale_fill_viridis_c(name = "posterior σ", option = "magma") +
+    ggplot2::labs(
+      title = "GP posterior uncertainty — high σ = unreliable region",
+      x     = "log10(complexity = n × Σcat_counts)",
+      y     = "log10(tol_abs)"
+    ) +
+    ggplot2::theme_minimal()
+  ggplot2::ggsave(file.path(out_dir, "algo_selection_uncertainty.pdf"), p2, width = 9, height = 6)
+
+  cat(sprintf("Plots saved to %s/\n", out_dir))
+  invisible(list(contour = p1, uncertainty = p2))
+}
+
 # ── run_k_stability ───────────────────────────────────────────────────────────
 # Evaluates a 4×4 fixed grid at K ∈ K_vals to check whether the 1.2× contour
 # shifts with margin count. Overlays all contours on a single PDF.
