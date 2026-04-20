@@ -150,6 +150,7 @@ test_that("save_checkpoint + load_checkpoint round-trips state", {
   loaded <- load_checkpoint(tmp_path)
   expect_equal(loaded$iter, 3L)
   expect_equal(loaded$y, c(0.1, 0.2))
+  expect_equal(loaded$design, state$design)
 })
 
 test_that("load_checkpoint returns NULL when file absent", {

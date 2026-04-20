@@ -174,7 +174,8 @@ classified_fraction <- function(gp_model, candidates, threshold, conf = 0.95) {
 save_checkpoint <- function(state, path) {
   tmp <- paste0(path, ".tmp")
   saveRDS(state, tmp)
-  file.rename(tmp, path)   # atomic on same filesystem (benchmarks/ → benchmarks/)
+  if (!file.rename(tmp, path))
+    stop(sprintf("save_checkpoint: rename failed: %s -> %s", tmp, path))
   invisible(path)
 }
 
