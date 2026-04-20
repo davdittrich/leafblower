@@ -12,6 +12,6 @@ Description: Drop-in replacement for autumn::harvest() implementing iEPPA
 License: MIT + file LICENSE
 Encoding: UTF-8
 NeedsCompilation: yes
-SystemRequirements: C++17 compiler
+SystemRequirements: C++17 compiler, OpenMP (optional, for SIMD exp vectorisation)
 Suggests: autumn (>= 0.2.0), testthat (>= 3.0.0), bench
 RoxygenNote: 7.3.3
