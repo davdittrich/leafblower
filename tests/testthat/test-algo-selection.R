@@ -96,3 +96,47 @@ test_that("time_cell seed_extra produces deterministic K-stability seeds", {
   set.seed(s_k3);   d_k3   <- make_bench_data(100L, 3L, 4L)
   expect_false(identical(d_main$df, d_k3$df))
 })
+
+test_that("fit_gp returns km object with finite predictions", {
+  set.seed(42L)
+  design <- matrix(c(4.0, 5.0, 6.0, 7.0, 4.5, 5.5, 6.5, 4.0,
+                     -3.0, -4.0, -5.0, -6.0, -3.5, -4.5, -5.5, -6.0),
+                   ncol = 2)
+  y <- rnorm(8L)
+  gp <- fit_gp(design, y)
+  expect_s4_class(gp, "km")
+  cands <- as.data.frame(matrix(c(5.0, 5.5, -4.0, -4.5), ncol = 2))
+  names(cands) <- c("V1", "V2")
+  pred <- DiceKriging::predict(gp, newdata = cands, type = "UK", checkNames = FALSE)
+  expect_true(all(is.finite(pred$mean)))
+  expect_true(all(pred$sd >= 0))
+})
+
+test_that("straddle_next returns a 1-row matrix within bounds", {
+  set.seed(1L)
+  design <- matrix(c(4.0, 5.0, 6.0, 4.5, 5.5, 6.5, -3.0, -4.0, -5.0, -3.5, -4.5, -5.5), ncol = 2)
+  y <- c(0.5, 0.1, -0.3, 0.3, 0.0, -0.1)
+  gp <- fit_gp(design, y)
+  cands <- as.matrix(expand.grid(
+    V1 = seq(4.0, 7.7, length.out = 10),
+    V2 = seq(-6.0, -3.0, length.out = 10)))
+  nxt <- straddle_next(gp, cands, threshold = log(1.2))
+  expect_equal(nrow(nxt), 1L)
+  expect_equal(ncol(nxt), 2L)
+  expect_true(nxt[1, 1] >= 4.0 && nxt[1, 1] <= 7.7)
+  expect_true(nxt[1, 2] >= -6.0 && nxt[1, 2] <= -3.0)
+})
+
+test_that("classified_fraction is 0 for uncertain GP, 1 for certain", {
+  # GP trained on values clearly above threshold → high classified_fraction
+  set.seed(5L)
+  design <- matrix(c(4.0, 5.0, 6.0, 7.0, -3.0, -4.0, -5.0, -6.0), ncol = 2)
+  # y values clearly above threshold log(1.2) ≈ 0.182 → should be classified "above"
+  y <- c(2.0, 2.1, 1.9, 2.2)
+  gp <- suppressWarnings(fit_gp(design, y))
+  cands <- as.matrix(expand.grid(V1 = seq(4.5, 7.2, length.out = 5),
+                                  V2 = seq(-5.5, -3.5, length.out = 5)))
+  frac <- classified_fraction(gp, cands, threshold = log(1.2))
+  expect_true(is.numeric(frac) && length(frac) == 1L)
+  expect_true(frac >= 0 && frac <= 1)
+})

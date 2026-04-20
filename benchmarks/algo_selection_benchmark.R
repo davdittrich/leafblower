@@ -124,3 +124,45 @@ time_cell <- function(log_complexity, log_tol, K = 9L, seed_extra = 0L) {
   t_min <- 1e-4
   log(max(t_ieppa, t_min) / max(t_lbfgsb, t_min))
 }
+
+# ── fit_gp ────────────────────────────────────────────────────────────────────
+# Fits a Matérn-5/2 GP to timing observations.
+# design_mat: n_obs × 2 matrix (col 1 = log_complexity, col 2 = log_tol).
+# y: numeric vector of log(t_iEPPA / t_LBFGSB).
+fit_gp <- function(design_mat, y) {
+  stopifnot(is.matrix(design_mat), nrow(design_mat) == length(y), ncol(design_mat) == 2L)
+  DiceKriging::km(
+    formula      = ~1,
+    design       = as.data.frame(design_mat),
+    response     = y,
+    covtype      = "matern5_2",
+    nugget.estim = TRUE,
+    nugget       = 1e-4,          # lower bound: prevents degenerate fit on small n
+    control      = list(trace = FALSE)
+  )
+}
+
+# ── straddle_next ─────────────────────────────────────────────────────────────
+# Straddle acquisition (Bryan et al. 2005): picks the candidate maximising
+#   a(x) = -|μ(x) − threshold| + κ·σ(x)
+# Pulls samples toward the contour (low |μ − threshold|) and uncertain regions (high σ).
+straddle_next <- function(gp_model, candidates, threshold, kappa = 2) {
+  pred <- DiceKriging::predict(gp_model,
+                               newdata    = as.data.frame(candidates),
+                               type       = "UK",
+                               checkNames = FALSE)
+  a   <- -abs(pred$mean - threshold) + kappa * pred$sd
+  candidates[which.max(a), , drop = FALSE]
+}
+
+# ── classified_fraction ───────────────────────────────────────────────────────
+# Fraction of candidates classified with ≥conf confidence as above or below threshold.
+# Termination fires when this reaches 0.90.
+classified_fraction <- function(gp_model, candidates, threshold, conf = 0.95) {
+  pred    <- DiceKriging::predict(gp_model,
+                                  newdata    = as.data.frame(candidates),
+                                  type       = "UK",
+                                  checkNames = FALSE)
+  p_above <- pnorm(threshold, mean = pred$mean, sd = pred$sd, lower.tail = FALSE)
+  mean(p_above > conf | p_above < (1 - conf))
+}
