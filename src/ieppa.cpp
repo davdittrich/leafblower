@@ -1,6 +1,6 @@
+#include "lbw_config.h"
 #include "ieppa.hpp"
 #include "leafblower.h"
-#include "lbw_config.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
