@@ -166,3 +166,21 @@ classified_fraction <- function(gp_model, candidates, threshold, conf = 0.95) {
   p_above <- pnorm(threshold, mean = pred$mean, sd = pred$sd, lower.tail = FALSE)
   mean(p_above > conf | p_above < (1 - conf))
 }
+
+# ── save_checkpoint ───────────────────────────────────────────────────────────
+# Atomic checkpoint: write to .tmp, then rename to final path.
+# state fields: design (n×2 matrix), y (numeric), gp (km or NULL),
+#               iter (integer), classified (numeric), bounds (list).
+save_checkpoint <- function(state, path) {
+  tmp <- paste0(path, ".tmp")
+  saveRDS(state, tmp)
+  file.rename(tmp, path)   # atomic on same filesystem (benchmarks/ → benchmarks/)
+  invisible(path)
+}
+
+# ── load_checkpoint ───────────────────────────────────────────────────────────
+# Returns NULL if no checkpoint found; otherwise returns the saved state.
+load_checkpoint <- function(path) {
+  if (!file.exists(path)) return(NULL)
+  readRDS(path)
+}

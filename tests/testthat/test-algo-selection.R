@@ -140,3 +140,26 @@ test_that("classified_fraction is 0 for uncertain GP, 1 for certain", {
   expect_true(is.numeric(frac) && length(frac) == 1L)
   expect_true(frac >= 0 && frac <= 1)
 })
+
+test_that("save_checkpoint + load_checkpoint round-trips state", {
+  tmp_path <- tempfile(fileext = ".rds")
+  on.exit(unlink(tmp_path), add = TRUE)
+  state <- list(design = matrix(1:4, nrow = 2), y = c(0.1, 0.2), iter = 3L)
+  save_checkpoint(state, tmp_path)
+  expect_true(file.exists(tmp_path))
+  loaded <- load_checkpoint(tmp_path)
+  expect_equal(loaded$iter, 3L)
+  expect_equal(loaded$y, c(0.1, 0.2))
+})
+
+test_that("load_checkpoint returns NULL when file absent", {
+  result <- load_checkpoint(tempfile(fileext = ".rds"))
+  expect_null(result)
+})
+
+test_that("save_checkpoint leaves no .tmp file on success", {
+  tmp_path <- tempfile(fileext = ".rds")
+  on.exit(unlink(tmp_path), add = TRUE)
+  save_checkpoint(list(x = 1L), tmp_path)
+  expect_false(file.exists(paste0(tmp_path, ".tmp")))
+})
