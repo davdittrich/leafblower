@@ -31,6 +31,6 @@ BENCH_THRESHOLD <- log(1.2)      # log(1.2) ≈ 0.182; L-BFGS-B wins above this
 # Formula produces seeds in [4e8, 7.7e8+5999], all within 32-bit integer range.
 bench_seed <- function(log_complexity, log_tol) {
   a <- as.integer(round(log_complexity * 1e4))
-  b <- as.integer(round((-log_tol - (-3.0)) * 1e4))
+  b <- as.integer(round(-log_tol * 1e4)) %% 10000L
   (a * 10000L) + b
 }
