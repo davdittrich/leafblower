@@ -139,7 +139,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 #endif
         for (int i = 0; i < st.n; i++) {
             double yi = w[i] + q[i];
-            double wc = std::max(lo, std::min(hi, yi));
+            double wc = std::clamp(yi, lo, hi);
             q[i] = yi - wc;
             w[i] = wc;
         }
@@ -183,7 +183,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         bool changed = false;
         for (int i = 0; i < st.n; i++) {
             w[i] /= wm;  // normalize to mean=1
-            double wc = std::max(lo, std::min(hi, w[i]));
+            double wc = std::clamp(w[i], lo, hi);
             if (wc != w[i]) { w[i] = wc; changed = true; }
         }
         if (!changed) { fixup_converged = true; break; }
