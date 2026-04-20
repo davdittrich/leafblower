@@ -221,8 +221,8 @@ make_plots <- function(state, candidates, threshold, out_dir = "benchmarks") {
     ggplot2::scale_fill_viridis_c(name = "log(t_iEPPA/t_LBFGSB)") +
     ggplot2::scale_shape_manual(values = c(LHC = 16L, Adaptive = 4L)) +
     ggplot2::labs(
-      title   = "GP posterior mean — red line = 1.2× contour (L-BFGS-B wins above)",
-      x       = "log10(complexity = n × Σcat_counts)",
+      title   = "GP posterior mean - red line = 1.2x contour (L-BFGS-B wins above)",
+      x       = "log10(complexity = n x sum(cat_counts))",
       y       = "log10(tol_abs)",
       shape   = "Design point"
     ) +
@@ -232,10 +232,10 @@ make_plots <- function(state, candidates, threshold, out_dir = "benchmarks") {
   # ── Uncertainty plot ───────────────────────────────────────────────────────
   p2 <- ggplot2::ggplot(cand_df, ggplot2::aes(log_complexity, log_tol)) +
     ggplot2::geom_tile(ggplot2::aes(fill = sd)) +
-    ggplot2::scale_fill_viridis_c(name = "posterior σ", option = "magma") +
+    ggplot2::scale_fill_viridis_c(name = "posterior sd", option = "magma") +
     ggplot2::labs(
-      title = "GP posterior uncertainty — high σ = unreliable region",
-      x     = "log10(complexity = n × Σcat_counts)",
+      title = "GP posterior uncertainty - high sd = unreliable region",
+      x     = "log10(complexity = n x sum(cat_counts))",
       y     = "log10(tol_abs)"
     ) +
     ggplot2::theme_minimal()
@@ -309,7 +309,7 @@ run_k_stability <- function(state, K_vals = c(3L, 18L), threshold, out_dir = "be
   p <- ggplot2::ggplot(all_df[is.finite(all_df$y), ],
                        ggplot2::aes(log_complexity, log_tol, z = y, colour = K_label)) +
     ggplot2::geom_contour(breaks = threshold, linewidth = 1) +
-    ggplot2::labs(title = "K-stability: 1.2× contour at K=3, 9, 18",
+    ggplot2::labs(title = "K-stability: 1.2x contour at K=3, 9, 18",
                   x = "log10(complexity)", y = "log10(tol_abs)", colour = "K") +
     ggplot2::theme_minimal()
   ggplot2::ggsave(file.path(out_dir, "algo_selection_k_stability.pdf"), p, width = 8, height = 6)
