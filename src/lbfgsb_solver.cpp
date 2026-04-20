@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <vector>
 #include <deque>
+#include "lbw_math.hpp"
 
 namespace lbw {
 
@@ -305,6 +306,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     std::vector<double> u(st.n);       // u at current lam
     std::vector<double> du(st.n);      // per-obs directional derivative for Wolfe
     std::vector<double> u_work(st.n);  // scratch for Wolfe trial u
+    std::vector<double> e_vec(st.n);   // scratch: exp(logit_scale * u_work[i]) per trial
     std::vector<double> dir(total);
 
     std::deque<std::vector<double>> svec, yvec;
