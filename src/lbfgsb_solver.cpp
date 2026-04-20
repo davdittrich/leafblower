@@ -199,12 +199,16 @@ static double wolfe_zoom(
     for (int j = 0; j < 20; j++) {
         double alpha = 0.5 * (alpha_lo + alpha_hi);
         for (int i = 0; i < st.n; i++) u_work[i] = u_base[i] + alpha * du[i];
+        if (!fn.exponential)
+            lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + alpha * Tdir;
         double slope = Tdir;
         for (int i = 0; i < st.n; i++) {
-            auto fh = fn.FH(u_work[i]);
-            phi_trial -= d[i] * fh.H;
-            slope    -= d[i] * fh.F * du[i];
+            double Fi, Hi;
+            if (fn.exponential) { auto fh = fn.FH(u_work[i]); Fi = fh.F; Hi = fh.H; }
+            else                { Fi = fn.F_from_e(e_vec[i]); Hi = fn.H_from_e(e_vec[i], u_work[i]); }
+            phi_trial -= d[i] * Hi;
+            slope    -= d[i] * Fi * du[i];
         }
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || phi_trial <= phi_lo) {
