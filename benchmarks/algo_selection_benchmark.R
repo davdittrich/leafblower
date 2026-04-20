@@ -185,3 +185,139 @@ load_checkpoint <- function(path) {
   if (!file.exists(path)) return(NULL)
   readRDS(path)
 }
+
+# ── run_benchmark ─────────────────────────────────────────────────────────────
+# Main entry point. Runs the Bayesian LSE loop.
+#
+# budget:          max adaptive acquisitions (default 25)
+# checkpoint_path: where to save/load state (default benchmarks/algo_selection_results.rds)
+# out_dir:         where to write PDFs (default benchmarks/)
+# seed:            seed for the 8-pt LHC initial design (default 42L)
+run_benchmark <- function(budget          = 25L,
+                          checkpoint_path = "benchmarks/algo_selection_results.rds",
+                          out_dir         = "benchmarks",
+                          seed            = 42L,
+                          lhc_x1_max      = NULL) {
+  # lhc_x1_max: cap LHC x1 (log_complexity) coordinates to at most this value.
+  #   NULL (default) → full [4, 7.7] range used in production.
+  #   5.5 → smoke-test mode: all LHC points stay in the fast sub-region
+  #          (n ≤ ~4K at K=9, cats=8), keeping the smoke test to ~2 min.
+
+  threshold  <- BENCH_THRESHOLD
+  x1_range   <- BENCH_X1_RANGE
+  x2_range   <- BENCH_X2_RANGE
+
+  # 50×50 candidate grid — used for Straddle and classification
+  candidates <- as.matrix(expand.grid(
+    V1 = seq(x1_range[1], x1_range[2], length.out = 50L),
+    V2 = seq(x2_range[1], x2_range[2], length.out = 50L)
+  ))
+
+  # ── Restart or initialise ──────────────────────────────────────────────────
+  state <- load_checkpoint(checkpoint_path)
+  if (!is.null(state)) {
+    cat(sprintf("Restarting from checkpoint: %d evaluations, iter=%d, classified=%.2f\n",
+                nrow(state$design), state$iter, state$classified))
+    # Refit GP from saved design + y (do not re-run evaluations)
+    state$gp <- fit_gp(state$design, state$y)
+  } else {
+    cat("Initialising: 8-point Latin hypercube design...\n")
+    set.seed(seed)
+    lhc_unit <- lhs::randomLHS(n = 8L, k = 2L)
+    lhc_pts  <- cbind(
+      x1_range[1] + lhc_unit[, 1L] * diff(x1_range),
+      x2_range[1] + lhc_unit[, 2L] * diff(x2_range)
+    )
+    # Smoke-test cap: clamp LHC log_complexity coordinates to lhc_x1_max.
+    # This keeps all initial evaluations in the fast sub-region without
+    # changing the Straddle/classification grid (always full [4,7.7]).
+    if (!is.null(lhc_x1_max))
+      lhc_pts[, 1L] <- pmin(lhc_pts[, 1L], lhc_x1_max)
+    design <- matrix(nrow = 0L, ncol = 2L)
+    y      <- numeric(0L)
+    for (i in seq_len(nrow(lhc_pts))) {
+      cat(sprintf("  LHC %d/8: lc=%.2f, lt=%.2f ... ", i, lhc_pts[i, 1L], lhc_pts[i, 2L]))
+      yi <- tryCatch(time_cell(lhc_pts[i, 1L], lhc_pts[i, 2L]),
+                     error = function(e) { cat("ERROR:", conditionMessage(e), "\n"); NA_real_ })
+      cat(sprintf("y=%.3f\n", yi))
+      design <- rbind(design, lhc_pts[i, , drop = FALSE])
+      y      <- c(y, yi)
+    }
+    # Drop any NA evaluations
+    ok     <- is.finite(y)
+    design <- design[ok, , drop = FALSE]
+    y      <- y[ok]
+
+    if (sum(ok) < 2L)
+      stop("All LHC evaluations failed — check leafblower installation and system capacity. ",
+           "Cannot fit GP on fewer than 2 observations.")
+
+    state <- list(design = design, y = y, gp = fit_gp(design, y),
+                  iter = 0L, classified = 0.0, bounds = list(x1 = x1_range, x2 = x2_range))
+    save_checkpoint(state, checkpoint_path)
+  }
+
+  # ── Adaptive acquisitions ──────────────────────────────────────────────────
+  for (i in seq_len(budget)) {
+    state$classified <- classified_fraction(state$gp, candidates, threshold)
+    cat(sprintf("Iter %d/%d: classified=%.2f\n", state$iter + 1L, budget, state$classified))
+    if (state$classified >= 0.90) {
+      cat("Termination: 90% classified.\n")
+      state$converged <- TRUE
+      break
+    }
+
+    next_pt <- straddle_next(state$gp, candidates, threshold)
+    cat(sprintf("  Next: lc=%.3f, lt=%.3f ... ", next_pt[1L, 1L], next_pt[1L, 2L]))
+    yi <- tryCatch(time_cell(next_pt[1L, 1L], next_pt[1L, 2L]),
+                   error = function(e) { cat("ERROR:", conditionMessage(e), "\n"); NA_real_ })
+    cat(sprintf("y=%.3f\n", yi))
+
+    if (is.finite(yi)) {
+      state$design <- rbind(state$design, next_pt)
+      state$y      <- c(state$y, yi)
+      state$gp     <- fit_gp(state$design, state$y)
+    }
+    state$iter <- state$iter + 1L
+
+    if (state$iter %% 5L == 0L)
+      save_checkpoint(state, checkpoint_path)
+  }
+
+  # Final checkpoint
+  save_checkpoint(state, checkpoint_path)
+
+  # ── Poor-fit warning ───────────────────────────────────────────────────────
+  final_classified <- classified_fraction(state$gp, candidates, threshold)
+  if (final_classified < 0.90) {
+    warning(
+      sprintf(paste0(
+        "GP classification %.0f%% < 90%% at termination.\n",
+        "Inspect benchmarks/algo_selection_uncertainty.pdf before committing constants.\n",
+        "Consider filing a follow-up issue:\n",
+        "  bd create --title='algo-selection: 3D sweep needed (K/n confound)' ",
+        "--description='GP classified only %.0f%% of space after %d acquisitions' ",
+        "--type=task --priority=3"),
+        100 * final_classified, 100 * final_classified, state$iter))
+  }
+
+  # ── Plots ─────────────────────────────────────────────────────────────────
+  cat("Generating plots...\n")
+  make_plots(state, candidates, threshold, out_dir)
+
+  cat(sprintf("\nDone. %d total evaluations, %.0f%% classified.\n",
+              nrow(state$design), 100 * final_classified))
+  cat(sprintf("Inspect: %s/algo_selection_contour.pdf\n", out_dir))
+  invisible(state)
+}
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+# Runs only when executed via `Rscript benchmarks/algo_selection_benchmark.R`.
+# Skipped when sourced in tests (set `.BENCH_SOURCED <- TRUE` before source()).
+# K-stability is called here (not inside run_benchmark) so smoke tests can call
+# run_benchmark() alone without triggering 32 extra time_cell() evaluations.
+if (!.BENCH_SOURCED) {
+  state <- run_benchmark()
+  run_k_stability(state, K_vals = c(3L, 18L), threshold = BENCH_THRESHOLD,
+                  out_dir = "benchmarks")
+}
