@@ -22,8 +22,8 @@ struct CalibState {
     int outer_max_iter;
     int lbfgs_m;
     int verbose;
-    double alm_lambda = 0.0;  // dual variable for sum(w)=n
-    double alm_mu     = 0.0;  // penalty coefficient; 0.0 = no ALM term
+    double alm_lambda = 0.0;  // dual variable for sum(w)=n; only read when alm_mu > 0
+    double alm_mu     = 0.0;  // penalty coefficient; 0.0 = ALM inactive
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;
 

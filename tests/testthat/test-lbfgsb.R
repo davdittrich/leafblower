@@ -13,7 +13,8 @@ test_that("L-BFGS-B converges on 3-margin no-bounds case", {
   result <- harvest(df, tgt, method="lbfgsb")
   expect_s3_class(result, "data.frame")
   expect_true("weights" %in% names(result))
-  expect_lt(abs(mean(result$weights) - 1.0), 1e-8)
+  diag <- diagnose_weights(df, tgt, result$weights)
+  expect_true(all(abs(diag$error_weighted) < 1e-4))
 })
 
 test_that("L-BFGS-B max_weight bound respected", {
@@ -49,7 +50,7 @@ test_that("near-one max_weight rejected for lbfgsb, accepted for ieppa", {
   expect_no_error(suppressWarnings(harvest(df, tgt, method="lbfgsb", max_weight=2.0)))
 })
 
-test_that("L-BFGS-B ALM converges to sum(w)=n with tight bounds", {
+test_that("L-BFGS-B converges with tight bounds (max=1.5, min=0.2)", {
   set.seed(11L)
   n   <- 500L
   df  <- data.frame(x = factor(sample(c("a", "b", "c"), n, replace = TRUE)))
@@ -61,7 +62,7 @@ test_that("L-BFGS-B ALM converges to sum(w)=n with tight bounds", {
   expect_true(min(res$weights) >= 0.2 - 1e-6)
 })
 
-test_that("L-BFGS-B ALM stable near infeasibility boundary", {
+test_that("L-BFGS-B stable near infeasibility boundary (90/10 split, tight bounds)", {
   set.seed(99L)
   n   <- 300L
   df  <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE,
@@ -74,7 +75,7 @@ test_that("L-BFGS-B ALM stable near infeasibility boundary", {
   expect_true(min(res$weights) >= 0.1 - 1e-5)
 })
 
-test_that("L-BFGS-B ALM mean=1 without tight bounds", {
+test_that("L-BFGS-B mean=1 after normalization, loose bounds", {
   set.seed(12L)
   n   <- 1000L
   df  <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))

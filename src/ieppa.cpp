@@ -176,7 +176,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             double yi = w[i] + q[i];
             double wc = std::clamp(yi, lo, hi);
             q[i] = yi - wc;
-            if (wc != w[i]) box_ok = false;
+            if (yi != wc) box_ok = false;
             w[i] = wc;
         }
         // Hyperplane step restores sum(w) = n regardless of box changes.

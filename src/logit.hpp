@@ -44,8 +44,7 @@ struct LinkFn {
             return safe_exp(u);
         }
         double f = F(u);
-        double ls = (U - L) / ((U - 1.0) * (1.0 - L));
-        return ls * (f - L) * (U - f) / (U - L);
+        return logit_scale * (f - L) * (U - f) / (U - L);
     }
 
     // H(u): antiderivative of F(u).

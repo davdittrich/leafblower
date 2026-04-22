@@ -84,25 +84,25 @@ harvest <- function(
                PACKAGE = "leafblower")
 
   weights <- raw$weights
-  cres    <- raw$result
+  calib_result    <- raw$result
 
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
-  if (cres$status == 2L)
+  if (calib_result$status == 2L)
     stop("leafblower: infeasible problem \u2014 empty cell with positive target.")
-  if (cres$status == 3L)
-    stop("leafblower: invalid arguments \u2014 ", cres$message)
+  if (calib_result$status == 3L)
+    stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 
   # Normalize to mean=1 (preserves calibration constraints which are proportional).
   weights <- weights / mean(weights)
 
-  if (cres$status == 1L)
+  if (calib_result$status == 1L)
     warning("leafblower: calibration did not converge (max_error=",
-            signif(cres$max_error, 3), "). Weights reflect last iterate.")
+            signif(calib_result$max_error, 3), "). Weights reflect last iterate.")
 
   # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2
-  alg_names <- c("auto", "ieppa", "lbfgsb")  # index 0 (auto) unreachable after match.arg; kept for 1-indexed enum alignment
-  alg_used  <- alg_names[cres$algorithm_used + 1L]
+  alg_names <- c("", "ieppa", "lbfgsb")  # index 0 (auto) removed from user API
+  alg_used  <- alg_names[calib_result$algorithm_used + 1L]
 
   if (!attach_weights) return(weights)
 

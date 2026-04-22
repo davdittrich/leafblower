@@ -64,14 +64,16 @@ def harvest(
             else:
                 raise ValueError(f"unknown convergence key '{k}'")
 
-    # Convert dict data to DataFrame
+    # Convert dict data to DataFrame; validate input type.
     if isinstance(data, dict):
         if not _PANDAS_AVAILABLE:
             raise ImportError("pandas required to use dict input; install with pip install pandas")
         data = pd.DataFrame(data)
-
-    if _PANDAS_AVAILABLE and not isinstance(data, pd.DataFrame):
-        raise TypeError("data must be a pd.DataFrame or dict")
+    elif _PANDAS_AVAILABLE:
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError("data must be a pd.DataFrame or dict")
+    else:
+        raise TypeError("data must be a dict when pandas is not installed")
 
     n = len(data)
 
@@ -163,6 +165,11 @@ def harvest(
         raise RuntimeError("leafblower: infeasible problem — empty cell with positive target")
     elif result_dict["status"] == 3:
         raise ValueError(f"leafblower: invalid arguments — {result_dict['message']}")
+
+    # Match R behaviour: normalise to mean=1 (preserves proportional constraints).
+    w_mean = weights_out.mean()
+    if w_mean > 0:
+        weights_out = weights_out / w_mean
 
     # weights_out is already a copy (contract from _bindings.cpp)
     if not attach_weights:

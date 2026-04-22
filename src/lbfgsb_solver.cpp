@@ -69,7 +69,7 @@ static double phi_from_u(const CalibState& st,
         }
     }
 
-    if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+    if (st.alm_mu > 0.0) {
         double sum_w = 0.0;
         for (int i = 0; i < st.n; i++) sum_w += d[i] * fn.F(u[i]);
         double residual = sum_w - static_cast<double>(st.n);
@@ -166,8 +166,8 @@ static LBFGSResult compute_final_weights_and_error(
         double wi = d[i] * fn.F(u[i]);
         st.weights[i] = wi;
     }
-    // Do NOT normalize: bridge normalizes start_weights to mean=1 before
-    // rk_calibrate(); re-normalizing after clamping invalidates calibration constraints.
+    // C returns raw weights. Caller (harvest.R) normalises to mean=1 post-call;
+    // safe because calibration constraints are proportional (scaling w preserves margins).
 
     double Wn = 0.0;
     for (int i = 0; i < st.n; i++) Wn += st.weights[i];
@@ -228,12 +228,12 @@ static double wolfe_zoom(
             phi_trial -= d[i] * Hi;
             slope    -= d[i] * Fi * du[i];
             
-            if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+            if (st.alm_mu > 0.0) {
                 sum_w  += d[i] * Fi;
                 sum_dw += d[i] * fn.dF(u_work[i]) * du[i];
             }
         }
-        if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+        if (st.alm_mu > 0.0) {
             double residual = sum_w - static_cast<double>(st.n);
             double alm_scale = st.alm_lambda + st.alm_mu * residual;
             phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
@@ -304,12 +304,12 @@ static double wolfe_line_search(
             phi_trial -= d[j] * Hj;
             slope    -= d[j] * Fj * du[j];
             
-            if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+            if (st.alm_mu > 0.0) {
                 sum_w  += d[j] * Fj;
                 sum_dw += d[j] * fn.dF(u_work[j]) * du[j];
             }
         }
-        if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+        if (st.alm_mu > 0.0) {
             double residual = sum_w - static_cast<double>(st.n);
             double alm_scale = st.alm_lambda + st.alm_mu * residual;
             phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
@@ -344,6 +344,8 @@ static double wolfe_line_search(
     return alpha;
 }
 
+// Extracted from lbfgsb_solve to isolate the L-BFGS-B iteration kernel.
+// If an ALM outer loop is added, lbfgsb_solve calls this per outer iteration.
 static LBFGSResult lbfgsb_solve_inner(CalibState& st,
                                       const std::vector<int>& off,
                                       const std::vector<double>& T,
@@ -430,7 +432,8 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     std::vector<double> d(st.n);
     for (int i = 0; i < st.n; i++) d[i] = st.weights[i];
 
-    // ALM fields inactive: dual calibration guarantees sum(w)=n at convergence.
+    // ALM inactive. sum(w)≈n holds at convergence when targets sum to 1 per margin;
+    // harvest.R normalises post-call as a safety net for non-converged iterates.
     st.alm_lambda = 0.0;
     st.alm_mu     = 0.0;
     return lbfgsb_solve_inner(st, off, T, d, W_sum);
