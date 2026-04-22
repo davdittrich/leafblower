@@ -40,3 +40,18 @@ test_that("iEPPA respects min_weight=0.5", {
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
+
+test_that("iEPPA output weights have mean=1 and respect bounds", {
+  set.seed(5L)
+  n   <- 1000L
+  df  <- data.frame(x = factor(sample(c("a", "b", "c"), n, replace = TRUE)))
+  tgt <- list(x = c(a = 0.5, b = 0.3, c = 0.2))
+  res <- leafblower::harvest(df, tgt, method = "ieppa",
+                              max_weight = 2.0, min_weight = 0.2,
+                              attach_weights = FALSE)
+  # mean=1 is guaranteed by both the old fixup loop and the new Dykstra projection;
+  # this test guards against regressions in the P2 refactor.
+  expect_equal(mean(res), 1.0, tolerance = 1e-10)
+  expect_true(max(res) <= 2.0 + 1e-10)
+  expect_true(min(res) >= 0.2 - 1e-10)
+})

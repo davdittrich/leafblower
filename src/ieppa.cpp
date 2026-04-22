@@ -53,8 +53,6 @@ static double compute_errRp(const CalibState& st,
 // inner_max_iter is the single iteration budget; outer_max_iter is unused.
 IEPPAResult ieppa_solve(CalibState& st) {
     static constexpr double kEmptyBucketThreshold   = 1e-15;   // relative threshold: bucket[j] < 1e-15*W → treat as empty, skip IPF scale
-    static constexpr double kWeightCollapseThreshold = 1e-300;  // weights collapsed: skip norm
-    static constexpr int    kMaxFixupIterations      = 20;      // post-convergence fixup cap
     static constexpr int    kErrCheckInterval        = 10;      // Check convergence every N inner iterations.
                                                                  // compute_errRp costs K O(n) passes — nearly as expensive as a full sweep.
                                                                  // Every-10 reduces that overhead by 90% at the cost of ≤9 extra IPF iters.
@@ -68,6 +66,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> w(st.weights, st.weights + st.n);
 
     std::vector<double> q(st.n, 0.0);
+    std::vector<double> q_hyp(st.n, 0.0);  // Dykstra correction for hyperplane {w: sum(w)=n}
 
     double lo = st.min_weight;
     // 1e300 not numeric_limits::max(): prevents overflow in w[i] *= scale[g]
@@ -113,25 +112,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
         }
 
-        // Normalize to mean=1 so box bounds match the scale R returns.
-        // harvest.R divides by mean(weights) after C returns, so the constraint is
-        // w_i/mean(w) <= max_weight. Working at mean=1 makes max(w) == max/mean(w).
-        {
-            double Wsum = 0.0;
-            for (int i = 0; i < st.n; i++) Wsum += w[i];
-            double wm = Wsum / st.n;
-            if (wm > kWeightCollapseThreshold) {
-                // Rescale q[] proportionally to w[]: q[i] represents Dykstra overshoot
-                // in the same unit as w[i]. After renormalizing w[i] /= wm, the corrected
-                // iterate y[i] = w[i] + q[i] must shift by the same factor to keep
-                // the Dykstra fixed-point invariant intact.
-#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-#pragma omp simd
-#endif
-                for (int i = 0; i < st.n; i++) { w[i] /= wm; q[i] /= wm; }
-            }
-        }
-
         // Box projection [lo, hi]^n with Dykstra correction (mean=1 scale).
         // q[i] accumulates overshoot from previous box clamps.
 #if defined(_OPENMP) || LBW_HAS_OMP_SIMD
@@ -142,6 +122,20 @@ IEPPAResult ieppa_solve(CalibState& st) {
             double wc = std::clamp(yi, lo, hi);
             q[i] = yi - wc;
             w[i] = wc;
+        }
+
+        // Dykstra hyperplane projection: {w : sum(w) = n}
+        // q_hyp[i] accumulates overshoot from previous hyperplane projections.
+        {
+            for (int i = 0; i < st.n; i++) w[i] += q_hyp[i];
+            double s = 0.0;
+            for (int i = 0; i < st.n; i++) s += w[i];
+            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
+            for (int i = 0; i < st.n; i++) {
+                double w_proj = w[i] + shift;
+                q_hyp[i] = w[i] - w_proj;  // Dykstra correction: pre - post
+                w[i] = w_proj;
+            }
         }
 
         // Convergence check: run every kErrCheckInterval iters and on the final iter.
@@ -170,27 +164,33 @@ IEPPAResult ieppa_solve(CalibState& st) {
     if (is_infeasible && res.status == RK_ERR_NOCONV)
         res.status = RK_ERR_INFEAS;
 
-    // Final normalization-and-clamp fixup: harvest.R divides by mean(weights) after
-    // C returns, so the effective constraint is max(w)/mean(w) <= max_weight.
-    // The box projection inside the loop works in mean~=1 space but clamping reduces
-    // mean slightly, causing post-R-normalization to push max fractionally above hi.
-    // Fix: iterate renormalize→reclamp until the fixed point max(w)<=hi*mean(w) holds.
-    bool fixup_converged = false;
-    for (int fixup = 0; fixup < kMaxFixupIterations; fixup++) {
-        double Wsum = 0.0;
-        for (int i = 0; i < st.n; i++) Wsum += w[i];
-        double wm = (Wsum > kWeightCollapseThreshold) ? Wsum / st.n : 1.0;
-        bool changed = false;
+    // Post-loop Dykstra finalizer: alternate box+hyperplane until box-feasible.
+    // The main loop exits after the hyperplane step; the resulting shift can push
+    // weights fractionally above hi or below lo. Continue the Dykstra cycle
+    // (box then hyperplane) until all weights are within [lo, hi].
+    // At true convergence this terminates in 1 iteration (shift ~ floating-point
+    // rounding). At the end, sum(w) = n, so harvest.R's /mean(weights) is a no-op.
+    for (int fixup = 0; fixup < 20; fixup++) {
+        bool box_ok = true;
         for (int i = 0; i < st.n; i++) {
-            w[i] /= wm;  // normalize to mean=1
-            double wc = std::clamp(w[i], lo, hi);
-            if (wc != w[i]) { w[i] = wc; changed = true; }
+            double yi = w[i] + q[i];
+            double wc = std::clamp(yi, lo, hi);
+            q[i] = yi - wc;
+            if (wc != w[i]) box_ok = false;
+            w[i] = wc;
         }
-        if (!changed) { fixup_converged = true; break; }
+        // Hyperplane step restores sum(w) = n regardless of box changes.
+        for (int i = 0; i < st.n; i++) w[i] += q_hyp[i];
+        double s = 0.0;
+        for (int i = 0; i < st.n; i++) s += w[i];
+        double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
+        for (int i = 0; i < st.n; i++) {
+            double w_proj = w[i] + shift;
+            q_hyp[i] = w[i] - w_proj;
+            w[i] = w_proj;
+        }
+        if (box_ok) break;
     }
-    if (!fixup_converged)
-        st.log("iEPPA: fixup loop did not reach fixed point in 20 iterations; "
-               "weights may exceed max_weight by floating-point rounding");
 
     for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
 
