@@ -125,24 +125,6 @@ static int validate_inputs(int n, int K,
     return RK_OK;
 }
 
-// Routing note: std::isfinite(max_weight) fires for any finite upper bound (including
-// the default 5.0), so iEPPA is the default for all bounded problems.
-// kComplexityThreshold only differentiates between iEPPA and L-BFGS-B for
-// UNCONSTRAINED problems (max_weight=Inf, min_weight=0.0) — those are the only
-// cases where both solvers are feasible and problem size is the deciding factor.
-static constexpr int64_t kComplexityThreshold = 500000L;
-
-static rk_algorithm_t select_algorithm(int n, int K,
-                                        const int* cat_counts,
-                                        const rk_params_t* p,
-                                        int64_t& complexity_out) {
-    complexity_out = INT64_C(0);
-    for (int k = 0; k < K; k++) complexity_out += (int64_t)n * cat_counts[k];
-    if (p->algorithm != RK_ALG_AUTO) return p->algorithm;
-    if (complexity_out > kComplexityThreshold || std::isfinite(p->max_weight) || p->min_weight > 0.0)
-        return RK_ALG_IEPPA;
-    return RK_ALG_LBFGSB;
-}
 
 LBW_NODISCARD int rk_calibrate(int n, int K,
                                 double* weights,
@@ -159,16 +141,15 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         result->status = RK_OK;
         result->iterations = 0;
         result->max_error = 0.0;
-        result->algorithm_used = RK_ALG_AUTO;
+        result->algorithm_used = RK_ALG_IEPPA;
         result->message[0] = '\0';
     }
 
     // Resolve algorithm before validation so the singularity guard knows which
     // link function will be used. Guard against null cat_counts or invalid K/n
     // — validate_inputs will reject those cases with a proper error message.
-    int64_t complexity = INT64_C(0);
     rk_algorithm_t alg = (cat_counts && K > 0 && n > 0)
-        ? select_algorithm(n, K, cat_counts, p, complexity)
+        ? ((p->algorithm == RK_ALG_LBFGSB) ? RK_ALG_LBFGSB : RK_ALG_IEPPA)
         : p->algorithm;
 
     int rc = validate_inputs(n, K, weights, group_ids, cat_counts, targets, p, result, alg);
@@ -190,18 +171,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.verbose       = p->verbose;
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
-    // Verbose routing report (complexity already computed by select_algorithm)
-    if (p->verbose >= 1 && p->algorithm == RK_ALG_AUTO) {
-        char msg[256];
-        if (alg == RK_ALG_IEPPA)
-            snprintf(msg, 256, "Auto-selected iEPPA: complexity=%lld, max_weight=%.2f, min_weight=%.2f",
-                     (long long)complexity, p->max_weight, p->min_weight);
-        else
-            snprintf(msg, 256, "Auto-selected L-BFGS-B: complexity=%lld <= %lld, max_weight=%.2f, min_weight=%.2f",
-                     (long long)complexity, (long long)kComplexityThreshold, p->max_weight, p->min_weight);
-        st.log(msg);
-    }
-
     int status;
     int iterations;
     double max_error;

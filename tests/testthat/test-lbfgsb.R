@@ -44,11 +44,6 @@ test_that("near-one max_weight rejected for lbfgsb, accepted for ieppa", {
     harvest(df, tgt, method="ieppa", max_weight=1.0 + 5e-7)
   ))
 
-  # auto: near-1 max_weight → valid (routes to ieppa)
-  expect_no_error(suppressWarnings(
-    harvest(df, tgt, method="auto", max_weight=1.0 + 5e-7)
-  ))
-
   # lbfgsb: max_weight=2.0 (well outside eps) → valid
   # suppressWarnings: small n=200 balanced sample may emit convergence warning; not the assertion under test
   expect_no_error(suppressWarnings(harvest(df, tgt, method="lbfgsb", max_weight=2.0)))

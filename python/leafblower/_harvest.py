@@ -20,7 +20,7 @@ def harvest(
     targets: Dict[str, Dict[str, float]],
     min_weight: float = 0.0,
     max_weight: float = 5.0,
-    method: str = "auto",
+    method: str = "ieppa",
     verbose: int = 0,
     max_iterations: int = 500,
     start_weights: Optional[np.ndarray] = None,
@@ -38,7 +38,7 @@ def harvest(
     targets : dict of dicts, e.g. {"age": {"18-34": 0.3, "35+": 0.7}}
     min_weight : float, lower bound on weights (default 0 = no bound)
     max_weight : float, upper bound on weights (default 5)
-    method : "auto" | "ieppa" | "lbfgsb"
+    method : "ieppa" | "lbfgsb" (default "ieppa")
     verbose : int, 0=silent, 1=progress, 2=debug
     max_iterations : int, inner BCD max sweeps per outer iter (default 500)
     start_weights : optional 1D float64 array of initial weights
@@ -84,7 +84,7 @@ def harvest(
         warnings.warn("method='nr' not implemented; using L-BFGS-B", UserWarning, stacklevel=2)
         method_lc = "lbfgsb"
 
-    alg_map = {"auto": 0, "ieppa": 1, "lbfgsb": 2}
+    alg_map = {"ieppa": 1, "lbfgsb": 2}  # "auto" (0) removed from user API
     if method_lc not in alg_map:
         raise ValueError(f"method must be one of {list(alg_map)}")
     alg_int = alg_map[method_lc]

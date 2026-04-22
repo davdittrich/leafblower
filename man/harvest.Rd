@@ -9,7 +9,7 @@ harvest(
   target,
   min_weight = 0,
   max_weight = 5,
-  method = "auto",
+  method = "ieppa",
   verbose = 0,
   max_iterations = 500,
   start_weights = NULL,
@@ -38,7 +38,7 @@ harvest(
 
 \item{max_weight}{Upper bound on weights. Default 5.}
 
-\item{method}{One of "auto", "ieppa", "lbfgsb", "rake", "nr". Default "auto".}
+\item{method}{One of "ieppa", "lbfgsb". Default "ieppa".}
 
 \item{verbose}{Integer verbosity: 0=silent, 1=progress, 2=debug.}
 

@@ -4,7 +4,7 @@
 #' @param target A named list of named numeric vectors (variable -> proportions).
 #' @param min_weight Lower bound on weights. Default 0 (no lower bound).
 #' @param max_weight Upper bound on weights. Default 5.
-#' @param method One of "auto", "ieppa", "lbfgsb", "rake", "nr". Default "auto".
+#' @param method One of "ieppa", "lbfgsb". Default "ieppa".
 #' @param verbose Integer verbosity: 0=silent, 1=progress, 2=debug.
 #' @param max_iterations Maximum inner BCD iterations per outer step. Default 500.
 #' @param start_weights Starting weights vector or NULL (uniform).
@@ -29,7 +29,7 @@ harvest <- function(
   target,
   min_weight       = 0,
   max_weight       = 5,
-  method           = "auto",
+  method           = "ieppa",
   verbose          = 0,
   max_iterations   = 500,
   start_weights    = NULL,
@@ -101,7 +101,7 @@ harvest <- function(
             signif(cres$max_error, 3), "). Weights reflect last iterate.")
 
   # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2
-  alg_names <- c("auto", "ieppa", "lbfgsb")
+  alg_names <- c("auto", "ieppa", "lbfgsb")  # index 0 (auto) unreachable after match.arg; kept for 1-indexed enum alignment
   alg_used  <- alg_names[cres$algorithm_used + 1L]
 
   if (!attach_weights) return(weights)
@@ -147,7 +147,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("auto", "ieppa", "lbfgsb"))
+  match.arg(method, c("ieppa", "lbfgsb"))
 }
 
 parse_convergence <- function(convergence) {
