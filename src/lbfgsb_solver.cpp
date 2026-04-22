@@ -68,6 +68,23 @@ static double phi_from_u(const CalibState& st,
             if (g >= 0) grad[off[k] + g] -= d[i] * fn.F(u[i]);
         }
     }
+
+    if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+        double sum_w = 0.0;
+        for (int i = 0; i < st.n; i++) sum_w += d[i] * fn.F(u[i]);
+        double residual = sum_w - static_cast<double>(st.n);
+        double alm_scale = st.alm_lambda + st.alm_mu * residual;
+
+        for (int k = 0; k < st.K; k++) {
+            for (int i = 0; i < st.n; i++) {
+                int g = st.group_ids[k][i];
+                if (g >= 0)
+                    grad[off[k] + g] += alm_scale * d[i] * fn.dF(u[i]);
+            }
+        }
+        obj += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
+    }
+
     return obj;
 }
 
@@ -147,7 +164,6 @@ static LBFGSResult compute_final_weights_and_error(
 
     for (int i = 0; i < st.n; i++) {
         double wi = d[i] * fn.F(u[i]);
-        wi = std::max(st.min_weight, std::min(st.max_weight, wi));
         st.weights[i] = wi;
     }
     // Do NOT normalize: bridge normalizes start_weights to mean=1 before
@@ -203,12 +219,25 @@ static double wolfe_zoom(
             lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + alpha * Tdir;
         double slope = Tdir;
+        double sum_w = 0.0;
+        double sum_dw = 0.0;
         for (int i = 0; i < st.n; i++) {
             double Fi, Hi;
             if (fn.exponential) { auto fh = fn.FH(u_work[i]); Fi = fh.F; Hi = fh.H; }
             else                { Fi = fn.F_from_e(e_vec[i]); Hi = fn.H_from_e(e_vec[i], u_work[i]); }
             phi_trial -= d[i] * Hi;
             slope    -= d[i] * Fi * du[i];
+            
+            if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+                sum_w  += d[i] * Fi;
+                sum_dw += d[i] * fn.dF(u_work[i]) * du[i];
+            }
+        }
+        if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+            double residual = sum_w - static_cast<double>(st.n);
+            double alm_scale = st.alm_lambda + st.alm_mu * residual;
+            phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
+            slope += alm_scale * sum_dw;
         }
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || phi_trial <= phi_lo) {
@@ -266,12 +295,25 @@ static double wolfe_line_search(
             lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + Tdir * alpha;
         double slope = Tdir;
+        double sum_w = 0.0;
+        double sum_dw = 0.0;
         for (int j = 0; j < st.n; j++) {
             double Fj, Hj;
             if (fn.exponential) { auto fh = fn.FH(u_work[j]); Fj = fh.F; Hj = fh.H; }
             else                { Fj = fn.F_from_e(e_vec[j]); Hj = fn.H_from_e(e_vec[j], u_work[j]); }
             phi_trial -= d[j] * Hj;
             slope    -= d[j] * Fj * du[j];
+            
+            if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+                sum_w  += d[j] * Fj;
+                sum_dw += d[j] * fn.dF(u_work[j]) * du[j];
+            }
+        }
+        if (st.alm_mu > 0.0 || st.alm_lambda != 0.0) {
+            double residual = sum_w - static_cast<double>(st.n);
+            double alm_scale = st.alm_lambda + st.alm_mu * residual;
+            phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
+            slope += alm_scale * sum_dw;
         }
 
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || (i > 0 && phi_trial <= phi_prev)) {
@@ -302,16 +344,15 @@ static double wolfe_line_search(
     return alpha;
 }
 
-LBFGSResult lbfgsb_solve(CalibState& st) {
+static LBFGSResult lbfgsb_solve_inner(CalibState& st,
+                                      const std::vector<int>& off,
+                                      const std::vector<double>& T,
+                                      const std::vector<double>& d,
+                                      double W_sum) {
     LinkFn fn(st.min_weight, st.max_weight);
-    auto off = build_offsets(st);
     int total = off[st.K];
 
-    std::vector<double> d(st.n);
-    for (int i = 0; i < st.n; i++) d[i] = st.weights[i];
-
     std::vector<double> lam(total, 0.0);
-    std::vector<double> T(total);
     std::vector<double> grad(total), grad_new(total);
     std::vector<double> u(st.n);       // u at current lam
     std::vector<double> du(st.n);      // per-obs directional derivative for Wolfe
@@ -323,7 +364,6 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     std::deque<double> rho_hist;
     double gamma = 1.0;
 
-    double W_sum = compute_targets_abs(st, T);
     double phi_curr = phi_and_grad(st, fn, off, lam, T, d, grad, u);
 
     int max_iter = st.outer_max_iter;
@@ -379,6 +419,21 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     }
 
     return compute_final_weights_and_error(st, fn, d, off, u, final_iter);
+}
+
+LBFGSResult lbfgsb_solve(CalibState& st) {
+    auto off = build_offsets(st);
+
+    std::vector<double> T(off[st.K]);
+    double W_sum = compute_targets_abs(st, T);
+
+    std::vector<double> d(st.n);
+    for (int i = 0; i < st.n; i++) d[i] = st.weights[i];
+
+    // ALM fields inactive: dual calibration guarantees sum(w)=n at convergence.
+    st.alm_lambda = 0.0;
+    st.alm_mu     = 0.0;
+    return lbfgsb_solve_inner(st, off, T, d, W_sum);
 }
 
 } // namespace lbw

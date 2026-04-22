@@ -93,7 +93,7 @@ harvest <- function(
   if (cres$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", cres$message)
 
-  # Normalize to mean=1 (preserves calibration constraints which are proportional)
+  # Normalize to mean=1 (preserves calibration constraints which are proportional).
   weights <- weights / mean(weights)
 
   if (cres$status == 1L)
