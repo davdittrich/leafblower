@@ -242,30 +242,70 @@ static double wolfe_zoom(
     double alpha_accepted = -1.0;
     for (int j = 0; j < 20; j++) {
         double alpha = 0.5 * (alpha_lo + alpha_hi);
-        for (int i = 0; i < st.n; i++) u_work[i] = u_base[i] + alpha * du[i];
+        {
+            const double a = alpha;
+            const double* __restrict__ ub = u_base.data();
+            const double* __restrict__ dv = du.data();
+            double*       __restrict__ uw = u_work.data();
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
+            for (int i = 0; i < st.n; i++) uw[i] = ub[i] + a * dv[i];
+        }
         if (!fn.exponential)
             lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + alpha * Tdir;
         double slope = Tdir;
-        double sum_w = 0.0;
-        double sum_dw = 0.0;
-        for (int i = 0; i < st.n; i++) {
-            double Fi, Hi;
-            if (fn.exponential) { auto fh = fn.FH(u_work[i]); Fi = fh.F; Hi = fh.H; }
-            else                { Fi = fn.F_from_e(e_vec[i]); Hi = fn.H_from_e(e_vec[i], u_work[i]); }
-            phi_trial -= d[i] * Hi;
-            slope    -= d[i] * Fi * du[i];
-            
-            if (st.alm_mu > 0.0) {
-                sum_w  += d[i] * Fi;
-                sum_dw += d[i] * fn.dF(u_work[i]) * du[i];
-            }
-        }
+        // WU-A3: branch-hoisted SIMD. reduction(+:...) avoids the OpenMP
+        // reduction(-:x) combiner bug (would yield orig+Σ, not orig-Σ).
         if (st.alm_mu > 0.0) {
+            // ALM scalar fallback: dead at runtime (alm_mu=0.0 forced) but
+            // kept correct for future reactivation.
+            double sum_w = 0.0, sum_dw = 0.0;
+            for (int i = 0; i < st.n; i++) {
+                double Fi, Hi;
+                if (fn.exponential) { auto fh = fn.FH(u_work[i]); Fi = fh.F; Hi = fh.H; }
+                else                { Fi = fn.F_from_e(e_vec[i]); Hi = fn.H_from_e(e_vec[i], u_work[i]); }
+                phi_trial -= d[i] * Hi;
+                slope     -= d[i] * Fi * du[i];
+                sum_w     += d[i] * Fi;
+                sum_dw    += d[i] * fn.dF(u_work[i]) * du[i];
+            }
             double residual = sum_w - static_cast<double>(st.n);
             double alm_scale = st.alm_lambda + st.alm_mu * residual;
             phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
-            slope += alm_scale * sum_dw;
+            slope     += alm_scale * sum_dw;
+        } else {
+            double phi_acc = 0.0, slope_acc = 0.0;
+            if (fn.exponential) {
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd reduction(+:phi_acc) reduction(+:slope_acc)
+#endif
+                for (int i = 0; i < st.n; i++) {
+                    double e = std::exp(std::min(u_work[i], 700.0));
+                    phi_acc   += d[i] * e;
+                    slope_acc += d[i] * e * du[i];
+                }
+            } else {
+                const double L = fn.L, U = fn.U, ls = fn.logit_scale;
+                const double A = L * (U - 1.0), B = U * (1.0 - L);
+                const double P = (U - 1.0),     Q = (1.0 - L);
+                const double R = (U - L) / ls;
+                const double UmL = U - L;
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd reduction(+:phi_acc) reduction(+:slope_acc)
+#endif
+                for (int i = 0; i < st.n; i++) {
+                    double ei = e_vec[i];
+                    double denom = P + Q * ei;
+                    double Fi = (A + B * ei) / denom;
+                    double Hi = L * u_work[i] + R * std::log(denom / UmL);
+                    phi_acc   += d[i] * Hi;
+                    slope_acc += d[i] * Fi * du[i];
+                }
+            }
+            phi_trial -= phi_acc;
+            slope     -= slope_acc;
         }
 
         // Armijo test (maximization: slope_0 > 0). Fail ⟹ phi_trial did NOT
@@ -285,7 +325,16 @@ static double wolfe_zoom(
     if (alpha_accepted < 0.0) alpha_accepted = 0.5 * (alpha_lo + alpha_hi);
     // Compute full gradient at accepted point (O(K*n) once per outer step)
     for (int idx = 0; idx < total; idx++) lam_new[idx] = lam[idx] + alpha_accepted * dir[idx];
-    for (int i = 0; i < st.n; i++) u_work[i] = u_base[i] + alpha_accepted * du[i];
+    {
+        const double a = alpha_accepted;
+        const double* __restrict__ ub = u_base.data();
+        const double* __restrict__ dv = du.data();
+        double*       __restrict__ uw = u_work.data();
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
+        for (int i = 0; i < st.n; i++) uw[i] = ub[i] + a * dv[i];
+    }
     phi_new = phi_from_u(st, fn, off, lam_new, T, d, grad_new, u_work);
     return alpha_accepted;
 }
@@ -320,30 +369,68 @@ static double wolfe_line_search(
     double alpha = 1.0;
 
     for (int i = 0; i < 20; i++) {
-        for (int j = 0; j < st.n; j++) u_work[j] = u_base[j] + alpha * du[j];
+        {
+            const double a = alpha;
+            const double* __restrict__ ub = u_base.data();
+            const double* __restrict__ dv = du.data();
+            double*       __restrict__ uw = u_work.data();
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
+            for (int j = 0; j < st.n; j++) uw[j] = ub[j] + a * dv[j];
+        }
         if (!fn.exponential)
             lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + Tdir * alpha;
         double slope = Tdir;
-        double sum_w = 0.0;
-        double sum_dw = 0.0;
-        for (int j = 0; j < st.n; j++) {
-            double Fj, Hj;
-            if (fn.exponential) { auto fh = fn.FH(u_work[j]); Fj = fh.F; Hj = fh.H; }
-            else                { Fj = fn.F_from_e(e_vec[j]); Hj = fn.H_from_e(e_vec[j], u_work[j]); }
-            phi_trial -= d[j] * Hj;
-            slope    -= d[j] * Fj * du[j];
-            
-            if (st.alm_mu > 0.0) {
-                sum_w  += d[j] * Fj;
-                sum_dw += d[j] * fn.dF(u_work[j]) * du[j];
-            }
-        }
+        // WU-A3: branch-hoisted SIMD. reduction(+:...) avoids combiner bug.
         if (st.alm_mu > 0.0) {
+            // ALM scalar fallback (dead at runtime; kept correct).
+            double sum_w = 0.0, sum_dw = 0.0;
+            for (int j = 0; j < st.n; j++) {
+                double Fj, Hj;
+                if (fn.exponential) { auto fh = fn.FH(u_work[j]); Fj = fh.F; Hj = fh.H; }
+                else                { Fj = fn.F_from_e(e_vec[j]); Hj = fn.H_from_e(e_vec[j], u_work[j]); }
+                phi_trial -= d[j] * Hj;
+                slope     -= d[j] * Fj * du[j];
+                sum_w     += d[j] * Fj;
+                sum_dw    += d[j] * fn.dF(u_work[j]) * du[j];
+            }
             double residual = sum_w - static_cast<double>(st.n);
             double alm_scale = st.alm_lambda + st.alm_mu * residual;
             phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
-            slope += alm_scale * sum_dw;
+            slope     += alm_scale * sum_dw;
+        } else {
+            double phi_acc = 0.0, slope_acc = 0.0;
+            if (fn.exponential) {
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd reduction(+:phi_acc) reduction(+:slope_acc)
+#endif
+                for (int j = 0; j < st.n; j++) {
+                    double e = std::exp(std::min(u_work[j], 700.0));
+                    phi_acc   += d[j] * e;
+                    slope_acc += d[j] * e * du[j];
+                }
+            } else {
+                const double L = fn.L, U = fn.U, ls = fn.logit_scale;
+                const double A = L * (U - 1.0), B = U * (1.0 - L);
+                const double P = (U - 1.0),     Q = (1.0 - L);
+                const double R = (U - L) / ls;
+                const double UmL = U - L;
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd reduction(+:phi_acc) reduction(+:slope_acc)
+#endif
+                for (int j = 0; j < st.n; j++) {
+                    double ej = e_vec[j];
+                    double denom = P + Q * ej;
+                    double Fj = (A + B * ej) / denom;
+                    double Hj = L * u_work[j] + R * std::log(denom / UmL);
+                    phi_acc   += d[j] * Hj;
+                    slope_acc += d[j] * Fj * du[j];
+                }
+            }
+            phi_trial -= phi_acc;
+            slope     -= slope_acc;
         }
 
         // Armijo test (maximization: slope_0 > 0). Fail ⟹ phi_trial did NOT
@@ -371,7 +458,16 @@ static double wolfe_line_search(
     }
     st.log("L-BFGS-B: Wolfe bracket did not converge; using last step");
     for (int j = 0; j < total; j++) lam_new[j] = lam[j] + alpha * dir[j];
-    for (int j = 0; j < st.n; j++) u_work[j] = u_base[j] + alpha * du[j];
+    {
+        const double a = alpha;
+        const double* __restrict__ ub = u_base.data();
+        const double* __restrict__ dv = du.data();
+        double*       __restrict__ uw = u_work.data();
+#if LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
+        for (int j = 0; j < st.n; j++) uw[j] = ub[j] + a * dv[j];
+    }
     phi_new = phi_from_u(st, fn, off, lam_new, T, d, grad_new, u_work);
     return alpha;
 }
