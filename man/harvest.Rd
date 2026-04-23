@@ -38,7 +38,17 @@ harvest(
 
 \item{max_weight}{Upper bound on weights. Default 5.}
 
-\item{method}{One of "ieppa", "lbfgsb". Default "ieppa".}
+\item{method}{One of "auto", "ieppa", "lbfgsb", "raking".
+\itemize{
+  \item \code{"ieppa"}: paper-faithful algBCD at C=0 (cell-compressed
+    Sinkhorn, Chu-Liang-Toh-Yang 2022 arXiv:2011.14312).
+  \item \code{"raking"}: classical IPF + Dykstra box + hyperplane
+    projections (Deming-Stephan 1940 / Csiszar 1975 + Boyle-Dykstra
+    1986). Renamed from the prior misnamed "iEPPA" hybrid.
+  \item \code{"lbfgsb"}: L-BFGS-B on the Deville-Sarndal logit dual.
+  \item \code{"auto"} (default): currently routes unconditionally to
+    \code{"ieppa"}. Benchmark-driven routing refinement is planned.
+}}
 
 \item{verbose}{Integer verbosity: 0=silent, 1=progress, 2=debug.}
 

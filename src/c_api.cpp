@@ -1,7 +1,8 @@
 #include "leafblower.h"
 #include "types.hpp"
 #include "lbfgsb_solver.hpp"
-#include "ieppa.hpp"
+#include "ieppa.hpp"   // faithful (new)
+#include "raking.hpp"  // renamed hybrid
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -149,9 +150,22 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     // Resolve algorithm before validation so the singularity guard knows which
     // link function will be used. Guard against null cat_counts or invalid K/n
     // — validate_inputs will reject those cases with a proper error message.
-    rk_algorithm_t alg = (cat_counts && K > 0 && n > 0)
-        ? ((p->algorithm == RK_ALG_LBFGSB) ? RK_ALG_LBFGSB : RK_ALG_IEPPA)
-        : p->algorithm;
+    rk_algorithm_t alg;
+    bool auto_selected = false;
+    if (cat_counts && K > 0 && n > 0) {
+        switch (p->algorithm) {
+            case RK_ALG_LBFGSB: alg = RK_ALG_LBFGSB; break;
+            case RK_ALG_RAKING: alg = RK_ALG_RAKING; break;
+            case RK_ALG_IEPPA:  alg = RK_ALG_IEPPA;  break;
+            case RK_ALG_AUTO:
+            default:
+                alg = RK_ALG_IEPPA;  // AUTO → faithful iEPPA. Benchmark-driven refinement TBD.
+                auto_selected = true;
+                break;
+        }
+    } else {
+        alg = p->algorithm;
+    }
 
     int rc = validate_inputs(n, K, weights, group_ids, cat_counts, targets, p, result, alg);
     if (rc != RK_OK) return rc;
@@ -170,6 +184,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.outer_max_iter = p->outer_max_iter;
     st.lbfgs_m       = p->lbfgs_m;
     st.verbose       = p->verbose;
+    st.ieppa_auto_selected = auto_selected;  // read by ieppa_solve for verbose prefix
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
     int status;
@@ -183,8 +198,15 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = res.iterations;
         max_error = res.max_error;
         used = RK_ALG_LBFGSB;
+    } else if (alg == RK_ALG_RAKING) {
+        // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
+        auto res = lbw::raking_solve(st);
+        status = res.status;
+        iterations = res.iterations;
+        max_error = res.max_error;
+        used = RK_ALG_RAKING;
     } else {
-        // iEPPA: cyclic IPF + Dykstra box projection
+        // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
         auto res = lbw::ieppa_solve(st);
         status = res.status;
         iterations = res.iterations;
@@ -198,10 +220,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         result->max_error = max_error;
         result->algorithm_used = used;
         if (result->message[0] == '\0') {
-            snprintf(result->message, 256,
-                     "%s: %d iters, max_error=%.2e",
-                     used == RK_ALG_LBFGSB ? "L-BFGS-B" : "iEPPA",
-                     iterations, max_error);
+            const char* name = (used == RK_ALG_LBFGSB) ? "L-BFGS-B"
+                             : (used == RK_ALG_RAKING) ? "raking"
+                             : "iEPPA";
+            snprintf(result->message, 256, "%s: %d iters, max_error=%.2e",
+                     name, iterations, max_error);
         }
     }
     return status;

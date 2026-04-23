@@ -86,7 +86,7 @@ def harvest(
         warnings.warn("method='nr' not implemented; using L-BFGS-B", UserWarning, stacklevel=2)
         method_lc = "lbfgsb"
 
-    alg_map = {"ieppa": 1, "lbfgsb": 2}  # "auto" (0) removed from user API
+    alg_map = {"ieppa": 1, "lbfgsb": 2, "raking": 3}  # "auto" (0) removed from user API
     if method_lc not in alg_map:
         raise ValueError(f"method must be one of {list(alg_map)}")
     alg_int = alg_map[method_lc]
@@ -170,6 +170,9 @@ def harvest(
     w_mean = weights_out.mean()
     if w_mean > 0:
         weights_out = weights_out / w_mean
+
+    # Post-normalization clamp to handle numerical precision errors from solver expansion
+    weights_out = np.clip(weights_out, min_weight, max_weight)
 
     # weights_out is already a copy (contract from _bindings.cpp)
     if not attach_weights:

@@ -175,6 +175,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
     if      (strcmp(method_str, "ieppa")  == 0) p.algorithm = RK_ALG_IEPPA;
     else if (strcmp(method_str, "lbfgsb") == 0) p.algorithm = RK_ALG_LBFGSB;
+    else if (strcmp(method_str, "raking") == 0) p.algorithm = RK_ALG_RAKING;
     else                                          p.algorithm = RK_ALG_IEPPA;
 
     rk_result_t result;

@@ -8,6 +8,10 @@ bench_file <- file.path(
   rprojroot::find_root(rprojroot::has_file("DESCRIPTION")),
   "benchmarks", "algo_selection_benchmark.R"
 )
+# Set working directory to package root so relative sources in benchmark work
+old_wd <- getwd()
+setwd(rprojroot::find_root(rprojroot::has_file("DESCRIPTION")))
+on.exit(setwd(old_wd))
 source(bench_file)
 
 test_that("bench_seed is deterministic", {

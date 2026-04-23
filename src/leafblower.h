@@ -18,7 +18,8 @@ extern "C" {
 typedef enum {
     RK_ALG_AUTO   = 0,
     RK_ALG_IEPPA  = 1,
-    RK_ALG_LBFGSB = 2
+    RK_ALG_LBFGSB = 2,
+    RK_ALG_RAKING = 3
 } rk_algorithm_t;
 
 /* ── Calibration parameters ── */

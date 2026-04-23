@@ -1,154 +1,262 @@
 #include "lbw_config.h"
 #include "ieppa.hpp"
+#include "cell_table.hpp"
 #include "leafblower.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <algorithm>
+#include <limits>
 #include <vector>
 
 namespace lbw {
 
-// Sum weights with 4-way ILP unroll.
-// Separate accumulators break the loop-carried dependency chain, letting
-// the compiler pipeline four additions in parallel. The tail loop handles n % 4.
-static double sum_weights_ilp(const std::vector<double>& w, int n) {
-    double W = 0.0, W1 = 0.0, W2 = 0.0, W3 = 0.0;
-    const int n4 = n & ~3;
-    for (int i = 0; i < n4; i += 4) {
-        W  += w[i];   W1 += w[i+1];
-        W2 += w[i+2]; W3 += w[i+3];
-    }
-    for (int i = n4; i < n; ++i) W += w[i];
-    return W + W1 + W2 + W3;
-}
-
-// Compute errRp = max_k max_j |S_kj/W - tau_kj|
-// O(n*K): single O(n) bucket accumulation pass per margin.
-// bucket must be pre-allocated to at least max_cats elements by the caller;
-// it is filled and reused across margins to avoid per-call heap allocation.
-static double compute_errRp(const CalibState& st,
-                              const std::vector<double>& w,
-                              std::vector<double>& bucket) {
-    double W = sum_weights_ilp(w, st.n);
-
-    double err = 0.0;
-    for (int k = 0; k < st.K; k++) {
-        std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-        for (int i = 0; i < st.n; i++) {
-            int g = st.group_ids[k][i];
-            if (g >= 0) bucket[g] += w[i];
-        }
-        for (int j = 0; j < st.cat_counts[k]; j++) {
-            double e = std::fabs(bucket[j] / W - st.targets[k][j]);
-            if (e > err) err = e;
-        }
-    }
-    return err;
-}
-
-// Constrained raking solver: cyclic IPF for marginal projections + Dykstra box correction.
-// Marginal step: pure IPF (Bregman/multiplicative projection — Euclidean Dykstra corrections
-// diverge on multiplicative projections and are not used here).
-// Box step: Dykstra additive correction q[i] prevents cycling at the [lo,hi]^n boundary.
-// inner_max_iter is the single iteration budget; outer_max_iter is unused.
+// Log-space algBCD at C=0 — see design spec §2.3, §8 for math.
+// lf[k][j]: log Sinkhorn factor (per margin k, category j)
+// W[c]:    capacity multiplier per cell (linear-space; bounded in [L_c/X_tilde, U_c/X_tilde])
+// X_tilde[c] = X_init[c] * exp(sum_k lf[k][g_k(c)])
+// X[c] = clamp(X_tilde[c] * W[c], L_c, U_c) — one capacity BCD block per outer iter
+//
+// Log-sum-exp stabilization on S_kj prevents overflow when partial log-sums
+// approach log(DBL_MAX) ≈ 709.
 IEPPAResult ieppa_solve(CalibState& st) {
-    static constexpr double kEmptyBucketThreshold   = 1e-15;   // relative threshold: bucket[j] < 1e-15*W → treat as empty, skip IPF scale
-    static constexpr int    kErrCheckInterval        = 10;      // Check convergence every N inner iterations.
-                                                                 // compute_errRp costs K O(n) passes — nearly as expensive as a full sweep.
-                                                                 // Every-10 reduces that overhead by 90% at the cost of ≤9 extra IPF iters.
-                                                                 // Exception: always check on iter 1 to catch problems that converge immediately.
+    constexpr int    kErrCheckInterval = 10;
+    constexpr double kEmptyBucketThreshold = 1e-15;
+    constexpr double kLogClip = 700.0;  // exp(700) < DBL_MAX
 
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
     res.iterations = 0;
     res.max_error = 1.0;
+    res.M_cell = 0;
+    res.n_cap_active = 0;
 
-    std::vector<double> w(st.weights, st.weights + st.n);
+    // Build cell table.
+    CellTable ct;
+    std::vector<int> gid_ptrs_cat_counts_holder;
+    {
+        int rc = build_cell_table(st.n, st.K, st.group_ids,
+                                  st.cat_counts, st.weights, ct);
+        if (rc != 0) {
+            res.status = RK_ERR_BADARG;
+            return res;
+        }
+    }
+    res.M_cell = ct.M_cell;
 
-    std::vector<double> q(st.n, 0.0);
-    std::vector<double> q_hyp(st.n, 0.0);  // Dykstra correction for hyperplane {w: sum(w)=n}
+    // Cell-aggregate initial weights.
+    std::vector<double> X_init(ct.M_cell, 0.0);
+    for (int i = 0; i < st.n; i++) {
+        X_init[ct.cell_of[i]] += st.weights[i];
+    }
 
-    double lo = st.min_weight;
-    // 1e300 not numeric_limits::max(): prevents overflow in w[i] *= scale[g]
-    // when bucket[g] is tiny (scale[g] can be large).
+    // Per-cell bounds.
+    std::vector<double> L_cell(ct.M_cell), U_cell(ct.M_cell);
     double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
-    bool is_infeasible = false;
+    double lo = st.min_weight;
+    for (int c = 0; c < ct.M_cell; c++) {
+        L_cell[c] = lo * ct.n_per_cell[c];
+        U_cell[c] = hi * ct.n_per_cell[c];
+    }
 
-    int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
-    std::vector<double> bucket(max_cats), scale(max_cats);
+    // Log-space Sinkhorn factors per margin-category.
+    int total_cats = 0;
+    std::vector<int> cat_offset(st.K + 1, 0);
+    for (int k = 0; k < st.K; k++) {
+        cat_offset[k + 1] = cat_offset[k] + st.cat_counts[k] + 1;  // +1 for NA bucket
+    }
+    total_cats = cat_offset[st.K];
+    std::vector<double> lf(total_cats, 0.0);  // lf[cat_offset[k] + j]
+
+    // Per-cell capacity multiplier (linear-space).
+    std::vector<double> W(ct.M_cell, 1.0);
+    std::vector<double> X_tilde(ct.M_cell);
+    std::vector<double> X(ct.M_cell);
+
+    // Scratch for margin sweep.
+    std::vector<std::vector<int>> cells_by_margin_cat(total_cats);
+    for (int k = 0; k < st.K; k++) {
+        for (int c = 0; c < ct.M_cell; c++) {
+            int j = ct.g_per_cell[k][c];  // j in [0, cat_counts[k]] (NA → cat_counts[k])
+            cells_by_margin_cat[cat_offset[k] + j].push_back(c);
+        }
+    }
+
+    // Targets (user-provided, positive marginals per (k, j)).
+    // Note: st.targets[k] has cat_counts[k] entries (no NA slot).
+    // Paper: margin sum τ_{k,j} × W_total should match S_kj for j in [0, cat_counts[k]).
+    // For NA bucket (j = cat_counts[k]), no constraint; f remains 1.0.
+
+    bool is_infeasible = false;
+    std::vector<std::pair<int,int>> infeasible_pairs;
+
+    if (st.verbose >= 1) {
+        char msg[256];
+        // Caller (c_api.cpp) sets st.ieppa_auto_selected=true when routing came
+        // via AUTO; solver prepends [AUTO->iEPPA] marker. Otherwise plain entry.
+        const char* prefix = (st.ieppa_auto_selected ? "[AUTO->iEPPA] " : "");
+        std::snprintf(msg, sizeof(msg),
+                      "%siEPPA: n=%d K=%d M_cell=%d compression=%.1fx",
+                      prefix, st.n, st.K, ct.M_cell,
+                      (double)st.n / (double)std::max(ct.M_cell, 1));
+        st.log(msg);
+    }
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
-        // Marginal projections: pure cyclic IPF (no clamp, no Euclidean correction).
-        // Euclidean Dykstra corrections are incompatible with multiplicative IPF steps.
+        // Margin sweep: one block per margin k.
         for (int k = 0; k < st.K; k++) {
-            // Bucket accumulation for IPF scale computation
-            // W sum separated from scatter-add so the compiler can vectorise it.
-            double W = sum_weights_ilp(w, st.n);
-
-            // Bucket scatter-add: write aliases prevent vectorisation.
-            std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-            for (int i = 0; i < st.n; i++) {
-                int g = st.group_ids[k][i];
-                if (g >= 0) bucket[g] += w[i];
-            }
-
-            // IPF scale factors
-            std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
             for (int j = 0; j < st.cat_counts[k]; j++) {
-                double Tkj = st.targets[k][j] * W;
-                if (bucket[j] < kEmptyBucketThreshold * W) {
-                    if (Tkj > 0.0) is_infeasible = true;
-                } else {
-                    scale[j] = Tkj / bucket[j];
+                const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
+                if (cells.empty()) {
+                    if (st.targets[k][j] > 0.0) {
+                        if (!is_infeasible) is_infeasible = true;
+                        bool seen = false;
+                        for (auto& p : infeasible_pairs)
+                            if (p.first == k && p.second == j) { seen = true; break; }
+                        if (!seen) infeasible_pairs.emplace_back(k, j);
+                    }
+                    continue;
                 }
-            }
-
-            // IPF step — NO CLAMP. g==-1 (NA) entries pass through unchanged.
-            for (int i = 0; i < st.n; i++) {
-                int g = st.group_ids[k][i];
-                if (g >= 0) w[i] *= scale[g];
+                // log-sum-exp stabilization: compute lv_c = log X_init[c] + sum_{m!=k} lf[m]
+                //                                       + log W[c]
+                std::vector<double> lv(cells.size());
+                double lv_max = -std::numeric_limits<double>::infinity();
+                for (size_t r = 0; r < cells.size(); r++) {
+                    int c = cells[r];
+                    if (X_init[c] <= 0.0 || W[c] <= 0.0) {
+                        lv[r] = -std::numeric_limits<double>::infinity();
+                        continue;
+                    }
+                    double s = std::log(X_init[c]) + std::log(W[c]);
+                    for (int m = 0; m < st.K; m++) {
+                        if (m == k) continue;
+                        int gm = ct.g_per_cell[m][c];
+                        s += lf[cat_offset[m] + gm];
+                    }
+                    lv[r] = s;
+                    if (s > lv_max) lv_max = s;
+                }
+                if (!std::isfinite(lv_max)) {
+                    // All cells are degenerate for this (k,j).
+                    if (st.targets[k][j] > 0.0) {
+                        if (!is_infeasible) is_infeasible = true;
+                        infeasible_pairs.emplace_back(k, j);
+                    }
+                    continue;
+                }
+                double sum = 0.0;
+                for (size_t r = 0; r < lv.size(); r++) {
+                    if (std::isfinite(lv[r])) sum += std::exp(lv[r] - lv_max);
+                }
+                double log_S_kj = lv_max + std::log(sum);
+                if (!std::isfinite(log_S_kj) || std::exp(lv_max) * sum < kEmptyBucketThreshold * ct.W_input) {
+                    if (st.targets[k][j] > 0.0) {
+                        if (!is_infeasible) is_infeasible = true;
+                        infeasible_pairs.emplace_back(k, j);
+                    }
+                    continue;
+                }
+                double log_target = std::log(st.targets[k][j] * ct.W_input);
+                lf[cat_offset[k] + j] = log_target - log_S_kj;
             }
         }
 
-        // Box projection [lo, hi]^n with Dykstra correction (mean=1 scale).
-        // q[i] accumulates overshoot from previous box clamps.
-#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-#pragma omp simd
-#endif
-        for (int i = 0; i < st.n; i++) {
-            double yi = w[i] + q[i];
-            double wc = std::clamp(yi, lo, hi);
-            q[i] = yi - wc;
-            w[i] = wc;
-        }
-
-        // Dykstra hyperplane projection: {w : sum(w) = n}
-        // q_hyp[i] accumulates overshoot from previous hyperplane projections.
-        {
-            for (int i = 0; i < st.n; i++) w[i] += q_hyp[i];
-            double s = 0.0;
-            for (int i = 0; i < st.n; i++) s += w[i];
-            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
-            for (int i = 0; i < st.n; i++) {
-                double w_proj = w[i] + shift;
-                q_hyp[i] = w[i] - w_proj;  // Dykstra correction: pre - post
-                w[i] = w_proj;
+        // Compute X_tilde via clip-before-exp. Detect overflow on uncapped cells.
+        bool overflow_detected = false;
+        double max_log_X_tilde = -std::numeric_limits<double>::infinity();
+        for (int c = 0; c < ct.M_cell; c++) {
+            if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+            double s = std::log(X_init[c]);
+            for (int m = 0; m < st.K; m++) {
+                int gm = ct.g_per_cell[m][c];
+                s += lf[cat_offset[m] + gm];
             }
+            if (s > max_log_X_tilde) max_log_X_tilde = s;
+            double s_clip = (s > kLogClip) ? kLogClip : s;
+            if (s > kLogClip && U_cell[c] >= 1e299) {
+                // Uncapped cell would overflow: log-factor drift beyond double precision.
+                overflow_detected = true;
+            }
+            X_tilde[c] = std::exp(s_clip);
         }
-
-        // Convergence check: run every kErrCheckInterval iters and on the final iter.
-        if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
-            double errRp = compute_errRp(st, w, bucket);
-            res.max_error = errRp;
-
-            if (st.verbose >= 1) {
+        if (overflow_detected) {
+            res.status = RK_ERR_NOCONV;
+            res.max_error = std::numeric_limits<double>::infinity();
+            if (st.verbose >= 2) {
+                // Per design §8b: log-factor overflow event log lives in verbose=2.
                 char msg[256];
-                std::snprintf(msg, 256, "iEPPA iter %d: errRp=%.2e", iter, errRp);
+                std::snprintf(msg, sizeof(msg),
+                              "iEPPA: log-factor overflow (max_log_X_tilde=%.1f > 700) "
+                              "indicates ill-conditioning; try looser max_weight or "
+                              "tighter tol_abs, or method=raking.", max_log_X_tilde);
                 st.log(msg);
             }
+            break;
+        }
 
+        // Capacity block: X[c] = clamp(X_tilde[c], L_c, U_c); W[c] updated for next iter.
+        int n_cap = 0;
+        for (int c = 0; c < ct.M_cell; c++) {
+            double xc = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
+            X[c] = xc;
+            if (X_tilde[c] > 0.0) {
+                W[c] = xc / X_tilde[c];
+            } else {
+                W[c] = 1.0;
+            }
+            if (W[c] != 1.0) n_cap++;
+        }
+        res.n_cap_active = n_cap;
+
+        // Convergence check.
+        if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+            double W_total = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
+            double errRp = 0.0;
+            for (int k = 0; k < st.K; k++) {
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
+                    double Skj = 0.0;
+                    for (int c : cells) Skj += X[c];
+                    double e = std::fabs(Skj / W_total - st.targets[k][j]);
+                    if (e > errRp) errRp = e;
+                }
+            }
+            res.max_error = errRp;
+            if (st.verbose >= 1) {
+                char msg[256];
+                // Per design §8b: verbose=1 reports only errRp; n_cap lives in verbose=2.
+                std::snprintf(msg, sizeof(msg),
+                              "iEPPA iter %d: errRp=%.3e", iter, errRp);
+                st.log(msg);
+            }
+            if (st.verbose >= 2) {
+                char msg[256];
+                std::snprintf(msg, sizeof(msg),
+                              "  n_cap_active=%d", n_cap);
+                st.log(msg);
+            }
+            if (st.verbose >= 2) {
+                // verbose=2: log10 max/min of f[k][j] per margin for ill-conditioning debug.
+                char msg[256];
+                for (int k = 0; k < st.K; k++) {
+                    double lf_max = -std::numeric_limits<double>::infinity();
+                    double lf_min =  std::numeric_limits<double>::infinity();
+                    for (int j = 0; j < st.cat_counts[k]; j++) {
+                        double v = lf[cat_offset[k] + j];
+                        if (v > lf_max) lf_max = v;
+                        if (v < lf_min) lf_min = v;
+                    }
+                    // log10(exp(v)) = v / ln(10)
+                    std::snprintf(msg, sizeof(msg),
+                                  "  margin=%d: log10(f) range [%.2f, %.2f]",
+                                  k + 1,
+                                  lf_min / 2.302585,
+                                  lf_max / 2.302585);
+                    st.log(msg);
+                }
+            }
             if (errRp < st.tol_abs) {
                 res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
                 break;
@@ -156,43 +264,48 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
     }
 
-    // Infeasibility detected during iteration: override NOCONV with INFEAS.
-    // Truly infeasible problems (empty bucket with positive target) can never
-    // converge — the empty bucket always contributes τ_kj > 0 to errRp,
-    // so errRp never drops below tol_abs and the convergence break never fires.
-    // Check the flag here and return the correct status code.
-    if (is_infeasible && res.status == RK_ERR_NOCONV)
-        res.status = RK_ERR_INFEAS;
-
-    // Post-loop Dykstra finalizer: alternate box+hyperplane until box-feasible.
-    // The main loop exits after the hyperplane step; the resulting shift can push
-    // weights fractionally above hi or below lo. Continue the Dykstra cycle
-    // (box then hyperplane) until all weights are within [lo, hi].
-    // At true convergence this terminates in 1 iteration (shift ~ floating-point
-    // rounding). At the end, sum(w) = n, so harvest.R's /mean(weights) is a no-op.
-    for (int fixup = 0; fixup < 20; fixup++) {
-        bool box_ok = true;
-        for (int i = 0; i < st.n; i++) {
-            double yi = w[i] + q[i];
-            double wc = std::clamp(yi, lo, hi);
-            q[i] = yi - wc;
-            if (yi != wc) box_ok = false;
-            w[i] = wc;
+    // Expand to obs weights: w[i] = d[i] * X[c] / X_init[c]
+    // Clamp to [min_weight, max_weight] to handle numerical precision errors.
+    for (int i = 0; i < st.n; i++) {
+        int c = ct.cell_of[i];
+        if (X_init[c] > 0.0) {
+            st.weights[i] = std::clamp(st.weights[i] * X[c] / X_init[c],
+                                       st.min_weight, st.max_weight);
+        } else {
+            st.weights[i] = 0.0;
         }
-        // Hyperplane step restores sum(w) = n regardless of box changes.
-        for (int i = 0; i < st.n; i++) w[i] += q_hyp[i];
-        double s = 0.0;
-        for (int i = 0; i < st.n; i++) s += w[i];
-        double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
-        for (int i = 0; i < st.n; i++) {
-            double w_proj = w[i] + shift;
-            q_hyp[i] = w[i] - w_proj;
-            w[i] = w_proj;
-        }
-        if (box_ok) break;
     }
 
-    for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
+    if (is_infeasible && res.status == RK_ERR_NOCONV) {
+        res.status = RK_ERR_INFEAS;
+    }
+
+    if (st.verbose >= 1) {
+        const char* status_label =
+            (res.status == RK_OK) ? "converged" :
+            (res.status == RK_ERR_NOCONV) ? "max_iter exhausted (NOCONV)" :
+            (res.status == RK_ERR_INFEAS) ? "infeasible" : "error";
+        char msg[256];
+        std::snprintf(msg, sizeof(msg),
+                      "iEPPA %s in %d iters, errRp=%.3e",
+                      status_label, res.iterations, res.max_error);
+        st.log(msg);
+    }
+
+    if (st.verbose >= 1 && is_infeasible) {
+        char msg[256];
+        size_t off = 0;
+        off += std::snprintf(msg + off, sizeof(msg) - off,
+                             "iEPPA infeasible cells: ");
+        for (size_t i = 0; i < infeasible_pairs.size() && off < sizeof(msg) - 32; i++) {
+            off += std::snprintf(msg + off, sizeof(msg) - off,
+                                 "margin=%d cat=%d%s",
+                                 infeasible_pairs[i].first + 1,
+                                 infeasible_pairs[i].second + 1,
+                                 (i + 1 < infeasible_pairs.size()) ? ", " : "");
+        }
+        st.log(msg);
+    }
 
     return res;
 }

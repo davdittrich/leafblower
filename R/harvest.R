@@ -4,7 +4,17 @@
 #' @param target A named list of named numeric vectors (variable -> proportions).
 #' @param min_weight Lower bound on weights. Default 0 (no lower bound).
 #' @param max_weight Upper bound on weights. Default 5.
-#' @param method One of "ieppa", "lbfgsb". Default "ieppa".
+#' @param method One of "auto", "ieppa", "lbfgsb", "raking".
+#'   \itemize{
+#'     \item \code{"ieppa"}: paper-faithful algBCD at C=0 (cell-compressed
+#'       Sinkhorn, Chu-Liang-Toh-Yang 2022 arXiv:2011.14312).
+#'     \item \code{"raking"}: classical IPF + Dykstra box + hyperplane
+#'       projections (Deming-Stephan 1940 / Csiszar 1975 + Boyle-Dykstra
+#'       1986). Renamed from the prior misnamed "iEPPA" hybrid.
+#'     \item \code{"lbfgsb"}: L-BFGS-B on the Deville-Sarndal logit dual.
+#'     \item \code{"auto"} (default): currently routes unconditionally to
+#'       \code{"ieppa"}. Benchmark-driven routing refinement is planned.
+#'   }
 #' @param verbose Integer verbosity: 0=silent, 1=progress, 2=debug.
 #' @param max_iterations Maximum inner BCD iterations per outer step. Default 500.
 #' @param start_weights Starting weights vector or NULL (uniform).
@@ -96,12 +106,15 @@ harvest <- function(
   # Normalize to mean=1 (preserves calibration constraints which are proportional).
   weights <- weights / mean(weights)
 
+  # Post-normalization clamp to handle numerical precision errors from solver expansion
+  weights <- pmax(pmin(weights, max_weight), min_weight)
+
   if (calib_result$status == 1L)
     warning("leafblower: calibration did not converge (max_error=",
             signif(calib_result$max_error, 3), "). Weights reflect last iterate.")
 
-  # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2
-  alg_names <- c("", "ieppa", "lbfgsb")  # index 0 (auto) removed from user API
+  # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2, RK_ALG_RAKING=3
+  alg_names <- c("", "ieppa", "lbfgsb", "raking")  # index 0 (auto) removed from user API
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
 
   if (!attach_weights) return(weights)
@@ -147,7 +160,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("ieppa", "lbfgsb"))
+  match.arg(method, c("ieppa", "lbfgsb", "raking"))
 }
 
 parse_convergence <- function(convergence) {
