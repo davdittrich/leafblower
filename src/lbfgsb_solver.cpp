@@ -2,6 +2,7 @@
 #include "lbfgsb_solver.hpp"
 #include "leafblower.h"
 #include <cmath>
+#include <cstdio>
 #include <algorithm>
 #include <vector>
 #include <deque>
@@ -184,6 +185,29 @@ static LBFGSResult compute_final_weights_and_error(
         }
         for (int j = 0; j < st.cat_counts[k]; j++) {
             max_err = std::max(max_err, std::fabs(S[j] / Wn - st.targets[k][j]));
+        }
+    }
+    // Saturation diagnostic: when NOCONV and >50% of weights are pinned at
+    // [L,U], the problem is likely infeasible given min/max_weight. Emit via
+    // st.log (verbose-gated). Heuristic limitation: proxy tests d[i]·F(u[i])
+    // against L, so saturated observations with d[i] ≫ 1 are false-negatives.
+    if (max_err >= st.tol_abs && !fn.exponential) {
+        int n_sat_low = 0, n_sat_high = 0;
+        const double kSatTol = 1e-9;
+        const double bw = fn.U - fn.L;
+        for (int i = 0; i < st.n; i++) {
+            if      (st.weights[i] <= fn.L + kSatTol * bw) n_sat_low++;
+            else if (st.weights[i] >= fn.U - kSatTol * bw) n_sat_high++;
+        }
+        double sat_frac = static_cast<double>(n_sat_low + n_sat_high) / st.n;
+        if (sat_frac > 0.5) {
+            char msg[256];
+            std::snprintf(msg, 256,
+                "L-BFGS-B: %.1f%% of weights pinned at [L,U] bounds "
+                "(low=%d high=%d); targets may be infeasible given "
+                "min/max_weight.",
+                100.0 * sat_frac, n_sat_low, n_sat_high);
+            st.log(msg);
         }
     }
     res.max_error = max_err;
