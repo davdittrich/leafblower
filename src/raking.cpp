@@ -189,17 +189,22 @@ RakingResult raking_solve(CalibState& st) {
             double errRp = compute_errRp(st, w, bucket);
             res.max_error = errRp;
 
-            // Relative improvement threshold: 1% of the current best. At
-            // errRp ~1e-2 threshold is 1e-4; at errRp ~1e-6 threshold is 1e-8.
-            // Absolute floor of tol_abs prevents a valid convergence from
-            // tripping the monitor right before the convergence check below.
-            const double rel_eps = 0.01 * min_errRp_window;
-            const double eps = std::max(rel_eps, st.tol_abs);
-            if (errRp < min_errRp_window - eps) {
+            // First check: no baseline yet, just record and reset counter.
+            // On subsequent checks, require relative improvement of 1% of the
+            // current window minimum (floored at tol_abs so a valid convergence
+            // does not trip the monitor right before the convergence check).
+            if (!std::isfinite(min_errRp_window)) {
                 min_errRp_window = errRp;
                 n_no_improve = 0;
             } else {
-                n_no_improve++;
+                const double rel_eps = 0.01 * min_errRp_window;
+                const double eps = std::max(rel_eps, st.tol_abs);
+                if (errRp < min_errRp_window - eps) {
+                    min_errRp_window = errRp;
+                    n_no_improve = 0;
+                } else {
+                    n_no_improve++;
+                }
             }
 
             if (st.verbose >= 1) {
