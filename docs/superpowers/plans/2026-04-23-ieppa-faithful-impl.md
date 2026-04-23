@@ -731,9 +731,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     if (st.verbose >= 1) {
         char msg[256];
+        // Caller (c_api.cpp) sets st.ieppa_auto_selected=true when routing came
+        // via AUTO; solver prepends [AUTO->iEPPA] marker. Otherwise plain entry.
+        const char* prefix = (st.ieppa_auto_selected ? "[AUTO->iEPPA] " : "");
         std::snprintf(msg, sizeof(msg),
-                      "iEPPA: n=%d K=%d M_cell=%d compression=%.1fx",
-                      st.n, st.K, ct.M_cell,
+                      "%siEPPA: n=%d K=%d M_cell=%d compression=%.1fx",
+                      prefix, st.n, st.K, ct.M_cell,
                       (double)st.n / (double)std::max(ct.M_cell, 1));
         st.log(msg);
     }
@@ -820,7 +823,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
         if (overflow_detected) {
             res.status = RK_ERR_NOCONV;
             res.max_error = std::numeric_limits<double>::infinity();
-            if (st.verbose >= 1) {
+            if (st.verbose >= 2) {
+                // Per design §8b: log-factor overflow event log lives in verbose=2.
                 char msg[256];
                 std::snprintf(msg, sizeof(msg),
                               "iEPPA: log-factor overflow (max_log_X_tilde=%.1f > 700) "
@@ -862,8 +866,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
             res.max_error = errRp;
             if (st.verbose >= 1) {
                 char msg[256];
+                // Per design §8b: verbose=1 reports only errRp; n_cap lives in verbose=2.
                 std::snprintf(msg, sizeof(msg),
-                              "iEPPA iter %d: errRp=%.3e n_cap=%d", iter, errRp, n_cap);
+                              "iEPPA iter %d: errRp=%.3e", iter, errRp);
+                st.log(msg);
+            }
+            if (st.verbose >= 2) {
+                char msg[256];
+                std::snprintf(msg, sizeof(msg),
+                              "  n_cap_active=%d", n_cap);
                 st.log(msg);
             }
             if (st.verbose >= 2) {
@@ -974,10 +985,11 @@ rk_algorithm_t alg = (cat_counts && K > 0 && n > 0)
     : p->algorithm;
 ```
 
-Replace with an explicit resolver supporting the new RAKING enum and preserving AUTO semantics:
+Replace with an explicit resolver supporting the new RAKING enum, preserving AUTO semantics. The AUTO→IEPPA signal is passed to the solver via a new `CalibState::ieppa_auto_selected` flag (added to `src/types.hpp` as part of this step) — the solver prepends `[AUTO->iEPPA]` to its own entry log line, avoiding a duplicate c_api.cpp emission:
 ```cpp
 // Replacement:
 rk_algorithm_t alg;
+bool auto_selected = false;
 if (cat_counts && K > 0 && n > 0) {
     switch (p->algorithm) {
         case RK_ALG_LBFGSB: alg = RK_ALG_LBFGSB; break;
@@ -985,15 +997,23 @@ if (cat_counts && K > 0 && n > 0) {
         case RK_ALG_IEPPA:  alg = RK_ALG_IEPPA;  break;
         case RK_ALG_AUTO:
         default:
-            alg = RK_ALG_IEPPA;  // AUTO → faithful iEPPA always. Benchmark-driven refinement TBD.
-            if (p->verbose >= 1 && p->log_fn) {
-                p->log_fn("[AUTO->iEPPA] iEPPA selected by auto routing", p->log_ctx);
-            }
+            alg = RK_ALG_IEPPA;  // AUTO → faithful iEPPA. Benchmark-driven refinement TBD.
+            auto_selected = true;
             break;
     }
 } else {
     alg = p->algorithm;
 }
+```
+
+And when building CalibState (at `c_api.cpp:159` area), add:
+```cpp
+st.ieppa_auto_selected = auto_selected;  // read by ieppa_solve for verbose prefix
+```
+
+Modify `src/types.hpp` in the same commit: add field to `CalibState`:
+```cpp
+bool ieppa_auto_selected = false;  // true iff AUTO routing selected iEPPA; used for verbose prefix
 ```
 
 - [ ] **Step 3.6.3: Update dispatch if/else**
@@ -1116,6 +1136,34 @@ context("ieppa faithful — algBCD specifics")
 
 # Tests in this file check properties unique to the faithful algBCD solver:
 # cell compression, within-cell weight equality, capacity block behavior.
+# Per design spec §6.2: 7 assertions required.
+
+# Uses the test-only probe added in WU-1.
+probe <- function(group_ids_list, n) {
+  .Call("C_leafblower_cell_table_probe", group_ids_list, as.integer(n),
+        PACKAGE = "leafblower")
+}
+
+test_that("cell compression correctness: n=1000, K=3 with 4 cats each, identical obs -> M_cell=64", {
+  # Per design §6.2: verify cell table produces expected M_cell count for a
+  # fully-populated cross-product at the expected boundary.
+  n <- 1000
+  set.seed(100)
+  g1 <- sample(0:3, n, replace = TRUE)
+  g2 <- sample(0:3, n, replace = TRUE)
+  g3 <- sample(0:3, n, replace = TRUE)
+  out <- probe(list(g1, g2, g3), n)
+  expect_equal(out$M_cell, 64L, tolerance = 0L)  # 4^3 = 64
+})
+
+test_that("cell compression extreme: all-unique observations -> M_cell approx n", {
+  # Per design §6.2: verify degenerate case where each obs is its own cell.
+  n <- 200
+  g1 <- seq_len(n) - 1L  # each obs unique on margin 1
+  g2 <- rep(0L, n)
+  out <- probe(list(g1, g2), n)
+  expect_equal(out$M_cell, n)
+})
 
 test_that("within-cell weight equality: obs with identical tuples get equal weights", {
   set.seed(1)
