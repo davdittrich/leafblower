@@ -27,6 +27,8 @@
 
   Each Task's r_bridge patch must (a) increase both `Rf_allocVector(VECSXP, N)` and `Rf_allocVector(STRSXP, N)` to the new size, (b) append SET_STRING_ELT + SET_VECTOR_ELT at the next contiguous index. Concrete indices per task are specified in the task body.
 
+  **PROTECT audit (critical-code-reviewer R4).** `UNPROTECT(5)` at current `r_bridge.cpp:213` counts the five PROTECT calls (wts, res_list, res_names, out, out_names). Growing the VECSXP does NOT require new PROTECT calls: `Rf_ScalarInteger(x)` / `Rf_ScalarReal(x)` return SEXPs that become immediately referenced by `SET_VECTOR_ELT(res_list, i, ...)`, and res_list is itself protected. R's allocator will not GC the returned scalar between its construction and its store because SET_VECTOR_ELT is a single bytecode-level operation. The `UNPROTECT(5)` stays correct across all four WUs. Do NOT add PROTECT wrappers around the new scalars.
+
 **Baseline:** commit `1b29df1` (WU-4 split structural/transient infeas landed). Post-WU-4: 181 tests green, stepstone errRp=2.21e-3, kk1204 per-iter 2.17× raking, kk1204 NOCONV at 500 iter.
 
 ---
@@ -92,39 +94,32 @@ Append to `tests/testthat/test-ieppa-faithful.R`:
 
 ```r
 test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused block)", {
-  # Dense-compression input routes to linear path. Counter asserts the fused
-  # block touches each X_cur[c] exactly once per outer iter (not 2x or 3x).
+  # K=2 with 3 cats each → M_cell bounded by 3^2 = 9. n=100000 per cell = 11k obs,
+  # birthday-saturates all 9 cells deterministically. X_init[c] > 0 for every c,
+  # so the fused block increments the counter on every cell every iter.
+  # (critical-code-reviewer R1: former K=4/n=5000 was RNG-fragile on empty-cell risk.)
   Sys.setenv(LBW_IEPPA_FORCE_PATH = "linear")
   on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_PATH"), add = TRUE)
   set.seed(991)
-  n <- 5000L
-  K <- 4L
-  df <- as.data.frame(replicate(K, sample(1:3, n, replace = TRUE), simplify = FALSE))
-  names(df) <- paste0("m", 1:K)
-  for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
-  targets <- setNames(
-    replicate(K, c(a = 0.4, b = 0.35, c = 0.25), simplify = FALSE),
-    paste0("m", 1:K)
+  n <- 100000L
+  df <- data.frame(
+    a = sample(c("a","b","c"), n, replace = TRUE),
+    b = sample(c("a","b","c"), n, replace = TRUE)
   )
-  # attach_weights=FALSE → res is a numeric vector; but we need the result struct.
-  # Access via diagnose-return harness: harvest returns data frame; fetch diagnostic
-  # counter from the attribute set by the C bridge (add this via r_bridge.cpp plumb).
+  targets <- list(
+    a = c(a = 0.4, b = 0.35, c = 0.25),
+    b = c(a = 0.4, b = 0.35, c = 0.25)
+  )
   res <- harvest(df, targets, method = "ieppa",
                  max_weight = 5, min_weight = 0,
                  max_iterations = 20L,
                  convergence = list(absolute = 1e-300),
                  attach_weights = FALSE)
-  # The C result plumbs n_xcur_writes_per_iter_linear onto attr(res, "result")$n_xcur_writes_per_iter_linear
   result_info <- attr(res, "result")
   expect_true(!is.null(result_info$n_xcur_writes_per_iter_linear))
-  # M_cell per iter × iter count. M_cell for this input: at most 3^4 = 81 cells;
-  # actual is obs count, measured via C_leafblower_cell_table_probe in other tests.
-  # We assert the ratio (writes / iter) equals the number of cells written per iter,
-  # which for the fused block is exactly M_cell. Pre-P1.1 it was 2 or 3× M_cell.
   stopifnot(result_info$iterations > 0)
   writes_per_iter <- result_info$n_xcur_writes_per_iter_linear / result_info$iterations
-  # M_cell bounded above by n; lower bound is 1. Assert ratio ≤ M_cell (not 2×M_cell).
-  # Fetch M_cell via the probe C call.
+  # M_cell via probe. All 9 cells populated with high certainty at n=100k.
   gid_list <- lapply(names(targets), function(nm) {
     lv <- names(targets[[nm]])
     idx <- match(as.character(df[[nm]]), lv) - 1L
@@ -132,7 +127,8 @@ test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused b
     as.integer(idx)
   })
   probe <- .Call("C_leafblower_cell_table_probe", gid_list, n, PACKAGE = "leafblower")
-  expect_equal(writes_per_iter, probe$M_cell)
+  expect_equal(probe$M_cell, 9L)            # deterministic saturation
+  expect_equal(writes_per_iter, probe$M_cell)  # fused block hits every cell once
 })
 ```
 
@@ -186,14 +182,33 @@ If `rk_result_t` grows (ABI change!), apply same `memset(r, 0, sizeof(*r))` disc
 
 **ABI consequence:** `rk_result_t` grows across WUs. Document cumulatively in Task 4's commit message (P3.1 is the major-version-bump-required commit since it also grows `rk_params_t`). Intermediate commits grow `rk_result_t` only, which is returned from library functions — callers that don't read the new fields are unaffected as long as they use `sizeof(rk_result_t)` via `rk_result_init` (add this helper if needed, analogous to `rk_params_init`).
 
-**R wrapper access.** `R/harvest.R` wraps `.Call` and returns the result. Tests access `attr(res, "result")` — but the current harvest() returns either a numeric vector (`attach_weights=FALSE`) or a data frame. Tests use `attach_weights=FALSE` and assert on `attr(res, "result")`. This attribute is NOT currently set. Harvest.R must be modified to attach the result list as an attribute when `attach_weights=FALSE`:
+**R wrapper access (Task 1 prereq).** `R/harvest.R` wraps `.Call` and returns the result. Tests access `attr(res, "result")` — but the current harvest() signature has NO `attach_weights` parameter (verified against `R/harvest.R` at HEAD 1b29df1). Task 1 must:
+
+1. Add `attach_weights = TRUE` to the `harvest()` signature (default keeps current return-type behaviour).
+2. Attach the `"result"` list as an attribute on BOTH return paths (critical-code-reviewer R3 — consistency across `attach_weights`):
 
 ```r
-if (!attach_weights) {
-  out_weights <- weights
-  attr(out_weights, "result") <- calib_result  # expose diagnostic fields
-  return(invisible(out_weights))
+# Near the end of harvest(), after final weight normalization:
+if (attach_weights) {
+  out <- cbind(df, weight = weights)
+  attr(out, "result") <- calib_result
+  out
+} else {
+  out <- weights
+  attr(out, "result") <- calib_result
+  out
 }
+```
+
+Both paths expose the diagnostic attribute. The data-frame path retains `"result"` as an extra attribute without interfering with standard data-frame methods (attributes are preserved across `subset`, `[`, etc., though users should not rely on that).
+
+The roxygen `@return` block is consistent:
+
+```r
+#' @param attach_weights Logical. If TRUE (default), the returned object is
+#'   the input data frame with a `weight` column appended. If FALSE, only the
+#'   calibrated weight vector is returned. In both cases, the `"result"`
+#'   attribute holds solver diagnostics; use `attr(x, "result")` to access.
 ```
 
 **API surface acknowledgment (Scope iter-2 F1).** Attaching a `"result"` attribute is technically a user-visible change beyond the `bounds_mode`-only API directive. Rationale for inclusion: (a) R convention — `lm()`, `glm()`, etc. attach diagnostic attributes on their return objects; (b) tests need access to `min_alpha_seen`, `n_anderson_iters_engaged`, and similar struct fields; (c) no existing harvest() caller is documented to inspect attributes, so the addition is additive-only. Documented explicitly in the Task 1 commit body and in R roxygen for `harvest()`:
@@ -462,7 +477,7 @@ At the bottom of the outer iter loop (just before the convergence check or loop 
         res.final_alpha = alpha;
 ```
 
-Remove all references to `damped_latched` (field declaration, updates, checks). **Authoritative removal strategy:** run `grep -n damped_latched src/ieppa.cpp` BEFORE starting the edit to get the canonical site list on the current HEAD. Per the Feasibility iter-3 audit, the field appears at 8 sites (lines 187, 194, 196, 200, 218, 307–308, 404–405 on HEAD 1b29df1). Key groupings:
+Remove all references to `damped_latched` (field declaration, updates, checks). **Authoritative removal strategy (critical-code-reviewer R5):** run `grep -n damped_latched src/ieppa.cpp` at step-time to locate every site on current HEAD. Line ranges cited below are from HEAD `1b29df1` and drift with any unrelated intervening commits — trust the grep output, not the numbers. The field should appear at approximately 8 sites. Key groupings:
 - Declaration: `bool damped_latched = false;` → delete.
 - Force-on init at `ieppa_solve` entry: `if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → replace with `alpha = compute_alpha();` (or delete if the new per-iter `alpha = compute_alpha();` at the top of the outer loop supersedes it).
 - Linear-overflow fallback block (first fallback, ~line 295–308): `damped_latched = false; if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → delete both lines.
@@ -714,6 +729,17 @@ At the top of `ieppa_solve`, after existing WU-3 state:
 Inside the outer iter loop, AFTER the capacity block (fused in P1.1), BEFORE the errRp check:
 
 ```cpp
+        // Seed lf_prev and r_prev at end of warmup so the first engaged iter has a
+        // meaningful history origin. Without this, iter = warmup+1 sees lf_prev = 0
+        // and r_prev = 0, producing r_curr = lf, F_hist col 0 = lf, X_hist col 0 = lf,
+        // γ = 1.0, lf_new = lf + r_curr − 2·lf = 0 — zeroing the Sinkhorn state and
+        // wasting the warmup. (critical-code-reviewer C1.)
+        if (iter == kAndersonWarmup && anderson_enabled) {
+            lf_prev = lf;
+            std::fill(r_prev.begin(), r_prev.end(), 0.0);
+            m_active = 0;  // explicit; already 0 from init
+        }
+
         const bool can_anderson = anderson_enabled
                                   && iter > kAndersonWarmup
                                   && res.n_cap_active == 0
@@ -750,15 +776,15 @@ Inside the outer iter loop, AFTER the capacity block (fused in P1.1), BEFORE the
             if (m_active < kAndersonM) m_active++;
 
             // Cap m_active for the shape guard (dgels requires m ≥ n for overdetermined LS).
-            // Scope iter-2 F5 fix: always update lf_prev/r_prev before exiting this block,
-            // regardless of whether Anderson fires. Prevents stale-lf_prev on next engaged iter.
+            // Scope iter-2 F5 + critical-code-reviewer C2: single call site for prev
+            // state update, regardless of whether Anderson fires or falls back.
             int m_solve = std::min(m_active, total_cats - 1);
-            auto update_prev_and_return = [&]() {
+            auto update_prev = [&]() {
                 lf_prev = lf;
                 r_prev  = r_curr;
             };
             if (m_solve <= 0) {
-                update_prev_and_return();
+                update_prev();
             } else {
                 // Copy r_curr into B buffer (dgels overwrites B with solution's first m_solve entries).
                 std::vector<double> B_buf = r_curr;  // length total_cats
@@ -806,8 +832,7 @@ Inside the outer iter loop, AFTER the capacity block (fused in P1.1), BEFORE the
                     res.n_anderson_iters_engaged++;
                 }
 
-                lf_prev = lf;     // after Anderson update
-                r_prev  = r_curr;
+                update_prev();    // symmetric with m_solve <= 0 branch; fires on both fail/success paths
             }
 
             // Rematerialize f_lin on linear path after lf mutation.
