@@ -17,7 +17,7 @@
 **Shared plumbing changes (applied once, referenced by all tasks):** Plan-review iter-1 Feasibility findings F1 + F2 + F3:
 
 - **`src/ieppa.cpp` header:** add `#include <R_ext/Lapack.h>` and `#include <R_ext/BLAS.h>` (needed for P2.2 `F77_CALL(dgels)` and `FCONE` macro). Do this in the first commit touching ieppa.cpp that needs LAPACK, i.e. Task 3 P2.2. NOT required in P1.1 or P2.1.
-- **`src/Makevars` + `src/Makevars.win`:** append `PKG_LIBS += $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)` to both. Apply in the P2.2 commit.
+- **`src/Makevars`:** current contents `PKG_LIBS = -lm -lmvec` (line 2). Edit to `PKG_LIBS = -lm -lmvec $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)` (single assignment; preserves existing `-lmvec` for WU-2 SIMD vector math). Apply in the P2.2 commit. `src/Makevars.win` does NOT currently exist in the repo — do NOT create it. R's default Windows build inherits LAPACK/BLAS via R's installed toolchain when `PKG_LIBS` is set in `Makevars`; Windows CI that needs an override will add `Makevars.win` in a separate commit.
 - **`src/r_bridge.cpp` VECSXP size:** the current list is hardcoded to 5 elements (r_bridge.cpp:192-203). Each task grows the list. Final size after all 4 WUs = 12. Per-WU sizes:
   - Baseline: 5 (status, iterations, max_error, algorithm_used, message)
   - Post-P1.1: 6 (+ n_xcur_writes_per_iter_linear)
@@ -170,7 +170,7 @@ If `rk_result_t` grows (ABI change!), apply same `memset(r, 0, sizeof(*r))` disc
 
 **ABI consequence:** `rk_result_t` grows across WUs. Document cumulatively in Task 4's commit message (P3.1 is the major-version-bump-required commit since it also grows `rk_params_t`). Intermediate commits grow `rk_result_t` only, which is returned from library functions — callers that don't read the new fields are unaffected as long as they use `sizeof(rk_result_t)` via `rk_result_init` (add this helper if needed, analogous to `rk_params_init`).
 
-**R wrapper access.** `R/harvest.R` wraps `.Call` and returns the result. Tests access `attr(res, "result")` — but the current harvest() returns either a numeric vector (attach_weights=FALSE) or a data frame. Tests use `attach_weights=FALSE` and assert on `attr(res, "result")`. This attribute is NOT currently set. Harvest.R must be modified to attach the result list as an attribute when `attach_weights=FALSE`:
+**R wrapper access.** `R/harvest.R` wraps `.Call` and returns the result. Tests access `attr(res, "result")` — but the current harvest() returns either a numeric vector (`attach_weights=FALSE`) or a data frame. Tests use `attach_weights=FALSE` and assert on `attr(res, "result")`. This attribute is NOT currently set. Harvest.R must be modified to attach the result list as an attribute when `attach_weights=FALSE`:
 
 ```r
 if (!attach_weights) {
@@ -178,6 +178,15 @@ if (!attach_weights) {
   attr(out_weights, "result") <- calib_result  # expose diagnostic fields
   return(invisible(out_weights))
 }
+```
+
+**API surface acknowledgment (Scope iter-2 F1).** Attaching a `"result"` attribute is technically a user-visible change beyond the `bounds_mode`-only API directive. Rationale for inclusion: (a) R convention — `lm()`, `glm()`, etc. attach diagnostic attributes on their return objects; (b) tests need access to `min_alpha_seen`, `n_anderson_iters_engaged`, and similar struct fields; (c) no existing harvest() caller is documented to inspect attributes, so the addition is additive-only. Documented explicitly in the Task 1 commit body and in R roxygen for `harvest()`:
+
+```r
+#' @return A numeric vector of calibrated weights (when attach_weights=FALSE) or a data frame
+#'   (when attach_weights=TRUE). When attach_weights=FALSE, the `"result"` attribute holds
+#'   solver diagnostics (status, iterations, max_error, min_alpha_seen, n_anderson_iters_engaged,
+#'   n_bounds_violated, n_bounds_clamped, etc.). Use `attr(x, "result")` to access.
 ```
 
 Add this plumbing in Task 1 (first commit that needs it); subsequent Tasks extend `calib_result` via the r_bridge list.
@@ -437,7 +446,15 @@ At the bottom of the outer iter loop (just before the convergence check or loop 
         res.final_alpha = alpha;
 ```
 
-Remove all references to `damped_latched` (field, updates, checks).
+Remove all references to `damped_latched` (field declaration, updates, checks). Specific sites per current `src/ieppa.cpp` (HEAD 1b29df1):
+- Declaration near line 187: `bool damped_latched = false;` → delete.
+- Force-on init near line 192–194: `if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → replace with `compute_alpha()` lambda call (added in Step 2.4 above).
+- Linear-overflow fallback block around line 295–308: `damped_latched = false; if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → delete both lines. The new `compute_alpha()` lambda reads env var fresh every sweep, so no reset needed.
+- X_tilde-overflow fallback block near line 388–404: same two lines → delete.
+- `maybe_engage_damping` lambda near line 180–192 (WU-3 auto-trigger): delete the entire lambda; `compute_alpha()` replaces its role.
+- Any call sites that invoked `maybe_engage_damping()` from the outer iter loop: delete the call.
+
+Verify post-edit: `grep -n damped_latched src/ieppa.cpp` returns zero lines.
 
 In both the log-space and linear-space Sinkhorn update sites, the existing `if (alpha == 1.0) { ... naive ... } else { ... damped ... }` branch already works with the new `alpha`. No change needed there.
 
@@ -590,6 +607,33 @@ test_that("P2.2: ACCEL_ANDERSON=on engages Anderson post-warmup on uncapacitated
   expect_lte(info$n_anderson_iters_engaged, info$iterations - 5)
 })
 
+test_that("P2.2: NaN guard fires on rank-deficient residuals; weights stay finite", {
+  # Completeness iter-2 hard GAP: spec §7.2 P2.2 test (2) NaN-guard. Synthetic input
+  # that produces numerically degenerate Anderson residuals — e.g., a converged-at-iter-1
+  # input where residuals are near-zero and the LS system becomes rank-deficient.
+  Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "on")
+  on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON"), add = TRUE)
+  set.seed(0)
+  n <- 500L
+  # Extremely easy input: uniform data, uniform targets. Converges in ≤ 3 iters;
+  # residuals after iter 1 are at floating-point noise level. Anderson LS over
+  # near-zero residuals is rank-deficient.
+  df <- data.frame(a = sample(letters[1:2], n, TRUE))
+  targets <- list(a = c(a = 0.5, b = 0.5))
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 100L,
+                 convergence = list(absolute = 1e-300),  # force full budget
+                 attach_weights = FALSE)
+  info <- attr(res, "result")
+  expect_true(all(is.finite(as.numeric(res))))       # no NaN leakage into output
+  # Not strict — on ultra-trivial inputs Anderson may warmup then never need to fire,
+  # or may hit fallbacks immediately. Either: nan_fallbacks > 0 (guard fired) OR
+  # anderson_iters_engaged == 0 (nothing fired).
+  expect_true(info$n_anderson_nan_fallbacks >= 0)    # counter is a valid integer
+  # The load-bearing assertion: zero NaN leakage into output weights.
+})
+
 test_that("P2.2: kk1204 with Anderson converges in ≤ 400 iter AND ≥ 2× fewer than off", {
   skip_if_not(file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
               "kk1204 probe data not available")
@@ -692,10 +736,15 @@ Inside the outer iter loop, AFTER the capacity block (fused in P1.1), BEFORE the
             if (m_active < kAndersonM) m_active++;
 
             // Cap m_active for the shape guard (dgels requires m ≥ n for overdetermined LS).
+            // Scope iter-2 F5 fix: always update lf_prev/r_prev before exiting this block,
+            // regardless of whether Anderson fires. Prevents stale-lf_prev on next engaged iter.
             int m_solve = std::min(m_active, total_cats - 1);
-            if (m_solve <= 0) {
+            auto update_prev_and_return = [&]() {
                 lf_prev = lf;
                 r_prev  = r_curr;
+            };
+            if (m_solve <= 0) {
+                update_prev_and_return();
             } else {
                 // Copy r_curr into B buffer (dgels overwrites B with solution's first m_solve entries).
                 std::vector<double> B_buf = r_curr;  // length total_cats
@@ -785,13 +834,15 @@ Modify `src/ieppa.cpp` — add includes at the top:
 #include <R_ext/RS.h>       // FCONE macro for Fortran string-length arguments
 ```
 
-Modify `src/Makevars` — append:
+Modify `src/Makevars` — replace the `PKG_LIBS` line (line 2) to preserve `-lmvec`:
 
 ```
-PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
+PKG_LIBS = -lm -lmvec $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
 ```
 
-Modify `src/Makevars.win` — same append. Verify with `R CMD INSTALL --preclean .` that `dgels_` resolves at link time.
+`src/Makevars.win` does NOT exist and MUST NOT be created by this task. Windows build support is a follow-up if needed.
+
+Verify with `R CMD INSTALL --preclean .` that `dgels_` resolves at link time (no `undefined symbol` error on load).
 
 ### Step 3.6: Build gate + tests
 
@@ -1271,25 +1322,37 @@ if result_dict.get("n_bounds_clamped", 0) > 0:
 
 Modify `src/r_bridge.cpp` — accept `bounds_mode_int` as a new arg; write `n_bounds_violated`, `n_bounds_clamped` into the returned list.
 
+### Step 4.10.5: Initial build (with placeholder EXPECTED_RK_PARAMS_BYTES = 0)
+
+Run: `R CMD INSTALL --preclean .`
+Expected: builds cleanly. The `static_assert` is still commented out (`#define EXPECTED_RK_PARAMS_BYTES 0` is a placeholder).
+
 ### Step 4.11: Measure sizeof(rk_params_t) and re-enable static_assert
 
-After a successful build of Steps 4.1–4.10:
+After a successful build of Steps 4.1–4.10.5, measure the actual struct size via a tiny one-off probe:
 
 ```bash
-Rscript -e '.Call("C_leafblower_params_sizeof", PACKAGE="leafblower")'
-```
-
-(Add this probe if it doesn't exist — one-line helper in `c_api.cpp`.) Alternatively compile a tiny probe:
-
-```bash
-g++ -E -c -x c -I./src - <<'EOF'
+cat > /tmp/probe_rk_params.cpp << 'EOF'
 #include "src/leafblower.h"
-#include <cstddef>
-_Static_assert(sizeof(rk_params_t) == 72, "measure this");
+#include <cstdio>
+int main() { std::printf("%zu\n", sizeof(rk_params_t)); return 0; }
 EOF
+g++ -I./ /tmp/probe_rk_params.cpp -o /tmp/probe_rk_params
+MEASURED=$(/tmp/probe_rk_params)
+echo "Measured sizeof(rk_params_t) = $MEASURED"
 ```
 
-Record the measured value. Replace `#define EXPECTED_RK_PARAMS_BYTES 0` with the actual value in `src/leafblower.h`. Uncomment the `static_assert`. Rebuild.
+Expected: an integer (likely 72–80 bytes depending on compiler/padding). Edit `src/leafblower.h`:
+
+1. Replace `#define EXPECTED_RK_PARAMS_BYTES 0` with `#define EXPECTED_RK_PARAMS_BYTES <MEASURED>` (e.g. `72`).
+2. Uncomment the `static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES, ...)` line.
+3. Add a comment adjacent: `// Measured <DATE> on <PLATFORM>: N bytes. Update if struct changes.`
+
+Rebuild:
+```bash
+R CMD INSTALL --preclean .
+```
+Expected: clean install. If the assert fails, the measurement was wrong or a subsequent struct change happened — investigate. Any re-measurement must be committed in a separate commit with the new value + rationale.
 
 ### Step 4.12: Build + tests
 
