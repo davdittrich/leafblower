@@ -2,6 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development or superpowers:executing-plans.
 
+**Rev 2 (post plan-review-gate iter 1 opus reviewers):** Fixed 5 blockers:
+- R1.1.1 test: wrap a/b columns in `factor()` (harvest errors on numeric)
+- R1.5: explicit per-test enumeration (5 sites to widen; 12 to leave) with symmetric-widening justification
+- R1 file list + commit manifest updated to reflect actual 1e-10 sites (test-ieppa.R, test-bounded-convergence.R — not test-harvest.R as rev 1 claimed)
+- R2.2.1: emit loop rewritten for `std::set` iterator (current uses `[i]` indexed access, incompatible)
+- R3.1.0: added X_init immutability verification step before caching
+
 **Goal:** Address 14 findings from critical-code-reviewer audit of the faithful iEPPA + renamed raking + benchmark harness commits (393198f..718608d).
 
 **Architecture:** 4 atomic WUs — (R1) correctness bug fix, (R2) LSE/infeasibility robustness, (R3) hot-path performance, (R4) cleanup/slop removal. Each self-contained, test-gated, independently revertable.
@@ -25,7 +32,7 @@ The internal cell-level clamp (`X[c] = clamp(X_tilde[c], L_cell[c], U_cell[c])` 
 - Modify: `src/ieppa.cpp:267-277`
 - Modify: `R/harvest.R:108-110`
 - Modify: `python/leafblower/_harvest.py:173-175`
-- Modify: `tests/testthat/test-harvest.R` — widen `max(w) ≤ max_weight + 1e-10` to `+ 1e-8`
+- Modify: `tests/testthat/test-ieppa.R` (4 sites), `tests/testthat/test-bounded-convergence.R` (1 site) — see R1.5 for exact lines
 - Create: `tests/testthat/test-ieppa-nonuniform-d.R`
 
 ### Step R1.1: Add failing test for non-uniform d[i]
@@ -40,9 +47,10 @@ test_that("marginals hit targets when d[i] varies within cell", {
   set.seed(42)
   n <- 1000
   # Only 2 cells total: (a=0, b=0) and (a=1, b=0). Force wide d[i] variation within each.
+  # Columns MUST be factor or character (r_bridge.cpp:145 errors on numeric).
   df <- data.frame(
-    a = rep(0:1, each = n/2),
-    b = rep(0L, n)
+    a = factor(rep(0:1, each = n/2)),
+    b = factor(rep(0L, n))
   )
   # d[i] varies 1 to 10 within each cell
   d <- rep(c(1, 10), length.out = n)
@@ -121,15 +129,31 @@ Modify `python/leafblower/_harvest.py:170-176`:
     # NOTE: no post-normalization clamp; see R/harvest.R comment for rationale.
 ```
 
-### Step R1.5: Widen bound test tolerance
+### Step R1.5: Widen bound test tolerance (explicit enumeration)
 
-- [ ] **Step R1.5.1: Update test-harvest.R bound assertions**
+Comprehensive grep `grep -rn "1e-10" tests/testthat/*.R` classifies the 17 hits:
 
-Find existing `max(w) <= max_weight + 1e-10` style assertions. Widen to `+ 1e-8`:
-```bash
-grep -n "1e-10" tests/testthat/test-harvest.R tests/testthat/test-ieppa.R tests/testthat/test-raking.R tests/testthat/test-ieppa-faithful.R
-```
-Review each hit; widen only bound-enforcement checks (not convergence-error checks).
+**Widen 1e-10 → 1e-8 (ieppa bound assertions affected by clamp removal):**
+- `tests/testthat/test-ieppa.R:28` — `max(result$weights) <= 2.0 + 1e-10` (method="ieppa")
+- `tests/testthat/test-ieppa.R:41` — `min(result$weights) >= 0.5 - 1e-10` (method="ieppa")
+- `tests/testthat/test-ieppa.R:57` — `max(res) <= 2.0 + 1e-10` (method="ieppa")
+- `tests/testthat/test-ieppa.R:58` — `min(res) >= 0.2 - 1e-10` (method="ieppa")
+- `tests/testthat/test-bounded-convergence.R:14` — `max(result$weights) <= 5.0 + 1e-10` (method="ieppa")
+
+**DO NOT widen (not affected by clamp removal):**
+- `tests/testthat/test-raking.R:26,39,55,56` — raking hybrid preserves its own post-norm clamp behavior; bug is ieppa-specific
+- `tests/testthat/test-lbfgsb.R:27` — L-BFGS-B clamps inside its own solver, unaffected
+- `tests/testthat/test-bounded-convergence.R:31` — method="lbfgsb", unaffected
+- `tests/testthat/test-ieppa.R:56`, `tests/testthat/test-raking.R:54` — `mean(res) == 1` equality (not bound)
+- `tests/testthat/test-ieppa-faithful.R:52` — `diff(range(ws)) < 1e-10` within-cell equality (not bound)
+- `tests/testthat/test-compat.R:32,33` — proportion equality
+- `tests/testthat/test-design.R:15` — design_effect equality
+
+**Symmetric widening justification (both max and min):** Post-expansion `w[i] = d[i] · X[c] / X_init[c]`. Within cell c with non-uniform d: `w[i]` ranges `[d_min · X[c]/X_init[c], d_max · X[c]/X_init[c]]`. The upper leak (max > max_weight) happens when `d_max/d_mean > 1`. The lower leak (min < min_weight) happens when `d_min/d_mean < 1` AND `min_weight > 0`. **Both directions leak symmetrically** by the same multiplicative factor. Widen symmetrically.
+
+- [ ] **Step R1.5.1: Apply widening (5 targeted edits)**
+
+For each of the 5 sites listed above, replace `1e-10` with `1e-8`. Do NOT touch any other 1e-10 occurrence in tests/.
 
 ### Step R1.6: Build + verify
 
@@ -146,8 +170,8 @@ Expected: `[ FAIL 0 | PASS ≥ 164 ]` (164 = 163 + new test). Python pytest 3/3.
 - [ ] **Step R1.7.1: Single commit**
 ```bash
 git add src/ieppa.cpp R/harvest.R python/leafblower/_harvest.py \
-        tests/testthat/test-harvest.R tests/testthat/test-ieppa-nonuniform-d.R
-# (include any widened tests also)
+        tests/testthat/test-ieppa.R tests/testthat/test-bounded-convergence.R \
+        tests/testthat/test-ieppa-nonuniform-d.R
 git commit -m "fix(ieppa): drop post-expansion clamp violating cell aggregate invariant
 
 Per-obs clamp 'w[i] = clamp(d[i] * X[c] / X_init[c], min, max)' at
@@ -215,7 +239,28 @@ is_infeasible = true;
 infeasible_pairs.emplace(k, j);  // set dedup is free
 ```
 
-Emit loop at lines 300-306 uses `.first` / `.second` iteration; works identically with `std::set<std::pair<int,int>>`.
+Emit loop at `src/ieppa.cpp:295-308` currently uses **indexed access** (`infeasible_pairs[i].first`). `std::set` is NOT random-access; `operator[]` won't compile. Rewrite the emit loop as iterator + running index:
+
+```cpp
+if (st.verbose >= 1 && is_infeasible) {
+    char msg[256];
+    size_t off = 0;
+    off += std::snprintf(msg + off, sizeof(msg) - off,
+                         "iEPPA infeasible cells: ");
+    size_t idx = 0;
+    const size_t total = infeasible_pairs.size();
+    for (auto it = infeasible_pairs.begin();
+         it != infeasible_pairs.end() && off < sizeof(msg) - 32;
+         ++it, ++idx) {
+        off += std::snprintf(msg + off, sizeof(msg) - off,
+                             "margin=%d cat=%d%s",
+                             it->first + 1,
+                             it->second + 1,
+                             (idx + 1 < total) ? ", " : "");
+    }
+    st.log(msg);
+}
+```
 
 ### Step R2.3: Merge duplicate verbose=2 branches
 
@@ -285,6 +330,14 @@ Review: 2026-04-23 critical-code-reviewer issues #3, #4, #7."
 **Files:** `src/ieppa.cpp`, `src/cell_table.cpp`
 
 ### Step R3.1: Precompute log_X_init once
+
+- [ ] **Step R3.1.0: Verify X_init immutability**
+
+Caching `log(X_init[c])` is sound only if `X_init` is never mutated after construction. Grep `src/ieppa.cpp` for write accesses:
+```bash
+grep -n "X_init\[" src/ieppa.cpp | grep -E "=(?!=)" | grep -v "//"
+```
+Expected: one write at construction (`X_init[ct.cell_of[i]] += st.weights[i]`), zero writes elsewhere. If any other `X_init[c] = ...` write site exists, caching is unsafe; report and halt.
 
 - [ ] **Step R3.1.1: Cache log(X_init[c])**
 
