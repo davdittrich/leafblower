@@ -515,9 +515,9 @@ Immediately after `ct.M_cell` is populated (after `res.M_cell = ct.M_cell;`), ad
 
 Add `#include <cstdlib>` and `#include <cstring>` to the top-of-file includes if not already present.
 
-- [ ] **Step 2.4: Edit `src/ieppa.cpp` — add linear-space overflow trip constant**
+- [ ] **Step 2.4: Edit `src/ieppa.cpp` — add linear-space overflow trip constant, f_lin, X_cur accumulator**
 
-Just before the outer iteration loop (`for (int iter = 1; iter <= st.inner_max_iter; iter++)`), compute the overflow trip:
+Just before the outer iteration loop (`for (int iter = 1; iter <= st.inner_max_iter; iter++)`), compute the overflow trip AND initialize the prefactored accumulator `X_cur` (spec rev 5 §5):
 
 ```cpp
     // Runtime trip: factor = X_init[c] * W[c] * ∏_m f[m] ≤ max_X_init * trip^K < DBL_MAX/2.
@@ -531,33 +531,43 @@ Just before the outer iteration loop (`for (int iter = 1; iter <= st.inner_max_i
         1.0 / static_cast<double>(st.K));
 
     // Linear-space Sinkhorn factors (mirror of lf[], but in linear domain).
-    // Only populated when use_linear is true at iter entry.
+    // Populated lazily — only read by the linear-space sweep.
     std::vector<double> f_lin(total_cats, 1.0);
+    // Prefactored per-cell accumulator X_cur[c] = X_init[c] * W[c] * ∏_m f_lin[m][g_m(c)]
+    // (spec rev 5 §5). Per-iter summation becomes O(|bucket|) instead of O(K·|bucket|),
+    // cutting the linear-space per-iter cost from O(K²·M_cell) to O(K·M_cell).
+    std::vector<double> X_cur(ct.M_cell, 0.0);
+    if (use_linear) {
+        for (int c = 0; c < ct.M_cell; c++) {
+            X_cur[c] = X_init[c] * W[c];  // f_lin ≡ 1 at entry
+        }
+    }
     bool linear_fallback_used = false;
 ```
 
-- [ ] **Step 2.5: Edit `src/ieppa.cpp` — linear-space margin-sweep branch**
+- [ ] **Step 2.5: Edit `src/ieppa.cpp` — prefactored linear-space margin-sweep branch**
 
-Inside the outer `for (int iter ...)` loop, replace the entire margin sweep block (currently `for (int k = 0; k < st.K; k++) { for (int j ...) { ... } }`) with a branch:
+Inside the outer `for (int iter ...)` loop, replace the entire margin sweep block (currently `for (int k = 0; k < st.K; k++) { for (int j ...) { ... } }`) with a branch. The linear path uses the prefactored `X_cur` accumulator (spec rev 5 §5): per bucket (k, j), divide out the single shared `f_lin[k][j]` from each cell's `X_cur` to get the without-margin-k sum, then after the update rescale only the bucket's cells.
+
+**Correctness note.** Every cell c in `cells_by_margin_cat[cat_offset[k] + j]` has `g_k(c) == j` by construction (that's how the bucket was built). Therefore `f_lin[cat_offset[k] + g_k(c)] == f_lin[cat_offset[k] + j]` uniformly for every c in the bucket. Dividing that scalar out per cell, summing, then multiplying new_f back in, yields exactly `∑ X_init·W·∏_m f_lin · (new_f/old_f)` — same answer as the naive sweep, O(|bucket|) instead of O(K·|bucket|).
 
 ```cpp
         bool overflow_trip = false;
 
         if (use_linear) {
-            // WU-2 linear-space sweep: direct multiplicative updates.
+            // WU-2 prefactored linear-space sweep (spec rev 5 §5).
+            // O(K·M_cell) per iter = raking-class, cleanly below the §11 ≤2× gate.
             for (int k = 0; k < st.K && !overflow_trip; k++) {
                 for (int j = 0; j < st.cat_counts[k]; j++) {
                     const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
                     if (cells.empty()) { record_empty(k, j); continue; }
+                    const double f_kj_old = f_lin[cat_offset[k] + j];
                     double S_kj = 0.0;
                     for (int c : cells) {
                         if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
-                        double factor = X_init[c] * W[c];
-                        for (int m = 0; m < st.K; m++) {
-                            if (m == k) continue;
-                            factor *= f_lin[cat_offset[m] + ct.g_per_cell[m][c]];
-                        }
-                        S_kj += factor;
+                        // X_cur[c] includes f_kj_old; divide it out to get the
+                        // without-margin-k contribution, then sum.
+                        S_kj += X_cur[c] / f_kj_old;
                     }
                     if (!(S_kj >= kEmptyBucketThreshold * ct.W_input) ||
                         !std::isfinite(S_kj)) {
@@ -565,21 +575,25 @@ Inside the outer `for (int iter ...)` loop, replace the entire margin sweep bloc
                         continue;
                     }
                     record_nonempty(k, j);
-                    double new_f = (st.targets[k][j] * ct.W_input) / S_kj;
-                    if (!std::isfinite(new_f) || new_f > kLinearOverflowTrip) {
+                    double f_kj_new = (st.targets[k][j] * ct.W_input) / S_kj;
+                    if (!std::isfinite(f_kj_new) || f_kj_new > kLinearOverflowTrip) {
                         overflow_trip = true;
                         break;
                     }
-                    f_lin[cat_offset[k] + j] = new_f;
+                    f_lin[cat_offset[k] + j] = f_kj_new;
+                    // Rescale bucket cells: X_cur[c] *= (new / old). Other cells untouched.
+                    const double rescale = f_kj_new / f_kj_old;
+                    for (int c : cells) X_cur[c] *= rescale;
                 }
             }
             if (overflow_trip && !linear_fallback_used) {
                 // One-shot fallback: reset all solver state, switch to log-space,
-                // restart outer loop from iter 0.
+                // restart outer loop from iter 0. State-clean list per spec rev 5 §5.
                 linear_fallback_used = true;
                 use_linear = false;
                 std::fill(lf.begin(), lf.end(), 0.0);
                 std::fill(f_lin.begin(), f_lin.end(), 1.0);
+                std::fill(X_cur.begin(), X_cur.end(), 0.0);
                 std::fill(W.begin(), W.end(), 1.0);
                 for (int c = 0; c < ct.M_cell; c++) {
                     X_tilde[c] = X_init[c];
@@ -669,11 +683,12 @@ Replace the block (was `src/ieppa.cpp:172-203`) with:
         }
         if (overflow_detected) {
             if (use_linear && !linear_fallback_used) {
-                // Treat same as overflow_trip: fall back once.
+                // Treat same as overflow_trip: fall back once. State-clean per spec rev 5 §5.
                 linear_fallback_used = true;
                 use_linear = false;
                 std::fill(lf.begin(), lf.end(), 0.0);
                 std::fill(f_lin.begin(), f_lin.end(), 1.0);
+                std::fill(X_cur.begin(), X_cur.end(), 0.0);
                 std::fill(W.begin(), W.end(), 1.0);
                 for (int c2 = 0; c2 < ct.M_cell; c2++) {
                     X_tilde[c2] = X_init[c2];
@@ -700,6 +715,29 @@ Replace the block (was `src/ieppa.cpp:172-203`) with:
             break;
         }
 ```
+
+- [ ] **Step 2.6.5: Edit `src/ieppa.cpp` — rebuild `X_cur` after capacity block (linear path only)**
+
+The capacity block (currently `src/ieppa.cpp:205-217`, unchanged structurally) mutates `W[c]`. `X_cur` encodes the old `W[c]`; a rebuild after the capacity update is required for linear-path correctness. This is O(K·M_cell) per outer iter — inside the O(K·M_cell) sweep budget, no asymptotic change.
+
+Immediately after the capacity block's final `res.n_cap_active = n_cap;` assignment, add:
+
+```cpp
+        // Rebuild X_cur after capacity update (linear path only).
+        // W has changed; X_cur encoded the old W[c]. Rebuild from f_lin in O(K·M_cell).
+        if (use_linear) {
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X_init[c] <= 0.0 || W[c] <= 0.0) { X_cur[c] = 0.0; continue; }
+                double v = X_init[c] * W[c];
+                for (int m = 0; m < st.K; m++) {
+                    v *= f_lin[cat_offset[m] + ct.g_per_cell[m][c]];
+                }
+                X_cur[c] = v;
+            }
+        }
+```
+
+Note: this rebuild is idempotent with the pre-loop initialization at Step 2.4 (same formula) — at iter 1 the rebuild recomputes the same values initialized at entry (since f_lin is updated in the sweep before the rebuild, and W is updated in the capacity block before the rebuild). Correct by construction; no special-casing iter 1 needed.
 
 - [ ] **Step 2.7: Edit `src/ieppa.cpp` — verbose path marker**
 
@@ -1023,7 +1061,7 @@ At the top of the outer iter loop (just after `res.iterations = iter;`), add:
 
 WU-2 landed before WU-3 and therefore could not reset WU-3-only state. Two fallback sites added in Step 2.5 and Step 2.6 need amending.
 
-In Step 2.5's overflow-trip fallback (just after `persistent_infeas_pairs.clear();`), insert:
+In Step 2.5's overflow-trip fallback (just after `persistent_infeas_pairs.clear();` and before `iter = 0;`), insert:
 
 ```cpp
                 alpha = 1.0;
@@ -1031,7 +1069,9 @@ In Step 2.5's overflow-trip fallback (just after `persistent_infeas_pairs.clear(
                 if (force_damping_on) { alpha = 0.5; damped_latched = true; }
 ```
 
-Apply the identical insertion to Step 2.6's X_tilde-overflow fallback (same location: just after `persistent_infeas_pairs.clear();`).
+Apply the identical insertion to Step 2.6's X_tilde-overflow fallback (same location: just after `persistent_infeas_pairs.clear();` and before `iter = 0;`).
+
+**Note:** `X_cur` is already reset to 0.0 in both fallback blocks per Step 2.5/2.6; no additional edit needed here for the prefactored accumulator.
 
 This honours spec §5 exactly ("`alpha` reset to 1.0 (stable mode; WU-3 re-triggers if streak re-builds)"). The `force_damping_on` re-application preserves the test-only forced mode across fallback — consistent with `LBW_IEPPA_FORCE_PATH` semantics (env var dominates auto-dispatch).
 

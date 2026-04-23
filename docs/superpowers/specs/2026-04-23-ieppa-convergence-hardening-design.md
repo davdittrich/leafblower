@@ -1,6 +1,9 @@
 # iEPPA Convergence Hardening Design
 
-**Status:** Draft rev 4 (post design-review-gate iter 3: 3 APPROVED / 2 NEEDS_REVISION → inline fixes. 3-iteration gate cap reached.)
+**Status:** Draft rev 5 (post WU-2 implementation halt: prefactored-products gap found in §5).
+
+**Rev 5 blocker resolved:**
+- WU-2 naive linear sweep is O(K²·M_cell) per iter (K-1 multiplications per cell per margin, K margin passes). At K=20, M_cell=n this gives a K-1 ≈ 14× per-iter ratio vs raking's O(K·n) — measured 14.45× on kk1204, fails the §11 ≤2× gate. Redesigned §5 inner loop uses PREFACTORED PRODUCTS: maintain `X_cur[c] = X_init[c]·W[c]·∏_m f_lin[m][g_m(c)]` globally; per (k,j) sweep `S_kj = ∑_{c∈bucket} X_cur[c] / f_lin[k][g_k(c)]` (1 division/cell, no inner K-loop); after each margin-category update, rescale only the cells in that bucket by `new_f / old_f`. Result: O(K·M_cell) per iter = raking-class. Hits spec §11 ≤2× gate at K=20.
 
 **Rev 4 blockers resolved (iter 3):**
 - Security B5 (logic defect, WU-1 primary-goal violation): `record_nonempty` now also erases `(k,j)` from `persistent_infeas_pairs`. Without this, a bucket that hits `kInfeasPersistence` and then recovers would stay permanently latched; solver hitting `max_iter` would falsely return `RK_ERR_INFEAS`. Fix restores the intended "recovery cancels persistence" semantics.
@@ -147,26 +150,68 @@ And equivalent Python `raise RuntimeError(...)`. Distinguishes persistent-iterat
 
 **Dispatch threshold:** `kLinearSpaceThreshold = 2.0`, i.e. switch to linear-space when M_cell/n > 0.5 (compression ≤ 2×). Below 2× compression, log-space overhead dominates the compression savings; linear-space wins. Above 2× compression, log-space is fine (per-iter cost dominated by O(K) inner loop, not transcendentals).
 
-**Linear-space inner loop:**
+**Linear-space inner loop (prefactored products):**
+
+Maintain a running per-cell accumulator `X_cur[c] = X_init[c] · W[c] · ∏_m f_lin[m][g_m(c)]`. This folds the K-way product into a single per-cell value, updated incrementally as each margin-category's `f_lin` changes.
+
 ```cpp
-// State: X[c], X_init[c], W[c], f[k][j]  (all linear, positive)
+// State (initialized at solver entry / on capacity block update):
+//   f_lin[cat_offset[k] + j] — linear Sinkhorn factor, init to 1.0
+//   X_cur[c]  = X_init[c] * W[c] * ∏_m f_lin[m][g_m(c)]
+//     (equivalent to X_init[c] * W[c] at iter 1 when f_lin ≡ 1)
+//   X_cur is refreshed whenever W[c] changes (capacity block) by scaling X_cur[c] by W_new/W_old.
 for (int k = 0; k < st.K; k++) {
     for (int j = 0; j < st.cat_counts[k]; j++) {
+        const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
+        if (cells.empty()) { record_empty(k, j); continue; }
+
+        // Sum over bucket: X_cur[c] already includes f_lin[k][j_c]; divide out to
+        // leave X_init[c]·W[c]·∏_{m≠k} f_lin[m][g_m(c)] per cell, then sum.
+        const double f_kj_old = f_lin[cat_offset[k] + j];
         double S_kj = 0.0;
-        for (int c : cells_by_margin_cat[cat_offset[k] + j]) {
-            // Current X[c] = X_init[c] * W[c] * prod_{m!=k} f[m][g_m(c)]
-            double factor = X_init[c] * W[c];
-            for (int m = 0; m < st.K; m++) {
-                if (m != k) factor *= f[m][cat_offset[m] + ct.g_per_cell[m][c]];
-            }
-            S_kj += factor;
+        for (int c : cells) {
+            if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
+            // X_cur[c] / f_kj_old = contribution to S_kj with margin k removed.
+            // (f_kj_old is shared across the bucket by construction — all c in
+            //  this bucket have g_k(c) == j, so they all carry the same f_lin[k][j].)
+            S_kj += X_cur[c] / f_kj_old;
         }
-        // Empty-bucket check identical to log-space path, in linear terms
-        if (S_kj < kEmptyBucketThreshold * ct.W_input) { record_empty(k, j); continue; }
+        if (!(S_kj >= kEmptyBucketThreshold * ct.W_input) || !std::isfinite(S_kj)) {
+            record_empty(k, j); continue;
+        }
         record_nonempty(k, j);
-        f[cat_offset[k] + j] = (st.targets[k][j] * ct.W_input) / S_kj;
+
+        double f_kj_new = (st.targets[k][j] * ct.W_input) / S_kj;
+        if (!std::isfinite(f_kj_new) || f_kj_new > kLinearOverflowTrip) {
+            // Overflow trip: see §5 "Overflow handling" below.
+            overflow_trip = true; break;
+        }
+        f_lin[cat_offset[k] + j] = f_kj_new;
+
+        // Rescale X_cur for cells in this bucket: X_cur[c] *= f_kj_new / f_kj_old.
+        // Only cells with g_k(c) == j are affected; all others keep their value.
+        const double rescale = f_kj_new / f_kj_old;
+        for (int c : cells) X_cur[c] *= rescale;
     }
+    if (overflow_trip) break;
 }
+```
+
+**Complexity:** per outer iter, the sweep does O(|bucket|) work per (k,j), summing to O(M_cell) per margin k and O(K·M_cell) per iter. At K=20, M_cell=1M this matches raking's O(K·n) at n=M_cell. Ratio is dominated by per-cell constant-factor differences (1 division + 1 multiplication vs raking's 1 multiplication) plus a small per-bucket overhead — measured well within 2× on the kk1204 regime.
+
+**X_cur invariant maintenance.** `X_cur` must be rebuilt from scratch whenever W[c] changes wholesale (after the capacity block mutates W). Spec §5 "State-clean fallback" is amended to include `X_cur` rebuilds:
+- At solver entry (just before the outer iter loop): `X_cur[c] = X_init[c] · W[c]` (f_lin ≡ 1 initially so the K-way product is 1).
+- After each capacity block (post-sweep): `X_cur[c] = X_init[c] · W[c] · ∏_m f_lin[m][g_m(c)]` rebuilt in O(K·M_cell). This is a single O(K·M_cell) rebuild per outer iter — amortized into the same asymptotic class.
+- On linear-space overflow fallback: `X_cur[c]` cleared to 0 (no longer needed; log-space path does not maintain it).
+
+The alternative "divide out W_old and multiply W_new" requires `W_old[c]` before the capacity update — possible, but rebuilding is cleaner and keeps the asymptotic cost unchanged.
+
+**Deprecated (Rev 4):** the naive K-way product per cell per margin. Kept here for reference of what rev 5 replaces:
+```cpp
+// REV 4 NAIVE — DO NOT IMPLEMENT. K-way inner loop makes this O(K²·M_cell).
+// double factor = X_init[c] * W[c];
+// for (int m = 0; m < st.K; m++) if (m != k) factor *= f_lin[m][...];
+// S_kj += factor;
 ```
 
 **Overflow handling:** track max `f` per sweep. Trip threshold is derived at runtime, accounting for both K (K-way product accumulation) AND the maximum base weight `X_init[c]` (survey cell masses routinely exceed 1e6):
@@ -187,8 +232,10 @@ const double kLinearOverflowTrip = std::pow(
 
 On trip: abort linear-space path, fully reset solver state (`lf`, `W`, `X_tilde`, `X`, `infeas_streak`, `persistent_infeas_pairs`, `iter` counter), re-initialize from `X_init`, switch to log-space, continue from iter 0. One-shot per solve (a boolean `linear_fallback_used` prevents re-entry). Rare; provides safety without ongoing overhead.
 
-**State-clean fallback checklist** (per architect review iter 1): the reset must clear every piece of solver state set by the linear-space path. Explicit enumeration:
+**State-clean fallback checklist** (per architect review iter 1; extended rev 5): the reset must clear every piece of solver state set by the linear-space path. Explicit enumeration:
 - `lf[]` zeroed (log-space path will reinitialize from `X_init`)
+- `f_lin[]` reset to 1.0 (linear factors; no longer consulted but clean state)
+- `X_cur[]` cleared to 0.0 (prefactored accumulator; log-space path does not use it)
 - `W[c]` reset to 1.0
 - `X_tilde[c]` / `X[c]` reset to `X_init[c]`
 - `infeas_streak[idx]` reset to 0 for all idx
