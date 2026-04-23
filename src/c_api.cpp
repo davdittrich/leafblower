@@ -54,6 +54,7 @@ static int validate_inputs(int n, int K,
     if (!targets)   return err("targets pointer is NULL");
     if (n <= 0)     return err("n must be > 0");
     if (K <= 0)     return err("K must be > 0");
+    if (K > 64)     return err("K exceeds maximum (64); too many margin columns");
 
     if (p->min_weight >= p->max_weight)
         return err("min_weight must be strictly less than max_weight");

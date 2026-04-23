@@ -77,3 +77,34 @@ test_that("infeasible problem (empty cell with positive target) stops with infea
     regexp = "infeasible problem"
   )
 })
+
+test_that("K > 64 rejected with informative error", {
+  # 65 margin columns — should fail validation
+  n <- 100
+  data <- as.data.frame(matrix("0", nrow = n, ncol = 65))
+  names(data) <- paste0("v", 1:65)
+  for (i in seq_len(65)) data[[i]] <- factor(data[[i]])
+  # Targets: each column has 1 category, target = 1
+  tgt <- lapply(seq_len(65), function(k) setNames(1.0, "0"))
+  names(tgt) <- names(data)
+  expect_error(harvest(data, tgt, method = "ieppa"),
+               regexp = "K.*64|too many margin", ignore.case = TRUE)
+})
+
+test_that("cat_counts <= 0 rejected", {
+  # Empty target list for a column — degenerate
+  n <- 100
+  data <- data.frame(a = sample(c("x", "y"), n, replace = TRUE))
+  tgt <- list(a = setNames(numeric(0), character(0)))
+  expect_error(harvest(data, tgt, method = "ieppa"),
+               regexp = "cat_counts|empty target|no categories", ignore.case = TRUE)
+})
+
+test_that("zero-sum input weights rejected", {
+  n <- 100
+  data <- data.frame(a = sample(c("x", "y"), n, replace = TRUE))
+  tgt <- list(a = c(x = 0.5, y = 0.5))
+  sw <- rep(0.0, n)
+  expect_error(harvest(data, tgt, method = "ieppa", start_weights = sw),
+               regexp = "start_weights.*positive|sum.*zero", ignore.case = TRUE)
+})
