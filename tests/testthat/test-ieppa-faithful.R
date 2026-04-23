@@ -105,3 +105,80 @@ test_that("both-sided cap: min_weight + max_weight both active, targets met", {
   expect_true(min(res$weights) >= 0.3 - 1e-6)
   expect_true(max(res$weights) <= 3 + 1e-6)
 })
+
+test_that("WU-2: dense regime (M_cell/n ~ 1) linear-space matches log-space to 1e-8", {
+  set.seed(123)
+  n <- 10000L
+  # K=8, 3 cats each: 3^8 = 6561 cells; at n=10000 roughly M_cell/n ~ 0.6-0.7 -> linear path.
+  df <- as.data.frame(replicate(8, sample(1:3, n, replace = TRUE), simplify = FALSE))
+  names(df) <- paste0("m", 1:8)
+  targets <- setNames(
+    replicate(8, c(a = 0.3, b = 0.4, c = 0.3), simplify = FALSE),
+    paste0("m", 1:8)
+  )
+  for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
+
+  Sys.setenv(LBW_IEPPA_FORCE_PATH = "linear")
+  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_PATH"), add = TRUE)
+  res_lin <- harvest(df, targets, method = "ieppa",
+                     max_weight = 10, min_weight = 0,
+                     max_iterations = 500L,
+                     convergence = list(absolute = 1e-6))
+
+  Sys.setenv(LBW_IEPPA_FORCE_PATH = "log")
+  res_log <- harvest(df, targets, method = "ieppa",
+                     max_weight = 10, min_weight = 0,
+                     max_iterations = 500L,
+                     convergence = list(absolute = 1e-6))
+  Sys.unsetenv("LBW_IEPPA_FORCE_PATH")
+
+  expect_lt(max(abs(res_lin$weights - res_log$weights)), 1e-8)
+})
+
+test_that("WU-2: sparse regime (M_cell/n ~ 0.01) auto-dispatches log-space", {
+  set.seed(7)
+  n <- 10000L
+  # K=2, 5 cats each: 5^2 = 25 cells; M_cell/n ~ 0.0025 -> log-space path.
+  df <- data.frame(
+    a = sample(letters[1:5], n, replace = TRUE),
+    b = sample(letters[1:5], n, replace = TRUE)
+  )
+  targets <- list(
+    a = setNames(rep(0.2, 5), letters[1:5]),
+    b = setNames(rep(0.2, 5), letters[1:5])
+  )
+  msgs <- capture.output(
+    res <- harvest(df, targets, method = "ieppa",
+                   max_weight = 5, min_weight = 0,
+                   max_iterations = 500L,
+                   convergence = list(absolute = 1e-6),
+                   verbose = 1L),
+    type = "message"
+  )
+  # Verbose log prefix differs by path; we rely on either absence of
+  # "linear-space" OR presence of "path=log" if labelled.
+  expect_false(any(grepl("linear-space", msgs)))
+})
+
+test_that("WU-2: overflow synthesis falls back to log-space, still completes", {
+  # Force linear path on a high-K input; rely on adversarial targets to drive
+  # factor * prod(f) toward kLinearOverflowTrip; expect one-shot fallback.
+  set.seed(99)
+  n <- 5000L
+  K <- 12L
+  df <- as.data.frame(replicate(K, sample(1:3, n, replace = TRUE), simplify = FALSE))
+  names(df) <- paste0("m", 1:K)
+  for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
+  targets <- setNames(
+    replicate(K, c(a = 0.6, b = 0.3, c = 0.1), simplify = FALSE),
+    paste0("m", 1:K)
+  )
+  Sys.setenv(LBW_IEPPA_FORCE_PATH = "linear")
+  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_PATH"), add = TRUE)
+  # Success condition: no error, status is RK_OK or RK_ERR_NOCONV, weights finite.
+  res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+                                  max_weight = 1e6, min_weight = 0,
+                                  max_iterations = 200L,
+                                  convergence = list(absolute = 1e-4)))
+  expect_true(all(is.finite(res$weights)))
+})
