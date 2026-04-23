@@ -407,8 +407,14 @@ static LBFGSResult lbfgsb_solve_inner(CalibState& st,
         }
         double sy = dot(s_new, y_new);
         double yy = dot(y_new, y_new);
-        constexpr double kCurvMin = 1e-20;
-        if (sy > kCurvMin && yy > kCurvMin) {
+        // Relative curvature gate (Liu & Nocedal 1989 §3; Nocedal-Wright 2e §7.2):
+        // sy > ε · ‖s‖ · ‖y‖. Squared form avoids sqrt: sy² > ε²·‖s‖²·‖y‖².
+        // On rejection, fall through to steepest-ascent on this iteration
+        // (L-BFGS history unchanged). Concave objective ⟹ still converges.
+        constexpr double kCurvRel = 1e-8;
+        double s_norm2 = dot(s_new, s_new);
+        bool curv_ok = (sy > 0.0) && (sy * sy > kCurvRel * kCurvRel * s_norm2 * yy);
+        if (curv_ok) {
             if ((int)svec.size() >= st.lbfgs_m) {
                 svec.pop_front(); yvec.pop_front(); rho_hist.pop_front();
             }
