@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Rev 2 (post plan-review-gate iter 1):** Fixed 4 feasibility blockers from Gemini Feasibility reviewer (Completeness + Scope reviewers timed out; will rerun iter 2):
+- Step 1.3.2: registration array name `call_methods` (NOT `CallEntries`)
+- Step 3.6.2: `select_algorithm` function does not exist; resolution is inline at `c_api.cpp:151-153`. Revised to modify the inline ternary in-place.
+- Step 3.6.3: existing dispatch is if/else on `alg` (NOT switch). Revised to add RAKING branch to if/else.
+- Step 4.1.2: `make_plots` signature is `(state, candidates, threshold, out_dir)` at `benchmarks/algo_selection_benchmark.R:193`. Revised to preserve 2D signature + add new `make_plots_3d` variant.
+
 **Goal:** Replace misnamed IPF+Dykstra hybrid `method="ieppa"` with paper-faithful algBCD (Chu-Liang-Toh-Yang 2022, arXiv:2011.14312) at C=0, using cell-compressed representation. Rename current hybrid to `method="raking"` as a breaking change.
 
 **Architecture:** Cell-level algBCD with log-space dual factors (`lf[k][j]`), log-sum-exp-stabilized Sinkhorn updates, and a separate capacity BCD block (KL-projection onto box = clamp). Cell table built via sort-based dedup (no hash map, no DoS surface). Obs-level work emerges naturally when M_cell = n.
@@ -340,10 +346,10 @@ extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
 }
 ```
 
-Also add to the `R_registerRoutines()` table in r_bridge.cpp (typically end of file):
+Also add to the `R_registerRoutines()` table in `src/r_bridge.cpp:26-32` (the array is named `call_methods`, NOT `CallEntries`):
 ```cpp
-// In static const R_CallMethodDef CallEntries[]:
-{"C_leafblower_cell_table_probe", (DL_FUNC) &C_leafblower_cell_table_probe, 2},
+// In static const R_CallMethodDef call_methods[] = { ... }; — add:
+{"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
 ```
 
 - [ ] **Step 1.3.3: Update Makevars.in**
@@ -887,55 +893,82 @@ Modify: `src/c_api.cpp` — add near other solver includes:
 #include "raking.hpp"  // renamed hybrid
 ```
 
-- [ ] **Step 3.6.2: Update select_algorithm**
+- [ ] **Step 3.6.2: Update inline algorithm resolution**
 
-Replace `select_algorithm` body with:
+There is NO `select_algorithm` function in `src/c_api.cpp`. Algorithm resolution is inline inside `rk_calibrate` at lines 151-153. Locate this block:
 ```cpp
-static rk_algorithm_t select_algorithm(int /*n*/, int /*K*/,
-                                        const int* /*cat_counts*/,
-                                        const rk_params_t* p) {
-    if (p->algorithm != RK_ALG_AUTO) return p->algorithm;
-    return RK_ALG_IEPPA;  // AUTO → faithful iEPPA always. Routing refinement TBD per benchmark.
+// Current at c_api.cpp:151-153 (pre-edit):
+rk_algorithm_t alg = (cat_counts && K > 0 && n > 0)
+    ? ((p->algorithm == RK_ALG_LBFGSB) ? RK_ALG_LBFGSB : RK_ALG_IEPPA)
+    : p->algorithm;
+```
+
+Replace with an explicit resolver supporting the new RAKING enum and preserving AUTO semantics:
+```cpp
+// Replacement:
+rk_algorithm_t alg;
+if (cat_counts && K > 0 && n > 0) {
+    switch (p->algorithm) {
+        case RK_ALG_LBFGSB: alg = RK_ALG_LBFGSB; break;
+        case RK_ALG_RAKING: alg = RK_ALG_RAKING; break;
+        case RK_ALG_IEPPA:  alg = RK_ALG_IEPPA;  break;
+        case RK_ALG_AUTO:
+        default:
+            alg = RK_ALG_IEPPA;  // AUTO → faithful iEPPA always. Benchmark-driven refinement TBD.
+            if (p->verbose >= 1 && p->log_fn) {
+                p->log_fn("[AUTO->iEPPA] iEPPA selected by auto routing", p->log_ctx);
+            }
+            break;
+    }
+} else {
+    alg = p->algorithm;
 }
 ```
 
-- [ ] **Step 3.6.3: Update dispatch table**
+- [ ] **Step 3.6.3: Update dispatch if/else**
 
-Locate the switch / if-else dispatching on `selected` (the chosen algorithm). Add branch for `RK_ALG_RAKING` calling `raking_solve(state)`, and ensure `RK_ALG_IEPPA` now calls the new `ieppa_solve(state)` (from `ieppa.hpp`). Example pattern:
+Locate the existing dispatch at `src/c_api.cpp:179-192`. It uses if/else (NOT a switch). Current:
 ```cpp
-switch (selected) {
-    case RK_ALG_IEPPA:  {
-        auto r = lbw::ieppa_solve(state);
-        if (result) {
-            result->status = r.status;
-            result->iterations = r.iterations;
-            result->max_error = r.max_error;
-            result->algorithm_used = RK_ALG_IEPPA;
-        }
-        break;
-    }
-    case RK_ALG_LBFGSB: { /* existing L-BFGS-B dispatch */ }
-    case RK_ALG_RAKING: {
-        auto r = lbw::raking_solve(state);
-        if (result) {
-            result->status = r.status;
-            result->iterations = r.iterations;
-            result->max_error = r.max_error;
-            result->algorithm_used = RK_ALG_RAKING;
-        }
-        break;
-    }
-    default:
-        return RK_ERR_BADARG;
+// c_api.cpp:179-192 pre-edit:
+if (alg == RK_ALG_LBFGSB) {
+    auto res = lbw::lbfgsb_solve(st);
+    status = res.status; iterations = res.iterations; max_error = res.max_error;
+    used = RK_ALG_LBFGSB;
+} else {
+    // iEPPA: cyclic IPF + Dykstra box projection
+    auto res = lbw::ieppa_solve(st);
+    status = res.status; iterations = res.iterations; max_error = res.max_error;
+    used = RK_ALG_IEPPA;
 }
 ```
 
-Announce AUTO selection in result message (verbose:
+Replace with three-way dispatch (LBFGSB / RAKING / IEPPA):
 ```cpp
-if (p->algorithm == RK_ALG_AUTO && result && p->verbose >= 1 && p->log_fn) {
-    char m[128];
-    std::snprintf(m, sizeof(m), "[AUTO->iEPPA] iEPPA selected by auto routing");
-    p->log_fn(m, p->log_ctx);
+if (alg == RK_ALG_LBFGSB) {
+    auto res = lbw::lbfgsb_solve(st);
+    status = res.status; iterations = res.iterations; max_error = res.max_error;
+    used = RK_ALG_LBFGSB;
+} else if (alg == RK_ALG_RAKING) {
+    // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
+    auto res = lbw::raking_solve(st);
+    status = res.status; iterations = res.iterations; max_error = res.max_error;
+    used = RK_ALG_RAKING;
+} else {
+    // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
+    auto res = lbw::ieppa_solve(st);
+    status = res.status; iterations = res.iterations; max_error = res.max_error;
+    used = RK_ALG_IEPPA;
+}
+```
+
+Also update the message-default branch at `c_api.cpp:199-204` to include RAKING:
+```cpp
+if (result->message[0] == '\0') {
+    const char* name = (used == RK_ALG_LBFGSB) ? "L-BFGS-B"
+                     : (used == RK_ALG_RAKING) ? "raking"
+                     : "iEPPA";
+    snprintf(result->message, 256, "%s: %d iters, max_error=%.2e",
+             name, iterations, max_error);
 }
 ```
 
@@ -1300,26 +1333,26 @@ Expected: one commit, all files listed.
 - Modify: `benchmarks/algo_selection_benchmark.R` (extract `make_plots()` for reuse; generalize to arbitrary input dimension)
 - Create: `benchmarks/plot_helpers.R` (shared plotting helpers)
 
-### Step 4.1: Extract existing make_plots()
+### Step 4.1: Extract existing make_plots() + add 3D variant
+
+Feasibility review (iter 1) caught: existing signature at `benchmarks/algo_selection_benchmark.R:193` is `make_plots(state, candidates, threshold, out_dir = "benchmarks")`, NOT `(gp, design, y, threshold)`. The call site at `:438` uses this signature. Do not change the 2D signature.
 
 - [ ] **Step 4.1.1: Locate make_plots()**
 ```bash
-grep -n "make_plots\s*<-\s*function" benchmarks/algo_selection_benchmark.R
+grep -n "make_plots\s*<-\s*function\|make_plots(" benchmarks/algo_selection_benchmark.R
 ```
+Expected: definition at `:193`, call site at `:438`.
 
-- [ ] **Step 4.1.2: Move to plot_helpers.R**
+- [ ] **Step 4.1.2: Move existing make_plots() verbatim to plot_helpers.R + add 3D variant**
 
-Create `benchmarks/plot_helpers.R` containing the extracted function, generalized:
-- Accept `gp`, `design`, `y`, `threshold` as before
-- Accept `x_names` (character vector of input names) and `x_ranges` (list of numeric ranges)
-- For 2D inputs: produce contour + uncertainty PDFs as today
-- For 3D inputs: produce slice plots — one 2D contour per fixed value of the third dimension (e.g., `x3 ∈ {0, 1, 2, 3}` for compression log10)
-
-Keep backward compat: when `length(x_names) == 2`, existing PDF names produced.
+Create `benchmarks/plot_helpers.R`:
+1. Copy the existing `make_plots(state, candidates, threshold, out_dir)` function body verbatim (preserve 2D signature — existing call site must keep working)
+2. Add a new `make_plots_3d(state, candidates, threshold, out_dir, slice_dim = 3, slice_values = NULL)` function. The `state` object structure for 3D mirrors the 2D version (contains `gp`, `design`, `y`, `bounds` list) but `design` has 3 columns. 3D variant produces one 2D contour PDF per fixed value of `slice_dim` (default: dimension 3). If `slice_values = NULL`, auto-pick `c(0, 1, 2, 3)` for log10-compression axis.
+3. File name convention: `<out_dir>/<name>_3d_slice_<value>.pdf`.
 
 - [ ] **Step 4.1.3: Update algo_selection_benchmark.R to source()**
 
-Modify: `benchmarks/algo_selection_benchmark.R` — replace inline `make_plots` definition with `source("plot_helpers.R")` at top.
+Modify: `benchmarks/algo_selection_benchmark.R` — remove the inline `make_plots` definition (lines ~193-~[end of function]) and replace with `source("benchmarks/plot_helpers.R")` at the top of the file (after library() calls). The existing call site at `:438` continues to work (same 2D signature).
 
 ### Step 4.2: Sanity check existing 2D benchmark still plots
 
@@ -1485,10 +1518,12 @@ if (!.BENCH_SOURCED) {
   saveRDS(res, "benchmarks/ieppa_vs_raking_results.rds")
   cat("Saved benchmarks/ieppa_vs_raking_results.rds\n")
   # Plot (uses plot_helpers.R)
-  make_plots(res$gp, res$design, res$y, res$threshold,
-             x_names = c("log10_complexity", "log10_tol", "log10_compression"),
-             x_ranges = res$x_ranges,
-             out_prefix = "benchmarks/ieppa_vs_raking")
+  # Build state object matching make_plots_3d's expected structure
+  state_obj <- list(design = res$design, y = res$y, gp = res$gp,
+                    bounds = list(X1_RANGE, X2_RANGE, X3_RANGE))
+  make_plots_3d(state_obj, candidates = NULL, threshold = res$threshold,
+                out_dir = "benchmarks", slice_dim = 3,
+                slice_values = c(0, 1, 2, 3))
 }
 ```
 
