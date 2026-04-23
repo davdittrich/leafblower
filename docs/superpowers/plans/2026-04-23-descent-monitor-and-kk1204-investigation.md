@@ -4,13 +4,22 @@
 
 **Goal:** (WU-P1) Add descent monitor to raking solver per leafblower-dl6. (WU-P2) Profile + investigate why both solvers fail kk1.20.4 benchmark gate (<30s, <1e-6) at n=1M, K=20, max_weight=3. Document findings; no algorithmic changes in WU-P2.
 
+**Rev 2 (post plan-review-gate iter 1 opus):** Applied 7 fixes from Feasibility (2 blockers) + Completeness (3 blockers + 4 gaps) + Scope (3 nits):
+- P1 test: `capture.output(type="output")` (stdout, not stderr); wall-clock guard; exact-phrase match.
+- P1 monitor: window-minimum comparison (not single-step — fixes oscillation false-positive); relative `eps = max(0.01*min, tol_abs)` (not absolute 1e-12 — derived from 1% meaningful-improvement threshold).
+- P2.0: added prerequisite steps — verify probe symbol registered + inspect actual log formats before choosing grep pattern.
+- P2.2: tol_abs=0 forces full 50 iters → per-iter denominator accurate.
+- P2.3: tightened grep pattern + added line-count acceptance.
+- P2.4: quantitative recommendation template (numeric thresholds required, not prose).
+- P0 ticket: rides on leafblower-dl6 scope.
+
 **Style constraint (per CLAUDE.md + user directive 2026-04-23):** No history/narrative notes in source code. Comments explain the non-obvious WHY (invariants, constraints, subtle behavior), not WHAT was changed, when, or why a previous version was wrong. No "originally named X", "renamed in commit Y", "added for Z". PR descriptions and git log already carry that. This applies to P1/P2 edits AND to a cleanup of existing history residue (WU-P0).
 
 **Tech Stack:** C++17, R (testthat, bench).
 
 ---
 
-## WU-P0: Strip history notes from source (precondition)
+## WU-P0: Strip history notes from source (precondition — no dedicated bd ticket; rides on WU-P1's leafblower-dl6 as cleanup scope)
 
 **Files:** `src/raking.cpp`
 
@@ -84,19 +93,24 @@ test_that("descent monitor aborts early on stalled errRp trajectory", {
   df <- data.frame(cat = sample(c("A", "B"), n, replace = TRUE, prob = c(0.05, 0.95)))
   tgt <- list(cat = c(A = 0.95, B = 0.05))
   # Emit verbose=1 so we can grep for the monitor message.
+  # CalibState.log() routes through Rprintf (src/r_bridge.cpp:21) which writes
+  # to stdout, not R's message sink. Use capture.output(type = "output").
+  t0 <- Sys.time()
   msgs <- capture.output(
     res <- suppressWarnings(harvest(df, tgt, method = "raking",
                                      max_weight = 1.2,
                                      max_iterations = 500,
                                      verbose = 1L)),
-    type = "message"
+    type = "output"
   )
-  # Monitor must have fired (near-infeasible + tight bound → stall)
+  elapsed <- as.numeric(Sys.time() - t0, units = "secs")
+  # Wall-clock guard: monitor should trigger early; whole call must be under 5s
+  # even if n_max_iter=500 is reached without the monitor.
+  expect_lt(elapsed, 5)
+  # Monitor message matches the exact phrase emitted by src/raking.cpp.
   probe <- paste(msgs, collapse = "\n")
-  expect_true(
-    grepl("errRp stalled|monotone trajectory|no progress", probe, ignore.case = TRUE),
-    info = paste("expected descent-monitor message; got:", probe)
-  )
+  expect_match(probe, "errRp stalled for [0-9]+ consecutive checks",
+               info = paste("expected descent-monitor message; got:", probe))
 })
 ```
 
@@ -116,11 +130,20 @@ Expected: 1 new failure ("monitor never fired").
 Locate the convergence-check block inside the outer loop (`if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter)`). Modify:
 
 ```cpp
-    constexpr int  kMaxNoImprove = 5;   // allow 5 consecutive stalled checks before abort
-    constexpr double kImproveEps = 1e-12;
-    double prev_errRp = std::numeric_limits<double>::infinity();
+    // Descent monitor state. Placed BEFORE the outer iter loop.
+    //
+    // Detects stalled convergence: no net progress over a sliding window of
+    // kMaxNoImprove consecutive error-checks. Uses a window-minimum comparison
+    // to avoid false positives on normal oscillation (errRp often wobbles
+    // within noise even while the running minimum still decreases).
+    //
+    // Firing condition: every check for the last kMaxNoImprove checks
+    // reported errRp >= (window min so far) - relative_eps. Equivalent: the
+    // window minimum has not improved by more than relative_eps across the
+    // window.
+    constexpr int    kMaxNoImprove = 5;  // 5 * kErrCheckInterval = 50 stalled iters
+    double min_errRp_window = std::numeric_limits<double>::infinity();
     int n_no_improve = 0;
-    // ... existing outer loop ...
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         // ... existing body ...
@@ -129,13 +152,18 @@ Locate the convergence-check block inside the outer loop (`if (iter == 1 || iter
             double errRp = compute_errRp(st, w, bucket);
             res.max_error = errRp;
 
-            // Descent monitor: count consecutive non-improving checks.
-            if (errRp >= prev_errRp - kImproveEps) {
-                n_no_improve++;
-            } else {
+            // Relative improvement threshold: 1% of current best. At errRp ~1e-2
+            // threshold is 1e-4; at errRp ~1e-6 threshold is 1e-8. Absolute
+            // floor of tol_abs prevents a valid convergence from tripping the
+            // monitor right before the convergence check below.
+            const double rel_eps = 0.01 * min_errRp_window;
+            const double eps = std::max(rel_eps, st.tol_abs);
+            if (errRp < min_errRp_window - eps) {
+                min_errRp_window = errRp;
                 n_no_improve = 0;
+            } else {
+                n_no_improve++;
             }
-            prev_errRp = errRp;
 
             if (st.verbose >= 1) {
                 char msg[256];
@@ -154,9 +182,9 @@ Locate the convergence-check block inside the outer loop (`if (iter == 1 || iter
                     char msg[256];
                     std::snprintf(msg, 256,
                                   "raking: errRp stalled for %d consecutive checks "
-                                  "(last=%.2e, delta<%.0e); likely near-infeasible bounds. "
+                                  "(last=%.2e, window_min=%.2e); likely near-infeasible bounds. "
                                   "Aborting at iter %d.",
-                                  n_no_improve, errRp, kImproveEps, iter);
+                                  n_no_improve, errRp, min_errRp_window, iter);
                     st.log(msg);
                 }
                 break;
@@ -165,7 +193,10 @@ Locate the convergence-check block inside the outer loop (`if (iter == 1 || iter
     }
 ```
 
-Place `prev_errRp` and `n_no_improve` declarations BEFORE the outer loop. The `kMaxNoImprove = 5` and `kImproveEps = 1e-12` constants: 5 checks × kErrCheckInterval=10 iters/check = 50 stalled iterations. Aggressive enough to catch true stalls, loose enough to avoid false positives on noisy convergence.
+Rationale for the parameters:
+- `kMaxNoImprove = 5` × `kErrCheckInterval = 10` → monitor fires after 50 stalled iters. Derived: for well-posed problems raking typically converges well below 50 iters; for near-infeasible problems the asymptotic errRp is reached within 50 iters of the floor. Single iteration cost × 50 is a bounded-budget acceptable penalty.
+- `rel_eps = 0.01 * min_errRp_window` floored at `tol_abs`: relative threshold derived from "1% improvement is meaningful". At errRp=1e-2 that's 1e-4, well above FP noise; at errRp=1e-6 that's 1e-8, tight but not below machine precision. Absolute floor prevents tripping in the last few iters before successful convergence where `errRp - min_errRp_window` can be near-machine-epsilon.
+- Window-minimum, not single-step comparison: avoids the documented oscillation false-positive — a single up-tick does not increment `n_no_improve` if the running minimum hasn't moved.
 
 ### Step P1.3: Build + test
 
@@ -222,6 +253,23 @@ Both fail the kk1.20.4 gate (<30s + max_err<1e-6).
 **Files:**
 - Create: `benchmarks/kk1204_profile.R` (scratch profiling script, NOT committed)
 - Create: `docs/investigations/2026-04-23-kk1204-convergence.md` (findings report, committed)
+
+### Step P2.0: Prerequisites
+
+- [ ] **Step P2.0.1: Confirm probe symbol registered**
+
+```bash
+Rscript -e 'info <- getNativeSymbolInfo("C_leafblower_cell_table_probe", PACKAGE="leafblower"); print(info$name)'
+```
+Expected: `[1] "C_leafblower_cell_table_probe"`. If error, P2.1 blocked — file a precondition fix issue.
+
+- [ ] **Step P2.0.2: Inspect ieppa.cpp + raking.cpp verbose log formats**
+
+```bash
+grep -nE 'iter.*errRp|errRp.*iter' src/ieppa.cpp src/raking.cpp
+```
+
+Record the exact log-line formats. The P2.3 trajectory-capture grep pattern must match both. Likely raking emits `raking iter N: errRp=...` (current) and ieppa emits `iEPPA iter N: errRp=...`. Align the grep regex (`iter [0-9]+: errRp`) to catch both — update Step P2.3.1 if this doesn't hold.
 
 ### Step P2.1: Measure M_cell for the benchmark input
 
@@ -282,10 +330,14 @@ tgts <- lapply(seq_len(K), function(k) {
 })
 names(tgts) <- names(df)
 
-# 50 iters each — avoid the max_iter=500 tail
+# 50 iters each (tight tol to prevent early-termination skewing per-iter cost);
+# per-iter denominator uses actual iter count from attr(res, 'iterations') or
+# the result's algorithm-used attribute. Setting tol_abs=0 and relying on
+# max_iter cap guarantees all 50 iters run, so t/50 is accurate.
 for (m in c("ieppa", "raking", "lbfgsb")) {
   t <- system.time(res <- suppressWarnings(
-    harvest(df, tgts, method = m, max_weight = 3, max_iterations = 50)
+    harvest(df, tgts, method = m, max_weight = 3, max_iterations = 50,
+            convergence = list(absolute = 0))  # force full 50 iters
   ))[3]
   diag <- diagnose_weights(df, tgts, res$weights)
   cat(sprintf("%s: %.3fs total, %.3fs/iter (50 iters), max_err=%.3e\n",
@@ -320,9 +372,12 @@ for (m in c("ieppa", "raking")) {
   cat("=== method=", m, " ===\n", sep="")
   suppressWarnings(harvest(df, tgts, method=m, max_weight=3, max_iterations=500, verbose=1L))
 }
-' 2>&1 | grep -E "iter |errRp" | head -60 > /tmp/kk1204/trajectory.log
+' 2>&1 | grep -E "iter [0-9]+: errRp" > /tmp/kk1204/trajectory.log
+wc -l /tmp/kk1204/trajectory.log
 cat /tmp/kk1204/trajectory.log
 ```
+
+**Acceptance:** `wc -l` must report at least 10 lines (5 per method × 2 methods at worst, given 500 iters / 10-iter check interval = 50 checks per run). If 0 lines, grep pattern is wrong — re-check P2.0.2 actual log formats before proceeding.
 
 Record: whether errRp decreases monotonically, floors at a value > tol_abs, or oscillates. Ieppa's last measured max_err = 1.1e-3 and raking's = 2.2e-2; the trajectory tells us whether it's still improving at iter 500 or stuck.
 
@@ -374,9 +429,14 @@ targets = skewed (0.3, 0.175, 0.175, 0.175, 0.175) per margin.
 
 ## Recommendations
 
-1. **kk1.20.4 gate:** [keep / relax / reframe]
-2. **Routing:** [when should AUTO select ieppa vs raking on K>=15 inputs?]
-3. **Follow-up:** [new WUs, if any]
+1. **kk1.20.4 gate:** choose ONE and justify with measurements:
+   - KEEP (if any measured config achieves <30s AND <1e-6)
+   - RELAX to `<X s AND <Y`, where X and Y derive from the measured asymptote + best-measured wall-clock
+   - REFRAME (close kk1.20.4 as not-achievable on this class; document achievable envelope)
+2. **Routing:** quantitative threshold. Propose ONE of:
+   - AUTO switches raking→ieppa when `M_cell/n < T1` AND n ≥ T2 (give numeric T1, T2 from M_cell/per-iter data)
+   - Insufficient data — file BLSE benchmark WU as prerequisite to the routing decision
+3. **Follow-up:** list each new bd ticket filed in Step P2.6 (or explicitly "none needed")
 
 ## Raw data
 
