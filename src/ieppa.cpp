@@ -106,24 +106,39 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Paper: margin sum τ_{k,j} × W_total should match S_kj for j in [0, cat_counts[k]).
     // For NA bucket (j = cat_counts[k]), no constraint; f remains 1.0.
 
-    constexpr int kInfeasPersistence = 5;
+    // Structural vs transient infeasibility split (post-WU-1 rev; stepstone finding):
+    //   structural_infeas_pairs — bucket has cells.empty() AND target > 0. Static;
+    //     a bucket with zero observations can never be satisfied. Latch immediately.
+    //   infeas_streak — counts consecutive transient empties (log_S_kj < threshold).
+    //     Drives WU-3 damping auto-trigger. Does NOT latch into persistent set;
+    //     transient near-zeros arise from co-margin log-factor drift and often
+    //     recover as the Sinkhorn iterates settle. Stepstone probe (commit state:
+    //     mw=5, 500 iters, persistence disabled) confirmed iEPPA reaches
+    //     errRp=2.24e-3 (best of 3 solvers) despite a bucket staying below
+    //     threshold for 250+ iters — this is slow settling, not infeasibility.
+    constexpr int kInfeasPersistence = 5;  // streak count that engages damping
     std::vector<int> infeas_streak(total_cats, 0);
-    std::set<std::pair<int,int>> persistent_infeas_pairs;
+    std::set<std::pair<int,int>> structural_infeas_pairs;
 
     auto record_empty = [&](int k, int j) {
         if (st.targets[k][j] <= 0.0) return;
-        int idx = cat_offset[k] + j;
-        infeas_streak[idx]++;
-        if (infeas_streak[idx] == kInfeasPersistence) {
-            persistent_infeas_pairs.emplace(k, j);
-        }
+        infeas_streak[cat_offset[k] + j]++;
     };
     auto record_nonempty = [&](int k, int j) {
         if (st.targets[k][j] <= 0.0) return;
-        int idx = cat_offset[k] + j;
-        infeas_streak[idx] = 0;
-        persistent_infeas_pairs.erase(std::make_pair(k, j));
+        infeas_streak[cat_offset[k] + j] = 0;
     };
+
+    // Pre-loop structural-infeas scan: buckets with cells.empty() AND target > 0
+    // cannot be satisfied regardless of iteration. Latched once; static condition.
+    for (int k = 0; k < st.K; k++) {
+        for (int j = 0; j < st.cat_counts[k]; j++) {
+            if (st.targets[k][j] > 0.0 &&
+                cells_by_margin_cat[cat_offset[k] + j].empty()) {
+                structural_infeas_pairs.emplace(k, j);
+            }
+        }
+    }
 
     if (st.verbose >= 1) {
         char msg[256];
@@ -287,7 +302,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     X[c] = X_init[c];
                 }
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
-                persistent_infeas_pairs.clear();
+                // structural_infeas_pairs NOT cleared — static bucket topology
                 alpha = 1.0;
                 damped_latched = false;
                 if (force_damping_on) { alpha = 0.5; damped_latched = true; }
@@ -384,7 +399,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     X[c2] = X_init[c2];
                 }
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
-                persistent_infeas_pairs.clear();
+                // structural_infeas_pairs NOT cleared — static bucket topology
                 alpha = 1.0;
                 damped_latched = false;
                 if (force_damping_on) { alpha = 0.5; damped_latched = true; }
@@ -496,7 +511,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
             if (errRp < st.tol_abs) {
-                res.status = persistent_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+                res.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
                 break;
             }
         }
@@ -521,7 +536,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         st.weights[i] = st.weights[i] * mult[ct.cell_of[i]];
     }
 
-    if (!persistent_infeas_pairs.empty() && res.status == RK_ERR_NOCONV) {
+    if (!structural_infeas_pairs.empty() && res.status == RK_ERR_NOCONV) {
         res.status = RK_ERR_INFEAS;
     }
 
@@ -537,15 +552,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
         st.log(msg);
     }
 
-    if (st.verbose >= 1 && !persistent_infeas_pairs.empty()) {
+    if (st.verbose >= 1 && !structural_infeas_pairs.empty()) {
         char msg[256];
         size_t off = 0;
         off += std::snprintf(msg + off, sizeof(msg) - off,
                              "iEPPA persistent infeasible cells: ");
         size_t idx = 0;
-        const size_t total = persistent_infeas_pairs.size();
-        for (auto it = persistent_infeas_pairs.begin();
-             it != persistent_infeas_pairs.end() && off < sizeof(msg) - 32;
+        const size_t total = structural_infeas_pairs.size();
+        for (auto it = structural_infeas_pairs.begin();
+             it != structural_infeas_pairs.end() && off < sizeof(msg) - 32;
              ++it, ++idx) {
             off += std::snprintf(msg + off, sizeof(msg) - off,
                                  "margin=%d cat=%d%s",
