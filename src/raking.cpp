@@ -99,7 +99,10 @@ RakingResult raking_solve(CalibState& st) {
     std::vector<double> w(st.weights, st.weights + st.n);
 
     std::vector<double> q(st.n, 0.0);
-    std::vector<double> q_hyp(st.n, 0.0);  // Dykstra correction for hyperplane {w: sum(w)=n}
+    // Dykstra hyperplane correction: at any fixed point of the hyperplane
+    // projection, `q_hyp[i] = w[i] - w_proj = -shift` is identical for all i
+    // (shift depends only on the total sum, not on i). Store scalar, not vector.
+    double q_hyp = 0.0;
 
     double lo = st.min_weight;
     // 1e300 not numeric_limits::max(): prevents overflow in w[i] *= scale[g]
@@ -158,17 +161,16 @@ RakingResult raking_solve(CalibState& st) {
         }
 
         // Dykstra hyperplane projection: {w : sum(w) = n}
-        // q_hyp[i] accumulates overshoot from previous hyperplane projections.
+        // q_hyp is a scalar: the hyperplane correction is uniform across i.
         {
-            for (int i = 0; i < st.n; i++) w[i] += q_hyp[i];
             double s = 0.0;
-            for (int i = 0; i < st.n; i++) s += w[i];
-            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
             for (int i = 0; i < st.n; i++) {
-                double w_proj = w[i] + shift;
-                q_hyp[i] = w[i] - w_proj;  // Dykstra correction: pre - post
-                w[i] = w_proj;
+                w[i] += q_hyp;  // apply prior correction uniformly
+                s += w[i];
             }
+            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
+            for (int i = 0; i < st.n; i++) w[i] += shift;
+            q_hyp = -shift;  // w_pre_proj - w_post_proj = (w + q_hyp_old) - (w + q_hyp_old + shift) = -shift
         }
 
         // Convergence check: run every kErrCheckInterval iters and on the final iter.
@@ -213,15 +215,15 @@ RakingResult raking_solve(CalibState& st) {
             w[i] = wc;
         }
         // Hyperplane step restores sum(w) = n regardless of box changes.
-        for (int i = 0; i < st.n; i++) w[i] += q_hyp[i];
+        // q_hyp is scalar (uniform correction); applied uniformly to all w[i].
         double s = 0.0;
-        for (int i = 0; i < st.n; i++) s += w[i];
-        double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
         for (int i = 0; i < st.n; i++) {
-            double w_proj = w[i] + shift;
-            q_hyp[i] = w[i] - w_proj;
-            w[i] = w_proj;
+            w[i] += q_hyp;
+            s += w[i];
         }
+        double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
+        for (int i = 0; i < st.n; i++) w[i] += shift;
+        q_hyp = -shift;
         if (box_ok) break;
     }
 
