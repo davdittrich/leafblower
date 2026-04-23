@@ -1,8 +1,5 @@
-#include "lbw_config.h"
 #include "cell_table.hpp"
 #include <algorithm>
-#include <array>
-#include <cstring>
 #include <numeric>
 
 namespace lbw {

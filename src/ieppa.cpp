@@ -33,7 +33,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     // Build cell table.
     CellTable ct;
-    std::vector<int> gid_ptrs_cat_counts_holder;
     {
         int rc = build_cell_table(st.n, st.K, st.group_ids,
                                   st.cat_counts, st.weights, ct);
