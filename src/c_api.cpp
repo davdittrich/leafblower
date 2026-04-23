@@ -33,6 +33,11 @@ void rk_params_init(rk_params_t* p) {
     p->log_ctx       = nullptr;
 }
 
+void rk_result_init(rk_result_t* r) {
+    if (!r) return;
+    memset(r, 0, sizeof(*r));
+}
+
 static int validate_inputs(int n, int K,
                             const double* weights,
                             const int32_t** group_ids,
@@ -140,11 +145,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     const rk_params_t* p = params ? params : &defaults;
 
     if (result) {
-        result->status = RK_OK;
-        result->iterations = 0;
-        result->max_error = 0.0;
-        result->algorithm_used = RK_ALG_IEPPA;
-        result->message[0] = '\0';
+        rk_result_init(result);
     }
 
     // Resolve algorithm before validation so the singularity guard knows which
@@ -212,6 +213,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = res.iterations;
         max_error = res.max_error;
         used = RK_ALG_IEPPA;
+        if (result) {
+            result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
+        }
     }
 
     if (result) {

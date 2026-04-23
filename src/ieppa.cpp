@@ -32,6 +32,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     res.max_error = 1.0;
     res.M_cell = 0;
     res.n_cap_active = 0;
+    res.n_xcur_writes_per_iter_linear = 0;
 
     // Build cell table.
     CellTable ct;
@@ -358,20 +359,57 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
         }
 
-        // Compute X_tilde. Path-dependent:
-        //   linear: X_cur[c] = X_init[c]*W[c]*prod_m f_lin; X_tilde = X_cur[c]/W[c] — O(M_cell).
-        //   log:    clip-before-exp as before — O(K*M_cell).
-        bool overflow_detected = false;
-        double max_log_X_tilde = -std::numeric_limits<double>::infinity();
-        for (int c = 0; c < ct.M_cell; c++) {
-            if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-            if (use_linear) {
-                // X_cur[c] = X_init[c] * W[c] * prod_m f_lin (maintained by sweep).
-                // X_tilde = X_init[c] * prod_m f_lin = X_cur[c] / W[c].
-                double v = (W[c] > 0.0) ? X_cur[c] / W[c] : 0.0;
-                if (!std::isfinite(v)) overflow_detected = true;
-                X_tilde[c] = v;
-            } else {
+        if (use_linear) {
+            // P1.1 fused block: X_tilde derived inline as X_cur / W; capacity + X_cur rebuild fused.
+            bool overflow_detected = false;
+            int n_cap = 0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X_init[c] <= 0.0 || W[c] <= 0.0) {
+                    X[c] = 0.0;
+                    X_cur[c] = 0.0;
+                    W[c] = 1.0;
+                    continue;
+                }
+                double X_tilde_c = X_cur[c] / W[c];
+                if (!std::isfinite(X_tilde_c) || X_tilde_c > kLinearOverflowTrip) {
+                    overflow_detected = true;
+                    break;
+                }
+                if (X_tilde_c <= 0.0) {
+                    X[c] = 0.0;
+                    X_cur[c] = 0.0;
+                    W[c] = 1.0;
+                    continue;
+                }
+                double xc = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
+                X[c] = xc;
+                W[c] = xc / X_tilde_c;
+                X_cur[c] = xc;
+                res.n_xcur_writes_per_iter_linear++;
+                if (xc != X_tilde_c) n_cap++;
+            }
+            res.n_cap_active = n_cap;
+            if (overflow_detected) {
+                // Full state reset on mid-loop break; partial writes to W/X/X_cur undone.
+                std::fill(X_cur.begin(),   X_cur.end(),   0.0);
+                std::fill(W.begin(),       W.end(),       1.0);
+                std::fill(X.begin(),       X.end(),       0.0);
+                std::fill(X_tilde.begin(), X_tilde.end(), 0.0);
+                std::fill(lf.begin(),      lf.end(),      0.0);
+                std::fill(f_lin.begin(),   f_lin.end(),   1.0);
+                std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
+                res.n_xcur_writes_per_iter_linear = 0;
+                use_linear = false;
+                linear_fallback_used = true;
+                if (st.verbose >= 1) st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
+                continue;
+            }
+        } else {
+            // Log-path: X_tilde + capacity + X_cur unchanged from current implementation.
+            bool overflow_detected = false;
+            double max_log_X_tilde = -std::numeric_limits<double>::infinity();
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
                 double s = log_X_init[c];
                 for (int m = 0; m < st.K; m++) {
                     int gm = ct.g_per_cell[m][c];
@@ -384,66 +422,32 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 X_tilde[c] = std::exp(s_clip);
             }
-        }
-        if (overflow_detected) {
-            if (use_linear && !linear_fallback_used) {
-                // Treat same as overflow_trip: fall back once. State-clean per spec rev 5 §5.
-                linear_fallback_used = true;
-                use_linear = false;
-                std::fill(lf.begin(), lf.end(), 0.0);
-                std::fill(f_lin.begin(), f_lin.end(), 1.0);
-                std::fill(X_cur.begin(), X_cur.end(), 0.0);
-                std::fill(W.begin(), W.end(), 1.0);
-                for (int c2 = 0; c2 < ct.M_cell; c2++) {
-                    X_tilde[c2] = X_init[c2];
-                    X[c2] = X_init[c2];
+            if (overflow_detected) {
+                res.status = RK_ERR_NOCONV;
+                res.max_error = std::numeric_limits<double>::infinity();
+                if (st.verbose >= 2) {
+                    char msg[256];
+                    std::snprintf(msg, sizeof(msg),
+                                  "iEPPA: log-factor overflow (max_log_X_tilde=%.1f > 700) "
+                                  "indicates ill-conditioning; try looser max_weight or "
+                                  "tighter tol_abs, or method=raking.", max_log_X_tilde);
+                    st.log(msg);
                 }
-                std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
-                // structural_infeas_pairs NOT cleared — static bucket topology
-                alpha = 1.0;
-                damped_latched = false;
-                if (force_damping_on) { alpha = 0.5; damped_latched = true; }
-                iter = 0;
-                if (st.verbose >= 1) {
-                    st.log("iEPPA: linear-space X_tilde overflow; fallback to log-space.");
-                }
-                continue;
+                break;
             }
-            res.status = RK_ERR_NOCONV;
-            res.max_error = std::numeric_limits<double>::infinity();
-            if (st.verbose >= 2) {
-                char msg[256];
-                std::snprintf(msg, sizeof(msg),
-                              "iEPPA: log-factor overflow (max_log_X_tilde=%.1f > 700) "
-                              "indicates ill-conditioning; try looser max_weight or "
-                              "tighter tol_abs, or method=raking.", max_log_X_tilde);
-                st.log(msg);
-            }
-            break;
-        }
-
-        // Capacity block: X[c] = clamp(X_tilde[c], L_c, U_c); W[c] updated for next iter.
-        int n_cap = 0;
-        for (int c = 0; c < ct.M_cell; c++) {
-            double xc = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
-            X[c] = xc;
-            if (X_tilde[c] > 0.0) {
-                W[c] = xc / X_tilde[c];
-            } else {
-                W[c] = 1.0;
-            }
-            if (W[c] != 1.0) n_cap++;
-        }
-        res.n_cap_active = n_cap;
-
-        // Update X_cur after capacity update (linear path only).
-        // X_cur[c] = X_init[c] * W_new[c] * prod_m f_lin
-        //          = X_tilde[c] * W_new[c]   (X_tilde already computed above)
-        // O(M_cell) — no K-loop. Spec §5: "scale X_cur[c] by W_new/W_old".
-        if (use_linear) {
+            // Capacity block: X[c] = clamp(X_tilde[c], L_c, U_c); W[c] updated for next iter.
+            int n_cap = 0;
             for (int c = 0; c < ct.M_cell; c++) {
-                X_cur[c] = X_tilde[c] * W[c];  // W[c] is now W_new after capacity block
+                double xc = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
+                X[c] = xc;
+                if (X_tilde[c] > 0.0) {
+                    W[c] = xc / X_tilde[c];
+                } else {
+                    W[c] = 1.0;
+                }
+                if (W[c] != 1.0) n_cap++;
             }
+            res.n_cap_active = n_cap;
         }
 
         // Convergence check.
@@ -491,7 +495,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // verbose=2: n_cap_active + log10 max/min of f[k][j] per margin for ill-conditioning debug.
                 char msg[256];
                 std::snprintf(msg, sizeof(msg),
-                              "  n_cap_active=%d", n_cap);
+                              "  n_cap_active=%d", res.n_cap_active);
                 st.log(msg);
                 for (int k = 0; k < st.K; k++) {
                     double lf_max = -std::numeric_limits<double>::infinity();

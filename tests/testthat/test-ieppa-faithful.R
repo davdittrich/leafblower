@@ -219,6 +219,44 @@ test_that("WU-3: stable-mode fast-path is deterministic + does not engage dampin
   expect_false(any(grepl("damping engaged", msgs)))      # fast-path stays put
 })
 
+test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused block)", {
+  # K=2 with 3 cats each → M_cell bounded by 3^2 = 9. n=100000 per cell = 11k obs,
+  # birthday-saturates all 9 cells deterministically. X_init[c] > 0 for every c,
+  # so the fused block increments the counter on every cell every iter.
+  # (critical-code-reviewer R1: former K=4/n=5000 was RNG-fragile on empty-cell risk.)
+  Sys.setenv(LBW_IEPPA_FORCE_PATH = "linear")
+  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_PATH"), add = TRUE)
+  set.seed(991)
+  n <- 100000L
+  df <- data.frame(
+    a = sample(c("a","b","c"), n, replace = TRUE),
+    b = sample(c("a","b","c"), n, replace = TRUE)
+  )
+  targets <- list(
+    a = c(a = 0.4, b = 0.35, c = 0.25),
+    b = c(a = 0.4, b = 0.35, c = 0.25)
+  )
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 20L,
+                 convergence = list(absolute = 1e-300),
+                 attach_weights = FALSE)
+  result_info <- attr(res, "result")
+  expect_true(!is.null(result_info$n_xcur_writes_per_iter_linear))
+  stopifnot(result_info$iterations > 0)
+  writes_per_iter <- result_info$n_xcur_writes_per_iter_linear / result_info$iterations
+  # M_cell via probe. All 9 cells populated with high certainty at n=100k.
+  gid_list <- lapply(names(targets), function(nm) {
+    lv <- names(targets[[nm]])
+    idx <- match(as.character(df[[nm]]), lv) - 1L
+    idx[is.na(idx)] <- -1L
+    as.integer(idx)
+  })
+  probe <- .Call("C_leafblower_cell_table_probe", gid_list, n, PACKAGE = "leafblower")
+  expect_equal(probe$M_cell, 9L)            # deterministic saturation
+  expect_equal(writes_per_iter, probe$M_cell)  # fused block hits every cell once
+})
+
 test_that("WU-3: damped mode takes strictly more iters than stable on same input (spec §7)", {
   # Use LBW_IEPPA_FORCE_DAMPING to run the SAME feasible input twice: once
   # stable (alpha=1.0, fast path), once damped (alpha=0.5, geometric blend).

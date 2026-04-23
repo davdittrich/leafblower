@@ -48,10 +48,14 @@ typedef struct {
     double          max_error;       /* max calibration error at last iterate */
     rk_algorithm_t  algorithm_used;  /* actual algorithm run (never RK_ALG_AUTO) */
     char            message[256];    /* null-terminated status message */
+    int             n_xcur_writes_per_iter_linear;  /* P1.1 diagnostic */
 } rk_result_t;
 
 /* Fill *p with safe defaults */
 void rk_params_init(rk_params_t* p);
+
+/* Zero-initialize *r (memset); call before passing to rk_calibrate */
+void rk_result_init(rk_result_t* r);
 
 /*
  * Calibrate survey weights in-place.

@@ -122,11 +122,15 @@ harvest <- function(
   alg_names <- c("", "ieppa", "lbfgsb", "raking")  # index 0 (auto) removed from user API
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
 
-  if (!attach_weights) return(weights)
+  if (!attach_weights) {
+    attr(weights, "result") <- calib_result
+    return(weights)
+  }
 
   col <- if (!is.null(weight_column)) weight_column else "weights"
   data[[col]] <- weights
   attr(data, "algorithm") <- alg_used
+  attr(data, "result") <- calib_result
   data
 }
 

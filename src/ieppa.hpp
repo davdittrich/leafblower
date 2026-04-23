@@ -10,6 +10,7 @@ struct IEPPAResult {
     double max_error;        // final errRp
     int M_cell;              // compression info
     int n_cap_active;        // cells with W[c] != 1 at convergence
+    int n_xcur_writes_per_iter_linear;  // 0 outside linear path; counter for P1.1 RED test
 };
 
 // Faithful iEPPA (paper-faithful algBCD at C=0). See
