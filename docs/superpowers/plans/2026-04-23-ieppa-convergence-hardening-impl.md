@@ -35,6 +35,31 @@ If any test fails, stop. Do not start the plan on a broken baseline.
 Run: `grep -E '^\\^benchmarks' .Rbuildignore`
 Expected: `^benchmarks$` present. Whole `benchmarks/` directory (including `stepstone_fulldata_*`) is excluded from CRAN tarball — spec requirement satisfied, no edit needed.
 
+- [ ] **Step P.4: Audit existing tests for the old error-message substring**
+
+Run: `grep -rn 'empty cell with positive target' tests/ R/ python/`
+Expected: matches only in `R/harvest.R:102` and `python/leafblower/_harvest.py:165` (the two source sites WU-1 will edit). Any match under `tests/` means an existing test greps for the OLD wording and will regress after WU-1's string update — halt and extend the edit list in Task 1 to update those assertions, or fail the test suite silently later. Completeness reviewer flagged this explicitly; do not skip.
+
+- [ ] **Step P.5: Record baseline status distribution for RK_OK-preservation gate**
+
+Run:
+
+```bash
+Rscript -e '
+  library(testthat); library(leafblower);
+  sink("/tmp/baseline-status.log")
+  tr <- test_dir("tests/testthat", reporter = ListReporter$new(), stop_on_failure = FALSE)
+  sink()
+  # Count pass/warn/fail/skip from tr summary (Rscript-friendly).
+  cat("baseline_pass=", sum(sapply(tr, function(x) x$n_pass)), "\n", sep="")
+  cat("baseline_fail=", sum(sapply(tr, function(x) x$n_fail)), "\n", sep="")
+  cat("baseline_warn=", sum(sapply(tr, function(x) x$n_warn)), "\n", sep="")
+  cat("baseline_skip=", sum(sapply(tr, function(x) x$n_skip)), "\n", sep="")
+' | tee /tmp/baseline-counts.txt
+```
+
+Expected: `baseline_fail=0`, `baseline_pass >= 169`. Save `/tmp/baseline-counts.txt` for comparison at Step A.4. This pins the "previously passing" set so the post-change regression check (spec §11 last bullet) is falsifiable.
+
 ---
 
 ## Task 1: WU-1 — Persistent-infeas tracker
@@ -108,6 +133,45 @@ test_that("WU-1: truly infeasible input (empty target cell) still reports INFEAS
                              convergence = list(absolute = 1e-6))),
     regexp = "persistent empty cell"
   )
+})
+
+test_that("WU-1: oscillating streak (spec §4 edge case) returns NOCONV not INFEAS", {
+  # Spec §4 documents: a bucket that oscillates empty <-> non-empty such that
+  # streak resets before kInfeasPersistence=5 will NOT flag INFEAS; solver
+  # hits max_iter -> RK_ERR_NOCONV with high errRp. This test guards that
+  # documented behaviour. Engineer oscillation via a 3-way near-degenerate
+  # system where each outer sweep alternates which margin is pinched.
+  set.seed(2024)
+  n <- 600L
+  # K=3 with strong negative correlation between two margins → oscillation.
+  a <- sample(letters[1:3], n, replace = TRUE, prob = c(0.1, 0.45, 0.45))
+  # b chosen so (a,b) cells heavily biased; targets will push the solver to
+  # move mass between (a="a", any b) cells, which are sparse.
+  b <- ifelse(a == "a", sample(letters[1:3], n, replace = TRUE, prob = c(0.8, 0.1, 0.1)),
+                        sample(letters[1:3], n, replace = TRUE))
+  c_ <- sample(letters[1:3], n, replace = TRUE)
+  df <- data.frame(a = a, b = b, c_ = c_)
+  # Targets pushing the (a="a", b="b") and (a="a", b="c") cells to non-trivial mass.
+  targets <- list(
+    a  = c(a = 0.50, b = 0.25, c = 0.25),
+    b  = c(a = 0.25, b = 0.50, c = 0.25),
+    c_ = c(a = 0.33, b = 0.33, c = 0.34)
+  )
+  # Low max_iter forces solver to exit before streak settles either way.
+  res_status <- tryCatch({
+    suppressWarnings(harvest(df, targets, method = "ieppa",
+                             max_weight = 5, min_weight = 0,
+                             max_iterations = 30L,
+                             convergence = list(absolute = 1e-10)))
+    "converged"
+  }, error = function(e) {
+    if (grepl("persistent empty cell", conditionMessage(e))) "infeas"
+    else "other_error"
+  })
+  # Must NOT be "infeas" on this near-degenerate but not structurally empty input
+  # with streak-resetting oscillation. "converged" (OK) or a non-infeas warning
+  # path are both acceptable per spec §4.
+  expect_false(res_status == "infeas")
 })
 ```
 
@@ -735,50 +799,52 @@ test_that("WU-3: stable mode (no persistence stress) is byte-identical to pre-WU
   expect_identical(res1, res2)
 })
 
-test_that("WU-3: damped mode (engineered persistence stress) converges with strictly more iters", {
-  # Engineered: tight max_weight + overlapping K=6 skewed margins forces
-  # transient near-zero, auto-trigger damping.
+test_that("WU-3: damped mode takes strictly more iters than stable on same input (spec §7)", {
+  # Use LBW_IEPPA_FORCE_DAMPING to run the SAME feasible input twice: once
+  # stable (alpha=1.0, fast path), once damped (alpha=0.5, geometric blend).
+  # Spec §7 / CTO B5: monotone `iter_damped > iter_stable` assertion.
   set.seed(314)
   n <- 3000L
   K <- 6L
   df <- as.data.frame(replicate(K, sample(1:3, n, replace = TRUE), simplify = FALSE))
   names(df) <- paste0("m", 1:K)
   for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
-  # Skewed targets that force transient stress but remain feasible at mw=3.
   targets <- setNames(
-    replicate(K, c(a = 0.7, b = 0.2, c = 0.1), simplify = FALSE),
+    replicate(K, c(a = 0.5, b = 0.3, c = 0.2), simplify = FALSE),
     paste0("m", 1:K)
   )
 
-  # Capture iteration count via verbose log parse.
-  run_one <- function() {
+  run_one <- function(force_damping) {
+    Sys.setenv(LBW_IEPPA_FORCE_DAMPING = force_damping)
+    on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
     msgs <- capture.output(
       res <- suppressWarnings(harvest(df, targets, method = "ieppa",
-                                      max_weight = 3, min_weight = 0,
+                                      max_weight = 10, min_weight = 0,
                                       max_iterations = 500L,
-                                      convergence = list(absolute = 1e-4),
+                                      convergence = list(absolute = 1e-5),
                                       verbose = 1L)),
       type = "message"
     )
-    m <- regmatches(msgs, regexpr("in ([0-9]+) iters", msgs))
-    iter <- as.integer(sub(".*in ([0-9]+) iters.*", "\\1", tail(m, 1)))
+    # Final verbose line: "iEPPA <status> in <N> iters, errRp=..."
+    m <- tail(grep("in [0-9]+ iters", msgs, value = TRUE), 1)
+    iter <- as.integer(sub(".*in ([0-9]+) iters.*", "\\1", m))
     list(res = res, iter = iter)
   }
 
-  # Stable-mode baseline (disable damping via tight engineering is tricky; we
-  # rely on repeatability — first run triggers damping, second run same).
-  run1 <- run_one()
-  expect_true(all(is.finite(run1$res)))
-  expect_gt(run1$iter, 0L)
+  r_stable <- run_one("off")
+  r_damped <- run_one("on")
+  expect_true(all(is.finite(r_stable$res)))
+  expect_true(all(is.finite(r_damped$res)))
+  expect_gt(r_damped$iter, r_stable$iter)  # monotone; spec §7
 })
 ```
 
-- [ ] **Step 3.2: Run the new test — confirm RED or conditional**
+- [ ] **Step 3.2: Run the new tests — confirm RED**
 
 Run: `R CMD INSTALL --preclean . && Rscript -e 'library(testthat); library(leafblower); test_file("tests/testthat/test-ieppa-faithful.R", reporter="summary")'`
-Expected: stable-mode test already passes (post-WU-2 code). Damped-mode test passes too — it's a smoke test; the gate enforces that damping activates on stress, not a strict iteration-count assertion (CTO B5: ratio assertions flake across BLAS). The purpose of the tests is regression protection for WU-3 behaviour, not pre-fix RED.
+Expected: stable-mode test (identical result across two runs) PASSES pre-WU-3 already — deterministic input. Damped-mode test FAILS pre-WU-3 because `LBW_IEPPA_FORCE_DAMPING` has no effect (damping code path does not exist), so `r_stable$iter` and `r_damped$iter` are equal — `expect_gt(r_damped$iter, r_stable$iter)` fails. If the damped-mode test passes pre-fix, halt and diagnose (either damping already got sneaked in elsewhere, or the input isn't stressing enough — spec §7 requires a falsifiable monotone assertion).
 
-- [ ] **Step 3.3: Edit `src/ieppa.cpp` — add alpha state and auto-trigger**
+- [ ] **Step 3.3: Edit `src/ieppa.cpp` — add alpha state, auto-trigger, and test-only force override**
 
 Immediately after the `linear_fallback_used` declaration (from Step 2.4), add:
 
@@ -788,8 +854,15 @@ Immediately after the `linear_fallback_used` declaration (from Step 2.4), add:
     // kInfeasPersistence/2 = 2. Latched per-solve; does not revert.
     double alpha = 1.0;
     bool damped_latched = false;
+    // Test-only override (parallel to LBW_IEPPA_FORCE_PATH): "on"|"off"|unset.
+    // Always compiled; microsecond getenv cost. Enables falsifiable
+    // iter_damped > iter_stable assertion (spec §7, CTO B5).
+    const char* force_damp = std::getenv("LBW_IEPPA_FORCE_DAMPING");
+    bool force_damping_on  = (force_damp != nullptr && std::strcmp(force_damp, "on")  == 0);
+    bool force_damping_off = (force_damp != nullptr && std::strcmp(force_damp, "off") == 0);
+    if (force_damping_on) { alpha = 0.5; damped_latched = true; }
     auto maybe_engage_damping = [&]() {
-        if (damped_latched) return;
+        if (damped_latched || force_damping_off) return;
         for (int idx = 0; idx < total_cats; idx++) {
             if (infeas_streak[idx] >= kInfeasPersistence / 2) {
                 alpha = 0.5;
@@ -874,6 +947,22 @@ At the top of the outer iter loop (just after `res.iterations = iter;`), add:
         maybe_engage_damping();
 ```
 
+- [ ] **Step 3.6.5: Patch WU-2 fallback blocks to reset `alpha`/`damped_latched` (spec §5 state-clean checklist)**
+
+WU-2 landed before WU-3 and therefore could not reset WU-3-only state. Two fallback sites added in Step 2.5 and Step 2.6 need amending.
+
+In Step 2.5's overflow-trip fallback (just after `persistent_infeas_pairs.clear();`), insert:
+
+```cpp
+                alpha = 1.0;
+                damped_latched = false;
+                if (force_damping_on) { alpha = 0.5; damped_latched = true; }
+```
+
+Apply the identical insertion to Step 2.6's X_tilde-overflow fallback (same location: just after `persistent_infeas_pairs.clear();`).
+
+This honours spec §5 exactly ("`alpha` reset to 1.0 (stable mode; WU-3 re-triggers if streak re-builds)"). The `force_damping_on` re-application preserves the test-only forced mode across fallback — consistent with `LBW_IEPPA_FORCE_PATH` semantics (env var dominates auto-dispatch).
+
 - [ ] **Step 3.7: Build gate**
 
 Run: `R CMD INSTALL --preclean .`
@@ -946,9 +1035,33 @@ Expected: installs cleanly, prints version. If install fails, confirm `python/CM
 Capture final numbers:
 - Stepstone full data (`Rscript /tmp/stepstone_3algo_bench.R`): iEPPA returns RK_OK or RK_ERR_NOCONV (NOT RK_ERR_INFEAS); errRp ≤ raking errRp; wall-clock ≤ 2× raking.
 - kk1204 regime (`Rscript /tmp/wu2_kk1204.R`): iEPPA/raking per-iter ratio ≤ 2×.
-- Full suite: FAIL=0, PASS ≥ 176.
+- Full suite: FAIL=0, PASS ≥ post-baseline + 6 (2 WU-1 + 3 WU-2 + 2 WU-3 − 1 smoke-only reshape; baseline from Step P.5).
 
 Record the numbers in the merge PR body.
+
+- [ ] **Step A.4.1: RK_OK-preservation regression gate (spec §11 last bullet)**
+
+Spec §11 explicitly requires "any test previously returning RK_OK must still return RK_OK (no new RK_ERR_INFEAS from tightened persistence logic)". FAIL=0 alone does NOT prove this — a flipped status could still pass if a test only checks `expect_no_error` or `expect_true(is.finite(...))`. Capture the current status distribution and compare to baseline:
+
+```bash
+Rscript -e '
+  library(testthat); library(leafblower);
+  tr <- test_dir("tests/testthat", reporter = ListReporter$new(), stop_on_failure = FALSE)
+  cat("post_pass=",  sum(sapply(tr, function(x) x$n_pass)),  "\n", sep="")
+  cat("post_fail=",  sum(sapply(tr, function(x) x$n_fail)),  "\n", sep="")
+  cat("post_warn=",  sum(sapply(tr, function(x) x$n_warn)),  "\n", sep="")
+  cat("post_skip=",  sum(sapply(tr, function(x) x$n_skip)),  "\n", sep="")
+' | tee /tmp/post-counts.txt
+diff /tmp/baseline-counts.txt /tmp/post-counts.txt || true
+```
+
+Expected:
+- `post_pass >= baseline_pass + 6` (2 WU-1 + 3 WU-2 + 2 WU-3 tests; 1 test may collapse).
+- `post_fail == 0`.
+- `post_warn <= baseline_warn` (no new warnings from existing tests; new warnings may come ONLY from the new WU-1/2/3 tests).
+- `post_skip == baseline_skip` (no existing test started skipping).
+
+If `post_warn > baseline_warn` with the increase attributable to existing tests (not new WU-* tests), that's a flip from RK_OK to RK_ERR_NOCONV or RK_ERR_INFEAS — HALT and investigate. The spec gate is satisfied only when the status of every pre-existing test is preserved.
 
 - [ ] **Step A.5: Update beads**
 
@@ -969,6 +1082,6 @@ Run through these once after finishing the plan, fix inline:
 
 2. **No placeholders.** Every code step shows actual code. Commands are exact. No "TBD" or "similar to Task N".
 
-3. **Type consistency.** `infeas_streak` (vector<int>, size=total_cats), `persistent_infeas_pairs` (set<pair<int,int>>), `record_empty`/`record_nonempty` (lambdas), `kInfeasPersistence` (constexpr int = 5), `kLinearSpaceThreshold` (constexpr double = 2.0), `kLinearOverflowTrip` (runtime double), `f_lin` (vector<double>, size=total_cats), `alpha` (double), `damped_latched` (bool), `linear_fallback_used` (bool), `use_linear` (bool), `LBW_IEPPA_FORCE_PATH` (env var string: "linear"|"log") — all used consistently across Tasks 1–3.
+3. **Type consistency.** `infeas_streak` (vector<int>, size=total_cats), `persistent_infeas_pairs` (set<pair<int,int>>), `record_empty`/`record_nonempty` (lambdas), `kInfeasPersistence` (constexpr int = 5), `kLinearSpaceThreshold` (constexpr double = 2.0), `kLinearOverflowTrip` (runtime double), `f_lin` (vector<double>, size=total_cats), `alpha` (double), `damped_latched` (bool), `force_damping_on`/`force_damping_off` (bool), `linear_fallback_used` (bool), `use_linear` (bool), `LBW_IEPPA_FORCE_PATH` (env var: "linear"|"log"), `LBW_IEPPA_FORCE_DAMPING` (env var: "on"|"off") — all used consistently across Tasks 1–3, with WU-2 fallback patched by Step 3.6.5 to include WU-3 state.
 
 4. **Atomic ordering respected.** WU-1 commit lands first (primary correctness). WU-2 references WU-1's lambdas. WU-3 reads WU-1's `infeas_streak` and branches on `alpha`. Tasks cannot be reordered.
