@@ -164,7 +164,23 @@ SET_VECTOR_ELT(res_list, 4, Rf_mkString(result.message));
 SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(result.n_xcur_writes_per_iter_linear));  // new
 ```
 
-**Note on `result` source.** The C API's `rk_result_t` does not currently carry these diagnostic counters. Option (a): add `int n_xcur_writes_per_iter_linear;` to `rk_result_t` in `src/leafblower.h` and populate it in `src/c_api.cpp`'s iEPPA dispatch from `IEPPAResult`. Option (b): expose a parallel `ieppa_last_diag_t` struct read back by r_bridge.cpp only. Option (a) is simpler and preserves one-struct ABI — pick (a).
+**Note on `result` source (Feasibility iter-3 B2 resolution).** The C API's `rk_result_t` does not currently carry these diagnostic counters. Pick Option (a): extend `rk_result_t` + plumb through `c_api.cpp`. Concrete required edits in this task:
+
+1. **`src/leafblower.h`** — add to `rk_result_t`:
+```c
+int n_xcur_writes_per_iter_linear;  /* P1.1 diagnostic */
+```
+(Task 2 appends `min_alpha_seen`, `final_alpha`; Task 3 appends `n_anderson_iters_engaged`, `n_anderson_nan_fallbacks`; Task 4 appends `n_bounds_violated`, `n_bounds_clamped`.)
+
+2. **`src/c_api.cpp`** — in the iEPPA dispatch (currently around `c_api.cpp:160-215`), after `IEPPAResult ieppa_result = lbw::ieppa_solve(st);` (or equivalent), copy the field:
+```c
+result->n_xcur_writes_per_iter_linear = ieppa_result.n_xcur_writes_per_iter_linear;
+```
+Add analogous copies for every IEPPAResult field that Tasks 2–4 introduce. If raking/L-BFGS-B don't populate these, they remain zero (from memset at `rk_result_init`).
+
+3. **`rk_result_init()`** (if it doesn't exist, create alongside `rk_params_init`): `void rk_result_init(rk_result_t* r) { memset(r, 0, sizeof(*r)); }`. Call this at the start of any `rk_calibrate()` call that receives a caller-allocated result struct.
+
+4. **Verification (MANDATORY pre-test):** after Step 1.5 + Step 1.6 build, run a trivial harvest() call and print `attr(res, "result")$n_xcur_writes_per_iter_linear`. Pre-fix: reads 0 (field exists, solver didn't populate it, or counter never incremented → genuine RED). Post-fix: reads `M_cell`. If pre-fix reads NULL (attribute missing) or errors, the bridge plumbing itself is broken — halt and fix plumbing first before claiming RED.
 
 If `rk_result_t` grows (ABI change!), apply same `memset(r, 0, sizeof(*r))` discipline at its init site. For Task 1, add only `n_xcur_writes_per_iter_linear`; other counters accumulate in later Tasks (each Task extends `rk_result_t` by the fields it plumbs).
 
@@ -446,15 +462,15 @@ At the bottom of the outer iter loop (just before the convergence check or loop 
         res.final_alpha = alpha;
 ```
 
-Remove all references to `damped_latched` (field declaration, updates, checks). Specific sites per current `src/ieppa.cpp` (HEAD 1b29df1):
-- Declaration near line 187: `bool damped_latched = false;` → delete.
-- Force-on init near line 192–194: `if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → replace with `compute_alpha()` lambda call (added in Step 2.4 above).
-- Linear-overflow fallback block around line 295–308: `damped_latched = false; if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → delete both lines. The new `compute_alpha()` lambda reads env var fresh every sweep, so no reset needed.
-- X_tilde-overflow fallback block near line 388–404: same two lines → delete.
-- `maybe_engage_damping` lambda near line 180–192 (WU-3 auto-trigger): delete the entire lambda; `compute_alpha()` replaces its role.
+Remove all references to `damped_latched` (field declaration, updates, checks). **Authoritative removal strategy:** run `grep -n damped_latched src/ieppa.cpp` BEFORE starting the edit to get the canonical site list on the current HEAD. Per the Feasibility iter-3 audit, the field appears at 8 sites (lines 187, 194, 196, 200, 218, 307–308, 404–405 on HEAD 1b29df1). Key groupings:
+- Declaration: `bool damped_latched = false;` → delete.
+- Force-on init at `ieppa_solve` entry: `if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → replace with `alpha = compute_alpha();` (or delete if the new per-iter `alpha = compute_alpha();` at the top of the outer loop supersedes it).
+- Linear-overflow fallback block (first fallback, ~line 295–308): `damped_latched = false; if (force_damping_on) { alpha = 0.5; damped_latched = true; }` → delete both lines.
+- X_tilde-overflow fallback block (second fallback, ~line 388–405): same two lines → delete. **Feasibility iter-3 flagged this as an easy-to-miss second site.**
+- `maybe_engage_damping` lambda (~line 180–192, WU-3 auto-trigger): delete the entire lambda; `compute_alpha()` replaces its role.
 - Any call sites that invoked `maybe_engage_damping()` from the outer iter loop: delete the call.
 
-Verify post-edit: `grep -n damped_latched src/ieppa.cpp` returns zero lines.
+**Verification gate (MANDATORY):** `grep -n damped_latched src/ieppa.cpp` must return zero lines. If any survivor remains, the build will fail with "use of undeclared identifier" — halt and hunt.
 
 In both the log-space and linear-space Sinkhorn update sites, the existing `if (alpha == 1.0) { ... naive ... } else { ... damped ... }` branch already works with the new `alpha`. No change needed there.
 
@@ -607,31 +623,29 @@ test_that("P2.2: ACCEL_ANDERSON=on engages Anderson post-warmup on uncapacitated
   expect_lte(info$n_anderson_iters_engaged, info$iterations - 5)
 })
 
-test_that("P2.2: NaN guard fires on rank-deficient residuals; weights stay finite", {
-  # Completeness iter-2 hard GAP: spec §7.2 P2.2 test (2) NaN-guard. Synthetic input
-  # that produces numerically degenerate Anderson residuals — e.g., a converged-at-iter-1
-  # input where residuals are near-zero and the LS system becomes rank-deficient.
+test_that("P2.2: NaN guard fires on rank-deficient residuals; weights stay finite (spec §7.2)", {
+  # Completeness iter-3: tighten spec §7.2 requirement — n_anderson_nan_fallbacks > 0
+  # must be DEMONSTRABLE, not just >= 0. Synthetic input that forces rank-deficient
+  # residuals for multiple consecutive iters so the guard has no choice but to fire.
   Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "on")
   on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON"), add = TRUE)
   set.seed(0)
-  n <- 500L
-  # Extremely easy input: uniform data, uniform targets. Converges in ≤ 3 iters;
-  # residuals after iter 1 are at floating-point noise level. Anderson LS over
-  # near-zero residuals is rank-deficient.
+  n <- 100L
+  # Binary K=1 input with convergence tolerance far tighter than FP precision.
+  # After ~2 iters errRp plateaus at ~1e-16 and residual history fills with
+  # near-zero rows → LS matrix is numerically singular → γ-norm guard fires.
   df <- data.frame(a = sample(letters[1:2], n, TRUE))
   targets <- list(a = c(a = 0.5, b = 0.5))
   res <- harvest(df, targets, method = "ieppa",
                  max_weight = 5, min_weight = 0,
-                 max_iterations = 100L,
-                 convergence = list(absolute = 1e-300),  # force full budget
+                 max_iterations = 50L,
+                 convergence = list(absolute = 1e-300),  # force full 50-iter budget
                  attach_weights = FALSE)
   info <- attr(res, "result")
-  expect_true(all(is.finite(as.numeric(res))))       # no NaN leakage into output
-  # Not strict — on ultra-trivial inputs Anderson may warmup then never need to fire,
-  # or may hit fallbacks immediately. Either: nan_fallbacks > 0 (guard fired) OR
-  # anderson_iters_engaged == 0 (nothing fired).
-  expect_true(info$n_anderson_nan_fallbacks >= 0)    # counter is a valid integer
-  # The load-bearing assertion: zero NaN leakage into output weights.
+  expect_true(all(is.finite(as.numeric(res))))         # PRIMARY: no NaN leakage
+  # With 50 iters forced and a rank-1 history, at least one fallback must fire.
+  # If this assertion fails, the input is not stressing the guard — tighten further.
+  expect_gt(info$n_anderson_nan_fallbacks, 0L)         # spec §7.2: > 0 demonstrable
 })
 
 test_that("P2.2: kk1204 with Anderson converges in ≤ 400 iter AND ≥ 2× fewer than off", {
@@ -825,14 +839,37 @@ SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(result.n_anderson_nan_fallbacks));
 
 Propagate both counters through `rk_result_t` (add fields in `leafblower.h`, populate in `c_api.cpp`).
 
+### Step 3.4b: Reset Anderson state on linear-overflow fallback (Scope iter-3 mandatory)
+
+Task 1's P1.1 fused block has a linear-overflow fallback that clears `X_cur`, `W`, `X`, `X_tilde`, `lf`, `f_lin`, `infeas_streak`. Task 3 adds `lf_prev`, `r_prev`, `m_active` — those are NOT in the Task 1 reset. On next Anderson-eligible iter (now in log-space), `r_curr = lf - lf_prev` would use stale linear-domain values.
+
+Edit the P1.1 fused block's overflow fallback (Task 1 Step 1.5 code, now at its Task 1 commit): add three additional resets inside the `if (overflow_detected)` block, guarded by `linear_fallback_used` so Task 1 compiles without referencing symbols that don't exist yet. Cleaner: Task 3 must re-visit Task 1's fallback and append:
+
+```cpp
+                // Task 3 addition: reset Anderson state. lf_prev, r_prev, m_active
+                // are local to ieppa_solve and exist after Task 3's state declarations.
+                std::fill(lf_prev.begin(), lf_prev.end(), 0.0);
+                std::fill(r_prev.begin(),  r_prev.end(),  0.0);
+                m_active = 0;
+                res.n_anderson_iters_engaged = 0;  // diagnostic counter reset
+```
+
+If Task 3's state declarations are placed earlier in `ieppa_solve` than the P1.1 fused block (specifically, BEFORE the outer iter loop), these symbols are in scope and the edit is a clean append. Verify this ordering in Step 3.4 state setup.
+
 ### Step 3.5a: Add LAPACK linkage (Feasibility iter-1 F1+F2)
 
 Modify `src/ieppa.cpp` — add includes at the top:
 
 ```cpp
 #include <R_ext/Lapack.h>   // F77_CALL(dgels)
-#include <R_ext/RS.h>       // FCONE macro for Fortran string-length arguments
+#include <R_ext/RS.h>       // FCONE macro for Fortran string-length arguments (R >= 4.1)
+// FCONE fallback for R < 4.1 (Feasibility iter-3 B3):
+#ifndef FCONE
+# define FCONE
+#endif
 ```
+
+Verify the package's DESCRIPTION `Depends:` line requires `R (>= 4.0.0)` at minimum. If `FCONE` is unset on R 4.0, the fallback empty expansion compiles but the Fortran ABI on that platform may require explicit hidden string-length args — rare in practice (glibc/gfortran on Linux, clang on macOS don't need them; MSVC on Windows might). This is acceptable for a CRAN package targeting R ≥ 4.0.
 
 Modify `src/Makevars` — replace the `PKG_LIBS` line (line 2) to preserve `-lmvec`:
 
@@ -971,7 +1008,10 @@ static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
  *   Linux x86_64 GCC 13, verified 2026-04-24: 72 bytes (6 doubles + 3 ints +
  *   1 enum + 1 fn-ptr + 1 void* + 1 enum + padding).
  * After measuring, replace the placeholder below with the actual value. */
-#define EXPECTED_RK_PARAMS_BYTES 0 /* TODO: replace with measured sizeof after first build */
+/* PLACEHOLDER: Step 4.11 measures sizeof(rk_params_t) on the build host, substitutes
+ * the real value here, and uncomments the static_assert. Zero means "not yet measured";
+ * leaving this as zero is only acceptable across Steps 4.1–4.10.5 (initial build). */
+#define EXPECTED_RK_PARAMS_BYTES 0
 /* static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
  *               "rk_params_t size changed; check ABI consumers"); */
 #endif
