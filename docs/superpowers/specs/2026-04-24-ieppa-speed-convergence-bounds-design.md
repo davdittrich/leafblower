@@ -1,6 +1,30 @@
 # iEPPA Speed, Convergence, and Bounds Hardening Design
 
-**Status:** Draft rev 3 (post iter-1 design-review-gate: PM + Architect + Designer + Security + CTO all NEEDS_REVISION; 13 new blockers consolidated)
+**Status:** Draft rev 4 (post iter-2 design-review-gate: 5/5 NEEDS_REVISION; iter 2/3 cap — one more iter allowed before escalation)
+
+**Rev 4 changes (iter-2 consensus blockers):**
+
+*LAPACK route (Architect+Security+CTO convergent blocker):* Replace `dgeqrf + dtrsv` with **`dgels`** (one-call least squares with QR). `dgels` handles rank-deficient cases internally via `dgelsd` fallback pattern, returns condition info via `INFO`. Explicit rank-revealing truncation via pivoted QR (`dgeqp3`) as fallback if `dgels` returns `INFO > 0`. See §5.2.
+
+*`n_bounds_clamped` dual-use (Security iter-2 B6):* Rename cell-mode diagnostic field to `n_bounds_violated` (no action taken). Unit-mode fallback uses `n_bounds_clamped` (clamping action taken). Both fields exposed in `rk_calib_result_t`; wrappers warn on either non-zero. See §6.1, §6.2.
+
+*RED-test mechanics (CTO iter-2 MF1+MF2):* Replace compile-time instrumentation and log-string parsing with result-struct counters. Add to `IEPPAResult`: `int n_xcur_writes_per_iter_linear` (P1.1 structural assertion); `int n_anderson_iters_engaged` (P2.2 engagement gate). Both always computed, always zero when not applicable. Tests assert on these integers directly. See §7.
+
+*Env-var interaction matrix (Security iter-2 B8):* Add §7.4 enumerating 27-combo coverage. Minimum required: `linear × on × on`, `log × on × on`, `linear × on × off`, `log × off × on`, `unset × unset × unset` (auto). Others declared safe-by-construction with rationale.
+
+*P1.1 overflow fallback integration (Architect iter-2 B1):* Fused block detects linear-overflow inline and triggers the existing WU-2 fallback path (reset state, switch to log-space, restart outer loop). Spec now shows this explicitly in §4.1 pseudocode.
+
+*`damped_latched` removal (Architect iter-2 W1):* P2.1 deletes `damped_latched` — new formula is unlatched. `force_damping_on` becomes "force `alpha = 0.5` constant regardless of streak." See §5.1.
+
+*§8 merge gate P2.2 iter floor (PM iter-2 B1):* Added concrete gate: `kk1204 iter-to-RK_OK ≤ 250` with `LBW_IEPPA_ACCEL_ANDERSON=on` (pairs with "at least 2×" from §7.2).
+
+*Scope-table priorities (PM iter-2 B2):* P1.1=P1 (speed is user-top), P2.1/P2.2=P2, P3.1=P3.
+
+*Env var deprecation note (PM iter-2 B3):* `LBW_IEPPA_ACCEL` → `LBW_IEPPA_ACCEL_ANDERSON`. Old name never shipped in a release; no deprecation path needed. Documented in §10.5 note.
+
+*Designer minor revisions:* (1) parse_bounds_mode returns character, converted to int at `.Call` site matching map_method pattern. (2) Roxygen caveat added: "In degenerate single-obs cells, strict bounds cannot always be guaranteed; `result$n_bounds_clamped` reports residual clamp count." (3) §11 → §10.5 numbering reference corrected in preamble (done in rev 3, confirmed).
+
+**Rev 3 changes (kept; superseded items marked):**
 
 **Rev 3 changes (iter-1 design-review-gate):**
 
@@ -64,14 +88,14 @@
 
 ## 2. Scope
 
-Three passes, four work units. Within-pass order below is the mandated execution order regardless of priority label.
+Three passes, four work units. Priority labels match user-stated C>B>A ordering (speed=top, convergence=middle, bounds=bottom). Within-pass order is the mandated execution order.
 
 | Pass | WU | Addresses | Files | Priority |
 |---|---|---|---|---|
-| 1 | P1.1 | Eliminate post-sweep X_tilde + X_cur rebuild loops; fuse capacity inline | `src/ieppa.cpp` | P2 |
-| 2 | P2.1 | Adaptive damping schedule (replace hard 0.5) | `src/ieppa.cpp` | P2 |
-| 2 | P2.2 | Anderson(m=5) acceleration on `lf` (both paths via log-domain dispatch) | `src/ieppa.cpp` | P2 |
-| 3 | P3.1 | `bounds_mode` parameter + water-filling expansion | `src/ieppa.cpp`, `src/c_api.cpp`, `src/leafblower.h`, `R/harvest.R`, `python/leafblower/_harvest.py` | P2 |
+| 1 | P1.1 | Eliminate post-sweep X_tilde + X_cur rebuild loops; fuse capacity inline | `src/ieppa.cpp` | **P1** |
+| 2 | P2.1 | Adaptive damping schedule (replace hard 0.5 latch with `alpha = 1/(1+β·stress)`) | `src/ieppa.cpp` | **P2** |
+| 2 | P2.2 | Anderson(m=5) acceleration on `lf` (both paths via log-domain dispatch) | `src/ieppa.cpp` | **P2** |
+| 3 | P3.1 | `bounds_mode` parameter + water-filling expansion | `src/ieppa.cpp`, `src/c_api.cpp`, `src/leafblower.h`, `R/harvest.R`, `python/leafblower/_harvest.py` | **P3** |
 
 ## 3. Non-scope
 
@@ -93,22 +117,34 @@ Three passes, four work units. Within-pass order below is the mandated execution
 **Fusion.** Steps 2+3+4 collapse to a single O(M_cell) pass. Invariant: after the sweep, `X_cur[c] / W[c]` equals the correct pre-capacity X_tilde by construction (sweep maintains `X_cur` proportional to `W · ∏f_lin`). So:
 
 ```cpp
-// Linear path: fused post-sweep block (Security iter-1 B2: stale-W fix)
+// Linear path: fused post-sweep block (Security iter-1 B2: stale-W fix;
+// Architect iter-2 B1: inline overflow detection + existing WU-2 fallback).
+bool overflow_detected = false;
 for (int c = 0; c < ct.M_cell; c++) {
     if (X_init[c] <= 0.0 || W[c] <= 0.0) {
         X[c] = 0.0; X_cur[c] = 0.0;
-        W[c] = 1.0;                              // reset — matches current line 434
+        W[c] = 1.0;
         continue;
     }
-    double X_tilde_c = X_cur[c] / W[c];          // implicit, no store
-    if (X_tilde_c <= 0.0) {                      // degenerate — reset and skip
+    double X_tilde_c = X_cur[c] / W[c];
+    if (!std::isfinite(X_tilde_c) || X_tilde_c > kLinearOverflowTrip) {
+        overflow_detected = true; break;                      // trigger fallback
+    }
+    if (X_tilde_c <= 0.0) {                                   // degenerate
         X[c] = 0.0; X_cur[c] = 0.0; W[c] = 1.0; continue;
     }
     double xc = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
     X[c] = xc;
-    W[c] = xc / X_tilde_c;                       // new W, strictly > 0 since X_tilde_c > 0
-    X_cur[c] = xc;                               // = X_tilde_c * W_new; one store
+    W[c] = xc / X_tilde_c;
+    X_cur[c] = xc;
+    res.n_xcur_writes_per_iter_linear++;                      // CTO iter-2 MF1 counter
     if (xc != X_tilde_c) n_cap++;
+}
+if (overflow_detected) {
+    // Reuses existing WU-2 one-shot fallback: clear f_lin/X_cur/lf/W/infeas_streak,
+    // restart outer loop in log-space. See current ieppa.cpp:~395-420.
+    trigger_linear_fallback_to_log_space();
+    continue;  // restart outer iter
 }
 ```
 
@@ -130,7 +166,7 @@ Expected impact: 20–40% wall reduction on kk1204 linear path; marginal on step
 
 Fast-path preserved: `if (stress == 0) { ... naive update ... }` branch avoids per-sweep recomputation of alpha.
 
-WU-3's `force_damping_on` env var remains: when forced, `alpha = 0.5` constant regardless of streak.
+**`damped_latched` removed** (Architect iter-2 W1). The pre-WU-3 boolean latch is deleted; alpha is recomputed each sweep from current streak state. Matching the new semantics, `LBW_IEPPA_FORCE_DAMPING=on` forces `alpha = 0.5` constant (regardless of streak); `=off` forces `alpha = 1.0` regardless of streak; unset yields the adaptive schedule above.
 
 Preserves Peyré-Cuturi 2019 Proposition 4.8 convergence guarantee (alpha ∈ (0, 1]). Rate slows by 1/alpha at any iter.
 
@@ -142,9 +178,19 @@ Preserves Peyré-Cuturi 2019 Proposition 4.8 convergence guarantee (alpha ∈ (0
 
 **Parameter.** `m = 5`. History buffer: 2 × (m+1) × total_cats doubles. At total_cats=2000, ≈ 200KB per solver call — negligible.
 
-**Implementation details (CTO iter-1 BLOCKER).** Thin QR via LAPACK `dgeqrf` (QR factorization) and `dtrsv` (triangular back-solve) from `R_ext/Lapack.h` (existing dependency via RcppEigen / Rcpp linkage in this package). History matrices stored column-major (LAPACK convention): `F` (residual differences, size total_cats × m) and `X_hist` (iterate differences, same shape). Minimum `m_active = min(m, t)` columns used at iter `t`. Buffer lifetime: all allocations as `std::vector<double>` (Security iter-1 B4 — RAII-safe on all early-exit paths including `RK_ERR_BADARG`, `RK_ERR_INFEAS`).
+**Implementation details (rev-4 fix).** Use LAPACK `dgels` (one-call least-squares solver via QR) from `R_ext/Lapack.h`. `dgels` handles the full LS path: QR factorization + `Q^T·b` + triangular back-solve internally. Signature:
+```c
+void F77_CALL(dgels)(const char* trans, int* m, int* n, int* nrhs,
+                      double* A, int* lda, double* B, int* ldb,
+                      double* work, int* lwork, int* info);
+```
+Call with `trans="N"`, `A = F` (residual differences, column-major, `total_cats × m_active`), `B = -r_t` (current residual, length `total_cats`). On return: first `m_active` entries of `B` contain γ; `INFO == 0` on success.
 
-**NaN guard (Security iter-1 B3).** After `dgeqrf` + `dtrsv` produces γ, check `for (auto g : gamma) if (!std::isfinite(g)) { fall_back = true; break; }`. On fall-back: use the plain iterate, clear entire history buffer (reset `m_active = 0`), continue. Prevents NaN propagation into subsequent Anderson steps.
+**Rank-deficiency handling.** `dgels` is not rank-revealing. On `INFO > 0` (triangular factor of A is singular) or any `!isfinite(γ_j)` after solve: clear entire history buffer (reset `m_active = 0`), use the plain (damped) iterate this step. Alternatively, on ill-conditioning suspicion (`INFO > 0` plus history saturated at m=5), switch to `dgelsd` (divide-and-conquer SVD with rank truncation) for the next `m+1` iters — optional enhancement, not required for initial ship.
+
+**History matrices.** `F` (residual differences), `X_hist` (iterate differences), both `total_cats × m` column-major, stored as `std::vector<double>` (Security iter-1 B4: RAII on all early-exit paths). `m_active = min(m, t - warmup_iters)` columns used at iter `t`.
+
+**NaN guard (Security iter-2 clarification).** After `dgels` returns: check `INFO == 0` AND `for (auto g : gamma) std::isfinite(g)`. On fail: clear history, use plain iterate. Prevents silent-wrong-answer cases from degenerate LS solutions. `dgels` does not return condition number; the `INFO > 0` check catches exact rank-deficiency, and the `isfinite(γ)` check catches numerical blowup.
 
 **Capacity-block interaction (iter-1 Architect BLOCKER).** Each outer iter is: sweep → fused capacity block (P1.1). Capacity updates `W[c]`; the next sweep operates with new `W`, so the effective operator `G` is not stationary across iters when `n_cap_active > 0`. Anderson history mixing residuals computed under different `W` breaks the contraction argument and can diverge.
 
@@ -214,10 +260,13 @@ Python docstring mirrors same text.
 
 **Trigger.** Only when `bounds_mode == RK_BOUNDS_UNIT`.
 
-**Cell-mode diagnostic (Designer iter-1 R1).** When `bounds_mode == RK_BOUNDS_CELL` (default), scan the final expanded weight vector for bound violations. If any `w_i ∉ [min_weight, max_weight]`, set `result.n_bounds_clamped = count_of_violations` (no clamping performed in cell mode — just a diagnostic count). R/Python wrappers emit a `warning()` / `warnings.warn()` at cell-mode exit when `n_bounds_clamped > 0`:
+**Cell-mode diagnostic (Designer iter-1 R1; Security iter-2 B6 — split field).** When `bounds_mode == RK_BOUNDS_CELL` (default), scan the final expanded weight vector for bound violations. If any `w_i ∉ [min_weight, max_weight]`, set `result.n_bounds_violated = count_of_violations` (no clamping performed in cell mode — diagnostic only). R/Python wrappers emit a `warning()` / `warnings.warn()` at cell-mode exit when `n_bounds_violated > 0`:
 > "cell-mode bounds: N of M weights fell outside [min_weight, max_weight] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds."
 
-**Clamp-failure signal in unit mode (Security iter-1 B6).** New field `int n_bounds_clamped;` added to the solver result struct (currently `IEPPAResult` in `src/ieppa.hpp`; propagated to `rk_calib_result_t` via `c_api.cpp`). Under `bounds_mode == RK_BOUNDS_UNIT`, if the per-cell water-fill inner loop exhausts its 50-iter budget with residual violations, clamp remaining out-of-bound weights and increment `n_bounds_clamped`. R/Python wrappers emit warning when nonzero even in unit mode (degenerate cells could not be fully redistributed).
+**Clamp-failure signal in unit mode (Security iter-1 B6).** Distinct field `int n_bounds_clamped;` (not shared with cell-mode diagnostic). Under `bounds_mode == RK_BOUNDS_UNIT`, if the per-cell water-fill inner loop exhausts its 50-iter budget with residual violations, clamp remaining out-of-bound weights and increment `n_bounds_clamped`. R/Python wrappers emit a distinct warning when nonzero:
+> "unit-mode bounds: N weights clamped to nearest bound after water-fill exhausted; degenerate cells could not be fully redistributed."
+
+Both fields added to `IEPPAResult` (`src/ieppa.hpp`) and propagated to `rk_calib_result_t` via `c_api.cpp`. Wrappers fire separate warnings keyed on each field so users can tell diagnosis (cell-mode) from action (unit-mode) apart.
 
 **Current expansion** (`src/ieppa.cpp` end of `ieppa_solve`):
 ```cpp
@@ -248,7 +297,7 @@ Per-cell inner loop typically converges in ≤ 3 iters (few distinct bound-hit p
 
 ### 7.1 Speed regression (P1.1)
 
-- **Per-WU RED test** (CTO iter-1): structural assertion that post-sweep only touches each `X_cur[c]` once. Implementable via a test-only counter guarded by `#ifdef LBW_TEST_INSTRUMENTATION`: increment a global on each `X_cur[c]` write after the sweep ends. Test-build asserts `counter == ct.M_cell` per outer iter (not `2 * M_cell` or `3 * M_cell` as pre-P1.1). Ship the instrumentation disabled by default; test-build enables it.
+- **Per-WU RED test** (CTO iter-2 MF1 fix). Add `int n_xcur_writes_per_iter_linear;` to `IEPPAResult`. The fused block (§4.1) increments it per `X_cur[c]` write. Test asserts `result$n_xcur_writes_per_iter_linear / result$iterations == ct.M_cell` on a linear-path input (not `2 * M_cell` or `3 * M_cell` as pre-P1.1). Field always computed — no compile-time instrumentation. Pre-P1.1 the field exists but is zero (no writes tracked); the test fails with "expected M_cell, got 0" — genuine RED. Post-P1.1 the test passes.
 - kk1204 per-iter ratio ≤ 1.5× (down from 2.17×). Script `/tmp/wu2_kk1204.R` reused.
 - Full suite: FAIL=0, PASS ≥ 181 (no regressions).
 - Stepstone per-pass regression checkpoint (PM iter-1): after P1.1 commit, rerun `/tmp/stepstone_2algo.R`; ieppa errRp must stay ≤ 2.21e-3 ± 1e-4.
@@ -259,9 +308,9 @@ Per-cell inner loop typically converges in ≤ 3 iters (few distinct bound-hit p
 1. Alpha recovery: force a high-stress input (adversarial), observe `alpha` drop below 1.0 in verbose=2 log, then allow stress to subside, assert alpha returns to ≥ 0.95.
 2. Interim bound: after P2.1 alone (without P2.2), kk1204 errRp @ 500 iter must be ≤ 2.5e-3 (not worse than current NOCONV plateau at ~2.0e-3; prevents adaptive schedule regressing convergence).
 
-**P2.2 per-WU RED tests** (CTO iter-1):
-1. Capacity-toggle engagement: input that alternates `n_cap_active > 0` ↔ `n_cap_active == 0` across iters. Assert verbose=2 log shows Anderson engaged only on `n_cap_active == 0` iters. Assert history buffer resets to zero columns on any capacity-active iter.
-2. NaN guard: synthetic input that produces rank-deficient residual matrix. Assert solver completes without NaN in output weights; verbose=2 log shows "Anderson fallback: non-finite γ".
+**P2.2 per-WU RED tests** (CTO iter-2 MF2 fix — result-struct counters, not log parsing):
+1. Capacity-toggle engagement. Add `int n_anderson_iters_engaged;` to `IEPPAResult` (always computed; zero when Anderson off). Construct an input that alternates `n_cap_active > 0` ↔ `n_cap_active == 0` across iters. Run twice: once with `LBW_IEPPA_ACCEL_ANDERSON=off`, once with `=on`. Assert `result$n_anderson_iters_engaged == 0` under `off`. Under `on`, assert `n_anderson_iters_engaged` equals exactly the count of iters where `n_cap_active == 0` (minus the 5-iter warmup).
+2. NaN guard. Add `int n_anderson_nan_fallbacks;` to `IEPPAResult`. Synthetic input that produces rank-deficient residuals; assert `result$n_anderson_nan_fallbacks > 0` AND solver weights are all finite (no NaN leakage).
 
 **Aggregate P2 gates.**
 - kk1204 at tol_abs=1e-3, max_iter=500: expect RK_OK after P2.2. Currently NOCONV.
@@ -279,11 +328,27 @@ Per-cell inner loop typically converges in ≤ 3 iters (few distinct bound-hit p
 - Python: `bounds_mode` not passed → default cell behaviour.
 - Cross-language ABI consistency (CTO iter-1): test file directly invokes `.Call` with `params$bounds_mode = 1L` (raw integer) and asserts unit-mode semantics — validates C enum integer mapping matches the R/Python string→int logic.
 
+### 7.4 Env var interaction matrix (Security iter-2 B8)
+
+Three vars × 3 values each = 27 combinations. Minimum required tests covering all non-trivial interactions:
+
+| Test | `FORCE_PATH` | `FORCE_DAMPING` | `ACCEL_ANDERSON` | Rationale |
+|---|---|---|---|---|
+| T1 | unset | unset | unset | auto — default production path |
+| T2 | linear | on | on | stress all three: damped linear sweep + shadow-lf Anderson |
+| T3 | log | on | on | damped log sweep + direct-lf Anderson |
+| T4 | linear | off | on | Anderson w/o damping on linear (most common acceleration case) |
+| T5 | log | off | on | Anderson w/o damping on log (stepstone-class input) |
+| T6 | linear | off | off | bare linear path (WU-2 baseline behaviour) |
+| T7 | log | off | off | bare log path (pre-WU-3 baseline behaviour) |
+
+Others (20 combinations) declared safe-by-construction via orthogonal code paths: `LBW_IEPPA_FORCE_PATH` gates pre-loop dispatch; `FORCE_DAMPING` overrides `alpha` each sweep; `ACCEL_ANDERSON` gates post-sweep mixing. No two of these affect the same state variable, so cross-product is well-defined. Document in §10.5.
+
 ## 8. Merge Gate
 
 All of:
-- kk1204 per-iter ratio ≤ 1.5× raking (post-P1).
-- kk1204 reaches RK_OK at tol_abs=1e-3, max_iter=500 (post-P2).
+- kk1204 per-iter **wall-clock** ratio ≤ 1.5× raking (post-P1). Measurement: `/tmp/wu2_kk1204.R` reuses existing wall-clock / iter formula. CTO iter-2 SF2: "per-iter" defined as wall-clock seconds ÷ iterations returned by solver.
+- kk1204 reaches RK_OK at tol_abs=1e-3, max_iter=500 **AND** iter-to-RK_OK ≤ 250 with `LBW_IEPPA_ACCEL_ANDERSON=on` (PM iter-2 B1: pairs with "at least 2×" assertion in §7.2).
 - Stepstone errRp ≤ 2.21e-3 ± 1e-4 with no INFEAS (post-P2; must not regress).
 - Strict obs-level bounds under `bounds_mode="unit"` on skewed-d input (post-P3).
 - Default `bounds_mode="cell"` preserves current weight vectors to **1e-8 tolerance** (CTO iter-1: matching coarsest existing test `test-ieppa-faithful.R:109-136`; 1e-12 was un-testable) on all existing tests.
