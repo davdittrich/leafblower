@@ -142,7 +142,11 @@ static void lbfgs_direction(const std::deque<std::vector<double>>& svec,
     int D = (int)g.size();
     dir = g;
 
-    std::vector<double> alpha(m);
+    // Per-thread scratch, grown once per thread. m ≤ st.lbfgs_m (default 10,
+    // runtime-configurable via leafblower.h:38). thread_local avoids a heap
+    // alloc every outer iteration without capping m at a hard-coded bound.
+    thread_local std::vector<double> alpha;
+    if ((int)alpha.size() < m) alpha.resize(m);
     for (int i = m - 1; i >= 0; i--) {
         alpha[i] = rho[i] * dot(svec[i], dir);
         for (int j = 0; j < D; j++) dir[j] -= alpha[i] * yvec[i][j];
@@ -414,8 +418,12 @@ static LBFGSResult lbfgsb_solve_inner(CalibState& st,
             gamma = sy / yy;
         }
 
-        lam = lam_new;
-        grad = grad_new;
+        // O(1) pointer swap. lam/grad take the new values; lam_new/grad_new
+        // retain the old buffers and are fully overwritten on the next Wolfe
+        // call (lam_new at 257, 327, 341; grad_new via phi_from_u at 259,
+        // 328, 343) before any further read.
+        std::swap(lam, lam_new);
+        std::swap(grad, grad_new);
         // Recompute u from scratch rather than using u_work from the Wolfe search.
         // Incremental du accumulation (u = u_base + alpha*du) can drift over many
         // outer steps; recomputing ensures u stays exactly consistent with lam.
