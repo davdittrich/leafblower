@@ -7,21 +7,23 @@
 
 namespace lbw {
 
+namespace {
+inline int bits_needed(int n_vals) {
+    int bits = 0;
+    int vv = n_vals - 1;
+    while (vv > 0) { bits++; vv >>= 1; }
+    return (bits < 1) ? 1 : bits;
+}
+}
+
 // Pack (g_1, ..., g_K) into a 64-bit key when feasible.
 // Layout: low-order bits = margin 0, higher bits = later margins.
 // NA (-1) encoded as cat_counts[k].
 static bool pack_key_fits(int K, const int* cat_counts) {
     if (K > 8) return false;
-    // Need cat_counts[k]+1 distinct values per margin (incl. NA bucket).
-    // Widest possible value = cat_counts[k]; encoded in enough bits.
     uint64_t total_bits = 0;
     for (int k = 0; k < K; k++) {
-        int vals = cat_counts[k] + 1;  // +1 for NA
-        int bits = 0;
-        int vv = vals - 1;
-        while (vv > 0) { bits++; vv >>= 1; }
-        if (bits < 1) bits = 1;
-        total_bits += bits;
+        total_bits += bits_needed(cat_counts[k] + 1);
         if (total_bits > 64) return false;
     }
     return true;
@@ -29,18 +31,15 @@ static bool pack_key_fits(int K, const int* cat_counts) {
 
 static uint64_t pack_key_compute(int K,
                                   const int32_t* const* group_ids, int i,
-                                  const int* cat_counts) {
+                                  const int* cat_counts,
+                                  const int* bit_widths) {
     uint64_t key = 0;
     int shift = 0;
     for (int k = 0; k < K; k++) {
         int g = group_ids[k][i];
         int encoded = (g == -1) ? cat_counts[k] : g;
-        int vals = cat_counts[k] + 1;
-        int bits = 0; int vv = vals - 1;
-        while (vv > 0) { bits++; vv >>= 1; }
-        if (bits < 1) bits = 1;
         key |= (uint64_t)encoded << shift;
-        shift += bits;
+        shift += bit_widths[k];
     }
     return key;
 }
@@ -61,13 +60,15 @@ int build_cell_table(int n, int K,
     std::iota(idx.begin(), idx.end(), 0);
 
     if (use_packed) {
+        std::vector<int> bit_widths(K);
+        for (int k = 0; k < K; k++) bit_widths[k] = bits_needed(cat_counts[k] + 1);
         std::vector<uint64_t> keys(n);
         for (int i = 0; i < n; i++)
-            keys[i] = pack_key_compute(K, group_ids, i, cat_counts);
+            keys[i] = pack_key_compute(K, group_ids, i, cat_counts, bit_widths.data());
         std::sort(idx.begin(), idx.end(),
                   [&](int a, int b) { return keys[a] < keys[b]; });
         // Scan to identify cells.
-        out.cell_of.assign(n, 0);
+        out.cell_of.resize(n);
         out.n_per_cell.clear();
         out.g_per_cell.assign(K, std::vector<int>());
         int current_cell = -1;
@@ -102,7 +103,7 @@ int build_cell_table(int n, int K,
             return false;
         };
         std::sort(idx.begin(), idx.end(), tuple_less);
-        out.cell_of.assign(n, 0);
+        out.cell_of.resize(n);
         out.n_per_cell.clear();
         out.g_per_cell.assign(K, std::vector<int>());
         int current_cell = -1;

@@ -50,6 +50,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
         X_init[ct.cell_of[i]] += st.weights[i];
     }
 
+    // Precompute log(X_init[c]) once; reused in margin sweep + X_tilde.
+    std::vector<double> log_X_init(ct.M_cell);
+    for (int c = 0; c < ct.M_cell; c++) {
+        log_X_init[c] = (X_init[c] > 0.0) ? std::log(X_init[c]) : -std::numeric_limits<double>::infinity();
+    }
+
     // Per-cell bounds.
     std::vector<double> L_cell(ct.M_cell), U_cell(ct.M_cell);
     double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
@@ -102,6 +108,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
         st.log(msg);
     }
 
+    std::vector<double> lv;
+    lv.reserve(ct.M_cell);
+
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -118,15 +127,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 // log-sum-exp stabilization: compute lv_c = log X_init[c] + sum_{m!=k} lf[m]
                 //                                       + log W[c]
-                std::vector<double> lv(cells.size());
+                lv.assign(cells.size(), -std::numeric_limits<double>::infinity());
                 double lv_max = -std::numeric_limits<double>::infinity();
                 for (size_t r = 0; r < cells.size(); r++) {
                     int c = cells[r];
                     if (X_init[c] <= 0.0 || W[c] <= 0.0) {
-                        lv[r] = -std::numeric_limits<double>::infinity();
                         continue;
                     }
-                    double s = std::log(X_init[c]) + std::log(W[c]);
+                    double s = log_X_init[c] + std::log(W[c]);
                     for (int m = 0; m < st.K; m++) {
                         if (m == k) continue;
                         int gm = ct.g_per_cell[m][c];
@@ -167,7 +175,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         double max_log_X_tilde = -std::numeric_limits<double>::infinity();
         for (int c = 0; c < ct.M_cell; c++) {
             if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-            double s = std::log(X_init[c]);
+            double s = log_X_init[c];
             for (int m = 0; m < st.K; m++) {
                 int gm = ct.g_per_cell[m][c];
                 s += lf[cat_offset[m] + gm];
@@ -272,13 +280,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // per-cell bounds even when the cell total is in range. Clamping silently
     // violated sum w == target marginals in that regime. See test
     // tests/testthat/test-ieppa-nonuniform-d.R.
+    std::vector<double> mult(ct.M_cell);
+    for (int c = 0; c < ct.M_cell; c++) {
+        mult[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+    }
     for (int i = 0; i < st.n; i++) {
-        int c = ct.cell_of[i];
-        if (X_init[c] > 0.0) {
-            st.weights[i] = st.weights[i] * X[c] / X_init[c];
-        } else {
-            st.weights[i] = 0.0;
-        }
+        st.weights[i] = st.weights[i] * mult[ct.cell_of[i]];
     }
 
     if (is_infeasible && res.status == RK_ERR_NOCONV) {
