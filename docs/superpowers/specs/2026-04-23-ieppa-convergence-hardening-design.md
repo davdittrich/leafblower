@@ -1,6 +1,16 @@
 # iEPPA Convergence Hardening Design
 
-**Status:** Draft rev 2 (post design-review-gate iter 1: 1 APPROVED / 4 NEEDS_REVISION)
+**Status:** Draft rev 3 (post design-review-gate iter 2: 3 APPROVED / 2 NEEDS_REVISION → fixes applied)
+
+**Rev 3 blockers resolved:**
+- Security B2: overflow trip accounts for `X_init` base weight — `kLinearOverflowTrip = pow(DBL_MAX / (2.0 * max_X_init), 1.0/K)` where `max_X_init = max_c X_init[c]`. Prevents `factor *= f[m]` overflow when survey cell masses exceed 1e6 at high K.
+- Security B3: explicit `if (alpha == 1.0)` fast-path in WU-3 — `std::pow(_, 1.0)` is NOT a no-op, costs transcendental overhead. Branch preserves zero-cost stable mode.
+- Security B4: WU-1 uses `== kInfeasPersistence` instead of `>= kInfeasPersistence` for `persistent_infeas_pairs.emplace` — insertion fires exactly once per (k,j); subsequent checks no longer re-enter the O(log N) set path.
+- CTO B3: dropped `LBW_TEST_HOOKS` compile-time macro. Env var `LBW_IEPPA_FORCE_PATH` always read (cheap, once per solve); no build-time divergence between R CMD INSTALL and CRAN. NOT_CRAN environment at user site gates which CI runs this test, not which binary is shipped.
+- CTO B4: stepstone full data is NOT bundled with R package. `.Rbuildignore` excludes `benchmarks/stepstone_fulldata_*`. Integration test calls `testthat::skip_on_cran()` explicitly; manual-run only.
+- CTO B5: WU-3 iteration-count assertion relaxed from "1.5-2× ratio" to strict monotonic `iter_damped > iter_stable` (avoids flakiness across OS/BLAS).
+
+**Rev 2 blockers resolved:**
 
 **Rev 2 blockers resolved:**
 - Architect B1: WU-3 damping formula corrected to geometric blend (f_new = f_old^(1-α) · naive^α), matching log-space `lf_new = α·Δ + (1-α)·lf_old` — prior formula dropped f_old and converged to wrong marginal.
@@ -74,7 +84,10 @@ auto record_empty = [&](int k, int j) {
     if (st.targets[k][j] <= 0.0) return;  // zero target → no constraint, ignore
     int idx = cat_offset[k] + j;
     infeas_streak[idx]++;
-    if (infeas_streak[idx] >= kInfeasPersistence) {
+    // Use == not >= so the set insertion fires exactly once per (k,j).
+    // Subsequent sweeps with streak > persistence are no-ops here, avoiding
+    // O(log N) tree traversal on the hot path.
+    if (infeas_streak[idx] == kInfeasPersistence) {
         persistent_infeas_pairs.emplace(k, j);
     }
 };
@@ -146,13 +159,20 @@ for (int k = 0; k < st.K; k++) {
 }
 ```
 
-**Overflow handling:** track max `f` per sweep. Trip threshold is derived at runtime, not a fixed constant (per security review — at K=64 the inner-loop accumulation `∏_m f[m]` can reach `trip^K`, so a fixed `1e100` would allow products of `1e6400` far beyond DBL_MAX):
+**Overflow handling:** track max `f` per sweep. Trip threshold is derived at runtime, accounting for both K (K-way product accumulation) AND the maximum base weight `X_init[c]` (survey cell masses routinely exceed 1e6):
 ```cpp
-const double kLinearOverflowTrip = std::pow(std::numeric_limits<double>::max() / 2.0, 1.0 / st.K);
-// At K=20: ~1e15
-// At K=64: ~4.8e4
-// Always strictly less than DBL_MAX^(1/K); the K-way product in the S_kj inner loop
-// cannot reach DBL_MAX/2 before this trip fires.
+// The hot-loop accumulator is: factor = X_init[c] * W[c] * ∏_m f[m]
+// W[c] ≤ 1 always (capacity cap). X_init[c] is bounded by total_weight ≤ n.
+// So factor ≤ max_X_init * trip^K. Require factor < DBL_MAX / 2:
+const double max_X_init = *std::max_element(X_init.begin(), X_init.end());
+const double kLinearOverflowTrip = std::pow(
+    std::numeric_limits<double>::max() / (2.0 * std::max(max_X_init, 1.0)),
+    1.0 / st.K
+);
+// At K=20, max_X_init=1e6:  ~1e14
+// At K=64, max_X_init=1e6:  ~5.5e4
+// Always strictly less than (DBL_MAX / max_X_init)^(1/K); the K-way product
+// with X_init prefactor cannot reach DBL_MAX/2 before this trip fires.
 ```
 
 On trip: abort linear-space path, fully reset solver state (`lf`, `W`, `X_tilde`, `X`, `infeas_streak`, `persistent_infeas_pairs`, `iter` counter), re-initialize from `X_init`, switch to log-space, continue from iter 0. One-shot per solve (a boolean `linear_fallback_used` prevents re-entry). Rare; provides safety without ongoing overhead.
@@ -194,7 +214,16 @@ Standard Sinkhorn stabilization (Peyré-Cuturi 2019 §4.4 equation 4.52 "softene
 
 Transition latched per-solve; does not revert even if streak resets (prevents oscillation between modes).
 
-**Cost:** two extra `std::pow` calls per (margin, category) when damped; zero cost in stable mode (branch-predicted no-op). Convergence slows by ~2× in damped mode; acceptable because damped mode only engages when WU-1 is already headed for NOCONV without it.
+**Cost:** two extra `std::pow` calls per (margin, category) when damped. **Stable-mode must explicitly branch on `alpha == 1.0`** — `std::pow(_, 1.0)` does NOT short-circuit and pays full transcendental cost:
+```cpp
+if (alpha == 1.0) {
+    lf[cat_offset[k] + j] = log_target - log_S_kj;  // fast path
+} else {
+    lf[cat_offset[k] + j] = (1.0 - alpha) * lf[cat_offset[k] + j]
+                          + alpha * (log_target - log_S_kj);  // damped
+}
+```
+Convergence slows by ~2× in damped mode; acceptable because damped mode only engages when WU-1 is already headed for NOCONV without it.
 
 **Why separate from WU-1:** independent mechanism. WU-1 fixes the latching logic (what gets reported); WU-3 reduces the frequency of transients in the first place (makes WU-1 less likely to fire). Additive benefits, composed via the `infeas_streak` state WU-1 already maintains.
 
@@ -208,14 +237,15 @@ Transition latched per-solve; does not revert even if streak resets (prevents os
 
 **WU-2 test:** extend `tests/testthat/test-ieppa-faithful.R`:
 - Dense regime test (M_cell/n ≈ 1, n=10000): confirm result weights identical (to 1e-8) between log-space and linear-space paths.
-  **Force-path mechanism (per CTO review iter 1):** add environment variable `LBW_IEPPA_FORCE_PATH` read once at solver entry. Values: `linear`, `log`, or unset (auto-dispatch). Setting forces one path regardless of M_cell/n. Guarded by `#ifdef LBW_TEST_HOOKS` (defined only when package built with the test harness — default ON for R CMD INSTALL, OFF for CRAN release build). This is a test-only escape hatch, not a public API.
+  **Force-path mechanism (per CTO review iter 1, refined iter 2):** env var `LBW_IEPPA_FORCE_PATH` read once at solver entry. Values: `linear`, `log`, or unset (auto-dispatch). Setting forces one path regardless of M_cell/n. Always compiled in (no `#ifdef LBW_TEST_HOOKS` — that macro cannot differentiate R CMD INSTALL from CRAN builds cleanly). Cost: one `getenv` call per solve (microseconds; amortized over O(iter·M_cell·K) work). Documented as test-only in the source comment; not mentioned in public docs. CRAN packaging is unaffected — env var remains dormant unless explicitly set.
 - Sparse regime test (M_cell/n ≈ 0.01, n=10000): confirm log-space path selected (verify via verbose=1 log line), no regression.
 - Overflow synthesis (very tight bounds, high K): confirm linear-space fallback to log-space fires, final result correct. Force `LBW_IEPPA_FORCE_PATH=linear` at start, observe fallback trip + completion.
 
 **WU-3 test:** in `tests/testthat/test-ieppa-faithful.R`:
-- Default alpha=1.0: byte-identical to current behavior (regression check)
-- alpha=0.5: converges to same solution, slower (expect 1.5-2× iteration count)
-- alpha=0.0: returns RK_ERR_BADARG (degenerate, no progress possible)
+- Default stable mode (no persistence stress): byte-identical to current behavior (regression check)
+- Damped mode (triggered via engineered persistence stress): converges to same solution, strictly slower. **Assertion: `iter_damped > iter_stable`** (monotone, not ratio-bounded — per CTO review iter 2, ratio assertions flake across OS/BLAS).
+
+**Integration test (stepstone full data):** `testthat::skip_on_cran()` required. Data file `benchmarks/stepstone_fulldata_*` excluded from CRAN tarball via `.Rbuildignore`. Test is developer-only; runs locally + in non-CRAN CI.
 
 **Integration test:** rerun stepstone full data (n=1.58M, K=9):
 - Pre-fix: iEPPA returns INFEAS
