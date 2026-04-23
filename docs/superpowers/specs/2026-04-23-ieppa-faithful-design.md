@@ -1,12 +1,20 @@
 # Faithful iEPPA Solver Design
 
-**Status:** Draft (post-brainstorm, pre-plan-review-gate)
+**Status:** Draft rev 2 (post design-review-gate iter 1)
 **Author:** Dennis Alexis Valin Dittrich
 **Date:** 2026-04-23
 **Supersedes:** None (new solver)
 **Related:** The current `src/ieppa.cpp` is a misnamed IPF+Dykstra hybrid
 (commit `b13fda4`). This spec introduces the paper-faithful solver and renames
 the existing one to `raking`.
+**Rev 2 changes:** Fixed 13 design-review-gate iter-1 findings: (a) cell
+expansion formula for non-uniform initial weights (§5.3); (b) X̃ overflow
+handling (§8); (c) Σw>0 guard + zero-cell handling (§8); (d) K cap ≤ 64 (§8);
+(e) sort-based cell dedup replaces hash map (§5.2); (f) NEWS.md entry
+required (§10); (g) verbose contract spec (§8b); (h) benchmark data
+generation (§7.5); (i) prod_all full recompute (§2.3); (j) make_plots 3D
+refactor scoped (§13); (k) atomic commit constraint (§13); (l) test seed
+(§6.2); (m) user-facing use cases (§1b).
 
 ---
 
@@ -24,7 +32,35 @@ a documented convergence guarantee, and (c) becomes the default `ieppa` method.
 The current hybrid is renamed `raking` and kept as an explicit alternative.
 
 Back-compat is explicitly dropped. Users of `method="ieppa"` will get the new
-algorithm. No version bump, no migration note — change is intentional.
+algorithm. No version bump, no migration shim. A `NEWS.md` entry documents
+the breaking change (CRAN policy compliance).
+
+---
+
+## 1b. User-facing Use Cases
+
+**UC-1 (census microsimulation):** A researcher running `harvest(data, targets,
+method="ieppa")` on n=1M, K=5 margins × 4 categories today waits ~60s.
+With faithful iEPPA + cell-compression (M_cell ≤ 1024 vs n=1M = 1000×
+compression), expected wall-clock drops to ~5-10s. **Visible benefit:**
+interactive iteration on population synthesis workflows becomes feasible.
+
+**UC-2 (tight-bound calibration in panel surveys):** A survey methodologist
+calibrating a rotating panel with `max_weight=1.3` currently hits cycling or
+non-convergence on the hybrid (see leafblower-370 probe evidence: 3/4 hard
+scenarios hit `max_iter`). Faithful iEPPA's BCD-block capacity structure is
+documented in the paper as convergent on these regimes (Csiszár 1975 cyclic
+I-projection on affine + log-convex box). **Visible benefit:** fewer NOCONV
+warnings on production calibration of bounded weights.
+
+**UC-3 (large-K studies):** Multi-dimensional calibration (K=10-20 demographic
+margins) on n=500k-1M with moderate cat_counts — current hybrid is O(n·K) per
+sweep; faithful iEPPA is O(M_cell·K) with `M_cell << n`. **Visible benefit:**
+enables more margins per calibration without linear cost growth.
+
+**Non-benefit (documented):** for n < 10k or `M_cell ≈ n`, faithful iEPPA
+gives no measurable speedup over raking. AUTO routing currently still selects
+IEPPA in this regime; refinement is a follow-up WU gated on benchmark.
 
 ---
 
@@ -82,8 +118,9 @@ branch needed.
    ```
    X̃[c] = X_init[c] · ∏_k f[k][g_k(c)]
    ```
-   Efficient via cached product `prod_all[c]`, incrementally updated during
-   margin sweep.
+   Full recompute per outer iteration (O(M_cell · K)). Incremental per-block
+   update is not used — equal asymptotic cost, much higher bug risk. Cache
+   `prod_all[c]` is rebuilt after each capacity-block application.
 
 3. **Capacity block (KL-projection onto box = clamp):**
    ```
@@ -205,26 +242,57 @@ struct CellTable {
 };
 ```
 
-### 5.2 Construction
+### 5.2 Construction (sort-based, not hash map)
 
-Single O(n · K) pass over observations. Key format:
-- Packed 64-bit integer when `K ≤ 8` and all `cat_counts[k] ≤ 256`
-- `std::string` of concatenated int32 otherwise
+**Sort-based dedup** (replaces hash map per security review — avoids
+`std::unordered_map` collision DoS on adversarial group_ids):
+
+Algorithm:
+1. Build `keys[n]` array: row-major encoding of `(g_1, ..., g_K)`. Encoding:
+   packed int64 when `K ≤ 8` and all `cat_counts[k] ≤ 256`; else fixed-stride
+   int32 tuples stored in a `std::vector<std::array<int32_t, K_MAX>>`.
+2. Sort observations by `keys[i]` using `std::sort` (O(n log n · K)
+   comparator cost).
+3. Scan sorted sequence, increment cell index when key changes, populate
+   `cell_of[i]` via reverse-mapping back to original obs indices, accumulate
+   `n_per_cell[c]`.
+4. No hash map used; no DoS surface.
+
+**Complexity:** O(n · K · log n) construction, O(n) storage for sort index.
+At n=1M, K=5: ~20M comparisons ~= single-digit seconds one-time. Amortizes
+over BCD iterations.
+
+**Safety:**
+- `K > K_MAX` (= 64) rejected at `validate_inputs` (§8) with `RK_ERR_BADARG`.
+  No unbounded allocation possible.
 - NA (`group_ids[k][i] = -1`) treated as a distinct category per margin
+  (encoded as `cat_counts[k]` in the key, one past the valid range).
+- Deterministic: same input → identical cell_table output.
 
-Hash map: `std::unordered_map<Key, int>`. Insertion-order determines
-cell indexing; deterministic given input.
+### 5.3 Expansion (handles non-uniform initial weights within cell)
 
-### 5.3 Expansion
+Correct multiplicative recovery — obs i in cell c gets `w[i] = d[i] · m_c`
+where `m_c = ∏_k f[k][g_k(c)] · W[c]` is the cell multiplier. Using the
+cell aggregate identity `X[c] = m_c · X_init[c]`:
 
 ```cpp
 for (int i = 0; i < n; i++) {
-    weights[i] = X[cell_of[i]] / n_per_cell[cell_of[i]];
+    int c = cell_of[i];
+    if (X_init[c] > 0) {
+        weights[i] = input_weight[i] * X[c] / X_init[c];  // d[i] · m_c
+    } else {
+        weights[i] = 0.0;  // zero-weight cell: no contribution
+    }
 }
 ```
 
-Output obs weights equal within any cell — a provable property of any
-multiplicative calibration method, not a new restriction.
+**This formula is correct regardless of initial-weight uniformity within
+cell.** Previous `w[i] = X[c] / n_per_cell[c]` was wrong when `d[i]` varied
+within cell — fixed per architect review.
+
+Obs i, j in same cell with identical `d[i] = d[j]` receive identical output
+weights (the special case). Obs with different `d` within cell receive
+proportionally different output weights.
 
 ---
 
@@ -265,11 +333,13 @@ hybrid behavior.
 **`tests/testthat/test-compare.R`** (NEW, cross-algorithm functional
 equivalence):
 
-On 20 random feasible datasets (varied n, K, cat_counts, bound tightness),
-run `ieppa`, `raking`, `lbfgsb`. All three must produce weights with
-`max_err < 1e-6`; pairwise max absolute weight difference must be < 1e-3
-(not zero — algorithms differ, but on feasible problems must agree to
-three sig figs).
+On 20 random feasible datasets with **`set.seed(20260423)`** at test entry
+(fixed for reproducibility per CTO C4) — varied n ∈ {1000, 10000, 100000},
+K ∈ {3, 5, 10}, cat_counts ∈ {3, 5, 8}, bound tightness `max_weight` ∈
+{1.5, 3, 5}. Run `ieppa`, `raking`, `lbfgsb` on each. All three must produce
+weights with `max_err < 1e-6`; pairwise max absolute weight difference must
+be < 1e-3 (algorithms differ, but on feasible problems must agree to three
+sig figs).
 
 ---
 
@@ -306,14 +376,27 @@ Negative = faithful wins; positive = raking wins.
 - K-stability: re-run at K ∈ {3, 10, 20} to verify GP surrogate insensitive
   to parametrization (mirrors `run_k_stability()`)
 
-### 7.5 Data generation per design point
+### 7.5 Data generation per design point (deterministic, fixed seed)
 
-Deterministic `(x1, x2, x3) → (n, K, cat_counts, tol_abs, target_M_cell)`:
-- `n = round(10^x1 / Σ cat_counts)` with `K=5`, cat_counts chosen so that
-  `∏ cat_counts / n = 10^-x3` (i.e., matches target compression)
-- `tol_abs = 10^x2`
-- `max_weight = 3` baseline (bound-tightness sensitivity is a follow-up WU,
-  not part of primary benchmark)
+**x3 redefined** (per architect review A3): `x3 = log10(∏ cat_counts / n)`
+— theoretical max compression. Actual `M_cell` depends on cell occupancy
+and is reported separately in the output RDS.
+
+Generation procedure:
+1. Fix `K = 5` for primary benchmark.
+2. Derive `cat_counts[k]` so that `∏ cat_counts = round(n · 10^x3)`; default
+   all equal: `cat_counts[k] = round((n · 10^x3)^(1/K))`.
+3. `n = round(10^x1 / Σ cat_counts)`.
+4. `tol_abs = 10^x2`.
+5. `max_weight = 3` fixed (bound-tightness a follow-up WU).
+6. **Data sampling:** if `∏ cat_counts ≤ n/2` (high expected occupancy):
+   generate full-coverage via Latin Hypercube over the cell grid then pad
+   with uniform-random extras (ensures all cells populated). Else: uniform
+   random sampling (actual `M_cell ≈ min(n, ∏ cat_counts)`).
+7. `set.seed(42)` at script entry; per-point seed derived from
+   `(x1, x2, x3)` via deterministic hash (reproducibility across K-stability
+   re-runs).
+8. Record actual `M_cell` in the output for each design point.
 
 ### 7.6 Output artifacts
 
@@ -348,10 +431,61 @@ benchmark output).
 |---|---|---|
 | NULL, bad dims, NaN/Inf, targets !sum to 1 | `RK_ERR_BADARG` | Shared input validation |
 | `min_weight ≥ max_weight` | `RK_ERR_BADARG` | Input validation |
-| Empty cell with positive target | `RK_ERR_INFEAS` | Margin sweep; reported after loop |
+| **`K > 64`** (new) | `RK_ERR_BADARG` | Input validation. Prevents unbounded cell key allocation |
+| **`Σ weights ≤ 1e-15`** (new) | `RK_ERR_BADARG` | Input validation. Degenerate total weight |
+| Empty cell (`X_init[c] = 0`) | skipped | Cell omitted from margin sweep; `weights[i] = 0` on expansion per §5.3 |
+| Empty cell with positive target | `RK_ERR_INFEAS` | Margin sweep; latched flag, reported after loop |
 | `inner_max_iter` exhausted, `errRp ≥ tol_abs` | `RK_ERR_NOCONV` | Loop termination |
 | `M_cell · K · sizeof(double) > SIZE_MAX/2` | `RK_ERR_BADARG` | `CellTable` construction |
-| `X̃[c]` overflow to `+Inf` | non-fatal | Clamp to 1e300; continue |
+| **`X̃[c]` overflow** (new handling) | `RK_ERR_NOCONV` with message | See below |
+
+**X̃[c] overflow handling** (fixed per architect review):
+
+Previous design clamped to 1e300 and continued, silently zeroing `W[c]` and
+removing the cell from subsequent sweeps. New design:
+
+1. **Renormalize each outer iteration:** after margin sweep, rescale all `f[k]`
+   by a common geometric mean so that `max_k,j log f[k][j]` stays bounded
+   (e.g., within `[-350, 350]`). This adjusts a shared additive constant in
+   log-space that cancels in the dual solution. Formally: `f[k][j] ← f[k][j] *
+   S` for all k,j with `S = exp(-mean_log_f / K)`.
+2. **Overflow detection after renormalization:** if any `X̃[c] > 1e300` or
+   any `f[k][j] > 1e150` post-renormalization, the problem is ill-conditioned
+   beyond numerical tolerance. Exit with `RK_ERR_NOCONV` and message
+   `"iEPPA: factor overflow indicates ill-conditioning; try looser
+   max_weight or tighter tol_abs"`.
+3. `W[c]` computation guarded: if `X̃[c] == 0`, set `W[c] = 1.0` (cell is
+   empty, multiplier is immaterial). Never produces NaN.
+
+**Infeasibility flag semantics (clarified per security review):**
+`is_infeasible` is **latched** (set-once, never cleared). Triggering condition
+`S_kj < 1e-15·W_total ∧ τ_kj > 0` is evaluated every margin sweep; once set,
+overrides `RK_OK`/`RK_ERR_NOCONV` with `RK_ERR_INFEAS` on return. Prevents
+false-positive on transient early-iteration near-zero sums.
+
+---
+
+## 8b. Verbose Output Contract
+
+Defined at design time per designer review D2.
+
+**`verbose = 0` (default):** silent. Errors via return code only.
+
+**`verbose = 1` (progress):**
+- On entry: `"iEPPA: n=N K=K M_cell=M compression=R×"` (R = n/M_cell)
+- Every 10 outer iters + final: `"iEPPA iter T: errRp=E"` (matches raking
+  solver's existing log cadence for consistency)
+- On exit: `"iEPPA converged in T iters, errRp=E"` OR `"iEPPA: max_iter
+  exhausted, errRp=E (status=NOCONV)"`
+- On infeasibility: `"iEPPA: empty cell <margin k, category j> with positive
+  target (status=INFEAS)"`
+
+**`verbose = 2` (debug):** all of the above plus per-iter `f[k]` max/min
+summary, per-iter count of cells with `W[c] ≠ 1` (capacity-active), and
+renormalization event log.
+
+Emitted via `st.log()` (types.hpp:30), verbose-gated; consistent with existing
+iEPPA/raking/L-BFGS-B verbose patterns.
 
 ---
 
@@ -368,12 +502,24 @@ benchmark output).
 
 ---
 
-## 10. PRD Updates (same commit as rename)
+## 10. PRD + Documentation Updates (same commit as rename)
 
 - § US-005 rewritten to describe actual faithful algBCD (no misstatement
   about the current hybrid)
 - New § US-005b: `method="raking"` for the renamed IPF+Dykstra hybrid
 - FR entries updated to match
+- **`NEWS.md` entry** (required per CRAN policy; one line + explanation):
+  ```
+  # leafblower (development)
+  * BREAKING: method="ieppa" now runs the paper-faithful algBCD (Chu et al.
+    2022, arXiv:2011.14312). The previous implementation was an IPF+Dykstra
+    hybrid misnamed "iEPPA"; it is renamed method="raking". Users relying on
+    the previous "ieppa" behavior should switch to method="raking".
+  ```
+- `man/harvest.Rd`: updated `method` parameter description covers both
+  `"ieppa"` (faithful) and `"raking"` (renamed hybrid), explicit note that
+  `"auto"` currently returns `"ieppa"` unconditionally until benchmark-driven
+  refinement.
 
 ---
 
@@ -404,16 +550,41 @@ As in current PRD plus:
 
 ## 13. Deliverables
 
-Planner (writing-plans skill) will decompose into WUs. Expected atomic units
-include:
-- Cell table implementation + tests
-- Faithful solver implementation + unit tests
-- Rename refactor (file + symbol + PRD) as one atomic commit
-- Enum addition + routing update
-- R/Python method-name wiring
-- Test migration + new tests (§6)
-- Bayesian benchmark harness (§7)
-- Follow-up WU filings: routing refinement, SIMD hints, bound-tightness
-  sensitivity
+Planner (writing-plans skill) decomposes into WUs. Expected atomic units:
+
+**Prerequisite (small, early):**
+- `cell_table.hpp/cpp` implementation + tests (sort-based dedup)
+- Input validation update: K ≤ 64 + Σweights > 0 guards
+
+**Core solver:**
+- `ieppa_faithful.hpp/cpp` implementation + unit tests (§6)
+- Renormalization + overflow detection per §8
+- Verbose contract per §8b
+
+**Atomicity constraint (hard, per CTO C3):**
+- **Single atomic commit** bundles: rename `src/ieppa.cpp` → `src/raking.cpp`,
+  symbol rename, new `src/ieppa.cpp`, enum addition `RK_ALG_RAKING=3`,
+  `c_api.cpp::select_algorithm` update, R/Python method-name wiring, PRD
+  update, NEWS.md entry. Intermediate states must not break the build; CI
+  must not run between sub-steps.
+
+**Testing:**
+- `test-raking.R` (regression guard) + `test-ieppa.R` retargeting +
+  `test-ieppa-faithful.R` + `test-compare.R` (§6)
+
+**Benchmark:**
+- `benchmarks/ieppa_vs_raking_bench.R` (§7)
+- **Prerequisite sub-WU:** refactor `make_plots()` from
+  `benchmarks/algo_selection_benchmark.R` to handle 3D input space (slice
+  plots over compression dimension). Scoped as its own WU per CTO C2.
+
+**Follow-up WUs filed separately (not this design):**
+- Benchmark-driven routing refinement (gated on §7 output)
+- SIMD hints on faithful solver hot loops (post-merge, after correctness)
+- Bound-tightness sensitivity benchmark (vary `max_weight` dimension)
+- Compression-ratio diagnostic in verbose output + return attribute
+  `attr(result, "compression_ratio")` per Designer review
+- Log-space formulation of f/X (alternative to renormalization, if overflow
+  triggers frequently in practice)
 
 Implementation plan and WU issue creation follow the writing-plans skill.
