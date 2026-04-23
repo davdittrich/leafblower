@@ -85,9 +85,11 @@ File: `tests/testthat/test-raking.R` — append after existing tests:
 
 ```r
 test_that("descent monitor aborts early on stalled errRp trajectory", {
-  # Near-infeasible target forces errRp floor above tol_abs.
-  # Both solvers will plateau; monitor should detect after N consecutive
-  # non-improving error-checks and set status=NOCONV with identifying message.
+  # Input empirically validated to stall: n=1000, 95/5 class split, max_weight=1.2.
+  # Prior measurement (leafblower-370 probe session 2026-04-23): raking hit
+  # max_iter=500 with no convergence and 500 consecutive curvature rejections.
+  # Monitor fires at 5 consecutive stalled error-checks (50 iters) — well
+  # before iter 500.
   set.seed(91)
   n <- 1000
   df <- data.frame(cat = sample(c("A", "B"), n, replace = TRUE, prob = c(0.05, 0.95)))
@@ -269,7 +271,9 @@ Expected: `[1] "C_leafblower_cell_table_probe"`. If error, P2.1 blocked — file
 grep -nE 'iter.*errRp|errRp.*iter' src/ieppa.cpp src/raking.cpp
 ```
 
-Record the exact log-line formats. The P2.3 trajectory-capture grep pattern must match both. Likely raking emits `raking iter N: errRp=...` (current) and ieppa emits `iEPPA iter N: errRp=...`. Align the grep regex (`iter [0-9]+: errRp`) to catch both — update Step P2.3.1 if this doesn't hold.
+Record the exact log-line formats. Note: `src/raking.cpp` currently emits `iEPPA iter N: errRp=...` (pre-rename residue; P1.2.1 replacement updates it to `raking iter N: ...`). Plan's P2.3 grep `iter [0-9]+: errRp` catches both current and post-P1 forms. Update Step P2.3.1 if either file diverges from this pattern.
+
+**API verification (resolves iter-2 completeness G3):** `R/harvest.R parse_convergence` returns `convergence[["absolute"]]` directly when present. `convergence = list(absolute = 0)` → `tol_abs = 0` → `errRp < st.tol_abs` never holds → solver runs full `max_iterations`. Confirmed by inspection; no API surprise.
 
 ### Step P2.1: Measure M_cell for the benchmark input
 
