@@ -1,6 +1,11 @@
 # iEPPA Convergence Hardening Design
 
-**Status:** Draft rev 3 (post design-review-gate iter 2: 3 APPROVED / 2 NEEDS_REVISION → fixes applied)
+**Status:** Draft rev 4 (post design-review-gate iter 3: 3 APPROVED / 2 NEEDS_REVISION → inline fixes. 3-iteration gate cap reached.)
+
+**Rev 4 blockers resolved (iter 3):**
+- Security B5 (logic defect, WU-1 primary-goal violation): `record_nonempty` now also erases `(k,j)` from `persistent_infeas_pairs`. Without this, a bucket that hits `kInfeasPersistence` and then recovers would stay permanently latched; solver hitting `max_iter` would falsely return `RK_ERR_INFEAS`. Fix restores the intended "recovery cancels persistence" semantics.
+- Designer scope inconsistency (editorial): §2 Scope now correctly states WU-1 touches `R/harvest.R` + `python/leafblower/_harvest.py` in addition to `src/ieppa.cpp` (error-message refinement; no API addition).
+
 
 **Rev 3 blockers resolved:**
 - Security B2: overflow trip accounts for `X_init` base weight — `kLinearOverflowTrip = pow(DBL_MAX / (2.0 * max_X_init), 1.0/K)` where `max_X_init = max_c X_init[c]`. Prevents `factor *= f[m]` overflow when survey cell masses exceed 1e6 at high K.
@@ -49,7 +54,7 @@ Three work units:
 | 2 | (B) linear-space dispatch | `src/ieppa.cpp` | P2 |
 | 3 | Hardening: adaptive damping | `src/ieppa.cpp` | P3 |
 
-All WUs single-file; no API changes; no dispatch changes (user-facing `method="ieppa"` semantics preserved).
+WU-2 and WU-3 are single-file (`src/ieppa.cpp`). WU-1's source change is also `src/ieppa.cpp` only, but the accompanying error-message update for `RK_ERR_INFEAS` requires edits to `R/harvest.R` and `python/leafblower/_harvest.py` where the user-facing message is composed. These wrapper edits ship in the WU-1 commit. No new API surface in any language; rk_params_t unchanged; public function signatures unchanged; only an error-string refinement.
 
 ## 3. Non-scope
 
@@ -96,6 +101,11 @@ auto record_nonempty = [&](int k, int j) {
     if (st.targets[k][j] <= 0.0) return;
     int idx = cat_offset[k] + j;
     infeas_streak[idx] = 0;  // reset on any non-empty check
+    // Also erase from persistent set if present. Without this, a bucket that
+    // hit persistence then recovered would stay permanently latched; the
+    // solver would hit max_iter and FALSELY report RK_ERR_INFEAS, defeating
+    // WU-1's entire purpose. (Security iter-3 B5.)
+    persistent_infeas_pairs.erase(std::make_pair(k, j));
 };
 ```
 
