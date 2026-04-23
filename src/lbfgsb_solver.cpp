@@ -240,6 +240,8 @@ static double wolfe_zoom(
             slope += alm_scale * sum_dw;
         }
 
+        // Armijo test (maximization: slope_0 > 0). Fail ⟹ phi_trial did NOT
+        // exceed phi_0 by at least c1*α*slope_0 ⟹ step too long ⟹ narrow bracket.
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || phi_trial <= phi_lo) {
             alpha_hi = alpha;
         } else {
@@ -316,6 +318,8 @@ static double wolfe_line_search(
             slope += alm_scale * sum_dw;
         }
 
+        // Armijo test (maximization: slope_0 > 0). Fail ⟹ phi_trial did NOT
+        // exceed phi_0 by at least c1*α*slope_0 ⟹ step too long ⟹ enter zoom.
         if (phi_trial < phi_0 + kC1 * alpha * slope_0 || (i > 0 && phi_trial <= phi_prev)) {
             return wolfe_zoom(st, fn, off, T, d, phi_0, slope_0,
                               alpha_prev, phi_prev, alpha,
@@ -432,8 +436,12 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     std::vector<double> d(st.n);
     for (int i = 0; i < st.n; i++) d[i] = st.weights[i];
 
-    // ALM inactive. sum(w)≈n holds at convergence when targets sum to 1 per margin;
-    // harvest.R normalises post-call as a safety net for non-converged iterates.
+    // ALM inactive. Solver-level invariant: at dual convergence ∇phi=0 ⟹
+    // for each margin k, Σ_j S_kj = Σ_j T_kj = W (given targets sum to 1),
+    // and summing observations once gives sum(w) = W = Σ d_i. Caller contract
+    // (harvest.R, _harvest.py): input weights are normalised so Σ d_i = n,
+    // therefore sum(w) = n downstream. The /mean(weights) step in the caller
+    // is a safety net for non-converged iterates; a no-op at true convergence.
     st.alm_lambda = 0.0;
     st.alm_mu     = 0.0;
     return lbfgsb_solve_inner(st, off, T, d, W_sum);
