@@ -1,6 +1,6 @@
 # Faithful iEPPA Solver Design
 
-**Status:** Draft rev 3 (post design-review-gate iter 2)
+**Status:** Draft rev 4 (post design-review-gate iter 3, gate cap reached)
 **Author:** Dennis Alexis Valin Dittrich
 **Date:** 2026-04-23
 **Supersedes:** None (new solver)
@@ -60,6 +60,19 @@ margins) on n=500k-1M with moderate cat_counts — current hybrid is O(n·K) per
 sweep; faithful iEPPA is O(M_cell·K) with `M_cell << n`. **Visible benefit:**
 enables more margins per calibration without linear cost growth.
 
+**UC-0 (method="auto" user — majority path, accepted-risk):** A user calling
+`harvest(data, targets)` without specifying `method` gets `method="auto"`,
+which after this change routes to the new faithful iEPPA unconditionally.
+**Visible impact:** weights may differ numerically from prior releases on
+the same input (same convergence criterion, different iteration path).
+Reproducibility in downstream analyses requires pinning `leafblower` version
+in analysis scripts (standard R/Python practice). **Accepted risk per user
+directive** (no runtime warning, no deprecation cycle): rationale is that
+`method="auto"` has always been documented as "algorithm-selection may
+change across versions"; users requiring byte-stable weights must pin
+either the version or an explicit non-auto method. NEWS.md entry
+communicates the change for version-tracking users.
+
 **Graceful degeneracy (documented):** for n < 10k or `M_cell ≈ n`, faithful
 iEPPA's cell-path collapses to obs-level work (M_cell = n → no compression
 speedup, but asymptotic cost identical to raking). Measured wall-clock is
@@ -118,6 +131,11 @@ branch needed.
        continue
    f[k][j] = (τ[k][j] · W_total) / S_kj
    ```
+   **Implementation note:** pseudocode above is in multiplicative form for
+   clarity. **Actual implementation works in log-space** per §8 — the
+   literal `∏_{m≠k} f[m]` is replaced by `exp(Σ_{m≠k} lf[m])` with
+   log-sum-exp stabilization on `S_kj` to prevent overflow when any
+   partial log-sum approaches 700. See §8 for the numerically robust form.
 
 2. **Uncapped X̃ computation:**
    ```
@@ -442,6 +460,7 @@ benchmark output).
 | `min_weight ≥ max_weight` | `RK_ERR_BADARG` | Input validation |
 | **`K > 64`** (new) | `RK_ERR_BADARG` | Input validation. Prevents unbounded cell key allocation |
 | **`Σ weights ≤ 1e-15`** (new) | `RK_ERR_BADARG` | Input validation. Degenerate total weight |
+| **`cat_counts[k] ≤ 0`** (new) | `RK_ERR_BADARG` | Input validation. Prevents degenerate key encoding |
 | Empty cell (`X_init[c] = 0`) | skipped | Cell omitted from margin sweep; `weights[i] = 0` on expansion per §5.3 |
 | Empty cell with positive target | `RK_ERR_INFEAS` | Margin sweep; latched flag, reported after loop |
 | `inner_max_iter` exhausted, `errRp ≥ tol_abs` | `RK_ERR_NOCONV` | Loop termination |
@@ -455,8 +474,21 @@ scaled X̃ by S^K, not 1, altering the primal iterate).
 Work with log-space dual factors. Maintain `lf[k][j] = log f[k][j]` rather
 than `f[k][j]`. Key quantities:
 
-- Margin sweep update: `lf[k][j] = log(τ[k][j] · W_total) − log(S_kj)` where
-  `S_kj = Σ_{c: g_k(c)=j} X_init[c] · exp(Σ_{m≠k} lf[m][g_m(c)]) · W[c]`
+- Margin sweep update: `lf[k][j] = log(τ[k][j] · W_total) − log(S_kj)`
+  where `S_kj` is computed via **log-sum-exp stabilization** (per architect
+  iter-3 review to prevent `exp(large)` overflow in partial sums):
+  ```
+  # For each (k, j):
+  lv_c = log X_init[c] + Σ_{m≠k} lf[m][g_m(c)] + log W[c]   for each c with g_k(c)=j
+  lv_max = max_c lv_c    (scalar reduction over cells in this margin-category)
+  log_S_kj = lv_max + log(Σ_c exp(lv_c − lv_max))
+  lf[k][j] = log(τ[k][j] · W_total) − log_S_kj
+  ```
+  The `lv_max` offset keeps exponentiated values bounded above by 1, so the
+  sum never overflows regardless of `lv_c` magnitudes. Standard log-sum-exp
+  technique; no stability loss at cost of one extra pass per (k,j). If the
+  cell-margin group has zero members (empty bucket): skip; mark infeasible
+  if `τ[k][j] > 0` (same as linear-space path).
 - `log X̃[c] = log X_init[c] + Σ_k lf[k][g_k(c)]`
 - `X̃[c] = exp(min(log X̃[c], 700.0))` — clip-before-exp guarantees no IEEE
   754 overflow. `exp(700) ≈ 1.01e304`, safely below `DBL_MAX`.
@@ -511,12 +543,24 @@ Defined at design time per designer review D2.
 - On infeasibility: enumerate **all** infeasible (k,j) pairs — e.g.
   `"iEPPA: infeasible cells detected: margin=1 cat=3, margin=4 cat=2, ... (3 total, status=INFEAS)"` — not just the first one, so users can diagnose all constraint violations in a single run.
 
-**`verbose = 2` (debug):** all of the above plus per-iter `f[k]` max/min
-summary, per-iter count of cells with `W[c] ≠ 1` (capacity-active), and
-renormalization event log.
+**`verbose = 2` (debug):** all of the above plus per-iter `log10 max/min of
+f[k][j]` per margin k (log-space magnitudes for debugging ill-conditioning),
+per-iter count of cells with `W[c] ≠ 1` (capacity-active), and log-factor
+overflow detection event log (fires when `max_c log X̃[c] > 700`).
 
 Emitted via `st.log()` (types.hpp:30), verbose-gated; consistent with existing
 iEPPA/raking/L-BFGS-B verbose patterns.
+
+**AUTO routing announcement** (added per designer iter-3): at `verbose ≥ 1`,
+the entry line is prefixed with `"[AUTO→iEPPA]"` when `method="auto"` was
+requested. Example: `"[AUTO→iEPPA] iEPPA: n=1000000 K=5 M_cell=1024
+compression=977×"`. Users who explicitly specified `method="ieppa"` do not
+see the bracketed prefix.
+
+**Infeasibility index convention:** verbose messages use **1-based indexing**
+for margin `k` and category `j`, matching R's convention (e.g.,
+`"margin=1 cat=3"`). Internal C code uses 0-based indexing; display layer
+adds 1 before formatting.
 
 ---
 
@@ -555,7 +599,8 @@ not a merge gate on this design.
   about the current hybrid)
 - New § US-005b: `method="raking"` for the renamed IPF+Dykstra hybrid
 - FR entries updated to match
-- **`NEWS.md` entry** (required per CRAN policy; one line + explanation):
+- **`NEWS.md` entry** (required per CRAN policy; **create the file if
+  absent** — repository does not currently contain it). One line + explanation:
   ```
   # leafblower (development)
   * BREAKING: method="ieppa" now runs the paper-faithful algBCD (Chu et al.
@@ -607,9 +652,13 @@ Planner (writing-plans skill) decomposes into WUs. Expected atomic units:
 - Input validation update: K ≤ 64 + Σweights > 0 guards
 
 **Core solver:**
-- `ieppa_faithful.hpp/cpp` implementation + unit tests (§6)
-- Renormalization + overflow detection per §8
-- Verbose contract per §8b
+- `src/ieppa.hpp` + `src/ieppa.cpp` — faithful algBCD implementation
+  (canonical file name; earlier drafts used `ieppa_faithful.*` — deprecated,
+  always use `ieppa.*` per §4.1)
+- Log-space formulation + log-sum-exp stabilization + overflow detection
+  per §8
+- Verbose contract per §8b + AUTO announcement
+- Unit tests per §6
 
 **Atomicity constraint (hard, per CTO C3):**
 - **Single atomic commit** bundles: rename `src/ieppa.cpp` → `src/raking.cpp`,
