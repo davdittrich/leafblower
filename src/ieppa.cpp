@@ -141,10 +141,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 //                                       + log W[c]
                 lv.assign(cells.size(), -std::numeric_limits<double>::infinity());
                 double lv_max = -std::numeric_limits<double>::infinity();
-                bool any_structural = false;  // true if any cell has X_init > 0
                 for (size_t r = 0; r < cells.size(); r++) {
                     int c = cells[r];
-                    if (X_init[c] > 0.0) any_structural = true;
                     if (X_init[c] <= 0.0 || W[c] <= 0.0) {
                         continue;
                     }
@@ -158,9 +156,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     if (s > lv_max) lv_max = s;
                 }
                 if (!std::isfinite(lv_max)) {
-                    // Structural: no cells with X_init > 0. Transient: obs exist but W=0.
-                    if (!any_structural) record_empty(k, j);
-                    else record_nonempty(k, j);  // capacity-clamped, not structurally absent
+                    record_empty(k, j);
                     continue;
                 }
                 double sum = 0.0;
@@ -171,10 +167,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // Compare in log-space; exp(lv_max) * sum defeats LSE stabilization when lv_max → 700.
                 double log_threshold = std::log(kEmptyBucketThreshold * ct.W_input);
                 if (!std::isfinite(log_S_kj) || log_S_kj < log_threshold) {
-                    // Distinguish structural (X_init=0 for all cells) vs transient/capacity.
-                    // any_structural was computed above for this same bucket.
-                    if (!any_structural) record_empty(k, j);
-                    // else: near-zero sum from capacity clamping; don't count as persistent infeas.
+                    record_empty(k, j);
                     continue;
                 }
                 record_nonempty(k, j);
