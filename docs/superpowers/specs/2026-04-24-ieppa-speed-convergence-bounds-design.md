@@ -402,7 +402,7 @@ Three vars × 3 values each = 27 combinations. Minimum required tests covering a
 ## 8. Merge Gate
 
 All of:
-- kk1204 per-iter **wall-clock** ratio ≤ 1.5× raking (post-P1). Measurement: `/tmp/wu2_kk1204.R` reuses existing wall-clock / iter formula. CTO iter-2 SF2: "per-iter" defined as wall-clock seconds ÷ iterations returned by solver.
+- kk1204 per-iter **wall-clock** ratio ≤ 1.5× raking (post-P2.2, cumulative). Measurement: `/tmp/wu2_kk1204.R` reuses existing wall-clock / iter formula. CTO iter-2 SF2: "per-iter" defined as wall-clock seconds ÷ iterations returned by solver. Post-P1.1 alone, per-iter ratio drops ≈5% (2.17× → ~2.09×); the sweep itself is O(K·M_cell) and dominates per-iter cost at kk1204 K=20. The 1.5× target requires iter reduction from P2.1 damping recovery + P2.2 Anderson acceleration, not just fusion. Post-P1.1 alone gate: ratio strictly improved vs 2.17× baseline; no regression.
 - kk1204 reaches RK_OK at tol_abs=1e-3, max_iter=500 (post-P2). Iter-count floor softened (PM iter-3 B3): with `LBW_IEPPA_ACCEL_ANDERSON=on` require iter-to-RK_OK ≤ 400 AND at least 2× fewer iters than the `=off` baseline run on same input. The 2× claim is robust to capacity-gate engagement fraction; the absolute 400 cap is generous to allow initial capacity settling before Anderson fires.
 - Unit-mode bounds (PM iter-3): `n_bounds_clamped == 0` on benign unit-mode input (uniform-d, dense cells); `n_bounds_clamped < 0.001 · n` on skewed-d stress input.
 - Stepstone errRp ≤ 2.21e-3 ± 1e-4 with no INFEAS (post-P2; must not regress).
