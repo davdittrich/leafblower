@@ -182,3 +182,78 @@ test_that("WU-2: overflow synthesis falls back to log-space, still completes", {
                                   convergence = list(absolute = 1e-4)))
   expect_true(all(is.finite(res$weights)))
 })
+
+test_that("WU-3: stable-mode fast-path is deterministic + does not engage damping", {
+  # Pre-WU-3 byte-identity is proved by inspection: the Step 3.4/3.5 alpha==1.0
+  # branch is literally the pre-WU-3 assignment. The indirect byte-identity
+  # gate is the RK_OK-preservation diff at Step A.4.1 against the Step P.5
+  # baseline, which ran pre-WU-3 code. This in-session test guards only:
+  # (a) stable-mode output is deterministic across runs, and (b) on an input
+  # with no persistence stress, damping does NOT auto-engage (verbose log
+  # must not contain "damping engaged").
+  set.seed(11)
+  n <- 1000L
+  df <- data.frame(
+    a = sample(letters[1:3], n, replace = TRUE),
+    b = sample(letters[1:3], n, replace = TRUE)
+  )
+  targets <- list(
+    a = c(a = 0.33, b = 0.33, c = 0.34),
+    b = c(a = 0.33, b = 0.33, c = 0.34)
+  )
+  Sys.setenv(LBW_IEPPA_FORCE_DAMPING = "off")
+  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
+  msgs <- capture.output(
+    res1 <- harvest(df, targets, method = "ieppa",
+                    max_weight = 5, min_weight = 0,
+                    max_iterations = 500L,
+                    convergence = list(absolute = 1e-6),
+                    verbose = 1L),
+    type = "output"
+  )
+  res2 <- harvest(df, targets, method = "ieppa",
+                  max_weight = 5, min_weight = 0,
+                  max_iterations = 500L,
+                  convergence = list(absolute = 1e-6))
+  expect_identical(res1, res2)                           # determinism
+  expect_false(any(grepl("damping engaged", msgs)))      # fast-path stays put
+})
+
+test_that("WU-3: damped mode takes strictly more iters than stable on same input (spec §7)", {
+  # Use LBW_IEPPA_FORCE_DAMPING to run the SAME feasible input twice: once
+  # stable (alpha=1.0, fast path), once damped (alpha=0.5, geometric blend).
+  # Spec §7 / CTO B5: monotone `iter_damped > iter_stable` assertion.
+  set.seed(314)
+  n <- 3000L
+  K <- 6L
+  df <- as.data.frame(replicate(K, sample(1:3, n, replace = TRUE), simplify = FALSE))
+  names(df) <- paste0("m", 1:K)
+  for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
+  targets <- setNames(
+    replicate(K, c(a = 0.5, b = 0.3, c = 0.2), simplify = FALSE),
+    paste0("m", 1:K)
+  )
+
+  run_one <- function(force_damping) {
+    Sys.setenv(LBW_IEPPA_FORCE_DAMPING = force_damping)
+    on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
+    msgs <- capture.output(
+      res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+                                      max_weight = 10, min_weight = 0,
+                                      max_iterations = 500L,
+                                      convergence = list(absolute = 1e-5),
+                                      verbose = 1L)),
+      type = "output"
+    )
+    # Final verbose line: "iEPPA <status> in <N> iters, errRp=..."
+    m <- tail(grep("in [0-9]+ iters", msgs, value = TRUE), 1)
+    iter <- as.integer(sub(".*in ([0-9]+) iters.*", "\\1", m))
+    list(res = res, iter = iter)
+  }
+
+  r_stable <- run_one("off")
+  r_damped <- run_one("on")
+  expect_true(all(is.finite(r_stable$res$weights)))
+  expect_true(all(is.finite(r_damped$res$weights)))
+  expect_gt(r_damped$iter, r_stable$iter)  # monotone; spec §7
+})

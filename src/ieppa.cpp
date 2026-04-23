@@ -165,6 +165,32 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
     bool linear_fallback_used = false;
 
+    // WU-3: adaptive damping. Default alpha=1.0 (stable mode, byte-identical to pre-WU-3).
+    // Auto-switch to alpha=0.5 (damped mode) when any bucket's streak reaches
+    // kInfeasPersistence/2 = 2. Latched per-solve; does not revert.
+    double alpha = 1.0;
+    bool damped_latched = false;
+    // Test-only override (parallel to LBW_IEPPA_FORCE_PATH): "on"|"off"|unset.
+    // Always compiled; microsecond getenv cost. Enables falsifiable
+    // iter_damped > iter_stable assertion (spec §7, CTO B5).
+    const char* force_damp = std::getenv("LBW_IEPPA_FORCE_DAMPING");
+    bool force_damping_on  = (force_damp != nullptr && std::strcmp(force_damp, "on")  == 0);
+    bool force_damping_off = (force_damp != nullptr && std::strcmp(force_damp, "off") == 0);
+    if (force_damping_on) { alpha = 0.5; damped_latched = true; }
+    auto maybe_engage_damping = [&]() {
+        if (damped_latched || force_damping_off) return;
+        for (int idx = 0; idx < total_cats; idx++) {
+            if (infeas_streak[idx] >= kInfeasPersistence / 2) {
+                alpha = 0.5;
+                damped_latched = true;
+                if (st.verbose >= 1) {
+                    st.log("iEPPA: mid-streak detected; damping engaged (alpha=0.5).");
+                }
+                return;
+            }
+        }
+    };
+
     // Scratch for linear-space sweep: per-category accumulators (max categories per margin).
     int max_cat = 0;
     for (int k = 0; k < st.K; k++) if (st.cat_counts[k] > max_cat) max_cat = st.cat_counts[k];
@@ -174,6 +200,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
+        maybe_engage_damping();
 
         // Margin sweep: branched by path.
         bool overflow_trip = false;
@@ -214,14 +241,27 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         continue;
                     }
                     record_nonempty(k, j);
-                    double f_kj_new = (st.targets[k][j] * ct.W_input) / S_lin[j];
-                    if (!std::isfinite(f_kj_new) || f_kj_new > kLinearOverflowTrip) {
+                    double naive = (st.targets[k][j] * ct.W_input) / S_lin[j];
+                    if (!std::isfinite(naive) || naive > kLinearOverflowTrip) {
                         overflow_trip = true;
                         any_trip = true;
                         break;
                     }
-                    rescale_lin[j] = f_kj_new * inv_f_old_lin[j];
-                    f_lin[off + j] = f_kj_new;
+                    double new_f;
+                    if (alpha == 1.0) {
+                        new_f = naive;
+                    } else {
+                        double f_old = f_lin[off + j];
+                        new_f = std::pow(f_old, 1.0 - alpha)
+                              * std::pow(naive, alpha);
+                    }
+                    if (!std::isfinite(new_f) || new_f > kLinearOverflowTrip) {
+                        overflow_trip = true;
+                        any_trip = true;
+                        break;
+                    }
+                    rescale_lin[j] = new_f * inv_f_old_lin[j];
+                    f_lin[off + j] = new_f;
                 }
                 if (any_trip) break;
 
@@ -248,6 +288,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 persistent_infeas_pairs.clear();
+                alpha = 1.0;
+                damped_latched = false;
+                if (force_damping_on) { alpha = 0.5; damped_latched = true; }
                 iter = 0;  // outer for-loop increments -> iter=1 next round
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
@@ -288,7 +331,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     }
                     record_nonempty(k, j);
                     double log_target = std::log(st.targets[k][j] * ct.W_input);
-                    lf[cat_offset[k] + j] = log_target - log_S_kj;
+                    if (alpha == 1.0) {
+                        lf[cat_offset[k] + j] = log_target - log_S_kj;
+                    } else {
+                        double lf_old = lf[cat_offset[k] + j];
+                        lf[cat_offset[k] + j] =
+                            (1.0 - alpha) * lf_old
+                            + alpha * (log_target - log_S_kj);
+                    }
                 }
             }
         }
@@ -335,6 +385,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 persistent_infeas_pairs.clear();
+                alpha = 1.0;
+                damped_latched = false;
+                if (force_damping_on) { alpha = 0.5; damped_latched = true; }
                 iter = 0;
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space X_tilde overflow; fallback to log-space.");
