@@ -1,6 +1,15 @@
 # iEPPA Convergence Hardening Design
 
-**Status:** Draft (pre design-review-gate)
+**Status:** Draft rev 2 (post design-review-gate iter 1: 1 APPROVED / 4 NEEDS_REVISION)
+
+**Rev 2 blockers resolved:**
+- Architect B1: WU-3 damping formula corrected to geometric blend (f_new = f_old^(1-α) · naive^α), matching log-space `lf_new = α·Δ + (1-α)·lf_old` — prior formula dropped f_old and converged to wrong marginal.
+- Security B1: kLinearOverflowTrip derived at runtime from `pow(DBL_MAX/2.0, 1.0/K)` — prior 1e100 fixed threshold overflowed at K=64 (1e100^63 ≫ DBL_MAX).
+- Designer B1: ieppa_damping is internal-only (not exposed in rk_params_t); WU-3 becomes purely auto-triggered per-call stabilization. No API change.
+- Designer B2: R/Python wrappers update error-message strings to distinguish persistent vs structural infeasibility.
+- CTO B1: WU-2 adds test-only env var `LBW_IEPPA_FORCE_PATH=linear|log` hook (build-time guarded; ignored in release R CMD INSTALL without explicit define).
+- CTO B2: merge-gate success criterion rephrased from "errRp < 1e-3 in <30s" (unsupported; raking also stalls at 8.25e-3 on stepstone) to "iEPPA returns RK_OK with errRp no worse than raking's errRp on the same input" (defensible, falsifiable).
+
 **Author:** Dennis Alexis Valin Dittrich
 **Date:** 2026-04-23
 **Triggers:**
@@ -93,6 +102,18 @@ if (is_infeasible && res.status == RK_ERR_NOCONV)
 - `targets[k][j] <= 0.0` skip: structurally unconstrained categories never count toward infeasibility.
 - Reset on non-empty: a bucket that recovers doesn't carry historical transient counts.
 
+**Wrapper error-message update (per designer review iter 1):** both `R/harvest.R` and `python/leafblower/_harvest.py` hardcode the infeasibility message:
+```r
+stop("leafblower: infeasible problem — empty cell with positive target.")
+```
+Rev 2 update (same commit as WU-1 source changes):
+```r
+stop("leafblower: infeasible problem — persistent empty cell with positive target (detected after N consecutive outer iterations).")
+```
+And equivalent Python `raise RuntimeError(...)`. Distinguishes persistent-iteration infeasibility from input-validation infeasibility (rk_calibrate pre-check). Both cases use `RK_ERR_INFEAS=2`; the message disambiguates.
+
+**Oscillation edge case (per architect review iter 1):** if a bucket oscillates empty ↔ non-empty such that streak resets before reaching kInfeasPersistence, WU-1 will NOT flag INFEAS. On genuinely infeasible inputs with K ≥ 3 this can happen. Outcome: solver hits `max_iter`, returns `RK_ERR_NOCONV` with high errRp. Acceptable: user sees "did not converge" warning rather than "infeasible." A future WU could promote these via a second-order check (e.g., aggregate `sum(infeas_streak) > K * kInfeasPersistence / 2`), but not in this design — keeps WU-1 focused.
+
 **Why not alternative (a) loosen threshold:** `1e-15 → 1e-12` masks transient AND structural infeasibility. The persistence check differentiates them. Strictly better safety.
 
 ## 5. WU-2 Linear-space dispatch at dense compression
@@ -125,29 +146,57 @@ for (int k = 0; k < st.K; k++) {
 }
 ```
 
-**Overflow handling:** track max `f` per sweep. If `max_f > kLinearOverflowTrip = 1e100`, abort linear-space path, re-initialize from `X_init` in log-space, continue in log-space from iter 0. One-shot fallback per solve. Rare; provides safety without ongoing overhead.
+**Overflow handling:** track max `f` per sweep. Trip threshold is derived at runtime, not a fixed constant (per security review — at K=64 the inner-loop accumulation `∏_m f[m]` can reach `trip^K`, so a fixed `1e100` would allow products of `1e6400` far beyond DBL_MAX):
+```cpp
+const double kLinearOverflowTrip = std::pow(std::numeric_limits<double>::max() / 2.0, 1.0 / st.K);
+// At K=20: ~1e15
+// At K=64: ~4.8e4
+// Always strictly less than DBL_MAX^(1/K); the K-way product in the S_kj inner loop
+// cannot reach DBL_MAX/2 before this trip fires.
+```
+
+On trip: abort linear-space path, fully reset solver state (`lf`, `W`, `X_tilde`, `X`, `infeas_streak`, `persistent_infeas_pairs`, `iter` counter), re-initialize from `X_init`, switch to log-space, continue from iter 0. One-shot per solve (a boolean `linear_fallback_used` prevents re-entry). Rare; provides safety without ongoing overhead.
+
+**State-clean fallback checklist** (per architect review iter 1): the reset must clear every piece of solver state set by the linear-space path. Explicit enumeration:
+- `lf[]` zeroed (log-space path will reinitialize from `X_init`)
+- `W[c]` reset to 1.0
+- `X_tilde[c]` / `X[c]` reset to `X_init[c]`
+- `infeas_streak[idx]` reset to 0 for all idx
+- `persistent_infeas_pairs` cleared
+- `iter` counter reset to 0 (outer loop restarts; the `inner_max_iter` budget is re-granted)
+- `alpha` reset to 1.0 (stable mode; WU-3 re-triggers if streak re-builds)
 
 **Why not always-linear:** at extreme compression (M_cell ≪ n) with tight bounds, `f[k][j]` can grow unboundedly between sweeps before the capacity block catches up. Log-space handles this gracefully; linear-space overflows. The ratio threshold selects the regime where log-space cost isn't justified.
 
 ## 6. WU-3 Adaptive damping (hardening)
 
-**Motivation:** even after WU-1, occasional transient near-zero cells still occur. Damping each Sinkhorn update reduces the amplitude of transients:
+**Motivation:** even after WU-1, occasional transient near-zero cells still occur. Damping each Sinkhorn update reduces the amplitude of transients.
+
+**Corrected formula (rev 2, per architect review):** Damping is a geometric blend of the previous factor with the naive full step — NOT `pow(naive, alpha)` alone, which would discard `f_old` and converge to a wrong marginal. Correct linear-space:
 ```cpp
 // Instead of:
 // f[k][j] = (target * W) / S_kj
 // Use:
-const double alpha = 0.8;
-double naive = (target * W) / S_kj;
-f[k][j] = std::pow(naive, alpha);  // damped step
+double f_old = exp(lf[cat_offset[k] + j]);    // or stored directly in linear path
+double naive = (st.targets[k][j] * ct.W_input) / S_kj;
+// Geometric blend: at alpha=1 full step (f_new = naive), at alpha=0 no step (f_new = f_old).
+double f_new = std::pow(f_old, 1.0 - alpha) * std::pow(naive, alpha);
+// Equivalent in log-space (preferred form for the existing log-space path):
+// lf_new = (1 - alpha) * lf_old + alpha * (log_target - log_S_kj)
 ```
 
-At `alpha = 1.0` equivalent to current; at `alpha = 0.5` a half-step; at `alpha → 0` no update. Standard Sinkhorn stabilization technique (see Peyré-Cuturi 2019 §4.4).
+Standard Sinkhorn stabilization (Peyré-Cuturi 2019 §4.4 equation 4.52 "softened updates").
 
-**Cost:** one extra `std::pow` call per (margin, category) per iteration. Cheap. Convergence slows by factor proportional to 1/alpha — at alpha=0.8, ~25% more iterations required to reach same tol.
+**Auto-triggering (no API addition):** ieppa_damping remains a solver-internal constant. Default `alpha = 1.0`. When WU-1's `infeas_streak[k][j]` reaches `kInfeasPersistence / 2` (mid-streak), auto-enable `alpha = 0.5` for subsequent sweeps for THAT solve. Resets between solves. Two states:
 
-**Default:** `alpha = 1.0` (current behavior). Enable via `rk_params_t` new field `ieppa_damping` (double, default 1.0). Users who hit edge cases can set 0.5-0.8 for stability.
+- **Stable mode (default):** alpha=1.0, byte-identical to pre-WU-3 behavior. Applied until any bucket hits persistence/2.
+- **Damped mode (auto):** alpha=0.5, applies to ALL margin updates (simplest). Triggered when transient stress detected.
 
-**Why separate from WU-1:** independent mechanism. WU-1 fixes the latching logic; WU-3 reduces the frequency of transients in the first place. Additive benefits.
+Transition latched per-solve; does not revert even if streak resets (prevents oscillation between modes).
+
+**Cost:** two extra `std::pow` calls per (margin, category) when damped; zero cost in stable mode (branch-predicted no-op). Convergence slows by ~2× in damped mode; acceptable because damped mode only engages when WU-1 is already headed for NOCONV without it.
+
+**Why separate from WU-1:** independent mechanism. WU-1 fixes the latching logic (what gets reported); WU-3 reduces the frequency of transients in the first place (makes WU-1 less likely to fire). Additive benefits, composed via the `infeas_streak` state WU-1 already maintains.
 
 ## 7. Testing
 
@@ -158,9 +207,10 @@ At `alpha = 1.0` equivalent to current; at `alpha = 0.5` a half-step; at `alpha 
 - Truly infeasible input (one target cell has no matching observations): returns RK_ERR_INFEAS on both pre- and post-fix (regression guard for genuine detection)
 
 **WU-2 test:** extend `tests/testthat/test-ieppa-faithful.R`:
-- Dense regime test (M_cell/n ≈ 1, n=10000): confirm result weights identical (to 1e-8) between log-space and linear-space paths
-- Sparse regime test (M_cell/n ≈ 0.01, n=10000): confirm log-space path selected, no regression
-- Overflow synthesis (very tight bounds, high K): confirm linear-space fallback to log-space fires, final result correct
+- Dense regime test (M_cell/n ≈ 1, n=10000): confirm result weights identical (to 1e-8) between log-space and linear-space paths.
+  **Force-path mechanism (per CTO review iter 1):** add environment variable `LBW_IEPPA_FORCE_PATH` read once at solver entry. Values: `linear`, `log`, or unset (auto-dispatch). Setting forces one path regardless of M_cell/n. Guarded by `#ifdef LBW_TEST_HOOKS` (defined only when package built with the test harness — default ON for R CMD INSTALL, OFF for CRAN release build). This is a test-only escape hatch, not a public API.
+- Sparse regime test (M_cell/n ≈ 0.01, n=10000): confirm log-space path selected (verify via verbose=1 log line), no regression.
+- Overflow synthesis (very tight bounds, high K): confirm linear-space fallback to log-space fires, final result correct. Force `LBW_IEPPA_FORCE_PATH=linear` at start, observe fallback trip + completion.
 
 **WU-3 test:** in `tests/testthat/test-ieppa-faithful.R`:
 - Default alpha=1.0: byte-identical to current behavior (regression check)
@@ -202,7 +252,8 @@ Three commits (one per WU), each with:
 - All existing tests pass (`FAIL 0`)
 - Integration verification on stepstone data (WU-1 only — post-fix must succeed)
 
-Post-merge acceptance:
-- Stepstone full data: `method="ieppa"` returns `RK_OK` with `errRp < 1e-3`
-- kk1204 regime: `method="ieppa"` per-iter cost within 2× of raking (vs current 22×)
-- All existing test suite: `[FAIL 0 | PASS ≥ 170]`
+Post-merge acceptance (rev 2: rephrased per CTO review iter 1 — prior claim "errRp < 1e-3" unsupported given raking also stalls at 8.25e-3 on stepstone):
+- **Stepstone full data**: `method="ieppa"` no longer returns `RK_ERR_INFEAS` (false-positive eliminated). Returned errRp is **no worse than raking's errRp on the same input** (raking: 8.25e-3; iEPPA must be ≤ this, same or stricter). Wall-clock ≤ 2× raking's 2.3s on this data (i.e., ≤5s target).
+- **kk1204 regime** (M_cell/n=1.0): `method="ieppa"` per-iter cost within 2× of raking (vs current 22×) when linear-space dispatch fires.
+- **All existing test suite**: `[FAIL 0 | PASS ≥ 170]`.
+- **No false-positive INFEAS regressions**: on the existing 169-test suite, any test previously returning RK_OK must still return RK_OK (no new RK_ERR_INFEAS from tightened persistence logic).
