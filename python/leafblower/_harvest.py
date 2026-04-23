@@ -171,8 +171,13 @@ def harvest(
     if w_mean > 0:
         weights_out = weights_out / w_mean
 
-    # Post-normalization clamp to handle numerical precision errors from solver expansion
-    weights_out = np.clip(weights_out, min_weight, max_weight)
+    # NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping
+    # here would break sum(weights * d) == target totals when per-cell mixing
+    # parameters d are non-uniform: individual weights may legitimately exceed
+    # per-cell bounds after expansion even when cell aggregates are in range.
+    # The iEPPA/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
+    # is the invariant that preserves calibration. See
+    # tests/testthat/test-ieppa-nonuniform-d.R.
 
     # weights_out is already a copy (contract from _bindings.cpp)
     if not attach_weights:

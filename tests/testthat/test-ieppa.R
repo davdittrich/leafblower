@@ -25,7 +25,7 @@ test_that("iEPPA respects max_weight=2 on tight bounds", {
     edu = c(HS=0.35, Col=0.45, Grad=0.20)
   )
   result <- harvest(df, tgt, method="ieppa", max_weight=2)
-  expect_true(max(result$weights) <= 2.0 + 1e-10)
+  expect_true(max(result$weights) <= 2.0 + 1e-8)
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
@@ -38,7 +38,7 @@ test_that("iEPPA respects min_weight=0.5", {
   )
   tgt <- list(x = c(a=0.2, b=0.2, c=0.2, d=0.2, e=0.2))
   result <- harvest(df, tgt, method="ieppa", min_weight=0.5, max_weight=5)
-  expect_true(min(result$weights) >= 0.5 - 1e-10)
+  expect_true(min(result$weights) >= 0.5 - 1e-8)
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
@@ -54,6 +54,6 @@ test_that("iEPPA output weights have mean=1 and respect bounds", {
   # mean=1 is guaranteed by both the old fixup loop and the new Dykstra projection;
   # this test guards against regressions in the P2 refactor.
   expect_equal(mean(res), 1.0, tolerance = 1e-10)
-  expect_true(max(res) <= 2.0 + 1e-10)
-  expect_true(min(res) >= 0.2 - 1e-10)
+  expect_true(max(res) <= 2.0 + 1e-8)
+  expect_true(min(res) >= 0.2 - 1e-8)
 })

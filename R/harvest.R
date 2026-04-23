@@ -106,8 +106,13 @@ harvest <- function(
   # Normalize to mean=1 (preserves calibration constraints which are proportional).
   weights <- weights / mean(weights)
 
-  # Post-normalization clamp to handle numerical precision errors from solver expansion
-  weights <- pmax(pmin(weights, max_weight), min_weight)
+  # NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping
+  # here would break sum(weights * d) == target totals when per-cell mixing
+  # parameters d are non-uniform: individual weights may legitimately exceed
+  # per-cell bounds after expansion even when cell aggregates are in range.
+  # The iEPPA/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
+  # is the invariant that preserves calibration. See
+  # tests/testthat/test-ieppa-nonuniform-d.R.
 
   if (calib_result$status == 1L)
     warning("leafblower: calibration did not converge (max_error=",

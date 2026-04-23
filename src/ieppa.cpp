@@ -265,12 +265,20 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
 
     // Expand to obs weights: w[i] = d[i] * X[c] / X_init[c]
-    // Clamp to [min_weight, max_weight] to handle numerical precision errors.
+    //
+    // NOTE: No per-observation clamp here. The iEPPA solver enforces the
+    // per-cell aggregate bound X[c] in [min_weight, max_weight] * |cell|.
+    // Clamping per-observation weights (w[i] = d[i] * X[c] / X_init[c]) to
+    // [min_weight, max_weight] would break the cell aggregate invariant
+    // sum_{i in c} w[i] == X[c] whenever d[i] is non-uniform: the ratio
+    // d_max / d_mean can legitimately push individual weights outside the
+    // per-cell bounds even when the cell total is in range. Clamping silently
+    // violated sum w == target marginals in that regime. See test
+    // tests/testthat/test-ieppa-nonuniform-d.R.
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
         if (X_init[c] > 0.0) {
-            st.weights[i] = std::clamp(st.weights[i] * X[c] / X_init[c],
-                                       st.min_weight, st.max_weight);
+            st.weights[i] = st.weights[i] * X[c] / X_init[c];
         } else {
             st.weights[i] = 0.0;
         }
