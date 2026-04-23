@@ -2,6 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Rev 3 (post plan-review-gate iter 2):** Iter 2 passed Feasibility; Completeness + Scope FAIL. Fixes applied:
+- [C] Step 3.4.1: added overflow detection (`max_log_X_tilde > 700` AND uncapped cell) → RK_ERR_NOCONV with actionable message (spec §8 requirement)
+- [C] Step 3.4.1: added verbose=1 entry log with compression ratio; verbose=1 exit log with status; verbose=2 log10(f[k][j]) range per margin
+- [C] Step 3.11c.1: new step for `man/harvest.Rd` update (spec §10)
+- [C] Step 3.11b.1: new step for `tests/testthat/test-algo-selection.R` adapt
+- [C] Step 3.11.1: test-compare.R now 20 datasets (matching spec §6.2)
+- [C] Step 3.7.2: includes `alg_names` update in R/harvest.R (line ~104)
+- [S] Step 3.13.1: NEWS.md stripped of migration instruction ("Users should switch…") per user directive "no migration note"; reduced to factual changelog
+- [S] Step 3.13.1: dropped phantom `attr(result, "M_cell")` claim — plan doesn't wire it; kept as follow-up WU
+
 **Rev 2 (post plan-review-gate iter 1):** Fixed 4 feasibility blockers from Gemini Feasibility reviewer (Completeness + Scope reviewers timed out; will rerun iter 2):
 - Step 1.3.2: registration array name `call_methods` (NOT `CallEntries`)
 - Step 3.6.2: `select_algorithm` function does not exist; resolution is inline at `c_api.cpp:151-153`. Revised to modify the inline ternary in-place.
@@ -719,6 +729,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
     bool is_infeasible = false;
     std::vector<std::pair<int,int>> infeasible_pairs;
 
+    if (st.verbose >= 1) {
+        char msg[256];
+        std::snprintf(msg, sizeof(msg),
+                      "iEPPA: n=%d K=%d M_cell=%d compression=%.1fx",
+                      st.n, st.K, ct.M_cell,
+                      (double)st.n / (double)std::max(ct.M_cell, 1));
+        st.log(msg);
+    }
+
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -780,7 +799,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
         }
 
-        // Compute X_tilde via clip-before-exp.
+        // Compute X_tilde via clip-before-exp. Detect overflow on uncapped cells.
+        bool overflow_detected = false;
+        double max_log_X_tilde = -std::numeric_limits<double>::infinity();
         for (int c = 0; c < ct.M_cell; c++) {
             if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
             double s = std::log(X_init[c]);
@@ -788,8 +809,26 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 int gm = ct.g_per_cell[m][c];
                 s += lf[cat_offset[m] + gm];
             }
+            if (s > max_log_X_tilde) max_log_X_tilde = s;
             double s_clip = (s > kLogClip) ? kLogClip : s;
+            if (s > kLogClip && U_cell[c] >= 1e299) {
+                // Uncapped cell would overflow: log-factor drift beyond double precision.
+                overflow_detected = true;
+            }
             X_tilde[c] = std::exp(s_clip);
+        }
+        if (overflow_detected) {
+            res.status = RK_ERR_NOCONV;
+            res.max_error = std::numeric_limits<double>::infinity();
+            if (st.verbose >= 1) {
+                char msg[256];
+                std::snprintf(msg, sizeof(msg),
+                              "iEPPA: log-factor overflow (max_log_X_tilde=%.1f > 700) "
+                              "indicates ill-conditioning; try looser max_weight or "
+                              "tighter tol_abs, or method=raking.", max_log_X_tilde);
+                st.log(msg);
+            }
+            break;
         }
 
         // Capacity block: X[c] = clamp(X_tilde[c], L_c, U_c); W[c] updated for next iter.
@@ -827,6 +866,26 @@ IEPPAResult ieppa_solve(CalibState& st) {
                               "iEPPA iter %d: errRp=%.3e n_cap=%d", iter, errRp, n_cap);
                 st.log(msg);
             }
+            if (st.verbose >= 2) {
+                // verbose=2: log10 max/min of f[k][j] per margin for ill-conditioning debug.
+                char msg[256];
+                for (int k = 0; k < st.K; k++) {
+                    double lf_max = -std::numeric_limits<double>::infinity();
+                    double lf_min =  std::numeric_limits<double>::infinity();
+                    for (int j = 0; j < st.cat_counts[k]; j++) {
+                        double v = lf[cat_offset[k] + j];
+                        if (v > lf_max) lf_max = v;
+                        if (v < lf_min) lf_min = v;
+                    }
+                    // log10(exp(v)) = v / ln(10)
+                    std::snprintf(msg, sizeof(msg),
+                                  "  margin=%d: log10(f) range [%.2f, %.2f]",
+                                  k + 1,
+                                  lf_min / 2.302585,
+                                  lf_max / 2.302585);
+                    st.log(msg);
+                }
+            }
             if (errRp < st.tol_abs) {
                 res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
                 break;
@@ -846,6 +905,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     if (is_infeasible && res.status == RK_ERR_NOCONV) {
         res.status = RK_ERR_INFEAS;
+    }
+
+    if (st.verbose >= 1) {
+        const char* status_label =
+            (res.status == RK_OK) ? "converged" :
+            (res.status == RK_ERR_NOCONV) ? "max_iter exhausted (NOCONV)" :
+            (res.status == RK_ERR_INFEAS) ? "infeasible" : "error";
+        char msg[256];
+        std::snprintf(msg, sizeof(msg),
+                      "iEPPA %s in %d iters, errRp=%.3e",
+                      status_label, res.iterations, res.max_error);
+        st.log(msg);
     }
 
     if (st.verbose >= 1 && is_infeasible) {
@@ -976,20 +1047,16 @@ if (result->message[0] == '\0') {
 
 - [ ] **Step 3.7.1: Update r_bridge.cpp**
 
-Locate the method-string → algorithm mapping in `src/r_bridge.cpp`. It likely has a sequence like:
-```cpp
-if (std::strcmp(m, "ieppa") == 0) alg = RK_ALG_IEPPA;
-else if (std::strcmp(m, "lbfgsb") == 0) alg = RK_ALG_LBFGSB;
-...
-```
-Add a branch for `"raking"`:
+Locate the method-string → algorithm mapping in `src/r_bridge.cpp`. Add a branch for `"raking"` alongside existing ieppa/lbfgsb:
 ```cpp
 else if (std::strcmp(m, "raking") == 0) alg = RK_ALG_RAKING;
 ```
 
-- [ ] **Step 3.7.2: Update harvest.R match.arg**
+- [ ] **Step 3.7.2: Update harvest.R match.arg AND alg_names**
 
-Modify: `R/harvest.R` — locate the `map_method` helper (current line ~141) and add `"raking"`:
+Modify: `R/harvest.R` — two edits:
+
+(a) `map_method` helper (~line 141):
 ```r
 map_method <- function(method, verbose = 0) {
   method <- tolower(method)
@@ -1002,6 +1069,11 @@ map_method <- function(method, verbose = 0) {
   }
   match.arg(method, c("ieppa", "lbfgsb", "raking"))
 }
+```
+
+(b) `alg_names` at ~line 104 — currently `c("", "ieppa", "lbfgsb")`. Update to include `"raking"` so `attr(data, "algorithm")` correctly reports the renamed hybrid:
+```r
+alg_names <- c("", "ieppa", "lbfgsb", "raking")  # index matches RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3
 ```
 
 ### Step 3.8: Update Python bindings
@@ -1129,9 +1201,9 @@ File: `tests/testthat/test-compare.R`
 ```r
 context("cross-algorithm equivalence on feasible inputs")
 
-test_that("ieppa, raking, lbfgsb agree to 1e-3 on 10 random feasible datasets", {
+test_that("ieppa, raking, lbfgsb agree to 1e-3 on 20 random feasible datasets", {
   set.seed(20260423)
-  for (trial in 1:10) {
+  for (trial in 1:20) {
     n <- sample(c(1000, 5000, 10000), 1)
     K <- sample(3:5, 1)
     cats <- sample(3:5, K, replace = TRUE)
@@ -1159,6 +1231,37 @@ test_that("ieppa, raking, lbfgsb agree to 1e-3 on 10 random feasible datasets", 
   }
 })
 ```
+
+### Step 3.11b: Update test-algo-selection.R
+
+- [ ] **Step 3.11b.1: Adapt algo-selection regression test**
+
+```bash
+grep -n "method\s*=\s*\"auto\"\|RK_ALG_IEPPA\|RK_ALG_LBFGSB" tests/testthat/test-algo-selection.R 2>/dev/null | head
+```
+If tests there assert specific AUTO routing behavior based on old complexity/max_weight heuristics: update assertions to reflect the new unconditional AUTO→IEPPA mapping. Existing tests that pin `method="ieppa"` or `method="lbfgsb"` explicitly are unaffected.
+
+If file does not exist: skip (no-op).
+
+### Step 3.11c: Update man/harvest.Rd
+
+- [ ] **Step 3.11c.1: Update roxygen / Rd for new method values**
+
+Locate the `@param method` documentation. Currently it documents `"ieppa"`, `"lbfgsb"`, etc. Update to:
+```
+@param method One of "auto", "ieppa", "lbfgsb", "raking".
+  \itemize{
+    \item \code{"ieppa"}: paper-faithful algBCD at C=0 (cell-compressed
+      Sinkhorn, Chu-Liang-Toh-Yang 2022 arXiv:2011.14312).
+    \item \code{"raking"}: classical IPF + Dykstra box + hyperplane
+      projections (Deming-Stephan 1940 / Csiszar 1975 + Boyle-Dykstra
+      1986). Renamed from the prior misnamed "iEPPA" hybrid.
+    \item \code{"lbfgsb"}: L-BFGS-B on the Deville-Sarndal logit dual.
+    \item \code{"auto"} (default): currently routes unconditionally to
+      \code{"ieppa"}. Benchmark-driven routing refinement is planned.
+  }
+```
+Regenerate `man/harvest.Rd` via `devtools::document()` OR hand-edit the Rd file if roxygen isn't used.
 
 ### Step 3.12: Update PRD
 
@@ -1192,7 +1295,7 @@ Add new §US-005b for raking (after §US-005):
 
 - [ ] **Step 3.13.1: Create NEWS.md**
 
-File: `NEWS.md`
+File: `NEWS.md` — changelog only, no migration instructions per user directive:
 ```markdown
 # leafblower (development)
 
@@ -1202,27 +1305,29 @@ File: `NEWS.md`
   Yang 2022, arXiv:2011.14312) at C=0, using cell-compressed representation
   with log-space Sinkhorn factors and a capacity BCD block. The previous
   implementation was an IPF+Dykstra hybrid misnamed "iEPPA"; it is renamed
-  `method="raking"`. Users who relied on the previous `method="ieppa"`
-  behavior should switch to `method="raking"`.
+  `method="raking"`.
 
 * New `method="raking"` exposes the renamed classical IPF+Dykstra hybrid
   (Deming-Stephan 1940 / Csiszár 1975 cyclic IPF + Boyle-Dykstra 1986
-  additive projections). It is the same code as pre-rename `method="ieppa"`.
+  additive projections). Same implementation as pre-rename `method="ieppa"`.
 
 * `method="auto"` continues to route to `method="ieppa"` (now the faithful
-  algBCD). Benchmark-driven routing refinement is deferred to a follow-up
-  release.
+  algBCD).
 
 ## New features
 
 * Cell-compressed computation: faithful iEPPA operates at cell-level
   (unique (g_1,...,g_K) tuples) rather than observation-level, yielding
   up to 1000× speedup on surveys with low tuple diversity.
-
-* Result diagnostic: `harvest()` returns include `M_cell` and
-  `n_cap_active` via `attr(result, "M_cell")` and
-  `attr(result, "n_cap_active")` for iEPPA calibrations.
 ```
+
+**Removed from this NEWS.md entry vs prior drafts:**
+- "Users who relied on... should switch to method='raking'" — this is a
+  migration instruction per user directive; excluded.
+- Claim about `attr(result, "M_cell")` diagnostic attribute — plan step 3.6.3
+  populates `IEPPAResult.M_cell` internally but does NOT wire it through
+  `r_bridge.cpp` → R `attr()`. Claim removed; diagnostic attribute exposure
+  is a follow-up WU per spec §13.
 
 ### Step 3.14: Build + verify merge gate
 
