@@ -1,3 +1,36 @@
+// raking.cpp — classical bounded raking via cyclic IPF + Dykstra projections.
+//
+// Algorithm composition (no published proof for the hybrid; convergence is
+// empirical, verified by the test suite):
+//   1. Cyclic IPF marginal update (Deming & Stephan 1940; Csiszar 1975
+//      proves I-projection convergence onto the intersection of margin-
+//      constraint hyperplanes for feasible problems).
+//   2. Additive Dykstra box projection onto [min_weight, max_weight]^n
+//      (Boyle & Dykstra 1986). Euclidean corrections accumulate in q[i].
+//   3. Additive Dykstra hyperplane projection onto {w : sum(w) = n}.
+//      Euclidean corrections accumulate in q_hyp[i].
+//
+// The composition of multiplicative (IPF) and Euclidean (Dykstra)
+// projections is not covered by Boyle-Dykstra's single-metric theorem. The
+// inline comment below is explicit: Euclidean Dykstra corrections are NOT
+// applied to the IPF step — they diverge against multiplicative updates.
+// Convergence is therefore empirical-only for this hybrid.
+//
+// History: originally named "iEPPA" after Chu-Liang-Toh-Yang (2022,
+// arXiv:2011.14312), but the paper's algorithm is the inexact Entropic
+// Proximal Point Algorithm for CMOT LP — shares no ingredients with this
+// solver. Renamed to "raking" in commit 20d6ebf (2026-04-23). The
+// paper-faithful iEPPA implementation lives in src/ieppa.cpp.
+//
+// References (classical IPF family):
+//   Deming W. E. & Stephan F. F. (1940), "On a Least Squares Adjustment of
+//     a Sampled Frequency Table", Ann. Math. Stat. 11, 427-444.
+//   Csiszar I. (1975), "I-Divergence Geometry of Probability Distributions
+//     and Minimization Problems", Ann. Probab. 3, 146-158.
+//   Boyle J. P. & Dykstra R. L. (1986), "A Method for Finding Projections
+//     onto the Intersection of Convex Sets in Hilbert Spaces", Advances in
+//     Order Restricted Statistical Inference, Springer.
+
 #include "lbw_config.h"
 #include "raking.hpp"
 #include "leafblower.h"
