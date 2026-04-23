@@ -1,20 +1,22 @@
 # Faithful iEPPA Solver Design
 
-**Status:** Draft rev 2 (post design-review-gate iter 1)
+**Status:** Draft rev 3 (post design-review-gate iter 2)
 **Author:** Dennis Alexis Valin Dittrich
 **Date:** 2026-04-23
 **Supersedes:** None (new solver)
 **Related:** The current `src/ieppa.cpp` is a misnamed IPF+Dykstra hybrid
 (commit `b13fda4`). This spec introduces the paper-faithful solver and renames
 the existing one to `raking`.
-**Rev 2 changes:** Fixed 13 design-review-gate iter-1 findings: (a) cell
-expansion formula for non-uniform initial weights (§5.3); (b) X̃ overflow
-handling (§8); (c) Σw>0 guard + zero-cell handling (§8); (d) K cap ≤ 64 (§8);
-(e) sort-based cell dedup replaces hash map (§5.2); (f) NEWS.md entry
-required (§10); (g) verbose contract spec (§8b); (h) benchmark data
-generation (§7.5); (i) prod_all full recompute (§2.3); (j) make_plots 3D
-refactor scoped (§13); (k) atomic commit constraint (§13); (l) test seed
-(§6.2); (m) user-facing use cases (§1b).
+**Rev 3 changes (iter 2 gate):** (a) X̃ overflow — replaced incorrect
+global-scalar renormalization with log-space factors + clip-before-exp
+(architect critical finding); (b) `"raking"` name clarified in §4.3 as "IPF
++ Dykstra" hybrid with explicit docstring note; (c) §1b tightened: cell-path
+degenerates gracefully for n < 10k, not "no benefit"; (d) verbose
+infeasibility enumerates all (k,j) pairs (designer); (e) §12 aligned with §10
+(NEWS.md required, version bump skipped); (f) NaN check on S_kj and on
+group_ids entries (security); (g) merge gate explicit (CTO).
+
+**Rev 2 changes:** Fixed 13 design-review-gate iter-1 findings.
 
 ---
 
@@ -58,9 +60,12 @@ margins) on n=500k-1M with moderate cat_counts — current hybrid is O(n·K) per
 sweep; faithful iEPPA is O(M_cell·K) with `M_cell << n`. **Visible benefit:**
 enables more margins per calibration without linear cost growth.
 
-**Non-benefit (documented):** for n < 10k or `M_cell ≈ n`, faithful iEPPA
-gives no measurable speedup over raking. AUTO routing currently still selects
-IEPPA in this regime; refinement is a follow-up WU gated on benchmark.
+**Graceful degeneracy (documented):** for n < 10k or `M_cell ≈ n`, faithful
+iEPPA's cell-path collapses to obs-level work (M_cell = n → no compression
+speedup, but asymptotic cost identical to raking). Measured wall-clock is
+comparable (± small constant), not a regression. AUTO routing returns IEPPA
+in this regime; it is **not worse**, just not measurably faster. Routing
+refinement is a follow-up WU gated on benchmark.
 
 ---
 
@@ -218,10 +223,14 @@ static rk_algorithm_t select_algorithm(...) {
 
 ### 4.3 R/Python user-facing
 
-- `method = "ieppa"` → `RK_ALG_IEPPA` (faithful)
-- `method = "lbfgsb"` → `RK_ALG_LBFGSB` (unchanged)
-- `method = "raking"` → `RK_ALG_RAKING` (hybrid)
-- `method = "auto"` → `RK_ALG_AUTO` (= IEPPA)
+- `method = "ieppa"` → `RK_ALG_IEPPA` (paper-faithful algBCD at C=0)
+- `method = "lbfgsb"` → `RK_ALG_LBFGSB` (Deville-Särndal dual; unchanged)
+- `method = "raking"` → `RK_ALG_RAKING` (IPF + Dykstra box + Dykstra
+  hyperplane; classical raking family — autumn compatible. The name covers
+  multiplicative marginal projection + additive box/hyperplane corrections;
+  docstring in `man/harvest.Rd` states this explicitly)
+- `method = "auto"` → `RK_ALG_AUTO` (= IEPPA unconditionally until
+  benchmark-driven routing refinement)
 
 Existing autumn synonyms (`"rake"`, `"nr"`, `"nrake"`) continue to warn
 + map to `"lbfgsb"` per existing PRD § US-001 AC.
@@ -439,29 +448,51 @@ benchmark output).
 | `M_cell · K · sizeof(double) > SIZE_MAX/2` | `RK_ERR_BADARG` | `CellTable` construction |
 | **`X̃[c]` overflow** (new handling) | `RK_ERR_NOCONV` with message | See below |
 
-**X̃[c] overflow handling** (fixed per architect review):
+**X̃[c] overflow handling** (rewritten rev 3 — log-space factors, no
+renormalization. Architect iter-2 finding: global-scalar renormalization
+scaled X̃ by S^K, not 1, altering the primal iterate).
 
-Previous design clamped to 1e300 and continued, silently zeroing `W[c]` and
-removing the cell from subsequent sweeps. New design:
+Work with log-space dual factors. Maintain `lf[k][j] = log f[k][j]` rather
+than `f[k][j]`. Key quantities:
 
-1. **Renormalize each outer iteration:** after margin sweep, rescale all `f[k]`
-   by a common geometric mean so that `max_k,j log f[k][j]` stays bounded
-   (e.g., within `[-350, 350]`). This adjusts a shared additive constant in
-   log-space that cancels in the dual solution. Formally: `f[k][j] ← f[k][j] *
-   S` for all k,j with `S = exp(-mean_log_f / K)`.
-2. **Overflow detection after renormalization:** if any `X̃[c] > 1e300` or
-   any `f[k][j] > 1e150` post-renormalization, the problem is ill-conditioned
-   beyond numerical tolerance. Exit with `RK_ERR_NOCONV` and message
-   `"iEPPA: factor overflow indicates ill-conditioning; try looser
-   max_weight or tighter tol_abs"`.
-3. `W[c]` computation guarded: if `X̃[c] == 0`, set `W[c] = 1.0` (cell is
-   empty, multiplier is immaterial). Never produces NaN.
+- Margin sweep update: `lf[k][j] = log(τ[k][j] · W_total) − log(S_kj)` where
+  `S_kj = Σ_{c: g_k(c)=j} X_init[c] · exp(Σ_{m≠k} lf[m][g_m(c)]) · W[c]`
+- `log X̃[c] = log X_init[c] + Σ_k lf[k][g_k(c)]`
+- `X̃[c] = exp(min(log X̃[c], 700.0))` — clip-before-exp guarantees no IEEE
+  754 overflow. `exp(700) ≈ 1.01e304`, safely below `DBL_MAX`.
+- `X[c] = clamp(X̃[c], L_cell[c], U_cell[c])` — when clipping fires, X̃ is
+  at 1e304, upper bound is ≤ `max_weight · n_per_cell[c]` (much smaller for
+  realistic inputs), so `X[c] = U_cell[c]`. Correct clamp behavior.
+- `W[c] = X[c] / X̃[c]` — safe when `X̃[c] > 0`. If `X̃[c] = 0` (empty
+  cell): set `W[c] = 1.0` (multiplier is immaterial; cell aggregate is 0).
+  If `X̃[c] = NaN` (shouldn't occur given log-space): exit with
+  `RK_ERR_NOCONV` and message `"iEPPA: NaN detected in X̃; numerical
+  breakdown. Try looser tol_abs or method=raking."`
 
-**Infeasibility flag semantics (clarified per security review):**
+**Overflow detection:** if `max_c log X̃[c] > 700` AND the corresponding
+cell is NOT capped (i.e., U_cell[c] would not fire within reasonable
+magnitude), problem is ill-conditioned beyond double precision. Exit with
+`RK_ERR_NOCONV`, message `"iEPPA: log-factor overflow indicates
+ill-conditioning; try looser max_weight or tighter tol_abs."` In practice
+this is rare because the capacity cap fires first on tight-bound problems.
+
+No renormalization of `lf[k][j]` is performed. The log-space formulation
+avoids the multiplicative drift that required renormalization in rev 2.
+
+**NaN safety** (security review rev 2):
+- Before division in Sinkhorn update: check `!std::isnan(S_kj) && !std::isinf(S_kj)`.
+  On failure: set `is_infeasible = true`, skip update. Treated as degenerate
+  cell same as `S_kj < 1e-15·W_total` path.
+- `validate_inputs` rejects NaN/Inf in `group_ids[k][i]` (any such value
+  encoded as `int32` is undefined; we treat any `group_ids[k][i] < -1` or
+  `>= cat_counts[k]` as `RK_ERR_BADARG` already per existing FR-4).
+
+**Infeasibility flag semantics:**
 `is_infeasible` is **latched** (set-once, never cleared). Triggering condition
-`S_kj < 1e-15·W_total ∧ τ_kj > 0` is evaluated every margin sweep; once set,
-overrides `RK_OK`/`RK_ERR_NOCONV` with `RK_ERR_INFEAS` on return. Prevents
-false-positive on transient early-iteration near-zero sums.
+`S_kj < 1e-15·W_total ∧ τ_kj > 0` evaluated every margin sweep; once set,
+overrides `RK_OK`/`RK_ERR_NOCONV` with `RK_ERR_INFEAS` on return. All
+infeasible (k,j) pairs are recorded in a list; `verbose≥1` enumerates them
+all at exit (designer review iter 2).
 
 ---
 
@@ -477,8 +508,8 @@ Defined at design time per designer review D2.
   solver's existing log cadence for consistency)
 - On exit: `"iEPPA converged in T iters, errRp=E"` OR `"iEPPA: max_iter
   exhausted, errRp=E (status=NOCONV)"`
-- On infeasibility: `"iEPPA: empty cell <margin k, category j> with positive
-  target (status=INFEAS)"`
+- On infeasibility: enumerate **all** infeasible (k,j) pairs — e.g.
+  `"iEPPA: infeasible cells detected: margin=1 cat=3, margin=4 cat=2, ... (3 total, status=INFEAS)"` — not just the first one, so users can diagnose all constraint violations in a single run.
 
 **`verbose = 2` (debug):** all of the above plus per-iter `f[k]` max/min
 summary, per-iter count of cells with `W[c] ≠ 1` (capacity-active), and
@@ -486,6 +517,22 @@ renormalization event log.
 
 Emitted via `st.log()` (types.hpp:30), verbose-gated; consistent with existing
 iEPPA/raking/L-BFGS-B verbose patterns.
+
+---
+
+## 8c. Merge Gate (explicit per CTO review iter 2)
+
+Faithful iEPPA may merge to main when:
+
+1. All tests in §6 pass (`test-ieppa.R`, `test-raking.R`, `test-ieppa-faithful.R`,
+   `test-compare.R`): `FAIL 0 | PASS N`
+2. `R CMD check --as-cran` yields 0 ERROR, 0 WARNING (NEWS.md entry present)
+3. On `M_cell = n` degenerate input: iteration count and wall-clock
+   comparable to `raking` (within ±2×). Documented in merge commit body.
+4. Python pytest suite passes (where applicable, after bindings wiring).
+
+Benchmark (§7) is **post-merge analysis** feeding the routing refinement WU,
+not a merge gate on this design.
 
 ---
 
@@ -544,7 +591,10 @@ As in current PRD plus:
 | Cell-level vs obs-level | Cell-level always; degenerates gracefully when `M_cell = n` |
 | Back-compat for `method="ieppa"` | None; breaking change is intentional |
 | AUTO routing heuristic | None until benchmark justifies exceptions |
-| Version bump / NEWS | Skipped; change is intentional |
+| Version bump | Skipped; user directive |
+| NEWS.md entry | **Required** (CRAN policy compliance) — text in §10 |
+| Runtime deprecation warning on method="ieppa" | Skipped; user directive. Communication via NEWS.md only |
+| Migration shim | Skipped; user directive (breaking change intentional) |
 
 ---
 
