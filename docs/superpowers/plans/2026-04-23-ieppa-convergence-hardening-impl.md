@@ -35,30 +35,54 @@ If any test fails, stop. Do not start the plan on a broken baseline.
 Run: `grep -E '^\\^benchmarks' .Rbuildignore`
 Expected: `^benchmarks$` present. Whole `benchmarks/` directory (including `stepstone_fulldata_*`) is excluded from CRAN tarball — spec requirement satisfied, no edit needed.
 
-- [ ] **Step P.4: Audit existing tests for the old error-message substring**
+- [ ] **Step P.4: Audit existing tests/docs for the old error-message substring**
 
-Run: `grep -rn 'empty cell with positive target' tests/ R/ python/`
-Expected: matches only in `R/harvest.R:102` and `python/leafblower/_harvest.py:165` (the two source sites WU-1 will edit). Any match under `tests/` means an existing test greps for the OLD wording and will regress after WU-1's string update — halt and extend the edit list in Task 1 to update those assertions, or fail the test suite silently later. Completeness reviewer flagged this explicitly; do not skip.
+Run: `grep -rn 'empty cell with positive target' tests/ R/ python/ --include='*.R' --include='*.py'`
+Expected: every match is either (a) inside `R/harvest.R` or `python/leafblower/_harvest.py` (the two source sites Task 1 edits), (b) inside a `#` / `"""` comment, or (c) inside a test that uses a regex NOT covering the full substring that changes (e.g. `expect_error(..., regexp = "infeasible problem")` — the prefix "infeasible problem" survives the rewrite). ACTION: for each match, classify. If any match is a direct `expect_error(..., regexp = "empty cell with positive target")` assertion that the rewrite breaks, extend Task 1's edit list to update that assertion to `regexp = "persistent empty cell"` and note the new file in the WU-1 commit. If all matches are benign (harmless comments or surviving-prefix regexes), proceed without additions.
 
 - [ ] **Step P.5: Record baseline status distribution for RK_OK-preservation gate**
 
-Run:
+Using testthat's public expectation classes (`expectation_success` / `expectation_failure` / `expectation_warning` / `expectation_skip`) via the `testthat_results` object returned by `test_dir`:
 
 ```bash
 Rscript -e '
-  library(testthat); library(leafblower);
-  sink("/tmp/baseline-status.log")
-  tr <- test_dir("tests/testthat", reporter = ListReporter$new(), stop_on_failure = FALSE)
-  sink()
-  # Count pass/warn/fail/skip from tr summary (Rscript-friendly).
-  cat("baseline_pass=", sum(sapply(tr, function(x) x$n_pass)), "\n", sep="")
-  cat("baseline_fail=", sum(sapply(tr, function(x) x$n_fail)), "\n", sep="")
-  cat("baseline_warn=", sum(sapply(tr, function(x) x$n_warn)), "\n", sep="")
-  cat("baseline_skip=", sum(sapply(tr, function(x) x$n_skip)), "\n", sep="")
+  library(testthat); library(leafblower)
+  tr <- test_dir("tests/testthat",
+                 reporter = SilentReporter$new(),
+                 stop_on_failure = FALSE)
+  classify <- function(r) {
+    if (inherits(r, "expectation_skip"))    "skip"
+    else if (inherits(r, "expectation_failure") ||
+             inherits(r, "expectation_error"))  "fail"
+    else if (inherits(r, "expectation_warning")) "warn"
+    else                                          "pass"
+  }
+  tallies <- c(pass=0L, fail=0L, warn=0L, skip=0L)
+  per_test <- list()
+  for (ti in tr) {
+    for (r in ti$results) {
+      cls <- classify(r)
+      tallies[cls] <- tallies[cls] + 1L
+    }
+    # Worst result for this test_that block (for file-level preservation check).
+    block_cls <- "pass"
+    for (r in ti$results) {
+      cc <- classify(r)
+      if (cc == "fail") { block_cls <- "fail"; break }
+      if (cc == "warn" && block_cls == "pass") block_cls <- "warn"
+      if (cc == "skip" && block_cls == "pass") block_cls <- "skip"
+    }
+    per_test[[paste0(ti$file, "::", ti$test)]] <- block_cls
+  }
+  cat("baseline_pass=", tallies["pass"], "\n", sep="")
+  cat("baseline_fail=", tallies["fail"], "\n", sep="")
+  cat("baseline_warn=", tallies["warn"], "\n", sep="")
+  cat("baseline_skip=", tallies["skip"], "\n", sep="")
+  saveRDS(per_test, "/tmp/baseline-per-test.rds")
 ' | tee /tmp/baseline-counts.txt
 ```
 
-Expected: `baseline_fail=0`, `baseline_pass >= 169`. Save `/tmp/baseline-counts.txt` for comparison at Step A.4. This pins the "previously passing" set so the post-change regression check (spec §11 last bullet) is falsifiable.
+Expected: `baseline_fail=0`, `baseline_pass >= 169`. `/tmp/baseline-per-test.rds` captures the per-(file,test) pass/warn/skip status for the RK_OK-preservation diff at Step A.4.1.
 
 ---
 
@@ -704,9 +728,11 @@ Expected: all three new WU-2 tests PASS. Existing tests in this file still PASS.
 Run: `Rscript -e 'library(testthat); library(leafblower); test_dir("tests/testthat", stop_on_failure=TRUE, reporter="summary")'`
 Expected: `[ FAIL 0 | PASS >= 174 ]` (171 post-WU-1 + 3 new).
 
-- [ ] **Step 2.11: kk1204 per-iter check**
+- [ ] **Step 2.11: kk1204 per-iter check (spec §11: per-iter cost, not wall-clock)**
 
-Run a quick timing on the dense regime (create `/tmp/wu2_kk1204.R`):
+Spec §11 demands `per-iter cost within 2× of raking`, not wall-clock. Both solvers must be forced to run the full iteration budget (no early convergence short-circuit) so `wall/iter` equals per-iter cost. `tol_abs=1e-300` + `max_iterations=50L` achieves this because `errRp > 1e-300` always, so neither solver returns early. Divide each wall-clock by the actual iterations consumed (available in the returned `result$iterations`, or parseable from `verbose=1L` final-line "in N iters").
+
+Create `/tmp/wu2_kk1204.R`:
 
 ```r
 Sys.setenv(OMP_NUM_THREADS = "1")
@@ -718,23 +744,41 @@ names(df) <- paste0("m", 1:K)
 for (k in names(df)) df[[k]] <- letters[df[[k]]]
 tgts <- setNames(replicate(K, c(a=0.3,b=0.175,c=0.175,d=0.175,e=0.175),
                            simplify = FALSE), names(df))
-t0 <- Sys.time()
-res <- suppressWarnings(harvest(df, tgts, method = "ieppa",
-                                max_weight = 3, min_weight = 0,
-                                max_iterations = 50L,
-                                convergence = list(absolute = 1e-300)))
-t_ieppa <- as.numeric(Sys.time() - t0, units = "secs")
-t0 <- Sys.time()
-res2 <- suppressWarnings(harvest(df, tgts, method = "raking",
-                                 max_weight = 3, min_weight = 0,
-                                 max_iterations = 50L,
-                                 convergence = list(absolute = 1e-300)))
-t_raking <- as.numeric(Sys.time() - t0, units = "secs")
-cat(sprintf("ieppa=%.2fs raking=%.2fs ratio=%.1fx\n",
-            t_ieppa, t_raking, t_ieppa / t_raking))
+
+time_method <- function(method) {
+  t0 <- Sys.time()
+  msgs <- capture.output(
+    res <- suppressWarnings(harvest(df, tgts, method = method,
+                                    max_weight = 3, min_weight = 0,
+                                    max_iterations = 50L,
+                                    convergence = list(absolute = 1e-300),
+                                    verbose = 1L)),
+    type = "message"
+  )
+  wall <- as.numeric(Sys.time() - t0, units = "secs")
+  m <- tail(grep("in [0-9]+ iters", msgs, value = TRUE), 1)
+  iters <- as.integer(sub(".*in ([0-9]+) iters.*", "\\1", m))
+  if (is.na(iters) || iters <= 0) stop(sprintf("couldn't parse iters for %s", method))
+  list(wall = wall, iters = iters, per_iter_ms = 1000 * wall / iters)
+}
+
+r_ieppa  <- time_method("ieppa")
+r_raking <- time_method("raking")
+ratio <- r_ieppa$per_iter_ms / r_raking$per_iter_ms
+cat(sprintf("ieppa: wall=%.2fs iters=%d per_iter=%.1fms\n",
+            r_ieppa$wall, r_ieppa$iters, r_ieppa$per_iter_ms))
+cat(sprintf("raking: wall=%.2fs iters=%d per_iter=%.1fms\n",
+            r_raking$wall, r_raking$iters, r_raking$per_iter_ms))
+cat(sprintf("per_iter ratio (ieppa / raking) = %.2fx\n", ratio))
+if (ratio > 2.0) {
+  cat("FAIL: per-iter ratio exceeds 2x (spec §11 gate).\n")
+  quit(status = 1L)
+}
+cat("PASS: per-iter ratio within 2x.\n")
 ```
+
 Run: `Rscript /tmp/wu2_kk1204.R`
-Expected: `ratio` ≤ 2.0x (gate: down from pre-WU-2 22×). If > 2×, linear path is either not dispatching or has unexpected overhead — halt and inspect.
+Expected: exit 0 with "PASS: per-iter ratio within 2x". If exit 1 the linear path is either not dispatching (check verbose output for `path=linear`) or has unexpected overhead — halt and inspect.
 
 - [ ] **Step 2.12: Commit**
 
@@ -765,19 +809,21 @@ EOF
 ## Task 3: WU-3 — Adaptive damping
 
 **Files:**
+- Create: `tests/testthat/_snapshots/ieppa_stable_prewu3.rds` (reference snapshot)
 - Modify: `src/ieppa.cpp` (damped-mode auto-trigger, geometric-blend update)
 - Modify: `tests/testthat/test-ieppa-faithful.R` (stable=regression + damped slower)
 
 **Rationale:** Even after WU-1, transient near-zero cells still occur on adversarial inputs and force `infeas_streak` to creep up. Damping each Sinkhorn update with geometric blend `lf_new = α·(log_target - log_S_kj) + (1-α)·lf_old` reduces the amplitude of transients and lets the solver settle without tripping persistence. Auto-triggered at `infeas_streak[idx] >= kInfeasPersistence/2` — pays the cost only when WU-1 is already headed toward NOCONV without damping. `α=1.0` fast-path is a branch, not `std::pow(_, 1.0)` (which costs full transcendental).
 
-- [ ] **Step 3.1: Write the failing test (append to `tests/testthat/test-ieppa-faithful.R`)**
+- [ ] **Step 3.0: Capture pre-WU-3 stable-mode reference snapshot**
 
-Append:
+Spec §7 mandates WU-3's stable-mode test be a regression check against pre-WU-3 behaviour, not inter-run determinism. Before touching `src/ieppa.cpp` for WU-3, snapshot the exact weight vector the post-WU-2 build produces on a deterministic input. This snapshot will be loaded by the Step 3.1 stable-mode test after WU-3 lands.
 
-```r
-test_that("WU-3: stable mode (no persistence stress) is byte-identical to pre-WU-3 path", {
-  # No transient near-zero should trigger the damped branch; weights identical
-  # up to floating-point roundoff across runs (deterministic input).
+Run:
+
+```bash
+Rscript -e '
+  library(leafblower)
   set.seed(11)
   n <- 1000L
   df <- data.frame(
@@ -788,15 +834,51 @@ test_that("WU-3: stable mode (no persistence stress) is byte-identical to pre-WU
     a = c(a = 0.33, b = 0.33, c = 0.34),
     b = c(a = 0.33, b = 0.33, c = 0.34)
   )
-  res1 <- harvest(df, targets, method = "ieppa",
-                  max_weight = 5, min_weight = 0,
-                  max_iterations = 500L,
-                  convergence = list(absolute = 1e-6))
-  res2 <- harvest(df, targets, method = "ieppa",
-                  max_weight = 5, min_weight = 0,
-                  max_iterations = 500L,
-                  convergence = list(absolute = 1e-6))
-  expect_identical(res1, res2)
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 500L,
+                 convergence = list(absolute = 1e-6))
+  dir.create("tests/testthat/_snapshots", showWarnings = FALSE, recursive = TRUE)
+  saveRDS(res, "tests/testthat/_snapshots/ieppa_stable_prewu3.rds")
+  cat("snapshot saved: length=", length(res), " max=", max(res), " min=", min(res), "\n", sep="")
+'
+```
+
+Expected: `snapshot saved: length=1000 ...`. The file `tests/testthat/_snapshots/ieppa_stable_prewu3.rds` is ADDED to git in the WU-3 commit (Step 3.11) and load-referenced by the stable-mode test in Step 3.1.
+
+- [ ] **Step 3.1: Write the failing test (append to `tests/testthat/test-ieppa-faithful.R`)**
+
+Append:
+
+```r
+test_that("WU-3: stable mode is byte-identical to pre-WU-3 reference snapshot (spec §7)", {
+  # The pre-WU-3 snapshot was captured in Step 3.0 against the post-WU-2 build,
+  # with no damping compiled in. Running the same deterministic input on the
+  # post-WU-3 build with LBW_IEPPA_FORCE_DAMPING=off must reproduce weights
+  # equal to the snapshot to floating-point roundoff (no drift from alpha==1.0
+  # fast-path differing from the direct update).
+  snap_path <- testthat::test_path("_snapshots", "ieppa_stable_prewu3.rds")
+  skip_if_not(file.exists(snap_path),
+              "pre-WU-3 snapshot missing; re-run plan Step 3.0")
+  ref <- readRDS(snap_path)
+  set.seed(11)
+  n <- 1000L
+  df <- data.frame(
+    a = sample(letters[1:3], n, replace = TRUE),
+    b = sample(letters[1:3], n, replace = TRUE)
+  )
+  targets <- list(
+    a = c(a = 0.33, b = 0.33, c = 0.34),
+    b = c(a = 0.33, b = 0.33, c = 0.34)
+  )
+  Sys.setenv(LBW_IEPPA_FORCE_DAMPING = "off")
+  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 500L,
+                 convergence = list(absolute = 1e-6))
+  expect_equal(length(res), length(ref))
+  expect_lt(max(abs(res - ref)), 1e-12)  # roundoff-tight; fast-path ≡ direct update
 })
 
 test_that("WU-3: damped mode takes strictly more iters than stable on same input (spec §7)", {
@@ -990,7 +1072,8 @@ Expected: `ratio` still ≤ 2.0× (damping must not regress per-iter ratio).
 - [ ] **Step 3.11: Commit**
 
 ```bash
-git add src/ieppa.cpp tests/testthat/test-ieppa-faithful.R
+git add src/ieppa.cpp tests/testthat/test-ieppa-faithful.R \
+        tests/testthat/_snapshots/ieppa_stable_prewu3.rds
 git commit -m "$(cat <<'EOF'
 feat(ieppa): adaptive damping auto-triggered on persistence stress
 
@@ -1041,27 +1124,52 @@ Record the numbers in the merge PR body.
 
 - [ ] **Step A.4.1: RK_OK-preservation regression gate (spec §11 last bullet)**
 
-Spec §11 explicitly requires "any test previously returning RK_OK must still return RK_OK (no new RK_ERR_INFEAS from tightened persistence logic)". FAIL=0 alone does NOT prove this — a flipped status could still pass if a test only checks `expect_no_error` or `expect_true(is.finite(...))`. Capture the current status distribution and compare to baseline:
+Spec §11 explicitly requires "any test previously returning RK_OK must still return RK_OK (no new RK_ERR_INFEAS from tightened persistence logic)". FAIL=0 alone does NOT prove this — a flipped status could still pass if a test only checks `expect_no_error` or `expect_true(is.finite(...))`. Compare per-(file,test) status against the baseline captured in Step P.5 using the `/tmp/baseline-per-test.rds` snapshot:
 
 ```bash
 Rscript -e '
-  library(testthat); library(leafblower);
-  tr <- test_dir("tests/testthat", reporter = ListReporter$new(), stop_on_failure = FALSE)
-  cat("post_pass=",  sum(sapply(tr, function(x) x$n_pass)),  "\n", sep="")
-  cat("post_fail=",  sum(sapply(tr, function(x) x$n_fail)),  "\n", sep="")
-  cat("post_warn=",  sum(sapply(tr, function(x) x$n_warn)),  "\n", sep="")
-  cat("post_skip=",  sum(sapply(tr, function(x) x$n_skip)),  "\n", sep="")
-' | tee /tmp/post-counts.txt
-diff /tmp/baseline-counts.txt /tmp/post-counts.txt || true
+  library(testthat); library(leafblower)
+  tr <- test_dir("tests/testthat",
+                 reporter = SilentReporter$new(),
+                 stop_on_failure = FALSE)
+  classify <- function(r) {
+    if (inherits(r, "expectation_skip"))    "skip"
+    else if (inherits(r, "expectation_failure") ||
+             inherits(r, "expectation_error"))  "fail"
+    else if (inherits(r, "expectation_warning")) "warn"
+    else                                          "pass"
+  }
+  post <- list()
+  for (ti in tr) {
+    block_cls <- "pass"
+    for (r in ti$results) {
+      cc <- classify(r)
+      if (cc == "fail") { block_cls <- "fail"; break }
+      if (cc == "warn" && block_cls == "pass") block_cls <- "warn"
+      if (cc == "skip" && block_cls == "pass") block_cls <- "skip"
+    }
+    post[[paste0(ti$file, "::", ti$test)]] <- block_cls
+  }
+  baseline <- readRDS("/tmp/baseline-per-test.rds")
+  regressions <- list()
+  for (k in names(baseline)) {
+    b <- baseline[[k]]
+    p <- post[[k]]
+    if (is.null(p)) { regressions[[k]] <- paste0(b, "->MISSING"); next }
+    if (p == b) next  # unchanged: OK
+    # PASS -> anything other than PASS is a regression per spec §11.
+    if (b == "pass" && p != "pass") regressions[[k]] <- paste0(b, "->", p)
+  }
+  if (length(regressions) > 0) {
+    cat("RK_OK PRESERVATION REGRESSIONS (spec §11 last bullet):\n")
+    for (k in names(regressions)) cat("  ", k, ": ", regressions[[k]], "\n", sep="")
+    quit(status = 1L)
+  }
+  cat("RK_OK preservation: ", length(baseline), " pre-existing test blocks all preserved.\n", sep="")
+'
 ```
 
-Expected:
-- `post_pass >= baseline_pass + 6` (2 WU-1 + 3 WU-2 + 2 WU-3 tests; 1 test may collapse).
-- `post_fail == 0`.
-- `post_warn <= baseline_warn` (no new warnings from existing tests; new warnings may come ONLY from the new WU-1/2/3 tests).
-- `post_skip == baseline_skip` (no existing test started skipping).
-
-If `post_warn > baseline_warn` with the increase attributable to existing tests (not new WU-* tests), that's a flip from RK_OK to RK_ERR_NOCONV or RK_ERR_INFEAS — HALT and investigate. The spec gate is satisfied only when the status of every pre-existing test is preserved.
+Expected: exit 0 with "`all preserved`" line. Exit 1 with a list of regressing blocks means a pre-existing test flipped from `pass` to something worse — HALT and investigate. This is the falsifiable gate for spec §11's last bullet.
 
 - [ ] **Step A.5: Update beads**
 
