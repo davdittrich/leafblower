@@ -333,11 +333,17 @@ Review: 2026-04-23 critical-code-reviewer issues #3, #4, #7."
 
 - [ ] **Step R3.1.0: Verify X_init immutability**
 
-Caching `log(X_init[c])` is sound only if `X_init` is never mutated after construction. Grep `src/ieppa.cpp` for write accesses:
+Caching `log(X_init[c])` is sound only if `X_init` is never mutated after construction. Verify via:
 ```bash
-grep -n "X_init\[" src/ieppa.cpp | grep -E "=(?!=)" | grep -v "//"
+grep -nE '^[[:space:]]*X_init\[' src/ieppa.cpp | grep -v '//'
 ```
-Expected: one write at construction (`X_init[ct.cell_of[i]] += st.weights[i]`), zero writes elsewhere. If any other `X_init[c] = ...` write site exists, caching is unsafe; report and halt.
+This returns every line where `X_init[...]` appears at the START of a non-comment statement (i.e., LHS position — write sites, not reads inside expressions). At plan authoring time this returns exactly **one line**:
+```
+49:        X_init[ct.cell_of[i]] += st.weights[i];
+```
+Reads of X_init (e.g., `std::log(X_init[c])`, `X_init[c] > 0.0`) are not at line start; they're filtered out.
+
+If any additional write site appears (e.g. reassignment after convergence check, infeasibility reseed), caching is unsafe. Halt and report before proceeding with R3.1.1.
 
 - [ ] **Step R3.1.1: Cache log(X_init[c])**
 
