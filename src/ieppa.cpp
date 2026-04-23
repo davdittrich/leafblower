@@ -92,8 +92,24 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Paper: margin sum τ_{k,j} × W_total should match S_kj for j in [0, cat_counts[k]).
     // For NA bucket (j = cat_counts[k]), no constraint; f remains 1.0.
 
-    bool is_infeasible = false;
-    std::set<std::pair<int,int>> infeasible_pairs;  // dedup via set ordering
+    constexpr int kInfeasPersistence = 5;
+    std::vector<int> infeas_streak(total_cats, 0);
+    std::set<std::pair<int,int>> persistent_infeas_pairs;
+
+    auto record_empty = [&](int k, int j) {
+        if (st.targets[k][j] <= 0.0) return;
+        int idx = cat_offset[k] + j;
+        infeas_streak[idx]++;
+        if (infeas_streak[idx] == kInfeasPersistence) {
+            persistent_infeas_pairs.emplace(k, j);
+        }
+    };
+    auto record_nonempty = [&](int k, int j) {
+        if (st.targets[k][j] <= 0.0) return;
+        int idx = cat_offset[k] + j;
+        infeas_streak[idx] = 0;
+        persistent_infeas_pairs.erase(std::make_pair(k, j));
+    };
 
     if (st.verbose >= 1) {
         char msg[256];
@@ -118,18 +134,17 @@ IEPPAResult ieppa_solve(CalibState& st) {
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
                 if (cells.empty()) {
-                    if (st.targets[k][j] > 0.0) {
-                        is_infeasible = true;
-                        infeasible_pairs.emplace(k, j);
-                    }
+                    record_empty(k, j);
                     continue;
                 }
                 // log-sum-exp stabilization: compute lv_c = log X_init[c] + sum_{m!=k} lf[m]
                 //                                       + log W[c]
                 lv.assign(cells.size(), -std::numeric_limits<double>::infinity());
                 double lv_max = -std::numeric_limits<double>::infinity();
+                bool any_structural = false;  // true if any cell has X_init > 0
                 for (size_t r = 0; r < cells.size(); r++) {
                     int c = cells[r];
+                    if (X_init[c] > 0.0) any_structural = true;
                     if (X_init[c] <= 0.0 || W[c] <= 0.0) {
                         continue;
                     }
@@ -143,11 +158,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     if (s > lv_max) lv_max = s;
                 }
                 if (!std::isfinite(lv_max)) {
-                    // All cells are degenerate for this (k,j).
-                    if (st.targets[k][j] > 0.0) {
-                        is_infeasible = true;
-                        infeasible_pairs.emplace(k, j);
-                    }
+                    // Structural: no cells with X_init > 0. Transient: obs exist but W=0.
+                    if (!any_structural) record_empty(k, j);
+                    else record_nonempty(k, j);  // capacity-clamped, not structurally absent
                     continue;
                 }
                 double sum = 0.0;
@@ -158,12 +171,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // Compare in log-space; exp(lv_max) * sum defeats LSE stabilization when lv_max → 700.
                 double log_threshold = std::log(kEmptyBucketThreshold * ct.W_input);
                 if (!std::isfinite(log_S_kj) || log_S_kj < log_threshold) {
-                    if (st.targets[k][j] > 0.0) {
-                        is_infeasible = true;
-                        infeasible_pairs.emplace(k, j);
-                    }
+                    // Distinguish structural (X_init=0 for all cells) vs transient/capacity.
+                    // any_structural was computed above for this same bucket.
+                    if (!any_structural) record_empty(k, j);
+                    // else: near-zero sum from capacity clamping; don't count as persistent infeas.
                     continue;
                 }
+                record_nonempty(k, j);
                 double log_target = std::log(st.targets[k][j] * ct.W_input);
                 lf[cat_offset[k] + j] = log_target - log_S_kj;
             }
@@ -262,7 +276,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
             if (errRp < st.tol_abs) {
-                res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                res.status = persistent_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
                 break;
             }
         }
@@ -287,7 +301,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         st.weights[i] = st.weights[i] * mult[ct.cell_of[i]];
     }
 
-    if (is_infeasible && res.status == RK_ERR_NOCONV) {
+    if (!persistent_infeas_pairs.empty() && res.status == RK_ERR_NOCONV) {
         res.status = RK_ERR_INFEAS;
     }
 
@@ -303,15 +317,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
         st.log(msg);
     }
 
-    if (st.verbose >= 1 && is_infeasible) {
+    if (st.verbose >= 1 && !persistent_infeas_pairs.empty()) {
         char msg[256];
         size_t off = 0;
         off += std::snprintf(msg + off, sizeof(msg) - off,
-                             "iEPPA infeasible cells: ");
+                             "iEPPA persistent infeasible cells: ");
         size_t idx = 0;
-        const size_t total = infeasible_pairs.size();
-        for (auto it = infeasible_pairs.begin();
-             it != infeasible_pairs.end() && off < sizeof(msg) - 32;
+        const size_t total = persistent_infeas_pairs.size();
+        for (auto it = persistent_infeas_pairs.begin();
+             it != persistent_infeas_pairs.end() && off < sizeof(msg) - 32;
              ++it, ++idx) {
             off += std::snprintf(msg + off, sizeof(msg) - off,
                                  "margin=%d cat=%d%s",

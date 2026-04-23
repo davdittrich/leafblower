@@ -99,7 +99,7 @@ harvest <- function(
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
   if (calib_result$status == 2L)
-    stop("leafblower: infeasible problem \u2014 empty cell with positive target.")
+    stop("leafblower: infeasible problem \u2014 persistent empty cell with positive target (detected after 5 consecutive outer iterations).")
   if (calib_result$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 

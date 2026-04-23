@@ -162,7 +162,10 @@ def harvest(
             UserWarning, stacklevel=2
         )
     elif result_dict["status"] == 2:
-        raise RuntimeError("leafblower: infeasible problem — empty cell with positive target")
+        raise RuntimeError(
+            "leafblower: infeasible problem — persistent empty cell with positive target "
+            "(detected after 5 consecutive outer iterations)"
+        )
     elif result_dict["status"] == 3:
         raise ValueError(f"leafblower: invalid arguments — {result_dict['message']}")
 
