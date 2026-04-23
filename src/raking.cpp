@@ -164,11 +164,17 @@ RakingResult raking_solve(CalibState& st) {
         // q_hyp is a scalar: the hyperplane correction is uniform across i.
         {
             double s = 0.0;
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd reduction(+:s)
+#endif
             for (int i = 0; i < st.n; i++) {
                 w[i] += q_hyp;  // apply prior correction uniformly
                 s += w[i];
             }
             double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
             for (int i = 0; i < st.n; i++) w[i] += shift;
             q_hyp = -shift;  // w_pre_proj - w_post_proj = (w + q_hyp_old) - (w + q_hyp_old + shift) = -shift
         }
@@ -217,11 +223,17 @@ RakingResult raking_solve(CalibState& st) {
         // Hyperplane step restores sum(w) = n regardless of box changes.
         // q_hyp is scalar (uniform correction); applied uniformly to all w[i].
         double s = 0.0;
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd reduction(+:s)
+#endif
         for (int i = 0; i < st.n; i++) {
             w[i] += q_hyp;
             s += w[i];
         }
         double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
+#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
+#pragma omp simd
+#endif
         for (int i = 0; i < st.n; i++) w[i] += shift;
         q_hyp = -shift;
         if (box_ok) break;
