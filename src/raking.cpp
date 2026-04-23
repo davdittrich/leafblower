@@ -16,12 +16,6 @@
 // applied to the IPF step — they diverge against multiplicative updates.
 // Convergence is therefore empirical-only for this hybrid.
 //
-// History: originally named "iEPPA" after Chu-Liang-Toh-Yang (2022,
-// arXiv:2011.14312), but the paper's algorithm is the inexact Entropic
-// Proximal Point Algorithm for CMOT LP — shares no ingredients with this
-// solver. Renamed to "raking" in commit 20d6ebf (2026-04-23). The
-// paper-faithful iEPPA implementation lives in src/ieppa.cpp.
-//
 // References (classical IPF family):
 //   Deming W. E. & Stephan F. F. (1940), "On a Least Squares Adjustment of
 //     a Sampled Frequency Table", Ann. Math. Stat. 11, 427-444.
