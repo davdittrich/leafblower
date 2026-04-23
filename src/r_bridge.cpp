@@ -7,12 +7,14 @@
 #include <unordered_map>
 #include <vector>
 #include "logit.hpp"
+#include "cell_table.hpp"
 
 extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
 SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
 // R log trampoline: forwards CalibState.log() calls to Rprintf
@@ -28,6 +30,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
         {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       9},
+        {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
@@ -208,6 +211,51 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     Rf_setAttrib(out, R_NamesSymbol, out_names);
     UNPROTECT(5);
     return out;
+}
+
+// test-only: exposes CellTable internals for unit tests
+extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
+    int n = INTEGER(r_n)[0];
+    int K = Rf_length(r_group_ids_list);
+    if (K > lbw::K_MAX) {
+        Rf_error("K (%d) exceeds K_MAX (%d)", K, lbw::K_MAX);
+    }
+    // Extract pointers
+    std::vector<const int32_t*> gid_ptrs(K);
+    std::vector<int> cat_counts(K);
+    for (int k = 0; k < K; k++) {
+        SEXP v = VECTOR_ELT(r_group_ids_list, k);
+        gid_ptrs[k] = (const int32_t*) INTEGER(v);
+        // Derive cat_counts from max value + 1 (excluding -1)
+        int max_g = -1;
+        for (int i = 0; i < n; i++) {
+            int g = gid_ptrs[k][i];
+            if (g > max_g) max_g = g;
+        }
+        cat_counts[k] = (max_g < 0) ? 1 : (max_g + 1);
+    }
+    std::vector<double> uniform_weights(n, 1.0);
+    lbw::CellTable ct;
+    int rc = lbw::build_cell_table(n, K, gid_ptrs.data(), cat_counts.data(),
+                                    uniform_weights.data(), ct);
+    if (rc != 0) Rf_error("build_cell_table failed (rc=%d)", rc);
+
+    // Build return list: list(M_cell, cell_of, n_per_cell)
+    SEXP ret = PROTECT(Rf_allocVector(VECSXP, 3));
+    SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(ct.M_cell));
+    SEXP cell_of_sexp = Rf_allocVector(INTSXP, n);
+    std::memcpy(INTEGER(cell_of_sexp), ct.cell_of.data(), n * sizeof(int));
+    SET_VECTOR_ELT(ret, 1, cell_of_sexp);
+    SEXP npc = Rf_allocVector(INTSXP, ct.M_cell);
+    std::memcpy(INTEGER(npc), ct.n_per_cell.data(), ct.M_cell * sizeof(int));
+    SET_VECTOR_ELT(ret, 2, npc);
+    SEXP names = Rf_allocVector(STRSXP, 3);
+    SET_STRING_ELT(names, 0, Rf_mkChar("M_cell"));
+    SET_STRING_ELT(names, 1, Rf_mkChar("cell_of"));
+    SET_STRING_ELT(names, 2, Rf_mkChar("n_per_cell"));
+    Rf_setAttrib(ret, R_NamesSymbol, names);
+    UNPROTECT(1);
+    return ret;
 }
 
 } // extern "C"
