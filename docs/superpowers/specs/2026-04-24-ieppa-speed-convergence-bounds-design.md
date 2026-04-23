@@ -1,6 +1,30 @@
 # iEPPA Speed, Convergence, and Bounds Hardening Design
 
-**Status:** Draft rev 4 (post iter-2 design-review-gate: 5/5 NEEDS_REVISION; iter 2/3 cap — one more iter allowed before escalation)
+**Status:** Draft rev 5 (post iter-3 design-review-gate: 5/5 NEEDS_REVISION; gate cap exceeded by user authorization to close residual blockers)
+
+**Rev 5 changes (iter-3 consensus blockers):**
+
+*Field-name copy-paste bug (4-reviewer agreement).* §7.3 cell-mode warning test asserts `result.n_bounds_violated > 0` (was incorrectly `n_bounds_clamped`). Unit-mode test asserts `n_bounds_clamped == 0` on benign, `> 0` on degenerate.
+
+*LAPACK near-singular detection (3-reviewer agreement).* `dgels` alone cannot detect near-singular systems. Added two defensive layers: (a) `m_active = min(m, total_cats - 1)` cap before call (prevents underdetermined branch); (b) post-solve `||γ||∞ > 1e4 → clear history, use plain iterate`. Removed contradictory "condition number > 1e12 via thin QR" sentence — we use dgels, not a separate QR step. See §5.2.
+
+*P1.1 fallback state reset (2-reviewer agreement).* Named the existing WU-2 fallback semantics explicitly in §4.1: on `overflow_detected` mid-loop `break`, the fallback clears `X_cur[]`, `W[]`, `X[]`, `X_tilde[]`, `lf[]`, `f_lin[]`, `infeas_streak[]`, `result.n_xcur_writes_per_iter_linear` before restarting the outer iter loop in log-space.
+
+*P2.1 alpha observability (CTO iter-3).* Added `double min_alpha_seen = 1.0` to `IEPPAResult`. Test asserts `result$min_alpha_seen < 1.0` on stress input + `>= 0.95` after stress subsides — struct-based, no log parsing.
+
+*§8 iter floor (PM iter-3).* `250` iter gate softened to `kk1204 iter-to-RK_OK ≤ 400 with ACCEL_ANDERSON=on AND at least 2× fewer iters than ACCEL_ANDERSON=off baseline`. The "2× fewer" claim is robust to capacity-gate fraction; absolute iter count to 400 is generous (room for capacity to settle before Anderson engages).
+
+*§8 unit-mode bounds gate (PM iter-3).* Added: `n_bounds_clamped == 0` on benign unit-mode input (dense, uniform-d); `n_bounds_clamped < 0.1% · n` on skewed-d stress input (not perfect adherence but bounded).
+
+*R helper pattern (Designer iter-3).* `parse_bounds_mode` returns character, `.Call` site in `R/harvest.R` converts via `as.integer(factor(bounds_mode, levels=c("cell","unit"))) - 1L`. Matches the `as.character(method)` pattern used by `map_method`.
+
+*EXPECTED_BYTES (Security iter-3).* Spec §6.1 now instructs implementer to compute actual `sizeof(rk_params_t)` at implementation time, record the value in a comment adjacent to the static_assert, and commit the value as a source-of-truth tripwire.
+
+*Env var orthogonality claim (Security iter-3).* §7.4 rationale narrowed: `FORCE_PATH × FORCE_DAMPING` is orthogonal-by-construction; `ACCEL_ANDERSON × *` combinations require explicit coverage — T2/T3/T4/T5 provide it.
+
+*Acknowledged and deferred (PM iter-3 B2).* P3.1 ABI growth breaks raw-struct callers. Documented in §10 release notes. No version-bump mechanism added — ABI break is the cost of carrying new API without a major version. If a raw-struct caller exists outside our tree, they recompile.
+
+*Acknowledged and deferred (Architect iter-3 W2 caveat).* Water-fill "typically ≤ 3 iters" claim softened to "empirical observation on test inputs; 50-iter fallback ensures termination in all cases." No proof; acceptable per Security iter-3 confirmation that fallback correctness holds.
 
 **Rev 4 changes (iter-2 consensus blockers):**
 
@@ -141,10 +165,21 @@ for (int c = 0; c < ct.M_cell; c++) {
     if (xc != X_tilde_c) n_cap++;
 }
 if (overflow_detected) {
-    // Reuses existing WU-2 one-shot fallback: clear f_lin/X_cur/lf/W/infeas_streak,
-    // restart outer loop in log-space. See current ieppa.cpp:~395-420.
-    trigger_linear_fallback_to_log_space();
-    continue;  // restart outer iter
+    // Full state reset (Architect+Security iter-3): clear ALL cell-level arrays
+    // that may carry partial writes from the broken loop, PLUS the WU-2 fallback
+    // invariants. Partial mid-loop writes to W[c], X[c], X_cur[c] are undone.
+    std::fill(X_cur.begin(),  X_cur.end(),  0.0);
+    std::fill(W.begin(),      W.end(),      1.0);
+    std::fill(X.begin(),      X.end(),      0.0);
+    std::fill(X_tilde.begin(),X_tilde.end(),0.0);
+    std::fill(lf.begin(),     lf.end(),     0.0);
+    std::fill(f_lin.begin(),  f_lin.end(),  1.0);
+    std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
+    res.n_xcur_writes_per_iter_linear = 0;  // counter reset; post-fallback is log-space
+    // Flip to log-space and restart outer iter loop.
+    use_linear = false;
+    linear_fallback_used = true;
+    continue;
 }
 ```
 
@@ -178,7 +213,7 @@ Preserves Peyré-Cuturi 2019 Proposition 4.8 convergence guarantee (alpha ∈ (0
 
 **Parameter.** `m = 5`. History buffer: 2 × (m+1) × total_cats doubles. At total_cats=2000, ≈ 200KB per solver call — negligible.
 
-**Implementation details (rev-4 fix).** Use LAPACK `dgels` (one-call least-squares solver via QR) from `R_ext/Lapack.h`. `dgels` handles the full LS path: QR factorization + `Q^T·b` + triangular back-solve internally. Signature:
+**Implementation details (rev-5 fix).** Use LAPACK `dgels` (one-call least-squares solver via QR) from `R_ext/Lapack.h`. Signature:
 ```c
 void F77_CALL(dgels)(const char* trans, int* m, int* n, int* nrhs,
                       double* A, int* lda, double* B, int* ldb,
@@ -186,11 +221,18 @@ void F77_CALL(dgels)(const char* trans, int* m, int* n, int* nrhs,
 ```
 Call with `trans="N"`, `A = F` (residual differences, column-major, `total_cats × m_active`), `B = -r_t` (current residual, length `total_cats`). On return: first `m_active` entries of `B` contain γ; `INFO == 0` on success.
 
-**Rank-deficiency handling.** `dgels` is not rank-revealing. On `INFO > 0` (triangular factor of A is singular) or any `!isfinite(γ_j)` after solve: clear entire history buffer (reset `m_active = 0`), use the plain (damped) iterate this step. Alternatively, on ill-conditioning suspicion (`INFO > 0` plus history saturated at m=5), switch to `dgelsd` (divide-and-conquer SVD with rank truncation) for the next `m+1` iters — optional enhancement, not required for initial ship.
+**Shape guard (Architect iter-3).** Before the call: `m_active = std::min(m_active, total_cats - 1)`. Prevents `dgels` from entering the underdetermined branch (`m < n`) which silently returns minimum-norm solutions instead of LS. At `total_cats ≤ 5` (e.g., K=1 binary margin), effective history depth is capped. Degenerate `total_cats == 0` or `1` → skip Anderson entirely this step.
 
-**History matrices.** `F` (residual differences), `X_hist` (iterate differences), both `total_cats × m` column-major, stored as `std::vector<double>` (Security iter-1 B4: RAII on all early-exit paths). `m_active = min(m, t - warmup_iters)` columns used at iter `t`.
+**Rank-deficiency / near-singular handling (Architect+Security+CTO iter-3 consensus).** Three defensive layers, applied in order after `dgels` returns:
+1. **Exact rank-deficiency:** `INFO > 0` → clear history (reset `m_active = 0`), use plain iterate, increment `result.n_anderson_nan_fallbacks`.
+2. **NaN blowup:** any `!std::isfinite(γ_j)` → same action as (1).
+3. **Near-singular silent-wrong-answer:** `std::fabs(γ_max) = max_j |γ_j| > kGammaNormMax` (constant: `1e4`) → same action as (1). This closes the near-singular silent-corruption gap without a second LAPACK call (O(m) scan).
 
-**NaN guard (Security iter-2 clarification).** After `dgels` returns: check `INFO == 0` AND `for (auto g : gamma) std::isfinite(g)`. On fail: clear history, use plain iterate. Prevents silent-wrong-answer cases from degenerate LS solutions. `dgels` does not return condition number; the `INFO > 0` check catches exact rank-deficiency, and the `isfinite(γ)` check catches numerical blowup.
+`dgels` does not return condition number. The three checks together bound both exact-singular and near-singular failure modes. `dgelsd` (SVD + rank truncation) is NOT used — adds implementation complexity and per-call cost; the γ-norm check is sufficient evidence.
+
+**History matrices.** `F` (residual differences), `X_hist` (iterate differences), both `total_cats × m` column-major, stored as `std::vector<double>` (RAII on all early-exit paths). `m_active = min(m, t - warmup_iters, total_cats - 1)` columns used at iter `t`.
+
+**Removed rev-4 sentence:** the "restart if condition number > 1e12 via thin QR" clause is deleted — contradicted the move to `dgels`.
 
 **Capacity-block interaction (iter-1 Architect BLOCKER).** Each outer iter is: sweep → fused capacity block (P1.1). Capacity updates `W[c]`; the next sweep operates with new `W`, so the effective operator `G` is not stationary across iters when `n_cap_active > 0`. Anderson history mixing residuals computed under different `W` breaks the contraction argument and can diverge.
 
@@ -221,18 +263,26 @@ Append `rk_bounds_mode_t bounds_mode;` to the end of `rk_params_t`. Default valu
 **`rk_params_init()` fix** (`src/c_api.cpp`, Architect iter-1): current init assigns fields individually without zeroing; stack-allocated callers would get garbage `bounds_mode`. Add `memset(p, 0, sizeof(*p));` as first line. Add two guards in the same header:
 ```cpp
 static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");  // Security iter-1
+// EXPECTED_BYTES: compute sizeof(rk_params_t) on the target platform at implementation time
+// (likely 56-64 bytes depending on padding), hard-code the observed value, and record it in
+// a comment adjacent to this assert as the ABI tripwire. Any future field addition that
+// changes the size fails this assert, forcing an intentional re-bless of consumers.
 static_assert(sizeof(rk_params_t) == EXPECTED_BYTES, "rk_params_t size changed; check ABI consumers");
 ```
-`EXPECTED_BYTES` is fixed at implementation time and becomes a tripwire for future struct changes.
 
-**R wrapper** (Designer iter-1 B2). Use a helper `parse_bounds_mode(x)` in `R/harvest.R` parallel to the existing `map_method()` helper (R/harvest.R:168):
+**R wrapper** (Designer iter-3 fix — character-return matching map_method pattern). Use a helper `parse_bounds_mode(x)` in `R/harvest.R` that returns a validated character string (not an integer):
 ```r
 parse_bounds_mode <- function(x = c("cell", "unit")) {
-  x <- match.arg(x)
-  switch(x, cell = 0L, unit = 1L)
+  match.arg(x)  # returns "cell" or "unit"; errors with a user-friendly message otherwise
 }
 ```
-`harvest(..., bounds_mode = "cell")` is the default; value passed through the helper before reaching `.Call`.
+Conversion to the C enum integer happens at the `.Call` bridge site (same pattern as `as.character(method)` used by `map_method`):
+```r
+bounds_mode_char <- parse_bounds_mode(bounds_mode)
+bounds_mode_int  <- match(bounds_mode_char, c("cell", "unit")) - 1L  # 0 or 1
+# ... passed through raw() / .Call / as.integer(bounds_mode_int)
+```
+`harvest(..., bounds_mode = "cell")` is the default.
 
 **Python wrapper** (Designer iter-1 B3). Match existing `method: str` typing in `_harvest.py:23`:
 ```python
@@ -304,8 +354,11 @@ Per-cell inner loop typically converges in ≤ 3 iters (few distinct bound-hit p
 
 ### 7.2 Convergence (P2.1, P2.2)
 
-**P2.1 per-WU RED tests** (CTO iter-1):
-1. Alpha recovery: force a high-stress input (adversarial), observe `alpha` drop below 1.0 in verbose=2 log, then allow stress to subside, assert alpha returns to ≥ 0.95.
+**P2.1 per-WU RED tests** (CTO iter-3 fix — struct-based, no log parsing):
+1. Alpha observability. Add `double min_alpha_seen = 1.0;` to `IEPPAResult`. Each sweep: `min_alpha_seen = std::min(min_alpha_seen, alpha)`. Tests assert on this struct field.
+   - Stress input (adversarial): assert `result$min_alpha_seen < 1.0` (damping engaged).
+   - Benign input (no stress): assert `result$min_alpha_seen == 1.0` (fast path).
+   - Stress-then-recovery: run with stress present early; assert `result$min_alpha_seen < 0.9` AND final alpha at exit ≥ 0.95 (recovered). Add `double final_alpha` field for the latter.
 2. Interim bound: after P2.1 alone (without P2.2), kk1204 errRp @ 500 iter must be ≤ 2.5e-3 (not worse than current NOCONV plateau at ~2.0e-3; prevents adaptive schedule regressing convergence).
 
 **P2.2 per-WU RED tests** (CTO iter-2 MF2 fix — result-struct counters, not log parsing):
@@ -321,7 +374,7 @@ Per-cell inner loop typically converges in ≤ 3 iters (few distinct bound-hit p
 ### 7.3 Bounds (P3.1)
 
 - `test-ieppa-bounds-mode.R`: skewed-d input returns strict bounds under `bounds_mode="unit"`. Assert `max(w) ≤ max_weight + 1e-9`, `min(w) ≥ min_weight - 1e-9`, `|sum(w) - n| < 1e-6`, `result.n_bounds_clamped == 0` on benign input.
-- Cell-mode warning: skewed-d input with cell-mode default assert `result.n_bounds_clamped > 0` and R `expect_warning(harvest(...), "cell-mode bounds")`.
+- Cell-mode warning: skewed-d input with cell-mode default assert `result.n_bounds_violated > 0` (NOT `n_bounds_clamped` — cell-mode is diagnostic-only; 4-reviewer iter-3 consensus) and R `expect_warning(harvest(...), "cell-mode bounds")`.
 - Clamp-failure path: pathological single-obs cell with out-of-bound weight → `result.n_bounds_clamped > 0` + warning surfaces even in unit mode.
 - Regression: default `bounds_mode="cell"` returns current behaviour (test-ieppa-nonuniform-d.R untouched).
 - C API: zero-initialized `rk_params_t` yields `RK_BOUNDS_CELL`.
@@ -342,13 +395,16 @@ Three vars × 3 values each = 27 combinations. Minimum required tests covering a
 | T6 | linear | off | off | bare linear path (WU-2 baseline behaviour) |
 | T7 | log | off | off | bare log path (pre-WU-3 baseline behaviour) |
 
-Others (20 combinations) declared safe-by-construction via orthogonal code paths: `LBW_IEPPA_FORCE_PATH` gates pre-loop dispatch; `FORCE_DAMPING` overrides `alpha` each sweep; `ACCEL_ANDERSON` gates post-sweep mixing. No two of these affect the same state variable, so cross-product is well-defined. Document in §10.5.
+**Orthogonality narrowed** (Designer+Security iter-3). Only `FORCE_PATH × FORCE_DAMPING` is truly orthogonal-by-construction: path-dispatch is pre-loop, damping mutates `alpha` each sweep, no shared state.
+
+`ACCEL_ANDERSON × *` combinations are NOT orthogonal — Anderson reads `alpha` (set by damping) via the damped-residual mixing and maintains shadow `lf` for the linear path. The 7 explicit tests cover the Anderson interactions: T2 (linear+on+on), T3 (log+on+on), T4 (linear+off+on), T5 (log+off+on). Remaining 20 combinations are `ACCEL_ANDERSON=off` or subsets already covered. Rationale per combination documented in the table caption.
 
 ## 8. Merge Gate
 
 All of:
 - kk1204 per-iter **wall-clock** ratio ≤ 1.5× raking (post-P1). Measurement: `/tmp/wu2_kk1204.R` reuses existing wall-clock / iter formula. CTO iter-2 SF2: "per-iter" defined as wall-clock seconds ÷ iterations returned by solver.
-- kk1204 reaches RK_OK at tol_abs=1e-3, max_iter=500 **AND** iter-to-RK_OK ≤ 250 with `LBW_IEPPA_ACCEL_ANDERSON=on` (PM iter-2 B1: pairs with "at least 2×" assertion in §7.2).
+- kk1204 reaches RK_OK at tol_abs=1e-3, max_iter=500 (post-P2). Iter-count floor softened (PM iter-3 B3): with `LBW_IEPPA_ACCEL_ANDERSON=on` require iter-to-RK_OK ≤ 400 AND at least 2× fewer iters than the `=off` baseline run on same input. The 2× claim is robust to capacity-gate engagement fraction; the absolute 400 cap is generous to allow initial capacity settling before Anderson fires.
+- Unit-mode bounds (PM iter-3): `n_bounds_clamped == 0` on benign unit-mode input (uniform-d, dense cells); `n_bounds_clamped < 0.001 · n` on skewed-d stress input.
 - Stepstone errRp ≤ 2.21e-3 ± 1e-4 with no INFEAS (post-P2; must not regress).
 - Strict obs-level bounds under `bounds_mode="unit"` on skewed-d input (post-P3).
 - Default `bounds_mode="cell"` preserves current weight vectors to **1e-8 tolerance** (CTO iter-1: matching coarsest existing test `test-ieppa-faithful.R:109-136`; 1e-12 was un-testable) on all existing tests.
