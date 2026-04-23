@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <set>
 #include <vector>
 
 namespace lbw {
@@ -87,7 +88,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // For NA bucket (j = cat_counts[k]), no constraint; f remains 1.0.
 
     bool is_infeasible = false;
-    std::vector<std::pair<int,int>> infeasible_pairs;
+    std::set<std::pair<int,int>> infeasible_pairs;  // dedup via set ordering
 
     if (st.verbose >= 1) {
         char msg[256];
@@ -110,11 +111,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
                 if (cells.empty()) {
                     if (st.targets[k][j] > 0.0) {
-                        if (!is_infeasible) is_infeasible = true;
-                        bool seen = false;
-                        for (auto& p : infeasible_pairs)
-                            if (p.first == k && p.second == j) { seen = true; break; }
-                        if (!seen) infeasible_pairs.emplace_back(k, j);
+                        is_infeasible = true;
+                        infeasible_pairs.emplace(k, j);
                     }
                     continue;
                 }
@@ -140,8 +138,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (!std::isfinite(lv_max)) {
                     // All cells are degenerate for this (k,j).
                     if (st.targets[k][j] > 0.0) {
-                        if (!is_infeasible) is_infeasible = true;
-                        infeasible_pairs.emplace_back(k, j);
+                        is_infeasible = true;
+                        infeasible_pairs.emplace(k, j);
                     }
                     continue;
                 }
@@ -150,10 +148,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     if (std::isfinite(lv[r])) sum += std::exp(lv[r] - lv_max);
                 }
                 double log_S_kj = lv_max + std::log(sum);
-                if (!std::isfinite(log_S_kj) || std::exp(lv_max) * sum < kEmptyBucketThreshold * ct.W_input) {
+                // Compare in log-space; exp(lv_max) * sum defeats LSE stabilization when lv_max → 700.
+                double log_threshold = std::log(kEmptyBucketThreshold * ct.W_input);
+                if (!std::isfinite(log_S_kj) || log_S_kj < log_threshold) {
                     if (st.targets[k][j] > 0.0) {
-                        if (!is_infeasible) is_infeasible = true;
-                        infeasible_pairs.emplace_back(k, j);
+                        is_infeasible = true;
+                        infeasible_pairs.emplace(k, j);
                     }
                     continue;
                 }
@@ -232,14 +232,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 st.log(msg);
             }
             if (st.verbose >= 2) {
+                // verbose=2: n_cap_active + log10 max/min of f[k][j] per margin for ill-conditioning debug.
                 char msg[256];
                 std::snprintf(msg, sizeof(msg),
                               "  n_cap_active=%d", n_cap);
                 st.log(msg);
-            }
-            if (st.verbose >= 2) {
-                // verbose=2: log10 max/min of f[k][j] per margin for ill-conditioning debug.
-                char msg[256];
                 for (int k = 0; k < st.K; k++) {
                     double lf_max = -std::numeric_limits<double>::infinity();
                     double lf_min =  std::numeric_limits<double>::infinity();
@@ -305,12 +302,16 @@ IEPPAResult ieppa_solve(CalibState& st) {
         size_t off = 0;
         off += std::snprintf(msg + off, sizeof(msg) - off,
                              "iEPPA infeasible cells: ");
-        for (size_t i = 0; i < infeasible_pairs.size() && off < sizeof(msg) - 32; i++) {
+        size_t idx = 0;
+        const size_t total = infeasible_pairs.size();
+        for (auto it = infeasible_pairs.begin();
+             it != infeasible_pairs.end() && off < sizeof(msg) - 32;
+             ++it, ++idx) {
             off += std::snprintf(msg + off, sizeof(msg) - off,
                                  "margin=%d cat=%d%s",
-                                 infeasible_pairs[i].first + 1,
-                                 infeasible_pairs[i].second + 1,
-                                 (i + 1 < infeasible_pairs.size()) ? ", " : "");
+                                 it->first + 1,
+                                 it->second + 1,
+                                 (idx + 1 < total) ? ", " : "");
         }
         st.log(msg);
     }
