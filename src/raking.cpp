@@ -31,6 +31,7 @@
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 namespace lbw {
@@ -107,6 +108,16 @@ RakingResult raking_solve(CalibState& st) {
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
     std::vector<double> bucket(max_cats), scale(max_cats);
 
+    // Descent monitor state. Detects stalled convergence: no net progress over
+    // a sliding window of kMaxNoImprove consecutive error-checks. Uses a
+    // window-minimum comparison to avoid false positives on normal oscillation
+    // (errRp often wobbles within noise even while the running minimum still
+    // decreases). Firing condition: the window minimum has not improved by
+    // more than a relative tolerance across kMaxNoImprove checks.
+    constexpr int kMaxNoImprove = 5;  // 5 * kErrCheckInterval = 50 stalled iters
+    double min_errRp_window = std::numeric_limits<double>::infinity();
+    int n_no_improve = 0;
+
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -178,14 +189,41 @@ RakingResult raking_solve(CalibState& st) {
             double errRp = compute_errRp(st, w, bucket);
             res.max_error = errRp;
 
+            // Relative improvement threshold: 1% of the current best. At
+            // errRp ~1e-2 threshold is 1e-4; at errRp ~1e-6 threshold is 1e-8.
+            // Absolute floor of tol_abs prevents a valid convergence from
+            // tripping the monitor right before the convergence check below.
+            const double rel_eps = 0.01 * min_errRp_window;
+            const double eps = std::max(rel_eps, st.tol_abs);
+            if (errRp < min_errRp_window - eps) {
+                min_errRp_window = errRp;
+                n_no_improve = 0;
+            } else {
+                n_no_improve++;
+            }
+
             if (st.verbose >= 1) {
                 char msg[256];
-                std::snprintf(msg, 256, "iEPPA iter %d: errRp=%.2e", iter, errRp);
+                std::snprintf(msg, 256, "raking iter %d: errRp=%.2e", iter, errRp);
                 st.log(msg);
             }
 
             if (errRp < st.tol_abs) {
                 res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                break;
+            }
+
+            if (n_no_improve >= kMaxNoImprove) {
+                res.status = RK_ERR_NOCONV;
+                if (st.verbose >= 1) {
+                    char msg[256];
+                    std::snprintf(msg, 256,
+                                  "raking: errRp stalled for %d consecutive checks "
+                                  "(last=%.2e, window_min=%.2e); likely near-infeasible bounds. "
+                                  "Aborting at iter %d.",
+                                  n_no_improve, errRp, min_errRp_window, iter);
+                    st.log(msg);
+                }
                 break;
             }
         }
