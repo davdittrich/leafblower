@@ -29,6 +29,7 @@ struct IEPPAResult {
     double pct_change     = 0.0;
     double best_error     = std::numeric_limits<double>::infinity();
     int    best_iter      = 0;
+    std::vector<double> best_weights;  // obs-level; length n; sum-normalized to n; empty if never checked
     double sor_min_omega  = 1.0;
     int    sor_n_damped   = 0;
     // ── End extended quality metrics ──

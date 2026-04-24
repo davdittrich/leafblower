@@ -272,6 +272,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> X_prev(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X_init[c];
 
+    // WU-E: best-iterate tracking (cell-level W snapshot at min observed errRp).
+    // Tracks errRp regardless of the active convergence criterion.
+    // W_best is initialized to all-zeros; best_errRp = ∞ ensures first check triggers copy.
+    double best_errRp_seen = std::numeric_limits<double>::infinity();
+    int    best_iter_val   = 0;
+    std::vector<double> W_best(ct.M_cell, 0.0);
+
     // WU-D: SOR adaptive under-relaxation state (iEPPA-only).
     // Per-margin omega[k] starts at omega_init (1.0 = no damping = fast path).
     // Adaptation: sign-flip in per-margin errRp trajectory → omega *= 0.7 (floor: omega_min).
@@ -787,6 +794,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
             res.max_error = errRp;
 
+            // WU-E: update best-iterate snapshot (tracks errRp regardless of active criterion).
+            if (errRp < best_errRp_seen) {
+                best_errRp_seen = errRp;
+                best_iter_val   = iter;
+                W_best          = W;  // cell-level capacity multiplier snapshot
+            }
+
             // WU-D: per-margin omega adaptation (both linear and log paths; auto mode only;
             // suppressed during burnin to let the infeas-streak damping settle first).
             if (sor_active && sor_auto && iter >= sor_burnin_v) {
@@ -993,6 +1007,29 @@ IEPPAResult ieppa_solve(CalibState& st) {
             homotopy_break = true;
         }
     }  // end homotopy level loop
+
+    // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.
+    // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.
+    // NO water-fill, NO bounds-clamping — this is a mid-loop snapshot.
+    // If best_errRp_seen == ∞ (solver exited before first check), best_weights is all zeros.
+    res.best_error = best_errRp_seen;
+    res.best_iter  = best_iter_val;
+    if (std::isfinite(best_errRp_seen)) {
+        std::vector<double> best_weights_obs(st.n);
+        for (int i = 0; i < st.n; i++) {
+            best_weights_obs[i] = st.weights[i] * W_best[ct.cell_of[i]];
+        }
+        // Sum-normalize to n (scalar mult + sum-normalize only, per spec).
+        double s = 0.0;
+        for (int i = 0; i < st.n; i++) s += best_weights_obs[i];
+        if (s > 0.0) {
+            const double scale = static_cast<double>(st.n) / s;
+            for (int i = 0; i < st.n; i++) best_weights_obs[i] *= scale;
+        }
+        res.best_weights = std::move(best_weights_obs);
+    } else {
+        res.best_weights.assign(st.n, 0.0);
+    }
 
     // Expansion to observation weights.
     std::vector<double> mult(ct.M_cell);

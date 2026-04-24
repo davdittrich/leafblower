@@ -17,6 +17,7 @@ struct LBFGSResult {
     double pct_change     = 0.0;
     double best_error     = std::numeric_limits<double>::infinity();
     int    best_iter      = 0;
+    std::vector<double> best_weights;  // obs-level; length n; sum-normalized to n; empty if never checked
     // ── End extended quality metrics ──
 };
 

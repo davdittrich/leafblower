@@ -8,6 +8,10 @@
 #include <vector>
 #include "logit.hpp"
 #include "cell_table.hpp"
+#include "types.hpp"
+#include "ieppa.hpp"
+#include "raking.hpp"
+#include "lbfgsb_solver.hpp"
 
 extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
@@ -222,19 +226,162 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     else if (strcmp(method_str, "raking") == 0) p.algorithm = RK_ALG_RAKING;
     else                                          p.algorithm = RK_ALG_IEPPA;
 
-    rk_result_t result;
-    rk_calibrate(n, K, weights.data(),
-                 group_ids.data(),
-                 cat_counts.data(),
-                 (const double**)targets.data(),
-                 &p, &result);
+    // Validation: replicate critical validate_inputs() checks that the C ABI enforced.
+    // These guards produce the same error messages as c_api.cpp:validate_inputs().
+    if (K > 64)
+        Rf_error("leafblower: invalid arguments — K exceeds maximum (64); too many margin columns");
+    for (int k = 0; k < K; k++) {
+        if (cat_counts[k] <= 0)
+            Rf_error("leafblower: invalid arguments — cat_counts[k] must be > 0 for all k");
+    }
+    if (p.min_weight >= p.max_weight)
+        Rf_error("leafblower: invalid arguments — min_weight must be strictly less than max_weight");
+    // Logit singularity guard — only applies to L-BFGS-B.
+    if (strcmp(method_str, "lbfgsb") == 0) {
+        const double kSingularityEps = 1e-6;
+        if (std::fabs(p.min_weight - 1.0) < kSingularityEps)
+            Rf_error("leafblower: invalid arguments — logit link undefined: min_weight near 1 makes denominator (1-L)~0");
+        if (std::fabs(p.max_weight - 1.0) < kSingularityEps)
+            Rf_error("leafblower: invalid arguments — logit link undefined: max_weight near 1 makes denominator (U-1)~0");
+    }
 
-    // Build return list: list(weights=numeric[n], result=list(5 fields))
+    // WU-E: call C++ solvers directly (bypasses flat C ABI) to access best_weights vector.
+    // Build CalibState mirroring c_api.cpp:rk_calibrate() setup.
+    lbw::CalibState st;
+    st.n = n; st.K = K;
+    st.weights = weights.data();
+    st.group_ids = const_cast<const int32_t**>(group_ids.data());
+    st.cat_counts = cat_counts.data();
+    st.targets = const_cast<const double**>(targets.data());
+    st.min_weight    = p.min_weight;
+    st.max_weight    = p.max_weight;
+    st.tol_abs       = p.tol_abs;
+    st.inner_max_iter = p.inner_max_iter;
+    st.outer_max_iter = p.outer_max_iter;
+    st.lbfgs_m       = p.lbfgs_m;
+    st.verbose       = p.verbose;
+    st.bounds_mode   = p.bounds_mode;
+    st.log_fn        = p.log_fn;
+    st.log_ctx       = p.log_ctx;
+    st.homotopy.n_levels        = p.homotopy.n_levels;
+    st.homotopy.start_factor    = p.homotopy.start_factor;
+    st.homotopy.end_factor      = p.homotopy.end_factor;
+    st.homotopy.budget_split_p  = p.homotopy.budget_split_p;
+    st.homotopy.enabled         = (p.homotopy.enabled != 0) || (p.homotopy.n_levels > 1);
+    st.scheduler.mode           = (p.scheduler == RK_SCHED_GREEDY)
+                                    ? lbw::SchedulerMode::GREEDY
+                                    : lbw::SchedulerMode::ROUND_ROBIN;
+    st.eta_schedule.mode        = (p.eta_mode == RK_ETA_TANG_DYNAMIC)
+                                    ? lbw::EtaScheduleMode::TANG_DYNAMIC
+                                    : lbw::EtaScheduleMode::FIXED;
+    st.eta_schedule.eta_start     = p.eta_start;
+    st.eta_schedule.eta_end       = p.eta_end;
+    st.eta_schedule.schedule_power = p.eta_schedule_power;
+    st.convergence_cfg.pct_tol      = p.pct_tol;
+    st.convergence_cfg.absolute_tol = p.absolute_tol;
+    st.convergence_cfg.criterion    = static_cast<lbw::CalibCriterion>(p.criterion);
+    st.convergence_cfg.stop_when    = static_cast<lbw::CalibStopWhen>(p.stop_when);
+    st.sor_cfg.enabled              = (p.sor_enabled != 0);
+    st.sor_cfg.auto_adapt           = (p.sor_auto != 0);
+    st.sor_cfg.omega_init           = p.sor_omega_init;
+    st.sor_cfg.omega_min            = p.sor_omega_min;
+    st.sor_cfg.omega_fixed          = p.sor_omega_fixed;
+    st.sor_cfg.burnin               = p.sor_burnin;
+    st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
+    st.alm_lambda = 0.0;
+    st.alm_mu     = 0.0;
+
+    // Scalar fields mirrored from rk_result_t for compatibility with downstream assembly.
+    int    res_status     = RK_ERR_NOCONV;
+    int    res_iterations = 0;
+    double res_max_error  = 1.0;
+    int    res_alg_used   = (int)RK_ALG_IEPPA;
+    char   res_message[256] = "";
+    int    res_n_xcur_writes = 0;
+    double res_min_alpha  = 1.0;
+    double res_final_alpha = 1.0;
+    int    res_n_bounds_violated = 0;
+    int    res_n_bounds_clamped  = 0;
+    int    res_homotopy_levels_used  = 0;
+    double res_homotopy_final_factor = 1.0;
+    int    res_greedy_sweeps_taken   = 0;
+    double res_eta_final             = 0.0;
+    double res_mean_error  = 0.0;
+    double res_kl          = 0.0;
+    double res_chi2        = 0.0;
+    double res_pct_change  = 0.0;
+    double res_best_error  = std::numeric_limits<double>::infinity();
+    int    res_best_iter   = 0;
+    double res_sor_min_omega = 1.0;
+    int    res_sor_n_damped  = 0;
+    std::vector<double> res_best_weights;  // obs-level, length n
+
+    if (strcmp(method_str, "lbfgsb") == 0) {
+        auto res = lbw::lbfgsb_solve(st);
+        res_status     = res.status;
+        res_iterations = res.iterations;
+        res_max_error  = res.max_error;
+        res_alg_used   = (int)RK_ALG_LBFGSB;
+        res_mean_error = res.mean_error;
+        res_kl         = res.kl;
+        res_chi2       = res.chi2;
+        res_pct_change = res.pct_change;
+        res_best_error = res.best_error;
+        res_best_iter  = res.best_iter;
+        res_best_weights = std::move(res.best_weights);
+    } else if (strcmp(method_str, "raking") == 0) {
+        auto res = lbw::raking_solve(st);
+        res_status     = res.status;
+        res_iterations = res.iterations;
+        res_max_error  = res.max_error;
+        res_alg_used   = (int)RK_ALG_RAKING;
+        res_mean_error = res.mean_error;
+        res_kl         = res.kl;
+        res_chi2       = res.chi2;
+        res_pct_change = res.pct_change;
+        res_best_error = res.best_error;
+        res_best_iter  = res.best_iter;
+        res_best_weights = std::move(res.best_weights);
+    } else {
+        // Default / ieppa
+        st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);
+        auto res = lbw::ieppa_solve(st);
+        res_status     = res.status;
+        res_iterations = res.iterations;
+        res_max_error  = res.max_error;
+        res_alg_used   = (int)RK_ALG_IEPPA;
+        res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+        res_min_alpha             = res.min_alpha_seen;
+        res_final_alpha           = res.final_alpha;
+        res_n_bounds_violated     = res.n_bounds_violated;
+        res_n_bounds_clamped      = res.n_bounds_clamped;
+        res_homotopy_levels_used  = res.homotopy_levels_used;
+        res_homotopy_final_factor = res.homotopy_final_factor;
+        res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
+        res_eta_final             = res.eta_final;
+        res_mean_error = res.mean_error;
+        res_kl         = res.kl;
+        res_chi2       = res.chi2;
+        res_pct_change = res.pct_change;
+        res_best_error = res.best_error;
+        res_best_iter  = res.best_iter;
+        res_sor_min_omega = res.sor_min_omega;
+        res_sor_n_damped  = res.sor_n_damped;
+        res_best_weights = std::move(res.best_weights);
+    }
+
+    const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB) ? "L-BFGS-B"
+                         : (res_alg_used == (int)RK_ALG_RAKING)  ? "raking"
+                         : "iEPPA";
+    std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
+                  alg_name, res_iterations, res_max_error);
+
+    // Build return list: list(weights=numeric[n], result=list(23 fields))
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  22));  // 14 prior + 8 new quality metrics
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  22));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  23));  // 14 prior + 8 scalars + best_weights
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  23));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -245,25 +392,25 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_STRING_ELT(res_names, 7, Rf_mkChar("final_alpha"));
     SET_STRING_ELT(res_names, 8, Rf_mkChar("n_bounds_violated"));
     SET_STRING_ELT(res_names, 9, Rf_mkChar("n_bounds_clamped"));
-    SET_VECTOR_ELT(res_list, 0, Rf_ScalarInteger(result.status));
-    SET_VECTOR_ELT(res_list, 1, Rf_ScalarInteger(result.iterations));
-    SET_VECTOR_ELT(res_list, 2, Rf_ScalarReal(result.max_error));
-    SET_VECTOR_ELT(res_list, 3, Rf_ScalarInteger((int)result.algorithm_used));
-    SET_VECTOR_ELT(res_list, 4, Rf_mkString(result.message));
-    SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(result.n_xcur_writes_per_iter_linear));
-    SET_VECTOR_ELT(res_list, 6, Rf_ScalarReal(result.min_alpha_seen));
-    SET_VECTOR_ELT(res_list, 7, Rf_ScalarReal(result.final_alpha));
-    SET_VECTOR_ELT(res_list, 8, Rf_ScalarInteger(result.n_bounds_violated));
-    SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(result.n_bounds_clamped));
+    SET_VECTOR_ELT(res_list, 0, Rf_ScalarInteger(res_status));
+    SET_VECTOR_ELT(res_list, 1, Rf_ScalarInteger(res_iterations));
+    SET_VECTOR_ELT(res_list, 2, Rf_ScalarReal(res_max_error));
+    SET_VECTOR_ELT(res_list, 3, Rf_ScalarInteger(res_alg_used));
+    SET_VECTOR_ELT(res_list, 4, Rf_mkString(res_message));
+    SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(res_n_xcur_writes));
+    SET_VECTOR_ELT(res_list, 6, Rf_ScalarReal(res_min_alpha));
+    SET_VECTOR_ELT(res_list, 7, Rf_ScalarReal(res_final_alpha));
+    SET_VECTOR_ELT(res_list, 8, Rf_ScalarInteger(res_n_bounds_violated));
+    SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(res_n_bounds_clamped));
     SET_STRING_ELT(res_names, 10, Rf_mkChar("homotopy_levels_used"));
     SET_STRING_ELT(res_names, 11, Rf_mkChar("homotopy_final_factor"));
     SET_STRING_ELT(res_names, 12, Rf_mkChar("greedy_sweeps_taken"));
     SET_STRING_ELT(res_names, 13, Rf_mkChar("eta_final"));
-    SET_VECTOR_ELT(res_list, 10, Rf_ScalarInteger(result.homotopy_levels_used));
-    SET_VECTOR_ELT(res_list, 11, Rf_ScalarReal(result.homotopy_final_factor));
-    SET_VECTOR_ELT(res_list, 12, Rf_ScalarInteger(result.greedy_sweeps_taken));
-    SET_VECTOR_ELT(res_list, 13, Rf_ScalarReal(result.eta_final));
-    /* New quality metric scalars (indices 14-21) */
+    SET_VECTOR_ELT(res_list, 10, Rf_ScalarInteger(res_homotopy_levels_used));
+    SET_VECTOR_ELT(res_list, 11, Rf_ScalarReal(res_homotopy_final_factor));
+    SET_VECTOR_ELT(res_list, 12, Rf_ScalarInteger(res_greedy_sweeps_taken));
+    SET_VECTOR_ELT(res_list, 13, Rf_ScalarReal(res_eta_final));
+    /* Quality metric scalars (indices 14-21) */
     SET_STRING_ELT(res_names, 14, Rf_mkChar("mean_error"));
     SET_STRING_ELT(res_names, 15, Rf_mkChar("kl"));
     SET_STRING_ELT(res_names, 16, Rf_mkChar("chi2"));
@@ -272,15 +419,24 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_STRING_ELT(res_names, 19, Rf_mkChar("best_iter"));
     SET_STRING_ELT(res_names, 20, Rf_mkChar("sor_min_omega"));
     SET_STRING_ELT(res_names, 21, Rf_mkChar("sor_n_damped"));
-    SET_VECTOR_ELT(res_list, 14, Rf_ScalarReal(result.mean_error));
-    SET_VECTOR_ELT(res_list, 15, Rf_ScalarReal(result.kl));
-    SET_VECTOR_ELT(res_list, 16, Rf_ScalarReal(result.chi2));
-    SET_VECTOR_ELT(res_list, 17, Rf_ScalarReal(result.pct_change));
-    SET_VECTOR_ELT(res_list, 18, Rf_ScalarReal(result.best_error));
-    SET_VECTOR_ELT(res_list, 19, Rf_ScalarInteger(result.best_iter));
-    SET_VECTOR_ELT(res_list, 20, Rf_ScalarReal(result.sor_min_omega));
-    SET_VECTOR_ELT(res_list, 21, Rf_ScalarInteger(result.sor_n_damped));
-    /* element 22 = best_weights REALSXP, added in WU-E */
+    SET_VECTOR_ELT(res_list, 14, Rf_ScalarReal(res_mean_error));
+    SET_VECTOR_ELT(res_list, 15, Rf_ScalarReal(res_kl));
+    SET_VECTOR_ELT(res_list, 16, Rf_ScalarReal(res_chi2));
+    SET_VECTOR_ELT(res_list, 17, Rf_ScalarReal(res_pct_change));
+    SET_VECTOR_ELT(res_list, 18, Rf_ScalarReal(res_best_error));
+    SET_VECTOR_ELT(res_list, 19, Rf_ScalarInteger(res_best_iter));
+    SET_VECTOR_ELT(res_list, 20, Rf_ScalarReal(res_sor_min_omega));
+    SET_VECTOR_ELT(res_list, 21, Rf_ScalarInteger(res_sor_n_damped));
+    /* Element 22: best_weights REALSXP (WU-E) */
+    SET_STRING_ELT(res_names, 22, Rf_mkChar("best_weights"));
+    {
+        int bw_n = (int)res_best_weights.size();
+        SEXP bw_sxp = PROTECT(Rf_allocVector(REALSXP, bw_n));
+        double* bw  = REAL(bw_sxp);
+        for (int i = 0; i < bw_n; i++) bw[i] = res_best_weights[i];
+        SET_VECTOR_ELT(res_list, 22, bw_sxp);
+        UNPROTECT(1);  // bw_sxp adopted by res_list
+    }
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

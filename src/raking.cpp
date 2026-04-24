@@ -121,6 +121,12 @@ RakingResult raking_solve(CalibState& st) {
     // WU-B: W_prev tracks obs-level weights at the last convergence check for pct_change.
     std::vector<double> w_prev(w);
 
+    // WU-E: best-iterate tracking (obs-level snapshot at min observed errRp).
+    // Tracks errRp regardless of active convergence criterion.
+    double best_errRp_seen = std::numeric_limits<double>::infinity();
+    int    best_iter_val   = 0;
+    std::vector<double> w_best(st.n, 0.0);
+
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -191,6 +197,13 @@ RakingResult raking_solve(CalibState& st) {
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
             double errRp = compute_errRp(st, w, bucket);
             res.max_error = errRp;
+
+            // WU-E: update best-iterate snapshot (tracks errRp regardless of active criterion).
+            if (errRp < best_errRp_seen) {
+                best_errRp_seen = errRp;
+                best_iter_val   = iter;
+                w_best          = w;  // obs-level snapshot
+            }
 
             // WU-B: pct_change (obs-level).
             double pct_change = 0.0;
@@ -364,6 +377,21 @@ RakingResult raking_solve(CalibState& st) {
         for (int i = 0; i < st.n; i++) w[i] += shift;
         q_hyp = -shift;
         if (box_ok) break;
+    }
+
+    // WU-E: finalize best-iterate result (obs-level, sum-normalize to n, no clamping).
+    res.best_error = best_errRp_seen;
+    res.best_iter  = best_iter_val;
+    if (std::isfinite(best_errRp_seen)) {
+        double s = 0.0;
+        for (int i = 0; i < st.n; i++) s += w_best[i];
+        if (s > 0.0) {
+            const double scale = static_cast<double>(st.n) / s;
+            for (int i = 0; i < st.n; i++) w_best[i] *= scale;
+        }
+        res.best_weights = std::move(w_best);
+    } else {
+        res.best_weights.assign(st.n, 0.0);
     }
 
     for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
