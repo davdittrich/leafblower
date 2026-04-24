@@ -2,6 +2,12 @@
 #include "ieppa.hpp"
 #include "cell_table.hpp"
 #include "leafblower.h"
+#include <R_ext/Lapack.h>   // F77_CALL(dgels)
+#include <R_ext/RS.h>       // FCONE macro for Fortran string-length arguments (R >= 4.1)
+// FCONE fallback for R < 4.1 (Feasibility iter-3 B3):
+#ifndef FCONE
+# define FCONE
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -35,6 +41,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     res.n_xcur_writes_per_iter_linear = 0;
     res.min_alpha_seen = 1.0;
     res.final_alpha = 1.0;
+    res.n_anderson_iters_engaged = 0;
+    res.n_anderson_nan_fallbacks = 0;
 
     // Build cell table.
     CellTable ct;
@@ -216,6 +224,28 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> S_lin(max_cat, 0.0);
     std::vector<double> rescale_lin(max_cat, 1.0);
     std::vector<double> inv_f_old_lin(max_cat, 1.0);
+
+    // P2.2 Anderson(m=5) acceleration on lf via LAPACK dgels.
+    // State declared BEFORE outer iter loop so symbols are in scope at the P1.1
+    // fallback site (linear-overflow reset inside the loop references these).
+    constexpr int    kAndersonM        = 5;
+    constexpr int    kAndersonWarmup   = 5;
+    constexpr double kGammaNormMax     = 1e4;
+
+    const char* force_accel = std::getenv("LBW_IEPPA_ACCEL_ANDERSON");
+    const bool  anderson_off = (force_accel != nullptr && std::strcmp(force_accel, "off") == 0);
+    const bool  anderson_enabled = !anderson_off;  // default on
+
+    // History buffers: column-major, total_cats rows × kAndersonM cols.
+    // F_hist[:,j] = residual diff at lag j; X_hist[:,j] = iterate diff at lag j.
+    std::vector<double> lf_prev(total_cats, 0.0);    // lf at end of previous sweep
+    std::vector<double> r_prev(total_cats, 0.0);     // previous residual
+    std::vector<double> F_hist(total_cats * kAndersonM, 0.0);
+    std::vector<double> X_hist_aa(total_cats * kAndersonM, 0.0);  // renamed to avoid clash
+    std::vector<double> r_curr(total_cats, 0.0);
+    std::vector<double> lapack_work;  // sized by workspace query on first call
+    int m_active = 0;                  // number of history columns currently filled
+    int prev_n_cap_active = -1;        // n_cap_active from previous iter (for stability gate)
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
@@ -401,6 +431,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(f_lin.begin(),   f_lin.end(),   1.0);
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 res.n_xcur_writes_per_iter_linear = 0;
+                // T2.2.6: reset Anderson state — lf_prev/r_prev carry stale linear-domain
+                // values; after fallback we're in log-space, so history is invalid.
+                std::fill(lf_prev.begin(), lf_prev.end(), 0.0);
+                std::fill(r_prev.begin(),  r_prev.end(),  0.0);
+                m_active = 0;
+                prev_n_cap_active = -1;  // reset stable-cap baseline
+                res.n_anderson_iters_engaged = 0;  // diagnostic reset (pre-fallback iters don't count)
                 use_linear = false;
                 linear_fallback_used = true;
                 if (st.verbose >= 1) st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
@@ -450,6 +487,134 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (W[c] != 1.0) n_cap++;
             }
             res.n_cap_active = n_cap;
+        }
+
+        // P2.2 Anderson(m=5) acceleration on lf (both paths via log-domain dispatch).
+        // Applied AFTER capacity block (damping already baked into lf this iter).
+        // Spec §5.2: engagement gated on n_cap_active == 0 and past warmup.
+
+        // Seed lf_prev and r_prev at end of warmup so the first engaged iter has a
+        // meaningful history origin. Without this, iter = warmup+1 sees lf_prev = 0
+        // and r_prev = 0, producing r_curr = lf, F_hist col 0 = lf, X_hist col 0 = lf,
+        // γ = 1.0, lf_new = lf + r_curr − 2·lf = 0 — zeroing the Sinkhorn state.
+        // (critical-code-reviewer C1.)
+        if (iter == kAndersonWarmup && anderson_enabled) {
+            lf_prev = lf;
+            std::fill(r_prev.begin(), r_prev.end(), 0.0);
+            m_active = 0;           // explicit; already 0 from init
+            prev_n_cap_active = res.n_cap_active;  // seed stable-cap baseline
+        }
+
+        // Anderson engagement gate. Spec §5.2: only fires when n_cap_active == 0.
+        // Capacity changes W[c] each iter; residuals from different W regimes are
+        // incompatible (different operator G). Clear history on any cap-active iter.
+        // Note: for kk1204 K=20 max_weight=3, cap never clears → Anderson never engages.
+        // The kk1204 convergence gate is conditional on cap releasing; if it doesn't,
+        // stepstone (log-space, no cap) benefits from Anderson acceleration.
+        prev_n_cap_active = res.n_cap_active;  // tracked for diagnostics
+        const bool can_anderson = anderson_enabled
+                                  && iter > kAndersonWarmup
+                                  && res.n_cap_active == 0
+                                  && total_cats > 1;
+        if (!can_anderson) {
+            // Capacitated or warmup: clear history (residuals mixed under different W invalid).
+            if (iter > kAndersonWarmup) m_active = 0;
+        } else {
+            // Materialize lf for the linear path via shadow-log conversion.
+            if (use_linear) {
+                for (int kj = 0; kj < total_cats; kj++) {
+                    lf[kj] = (f_lin[kj] > 0.0) ? std::log(f_lin[kj]) : -kLogClip;
+                }
+            }
+            // Current residual r = G(lf) - lf = lf_this_iter - lf_prev.
+            for (int kj = 0; kj < total_cats; kj++) {
+                r_curr[kj] = lf[kj] - lf_prev[kj];
+            }
+            // Shift history right by one column; append new residual diff and iterate diff.
+            if (m_active > 0) {
+                int shift_cols = std::min(m_active, kAndersonM - 1);
+                for (int j = shift_cols; j > 0; j--) {
+                    std::memcpy(&F_hist[j * total_cats], &F_hist[(j - 1) * total_cats],
+                                total_cats * sizeof(double));
+                    std::memcpy(&X_hist_aa[j * total_cats], &X_hist_aa[(j - 1) * total_cats],
+                                total_cats * sizeof(double));
+                }
+            }
+            for (int kj = 0; kj < total_cats; kj++) {
+                F_hist[kj]     = r_curr[kj] - r_prev[kj];
+                X_hist_aa[kj]  = lf[kj]     - lf_prev[kj];
+            }
+            if (m_active < kAndersonM) m_active++;
+
+            // Shape guard: cap columns so dgels stays overdetermined (m >= n).
+            int m_solve = std::min(m_active, total_cats - 1);
+
+            // update_prev called on BOTH m_solve<=0 AND m_solve>0 branches (symmetric).
+            auto update_prev = [&]() {
+                lf_prev = lf;
+                r_prev  = r_curr;
+            };
+
+            if (m_solve <= 0) {
+                update_prev();
+            } else {
+                // Copy r_curr into B buffer (dgels overwrites B with solution).
+                std::vector<double> B_buf = r_curr;  // length total_cats
+                std::vector<double> A_buf(F_hist.begin(), F_hist.begin() + total_cats * m_solve);
+
+                // Workspace query.
+                int n_rows = total_cats, n_cols = m_solve, nrhs = 1;
+                int lda = total_cats, ldb = total_cats, info = 0;
+                double wkopt = 0.0; int lwork = -1;
+                F77_CALL(dgels)("N", &n_rows, &n_cols, &nrhs,
+                                A_buf.data(), &lda, B_buf.data(), &ldb,
+                                &wkopt, &lwork, &info FCONE);
+                if (info == 0) {
+                    lwork = static_cast<int>(wkopt);
+                    if (static_cast<int>(lapack_work.size()) < lwork) lapack_work.resize(lwork);
+                    F77_CALL(dgels)("N", &n_rows, &n_cols, &nrhs,
+                                    A_buf.data(), &lda, B_buf.data(), &ldb,
+                                    lapack_work.data(), &lwork, &info FCONE);
+                }
+
+                // Three-layer rank-deficiency / near-singular guard.
+                bool ok = (info == 0);
+                double gamma_absmax = 0.0;
+                if (ok) {
+                    for (int j = 0; j < m_solve; j++) {
+                        double g = B_buf[j];
+                        if (!std::isfinite(g)) { ok = false; break; }
+                        if (std::fabs(g) > gamma_absmax) gamma_absmax = std::fabs(g);
+                    }
+                    if (ok && gamma_absmax > kGammaNormMax) ok = false;
+                }
+
+                if (!ok) {
+                    m_active = 0;   // clear history; use plain iterate
+                    res.n_anderson_nan_fallbacks++;
+                } else {
+                    // Standard AA type-II update: lf_{t+1}_AA = lf + r - (X_hist + F_hist) · γ.
+                    for (int kj = 0; kj < total_cats; kj++) {
+                        double delta = 0.0;
+                        for (int j = 0; j < m_solve; j++) {
+                            delta += (X_hist_aa[j * total_cats + kj]
+                                    + F_hist[j * total_cats + kj]) * B_buf[j];
+                        }
+                        lf[kj] = lf[kj] + r_curr[kj] - delta;
+                    }
+                    res.n_anderson_iters_engaged++;
+                }
+
+                update_prev();  // symmetric: fires on both ok and !ok paths
+            }
+
+            // Rematerialize f_lin from updated lf on linear path.
+            if (use_linear) {
+                for (int kj = 0; kj < total_cats; kj++) {
+                    f_lin[kj] = std::exp(lf[kj]);
+                    // Next sweep recomputes X_cur from scratch using new f_lin.
+                }
+            }
         }
 
         // Convergence check.

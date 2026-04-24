@@ -352,3 +352,74 @@ test_that("P2.1: LBW_IEPPA_FORCE_DAMPING=on forces alpha = 0.5", {
   expect_equal(info$min_alpha_seen, 0.5)
   expect_equal(info$final_alpha, 0.5)
 })
+
+test_that("P2.2: ACCEL_ANDERSON=off → zero engaged iters", {
+  Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "off")
+  on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON"), add = TRUE)
+  set.seed(77)
+  n <- 1000L
+  df <- data.frame(a = sample(letters[1:3], n, TRUE),
+                   b = sample(letters[1:3], n, TRUE))
+  targets <- list(a = c(a=0.4,b=0.35,c=0.25), b = c(a=0.4,b=0.35,c=0.25))
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 50L,
+                 convergence = list(absolute = 1e-300),
+                 attach_weights = FALSE)
+  info <- attr(res, "result")
+  expect_equal(info$n_anderson_iters_engaged, 0)
+})
+
+test_that("P2.2: ACCEL_ANDERSON=on engages Anderson post-warmup on uncapacitated iters", {
+  Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "on")
+  on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON"), add = TRUE)
+  set.seed(77)
+  n <- 1000L
+  df <- data.frame(a = sample(letters[1:3], n, TRUE),
+                   b = sample(letters[1:3], n, TRUE))
+  targets <- list(a = c(a=0.4,b=0.35,c=0.25), b = c(a=0.4,b=0.35,c=0.25))
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 50L,
+                 convergence = list(absolute = 1e-300),
+                 attach_weights = FALSE)
+  info <- attr(res, "result")
+  expect_gt(info$n_anderson_iters_engaged, 0)  # some iters fired
+  # Warmup skips first 5 iters. Plus any cap-active iters. Net: at most 50-5 = 45.
+  expect_lte(info$n_anderson_iters_engaged, info$iterations - 5)
+})
+
+test_that("P2.2: NaN guard fires on rank-deficient residuals; weights stay finite (spec §7.2)", {
+  # Spec §7.2: n_anderson_nan_fallbacks > 0 must be DEMONSTRABLE.
+  # Design: K=2, 2-cat each (total_cats = (2+1)*2 = 6 with NA slots).
+  # Effective lf DOF = 2 (one per margin). Anderson history depth m_active=5.
+  # m_solve = min(5, total_cats-1) = min(5, 5) = 5. F_hist is 6×5.
+  # After convergence (~10 iters), F_hist has rank ≤ 2 (only 2 independent residual
+  # directions), but m_solve=5 → dgels detects INFO > 0 (rank < n_cols) → fallback.
+  # large max_weight keeps n_cap_active=0 so Anderson always eligible post-warmup.
+  Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "on")
+  Sys.setenv(LBW_IEPPA_FORCE_PATH = "log")  # ensure log-path so lf is primary
+  on.exit({
+    Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON")
+    Sys.unsetenv("LBW_IEPPA_FORCE_PATH")
+  }, add = TRUE)
+  set.seed(42)
+  n <- 5000L
+  # Severely imbalanced empirical distribution vs targets → slow Sinkhorn convergence
+  # (10-20+ iters), giving Anderson time to fill 5-column history before convergence.
+  df <- data.frame(
+    a = sample(c("x", "y"), n, prob = c(0.95, 0.05), replace = TRUE),
+    b = sample(c("p", "q"), n, prob = c(0.95, 0.05), replace = TRUE)
+  )
+  targets <- list(a = c(x = 0.5, y = 0.5), b = c(p = 0.5, q = 0.5))
+  res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+                 max_weight = 1e8, min_weight = 0,
+                 max_iterations = 50L,
+                 convergence = list(absolute = 1e-300),  # force full 50-iter budget
+                 attach_weights = FALSE))
+  info <- attr(res, "result")
+  expect_true(all(is.finite(as.numeric(res))))         # PRIMARY: no NaN leakage
+  # After ~20+ iters and rank ≤ 2 F_hist with m_solve=5 columns,
+  # dgels returns INFO > 0 → n_anderson_nan_fallbacks incremented.
+  expect_gt(info$n_anderson_nan_fallbacks, 0L)         # spec §7.2: > 0 demonstrable
+})

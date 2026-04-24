@@ -51,6 +51,8 @@ typedef struct {
     int             n_xcur_writes_per_iter_linear;  /* P1.1 diagnostic */
     double          min_alpha_seen;                 /* P2.1: min alpha over all sweeps; 1.0 if never damped */
     double          final_alpha;                    /* P2.1: alpha at solver exit */
+    int             n_anderson_iters_engaged;       /* P2.2: iters where Anderson fired */
+    int             n_anderson_nan_fallbacks;       /* P2.2: iters Anderson fell back due to guard */
 } rk_result_t;
 
 /* Fill *p with safe defaults */
