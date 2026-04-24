@@ -13,7 +13,8 @@ extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
 SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
-SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -29,7 +30,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       10},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       19},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -79,7 +80,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP min_weight_sexp, SEXP max_weight_sexp,
                     SEXP method_sexp, SEXP verbose_sexp,
                     SEXP inner_max_iter_sexp, SEXP start_weights_sexp,
-                    SEXP tol_abs_sexp, SEXP bounds_mode_sexp) {
+                    SEXP tol_abs_sexp, SEXP bounds_mode_sexp,
+                    SEXP homotopy_levels_sexp, SEXP homotopy_start_factor_sexp,
+                    SEXP homotopy_end_factor_sexp, SEXP homotopy_budget_p_sexp,
+                    SEXP scheduler_sexp, SEXP eta_schedule_sexp,
+                    SEXP eta_start_sexp, SEXP eta_end_sexp,
+                    SEXP eta_schedule_power_sexp) {
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -170,6 +176,23 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     p.tol_abs        = REAL(tol_abs_sexp)[0];
     p.bounds_mode    = (rk_bounds_mode_t) INTEGER(bounds_mode_sexp)[0];
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
+    /* Overlay knobs (WU-1) */
+    p.homotopy.n_levels        = INTEGER(homotopy_levels_sexp)[0];
+    p.homotopy.start_factor    = REAL(homotopy_start_factor_sexp)[0];
+    p.homotopy.end_factor      = REAL(homotopy_end_factor_sexp)[0];
+    p.homotopy.budget_split_p  = REAL(homotopy_budget_p_sexp)[0];
+    p.homotopy.enabled         = (p.homotopy.n_levels > 1) ? 1 : 0;
+    {
+        const char* sched_str = CHAR(STRING_ELT(scheduler_sexp, 0));
+        p.scheduler = (strcmp(sched_str, "greedy") == 0) ? RK_SCHED_GREEDY : RK_SCHED_ROUND_ROBIN;
+    }
+    {
+        const char* eta_str = CHAR(STRING_ELT(eta_schedule_sexp, 0));
+        p.eta_mode = (strcmp(eta_str, "tang_dynamic") == 0) ? RK_ETA_TANG_DYNAMIC : RK_ETA_FIXED;
+    }
+    p.eta_start           = REAL(eta_start_sexp)[0];
+    p.eta_end             = REAL(eta_end_sexp)[0];
+    p.eta_schedule_power  = REAL(eta_schedule_power_sexp)[0];
 
     if (LENGTH(method_sexp) != 1)
         Rf_error("method must be a length-1 character string");
@@ -190,8 +213,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  10));  // was 8
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  10));  // was 8
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  14));  // 10 prior + 4 overlay diagnostics
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  14));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -212,6 +235,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 7, Rf_ScalarReal(result.final_alpha));
     SET_VECTOR_ELT(res_list, 8, Rf_ScalarInteger(result.n_bounds_violated));
     SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(result.n_bounds_clamped));
+    SET_STRING_ELT(res_names, 10, Rf_mkChar("homotopy_levels_used"));
+    SET_STRING_ELT(res_names, 11, Rf_mkChar("homotopy_final_factor"));
+    SET_STRING_ELT(res_names, 12, Rf_mkChar("greedy_sweeps_taken"));
+    SET_STRING_ELT(res_names, 13, Rf_mkChar("eta_final"));
+    SET_VECTOR_ELT(res_list, 10, Rf_ScalarInteger(result.homotopy_levels_used));
+    SET_VECTOR_ELT(res_list, 11, Rf_ScalarReal(result.homotopy_final_factor));
+    SET_VECTOR_ELT(res_list, 12, Rf_ScalarInteger(result.greedy_sweeps_taken));
+    SET_VECTOR_ELT(res_list, 13, Rf_ScalarReal(result.eta_final));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

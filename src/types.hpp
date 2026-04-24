@@ -9,6 +9,31 @@
 
 namespace lbw {
 
+// ── Overlay config structs (WU-1) ──────────────────────────────────────────
+struct HomotopyConfigLbw {
+    int    n_levels        = 1;     // 1 = disabled (single level = current behaviour)
+    double start_factor    = 1.0;   // starting max_weight multiplier
+    double end_factor      = 1.0;   // ending max_weight multiplier
+    double budget_split_p  = 0.5;   // Chizat-inspired budget split
+    bool   enabled         = false; // master toggle; set true when n_levels > 1
+};
+
+enum class SchedulerMode   : int { ROUND_ROBIN = 0, GREEDY = 1 };
+enum class EtaScheduleMode : int { FIXED = 0, TANG_DYNAMIC = 1 };
+
+struct SchedulerConfigLbw {
+    SchedulerMode mode                     = SchedulerMode::ROUND_ROBIN;
+    double        residual_recheck_fraction = 0.1;  // internal; not exposed to ABI or R
+};
+
+struct EtaScheduleConfigLbw {
+    EtaScheduleMode mode          = EtaScheduleMode::FIXED;
+    double          eta_start     = 1.0;
+    double          eta_end       = 1.0;
+    double          schedule_power = 0.5;
+};
+// ── End overlay config structs ─────────────────────────────────────────────
+
 struct CalibState {
     int n;
     int K;
@@ -27,6 +52,11 @@ struct CalibState {
     double alm_lambda = 0.0;  // dual variable for sum(w)=n; only read when alm_mu > 0
     double alm_mu     = 0.0;  // penalty coefficient; 0.0 = ALM inactive
     rk_bounds_mode_t bounds_mode = RK_BOUNDS_CELL;  /* P3.1: per-obs vs cell-aggregate bounds */
+    // ── Overlay config (WU-1; all default off / identity) ──
+    HomotopyConfigLbw    homotopy;
+    SchedulerConfigLbw   scheduler;
+    EtaScheduleConfigLbw eta_schedule;
+    // ── End overlay config ──
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;
 

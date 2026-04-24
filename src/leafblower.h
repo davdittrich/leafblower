@@ -14,6 +14,20 @@ typedef enum {
     RK_BOUNDS_UNIT = 1   /* per-observation strict bounds via intra-cell water-filling */
 } rk_bounds_mode_t;
 
+/* ── Overlay enums (WU-1) ── */
+typedef enum { RK_SCHED_ROUND_ROBIN = 0, RK_SCHED_GREEDY = 1 } rk_scheduler_t;
+typedef enum { RK_ETA_FIXED = 0, RK_ETA_TANG_DYNAMIC = 1 } rk_eta_mode_t;
+
+/* Homotopy config (default = single level = identity) */
+typedef struct {
+    int    n_levels;        /* default 1 */
+    double start_factor;    /* default 1.0 */
+    double end_factor;      /* default 1.0 */
+    double budget_split_p;  /* default 0.5 */
+    int    enabled;         /* 0/1; default 0 */
+} rk_homotopy_cfg_t;
+/* ── End overlay enums ── */
+
 /* ── Return codes ── */
 #define RK_OK         0  /* Success */
 #define RK_ERR_NOCONV 1  /* Did not converge within outer_max_iter */
@@ -46,6 +60,14 @@ typedef struct {
     void            (*log_fn)(const char* msg, void* ctx);
     void*           log_ctx;
     rk_bounds_mode_t bounds_mode;  /* default RK_BOUNDS_CELL */
+    /* ── Overlay knobs (WU-1; all default off / identity) ── */
+    rk_homotopy_cfg_t homotopy;         /* default: n_levels=1, enabled=0 */
+    rk_scheduler_t    scheduler;        /* default RK_SCHED_ROUND_ROBIN */
+    rk_eta_mode_t     eta_mode;         /* default RK_ETA_FIXED */
+    double            eta_start;        /* default 1.0 */
+    double            eta_end;          /* default 1.0 */
+    double            eta_schedule_power; /* default 0.5 */
+    /* ── End overlay knobs ── */
 } rk_params_t;
 
 /* ── Result ── */
@@ -60,6 +82,12 @@ typedef struct {
     double          final_alpha;                    /* P2.1: alpha at solver exit */
     int             n_bounds_violated;  /* cell-mode diagnostic: count of w_i outside bounds (no action) */
     int             n_bounds_clamped;   /* unit-mode action: count of w_i clamped after water-fill exhausted */
+    /* ── Overlay diagnostics (WU-1) ── */
+    int             homotopy_levels_used;   /* 0 = homotopy disabled */
+    double          homotopy_final_factor;  /* max_weight multiplier at last level */
+    int             greedy_sweeps_taken;    /* greedy scheduler sweeps per last inner pass */
+    double          eta_final;             /* alm_mu multiplier at exit; 0.0 = N/A */
+    /* ── End overlay diagnostics ── */
 } rk_result_t;
 
 /* Fill *p with safe defaults */
@@ -105,13 +133,15 @@ static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
  * and hard-code it here. Record the value in a comment. Example:
  *   Linux x86_64 GCC 13, verified 2026-04-24: 72 bytes.
  * After measuring, replace the placeholder below with the actual value. */
-/* Measured 2026-04-24 on Linux x86_64 GCC/Clang (System V ABI): 80 bytes.
- * Fields: 3 doubles (min/max_weight, epsilon=24B) + double tol_abs (8B) +
- * 5 ints (inner/outer_max_iter, algorithm, verbose, lbfgs_m=20B) +
- * 4B pad before fn-ptr + void* log_fn (8B) + void* log_ctx (8B) +
- * int bounds_mode (4B) + 4B trailing pad = 80B total.
- * Update this value if rk_params_t changes. */
-#define EXPECTED_RK_PARAMS_BYTES 80
+/* Updated 2026-04-24 (WU-1): added overlay fields after bounds_mode.
+ * Previous: 80 bytes. Added:
+ *   rk_homotopy_cfg_t (n_levels int + 4B pad + 3 doubles + enabled int + 4B pad = 40B)
+ *   rk_scheduler_t (int, 4B) + rk_eta_mode_t (int, 4B)
+ *   eta_start (double, 8B) + eta_end (double, 8B) + eta_schedule_power (double, 8B)
+ * Total added: 40 + 4 + 4 + 8 + 8 + 8 = 72B → new total: 80 + 72 = 152B.
+ * Verify with: sizeof(rk_params_t) printed in a test or compile probe.
+ * Update this value after each ABI change. */
+#define EXPECTED_RK_PARAMS_BYTES 152
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

@@ -21,6 +21,21 @@
 #' @param attach_weights If TRUE, return data frame with weights column. Default TRUE.
 #' @param weight_column Name of weight column. Default "weights".
 #' @param convergence Named list/vector; "absolute" maps to tol_abs.
+#' @param bounds_mode One of "cell" (default) or "unit". Controls per-observation
+#'   vs cell-aggregate bound enforcement.
+#' @param homotopy_levels Number of homotopy levels (default 1 = disabled). Values > 1
+#'   progressively tighten max_weight from homotopy_start_factor to homotopy_end_factor
+#'   across n levels. Behaviour implemented in WU-3; scaffolding only in WU-1.
+#' @param homotopy_start_factor Starting max_weight multiplier (default 1.0 = no change).
+#' @param homotopy_end_factor Ending max_weight multiplier (default 1.0 = no change).
+#' @param homotopy_budget_p Budget split fraction across homotopy levels (default 0.5).
+#' @param scheduler Margin sweep scheduler: "round_robin" (default) or "greedy"
+#'   (Greenkhorn priority). Behaviour implemented in WU-4; scaffolding only in WU-1.
+#' @param eta_schedule ALM penalty schedule: "fixed" (default) or "tang_dynamic".
+#'   Behaviour implemented in WU-5; scaffolding only in WU-1.
+#' @param eta_start Starting ALM penalty multiplier (default 1.0).
+#' @param eta_end Ending ALM penalty multiplier (default 1.0).
+#' @param eta_schedule_power Power for Tang-eta schedule interpolation (default 0.5).
 #' @param select_params Ignored with verbose >= 2 note.
 #' @param select_function Ignored.
 #' @param error_function Ignored.
@@ -47,6 +62,17 @@ harvest <- function(
   weight_column    = "weights",
   convergence      = list(),
   bounds_mode      = "cell",
+  # --- new overlay knobs (all default off / identity) ---
+  homotopy_levels       = 1L,
+  homotopy_start_factor = 1.0,
+  homotopy_end_factor   = 1.0,
+  homotopy_budget_p     = 0.5,
+  scheduler             = c("round_robin", "greedy"),
+  eta_schedule          = c("fixed", "tang_dynamic"),
+  eta_start             = 1.0,
+  eta_end               = 1.0,
+  eta_schedule_power    = 0.5,
+  # --- end new ---
   select_params    = NULL,
   select_function  = NULL,
   error_function   = NULL,
@@ -83,6 +109,10 @@ harvest <- function(
   bounds_mode_char <- parse_bounds_mode(bounds_mode)
   bounds_mode_int  <- match(bounds_mode_char, c("cell", "unit")) - 1L
 
+  # Overlay arg resolution
+  scheduler    <- match.arg(scheduler)
+  eta_schedule <- match.arg(eta_schedule)
+
   # Ignored-param verbose notes
   # enforce_mean is always TRUE: normalization is unconditional (line ~86).
   ignored <- c("select_params", "select_function", "error_function",
@@ -102,6 +132,15 @@ harvest <- function(
                sw_vec,
                as.double(tol_abs),
                as.integer(bounds_mode_int),
+               as.integer(homotopy_levels),
+               as.double(homotopy_start_factor),
+               as.double(homotopy_end_factor),
+               as.double(homotopy_budget_p),
+               as.character(scheduler),
+               as.character(eta_schedule),
+               as.double(eta_start),
+               as.double(eta_end),
+               as.double(eta_schedule_power),
                PACKAGE = "leafblower")
 
   weights <- raw$weights

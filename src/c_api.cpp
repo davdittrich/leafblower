@@ -33,6 +33,17 @@ void rk_params_init(rk_params_t* p) {
     p->log_fn        = nullptr;
     p->log_ctx       = nullptr;
     p->bounds_mode   = RK_BOUNDS_CELL;  /* explicit for clarity; memset=0 already gives this */
+    /* Overlay defaults (WU-1): all identity / disabled */
+    p->homotopy.n_levels       = 1;
+    p->homotopy.start_factor   = 1.0;
+    p->homotopy.end_factor     = 1.0;
+    p->homotopy.budget_split_p = 0.5;
+    p->homotopy.enabled        = 0;
+    p->scheduler               = RK_SCHED_ROUND_ROBIN;
+    p->eta_mode                = RK_ETA_FIXED;
+    p->eta_start               = 1.0;
+    p->eta_end                 = 1.0;
+    p->eta_schedule_power      = 0.5;
 }
 
 void rk_result_init(rk_result_t* r) {
@@ -199,6 +210,21 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.bounds_mode   = p->bounds_mode;
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
+    // Thread overlay config (WU-1)
+    st.homotopy.n_levels        = p->homotopy.n_levels;
+    st.homotopy.start_factor    = p->homotopy.start_factor;
+    st.homotopy.end_factor      = p->homotopy.end_factor;
+    st.homotopy.budget_split_p  = p->homotopy.budget_split_p;
+    st.homotopy.enabled         = (p->homotopy.enabled != 0) || (p->homotopy.n_levels > 1);
+    st.scheduler.mode           = (p->scheduler == RK_SCHED_GREEDY)
+                                    ? lbw::SchedulerMode::GREEDY
+                                    : lbw::SchedulerMode::ROUND_ROBIN;
+    st.eta_schedule.mode        = (p->eta_mode == RK_ETA_TANG_DYNAMIC)
+                                    ? lbw::EtaScheduleMode::TANG_DYNAMIC
+                                    : lbw::EtaScheduleMode::FIXED;
+    st.eta_schedule.eta_start     = p->eta_start;
+    st.eta_schedule.eta_end       = p->eta_end;
+    st.eta_schedule.schedule_power = p->eta_schedule_power;
     int status;
     int iterations;
     double max_error;
@@ -230,6 +256,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->final_alpha     = res.final_alpha;
             result->n_bounds_violated = res.n_bounds_violated;
             result->n_bounds_clamped  = res.n_bounds_clamped;
+            result->homotopy_levels_used  = res.homotopy_levels_used;
+            result->homotopy_final_factor = res.homotopy_final_factor;
+            result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
+            result->eta_final             = res.eta_final;
         }
     }
 
