@@ -35,8 +35,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     res.n_xcur_writes_per_iter_linear = 0;
     res.min_alpha_seen = 1.0;
     res.final_alpha = 1.0;
-    res.n_halpern_iters = 0;
-    res.n_halpern_noop = 0;
+    res.n_bounds_violated = 0;
+    res.n_bounds_clamped  = 0;
 
     // Build cell table.
     CellTable ct;
@@ -527,23 +527,83 @@ IEPPAResult ieppa_solve(CalibState& st) {
         res.final_alpha = alpha;
     }
 
-    // Expand to obs weights: w[i] = d[i] * X[c] / X_init[c]
-    //
-    // NOTE: No per-observation clamp here. The iEPPA solver enforces the
-    // per-cell aggregate bound X[c] in [min_weight, max_weight] * |cell|.
-    // Clamping per-observation weights (w[i] = d[i] * X[c] / X_init[c]) to
-    // [min_weight, max_weight] would break the cell aggregate invariant
-    // sum_{i in c} w[i] == X[c] whenever d[i] is non-uniform: the ratio
-    // d_max / d_mean can legitimately push individual weights outside the
-    // per-cell bounds even when the cell total is in range. Clamping silently
-    // violated sum w == target marginals in that regime. See test
-    // tests/testthat/test-ieppa-nonuniform-d.R.
+    // Expansion to observation weights.
     std::vector<double> mult(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++) {
         mult[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
     }
     for (int i = 0; i < st.n; i++) {
         st.weights[i] = st.weights[i] * mult[ct.cell_of[i]];
+    }
+
+    if (st.bounds_mode == RK_BOUNDS_CELL) {
+        // Diagnostic scan: count violations without action.
+        int violations = 0;
+        for (int i = 0; i < st.n; i++) {
+            if (st.weights[i] > st.max_weight || st.weights[i] < st.min_weight) {
+                violations++;
+            }
+        }
+        res.n_bounds_violated = violations;
+    } else {
+        // Unit mode: per-cell water-filling.
+        // Build cells_of_obs (list of obs indices per cell) in one pass.
+        std::vector<std::vector<int>> cells_of_obs(ct.M_cell);
+        for (int i = 0; i < st.n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
+
+        constexpr int kWaterFillMaxIter = 50;
+        int total_clamped = 0;
+        for (int c = 0; c < ct.M_cell; c++) {
+            const auto& idxs = cells_of_obs[c];
+            if (idxs.empty()) continue;
+
+            double target_sum = X[c];
+            (void)target_sum;  // used conceptually; water-fill preserves cell sum via redistribution
+            for (int it = 0; it < kWaterFillMaxIter; it++) {
+                double excess = 0.0;
+                double free_sum = 0.0;
+                int    n_free = 0;
+                bool   any_violation = false;
+                for (int i : idxs) {
+                    if (st.weights[i] > st.max_weight) {
+                        excess += st.weights[i] - st.max_weight;
+                        st.weights[i] = st.max_weight;
+                        any_violation = true;
+                    } else if (st.weights[i] < st.min_weight) {
+                        excess -= st.min_weight - st.weights[i];
+                        st.weights[i] = st.min_weight;
+                        any_violation = true;
+                    } else {
+                        free_sum += st.weights[i];
+                        n_free++;
+                    }
+                }
+                if (!any_violation) break;
+                if (n_free == 0 || free_sum <= 0.0) {
+                    // Pathological: no room to redistribute. Last-resort clamp survives.
+                    for (int i : idxs) {
+                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; total_clamped++; }
+                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; total_clamped++; }
+                    }
+                    break;
+                }
+                // Redistribute excess proportionally over free observations.
+                double factor = 1.0 + excess / free_sum;
+                for (int i : idxs) {
+                    if (st.weights[i] > st.min_weight && st.weights[i] < st.max_weight) {
+                        st.weights[i] *= factor;
+                    }
+                }
+                if (it == kWaterFillMaxIter - 1) {
+                    // Inner budget exhausted with violations remaining — final clamp.
+                    for (int i : idxs) {
+                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; total_clamped++; }
+                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; total_clamped++; }
+                    }
+                }
+            }
+        }
+        res.n_bounds_clamped = total_clamped;
     }
 
     if (!structural_infeas_pairs.empty() && res.status == RK_ERR_NOCONV) {

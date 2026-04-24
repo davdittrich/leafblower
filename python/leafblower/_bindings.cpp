@@ -83,6 +83,8 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.epsilon = params_dict["epsilon"].cast<double>();
             if (params_dict.contains("lbfgs_m"))
                 p.lbfgs_m = params_dict["lbfgs_m"].cast<int>();
+            if (params_dict.contains("bounds_mode"))
+                p.bounds_mode = (rk_bounds_mode_t)params_dict["bounds_mode"].cast<int>();
 
             // Wire log callback if verbose and callable provided
             PyObject* callable_ptr = nullptr;
@@ -105,11 +107,13 @@ PYBIND11_MODULE(_leafblower, m) {
             std::memcpy(weights_out.mutable_data(), weights_copy.data(), n * sizeof(double));
 
             py::dict result_dict;
-            result_dict["status"]         = result.status;
-            result_dict["iterations"]     = result.iterations;
-            result_dict["max_error"]      = result.max_error;
-            result_dict["algorithm_used"] = (int)result.algorithm_used;
-            result_dict["message"]        = std::string(result.message);
+            result_dict["status"]           = result.status;
+            result_dict["iterations"]       = result.iterations;
+            result_dict["max_error"]        = result.max_error;
+            result_dict["algorithm_used"]   = (int)result.algorithm_used;
+            result_dict["message"]          = std::string(result.message);
+            result_dict["n_bounds_violated"] = result.n_bounds_violated;
+            result_dict["n_bounds_clamped"]  = result.n_bounds_clamped;
 
             return py::make_tuple(rc, weights_out, result_dict);
         },

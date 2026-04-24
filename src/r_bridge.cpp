@@ -13,7 +13,7 @@ extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
 SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
-SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -29,7 +29,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       9},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       10},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -79,7 +79,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP min_weight_sexp, SEXP max_weight_sexp,
                     SEXP method_sexp, SEXP verbose_sexp,
                     SEXP inner_max_iter_sexp, SEXP start_weights_sexp,
-                    SEXP tol_abs_sexp) {
+                    SEXP tol_abs_sexp, SEXP bounds_mode_sexp) {
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -168,6 +168,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     // outer steps costs ~500 O(K*n) grad evals — acceptable; typical convergence is <50.
     p.outer_max_iter = INTEGER(inner_max_iter_sexp)[0];
     p.tol_abs        = REAL(tol_abs_sexp)[0];
+    p.bounds_mode    = (rk_bounds_mode_t) INTEGER(bounds_mode_sexp)[0];
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
 
     if (LENGTH(method_sexp) != 1)
@@ -199,8 +200,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_STRING_ELT(res_names, 5, Rf_mkChar("n_xcur_writes_per_iter_linear"));
     SET_STRING_ELT(res_names, 6, Rf_mkChar("min_alpha_seen"));
     SET_STRING_ELT(res_names, 7, Rf_mkChar("final_alpha"));
-    SET_STRING_ELT(res_names, 8, Rf_mkChar("n_halpern_iters"));
-    SET_STRING_ELT(res_names, 9, Rf_mkChar("n_halpern_noop"));
+    SET_STRING_ELT(res_names, 8, Rf_mkChar("n_bounds_violated"));
+    SET_STRING_ELT(res_names, 9, Rf_mkChar("n_bounds_clamped"));
     SET_VECTOR_ELT(res_list, 0, Rf_ScalarInteger(result.status));
     SET_VECTOR_ELT(res_list, 1, Rf_ScalarInteger(result.iterations));
     SET_VECTOR_ELT(res_list, 2, Rf_ScalarReal(result.max_error));
@@ -209,8 +210,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(result.n_xcur_writes_per_iter_linear));
     SET_VECTOR_ELT(res_list, 6, Rf_ScalarReal(result.min_alpha_seen));
     SET_VECTOR_ELT(res_list, 7, Rf_ScalarReal(result.final_alpha));
-    SET_VECTOR_ELT(res_list, 8, Rf_ScalarInteger(result.n_halpern_iters));
-    SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(result.n_halpern_noop));
+    SET_VECTOR_ELT(res_list, 8, Rf_ScalarInteger(result.n_bounds_violated));
+    SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(result.n_bounds_clamped));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

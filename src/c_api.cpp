@@ -20,6 +20,7 @@ extern "C" {
 
 void rk_params_init(rk_params_t* p) {
     if (!p) return;
+    memset(p, 0, sizeof(*p));
     p->min_weight    = 0.0;
     p->max_weight    = 5.0;
     p->inner_max_iter = 500;
@@ -31,6 +32,7 @@ void rk_params_init(rk_params_t* p) {
     p->lbfgs_m       = 10;
     p->log_fn        = nullptr;
     p->log_ctx       = nullptr;
+    p->bounds_mode   = RK_BOUNDS_CELL;  /* explicit for clarity; memset=0 already gives this */
 }
 
 void rk_result_init(rk_result_t* r) {
@@ -186,6 +188,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.lbfgs_m       = p->lbfgs_m;
     st.verbose       = p->verbose;
     st.ieppa_auto_selected = auto_selected;  // read by ieppa_solve for verbose prefix
+    st.bounds_mode   = p->bounds_mode;
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
     int status;
@@ -215,10 +218,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         used = RK_ALG_IEPPA;
         if (result) {
             result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
-            result->min_alpha_seen = res.min_alpha_seen;
-            result->final_alpha    = res.final_alpha;
-            result->n_halpern_iters  = res.n_halpern_iters;
-            result->n_halpern_noop   = res.n_halpern_noop;
+            result->min_alpha_seen  = res.min_alpha_seen;
+            result->final_alpha     = res.final_alpha;
+            result->n_bounds_violated = res.n_bounds_violated;
+            result->n_bounds_clamped  = res.n_bounds_clamped;
         }
     }
 

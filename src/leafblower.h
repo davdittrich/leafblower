@@ -8,6 +8,12 @@ extern "C" {
 #include <stddef.h>  /* size_t */
 #include <stdint.h>  /* int32_t, int64_t */
 
+/* Bounds enforcement mode (appended field in rk_params_t; default RK_BOUNDS_CELL) */
+typedef enum {
+    RK_BOUNDS_CELL = 0,  /* cell-aggregate bounds (current default; may violate per-obs) */
+    RK_BOUNDS_UNIT = 1   /* per-observation strict bounds via intra-cell water-filling */
+} rk_bounds_mode_t;
+
 /* ── Return codes ── */
 #define RK_OK         0  /* Success */
 #define RK_ERR_NOCONV 1  /* Did not converge within outer_max_iter */
@@ -39,6 +45,7 @@ typedef struct {
     int             lbfgs_m;         /* L-BFGS history size, default 10 */
     void            (*log_fn)(const char* msg, void* ctx);
     void*           log_ctx;
+    rk_bounds_mode_t bounds_mode;  /* default RK_BOUNDS_CELL */
 } rk_params_t;
 
 /* ── Result ── */
@@ -51,8 +58,8 @@ typedef struct {
     int             n_xcur_writes_per_iter_linear;  /* P1.1 diagnostic */
     double          min_alpha_seen;                 /* P2.1: min alpha over all sweeps; 1.0 if never damped */
     double          final_alpha;                    /* P2.1: alpha at solver exit */
-    int             n_halpern_iters;                /* P2.2d: iters where Halpern mixing fired */
-    int             n_halpern_noop;                 /* P2.2d: reserved; always 0 */
+    int             n_bounds_violated;  /* cell-mode diagnostic: count of w_i outside bounds (no action) */
+    int             n_bounds_clamped;   /* unit-mode action: count of w_i clamped after water-fill exhausted */
 } rk_result_t;
 
 /* Fill *p with safe defaults */
@@ -88,6 +95,25 @@ int rk_calibrate(
 
 #ifdef __cplusplus
 }
+#endif
+
+/* ABI tripwires. If EXPECTED_RK_PARAMS_BYTES fails, a new field was added —
+ * update this value after auditing ABI consumers. */
+#ifdef __cplusplus
+static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
+/* Compute sizeof(rk_params_t) on the target platform at implementation time
+ * and hard-code it here. Record the value in a comment. Example:
+ *   Linux x86_64 GCC 13, verified 2026-04-24: 72 bytes.
+ * After measuring, replace the placeholder below with the actual value. */
+/* Measured 2026-04-24 on Linux x86_64 GCC/Clang (System V ABI): 80 bytes.
+ * Fields: 3 doubles (min/max_weight, epsilon=24B) + double tol_abs (8B) +
+ * 5 ints (inner/outer_max_iter, algorithm, verbose, lbfgs_m=20B) +
+ * 4B pad before fn-ptr + void* log_fn (8B) + void* log_ctx (8B) +
+ * int bounds_mode (4B) + 4B trailing pad = 80B total.
+ * Update this value if rk_params_t changes. */
+#define EXPECTED_RK_PARAMS_BYTES 80
+static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
+              "rk_params_t size changed; check ABI consumers");
 #endif
 
 #endif /* LEAFBLOWER_H */

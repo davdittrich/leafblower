@@ -27,6 +27,7 @@ def harvest(
     attach_weights: bool = True,
     weight_column: str = "weights",
     convergence: Optional[Dict] = None,
+    bounds_mode: str = "cell",
     **kwargs,
 ):
     """
@@ -46,6 +47,10 @@ def harvest(
     weight_column : name of the weights column (default "weights")
     convergence : dict; key "absolute" → tol_abs; "pct" → DeprecationWarning;
                   unknown keys → ValueError
+    bounds_mode : str, "cell" (default) or "unit". "cell": per-cell aggregate bounds —
+                  individual weights may fall outside [min_weight, max_weight] when base
+                  weights are skewed within a cell. "unit": per-observation strict bounds
+                  via intra-cell water-filling redistribution.
     Returns
     -------
     pd.DataFrame (if attach_weights=True) or np.ndarray
@@ -90,6 +95,10 @@ def harvest(
     if method_lc not in alg_map:
         raise ValueError(f"method must be one of {list(alg_map)}")
     alg_int = alg_map[method_lc]
+
+    if bounds_mode not in ("cell", "unit"):
+        raise ValueError(f"bounds_mode must be 'cell' or 'unit', got {bounds_mode!r}")
+    _bounds_mode_int = {"cell": 0, "unit": 1}[bounds_mode]
 
     # Build group_ids and validate targets
     K = len(targets)
@@ -148,6 +157,7 @@ def harvest(
         "algorithm":      alg_int,
         "epsilon":        0.05,
         "lbfgs_m":        10,
+        "bounds_mode":    _bounds_mode_int,
     }
 
     log_fn = print if verbose > 0 else None
@@ -161,7 +171,16 @@ def harvest(
             f"leafblower: calibration did not converge (max_error={result_dict['max_error']:.2e})",
             UserWarning, stacklevel=2
         )
-    elif result_dict["status"] == 2:
+    if result_dict.get("n_bounds_violated", 0) > 0:
+        warnings.warn(
+            f"cell-mode bounds: {result_dict['n_bounds_violated']} weights fell outside "
+            f"[{min_weight:.3f}, {max_weight:.3f}]. Consider bounds_mode='unit'.",
+            UserWarning, stacklevel=2)
+    if result_dict.get("n_bounds_clamped", 0) > 0:
+        warnings.warn(
+            f"unit-mode bounds: {result_dict['n_bounds_clamped']} weights clamped after water-fill exhausted.",
+            UserWarning, stacklevel=2)
+    if result_dict["status"] == 2:
         raise RuntimeError(
             "leafblower: infeasible problem — persistent empty cell with positive target "
             "(detected after 5 consecutive outer iterations)"

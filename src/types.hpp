@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "leafblower.h"   /* rk_bounds_mode_t */
 #ifndef LBW_NO_R
 #  include <R_ext/Print.h>
 #else
@@ -25,6 +26,7 @@ struct CalibState {
     bool ieppa_auto_selected = false;  // true iff AUTO routing selected iEPPA; used for verbose prefix
     double alm_lambda = 0.0;  // dual variable for sum(w)=n; only read when alm_mu > 0
     double alm_mu     = 0.0;  // penalty coefficient; 0.0 = ALM inactive
+    rk_bounds_mode_t bounds_mode = RK_BOUNDS_CELL;  /* P3.1: per-obs vs cell-aggregate bounds */
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;
 

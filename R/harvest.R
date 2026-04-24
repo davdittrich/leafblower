@@ -46,6 +46,7 @@ harvest <- function(
   attach_weights   = TRUE,
   weight_column    = "weights",
   convergence      = list(),
+  bounds_mode      = "cell",
   select_params    = NULL,
   select_function  = NULL,
   error_function   = NULL,
@@ -56,6 +57,7 @@ harvest <- function(
   auto_collapse    = FALSE,
   collapse_vars    = NULL,
   target_map       = NULL,
+  design_weights   = NULL,
   ...
 ) {
   # Not-in-v1 hard stops
@@ -71,7 +73,15 @@ harvest <- function(
   # Emit deprecation warning if convergence['pct'] supplied.
   # tol_abs is forwarded to C_rk_calibrate as the 9th argument.
   tol_abs <- parse_convergence(convergence)
+
+  # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
+  if (!is.null(design_weights) && is.null(start_weights)) {
+    start_weights <- design_weights
+  }
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
+
+  bounds_mode_char <- parse_bounds_mode(bounds_mode)
+  bounds_mode_int  <- match(bounds_mode_char, c("cell", "unit")) - 1L
 
   # Ignored-param verbose notes
   # enforce_mean is always TRUE: normalization is unconditional (line ~86).
@@ -91,6 +101,7 @@ harvest <- function(
                as.integer(max_iterations),
                sw_vec,
                as.double(tol_abs),
+               as.integer(bounds_mode_int),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
@@ -117,6 +128,17 @@ harvest <- function(
   if (calib_result$status == 1L)
     warning("leafblower: calibration did not converge (max_error=",
             signif(calib_result$max_error, 3), "). Weights reflect last iterate.")
+
+  if (!is.null(calib_result$n_bounds_violated) && calib_result$n_bounds_violated > 0) {
+    warning(sprintf(
+      "cell-mode bounds: %d weights fell outside [%.3f, %.3f] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.",
+      calib_result$n_bounds_violated, min_weight, max_weight))
+  }
+  if (!is.null(calib_result$n_bounds_clamped) && calib_result$n_bounds_clamped > 0) {
+    warning(sprintf(
+      "unit-mode bounds: %d weights clamped to nearest bound after water-fill exhausted; degenerate cells could not be fully redistributed.",
+      calib_result$n_bounds_clamped))
+  }
 
   # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2, RK_ALG_RAKING=3
   alg_names <- c("", "ieppa", "lbfgsb", "raking")  # index 0 (auto) removed from user API
@@ -158,6 +180,10 @@ parse_target <- function(target, target_map) {
     sub <- target[target[[vcol]] == v, , drop = FALSE]
     stats::setNames(sub[[pcol]], sub[[lcol]])
   })
+}
+
+parse_bounds_mode <- function(x = c("cell", "unit")) {
+  match.arg(x)
 }
 
 map_method <- function(method, verbose = 0) {

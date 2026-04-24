@@ -13,8 +13,8 @@ struct IEPPAResult {
     int n_xcur_writes_per_iter_linear;  // 0 outside linear path; counter for P1.1 RED test
     double min_alpha_seen;   // min alpha over all sweeps; 1.0 if damping never engaged
     double final_alpha;      // alpha at solver exit (after last sweep)
-    int n_halpern_iters;   // iters where Halpern mixing fired (post-anchor)
-    int n_halpern_noop;   // reserved; always 0 (Halpern has no numerical blowup path)
+    int n_bounds_violated;  // cell-mode diagnostic: count of w_i outside bounds (no action)
+    int n_bounds_clamped;   // unit-mode action: count of w_i clamped after water-fill exhausted
 };
 
 // Faithful iEPPA (paper-faithful algBCD at C=0). See
