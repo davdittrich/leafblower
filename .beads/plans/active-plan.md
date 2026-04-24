@@ -12,13 +12,13 @@ Research basis: `docs/investigations/2026-04-24-ieppa-accel-research.md`
 
 ## WU Status
 
-- [ ] WU-1 — iEPPA homotopy/priority/eta config scaffolding (scaffolding; no behavioural change)
-- [ ] WU-2 — errRp trajectory probe via env vars (internal diagnostic)
-- [ ] WU-2.5 — falsify simpler-alternative hypothesis on stepstone-fulldata
-- [ ] WU-3 — P-A progressive max_weight homotopy outer loop
-- [ ] WU-4 — P-B Greenkhorn priority-ordered margin scheduler
-- [ ] WU-5 — Tang 2024 dynamic-eta schedule (schedule-only borrow)
-- [ ] WU-6 — stepstone-fulldata merge gate + kk1204 non-regression
+- [x] WU-1 (leafblower-d88d) — iEPPA homotopy/priority/eta config scaffolding — commits e4694bc + 6c6e286 + ed50889 — spec ✅ + quality ✅
+- [x] WU-2 (leafblower-82oe) — errRp trajectory probe via env vars — commits cf3c36a + 0954f8b — spec ✅ + quality ✅
+- [x] WU-2.5 (leafblower-xb81) — falsify simpler alternative — commit cc3c26b — max_err=0.165 at 10k iters, DIVERGES → overlays justified ✅
+- [x] WU-3 (leafblower-s6hi) — P-A homotopy outer loop — commits cb51974 + 6b5676d + 0b079c4 — 56.9% errRp reduction on tight-clamp synthetic — spec ✅ + quality ✅
+- [x] WU-4 (leafblower-sa62) — P-B Greenkhorn scheduler — commits ccb0488 + 9bf6b5e — 40% sweep savings on 2-cat-heavy fixture — spec ✅ + quality ✅
+- [x] WU-5 (leafblower-u7u4) — Tang dynamic-eta (damping via beta) — commits b6d2c71 + cbf5d0c + 5338fd5 — 25.3% errRp reduction at eta_start=20 — spec ✅ + quality ✅
+- [x] WU-6 (leafblower-aa9b) — merge gate — commit d9dc5f9 — GATE FAILS: AB errRp=6.567e-3 (threshold 1.60e-3), slope=-0.285 (threshold -0.75), Pearson=0.977 (threshold 0.99). Homotopy+greedy DEGRADES vs baseline 2.223e-3. kk1204 non-regression PASS. HUMAN ticket filed.
 - [ ] WU-7 — Python parity + roxygen + README
 
 ## Merge gate
