@@ -111,7 +111,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Paper: margin sum τ_{k,j} × W_total should match S_kj for j in [0, cat_counts[k]).
     // For NA bucket (j = cat_counts[k]), no constraint; f remains 1.0.
 
-    // Structural vs transient infeasibility split (post-WU-1 rev; stepstone finding):
+    // Structural vs transient infeasibility split (stepstone finding):
     //   structural_infeas_pairs — bucket has cells.empty() AND target > 0. Static;
     //     a bucket with zero observations can never be satisfied. Latch immediately.
     //   infeas_streak — counts consecutive transient empties (log_S_kj < threshold).
@@ -319,7 +319,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
         } else {
             // Original log-space sweep (unchanged except record_empty/record_nonempty
-            // hooks already installed by WU-1).
+            // hooks).
             for (int k = 0; k < st.K; k++) {
                 for (int j = 0; j < st.cat_counts[k]; j++) {
                     const auto& cells = cells_by_margin_cat[cat_offset[k] + j];

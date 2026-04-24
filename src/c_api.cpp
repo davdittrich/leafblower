@@ -33,7 +33,6 @@ void rk_params_init(rk_params_t* p) {
     p->log_fn        = nullptr;
     p->log_ctx       = nullptr;
     p->bounds_mode   = RK_BOUNDS_CELL;  /* explicit for clarity; memset=0 already gives this */
-    /* Overlay defaults (WU-1): all identity / disabled */
     p->homotopy.n_levels       = 1;
     p->homotopy.start_factor   = 1.0;
     p->homotopy.end_factor     = 1.0;
@@ -210,7 +209,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.bounds_mode   = p->bounds_mode;
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
-    // Thread overlay config (WU-1)
+    // Thread overlay config
     st.homotopy.n_levels        = p->homotopy.n_levels;
     st.homotopy.start_factor    = p->homotopy.start_factor;
     st.homotopy.end_factor      = p->homotopy.end_factor;

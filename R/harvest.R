@@ -25,14 +25,13 @@
 #'   vs cell-aggregate bound enforcement.
 #' @param homotopy_levels Number of homotopy levels (default 1 = disabled). Values > 1
 #'   progressively tighten max_weight from homotopy_start_factor to homotopy_end_factor
-#'   across n levels. Behaviour implemented in WU-3; scaffolding only in WU-1.
+#'   across n levels.
 #' @param homotopy_start_factor Starting max_weight multiplier (default 1.0 = no change).
 #' @param homotopy_end_factor Ending max_weight multiplier (default 1.0 = no change).
 #' @param homotopy_budget_p Budget split fraction across homotopy levels (default 0.5).
 #' @param scheduler Margin sweep scheduler: "round_robin" (default) or "greedy"
-#'   (Greenkhorn priority). Behaviour implemented in WU-4; scaffolding only in WU-1.
+#'   (Greenkhorn priority).
 #' @param eta_schedule ALM penalty schedule: "fixed" (default) or "tang_dynamic".
-#'   Behaviour implemented in WU-5; scaffolding only in WU-1.
 #' @param eta_start Starting ALM penalty multiplier (default 1.0).
 #' @param eta_end Ending ALM penalty multiplier (default 1.0).
 #' @param eta_schedule_power Power for Tang-eta schedule interpolation (default 0.5).

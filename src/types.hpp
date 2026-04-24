@@ -9,7 +9,7 @@
 
 namespace lbw {
 
-// ── Overlay config structs (WU-1) ──────────────────────────────────────────
+// ── Overlay config structs ──────────────────────────────────────────────────
 struct HomotopyConfigLbw {
     int    n_levels        = 1;     // 1 = disabled (single level = current behaviour)
     double start_factor    = 1.0;   // starting max_weight multiplier
@@ -52,7 +52,7 @@ struct CalibState {
     double alm_lambda = 0.0;  // dual variable for sum(w)=n; only read when alm_mu > 0
     double alm_mu     = 0.0;  // penalty coefficient; 0.0 = ALM inactive
     rk_bounds_mode_t bounds_mode = RK_BOUNDS_CELL;  /* P3.1: per-obs vs cell-aggregate bounds */
-    // ── Overlay config (WU-1; all default off / identity) ──
+    // ── Overlay config ──
     HomotopyConfigLbw    homotopy;
     SchedulerConfigLbw   scheduler;
     EtaScheduleConfigLbw eta_schedule;

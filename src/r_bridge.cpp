@@ -176,7 +176,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     p.tol_abs        = REAL(tol_abs_sexp)[0];
     p.bounds_mode    = (rk_bounds_mode_t) INTEGER(bounds_mode_sexp)[0];
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
-    /* Overlay knobs (WU-1) */
+    /* Overlay knobs */
     p.homotopy.n_levels        = INTEGER(homotopy_levels_sexp)[0];
     p.homotopy.start_factor    = REAL(homotopy_start_factor_sexp)[0];
     p.homotopy.end_factor      = REAL(homotopy_end_factor_sexp)[0];

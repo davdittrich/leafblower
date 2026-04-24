@@ -23,7 +23,7 @@ test_that("all overlays default-off: baseline identical to defaulted", {
   expect_equal(as.numeric(baseline), as.numeric(defaulted), tolerance = 1e-12)
 })
 
-test_that("pairwise toggleability: each overlay can be on/off independently", {
+test_that("overlay args run identity-only (scaffolding WU-1)", {
   set.seed(2)
   n <- 2000
   data <- data.frame(
@@ -36,8 +36,7 @@ test_that("pairwise toggleability: each overlay can be on/off independently", {
   )
   common <- list(data = data, target = target, max_weight = 3,
                  method = "ieppa", attach_weights = FALSE)
-  # Only A on; only B on; only eta on — all must run without error and
-  # stay within user-supplied max_weight.
+  baseline <- do.call(leafblower::harvest, common)
   a_only <- do.call(leafblower::harvest,
     c(common, list(homotopy_levels = 3, homotopy_start_factor = 5,
                    homotopy_end_factor = 1)))
@@ -48,7 +47,11 @@ test_that("pairwise toggleability: each overlay can be on/off independently", {
                    homotopy_end_factor = 1,
                    eta_schedule = "tang_dynamic",
                    eta_start = 5, eta_end = 1)))
-  expect_true(max(a_only) <= 3 + 1e-10)
-  expect_true(max(b_only) <= 3 + 1e-10)
-  expect_true(max(e_only) <= 3 + 1e-10)
+  expect_true(max(as.numeric(a_only)) <= 3 + 1e-10)
+  expect_true(max(as.numeric(b_only)) <= 3 + 1e-10)
+  expect_true(max(as.numeric(e_only)) <= 3 + 1e-10)
+  # Behavioural identity: all overlays no-op in WU-1.
+  expect_equal(as.numeric(a_only), as.numeric(baseline), tolerance = 1e-12)
+  expect_equal(as.numeric(b_only), as.numeric(baseline), tolerance = 1e-12)
+  expect_equal(as.numeric(e_only), as.numeric(baseline), tolerance = 1e-12)
 })
