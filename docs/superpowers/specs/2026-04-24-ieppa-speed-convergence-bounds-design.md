@@ -238,9 +238,21 @@ Call with `trans="N"`, `A = F` (residual differences, column-major, `total_cats 
 
 **Removed rev-4 sentence:** the "restart if condition number > 1e12 via thin QR" clause is deleted — contradicted the move to `dgels`.
 
-**Capacity-block interaction (iter-1 Architect BLOCKER).** Each outer iter is: sweep → fused capacity block (P1.1). Capacity updates `W[c]`; the next sweep operates with new `W`, so the effective operator `G` is not stationary across iters when `n_cap_active > 0`. Anderson history mixing residuals computed under different `W` breaks the contraction argument and can diverge.
+**Capacity-block interaction (iter-1 Architect BLOCKER; revised post-P2.2 landing for joint iterate).**
 
-**Engagement gate.** Anderson **only fires on outer iters where `n_cap_active == 0` at the end of the capacity block.** When any cell is capacity-active, skip Anderson for that step: use the plain (damped) iterate, clear Anderson history buffer, and resume history accumulation from the next uncapacitated iter. In the kk1204 regime at `max_weight=3`, capacity tends to be saturated early then release; once all cells are unclamped, Anderson kicks in and carries the iteration. This is a conservative restriction; later ticket can explore joint `(lf, log W)` Anderson if evidence motivates.
+Original (single-iterate Anderson, post-P2.2 landing `adba0c7`): Anderson fires only on `n_cap_active == 0` iters. Empirically FAILED on kk1204 K=20 max_weight=3: `n_cap_active` saturates at ~19,485 from iter 3 and never clears. Anderson never engages; kk1204 remains NOCONV.
+
+**Revised (P2.2b joint iterate on `(lf, log W)`):** treat `(lf, log W)` as the full solver iterate. Residual `r_t = T(lf_t, log_W_t) - (lf_t, log_W_t)` where `T = Capacity ∘ Sweep` is the composed operator. Anderson LS solve over concatenated `[lf; log W]` residual vectors of length `total_cats + M_cell`.
+
+**Scope of the joint iterate:**
+- `log_W[c] = (W[c] > 0) ? log(W[c]) : -kLogClip` computed once per iter.
+- History buffers `F_hist`, `X_hist` sized `(total_cats + M_cell) × m`, column-major. Memory at M_cell=1M, m=5: 2 × 5 × 1M × 8B = 80 MB per solver call. Bounded; acceptable for the kk1204 regime.
+- `dgels` solves the LS on the expanded system unchanged; the 3-layer guard (INFO + isfinite(γ) + |γ|∞ < 1e4) still applies.
+- Post-mix: split state back into `lf_new` and `log_W_new`; `W_new[c] = std::min(1.0, std::exp(log_W_new[c]))` (Anderson can push log_W positive; clamp to valid capacity multiplier upper bound).
+
+**Engagement gate change:** **drop `n_cap_active == 0` gate entirely.** Joint iterate absorbs capacity state; residuals are well-defined on all iters. Retain warmup (iter > kAndersonWarmup) and NaN/γ-norm guards.
+
+**Non-smoothness note.** Capacity clamp is piecewise-linear (non-smooth at cell boundaries). Anderson convergence theory assumes Lipschitz smoothness; β-relaxation (effective Anderson step dampened) mitigates. The existing damping schedule (P2.1 `compute_alpha`) already applies α ∈ [0.286, 1.0] before Anderson mix; sufficient empirical smoothness for kk1204 regime expected. If kk1204 diverges under joint Anderson, add α × Anderson step (explicit β relaxation) as follow-up.
 
 **Restart condition.** If the least-squares system is ill-conditioned (condition number > 1e12 via thin QR), skip Anderson for this step, keep history. Prevents blowups in degenerate regimes.
 
