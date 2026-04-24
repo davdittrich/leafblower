@@ -278,30 +278,20 @@ static LBFGSResult compute_final_weights_and_error(
             }
         }
         bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
-        // PCT convergence requires max_err < tol_abs as quality floor.
-        bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol)
-                             && (max_err < st.tol_abs);
-
-        // Legacy quality gate: max_err < tol_abs always suffices for lbfgsb,
-        // because the inner loop already converged on gradient norm and the
-        // final weights are calibration-quality regardless of pct_change
-        // (which measures total start→end shift, not iterative convergence rate).
-        bool legacy_converged = (max_err < st.tol_abs);
+        // Spec §1: PCT-only convergence is pct_change < pct_tol, no errRp floor.
+        bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol);
 
         bool have_pct = (cfg.pct_tol > 0.0);
         bool have_abs = (cfg.absolute_tol > 0.0);
         bool converged = false;
         if (have_pct && have_abs) {
-            converged = legacy_converged || ((cfg.stop_when == lbw::CalibStopWhen::ALL)
+            converged = (cfg.stop_when == lbw::CalibStopWhen::ALL)
                         ? (converged_pct && converged_abs)
-                        : (converged_pct || converged_abs));
+                        : (converged_pct || converged_abs);
         } else if (have_pct) {
-            // PCT-only: require legacy quality floor (pct_change alone is unreliable for lbfgsb).
-            converged = converged_pct || legacy_converged;
+            converged = converged_pct;
         } else if (have_abs) {
-            converged = converged_abs || legacy_converged;
-        } else {
-            converged = legacy_converged;
+            converged = converged_abs;
         }
         res.status = converged ? RK_OK : RK_ERR_NOCONV;
     }

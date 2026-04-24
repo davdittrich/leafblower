@@ -74,7 +74,8 @@ test_that("descent monitor aborts early on stalled errRp trajectory", {
     res <- suppressWarnings(harvest(df, tgt, method = "raking",
                                      max_weight = 1.2,
                                      max_iterations = 500,
-                                     verbose = 1L)),
+                                     verbose = 1L,
+                                     convergence = list(absolute = 1e-6))),
     type = "output"
   )
   elapsed <- as.numeric(Sys.time() - t0, units = "secs")

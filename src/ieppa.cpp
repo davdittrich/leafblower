@@ -838,10 +838,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // kHomotopyIntermediateTol gate via errRp (conservative: still exit
                 // intermediate levels when errRp is loose enough).
                 bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
-                // PCT convergence requires errRp < tol_lvl to guard against stalled
-                // infeasible problems where pct_change → 0 but errRp remains large.
-                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol)
-                                     && (errRp < tol_lvl);
+                // Spec §1: PCT-only convergence is pct_change < pct_tol, no errRp floor.
+                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol);
                 // Intermediate homotopy levels also exit early when errRp < tol_lvl
                 // regardless of criterion (warm-jump semantics; tol_lvl is loose).
                 bool converged_intermediate = (errRp < tol_lvl);

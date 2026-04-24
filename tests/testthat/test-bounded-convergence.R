@@ -26,7 +26,8 @@ test_that("L-BFGS-B converges on bound-hitting problem (max_weight=5, skewed sam
   tgt <- list(age=c("18-34"=0.33,"35-54"=0.40,"55+"=0.27),
               sex=c(M=0.49,F=0.51))
   expect_no_warning(
-    result <- harvest(df, tgt, method="lbfgsb", max_weight=5)
+    result <- harvest(df, tgt, method="lbfgsb", max_weight=5,
+                      convergence = list(absolute = 1e-6))
   )
   expect_true(max(result$weights) <= 5.0 + 1e-10)
   diag <- diagnose_weights(result, tgt, result$weights)

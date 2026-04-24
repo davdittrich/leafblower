@@ -283,10 +283,8 @@ RakingResult raking_solve(CalibState& st) {
                     }
                 }
                 bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
-                // PCT convergence requires errRp < tol_abs to guard against
-                // stalled infeasible problems where pct_change → 0 but errRp stays large.
-                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol)
-                                     && (errRp < st.tol_abs);
+                // Spec §1: PCT-only convergence is pct_change < pct_tol, no errRp floor.
+                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol);
 
                 bool have_pct = (cfg.pct_tol > 0.0);
                 bool have_abs = (cfg.absolute_tol > 0.0);
