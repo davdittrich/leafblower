@@ -266,7 +266,46 @@ Original (single-iterate Anderson, post-P2.2 landing `adba0c7`): Anderson fires 
 
 **Halpern fallback (follow-up ticket, not in this scope):** if APVA still fails on adversarial inputs, a Halpern-style mixing `lf_{t+1} = lf_0/(t+2) + ((t+1)/(t+2)) · G(lf_t)` provides O(1/k) convergence guarantee immune to oscillation, slower than Anderson's super-linear potential but architecturally stable.
 
-## §5.3 P2.2d — Halpern mixing fallback (kk1204 engineering response)
+## §5.3 P2.2e — Augmented Lagrangian relaxation on capacity constraint
+
+**Motivation.** APVA (P2.2c, commit 7a837fe) failed kk1204: capacity-clamp non-smoothness causes safeguard to reject 487/500 Anderson steps. Root cause is STRUCTURAL — the capacity clamp `W = clamp(X_tilde, L, U) / X_tilde` is piecewise-linear, defeating fixed-point acceleration theory on the cap-active set. Halpern mixing (§5.4 below) would give O(1/k) guaranteed but no gradient information. Augmented Lagrangian lifts the constraint into the OBJECTIVE — inner solve is UNCONSTRAINED Sinkhorn (smooth), and standard Anderson (or existing damping) works again.
+
+**Method (Tang et al 2024 arxiv:2401.07127; Birgin-Martínez 2014 augmented Lagrangian textbook form):**
+
+Replace hard clamp with penalty in the objective. Inner `lf` update operates without capacity clamp (W ≡ 1 inside inner loop). Outer loop updates penalty parameters `μ[c]` via augmented Lagrangian:
+
+```
+Inner solve (sweep only, no capacity block):
+  For t = 1..T_inner:
+    lf[k][j] update via Sinkhorn, but with effective X_init shifted by μ-penalty.
+    X[c] = X_init[c] · exp(Σ lf[m][g_m(c)])  — unconstrained.
+
+Outer μ update:
+  For each cell c: if X[c] > U_cell[c]:  μ[c] += ρ · (X[c] - U_cell[c])
+                   else if X[c] < L_cell[c]: μ[c] -= ρ · (L_cell[c] - X[c])
+  ρ increased adaptively if convergence slows.
+
+Final projection at convergence:
+  X[c] = clamp(X[c], L_cell[c], U_cell[c])  — applied ONCE at solver exit, not per iter.
+```
+
+**Sinkhorn modification inside inner loop.** The μ-penalty adds a term `Σ_c μ[c] · X[c]` to the log-barrier. The sweep's `log_S_kj` accumulator gains a per-cell term `-μ[c]` (linear in `exp(Σ lf[m])`). For cells with `X[c] > U_cell[c]`, the effective `log_X_init[c]` becomes `log_X_init[c] - μ[c]` — naturally discouraging that cell's mass. No clamp, no non-smoothness.
+
+**Anderson re-enablement.** With no capacity block inside the inner loop, G_inner(lf) is smooth Sinkhorn — classical Anderson contraction applies. Restore pre-APVA Anderson-on-lf machinery (not APVA joint-iterate, not Halpern) for the INNER solve. Outer μ iteration is deterministic.
+
+**Memory:** `μ` vector of length `M_cell`. At kk1204 M_cell=1M: 8MB. `lf_anchor` etc. from Anderson history reused for inner solve.
+
+**Merge gate:**
+- Inner ≤ 20 iter per outer round; outer ≤ 25 rounds → total ≤ 500 iter budget
+- kk1204 ACCEL=lagrangian: `status == RK_OK` AND `outer_iters · inner_iters ≤ 400 effective`
+- Stepstone errRp ≤ 2.15e-3 preserved (unconstrained Sinkhorn on sparse regimes same speed as before)
+- Full suite FAIL=0 PASS ≥ 198
+
+**API:** `LBW_IEPPA_SOLVER ∈ {lagrangian, direct, off}`. Default `direct` (current behavior, no Lagrangian relaxation) — existing tests unchanged. `lagrangian` activates the new path; targets kk1204-class.
+
+**Fallback: Halpern mixing (§5.4 follow-up, P2.2d)** if Lagrangian also fails kk1204 → O(1/k) guarantee from Halpern mixing as last resort.
+
+## §5.4 P2.2d — Halpern mixing fallback (kk1204 engineering response)
 
 **Empirical status post-P2.2c APVA (commit 7a837fe):** kk1204 ACCEL=on shows engaged=6, nan_fallbacks=487 of 500 iters. Safeguard rejects nearly every Anderson step because capacity-clamp non-smoothness generates extrapolated lf residuals larger than plain damped residuals. Stepstone + 198 tests green — APVA doesn't regress other regimes, just fails on kk1204's structural non-smoothness.
 
