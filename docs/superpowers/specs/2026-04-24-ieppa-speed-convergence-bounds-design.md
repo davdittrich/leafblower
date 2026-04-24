@@ -266,44 +266,79 @@ Original (single-iterate Anderson, post-P2.2 landing `adba0c7`): Anderson fires 
 
 **Halpern fallback (follow-up ticket, not in this scope):** if APVA still fails on adversarial inputs, a Halpern-style mixing `lf_{t+1} = lf_0/(t+2) + ((t+1)/(t+2)) · G(lf_t)` provides O(1/k) convergence guarantee immune to oscillation, slower than Anderson's super-linear potential but architecturally stable.
 
-## §5.3 P2.2e — Augmented Lagrangian relaxation on capacity constraint
+## §5.3 P2.2e — Tang 2024 primal-dual with Newton on constraint duals
 
-**Motivation.** APVA (P2.2c, commit 7a837fe) failed kk1204: capacity-clamp non-smoothness causes safeguard to reject 487/500 Anderson steps. Root cause is STRUCTURAL — the capacity clamp `W = clamp(X_tilde, L, U) / X_tilde` is piecewise-linear, defeating fixed-point acceleration theory on the cap-active set. Halpern mixing (§5.4 below) would give O(1/k) guaranteed but no gradient information. Augmented Lagrangian lifts the constraint into the OBJECTIVE — inner solve is UNCONSTRAINED Sinkhorn (smooth), and standard Anderson (or existing damping) works again.
+**Correct reference:** Tang, Rahmanian, Shavlovsky, Thekumparampil, Xiao, Ying (2024), *"A Sinkhorn-type Algorithm for Constrained Optimal Transport"*, arxiv:2403.05054. (Prior spec rev cited wrong arxiv ID; corrected 2026-04-24.)
 
-**Method (Tang et al 2024 arxiv:2401.07127; Birgin-Martínez 2014 augmented Lagrangian textbook form):**
+**Motivation.** APVA (P2.2c, commit 7a837fe) failed kk1204: capacity-clamp non-smoothness rejected 487/500 Anderson steps. Tang 2024 handles box-constraint non-smoothness at the formulation level — lift constraints into dual variables, solve via Newton + Sinkhorn alternation.
 
-Replace hard clamp with penalty in the objective. Inner `lf` update operates without capacity clamp (W ≡ 1 inside inner loop). Outer loop updates penalty parameters `μ[c]` via augmented Lagrangian:
+**Tang 2024 variational formulation (eq 5–6, algorithm 1).** Constrained entropic OT:
+```
+min_{P, s_1..s_K}  C·P + (1/η) H(P, s_1..s_K)
+s.t.  P·1 = r,  P^T·1 = c,  D_k·P = s_k (k=1..K inequality),  P ≥ 0, s_k ≥ 0
+```
+H is joint entropy; s_k are slack variables; D_k matrices encode inequality constraints.
+
+Dual problem after eliminating P, s: `max_{x,y,a} f(x, y, a)` where
+```
+f(x,y,a) = -1/η · Σ_ij exp(η·(-C_ij + Σ_m a_m D_m_ij + x_i + y_j) − 1)
+           + Σ_i x_i r_i + Σ_j y_j c_j − 1/η · Σ_k exp(-η·a_k − 1)
+```
+`x`, `y` = standard row/column Sinkhorn duals (generalize to K margins via existing sweep). `a` = constraint duals, one per inequality constraint.
+
+**Algorithm 1 alternating updates:**
+1. **x update** = argmax_x̃ f(x̃, y, a). Closed-form Sinkhorn row scaling.
+2. **y update** = argmax_ỹ f(x, ỹ, a). Closed-form column scaling.
+3. **(a, t) update** = argmax_{ã, t̃} f(x + t̃·1, y, ã). **Newton's method** on a (with t auxiliary for numerical stability). Gradient `∂_ak f = exp(-η·a_k − 1) − P·D_k` ; Hessian computed analytically. Step direction `(Δa, Δt) = -(∇²f)^-1 ∇f` with backtracking line search.
+
+Intermediate transport plan: `P = exp(η·(-C + Σ_m a_m D_m + x·1^T + 1·y^T) − 1)`.
+
+**Mapping to iEPPA box constraint `L_cell[c] ≤ X[c] ≤ U_cell[c]`:**
+- Each cell `c` generates **two inequality constraints**: `-X[c] ≤ -L_cell[c]` and `X[c] ≤ U_cell[c]`. Total `2·M_cell` inequality constraints, hence `2·M_cell` dual variables `a_{c,lo}`, `a_{c,hi}`.
+- D matrices are sparse — each constraint touches one cell. Vectorized updates.
+- x, y in Tang = lf dual in iEPPA (per-margin-per-category Sinkhorn factor), generalized K times. Current sweep already implements the K-margin equivalent of x, y cycling.
+
+**Algorithm integration with current ieppa_solve:**
 
 ```
-Inner solve (sweep only, no capacity block):
-  For t = 1..T_inner:
-    lf[k][j] update via Sinkhorn, but with effective X_init shifted by μ-penalty.
-    X[c] = X_init[c] · exp(Σ lf[m][g_m(c)])  — unconstrained.
+// Outer iter: (lf-sweep) + (a-Newton) + (errRp check)
+For outer_iter = 1..kMaxOuter:
+  // Sweep: k=0..K-1 cycles of lf-update (x, y generalized) — UNCHANGED from current
+  sweep_lf(lf, a_lo, a_hi, ...);  // but log_S_kj accumulator now includes a-terms
 
-Outer μ update:
-  For each cell c: if X[c] > U_cell[c]:  μ[c] += ρ · (X[c] - U_cell[c])
-                   else if X[c] < L_cell[c]: μ[c] -= ρ · (L_cell[c] - X[c])
-  ρ increased adaptively if convergence slows.
+  // Newton on constraint duals (replaces capacity block):
+  For c = 0..M_cell-1:
+    Compute X[c] from (lf, a_lo, a_hi):
+      X[c] = X_init[c] · exp(η·(Σ_m lf[m][g_m(c)] - a_lo[c] + a_hi[c]))
+    // Gradient: ∂_a f at c: for a_lo[c]: exp(-η·a_lo[c] - 1) - (-X[c] - (-L_cell[c])) · [indicator];
+    //                       for a_hi[c]: exp(-η·a_hi[c] - 1) - (X[c] - U_cell[c]) · [indicator].
+    // Hessian scalar ≥ 0; Newton step with backtracking.
+    newton_update(a_lo[c], a_hi[c], X[c], L_cell[c], U_cell[c]);
 
-Final projection at convergence:
-  X[c] = clamp(X[c], L_cell[c], U_cell[c])  — applied ONCE at solver exit, not per iter.
+  // errRp check (unchanged)
 ```
 
-**Sinkhorn modification inside inner loop.** The μ-penalty adds a term `Σ_c μ[c] · X[c]` to the log-barrier. The sweep's `log_S_kj` accumulator gains a per-cell term `-μ[c]` (linear in `exp(Σ lf[m])`). For cells with `X[c] > U_cell[c]`, the effective `log_X_init[c]` becomes `log_X_init[c] - μ[c]` — naturally discouraging that cell's mass. No clamp, no non-smoothness.
+**No capacity block clamp.** The clamp is replaced entirely by the `a` dual variables — KKT complementarity (`a_hi[c] · (X[c] - U_cell[c]) = 0` and `a_lo[c] · (L_cell[c] - X[c]) = 0`) is the optimality condition, not a post-update projection.
 
-**Anderson re-enablement.** With no capacity block inside the inner loop, G_inner(lf) is smooth Sinkhorn — classical Anderson contraction applies. Restore pre-APVA Anderson-on-lf machinery (not APVA joint-iterate, not Halpern) for the INNER solve. Outer μ iteration is deterministic.
+**Newton inner iteration:** per cell, scalar 2-D Newton on (a_lo[c], a_hi[c]). Convergence to machine precision in 3-5 Newton iters per outer iter. Backtracking line search bounds step to maintain `a_lo ≥ 0`, `a_hi ≥ 0`. Cost: O(M_cell) per outer iter, negligible vs sweep O(K·M_cell).
 
-**Memory:** `μ` vector of length `M_cell`. At kk1204 M_cell=1M: 8MB. `lf_anchor` etc. from Anderson history reused for inner solve.
+**Regularization η.** Tang 2024 proposes η-annealing: start small (strong regularization, smooth problem), increase toward ∞ (weak regularization, closer to original LP solution). For initial implementation: fixed η = 1/tol_abs per user setting (so `exp(-η·Δ)` matches `tol_abs` error bound from Theorem 1). Follow-up ticket: dynamic annealing if fixed-η insufficient.
+
+**Convergence guarantee (Theorem 1 + Theorem 3 of Tang):** sublinear first-order in dual space. Error bound: `||P_η* − P*||_1 ≤ 8n^(2/(K+1))(K+1)·exp(-η·Δ/(K+1))`. At η = 1e3 (tol=1e-3), `K+1=21`: exp bound ~ exp(-47·Δ). For feasible problems Δ > 0 bounded below; error drops as η grows.
+
+**Memory:** `a_lo`, `a_hi` vectors length M_cell. At M_cell=1M: 16 MB. Cheap.
+
+**API:** `LBW_IEPPA_SOLVER ∈ {tang2024, direct, off}`. Default `direct` (current behavior, capacity block) — byte-identical preservation. `tang2024` activates primal-dual Newton path. Targets kk1204-class non-smooth regimes.
 
 **Merge gate:**
-- Inner ≤ 20 iter per outer round; outer ≤ 25 rounds → total ≤ 500 iter budget
-- kk1204 ACCEL=lagrangian: `status == RK_OK` AND `outer_iters · inner_iters ≤ 400 effective`
-- Stepstone errRp ≤ 2.15e-3 preserved (unconstrained Sinkhorn on sparse regimes same speed as before)
-- Full suite FAIL=0 PASS ≥ 198
+- kk1204 SOLVER=tang2024: `status == RK_OK` AND `total outer iter × sweep-work ≤ 400 iter-equivalents`.
+- Stepstone SOLVER=tang2024: errRp ≤ 2.15e-3 (same as direct on sparse regimes — Newton on capacity duals is cheap).
+- Stepstone SOLVER=direct: byte-identical to current (regression safety).
+- Full suite FAIL=0 PASS ≥ 198.
 
-**API:** `LBW_IEPPA_SOLVER ∈ {lagrangian, direct, off}`. Default `direct` (current behavior, no Lagrangian relaxation) — existing tests unchanged. `lagrangian` activates the new path; targets kk1204-class.
+**Deviation from my prior spec:** earlier spec described "augmented Lagrangian with quadratic penalty + ρ annealing". That's a DIFFERENT technique (Birgin-Martínez textbook NLP). Tang 2024 is variational-primal-dual with Newton — simpler inner loop, no ρ annealing, Theorem 1 convergence guarantee for specific bounds.
 
-**Fallback: Halpern mixing (§5.4 follow-up, P2.2d)** if Lagrangian also fails kk1204 → O(1/k) guarantee from Halpern mixing as last resort.
+**Fallback: Halpern mixing (§5.4 follow-up)** if Tang approach fails to close kk1204 gate.
 
 ## §5.4 P2.2d — Halpern mixing fallback (kk1204 engineering response)
 
