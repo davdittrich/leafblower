@@ -229,7 +229,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // P2.1 adaptive damping schedule. alpha = 1 / (1 + β · stress); stress = max streak.
     // β = 0.5: at stress=2, alpha=0.5; at stress=10, alpha≈0.17. Unlatched — recovers as
     // streaks reset. Preserves Peyré-Cuturi §4.4 convergence (alpha ∈ (0, 1]).
-    // β is mutable so Tang-eta (WU-5) can scale it per homotopy level.
+    // β is mutable so eta_schedule can vary it per homotopy level.
     double beta  = 0.5;
     double alpha = 1.0;
     // Test-only override (parallel to LBW_IEPPA_FORCE_PATH): "on"|"off"|unset.
@@ -274,7 +274,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // N levels with Chizat-inspired budget split (∝ (lvl+1)^p).
     // Drive homotopy from n_levels alone; enabled is derived from n_levels in the
     // bridge and checking it here is tautological (and creates a latent inconsistency
-    // if callers query enabled independently, e.g. WU-5 eta_schedule N>1 branch).
+    // if callers query enabled independently, e.g. eta_schedule N>1 branch).
     const int    N_levels = (st.homotopy.n_levels > 1)
                             ? st.homotopy.n_levels : 1;
     const double k_start  = st.homotopy.start_factor;
