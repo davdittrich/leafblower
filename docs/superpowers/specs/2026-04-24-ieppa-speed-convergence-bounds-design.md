@@ -576,7 +576,7 @@ Consolidated from WU-2, WU-3, and this design:
 |---|---|---|---|
 | `LBW_IEPPA_FORCE_PATH` | `linear`, `log`, unset | unset → auto | Test-only override of linear-vs-log dispatch |
 | `LBW_IEPPA_FORCE_DAMPING` | `on`, `off`, unset | unset → auto | Test-only override of adaptive damping |
-| `LBW_IEPPA_ACCEL_ANDERSON` | `on`, `off`, unset | unset → on | Anderson acceleration toggle (was `LBW_IEPPA_ACCEL` in rev 2) |
+| `LBW_IEPPA_ACCEL` | `halpern`, `off`, unset | unset → `off` | Halpern mixing acceleration toggle (post-P2.2d rollout). Replaces `LBW_IEPPA_ACCEL_ANDERSON` (APVA era); old name removed after P2.2c revert. Plan to flip default to `halpern` in a later commit once empirically validated. |
 
 All three read via `std::getenv` once per solver entry. Microsecond cost. Not documented in user-facing man pages; test-oriented.
 

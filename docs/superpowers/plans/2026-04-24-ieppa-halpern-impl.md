@@ -13,7 +13,7 @@
 **Baseline:** commit 7a837fe (P2.2c APVA). Work happens relative to this HEAD.
 
 **Merge gate:**
-- Full suite FAIL=0 PASS ≥ 195 (198 post-P2.2c − 3 Anderson tests + N new Halpern tests)
+- Full suite FAIL=0 PASS ≥ 198 (198 post-P2.2c − 3 Anderson tests + 3 new Halpern tests = 198)
 - Stepstone errRp ≤ 2.15e-3 preserved
 - kk1204 ACCEL=halpern: `status == RK_OK` AND `iterations ≤ 450`
 - `grep dgels src/` returns 0 lines
@@ -130,15 +130,22 @@ Delete:
 
 Any test that references `LBW_IEPPA_ACCEL_ANDERSON` → delete or update to `LBW_IEPPA_ACCEL`.
 
-### Step 1.6: Build gate
+### Step 1.6: Build gate + grep zero-checks
 
 Run: `R CMD INSTALL --preclean .`
 Expected: clean install, no warnings from `src/ieppa.cpp` or `src/r_bridge.cpp`. `undefined reference to dgels_` would indicate missed LAPACK code — halt and re-grep.
 
+Additional grep gates (MANDATORY):
+- `grep -rn "LBW_IEPPA_ACCEL_ANDERSON" src/ tests/ R/ python/` → must return **zero** (env var fully renamed).
+- `grep -n "dgels\|F_hist\|X_hist\|lapack_work" src/` → must return **zero** (APVA fully removed).
+- `grep -rn "n_anderson_iters_engaged\|n_anderson_nan_fallbacks" src/ tests/ R/ python/` → must return **zero** (counter rename complete across all bindings).
+
+Any non-zero result → halt, fix, rebuild.
+
 ### Step 1.7: Full suite post-revert
 
 Run: `Rscript -e 'library(testthat); library(leafblower); test_dir("tests/testthat", stop_on_failure=TRUE, reporter="summary")'`
-Expected: `[ FAIL 0 | PASS ≥ 195 ]` (198 − 3 Anderson tests = 195).
+Expected: `[ FAIL 0 | PASS = 195 ]` (198 − 3 Anderson tests = 195; rises to 198 after Task 2 adds 3 new Halpern tests).
 
 ### Step 1.8: Commit APVA revert
 
@@ -230,9 +237,9 @@ After the existing sweep + fused capacity block, BEFORE the errRp check:
         }
 ```
 
-### Step 2.2b: Reset Halpern state on P1.1 overflow fallback
+### Step 2.2b: Reset Halpern state on BOTH P1.1 overflow fallback sites
 
-P1.1 fused block's `if (overflow_detected)` fallback resets `X_cur`, `W`, `lf`, etc. and restarts the outer loop with `use_linear = false`. `lf_anchor` captured pre-overflow is now stale (it references the pre-fallback iterate in a different path). Add to the overflow-fallback block:
+Current `src/ieppa.cpp` has TWO overflow-fallback branches (confirmed via `grep -n overflow_detected src/ieppa.cpp` at plan-review iter-2): the P1.1 fused-block fallback and the X_tilde-overflow fallback. BOTH must reset Halpern state. Add to each of the two `if (overflow_detected)` blocks:
 
 ```cpp
                 // Halpern state reset: lf_anchor is no longer valid after fallback;
@@ -242,7 +249,7 @@ P1.1 fused block's `if (overflow_detected)` fallback resets `X_cur`, `W`, `lf`, 
                 res.n_halpern_iters = 0;
 ```
 
-Place in both overflow-fallback sites if the P1.1 fused block and separate X_tilde-overflow fallback both exist.
+**Verification gate:** `grep -cn "halpern_anchored = false" src/ieppa.cpp` must return 2 (one per fallback site). If == 1, one site was missed — halt and add.
 
 ### Step 2.3: Write 2 RED tests
 
@@ -288,6 +295,30 @@ test_that("P2.2d: ACCEL=halpern fires post-anchor; lf_anchor convex combo preser
   expect_gte(info$n_halpern_iters, 40L)
   expect_true(all(is.finite(as.numeric(res))))
 })
+
+test_that("P2.2d: Halpern composes with P2.1 damping — final_alpha preserved under ACCEL=halpern", {
+  # Stress input engages damping (alpha < 1.0); Halpern mix on top should not
+  # corrupt the damping semantic. min_alpha_seen < 1.0 must still hold, and
+  # Halpern must fire on post-anchor iters concurrently.
+  Sys.setenv(LBW_IEPPA_ACCEL = "halpern")
+  on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL"), add = TRUE)
+  set.seed(314)
+  n <- 3000L; K <- 6L
+  df <- as.data.frame(replicate(K, sample(1:3, n, TRUE), simplify = FALSE))
+  names(df) <- paste0("m", 1:K)
+  for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
+  targets <- setNames(replicate(K, c(a=0.7, b=0.2, c=0.1), simplify = FALSE),
+                      paste0("m", 1:K))
+  res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+                                   max_weight = 3, min_weight = 0,
+                                   max_iterations = 500L,
+                                   convergence = list(absolute = 1e-4),
+                                   attach_weights = FALSE))
+  info <- attr(res, "result")
+  expect_lt(info$min_alpha_seen, 1.0)    # damping engaged (stress triggered)
+  expect_gt(info$n_halpern_iters, 0L)    # Halpern also engaged
+  expect_true(all(is.finite(as.numeric(res))))
+})
 ```
 
 ### Step 2.4: Run tests — confirm RED
@@ -309,7 +340,7 @@ Expected: both tests pass.
 ### Step 2.7: Full regression
 
 Run: `Rscript -e 'library(testthat); library(leafblower); test_dir("tests/testthat", stop_on_failure=TRUE, reporter="summary")'`
-Expected: `[ FAIL 0 | PASS ≥ 197 ]` (195 + 2).
+Expected: `[ FAIL 0 | PASS ≥ 198 ]` (195 post-revert + 3 new Halpern tests).
 
 ### Step 2.8: Stepstone regression
 
@@ -322,7 +353,7 @@ Update `/tmp/kk1204_apva.R` to use `LBW_IEPPA_ACCEL=halpern`. Run.
 Expected:
 - `ACCEL=halpern`: `status == 0 (RK_OK)` AND `iterations ≤ 450`
 
-**Gate relaxation rationale (relative to APVA's ≤400):** Halpern's O(1/k) rate is sublinear; APVA's super-linear-Anderson potential was higher but rejected by safeguard on kk1204. 450 ≈ 400 × (5/4.5) — soft buffer for the slower theoretical rate assuming oscillation-dominated failure mode (confirmed in Step P.5 pre-flight). If status == 1 (NOCONV) at iterations == 500, Halpern failed. Halt + report. Fallback: re-open §5.3 Tang with explicit user re-authorization.
+**Gate relaxation rationale (relative to APVA's ≤400):** Halpern's O(1/k) rate is sublinear versus Anderson's potentially super-linear rate. The 400→450 buffer accommodates the slower theoretical rate, conditional on Step P.5 confirming the kk1204 failure mode is oscillation-dominated (where Halpern's anchor damping directly helps) rather than pure slow-rate (where Halpern offers no improvement over bare Sinkhorn). If status == 1 (NOCONV) at iterations == 500, Halpern failed. Halt + report. Fallback: re-open §5.3 Tang with explicit user re-authorization.
 
 ### Step 2.10: Commit
 
