@@ -39,7 +39,10 @@ max_err_of <- function(w, data, target) {
   errs <- numeric(length(target))
   for (k in seq_along(target)) {
     tab <- tapply(w, data[[names(target)[k]]], sum) / sum(w)
-    errs[k] <- max(abs(tab - target[[k]]))
+    # Name-aligned subtraction: tapply alphabetizes; JSON target preserves
+    # original order. Positional subtraction inflates error for reordered
+    # categories (e.g. German compound names in rk_gender_time).
+    errs[k] <- max(abs(tab[names(target[[k]])] - target[[k]]), na.rm = TRUE)
   }
   max(errs)
 }

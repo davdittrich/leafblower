@@ -1,0 +1,56 @@
+Welcome back dd!
+Working directory is: /home/dd/Gemini/leafblower/.worktrees/feat-ieppa-homotopy-greenkhorn
+=== WU-6: stepstone-fulldata homotopy merge gate ===
+Date: 2026-04-24 22:01:27 
+
+Loading data...
+  n = 1,582,732 rows
+  margins: 9  |  total categories: 836
+
+--- autumn::harvest (reference) ---
+  max_err (tapply): 1.600e-03  |  time: 46.6s
+
+--- leafblower::leafblower_A (baseline) ---
+    levels=1  start_factor=1  end_factor=1  scheduler=round_robin  budget_p=0.5
+  max_err (tapply): 2.223e-03  |  errRp (internal): 2.223e-03  |  iters: 3000  |  time: 16.5s
+
+--- leafblower::leafblower_B (greedy only) ---
+    levels=1  start_factor=1  end_factor=1  scheduler=greedy  budget_p=0.5
+  max_err (tapply): 3.727e-03  |  errRp (internal): 3.727e-03  |  iters: 3000  |  time: 26.2s
+
+--- leafblower::leafblower_AB (homotopy+greedy, gate config) ---
+    levels=5  start_factor=10  end_factor=1  scheduler=greedy  budget_p=0.5
+  max_err (tapply): 6.567e-03  |  errRp (internal): 6.567e-03  |  iters: 3000  |  time: 25.8s
+
+--- leafblower::leafblower_AB2 (levels=10, start=20) ---
+    levels=10  start_factor=20  end_factor=1  scheduler=greedy  budget_p=0.5
+  max_err (tapply): 6.823e-03  |  errRp (internal): 6.823e-03  |  iters: 3001  |  time: 24.5s
+
+--- leafblower::leafblower_ABE (homotopy+greedy+tang-eta) ---
+    levels=5  start_factor=10  end_factor=1  scheduler=greedy  budget_p=0.5
+  max_err (tapply): 6.584e-03  |  errRp (internal): 6.584e-03  |  iters: 3000  |  time: 25.7s
+
+=== Summary ===
+         config          max_err            errRp elapsed_s
+         autumn 0.00159962412164               NA    46.612
+   leafblower_A 0.00222292695476 0.00222292695476    16.531
+   leafblower_B 0.00372674306521 0.00372674306521    26.216
+  leafblower_AB 0.00656694060505 0.00656694060505    25.772
+ leafblower_AB2 0.00682294730058 0.00682294730058    24.477
+ leafblower_ABE 0.00658438772919 0.00658438772919    25.707
+
+Pearson r vs autumn:
+            AB            AB2            ABE 
+0.977124026775 0.976972398920 0.977106104649 
+
+GATE (errRp): leafblower_AB errRp = 6.567e-03  (threshold <= 1.60e-3)
+INFO (tapply): leafblower_AB max_err = 6.567e-03  (reference baseline: 2.223e-03)
+Reference errRp at git 9a97cc8: 2.220e-03
+GATE: FAIL — best errRp by config:
+  leafblower_A: errRp=2.223e-03
+  leafblower_B: errRp=3.727e-03
+  leafblower_AB: errRp=6.567e-03
+  leafblower_AB2: errRp=6.823e-03
+  leafblower_ABE: errRp=6.584e-03
+
+Report saved to benchmarks/stepstone_fulldata_homotopy_report.rds
