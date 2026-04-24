@@ -8,6 +8,7 @@
 #include <cmath>
 #include <climits>
 #include <cstdint>
+#include <limits>
 
 // C++17 [[nodiscard]] on rk_calibrate — silently ignored on C++14
 #if __cplusplus >= 201703L
@@ -58,7 +59,7 @@ void rk_params_init(rk_params_t* p) {
 void rk_result_init(rk_result_t* r) {
     if (!r) return;
     memset(r, 0, sizeof(*r));
-    r->best_error    = 1e308;  /* infinity sentinel; memset would give 0.0 */
+    r->best_error    = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
     r->sor_min_omega = 1.0;    /* non-iEPPA default */
 }
 
@@ -152,6 +153,12 @@ static int validate_inputs(int n, int K,
 
     if (!std::isfinite(p->tol_abs) || p->tol_abs <= 0.0)
         return err("tol_abs must be finite and positive");
+
+    /* Enum range guards: prevent silent UB from out-of-range static_cast */
+    if (p->criterion < 0 || p->criterion > 4)
+        return err("criterion out of range [0,4]: 0=PCT 1=ABS 2=KL 3=MEAN_ABS 4=CHI2");
+    if (p->stop_when < 0 || p->stop_when > 1)
+        return err("stop_when out of range [0,1]: 0=ANY 1=ALL");
 
     return RK_OK;
 }
