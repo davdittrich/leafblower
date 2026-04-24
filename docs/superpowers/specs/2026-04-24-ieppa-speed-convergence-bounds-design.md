@@ -266,6 +266,38 @@ Original (single-iterate Anderson, post-P2.2 landing `adba0c7`): Anderson fires 
 
 **Halpern fallback (follow-up ticket, not in this scope):** if APVA still fails on adversarial inputs, a Halpern-style mixing `lf_{t+1} = lf_0/(t+2) + ((t+1)/(t+2)) · G(lf_t)` provides O(1/k) convergence guarantee immune to oscillation, slower than Anderson's super-linear potential but architecturally stable.
 
+## §5.3 P2.2d — Halpern mixing fallback (kk1204 engineering response)
+
+**Empirical status post-P2.2c APVA (commit 7a837fe):** kk1204 ACCEL=on shows engaged=6, nan_fallbacks=487 of 500 iters. Safeguard rejects nearly every Anderson step because capacity-clamp non-smoothness generates extrapolated lf residuals larger than plain damped residuals. Stepstone + 198 tests green — APVA doesn't regress other regimes, just fails on kk1204's structural non-smoothness.
+
+**Halpern mixing (Halpern 1967; rediscovered for fixed-point iteration in Lieder 2021):**
+
+```
+lf_{t+1} = (1 / (t - kAnchor + 2)) · lf_anchor + ((t - kAnchor + 1) / (t - kAnchor + 2)) · G(lf_t)
+```
+
+Where:
+- `lf_anchor` = snapshot of `lf` at iter `kAndersonWarmup` (= kAnchor = 5).
+- `G(lf_t)` = one full outer iter (sweep + capacity block) applied to `lf_t`.
+- Mixing weight decreases from 1/3 at first post-anchor iter to 1/(N+2) at iter N.
+
+**Convergence guarantee:** for non-expansive G (Sinkhorn + capacity clamp is non-expansive in ℓ∞ norm on the feasible region), Halpern converges with `||r_t|| = O(1/t)`. Not super-linear, but immune to oscillation — no safeguard required.
+
+**Replaces APVA entirely** (P2.2c code removed in P2.2d commit):
+- No dgels, no LS solve, no history buffers.
+- No `n_anderson_iters_engaged` / `n_anderson_nan_fallbacks` counters (replaced with `n_halpern_iters`).
+- Env var renamed: `LBW_IEPPA_ACCEL_ANDERSON` → `LBW_IEPPA_ACCEL` with values `{halpern, anderson, off}`. Default `halpern`.
+- Memory: ~80 MB history buffer gone; `lf_anchor` is total_cats doubles (≪ 1 MB at kk1204).
+
+**Compatibility with P2.1 damping:** Halpern applied AFTER damped iterate. Let `lf_damped = α·G_raw(lf_t) + (1-α)·lf_t` (from compute_alpha). Then `lf_halpern = weighted blend of lf_anchor and lf_damped`. Composition preserves contraction since both steps are convex combinations.
+
+**Merge gate:**
+- Stepstone errRp ≤ 2.15e-3 preserved (Halpern should not regress sparse regimes)
+- kk1204 ACCEL=halpern: `iters ≤ 450` AND `status == RK_OK`. Relaxed from APVA's 400 because Halpern's O(1/t) rate is slower than super-linear Anderson would have been.
+- Full suite FAIL=0 PASS ≥ 198
+
+**Fallback to APVA if Halpern fails kk1204:** Halpern's O(1/t) theoretical rate may be too slow to reach tol_abs=1e-3 in 500 iters on n=1M. If so, file ticket for E (Lagrangian relaxation) as follow-up.
+
 **Restart condition.** If the least-squares system is ill-conditioned (condition number > 1e12 via thin QR), skip Anderson for this step, keep history. Prevents blowups in degenerate regimes.
 
 **Interaction with damping.** Anderson applied AFTER damping: damping modifies the iterate `lf_{t+1}_plain = alpha * G(lf_t) + (1-alpha) * lf_t`; Anderson then mixes `lf_{t+1}_plain` with history. Damped-plain residual `r_t = lf_{t+1}_plain - lf_t = alpha * (G(lf_t) - lf_t)`.
