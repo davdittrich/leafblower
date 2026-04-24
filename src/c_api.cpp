@@ -135,6 +135,14 @@ static int validate_inputs(int n, int K,
 }
 
 
+// Return contract: on RK_OK or RK_ERR_NOCONV, the output weight vector
+// satisfies Σ weights[i] = n (where n = number of observations). Solvers
+// enforce this invariant internally at exit (see src/ieppa.cpp,
+// src/raking.cpp, src/lbfgsb_solver.cpp post-exit normalize blocks).
+// Third-party callers should NOT apply their own sum/mean normalization —
+// doing so silently invalidates bounds_mode="unit" strict-bounds guarantees,
+// because ieppa's water-fill clamps would be re-pushed above max_weight.
+// On RK_ERR_INFEAS / RK_ERR_BADARG the output weights are undefined.
 LBW_NODISCARD int rk_calibrate(int n, int K,
                                 double* weights,
                                 const int32_t** group_ids,

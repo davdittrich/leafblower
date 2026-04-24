@@ -278,6 +278,19 @@ RakingResult raking_solve(CalibState& st) {
 
     for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
 
+    // Solver-owned normalization (moved from wrapper 2026-04-24 per user directive).
+    // Defensive: the preceding hyperplane finalizer (lines above) enforces
+    // sum(w) = n unconditionally on every iteration via shift = (n - s)/n, so
+    // this block is a no-op at both CONV and NOCONV. Kept for solver-contract
+    // self-containment against future refactors that might weaken the invariant.
+    // total_w == 0 is pathological (all-zero input weights); leave unchanged.
+    double total_w = 0.0;
+    for (int i = 0; i < st.n; i++) total_w += st.weights[i];
+    if (total_w > 0.0) {
+        const double norm = static_cast<double>(st.n) / total_w;
+        for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
+    }
+
     return res;
 }
 

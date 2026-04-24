@@ -114,8 +114,10 @@ harvest <- function(
   if (calib_result$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 
-  # Normalize to mean=1 (preserves calibration constraints which are proportional).
-  weights <- weights / mean(weights)
+  # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp,
+  # src/lbfgsb_solver.cpp per user directive 2026-04-24). No wrapper-level
+  # normalization — removing it preserves the bounds_mode="unit" strict-bounds
+  # guarantee (ieppa's water-fill clamps are final; not re-pushed by post-scale).
 
   # NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping
   # here would break sum(weights * d) == target totals when per-cell mixing

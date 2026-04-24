@@ -188,10 +188,10 @@ def harvest(
     elif result_dict["status"] == 3:
         raise ValueError(f"leafblower: invalid arguments — {result_dict['message']}")
 
-    # Match R behaviour: normalise to mean=1 (preserves proportional constraints).
-    w_mean = weights_out.mean()
-    if w_mean > 0:
-        weights_out = weights_out / w_mean
+    # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp,
+    # src/lbfgsb_solver.cpp per user directive 2026-04-24). No wrapper-level
+    # normalization — removing it preserves the bounds_mode="unit" strict-bounds
+    # guarantee (ieppa's water-fill clamps are final; not re-pushed by post-scale).
 
     # NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping
     # here would break sum(weights * d) == target totals when per-cell mixing

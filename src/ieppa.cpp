@@ -536,6 +536,21 @@ IEPPAResult ieppa_solve(CalibState& st) {
         st.weights[i] = st.weights[i] * mult[ct.cell_of[i]];
     }
 
+    // Solver-owned normalization (moved from wrapper 2026-04-24 per user directive).
+    // Applied AFTER expansion and BEFORE bounds_mode post-processing so unit-mode
+    // water-fill sees final-scale weights and can strictly enforce
+    // [min_weight, max_weight]. Contract: if total_w == 0 (degenerate: all zero
+    // X_init[c] or all-zero mult[c]), weights remain unchanged (all zero) and
+    // solver status is left as set upstream. X[c] is NOT rescaled — it is dead
+    // after expansion (water-fill uses (void)target_sum below and redistributes
+    // within each cell, so cell-aggregate scale is irrelevant).
+    double total_w = 0.0;
+    for (int i = 0; i < st.n; i++) total_w += st.weights[i];
+    if (total_w > 0.0) {
+        const double norm = static_cast<double>(st.n) / total_w;
+        for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
+    }
+
     if (st.bounds_mode == RK_BOUNDS_CELL) {
         // Diagnostic scan: count violations without action.
         int violations = 0;

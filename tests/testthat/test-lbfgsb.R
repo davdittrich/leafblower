@@ -57,7 +57,7 @@ test_that("L-BFGS-B converges with tight bounds (max=1.5, min=0.2)", {
   tgt <- list(x = c(a = 0.5, b = 0.3, c = 0.2))
   res <- leafblower::harvest(df, tgt, method = "lbfgsb",
                               max_weight = 1.5, min_weight = 0.2)
-  expect_equal(mean(res$weights), 1.0, tolerance = 1e-6)
+  expect_equal(sum(res$weights), as.double(n), tolerance = 1e-6)
   expect_true(max(res$weights) <= 1.5 + 1e-6)
   expect_true(min(res$weights) >= 0.2 - 1e-6)
 })
@@ -70,17 +70,17 @@ test_that("L-BFGS-B stable near infeasibility boundary (90/10 split, tight bound
   tgt <- list(x = c(a = 0.5, b = 0.5))
   res <- leafblower::harvest(df, tgt, method = "lbfgsb",
                               max_weight = 3.0, min_weight = 0.1)
-  expect_equal(mean(res$weights), 1.0, tolerance = 1e-5)
+  expect_equal(sum(res$weights), as.double(n), tolerance = 1e-5)
   expect_true(max(res$weights) <= 3.0 + 1e-5)
   expect_true(min(res$weights) >= 0.1 - 1e-5)
 })
 
-test_that("L-BFGS-B mean=1 after normalization, loose bounds", {
+test_that("L-BFGS-B sum=n at solver exit, loose bounds", {
   set.seed(12L)
   n   <- 1000L
   df  <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))
   tgt <- list(x = c(a = 0.5, b = 0.5))
   res <- leafblower::harvest(df, tgt, method = "lbfgsb",
                               max_weight = 100, min_weight = 0)
-  expect_equal(mean(res$weights), 1.0, tolerance = 1e-6)
+  expect_equal(sum(res$weights), as.double(n), tolerance = 1e-6)
 })

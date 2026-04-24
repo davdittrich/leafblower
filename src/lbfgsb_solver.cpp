@@ -171,8 +171,11 @@ static LBFGSResult compute_final_weights_and_error(
         double wi = d[i] * fn.F(u[i]);
         st.weights[i] = wi;
     }
-    // C returns raw weights. Caller (harvest.R) normalises to mean=1 post-call;
-    // safe because calibration constraints are proportional (scaling w preserves margins).
+    // Solver self-normalizes at exit: the outer lbfgsb_solve() wraps this call
+    // and applies Σ w = n before returning (moved from wrapper 2026-04-24).
+    // max_err below is computed as max_{k,j} |S_kj/Wn - target_kj|; S_kj and Wn
+    // scale identically under uniform normalization, so max_err is
+    // scale-invariant and remains valid after the outer normalize.
 
     double Wn = 0.0;
     for (int i = 0; i < st.n; i++) Wn += st.weights[i];
@@ -572,13 +575,26 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
 
     // ALM inactive. Solver-level invariant: at dual convergence ∇phi=0 ⟹
     // for each margin k, Σ_j S_kj = Σ_j T_kj = W (given targets sum to 1),
-    // and summing observations once gives sum(w) = W = Σ d_i. Caller contract
-    // (harvest.R, _harvest.py): input weights are normalised so Σ d_i = n,
-    // therefore sum(w) = n downstream. The /mean(weights) step in the caller
-    // is a safety net for non-converged iterates; a no-op at true convergence.
+    // and summing observations once gives sum(w) = W = Σ d_i. Input contract
+    // (R/harvest.R:218, python/_harvest.py): start_weights are pre-normalized
+    // so Σ d_i = n. Output contract (moved in-solver 2026-04-24 per user
+    // directive): solver self-normalizes to sum(w) = n before return.
     st.alm_lambda = 0.0;
     st.alm_mu     = 0.0;
-    return lbfgsb_solve_inner(st, off, T, d, W_sum);
+    LBFGSResult res = lbfgsb_solve_inner(st, off, T, d, W_sum);
+
+    // Post-solve normalization. Placement after the inner solve is safe because
+    // res.max_error is computed inside compute_final_weights_and_error as
+    // max_{k,j} |S_kj/Wn - target_kj| — scale-invariant under uniform weight
+    // rescaling. Therefore normalizing st.weights here does NOT invalidate
+    // res.max_error. Contract: total_w == 0 leaves weights untouched.
+    double total_w = 0.0;
+    for (int i = 0; i < st.n; i++) total_w += st.weights[i];
+    if (total_w > 0.0) {
+        const double norm = static_cast<double>(st.n) / total_w;
+        for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
+    }
+    return res;
 }
 
 } // namespace lbw
