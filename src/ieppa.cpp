@@ -225,27 +225,35 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> rescale_lin(max_cat, 1.0);
     std::vector<double> inv_f_old_lin(max_cat, 1.0);
 
-    // P2.2 Anderson(m=5) acceleration on lf via LAPACK dgels.
+    // P2.2c APVA (Asymmetric Partial-Variable Anderson) acceleration on lf.
+    // Spec §5.2 "Revised (P2.2c APVA)": joint residual R=[r_lf; σ·r_W] drives
+    // the LS solve, but only lf is updated — W stays under capacity-block control.
     // State declared BEFORE outer iter loop so symbols are in scope at the P1.1
     // fallback site (linear-overflow reset inside the loop references these).
     constexpr int    kAndersonM        = 5;
     constexpr int    kAndersonWarmup   = 5;
     constexpr double kGammaNormMax     = 1e4;
+    // Safeguarding: reject Anderson step if ||lf_aa - lf|| > kSafeguardKappa * ||r_lf_plain||.
+    constexpr double kSafeguardKappa   = 2.0;
 
     const char* force_accel = std::getenv("LBW_IEPPA_ACCEL_ANDERSON");
     const bool  anderson_off = (force_accel != nullptr && std::strcmp(force_accel, "off") == 0);
     const bool  anderson_enabled = !anderson_off;  // default on
 
-    // History buffers: column-major, total_cats rows × kAndersonM cols.
-    // F_hist[:,j] = residual diff at lag j; X_hist[:,j] = iterate diff at lag j.
-    std::vector<double> lf_prev(total_cats, 0.0);    // lf at end of previous sweep
-    std::vector<double> r_prev(total_cats, 0.0);     // previous residual
-    std::vector<double> F_hist(total_cats * kAndersonM, 0.0);
-    std::vector<double> X_hist_aa(total_cats * kAndersonM, 0.0);  // renamed to avoid clash
-    std::vector<double> r_curr(total_cats, 0.0);
+    // Joint residual length: total_cats (lf component) + M_cell (log_W component).
+    const int nr = total_cats + ct.M_cell;  // APVA joint residual length
+
+    // History buffers: column-major, nr rows × kAndersonM cols.
+    // F_hist[:,j] = joint residual diff at lag j; X_hist_aa[:,j] = joint iterate diff at lag j.
+    // lf slice = rows [0, total_cats); log_W slice = rows [total_cats, nr).
+    std::vector<double> lf_prev(total_cats, 0.0);       // lf at end of previous iter
+    std::vector<double> log_W_prev(ct.M_cell, 0.0);     // log_W at end of previous iter (APVA §5.2)
+    std::vector<double> r_prev(nr, 0.0);                 // previous joint residual
+    std::vector<double> F_hist(nr * kAndersonM, 0.0);
+    std::vector<double> X_hist_aa(nr * kAndersonM, 0.0);
+    std::vector<double> r_curr(nr, 0.0);
     std::vector<double> lapack_work;  // sized by workspace query on first call
     int m_active = 0;                  // number of history columns currently filled
-    int prev_n_cap_active = -1;        // n_cap_active from previous iter (for stability gate)
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
@@ -431,12 +439,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(f_lin.begin(),   f_lin.end(),   1.0);
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 res.n_xcur_writes_per_iter_linear = 0;
-                // T2.2.6: reset Anderson state — lf_prev/r_prev carry stale linear-domain
-                // values; after fallback we're in log-space, so history is invalid.
-                std::fill(lf_prev.begin(), lf_prev.end(), 0.0);
-                std::fill(r_prev.begin(),  r_prev.end(),  0.0);
+                // T2.2.6 / T2.2c.3: reset APVA Anderson state — lf_prev/log_W_prev/r_prev
+                // carry stale linear-domain values; after fallback we're in log-space,
+                // so all joint-iterate history is invalid (spec §5.2 P1.1 fallback note).
+                std::fill(lf_prev.begin(),    lf_prev.end(),    0.0);
+                std::fill(log_W_prev.begin(), log_W_prev.end(), 0.0);
+                std::fill(r_prev.begin(),     r_prev.end(),     0.0);
                 m_active = 0;
-                prev_n_cap_active = -1;  // reset stable-cap baseline
                 res.n_anderson_iters_engaged = 0;  // diagnostic reset (pre-fallback iters don't count)
                 use_linear = false;
                 linear_fallback_used = true;
@@ -489,36 +498,33 @@ IEPPAResult ieppa_solve(CalibState& st) {
             res.n_cap_active = n_cap;
         }
 
-        // P2.2 Anderson(m=5) acceleration on lf (both paths via log-domain dispatch).
-        // Applied AFTER capacity block (damping already baked into lf this iter).
-        // Spec §5.2: engagement gated on n_cap_active == 0 and past warmup.
-
-        // Seed lf_prev and r_prev at end of warmup so the first engaged iter has a
-        // meaningful history origin. Without this, iter = warmup+1 sees lf_prev = 0
-        // and r_prev = 0, producing r_curr = lf, F_hist col 0 = lf, X_hist col 0 = lf,
-        // γ = 1.0, lf_new = lf + r_curr − 2·lf = 0 — zeroing the Sinkhorn state.
-        // (critical-code-reviewer C1.)
+        // P2.2c APVA (Asymmetric Partial-Variable Anderson) acceleration.
+        // Spec §5.2 "Revised (P2.2c APVA)":
+        //   - Joint residual R=[r_lf; σ·r_W] informs the LS solve.
+        //   - γ applied to lf ONLY — W stays under capacity-block control.
+        //   - Drop n_cap_active==0 gate; warmup + NaN/γ-norm + safeguard remain.
+        //
+        // Seed lf_prev, log_W_prev, r_prev at end of warmup so the first engaged
+        // iter has a meaningful history origin. Without this, iter = warmup+1 sees
+        // stale zeros producing a degenerate r_curr.  (critical-code-reviewer C1.)
         if (iter == kAndersonWarmup && anderson_enabled) {
             lf_prev = lf;
+            // log_W_prev seeded from current W (capacity block already applied).
+            for (int c = 0; c < ct.M_cell; c++) {
+                log_W_prev[c] = (W[c] > 0.0) ? std::log(W[c]) : -kLogClip;
+            }
             std::fill(r_prev.begin(), r_prev.end(), 0.0);
-            m_active = 0;           // explicit; already 0 from init
-            prev_n_cap_active = res.n_cap_active;  // seed stable-cap baseline
+            m_active = 0;  // explicit; already 0 from init
         }
 
-        // Anderson engagement gate. Spec §5.2: only fires when n_cap_active == 0.
-        // Capacity changes W[c] each iter; residuals from different W regimes are
-        // incompatible (different operator G). Clear history on any cap-active iter.
-        // Note: for kk1204 K=20 max_weight=3, cap never clears → Anderson never engages.
-        // The kk1204 convergence gate is conditional on cap releasing; if it doesn't,
-        // stepstone (log-space, no cap) benefits from Anderson acceleration.
-        prev_n_cap_active = res.n_cap_active;  // tracked for diagnostics
+        // APVA engagement gate: warmup only (no n_cap_active==0 requirement).
+        // Capacity changes W each iter; APVA handles this by treating log_W as
+        // conditioning signal only — W is NOT written back from Anderson.
         const bool can_anderson = anderson_enabled
                                   && iter > kAndersonWarmup
-                                  && res.n_cap_active == 0
                                   && total_cats > 1;
         if (!can_anderson) {
-            // Capacitated or warmup: clear history (residuals mixed under different W invalid).
-            if (iter > kAndersonWarmup) m_active = 0;
+            // Still in warmup: no-op (history remains zeroed).
         } else {
             // Materialize lf for the linear path via shadow-log conversion.
             if (use_linear) {
@@ -526,45 +532,77 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     lf[kj] = (f_lin[kj] > 0.0) ? std::log(f_lin[kj]) : -kLogClip;
                 }
             }
-            // Current residual r = G(lf) - lf = lf_this_iter - lf_prev.
+
+            // Compute log_W for this iter (not persisted in W — computed fresh).
+            std::vector<double> log_W(ct.M_cell);
+            double max_abs_log_W = 1.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                log_W[c] = (W[c] > 0.0) ? std::log(W[c]) : -kLogClip;
+                double v = std::fabs(log_W[c]);
+                if (v > max_abs_log_W) max_abs_log_W = v;
+            }
+            const double sigma = 1.0 / max_abs_log_W;
+
+            // Build joint residual r_curr = [r_lf; σ·r_W] of length nr.
+            // r_lf[kj] = lf[kj] - lf_prev[kj]  (lf component)
+            // r_W[c]   = log_W[c] - log_W_prev[c]  (W conditioning signal, scaled)
             for (int kj = 0; kj < total_cats; kj++) {
                 r_curr[kj] = lf[kj] - lf_prev[kj];
             }
-            // Shift history right by one column; append new residual diff and iterate diff.
+            for (int c = 0; c < ct.M_cell; c++) {
+                r_curr[total_cats + c] = sigma * (log_W[c] - log_W_prev[c]);
+            }
+
+            // Compute ||r_lf_plain|| for safeguarding (Fu et al 2020).
+            // Measured BEFORE history shift so we compare the un-mixed residual.
+            double norm_r_lf_plain_sq = 0.0;
+            for (int kj = 0; kj < total_cats; kj++) {
+                norm_r_lf_plain_sq += r_curr[kj] * r_curr[kj];
+            }
+            const double norm_r_lf_plain = std::sqrt(norm_r_lf_plain_sq);
+
+            // Shift joint history right by one column.
             if (m_active > 0) {
                 int shift_cols = std::min(m_active, kAndersonM - 1);
                 for (int j = shift_cols; j > 0; j--) {
-                    std::memcpy(&F_hist[j * total_cats], &F_hist[(j - 1) * total_cats],
-                                total_cats * sizeof(double));
-                    std::memcpy(&X_hist_aa[j * total_cats], &X_hist_aa[(j - 1) * total_cats],
-                                total_cats * sizeof(double));
+                    std::memcpy(&F_hist[j * nr], &F_hist[(j - 1) * nr],
+                                nr * sizeof(double));
+                    std::memcpy(&X_hist_aa[j * nr], &X_hist_aa[(j - 1) * nr],
+                                nr * sizeof(double));
                 }
             }
-            for (int kj = 0; kj < total_cats; kj++) {
-                F_hist[kj]     = r_curr[kj] - r_prev[kj];
-                X_hist_aa[kj]  = lf[kj]     - lf_prev[kj];
+            // Append current joint residual diff and iterate diff at column 0.
+            for (int i = 0; i < nr; i++) {
+                F_hist[i]    = r_curr[i] - r_prev[i];
+                X_hist_aa[i] = r_curr[i];  // x_curr - x_prev = r_curr in AA type-II
             }
+            // Correct the lf-slice of X_hist: X_hist_lf[kj] = lf[kj] - lf_prev[kj] = r_curr[kj] ✓
+            // Correct the W-slice: X_hist_W[c] = (log_W[c]-log_W_prev[c]) * sigma = r_curr[total_cats+c] ✓
             if (m_active < kAndersonM) m_active++;
 
-            // Shape guard: cap columns so dgels stays overdetermined (m >= n).
+            // Shape guard: cap m_solve so dgels stays overdetermined (rows >= cols).
+            // Use total_cats (effective DOF of lf) as the row-count proxy, not nr.
+            // This is conservative and safe — nr >= total_cats always.
             int m_solve = std::min(m_active, total_cats - 1);
 
-            // update_prev called on BOTH m_solve<=0 AND m_solve>0 branches (symmetric).
+            // update_prev: called on BOTH m_solve<=0 AND m_solve>0 branches (symmetric).
             auto update_prev = [&]() {
-                lf_prev = lf;
-                r_prev  = r_curr;
+                lf_prev    = lf;
+                log_W_prev = log_W;
+                r_prev     = r_curr;
             };
 
             if (m_solve <= 0) {
                 update_prev();
             } else {
-                // Copy r_curr into B buffer (dgels overwrites B with solution).
-                std::vector<double> B_buf = r_curr;  // length total_cats
-                std::vector<double> A_buf(F_hist.begin(), F_hist.begin() + total_cats * m_solve);
+                // LS solve: min_γ || F_hist[:,0:m_solve] · γ - r_curr ||
+                // B_buf: rhs of length nr (dgels overwrites first m_solve entries with γ).
+                std::vector<double> B_buf = r_curr;                          // length nr
+                std::vector<double> A_buf(F_hist.begin(), F_hist.begin() + nr * m_solve);
 
                 // Workspace query.
-                int n_rows = total_cats, n_cols = m_solve, nrhs = 1;
-                int lda = total_cats, ldb = total_cats, info = 0;
+                int n_rows = nr, n_cols = m_solve, nrhs = 1;
+                int lda = nr, ldb = nr, info = 0;
                 double wkopt = 0.0; int lwork = -1;
                 F77_CALL(dgels)("N", &n_rows, &n_cols, &nrhs,
                                 A_buf.data(), &lda, B_buf.data(), &ldb,
@@ -590,22 +628,48 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
 
                 if (!ok) {
-                    m_active = 0;   // clear history; use plain iterate
+                    m_active = 0;   // clear history; use plain iterate this iter
                     res.n_anderson_nan_fallbacks++;
+                    update_prev();
                 } else {
-                    // Standard AA type-II update: lf_{t+1}_AA = lf + r - (X_hist + F_hist) · γ.
+                    // APVA lf-only update (spec §5.2 §3):
+                    // lf_aa[kj] = lf[kj] + r_lf[kj] - Σ_j γ_j * (X_hist_lf[kj,j] + F_hist_lf[kj,j])
+                    // Only the lf-slice (first total_cats rows) of history is used.
+                    // W is NOT updated here — capacity block recomputes W next iter.
+                    std::vector<double> lf_aa(total_cats);
                     for (int kj = 0; kj < total_cats; kj++) {
                         double delta = 0.0;
                         for (int j = 0; j < m_solve; j++) {
-                            delta += (X_hist_aa[j * total_cats + kj]
-                                    + F_hist[j * total_cats + kj]) * B_buf[j];
+                            // lf-slice of column j: X_hist_aa[j*nr + kj], F_hist[j*nr + kj]
+                            delta += (X_hist_aa[j * nr + kj]
+                                    + F_hist[j * nr + kj]) * B_buf[j];
                         }
-                        lf[kj] = lf[kj] + r_curr[kj] - delta;
+                        lf_aa[kj] = lf[kj] + r_curr[kj] - delta;
                     }
-                    res.n_anderson_iters_engaged++;
-                }
 
-                update_prev();  // symmetric: fires on both ok and !ok paths
+                    // Safeguarding (Fu et al 2020 §3.2): reject if Anderson step is
+                    // larger than kSafeguardKappa × plain residual norm.
+                    // Guard: norm_r_lf_plain == 0 means lf already converged; accept.
+                    double norm_step_sq = 0.0;
+                    for (int kj = 0; kj < total_cats; kj++) {
+                        double d = lf_aa[kj] - lf[kj];
+                        norm_step_sq += d * d;
+                    }
+                    const double norm_step = std::sqrt(norm_step_sq);
+
+                    if (norm_r_lf_plain > 0.0 &&
+                        norm_step > kSafeguardKappa * norm_r_lf_plain) {
+                        // Reject: Anderson step too large — potential divergence.
+                        m_active = 0;
+                        res.n_anderson_nan_fallbacks++;
+                        update_prev();
+                    } else {
+                        // Accept Anderson step: update lf from lf_aa.
+                        for (int kj = 0; kj < total_cats; kj++) lf[kj] = lf_aa[kj];
+                        res.n_anderson_iters_engaged++;
+                        update_prev();
+                    }
+                }
             }
 
             // Rematerialize f_lin from updated lf on linear path.

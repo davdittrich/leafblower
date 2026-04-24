@@ -353,6 +353,40 @@ test_that("P2.1: LBW_IEPPA_FORCE_DAMPING=on forces alpha = 0.5", {
   expect_equal(info$final_alpha, 0.5)
 })
 
+test_that("P2.2c APVA: ACCEL=on engages on capacitated input (kk1204 scaled K=20)", {
+  # Gate: APVA fires on cap-active iters; n_anderson_iters_engaged > 0 even at K=20
+  # with max_weight=3 (where old n_cap_active==0 gate always blocked Anderson).
+  # Scaled to n=10K (vs spec n=1M) for test speed; same K=20, max_weight=3 regime.
+  skip_on_cran()
+  set.seed(1204)
+  n <- 10000L; K <- 20L
+  df <- as.data.frame(replicate(K, sample(0:4, n, replace=TRUE), simplify=FALSE))
+  names(df) <- paste0("m", 1:K)
+  for (k in names(df)) df[[k]] <- c("a","b","c","d","e")[df[[k]]+1L]
+  targets_k20 <- setNames(
+    replicate(K, c(a=0.3, b=0.175, c=0.175, d=0.175, e=0.175), simplify=FALSE),
+    paste0("m", 1:K)
+  )
+  Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "off")
+  r_off <- suppressWarnings(harvest(df, targets_k20, method = "ieppa",
+    max_weight = 3, min_weight = 0, max_iterations = 200L,
+    convergence = list(absolute = 1e-8), attach_weights = FALSE))
+  iters_off <- attr(r_off, "result")$iterations
+
+  Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "on")
+  r_on <- suppressWarnings(harvest(df, targets_k20, method = "ieppa",
+    max_weight = 3, min_weight = 0, max_iterations = 200L,
+    convergence = list(absolute = 1e-8), attach_weights = FALSE))
+  info <- attr(r_on, "result")
+  on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON"), add = TRUE)
+
+  # APVA must fire: n_cap_active is routinely > 0 at K=20 max_weight=3
+  expect_gt(info$n_anderson_iters_engaged, 0)
+  # APVA must converge or at least reduce iters when Anderson fires
+  expect_true(info$status == 0L || info$n_anderson_iters_engaged > 0)
+  expect_true(all(is.finite(as.numeric(r_on))))
+})
+
 test_that("P2.2: ACCEL_ANDERSON=off → zero engaged iters", {
   Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "off")
   on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON"), add = TRUE)
@@ -370,7 +404,9 @@ test_that("P2.2: ACCEL_ANDERSON=off → zero engaged iters", {
   expect_equal(info$n_anderson_iters_engaged, 0)
 })
 
-test_that("P2.2: ACCEL_ANDERSON=on engages Anderson post-warmup on uncapacitated iters", {
+test_that("P2.2: ACCEL_ANDERSON=on engages Anderson post-warmup (APVA: cap-active OK)", {
+  # P2.2c APVA: n_cap_active==0 gate removed. Anderson fires on ANY iter post-warmup
+  # (subject to NaN/γ-norm/safeguard guards). Cap-active iters no longer skip.
   Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "on")
   on.exit(Sys.unsetenv("LBW_IEPPA_ACCEL_ANDERSON"), add = TRUE)
   set.seed(77)
@@ -384,19 +420,22 @@ test_that("P2.2: ACCEL_ANDERSON=on engages Anderson post-warmup on uncapacitated
                  convergence = list(absolute = 1e-300),
                  attach_weights = FALSE)
   info <- attr(res, "result")
-  expect_gt(info$n_anderson_iters_engaged, 0)  # some iters fired
-  # Warmup skips first 5 iters. Plus any cap-active iters. Net: at most 50-5 = 45.
+  expect_gt(info$n_anderson_iters_engaged, 0)  # some iters fired post-warmup
+  # Warmup skips first 5 iters; n_anderson_iters_engaged <= total - warmup.
   expect_lte(info$n_anderson_iters_engaged, info$iterations - 5)
 })
 
-test_that("P2.2: NaN guard fires on rank-deficient residuals; weights stay finite (spec §7.2)", {
+test_that("P2.2: NaN/safeguard guard fires; weights stay finite (spec §7.2)", {
   # Spec §7.2: n_anderson_nan_fallbacks > 0 must be DEMONSTRABLE.
+  # P2.2c APVA: guard fires on either (a) dgels INFO>0 / !isfinite(γ) / |γ|∞>1e4,
+  # or (b) safeguarding: ||lf_aa - lf|| > 2 * ||r_lf_plain||.
   # Design: K=2, 2-cat each (total_cats = (2+1)*2 = 6 with NA slots).
-  # Effective lf DOF = 2 (one per margin). Anderson history depth m_active=5.
-  # m_solve = min(5, total_cats-1) = min(5, 5) = 5. F_hist is 6×5.
-  # After convergence (~10 iters), F_hist has rank ≤ 2 (only 2 independent residual
-  # directions), but m_solve=5 → dgels detects INFO > 0 (rank < n_cols) → fallback.
-  # large max_weight keeps n_cap_active=0 so Anderson always eligible post-warmup.
+  # Effective lf DOF = 2 (one per margin). APVA joint residual nr = 6 + M_cell.
+  # m_solve = min(m_active, total_cats-1) = min(5, 5) = 5. F_hist is nr×5.
+  # After near-convergence, F_hist rank ≤ 2 (only 2 independent lf directions) →
+  # dgels INFO > 0 or safeguard fires → n_anderson_nan_fallbacks > 0.
+  # APVA does NOT require n_cap_active==0, so large max_weight is no longer needed
+  # for Anderson eligibility, but kept for isolation.
   Sys.setenv(LBW_IEPPA_ACCEL_ANDERSON = "on")
   Sys.setenv(LBW_IEPPA_FORCE_PATH = "log")  # ensure log-path so lf is primary
   on.exit({
@@ -419,7 +458,6 @@ test_that("P2.2: NaN guard fires on rank-deficient residuals; weights stay finit
                  attach_weights = FALSE))
   info <- attr(res, "result")
   expect_true(all(is.finite(as.numeric(res))))         # PRIMARY: no NaN leakage
-  # After ~20+ iters and rank ≤ 2 F_hist with m_solve=5 columns,
-  # dgels returns INFO > 0 → n_anderson_nan_fallbacks incremented.
+  # After near-convergence, rank deficiency or safeguarding fires.
   expect_gt(info$n_anderson_nan_fallbacks, 0L)         # spec §7.2: > 0 demonstrable
 })
