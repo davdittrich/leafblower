@@ -261,8 +261,8 @@ static LBFGSResult compute_final_weights_and_error(
     res.chi2       = chi2_total;
 
     // WU-E: L-BFGS-B is a batch solver with a single errRp evaluation at exit.
-    // best_error == max_error; best_weights == final weights (sum-normalized).
-    // The Σ=n normalization applied in lbfgsb_solve() ensures best_weights sums to n.
+    // best_error == max_error.  best_weights is a provisional capture here;
+    // lbfgsb_solve() re-assigns it after the Σ=n normalization to satisfy spec §4.
     res.best_error   = max_err;
     res.best_iter    = iterations;
     res.best_weights = std::vector<double>(st.weights, st.weights + st.n);
@@ -679,6 +679,10 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
         const double norm = static_cast<double>(st.n) / total_w;
         for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
     }
+    // Re-capture best_weights after Σ=n normalization so it satisfies spec §4
+    // contract: sum(best_weights) == n.  (The earlier capture in
+    // compute_final_weights_and_error pre-dates this normalization step.)
+    res.best_weights.assign(st.weights, st.weights + st.n);
     return res;
 }
 
