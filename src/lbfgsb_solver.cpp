@@ -590,7 +590,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     // res.max_error. Contract: total_w == 0 leaves weights untouched.
     double total_w = 0.0;
     for (int i = 0; i < st.n; i++) total_w += st.weights[i];
-    if (total_w > 0.0) {
+    if (std::isfinite(total_w) && total_w > 0.0) {
         const double norm = static_cast<double>(st.n) / total_w;
         for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
     }

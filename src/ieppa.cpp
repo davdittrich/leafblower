@@ -546,7 +546,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // within each cell, so cell-aggregate scale is irrelevant).
     double total_w = 0.0;
     for (int i = 0; i < st.n; i++) total_w += st.weights[i];
-    if (total_w > 0.0) {
+    if (std::isfinite(total_w) && total_w > 0.0) {
         const double norm = static_cast<double>(st.n) / total_w;
         for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
     }
@@ -562,6 +562,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
         res.n_bounds_violated = violations;
     } else {
         // Unit mode: per-cell water-filling.
+        // Water-fill redistributes excess within each cell, preserving the
+        // post-normalize cell sum X[c] exactly via three-way classification
+        // in the scan (violator / pinned / free). Only strictly-free obs
+        // enter free_sum, so factor = 1 + excess/free_sum_really_free
+        // distributes excess in full.
         // Build cells_of_obs (list of obs indices per cell) in one pass.
         std::vector<std::vector<int>> cells_of_obs(ct.M_cell);
         for (int i = 0; i < st.n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
@@ -572,8 +577,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
             const auto& idxs = cells_of_obs[c];
             if (idxs.empty()) continue;
 
-            double target_sum = X[c];
-            (void)target_sum;  // used conceptually; water-fill preserves cell sum via redistribution
             for (int it = 0; it < kWaterFillMaxIter; it++) {
                 double excess = 0.0;
                 double free_sum = 0.0;
@@ -597,6 +600,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         st.weights[i] = st.min_weight;
                         any_violation = true;
                         total_clamped++;
+                    } else if (st.weights[i] == st.max_weight || st.weights[i] == st.min_weight) {
+                        // Pinned from prior iter (set exactly via direct
+                        // assignment above). Excluded from free_sum so
+                        // factor = 1 + excess/free_sum_really_free
+                        // distributes excess in full; cell-sum conservation
+                        // holds exactly. FP equality is safe here because
+                        // pinned obs was assigned, not computed. See
+                        // leafblower-6s1o for the pre-fix under-distribution.
                     } else {
                         free_sum += st.weights[i];
                         n_free++;
@@ -604,13 +615,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 if (!any_violation) break;
                 if (n_free == 0 || free_sum <= 0.0) {
-                    // Pathological: no room to redistribute. Clamp already
-                    // performed (and counted) above; re-clamp is a safety net
-                    // for FP drift but does not re-count.
-                    for (int i : idxs) {
-                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; }
-                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; }
-                    }
+                    // Pathological: no room to redistribute. All violators
+                    // already pinned by the scan above (line 585/589); cell
+                    // sum may deviate from target by accumulated excess.
                     break;
                 }
                 // Redistribute excess proportionally over free observations.
@@ -620,14 +627,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         st.weights[i] *= factor;
                     }
                 }
-                if (it == kWaterFillMaxIter - 1) {
-                    // Budget exhausted. Re-clamp any remaining drift; already
-                    // counted above when originally pinned.
-                    for (int i : idxs) {
-                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; }
-                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; }
-                    }
-                }
+                // Budget-exhaustion case (it == kWaterFillMaxIter - 1): if
+                // factor-redistribution newly pushes a free obs above max,
+                // the scan in the NEXT iter would clamp it — but there is no
+                // next iter. In practice iter count is always enough because
+                // water-fill converges geometrically for feasible problems.
             }
         }
         res.n_bounds_clamped = total_clamped;

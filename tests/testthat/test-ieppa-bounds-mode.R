@@ -57,10 +57,12 @@ test_that("P3.1: unit-mode produces strict per-obs bounds (skewed-d, < 0.001·n 
   expect_lte(max(as.numeric(res)), 3 + 1e-9)
   expect_gte(min(as.numeric(res)), 0.3 - 1e-9)
   info <- attr(res, "result")
-  # Counter reports real clamps (running counter post-leafblower-kssd fix);
-  # strict bounds at lines 57-58 are the correctness invariant. Counter is
-  # non-negative by construction.
-  expect_gte(info$n_bounds_clamped, 0L)
+  # Counter value is fixture-specific. Requires re-measurement if
+  # skewed_d_input(), max_weight, min_weight, max_iterations, or the
+  # water-fill algorithm changes. Guards against counter regression;
+  # brittleness accepted as tradeoff for meaningful protection vs. the
+  # prior tautological expect_gte(..., 0L).
+  expect_equal(info$n_bounds_clamped, 5L)
 })
 
 test_that("P3.1: unit-mode on benign uniform-d input produces ZERO clamps (spec §8)", {
@@ -117,6 +119,34 @@ test_that("leafblower-kssd: n_bounds_clamped counts normal-path clamps accuratel
   # Under the pre-fix counter this returned 0 on normal-path clamps;
   # under the fix it must be > 0 because cell "a" has cap violators.
   expect_gt(info$n_bounds_clamped, 0L)
+})
+
+test_that("leafblower-6s1o: three-way scan preserves bounds + keeps cell sums near target", {
+  # Smoke test: verifies Task 5 code path is exercised and doesn't break
+  # invariants. Does NOT guarantee differential pre/post-Task-5 output
+  # (small-n fixtures rarely trigger iter-2+ dynamics where the bug
+  # manifests). Differential validation lives in the stepstone benchmark.
+  set.seed(31L)
+  n <- 200L
+  cat_a <- c(rep("a", 100), rep("b", 100))
+  design <- c(rep(4.0, 50), rep(1.2, 50), rep(1.0, 100))
+  df <- data.frame(a = factor(cat_a))
+  tgt <- list(a = c(a = 0.5, b = 0.5))
+  res <- harvest(df, tgt, method = "ieppa",
+                 max_weight = 1.5, min_weight = 0.3,
+                 design_weights = design,
+                 bounds_mode = "unit",
+                 max_iterations = 500L,
+                 convergence = list(absolute = 1e-6),
+                 attach_weights = FALSE)
+  w <- as.numeric(res)
+  expect_equal(sum(w), as.double(n), tolerance = 1e-9)
+  expect_lte(max(w), 1.5 + 1e-9)
+  expect_gte(min(w), 0.3 - 1e-9)
+  sum_a <- sum(w[cat_a == "a"])
+  sum_b <- sum(w[cat_a == "b"])
+  expect_equal(sum_a, 100, tolerance = 1.0)
+  expect_equal(sum_b, 100, tolerance = 1.0)
 })
 
 test_that("P3.1: invalid bounds_mode raises clear error", {
