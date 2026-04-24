@@ -15,11 +15,6 @@
 
 namespace lbw {
 
-// --- Trajectory probe helpers (env-var driven, internal-only) ----------------
-// Activated by LBW_TRAJECTORY_AT (csv iteration numbers) and LBW_TRAJECTORY_OUT
-// (output file path). Off by default (both vars unset → probe does nothing).
-// No public API: no R wrapper args, no C ABI change, no pybind change.
-
 static std::vector<int> parse_trajectory_iters() {
     const char* s = std::getenv("LBW_TRAJECTORY_AT");
     if (!s || !*s) return {};
@@ -27,7 +22,14 @@ static std::vector<int> parse_trajectory_iters() {
     std::string buf;
     for (const char* p = s;; ++p) {
         if (*p == ',' || *p == '\0') {
-            if (!buf.empty()) { out.push_back(std::stoi(buf)); buf.clear(); }
+            if (!buf.empty()) {
+                try {
+                    out.push_back(std::stoi(buf));
+                } catch (const std::exception&) {
+                    // skip malformed token
+                }
+                buf.clear();
+            }
             if (*p == '\0') break;
         } else buf.push_back(*p);
     }
@@ -35,6 +37,7 @@ static std::vector<int> parse_trajectory_iters() {
     out.erase(std::unique(out.begin(), out.end()), out.end());
     return out;
 }
+
 
 static void write_trajectory_csv(
     const std::vector<std::pair<int,double>>& samples)
@@ -48,8 +51,6 @@ static void write_trajectory_csv(
     for (const auto& p : samples)
         f << p.first << "," << p.second << "\n";
 }
-
-// --- End trajectory probe helpers --------------------------------------------
 
 // Log-space algBCD at C=0 — see design spec §2.3, §8 for math.
 // lf[k][j]: log Sinkhorn factor (per margin k, category j)
@@ -535,8 +536,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // nearest check-interval iter >= requested iter, since errRp is only
             // computed at kErrCheckInterval boundaries, iter==1, and last iter).
             if (!probe_queue.empty() && iter >= probe_queue.front()) {
+                bool first_write = true;
                 while (!probe_queue.empty() && iter >= probe_queue.front()) {
-                    probe_samples.push_back({iter, errRp});
+                    if (first_write) {
+                        probe_samples.push_back({iter, errRp});
+                        first_write = false;
+                    }
                     probe_queue.pop_front();
                 }
             }
