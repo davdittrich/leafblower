@@ -64,6 +64,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     constexpr int    kErrCheckInterval = 10;
     constexpr double kEmptyBucketThreshold = 1e-15;
     constexpr double kLogClip = 700.0;  // exp(700) < DBL_MAX
+    // Intermediate homotopy levels stop early once errRp drops below this loose
+    // threshold; only the final level uses the user's tol_abs for full precision.
+    constexpr double kHomotopyIntermediateTol = 1e-5;
 
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
@@ -268,7 +271,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // prior flat-loop behaviour (net-zero identity). N>1 progressively tightens
     // max_weight from start_factor*max_weight down to end_factor*max_weight over
     // N levels with Chizat-inspired budget split (∝ (lvl+1)^p).
-    const int    N_levels = (st.homotopy.enabled && st.homotopy.n_levels > 1)
+    // Drive homotopy from n_levels alone; enabled is derived from n_levels in the
+    // bridge and checking it here is tautological (and creates a latent inconsistency
+    // if callers query enabled independently, e.g. WU-5 eta_schedule N>1 branch).
+    const int    N_levels = (st.homotopy.n_levels > 1)
                             ? st.homotopy.n_levels : 1;
     const double k_start  = st.homotopy.start_factor;
     const double k_end    = st.homotopy.end_factor;
@@ -292,7 +298,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 static_cast<double>(st.inner_max_iter) *
                 std::pow(lvl + 1.0, p_budget) / budget_weight_sum)));
         // Loose intermediate tol until final level (enables warm-jump mid-level exit).
-        const double tol_lvl = (lvl == N_levels - 1) ? st.tol_abs : 1e-5;
+        const double tol_lvl = (lvl == N_levels - 1) ? st.tol_abs : kHomotopyIntermediateTol;
 
         // WU-5 will populate Tang dynamic-eta branch; WU-3 no-op since default FIXED.
         if (st.eta_schedule.mode == EtaScheduleMode::TANG_DYNAMIC && N_levels > 1) {

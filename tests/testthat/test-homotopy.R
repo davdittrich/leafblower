@@ -1,4 +1,4 @@
-test_that("P-A homotopy reduces errRp vs baseline (tight-clamp synthetic fixture)", {
+test_that("P-A homotopy achieves >=30pct errRp reduction vs baseline (tight-clamp synthetic)", {
   set.seed(31415)
   n <- 5000
   K <- 5
