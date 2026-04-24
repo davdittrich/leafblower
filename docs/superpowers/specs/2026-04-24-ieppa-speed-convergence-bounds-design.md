@@ -266,7 +266,19 @@ Original (single-iterate Anderson, post-P2.2 landing `adba0c7`): Anderson fires 
 
 **Halpern fallback (follow-up ticket, not in this scope):** if APVA still fails on adversarial inputs, a Halpern-style mixing `lf_{t+1} = lf_0/(t+2) + ((t+1)/(t+2)) · G(lf_t)` provides O(1/k) convergence guarantee immune to oscillation, slower than Anderson's super-linear potential but architecturally stable.
 
-## §5.3 P2.2e — Tang 2024 primal-dual with Newton on constraint duals
+## §5.3 P2.2e — Tang 2024 primal-dual with Newton on constraint duals [SHELVED 2026-04-24]
+
+**Status:** Research note only; NOT an active implementation target. Plan-review-gate iter-1 on this section FAILED unanimously (all 3 reviewers — Feasibility/Completeness/Scope). Root issues:
+
+- **Theorem 1 K-count mismatch.** Paper's K counts INEQUALITY constraints; iEPPA box constraints produce K_ineq = 2·M_cell. At kk1204 this yields `n^(2/(2M_cell+1)) ≈ 1.0`, making the convergence bound trivially large and useless.
+- **Δ runtime-unknowable.** Theorem 1 requires `η·Δ/(K+1)` grow large, where Δ is the LP-polytope constant. Paper (p.3): "depending only on the LP" — not computable from inputs at runtime without solving the LP.
+- **η annealing required** per paper §3.1 for practical convergence; spec deferred it to follow-up but that schedule is the primary acceleration mechanism.
+- **Capacity-block replacement** substantially exceeds the authorized "Anderson on lf" scope.
+- **Per-cell 2D Newton decomposition** ≠ Algorithm 1's joint Newton; convergence equivalence unproven.
+
+If Halpern (§5.4, active P2.2d) fails to close the kk1204 gate, this section will be reopened with: runtime Δ estimator, η-annealing schedule, joint-Newton shape analysis, and explicit user re-authorization of the capacity-block replacement.
+
+Historical design content (DO NOT IMPLEMENT as-is):
 
 **Correct reference:** Tang, Rahmanian, Shavlovsky, Thekumparampil, Xiao, Ying (2024), *"A Sinkhorn-type Algorithm for Constrained Optimal Transport"*, arxiv:2403.05054. (Prior spec rev cited wrong arxiv ID; corrected 2026-04-24.)
 
@@ -340,7 +352,9 @@ For outer_iter = 1..kMaxOuter:
 
 **Fallback: Halpern mixing (§5.4 follow-up)** if Tang approach fails to close kk1204 gate.
 
-## §5.4 P2.2d — Halpern mixing fallback (kk1204 engineering response)
+## §5.4 P2.2d — Halpern mixing [ACTIVE IMPLEMENTATION TARGET, post-Tang pivot 2026-04-24]
+
+**Status:** Promoted from fallback to primary P2.2 engineering response after Tang 2024 (§5.3) review-gate failure. Halpern mixing provides O(1/k) convergence guarantee on the existing iEPPA fixed-point operator without algorithmic replacement.
 
 **Empirical status post-P2.2c APVA (commit 7a837fe):** kk1204 ACCEL=on shows engaged=6, nan_fallbacks=487 of 500 iters. Safeguard rejects nearly every Anderson step because capacity-clamp non-smoothness generates extrapolated lf residuals larger than plain damped residuals. Stepstone + 198 tests green — APVA doesn't regress other regimes, just fails on kk1204's structural non-smoothness.
 
