@@ -23,7 +23,7 @@ test_that("all overlays default-off: baseline identical to defaulted", {
   expect_equal(as.numeric(baseline), as.numeric(defaulted), tolerance = 1e-12)
 })
 
-test_that("overlay args run identity-only (scaffolding WU-1)", {
+test_that("overlay args are accepted and produce identity behaviour", {
   set.seed(2)
   n <- 2000
   data <- data.frame(
@@ -50,7 +50,6 @@ test_that("overlay args run identity-only (scaffolding WU-1)", {
   expect_true(max(as.numeric(a_only)) <= 3 + 1e-10)
   expect_true(max(as.numeric(b_only)) <= 3 + 1e-10)
   expect_true(max(as.numeric(e_only)) <= 3 + 1e-10)
-  # Behavioural identity: all overlays no-op in WU-1.
   expect_equal(as.numeric(a_only), as.numeric(baseline), tolerance = 1e-12)
   expect_equal(as.numeric(b_only), as.numeric(baseline), tolerance = 1e-12)
   expect_equal(as.numeric(e_only), as.numeric(baseline), tolerance = 1e-12)
