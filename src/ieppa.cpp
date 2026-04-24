@@ -219,22 +219,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> rescale_lin(max_cat, 1.0);
     std::vector<double> inv_f_old_lin(max_cat, 1.0);
 
-    // P2.2d Halpern mixing. Activates on ACCEL=halpern after warmup.
-    // lf_anchor captured at iter == kHalpernAnchor; thereafter mix:
-    //   lf_new[kj] = (1/(m+1)) · lf_anchor[kj] + (m/(m+1)) · lf_plain[kj]
-    // where m = iter - kHalpernAnchor. At m=0 → lf_anchor only; m→∞ → lf_plain only.
-    // Non-expansive composition → O(1/k) convergence (Lieder 2021).
-    //
-    // Default = off (opt-in during rollout per spec §5.4 rev 2). Flip default
-    // to halpern in a later commit after empirical validation.
-    constexpr int kHalpernAnchor = 5;  // Warmup iters; same as original Anderson warmup.
-    std::vector<double> lf_anchor(total_cats, 0.0);
-    bool halpern_anchored = false;
-
-    const char* force_accel = std::getenv("LBW_IEPPA_ACCEL");
-    bool halpern_enabled = (force_accel != nullptr && std::strcmp(force_accel, "halpern") == 0);
-    // "off" or unset → no acceleration.
-
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
         alpha = compute_alpha();
@@ -419,11 +403,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(f_lin.begin(),   f_lin.end(),   1.0);
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 res.n_xcur_writes_per_iter_linear = 0;
-                // Halpern state reset: lf_anchor is no longer valid after fallback;
-                // allow reanchoring on post-fallback iter == kHalpernAnchor.
-                halpern_anchored = false;
-                std::fill(lf_anchor.begin(), lf_anchor.end(), 0.0);
-                res.n_halpern_iters = 0;
                 use_linear = false;
                 linear_fallback_used = true;
                 if (st.verbose >= 1) st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
@@ -448,11 +427,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 X_tilde[c] = std::exp(s_clip);
             }
             if (overflow_detected) {
-                // Halpern state reset: lf_anchor is no longer valid after fallback;
-                // allow reanchoring on post-fallback iter == kHalpernAnchor.
-                halpern_anchored = false;
-                std::fill(lf_anchor.begin(), lf_anchor.end(), 0.0);
-                res.n_halpern_iters = 0;
                 res.status = RK_ERR_NOCONV;
                 res.max_error = std::numeric_limits<double>::infinity();
                 if (st.verbose >= 2) {
@@ -478,40 +452,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (W[c] != 1.0) n_cap++;
             }
             res.n_cap_active = n_cap;
-        }
-
-        // P2.2d Halpern mixing (Lieder 2021): post-sweep convex combination
-        // lf_{k+1}[kj] = (1/(m+1)) · lf_anchor[kj] + (m/(m+1)) · lf_plain[kj]
-        // where m = iter - kHalpernAnchor. Non-expansive; O(1/k) convergence.
-        // Composable with P2.1 damping: Halpern applies after the damped sweep.
-        if (halpern_enabled) {
-            // On the linear path, lf is not the primary store — materialize it.
-            if (use_linear) {
-                for (int kj = 0; kj < total_cats; kj++) {
-                    lf[kj] = (f_lin[kj] > 0.0) ? std::log(f_lin[kj]) : -kLogClip;
-                }
-            }
-            if (iter == kHalpernAnchor) {
-                // Capture anchor after warmup iterates settle.
-                std::copy(lf.begin(), lf.end(), lf_anchor.begin());
-                halpern_anchored = true;
-            } else if (iter > kHalpernAnchor && halpern_anchored) {
-                const int m = iter - kHalpernAnchor;
-                const double w_anchor = 1.0 / static_cast<double>(m + 1);
-                const double w_plain  = static_cast<double>(m) / static_cast<double>(m + 1);
-                for (int kj = 0; kj < total_cats; kj++) {
-                    lf[kj] = w_anchor * lf_anchor[kj] + w_plain * lf[kj];
-                }
-                // Linear-path: rematerialize f_lin from mutated lf so next sweep
-                // reads consistent state. Skip if use_linear is false (log path
-                // uses lf directly).
-                if (use_linear) {
-                    for (int kj = 0; kj < total_cats; kj++) {
-                        f_lin[kj] = std::exp(lf[kj]);
-                    }
-                }
-                res.n_halpern_iters++;
-            }
         }
 
         // Convergence check.
