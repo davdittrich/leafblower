@@ -272,6 +272,24 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> X_prev(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X_init[c];
 
+    // WU-D: SOR adaptive under-relaxation state (iEPPA-only).
+    // Per-margin omega[k] starts at omega_init (1.0 = no damping = fast path).
+    // Adaptation: sign-flip in per-margin errRp trajectory → omega *= 0.7 (floor: omega_min).
+    // Monotone decrease → omega *= 1.05, capped at 1.0 (recovery).
+    // Adaptation is suppressed for sor_burnin iterations so early transient oscillation
+    // (driven by infeas-streak damping) does not prematurely reduce omega.
+    const bool sor_active     = st.sor_cfg.enabled;
+    const bool sor_auto       = st.sor_cfg.auto_adapt;
+    const double omega_init_v = st.sor_cfg.omega_init;    // default 1.0
+    const double omega_min_v  = st.sor_cfg.omega_min;     // default 0.3
+    const double omega_fixed_v = st.sor_cfg.omega_fixed;  // -1.0 = use auto
+    const int    sor_burnin_v  = st.sor_cfg.burnin;       // default 20
+    std::vector<double> sor_omega(st.K, omega_init_v);
+    std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
+    std::vector<bool>   sor_prev_decreasing(st.K, false);
+    double sor_min_omega = 1.0;
+    int    sor_n_damped  = 0;
+
     // ── Homotopy outer driver ──
     // N=1 (default) degenerates to single level at max_weight — bit-identical to
     // prior flat-loop behaviour (net-zero identity). N>1 progressively tightens
@@ -362,6 +380,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (X_init[c] <= 0.0) continue;
                 S_lin[j] += X_cur[c] * inv_f_old_lin[j];
             }
+            // WU-D: effective omega for this margin.
+            // sor_active==false → eff_omega=1.0 (fast path, no pow()).
+            // sor_active && !sor_auto && omega_fixed_v>0 → fixed omega.
+            // sor_active && sor_auto → per-margin adaptive omega[k].
+            double eff_omega;
+            if (!sor_active) {
+                eff_omega = 1.0;
+            } else if (!sor_auto && omega_fixed_v > 0.0) {
+                eff_omega = omega_fixed_v;
+            } else {
+                eff_omega = sor_omega[k];
+            }
             for (int j = 0; j < nj; j++) {
                 if (!(S_lin[j] >= kEmptyBucketThreshold * ct.W_input) ||
                     !std::isfinite(S_lin[j])) {
@@ -376,11 +406,31 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 double new_f;
                 if (alpha == 1.0) {
-                    new_f = naive;
+                    // WU-D: SOR under-relaxation in linear space.
+                    // ratio = T_kj*W_input / S_kj = naive (the full Sinkhorn step).
+                    // Applying pow(ratio, eff_omega) is equivalent to a fractional step
+                    // in log-space: lf_new = lf_old + eff_omega*(log(T)-log(S)).
+                    // Fast path: eff_omega==1.0 skips pow() entirely (no regression for
+                    // users who do not enable SOR, preserving the prior O(1) code path).
+                    if (eff_omega == 1.0) {
+                        new_f = naive;
+                    } else {
+                        double f_old = f_lin[off + j];
+                        // new_f = f_old * (naive/f_old)^eff_omega = f_old^(1-eff_omega) * naive^eff_omega
+                        new_f = std::pow(f_old, 1.0 - eff_omega)
+                              * std::pow(naive, eff_omega);
+                    }
                 } else {
                     double f_old = f_lin[off + j];
-                    new_f = std::pow(f_old, 1.0 - alpha)
-                          * std::pow(naive, alpha);
+                    // alpha damping (P2.1 infeas-streak) and SOR eff_omega compose:
+                    // net exponent on the Sinkhorn ratio is alpha*eff_omega.
+                    double net = alpha * eff_omega;
+                    if (net == 1.0) {
+                        new_f = naive;
+                    } else {
+                        new_f = std::pow(f_old, 1.0 - net)
+                              * std::pow(naive, net);
+                    }
                 }
                 if (!std::isfinite(new_f) || new_f > kLinearOverflowTrip) {
                     return true;
@@ -398,6 +448,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
         };
 
         auto apply_single_margin_log = [&](int k) -> bool {
+            // WU-D: effective omega for this margin (log-space path).
+            double eff_omega_log;
+            if (!sor_active) {
+                eff_omega_log = 1.0;
+            } else if (!sor_auto && omega_fixed_v > 0.0) {
+                eff_omega_log = omega_fixed_v;
+            } else {
+                eff_omega_log = sor_omega[k];
+            }
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
                 if (cells.empty()) { record_empty(k, j); continue; }
@@ -428,13 +487,17 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 record_nonempty(k, j);
                 double log_target = std::log(st.targets[k][j] * ct.W_input);
-                if (alpha == 1.0) {
+                // WU-D: in log-space, SOR applies as a fractional step:
+                // lf_new = lf_old + net*(log_target - log_S_kj), where net = alpha * eff_omega_log.
+                // alpha=1 && eff_omega_log=1 → lf_new = log_target - log_S_kj (fast path, no change).
+                double net_log = alpha * eff_omega_log;
+                if (net_log == 1.0) {
                     lf[cat_offset[k] + j] = log_target - log_S_kj;
                 } else {
                     double lf_old = lf[cat_offset[k] + j];
                     lf[cat_offset[k] + j] =
-                        (1.0 - alpha) * lf_old
-                        + alpha * (log_target - log_S_kj);
+                        (1.0 - net_log) * lf_old
+                        + net_log * (log_target - log_S_kj);
                 }
             }
             return false;  // log path does not trip overflow mid-sweep
@@ -723,6 +786,42 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
             res.max_error = errRp;
+
+            // WU-D: per-margin omega adaptation (both linear and log paths; auto mode only;
+            // suppressed during burnin to let the infeas-streak damping settle first).
+            if (sor_active && sor_auto && iter >= sor_burnin_v) {
+                if (W_total > 0.0) {
+                    for (int k = 0; k < st.K; k++) {
+                        const int nj_k = st.cat_counts[k];
+                        // Compute per-margin errRp_k using X[c] (post-capacity, available
+                        // in both paths). Reuse S_lin scratch (sized to max_cat >= nj_k).
+                        std::fill(S_lin.begin(), S_lin.begin() + nj_k, 0.0);
+                        const int* gk_s = ct.g_per_cell[k].data();
+                        for (int c = 0; c < ct.M_cell; c++) {
+                            int j = gk_s[c];
+                            if (j >= 0 && j < nj_k) S_lin[j] += X[c];
+                        }
+                        double errRp_k = 0.0;
+                        for (int j = 0; j < nj_k; j++) {
+                            double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
+                            if (e > errRp_k) errRp_k = e;
+                        }
+                        bool decreasing = (errRp_k < sor_prev_errRp[k]);
+                        bool sign_flip  = !decreasing && sor_prev_decreasing[k];
+                        if (sign_flip) {
+                            // Oscillation detected: damp omega by 0.7, clamp to floor.
+                            sor_omega[k] = std::max(omega_min_v, sor_omega[k] * 0.7);
+                            sor_n_damped++;
+                        } else if (decreasing) {
+                            // Monotone convergence: cautiously recover omega toward 1.0.
+                            sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
+                        }
+                        if (sor_omega[k] < sor_min_omega) sor_min_omega = sor_omega[k];
+                        sor_prev_decreasing[k] = decreasing;
+                        sor_prev_errRp[k]      = errRp_k;
+                    }
+                }
+            }
 
             // WU-B: compute pct_change (max relative shift in cell mass since last check).
             double pct_change = 0.0;
@@ -1039,6 +1138,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
         st.log(msg);
     }
+
+    // WU-D: store SOR diagnostics in result.
+    res.sor_min_omega = sor_min_omega;
+    res.sor_n_damped  = sor_n_damped;
 
     write_trajectory_csv(probe_samples);
     return res;

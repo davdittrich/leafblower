@@ -160,6 +160,16 @@ harvest <- function(
   weights <- raw$weights
   calib_result    <- raw$result
 
+  # WU-D: nest SOR diagnostics under $sor for clean namespace.
+  # The C bridge always returns sor_min_omega and sor_n_damped as flat fields;
+  # wrap them here so callers use result$sor$min_omega and result$sor$n_damped.
+  calib_result$sor <- list(
+    min_omega = calib_result$sor_min_omega,
+    n_damped  = calib_result$sor_n_damped
+  )
+  calib_result$sor_min_omega <- NULL
+  calib_result$sor_n_damped  <- NULL
+
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
   if (calib_result$status == 2L)
