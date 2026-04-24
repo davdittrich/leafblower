@@ -358,23 +358,23 @@ For outer_iter = 1..kMaxOuter:
 
 **Empirical status post-P2.2c APVA (commit 7a837fe):** kk1204 ACCEL=on shows engaged=6, nan_fallbacks=487 of 500 iters. Safeguard rejects nearly every Anderson step because capacity-clamp non-smoothness generates extrapolated lf residuals larger than plain damped residuals. Stepstone + 198 tests green — APVA doesn't regress other regimes, just fails on kk1204's structural non-smoothness.
 
-**Halpern mixing (Halpern 1967; rediscovered for fixed-point iteration in Lieder 2021):**
+**Halpern mixing (Halpern 1967; rediscovered for fixed-point iteration in Lieder 2021 "Halpern's Iteration in Convex Programming"):**
 
 ```
-lf_{t+1} = (1 / (t - kAnchor + 2)) · lf_anchor + ((t - kAnchor + 1) / (t - kAnchor + 2)) · G(lf_t)
+For m = iter - kHalpernAnchor (m = 0 at anchor iter, m = 1 at first post-anchor, ...):
+  lf_{k+1}[kj] = (1 / (m + 1)) · lf_anchor[kj] + (m / (m + 1)) · G(lf_k)[kj]
 ```
 
-Where:
-- `lf_anchor` = snapshot of `lf` at iter `kAndersonWarmup` (= kAnchor = 5).
+- `lf_anchor` = snapshot of `lf` at iter `kHalpernAnchor` (= 5).
 - `G(lf_t)` = one full outer iter (sweep + capacity block) applied to `lf_t`.
-- Mixing weight decreases from 1/3 at first post-anchor iter to 1/(N+2) at iter N.
+- At m=0: weight 1.0 to anchor (capture-only; no mix). At m=1: weight 1/2 / 1/2. At m→∞: weight → 0 / 1.0. Lieder 2021 canonical form.
 
 **Convergence guarantee:** for non-expansive G (Sinkhorn + capacity clamp is non-expansive in ℓ∞ norm on the feasible region), Halpern converges with `||r_t|| = O(1/t)`. Not super-linear, but immune to oscillation — no safeguard required.
 
 **Replaces APVA entirely** (P2.2c code removed in P2.2d commit):
 - No dgels, no LS solve, no history buffers.
 - No `n_anderson_iters_engaged` / `n_anderson_nan_fallbacks` counters (replaced with `n_halpern_iters`).
-- Env var renamed: `LBW_IEPPA_ACCEL_ANDERSON` → `LBW_IEPPA_ACCEL` with values `{halpern, anderson, off}`. Default `halpern`.
+- Env var renamed: `LBW_IEPPA_ACCEL_ANDERSON` → `LBW_IEPPA_ACCEL` with values `{halpern, off}`. **Default `off`** (conservative opt-in during P2.2d rollout; flip to `halpern` default in a later commit after empirical validation across all regimes).
 - Memory: ~80 MB history buffer gone; `lf_anchor` is total_cats doubles (≪ 1 MB at kk1204).
 
 **Compatibility with P2.1 damping:** Halpern applied AFTER damped iterate. Let `lf_damped = α·G_raw(lf_t) + (1-α)·lf_t` (from compute_alpha). Then `lf_halpern = weighted blend of lf_anchor and lf_damped`. Composition preserves contraction since both steps are convex combinations.

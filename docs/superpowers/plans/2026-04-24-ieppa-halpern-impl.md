@@ -38,6 +38,33 @@ Expected: `[ FAIL 0 | PASS 198 ]` (post-P2.2c baseline).
 Run: `Rscript /tmp/kk1204_apva.R` (existing script from earlier session).
 Expected: `ACCEL=off: iters=500 NOCONV errRp=1.322e-3`. This is the target to beat.
 
+- [ ] **Step P.4: Grep stale `LBW_IEPPA_ACCEL_ANDERSON` across tests**
+
+Run: `grep -rn "LBW_IEPPA_ACCEL_ANDERSON" tests/ R/ python/`
+Expected: results only in `tests/testthat/test-ieppa-faithful.R` at the 3 Anderson test blocks scheduled for deletion in Task 1.5. Any hit outside those blocks → add to Task 1 edit list.
+
+- [ ] **Step P.5: Confirm kk1204 failure mode (oscillation vs slow-rate)**
+
+Halpern only helps OSCILLATORY failures, not pure slow-rate. Capture last 50 iters' errRp trajectory:
+
+```bash
+Rscript -e '
+  Sys.setenv(OMP_NUM_THREADS = "1")
+  library(leafblower)
+  set.seed(1); n <- 1000000L; K <- 20L
+  df <- as.data.frame(replicate(K, sample(1:5, n, replace=TRUE), simplify=FALSE))
+  names(df) <- paste0("m", 1:K); for (k in names(df)) df[[k]] <- letters[df[[k]]]
+  tgts <- setNames(replicate(K, c(a=0.3,b=0.175,c=0.175,d=0.175,e=0.175), simplify=FALSE), names(df))
+  Sys.setenv(LBW_IEPPA_ACCEL = "off")
+  res <- suppressWarnings(harvest(df, tgts, method="ieppa",
+    max_weight=3, min_weight=0, max_iterations=500L,
+    convergence=list(absolute=1e-300), verbose=1L, attach_weights=FALSE))
+' 2>&1 | grep -E "iEPPA iter [0-9]+: errRp=" | tail -50
+```
+
+Interpret: if errRp oscillates (non-monotone) → Halpern addresses the cause; proceed.
+If errRp decreases monotonically but asymptotically (`errRp[t+10]/errRp[t] ~ 0.98`) → pure slow-rate; Halpern gives same O(1/k) as bare Sinkhorn, WILL NOT close gate. Halt + reopen §5.3 Tang research without burning this implementation cycle.
+
 ---
 
 ## Task 1: Revert APVA machinery
@@ -85,7 +112,14 @@ Two options:
 - **(a) Rename** `n_anderson_iters_engaged → n_halpern_iters`, `n_anderson_nan_fallbacks → n_halpern_noop` (when Halpern reduces to plain step because m=0). Requires r_bridge + test updates.
 - **(b) Keep names, repurpose.** `n_anderson_iters_engaged` counts Halpern-mixing iters; `n_anderson_nan_fallbacks` stays (Halpern has no numerical blowup, so always 0). Slight semantic drift but zero bridge churn.
 
-**Pick (a) for clarity.** Rename both fields in `src/ieppa.hpp`; update c_api.cpp propagation; update r_bridge.cpp `SET_STRING_ELT(..., "n_halpern_iters")` and `SET_STRING_ELT(..., "n_halpern_noop")`.
+**Pick (a) for clarity.** Rename both fields in:
+- `src/ieppa.hpp` (field declarations in IEPPAResult)
+- `src/ieppa.cpp` (all `res.n_anderson_*` assignments/increments)
+- `src/leafblower.h` (if rk_result_t mirrors the fields; verify via grep)
+- `src/c_api.cpp` (propagation from IEPPAResult to rk_result_t — verify every copy site)
+- `src/r_bridge.cpp` (`SET_STRING_ELT(..., "n_halpern_iters")` and `SET_STRING_ELT(..., "n_halpern_noop")` + field access in `Rf_ScalarInteger(result.n_halpern_iters)` etc.)
+
+**Verification gate (MANDATORY):** `grep -n "n_anderson_iters_engaged\|n_anderson_nan_fallbacks" src/ R/ python/` must return zero lines post-edit. If any survivor remains, `R CMD INSTALL` will fail with "no member named" — halt + hunt.
 
 ### Step 1.5: Remove 3 Anderson tests from `tests/testthat/test-ieppa-faithful.R`
 
@@ -154,13 +188,16 @@ In `src/ieppa.cpp` after WU-4 structural_infeas block, before outer iter loop:
     //   lf_new[kj] = (1/(m+1)) · lf_anchor[kj] + (m/(m+1)) · lf_plain[kj]
     // where m = iter - kHalpernAnchor. At m=0 → lf_anchor only; m→∞ → lf_plain only.
     // Non-expansive composition → O(1/k) convergence (Lieder 2021).
+    //
+    // Default = off (opt-in during rollout per spec §5.4 rev 2). Flip default
+    // to halpern in a later commit after empirical validation.
     constexpr int kHalpernAnchor = 5;  // Warmup iters; same as original Anderson warmup.
     std::vector<double> lf_anchor(total_cats, 0.0);
     bool halpern_anchored = false;
 
     const char* force_accel = std::getenv("LBW_IEPPA_ACCEL");
     bool halpern_enabled = (force_accel != nullptr && std::strcmp(force_accel, "halpern") == 0);
-    // "off" or unset → no acceleration (backward compat default).
+    // "off" or unset → no acceleration.
 ```
 
 ### Step 2.2: Capture anchor + apply mix in outer iter loop
@@ -180,10 +217,32 @@ After the existing sweep + fused capacity block, BEFORE the errRp check:
                 for (int kj = 0; kj < total_cats; kj++) {
                     lf[kj] = w_anchor * lf_anchor[kj] + w_plain * lf[kj];
                 }
+                // Linear-path: rematerialize f_lin from mutated lf so next sweep
+                // reads consistent state. Skip if `use_linear` is false (log path
+                // uses lf directly).
+                if (use_linear) {
+                    for (int kj = 0; kj < total_cats; kj++) {
+                        f_lin[kj] = std::exp(lf[kj]);
+                    }
+                }
                 res.n_halpern_iters++;
             }
         }
 ```
+
+### Step 2.2b: Reset Halpern state on P1.1 overflow fallback
+
+P1.1 fused block's `if (overflow_detected)` fallback resets `X_cur`, `W`, `lf`, etc. and restarts the outer loop with `use_linear = false`. `lf_anchor` captured pre-overflow is now stale (it references the pre-fallback iterate in a different path). Add to the overflow-fallback block:
+
+```cpp
+                // Halpern state reset: lf_anchor is no longer valid after fallback;
+                // allow reanchoring on post-fallback iter == kHalpernAnchor.
+                halpern_anchored = false;
+                std::fill(lf_anchor.begin(), lf_anchor.end(), 0.0);
+                res.n_halpern_iters = 0;
+```
+
+Place in both overflow-fallback sites if the P1.1 fused block and separate X_tilde-overflow fallback both exist.
 
 ### Step 2.3: Write 2 RED tests
 
@@ -263,7 +322,7 @@ Update `/tmp/kk1204_apva.R` to use `LBW_IEPPA_ACCEL=halpern`. Run.
 Expected:
 - `ACCEL=halpern`: `status == 0 (RK_OK)` AND `iterations ≤ 450`
 
-If status == 1 (NOCONV) at iterations == 500, Halpern failed. Halt + report. Fallback: re-open §5.3 Tang with explicit user re-authorization.
+**Gate relaxation rationale (relative to APVA's ≤400):** Halpern's O(1/k) rate is sublinear; APVA's super-linear-Anderson potential was higher but rejected by safeguard on kk1204. 450 ≈ 400 × (5/4.5) — soft buffer for the slower theoretical rate assuming oscillation-dominated failure mode (confirmed in Step P.5 pre-flight). If status == 1 (NOCONV) at iterations == 500, Halpern failed. Halt + report. Fallback: re-open §5.3 Tang with explicit user re-authorization.
 
 ### Step 2.10: Commit
 
