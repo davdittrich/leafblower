@@ -242,17 +242,29 @@ Call with `trans="N"`, `A = F` (residual differences, column-major, `total_cats 
 
 Original (single-iterate Anderson, post-P2.2 landing `adba0c7`): Anderson fires only on `n_cap_active == 0` iters. Empirically FAILED on kk1204 K=20 max_weight=3: `n_cap_active` saturates at ~19,485 from iter 3 and never clears. Anderson never engages; kk1204 remains NOCONV.
 
-**Revised (P2.2b joint iterate on `(lf, log W)`):** treat `(lf, log W)` as the full solver iterate. Residual `r_t = T(lf_t, log_W_t) - (lf_t, log_W_t)` where `T = Capacity ∘ Sweep` is the composed operator. Anderson LS solve over concatenated `[lf; log W]` residual vectors of length `total_cats + M_cell`.
+**Revised (P2.2c APVA — Asymmetric Partial-Variable Anderson):** attempt 1 (P2.2b — joint iterate with W write-back, spec rev post-adba0c7) empirically diverged: Anderson-extrapolated `W_aa` conflicts with the deterministic capacity-block update `W = X/X_tilde`, producing oscillatory divergence. Scale mismatch between `lf` (bounded O(1)) and `log W` (large negative) corrupted the LS γ solution. Spec revised 2026-04-24 after web research (Fu-Liang-Toh 2020 arxiv:1902.04273; Pollock-Rebholz 2021; Scieur-D'Aspremont-Bach 2020 arxiv:2010.03816; Tang et al 2024 arxiv:2401.07127).
 
-**Scope of the joint iterate:**
-- `log_W[c] = (W[c] > 0) ? log(W[c]) : -kLogClip` computed once per iter.
-- History buffers `F_hist`, `X_hist` sized `(total_cats + M_cell) × m`, column-major. Memory at M_cell=1M, m=5: 2 × 5 × 1M × 8B = 80 MB per solver call. Bounded; acceptable for the kk1204 regime.
-- `dgels` solves the LS on the expanded system unchanged; the 3-layer guard (INFO + isfinite(γ) + |γ|∞ < 1e4) still applies.
-- Post-mix: split state back into `lf_new` and `log_W_new`; `W_new[c] = std::min(1.0, std::exp(log_W_new[c]))` (Anderson can push log_W positive; clamp to valid capacity multiplier upper bound).
+**APVA semantics:**
 
-**Engagement gate change:** **drop `n_cap_active == 0` gate entirely.** Joint iterate absorbs capacity state; residuals are well-defined on all iters. Retain warmup (iter > kAndersonWarmup) and NaN/γ-norm guards.
+1. **Joint residual** `R_t = [r_lf_t; σ · r_W_t]` of length `total_cats + M_cell`. `r_W_t = log_W_t - log_W_{t-1}` treated as CONDITIONING SIGNAL only. `σ = 1 / max(1.0, std::max(|log_W|))` rescales W-component to match lf-scale. Computed fresh each iter; no hand-tuned constant.
+2. **LS solve** via `dgels` on the expanded residual: `F_hist` columns of length `total_cats + M_cell`, solving `min_γ || F_hist · γ - R_t ||` with the 3-layer guard (INFO + isfinite(γ) + |γ|∞ < 1e4).
+3. **lf-only update.** `lf_new[kj] = lf[kj] + r_lf_t[kj] - Σ_j γ_j (X_hist_lf[kj, j] + F_hist_lf[kj, j])` where `X_hist_lf` and `F_hist_lf` are the lf-slice (first total_cats rows) of the history buffers.
+4. **No W write-back.** W is NOT modified by Anderson. The capacity block continues to set `W = clamp(X_tilde, L, U) / X_tilde` from the Anderson-updated `lf`. This breaks the oscillation loop — W stays consistent with the capacity KKT conditions; Anderson only influences W indirectly via the new lf.
 
-**Non-smoothness note.** Capacity clamp is piecewise-linear (non-smooth at cell boundaries). Anderson convergence theory assumes Lipschitz smoothness; β-relaxation (effective Anderson step dampened) mitigates. The existing damping schedule (P2.1 `compute_alpha`) already applies α ∈ [0.286, 1.0] before Anderson mix; sufficient empirical smoothness for kk1204 regime expected. If kk1204 diverges under joint Anderson, add α × Anderson step (explicit β relaxation) as follow-up.
+**Engagement gate:** drop `n_cap_active == 0`. Warmup (iter > kAndersonWarmup) + NaN/γ-norm guards remain. Add **safeguarding** (Fu et al 2020): if `||r_lf_aa|| > ||r_lf_plain||` (accelerated step didn't reduce lf residual), reject the Anderson update, clear history, use the plain damped iterate.
+
+**History buffer sizes:**
+- `F_hist`, `X_hist`: `(total_cats + M_cell) × m` column-major std::vector<double>. At M_cell=1M, m=5: 2 × 5 × 1M × 8B = 80 MB per solver call.
+- `log_W`, `log_W_prev`: length M_cell each. 16 MB at M_cell=1M.
+- Allocations as std::vector<double>; RAII on all early-exit paths.
+
+**Non-smoothness mitigation layers** (apply in order):
+1. P2.1 `compute_alpha` damping — α ∈ [0.286, 1.0] applied before Anderson mix.
+2. APVA — no W write-back avoids clamp-induced discontinuity in the Anderson-modified state.
+3. Safeguarding — reject Anderson step that doesn't improve lf residual.
+4. NaN / γ-norm guard — hard stop on LS blowup.
+
+**Halpern fallback (follow-up ticket, not in this scope):** if APVA still fails on adversarial inputs, a Halpern-style mixing `lf_{t+1} = lf_0/(t+2) + ((t+1)/(t+2)) · G(lf_t)` provides O(1/k) convergence guarantee immune to oscillation, slower than Anderson's super-linear potential but architecturally stable.
 
 **Restart condition.** If the least-squares system is ill-conditioned (condition number > 1e12 via thin QR), skip Anderson for this step, keep history. Prevents blowups in degenerate regimes.
 
