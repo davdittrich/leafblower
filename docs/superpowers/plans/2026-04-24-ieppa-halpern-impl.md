@@ -150,9 +150,9 @@ Expected: `[ FAIL 0 | PASS = 195 ]` (198 − 3 Anderson tests = 195; rises to 19
 ### Step 1.8: Commit APVA revert
 
 ```bash
-git add src/ieppa.cpp src/ieppa.hpp src/Makevars tests/testthat/test-ieppa-faithful.R
-# Also r_bridge.cpp if counter renames touched it
-git add src/r_bridge.cpp
+git add src/ieppa.cpp src/ieppa.hpp src/leafblower.h src/c_api.cpp \
+        src/r_bridge.cpp src/Makevars \
+        tests/testthat/test-ieppa-faithful.R
 git commit -m "$(cat <<'EOF'
 refactor(ieppa): revert APVA (P2.2c) machinery before Halpern landing
 
@@ -251,7 +251,7 @@ Current `src/ieppa.cpp` has TWO overflow-fallback branches (confirmed via `grep 
 
 **Verification gate:** `grep -cn "halpern_anchored = false" src/ieppa.cpp` must return 2 (one per fallback site). If == 1, one site was missed — halt and add.
 
-### Step 2.3: Write 2 RED tests
+### Step 2.3: Write 3 RED tests
 
 Append to `tests/testthat/test-ieppa-faithful.R`:
 
@@ -324,7 +324,7 @@ test_that("P2.2d: Halpern composes with P2.1 damping — final_alpha preserved u
 ### Step 2.4: Run tests — confirm RED
 
 Run: `R CMD INSTALL --preclean . && Rscript -e 'library(testthat); library(leafblower); test_file("tests/testthat/test-ieppa-faithful.R", reporter="summary")'`
-Expected: 2 Halpern tests FAIL pre-implementation — field `n_halpern_iters` exists but always 0 (no Halpern code yet). The ACCEL=unset test might pass vacuously; the ACCEL=halpern test MUST fail because `n_halpern_iters == 0` regardless of env var.
+Expected: 3 Halpern tests — field `n_halpern_iters` exists but always 0 (no Halpern code yet). Test 1 (ACCEL=unset → 0) passes vacuously. Tests 2 (ACCEL=halpern → >0) and 3 (composition with P2.1 damping → n_halpern_iters > 0) MUST fail pre-implementation because `n_halpern_iters == 0` regardless of env var.
 
 If ACCEL=halpern test passes pre-implementation, the step 2.1/2.2 code was already partially added — halt + inspect.
 
@@ -391,7 +391,7 @@ EOF
 - [ ] **Step A.1: Final regression**
 
 Run: `Rscript -e 'library(testthat); library(leafblower); test_dir("tests/testthat", stop_on_failure=TRUE, reporter="summary")'`
-Expected: `[ FAIL 0 | PASS ≥ 197 ]`.
+Expected: `[ FAIL 0 | PASS ≥ 198 ]` (195 post-revert + 3 new Halpern tests).
 
 - [ ] **Step A.2: R CMD check**
 
