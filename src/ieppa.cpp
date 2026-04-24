@@ -334,6 +334,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
         bool level_converged = false;
 
+        // WU-B Fix 1: reset X_prev at the start of each homotopy level so that
+        // pct_change measures iteration-to-iteration shift within a level, not
+        // cross-level drift from the previous level's final X.
+        for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+
     for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
         res.iterations = iter;
@@ -529,6 +534,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // (preserves prior iter=0 semantics; global iter counter may regress
                 // by one level's worth of iters but that matches pre-refactor behaviour).
                 iter_in_lvl = 0;
+                // WU-B Fix 2: reset X_prev after fallback — X semantics changed (log-path).
+                for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 }
@@ -631,6 +638,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 res.n_xcur_writes_per_iter_linear = 0;
                 use_linear = false;
                 linear_fallback_used = true;
+                // WU-B Fix 2: reset X_prev after fallback — X semantics changed (log-path).
+                for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
                 if (st.verbose >= 1) st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 continue;
             }

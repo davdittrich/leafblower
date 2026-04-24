@@ -261,10 +261,8 @@ static LBFGSResult compute_final_weights_and_error(
     res.chi2       = chi2_total;
 
     // WU-B: active-criterion dispatch for status.
-    // For L-BFGS-B, PCT criterion is applied post-hoc: pct_change measures
-    // total shift (start → final), which scales with problem difficulty and is
-    // not suitable as a standalone convergence gate. Require max_err < tol_abs
-    // as a quality floor for PCT-only convergence.
+    // PCT measures start→final weight shift (batch solver: no inner iteration loop).
+    // pct_change < pct_tol alone is sufficient per spec §1.
     {
         const auto& cfg = st.convergence_cfg;
         double active_val = 0.0;
