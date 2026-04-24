@@ -1,4 +1,4 @@
-test_that("tang_dynamic eta reduces errRp vs fixed at matched budget", {
+test_that("tang_dynamic eta achieves lower errRp vs fixed (robust >5% margin)", {
   skip_if_not_installed("arrow")
   fx <- test_path("fixtures/stepstone_small.parquet")
   tg <- test_path("fixtures/stepstone_small_targets.rds")
@@ -6,6 +6,8 @@ test_that("tang_dynamic eta reduces errRp vs fixed at matched budget", {
   data   <- arrow::read_parquet(fx)
   target <- readRDS(tg)
 
+  # eta_start=20 produces a robust ~25% errRp gap on this fixture.
+  # eta_start=10 produced only a 0.7% gap — too fragile for cross-platform CI.
   common <- list(
     data = data, target = target,
     max_weight = 5, method = "ieppa",
@@ -28,10 +30,11 @@ test_that("tang_dynamic eta reduces errRp vs fixed at matched budget", {
     c(LBW_TRAJECTORY_AT = probe_iters, LBW_TRAJECTORY_OUT = tmp_dyn),
     do.call(leafblower::harvest, c(common, list(
       eta_schedule = "tang_dynamic",
-      eta_start = 10, eta_end = 1,
+      eta_start = 20, eta_end = 1,
       eta_schedule_power = 0.5))))
 
   fixed_err <- tail(utils::read.csv(tmp_fixed)$errRp, 1)
   dyn_err   <- tail(utils::read.csv(tmp_dyn)$errRp, 1)
-  expect_lt(dyn_err, fixed_err)
+  # Require robust improvement (>5% gap), not a near-tie.
+  expect_lt(dyn_err, 0.95 * fixed_err)
 })
