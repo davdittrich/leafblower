@@ -34,6 +34,31 @@ struct EtaScheduleConfigLbw {
 };
 // ── End overlay config structs ─────────────────────────────────────────────
 
+enum class CalibCriterion : int {
+    PCT      = 0,
+    MAX_ERR  = 1,
+    MEAN_ERR = 2,
+    KL       = 3,
+    CHI2     = 4
+};
+enum class CalibStopWhen : int { ANY = 0, ALL = 1 };
+
+struct CalibConvergenceCfg {
+    double        pct_tol      = 0.001;
+    double        absolute_tol = 0.0;
+    CalibCriterion criterion    = CalibCriterion::PCT;
+    CalibStopWhen  stop_when    = CalibStopWhen::ANY;
+};
+
+struct CalibSorCfg {
+    bool   enabled       = true;
+    bool   auto_adapt    = true;
+    double omega_init    = 1.0;
+    double omega_min     = 0.3;
+    double omega_fixed   = -1.0;  // sentinel: use auto
+    int    burnin        = 20;
+};
+
 struct CalibState {
     int n;
     int K;
@@ -56,6 +81,8 @@ struct CalibState {
     HomotopyConfigLbw    homotopy;
     SchedulerConfigLbw   scheduler;
     EtaScheduleConfigLbw eta_schedule;
+    CalibConvergenceCfg  convergence_cfg;
+    CalibSorCfg          sor_cfg;
     // ── End overlay config ──
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;

@@ -60,6 +60,7 @@ harvest <- function(
   attach_weights   = TRUE,
   weight_column    = "weights",
   convergence      = list(),
+  sor              = list(auto = TRUE, omega_min = 0.3),
   bounds_mode      = "cell",
   # --- new overlay knobs (all default off / identity) ---
   homotopy_levels       = 1L,
@@ -95,9 +96,8 @@ harvest <- function(
 
   target  <- parse_target(target, target_map)
   method  <- map_method(method, verbose)
-  # Emit deprecation warning if convergence['pct'] supplied.
-  # tol_abs is forwarded to C_rk_calibrate as the 9th argument.
-  tol_abs <- parse_convergence(convergence)
+  conv    <- parse_convergence(convergence)
+  sor_cfg <- parse_sor(sor)
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
   if (!is.null(design_weights) && is.null(start_weights)) {
@@ -120,6 +120,9 @@ harvest <- function(
   if (verbose >= 2 && length(supplied_ignored) > 0)
     message("[leafblower] Ignoring autumn params: ", paste(supplied_ignored, collapse = ", "))
 
+  criterion_int <- c(pct = 0L, max_err = 1L, mean_err = 2L, kl = 3L, chi2 = 4L)
+  stop_when_int <- c(any = 0L, all = 1L)
+
   raw <- .Call("C_rk_calibrate",
                data,
                target,
@@ -129,7 +132,7 @@ harvest <- function(
                as.integer(verbose),
                as.integer(max_iterations),
                sw_vec,
-               as.double(tol_abs),
+               as.double(if (conv$absolute_tol > 0) conv$absolute_tol else 1e-6),  # slot 9: legacy tol_abs
                as.integer(bounds_mode_int),
                as.integer(homotopy_levels),
                as.double(homotopy_start_factor),
@@ -140,6 +143,18 @@ harvest <- function(
                as.double(eta_start),
                as.double(eta_end),
                as.double(eta_schedule_power),
+               ## Convergence config (WU-A)
+               as.double(conv$pct_tol),
+               as.double(conv$absolute_tol),
+               as.integer(criterion_int[[conv$criterion]]),
+               as.integer(stop_when_int[[conv$stop_when]]),
+               ## SOR config (WU-A)
+               as.integer(sor_cfg$enabled),
+               as.integer(sor_cfg$auto),
+               as.double(sor_cfg$omega_init),
+               as.double(sor_cfg$omega_min),
+               as.double(sor_cfg$omega_fixed),
+               as.integer(sor_cfg$burnin),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
@@ -241,9 +256,37 @@ map_method <- function(method, verbose = 0) {
 }
 
 parse_convergence <- function(convergence) {
-  if (!is.null(convergence[["pct"]]))
-    warning("convergence['pct'] is deprecated in leafblower; use convergence['absolute'].")
-  if (!is.null(convergence[["absolute"]])) convergence[["absolute"]] else 1e-6
+  `%||%` <- function(a, b) if (is.null(a)) b else a
+  explicit_pct <- !is.null(convergence[["pct"]])
+  explicit_abs <- !is.null(convergence[["absolute"]])
+  pct_tol <- if (explicit_pct) convergence[["pct"]]
+             else if (!explicit_abs) 0.001
+             else 0.0
+  absolute_tol <- convergence[["absolute"]] %||% 0.0
+  criterion <- match.arg(
+    convergence[["criterion"]] %||%
+      (if (explicit_pct || !explicit_abs) "pct" else "max_err"),
+    c("pct", "max_err", "mean_err", "kl", "chi2")
+  )
+  stop_when <- match.arg(convergence[["stop_when"]] %||% "any", c("any", "all"))
+  list(pct_tol = pct_tol, absolute_tol = absolute_tol,
+       criterion = criterion, stop_when = stop_when)
+}
+
+parse_sor <- function(sor) {
+  `%||%` <- function(a, b) if (is.null(a)) b else a
+  if (is.null(sor)) {
+    return(list(enabled = 0L, auto = 0L, omega_init = 1.0,
+                omega_min = 0.3, omega_fixed = -1.0, burnin = 20L))
+  }
+  list(
+    enabled     = 1L,
+    auto        = if (isTRUE(sor[["auto"]])) 1L else 0L,
+    omega_init  = as.double(sor[["omega_init"]] %||% 1.0),
+    omega_min   = as.double(sor[["omega_min"]] %||% 0.3),
+    omega_fixed = as.double(sor[["omega"]] %||% -1.0),
+    burnin      = as.integer(sor[["burnin"]] %||% 20L)
+  )
 }
 
 normalize_start_weights <- function(start_weights, n) {

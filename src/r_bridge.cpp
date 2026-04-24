@@ -14,7 +14,8 @@ SEXP C_logit_F_at_zero(SEXP, SEXP);
 SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -30,7 +31,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       19},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       29},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -85,7 +86,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP homotopy_end_factor_sexp, SEXP homotopy_budget_p_sexp,
                     SEXP scheduler_sexp, SEXP eta_schedule_sexp,
                     SEXP eta_start_sexp, SEXP eta_end_sexp,
-                    SEXP eta_schedule_power_sexp) {
+                    SEXP eta_schedule_power_sexp,
+                    /* Convergence config (WU-A) */
+                    SEXP pct_tol_sexp, SEXP absolute_tol_sexp,
+                    SEXP criterion_sexp, SEXP stop_when_sexp,
+                    /* SOR config (WU-A) */
+                    SEXP sor_enabled_sexp, SEXP sor_auto_sexp,
+                    SEXP sor_omega_init_sexp, SEXP sor_omega_min_sexp,
+                    SEXP sor_omega_fixed_sexp, SEXP sor_burnin_sexp) {
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -193,6 +201,18 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     p.eta_start           = REAL(eta_start_sexp)[0];
     p.eta_end             = REAL(eta_end_sexp)[0];
     p.eta_schedule_power  = REAL(eta_schedule_power_sexp)[0];
+    /* Convergence config (WU-A) */
+    p.pct_tol             = REAL(pct_tol_sexp)[0];
+    p.absolute_tol        = REAL(absolute_tol_sexp)[0];
+    p.criterion           = INTEGER(criterion_sexp)[0];
+    p.stop_when           = INTEGER(stop_when_sexp)[0];
+    /* SOR config (WU-A) */
+    p.sor_enabled         = INTEGER(sor_enabled_sexp)[0];
+    p.sor_auto            = INTEGER(sor_auto_sexp)[0];
+    p.sor_omega_init      = REAL(sor_omega_init_sexp)[0];
+    p.sor_omega_min       = REAL(sor_omega_min_sexp)[0];
+    p.sor_omega_fixed     = REAL(sor_omega_fixed_sexp)[0];
+    p.sor_burnin          = INTEGER(sor_burnin_sexp)[0];
 
     if (LENGTH(method_sexp) != 1)
         Rf_error("method must be a length-1 character string");
@@ -213,8 +233,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  14));  // 10 prior + 4 overlay diagnostics
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  14));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  22));  // 14 prior + 8 new quality metrics
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  22));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -243,6 +263,24 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 11, Rf_ScalarReal(result.homotopy_final_factor));
     SET_VECTOR_ELT(res_list, 12, Rf_ScalarInteger(result.greedy_sweeps_taken));
     SET_VECTOR_ELT(res_list, 13, Rf_ScalarReal(result.eta_final));
+    /* New quality metric scalars (indices 14-21) */
+    SET_STRING_ELT(res_names, 14, Rf_mkChar("mean_error"));
+    SET_STRING_ELT(res_names, 15, Rf_mkChar("kl"));
+    SET_STRING_ELT(res_names, 16, Rf_mkChar("chi2"));
+    SET_STRING_ELT(res_names, 17, Rf_mkChar("pct_change"));
+    SET_STRING_ELT(res_names, 18, Rf_mkChar("best_error"));
+    SET_STRING_ELT(res_names, 19, Rf_mkChar("best_iter"));
+    SET_STRING_ELT(res_names, 20, Rf_mkChar("sor_min_omega"));
+    SET_STRING_ELT(res_names, 21, Rf_mkChar("sor_n_damped"));
+    SET_VECTOR_ELT(res_list, 14, Rf_ScalarReal(result.mean_error));
+    SET_VECTOR_ELT(res_list, 15, Rf_ScalarReal(result.kl));
+    SET_VECTOR_ELT(res_list, 16, Rf_ScalarReal(result.chi2));
+    SET_VECTOR_ELT(res_list, 17, Rf_ScalarReal(result.pct_change));
+    SET_VECTOR_ELT(res_list, 18, Rf_ScalarReal(result.best_error));
+    SET_VECTOR_ELT(res_list, 19, Rf_ScalarInteger(result.best_iter));
+    SET_VECTOR_ELT(res_list, 20, Rf_ScalarReal(result.sor_min_omega));
+    SET_VECTOR_ELT(res_list, 21, Rf_ScalarInteger(result.sor_n_damped));
+    /* element 22 = best_weights REALSXP, added in WU-E */
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

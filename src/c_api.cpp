@@ -43,11 +43,23 @@ void rk_params_init(rk_params_t* p) {
     p->eta_start               = 1.0;
     p->eta_end                 = 1.0;
     p->eta_schedule_power      = 0.5;
+    p->pct_tol                 = 0.001;
+    p->absolute_tol            = 0.0;
+    p->criterion               = 0;  /* PCT */
+    p->stop_when               = 0;  /* ANY */
+    p->sor_enabled             = 1;
+    p->sor_auto                = 1;
+    p->sor_omega_init          = 1.0;
+    p->sor_omega_min           = 0.3;
+    p->sor_omega_fixed         = -1.0;
+    p->sor_burnin              = 20;
 }
 
 void rk_result_init(rk_result_t* r) {
     if (!r) return;
     memset(r, 0, sizeof(*r));
+    r->best_error    = 1e308;  /* infinity sentinel; memset would give 0.0 */
+    r->sor_min_omega = 1.0;    /* non-iEPPA default */
 }
 
 static int validate_inputs(int n, int K,
@@ -224,6 +236,16 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.eta_schedule.eta_start     = p->eta_start;
     st.eta_schedule.eta_end       = p->eta_end;
     st.eta_schedule.schedule_power = p->eta_schedule_power;
+    st.convergence_cfg.pct_tol      = p->pct_tol;
+    st.convergence_cfg.absolute_tol = p->absolute_tol;
+    st.convergence_cfg.criterion    = static_cast<lbw::CalibCriterion>(p->criterion);
+    st.convergence_cfg.stop_when    = static_cast<lbw::CalibStopWhen>(p->stop_when);
+    st.sor_cfg.enabled              = (p->sor_enabled != 0);
+    st.sor_cfg.auto_adapt           = (p->sor_auto != 0);
+    st.sor_cfg.omega_init           = p->sor_omega_init;
+    st.sor_cfg.omega_min            = p->sor_omega_min;
+    st.sor_cfg.omega_fixed          = p->sor_omega_fixed;
+    st.sor_cfg.burnin               = p->sor_burnin;
     int status;
     int iterations;
     double max_error;
@@ -235,6 +257,15 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = res.iterations;
         max_error = res.max_error;
         used = RK_ALG_LBFGSB;
+        if (result) {
+            result->mean_error  = res.mean_error;
+            result->kl          = res.kl;
+            result->chi2        = res.chi2;
+            result->pct_change  = res.pct_change;
+            result->best_error  = res.best_error;
+            result->best_iter   = res.best_iter;
+            /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
+        }
     } else if (alg == RK_ALG_RAKING) {
         // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
         auto res = lbw::raking_solve(st);
@@ -242,6 +273,15 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = res.iterations;
         max_error = res.max_error;
         used = RK_ALG_RAKING;
+        if (result) {
+            result->mean_error  = res.mean_error;
+            result->kl          = res.kl;
+            result->chi2        = res.chi2;
+            result->pct_change  = res.pct_change;
+            result->best_error  = res.best_error;
+            result->best_iter   = res.best_iter;
+            /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
+        }
     } else {
         // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
         auto res = lbw::ieppa_solve(st);
@@ -259,6 +299,14 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->homotopy_final_factor = res.homotopy_final_factor;
             result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
             result->eta_final             = res.eta_final;
+            result->mean_error    = res.mean_error;
+            result->kl            = res.kl;
+            result->chi2          = res.chi2;
+            result->pct_change    = res.pct_change;
+            result->best_error    = res.best_error;
+            result->best_iter     = res.best_iter;
+            result->sor_min_omega = res.sor_min_omega;
+            result->sor_n_damped  = res.sor_n_damped;
         }
     }
 
