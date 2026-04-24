@@ -186,6 +186,7 @@ harvest <- function(
 
   if (!attach_weights) {
     attr(weights, "result") <- calib_result
+    attr(weights, "iterations") <- calib_result$iterations
     return(weights)
   }
 
@@ -193,6 +194,7 @@ harvest <- function(
   data[[col]] <- weights
   attr(data, "algorithm") <- alg_used
   attr(data, "result") <- calib_result
+  attr(data, "iterations") <- calib_result$iterations
   data
 }
 

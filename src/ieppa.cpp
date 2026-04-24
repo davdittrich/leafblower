@@ -328,6 +328,138 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // Margin sweep: branched by path.
         bool overflow_trip = false;
 
+        // ── Per-margin helpers (WU-4): lambdas capturing outer state.
+        // Return true on overflow-trip. Used by both round-robin and greedy
+        // schedulers. Do NOT read st.max_weight here — homotopy levels pass
+        // current_max_weight indirectly via the shared U_cell already built.
+        auto apply_single_margin_linear = [&](int k) -> bool {
+            const int nj = st.cat_counts[k];
+            const int off = cat_offset[k];
+            std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
+            for (int j = 0; j < nj; j++) inv_f_old_lin[j] = 1.0 / f_lin[off + j];
+            const int* gk = ct.g_per_cell[k].data();
+            for (int c = 0; c < ct.M_cell; c++) {
+                int j = gk[c];
+                if (j < 0 || j >= nj) continue;
+                if (X_init[c] <= 0.0) continue;
+                S_lin[j] += X_cur[c] * inv_f_old_lin[j];
+            }
+            for (int j = 0; j < nj; j++) {
+                if (!(S_lin[j] >= kEmptyBucketThreshold * ct.W_input) ||
+                    !std::isfinite(S_lin[j])) {
+                    record_empty(k, j);
+                    rescale_lin[j] = 1.0;
+                    continue;
+                }
+                record_nonempty(k, j);
+                double naive = (st.targets[k][j] * ct.W_input) / S_lin[j];
+                if (!std::isfinite(naive) || naive > kLinearOverflowTrip) {
+                    return true;
+                }
+                double new_f;
+                if (alpha == 1.0) {
+                    new_f = naive;
+                } else {
+                    double f_old = f_lin[off + j];
+                    new_f = std::pow(f_old, 1.0 - alpha)
+                          * std::pow(naive, alpha);
+                }
+                if (!std::isfinite(new_f) || new_f > kLinearOverflowTrip) {
+                    return true;
+                }
+                rescale_lin[j] = new_f * inv_f_old_lin[j];
+                f_lin[off + j] = new_f;
+            }
+            for (int c = 0; c < ct.M_cell; c++) {
+                int j = gk[c];
+                if (j < 0 || j >= nj) continue;
+                if (X_init[c] <= 0.0) continue;
+                X_cur[c] *= rescale_lin[j];
+            }
+            return false;
+        };
+
+        auto apply_single_margin_log = [&](int k) -> bool {
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
+                if (cells.empty()) { record_empty(k, j); continue; }
+                lv.assign(cells.size(), -std::numeric_limits<double>::infinity());
+                double lv_max = -std::numeric_limits<double>::infinity();
+                for (size_t r = 0; r < cells.size(); r++) {
+                    int c = cells[r];
+                    if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
+                    double s = log_X_init[c] + std::log(W[c]);
+                    for (int m = 0; m < st.K; m++) {
+                        if (m == k) continue;
+                        int gm = ct.g_per_cell[m][c];
+                        s += lf[cat_offset[m] + gm];
+                    }
+                    lv[r] = s;
+                    if (s > lv_max) lv_max = s;
+                }
+                if (!std::isfinite(lv_max)) { record_empty(k, j); continue; }
+                double sum = 0.0;
+                for (size_t r = 0; r < lv.size(); r++) {
+                    if (std::isfinite(lv[r])) sum += std::exp(lv[r] - lv_max);
+                }
+                double log_S_kj = lv_max + std::log(sum);
+                double log_threshold = std::log(kEmptyBucketThreshold * ct.W_input);
+                if (!std::isfinite(log_S_kj) || log_S_kj < log_threshold) {
+                    record_empty(k, j);
+                    continue;
+                }
+                record_nonempty(k, j);
+                double log_target = std::log(st.targets[k][j] * ct.W_input);
+                if (alpha == 1.0) {
+                    lf[cat_offset[k] + j] = log_target - log_S_kj;
+                } else {
+                    double lf_old = lf[cat_offset[k] + j];
+                    lf[cat_offset[k] + j] =
+                        (1.0 - alpha) * lf_old
+                        + alpha * (log_target - log_S_kj);
+                }
+            }
+            return false;  // log path does not trip overflow mid-sweep
+        };
+
+        // Per-margin residual errRp_k = max_j |S_lin[j]/W_total - targets[k][j]|.
+        // Uses the current X_cur (linear path) or rebuilt S via cells_by_margin_cat (log).
+        auto compute_margin_errRp_linear = [&](int k) -> double {
+            const int nj = st.cat_counts[k];
+            std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
+            const int* gk = ct.g_per_cell[k].data();
+            double W_total = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
+            if (W_total <= 0.0) return 0.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                int j = gk[c];
+                if (j >= 0 && j < nj) S_lin[j] += X_cur[c];
+            }
+            double err = 0.0;
+            for (int j = 0; j < nj; j++) {
+                double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
+                if (e > err) err = e;
+            }
+            return err;
+        };
+
+        auto compute_margin_errRp_log = [&](int k) -> double {
+            double W_total = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) W_total += X_tilde[c];
+            if (W_total <= 0.0) return 0.0;
+            double err = 0.0;
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
+                double Skj = 0.0;
+                for (int c : cells) Skj += X_tilde[c];
+                double e = std::fabs(Skj / W_total - st.targets[k][j]);
+                if (e > err) err = e;
+            }
+            return err;
+        };
+
+        const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
+
         if (use_linear) {
             // WU-2 prefactored linear-space sweep (spec rev 5 §5).
             // Sequential (raking-style) access to X_cur for cache efficiency.
@@ -335,65 +467,38 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // Per bucket (k,j): S_kj = sum X_cur[c]/f_kj accumulated in pass 1;
             //   X_cur[c] rescaled by f_new/f_old in pass 2. Identical to bucket loop.
 
-            for (int k = 0; k < st.K && !overflow_trip; k++) {
-                const int nj = st.cat_counts[k];
-                const int off = cat_offset[k];
-                // Precompute reciprocals of old factors (one division per category, not per cell).
-                std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
-                for (int j = 0; j < nj; j++) inv_f_old_lin[j] = 1.0 / f_lin[off + j];
-
-                // Pass 1: accumulate S_kj via sequential X_cur scan.
-                // g_per_cell[k][c] gives the category for cell c under margin k.
-                const int* gk = ct.g_per_cell[k].data();
-                for (int c = 0; c < ct.M_cell; c++) {
-                    int j = gk[c];
-                    if (j < 0 || j >= nj) continue;  // NA category
-                    if (X_init[c] <= 0.0) continue;
-                    S_lin[j] += X_cur[c] * inv_f_old_lin[j];
+            if (use_greedy) {
+                // WU-4: Greenkhorn argmax-residual selection.
+                // Compute initial per-margin residuals on X_cur, select argmax,
+                // apply sweep, refresh only the touched residual. Stop when
+                // total residual drops below residual_recheck_fraction*initial_sum,
+                // or after K sweeps.
+                std::vector<double> per_margin_err(st.K);
+                for (int k = 0; k < st.K; k++) {
+                    per_margin_err[k] = compute_margin_errRp_linear(k);
                 }
-
-                // Compute f_new and rescale factors per category.
-                // Empty check uses S_lin threshold (covers both zero-cell buckets and
-                // near-zero accumulations); cells_by_margin_cat not needed here.
-                bool any_trip = false;
-                for (int j = 0; j < nj; j++) {
-                    if (!(S_lin[j] >= kEmptyBucketThreshold * ct.W_input) ||
-                        !std::isfinite(S_lin[j])) {
-                        record_empty(k, j);
-                        rescale_lin[j] = 1.0;
-                        continue;
+                double initial_sum = 0.0;
+                for (int k = 0; k < st.K; k++) initial_sum += per_margin_err[k];
+                const double stop_threshold =
+                    st.scheduler.residual_recheck_fraction * initial_sum;
+                for (int step = 0; step < st.K && !overflow_trip; step++) {
+                    int k_star = 0;
+                    double best = per_margin_err[0];
+                    for (int k = 1; k < st.K; k++) {
+                        if (per_margin_err[k] > best) { best = per_margin_err[k]; k_star = k; }
                     }
-                    record_nonempty(k, j);
-                    double naive = (st.targets[k][j] * ct.W_input) / S_lin[j];
-                    if (!std::isfinite(naive) || naive > kLinearOverflowTrip) {
-                        overflow_trip = true;
-                        any_trip = true;
-                        break;
+                    if (apply_single_margin_linear(k_star)) {
+                        overflow_trip = true; break;
                     }
-                    double new_f;
-                    if (alpha == 1.0) {
-                        new_f = naive;
-                    } else {
-                        double f_old = f_lin[off + j];
-                        new_f = std::pow(f_old, 1.0 - alpha)
-                              * std::pow(naive, alpha);
-                    }
-                    if (!std::isfinite(new_f) || new_f > kLinearOverflowTrip) {
-                        overflow_trip = true;
-                        any_trip = true;
-                        break;
-                    }
-                    rescale_lin[j] = new_f * inv_f_old_lin[j];
-                    f_lin[off + j] = new_f;
+                    res.greedy_sweeps_taken++;
+                    per_margin_err[k_star] = compute_margin_errRp_linear(k_star);
+                    double total_err = 0.0;
+                    for (int k = 0; k < st.K; k++) total_err += per_margin_err[k];
+                    if (total_err < stop_threshold) break;
                 }
-                if (any_trip) break;
-
-                // Pass 2: rescale X_cur via sequential scan.
-                for (int c = 0; c < ct.M_cell; c++) {
-                    int j = gk[c];
-                    if (j < 0 || j >= nj) continue;
-                    if (X_init[c] <= 0.0) continue;
-                    X_cur[c] *= rescale_lin[j];
+            } else {
+                for (int k = 0; k < st.K && !overflow_trip; k++) {
+                    if (apply_single_margin_linear(k)) overflow_trip = true;
                 }
             }
             if (overflow_trip && !linear_fallback_used) {
@@ -422,47 +527,56 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 continue;  // skip the post-sweep X_tilde / capacity / errRp blocks this round
             }
         } else {
-            // Original log-space sweep (unchanged except record_empty/record_nonempty
-            // hooks).
-            for (int k = 0; k < st.K; k++) {
-                for (int j = 0; j < st.cat_counts[k]; j++) {
-                    const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
-                    if (cells.empty()) { record_empty(k, j); continue; }
-                    lv.assign(cells.size(), -std::numeric_limits<double>::infinity());
-                    double lv_max = -std::numeric_limits<double>::infinity();
-                    for (size_t r = 0; r < cells.size(); r++) {
-                        int c = cells[r];
-                        if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
-                        double s = log_X_init[c] + std::log(W[c]);
+            // Log-space sweep via helper. Greedy branch needs X_tilde for residual
+            // probe; rebuild it cheaply (residual-only; no capacity side-effect).
+            if (use_greedy) {
+                // Rebuild X_tilde from current lf for residual scoring.
+                for (int c = 0; c < ct.M_cell; c++) {
+                    if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                    double s = log_X_init[c];
+                    for (int m = 0; m < st.K; m++) {
+                        int gm = ct.g_per_cell[m][c];
+                        s += lf[cat_offset[m] + gm];
+                    }
+                    double s_clip = (s > kLogClip) ? kLogClip : s;
+                    X_tilde[c] = std::exp(s_clip);
+                }
+                std::vector<double> per_margin_err(st.K);
+                for (int k = 0; k < st.K; k++)
+                    per_margin_err[k] = compute_margin_errRp_log(k);
+                double initial_sum = 0.0;
+                for (int k = 0; k < st.K; k++) initial_sum += per_margin_err[k];
+                const double stop_threshold =
+                    st.scheduler.residual_recheck_fraction * initial_sum;
+                for (int step = 0; step < st.K; step++) {
+                    int k_star = 0;
+                    double best = per_margin_err[0];
+                    for (int k = 1; k < st.K; k++) {
+                        if (per_margin_err[k] > best) { best = per_margin_err[k]; k_star = k; }
+                    }
+                    (void) apply_single_margin_log(k_star);
+                    res.greedy_sweeps_taken++;
+                    // Refresh X_tilde for the touched margin's effect; cheap:
+                    // lf changed only at k_star, so X_tilde multiplies by exp(lf_new-lf_old)
+                    // per cell — simpler to recompute X_tilde fully (O(K*M_cell) but correct).
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                        double s = log_X_init[c];
                         for (int m = 0; m < st.K; m++) {
-                            if (m == k) continue;
                             int gm = ct.g_per_cell[m][c];
                             s += lf[cat_offset[m] + gm];
                         }
-                        lv[r] = s;
-                        if (s > lv_max) lv_max = s;
+                        double s_clip = (s > kLogClip) ? kLogClip : s;
+                        X_tilde[c] = std::exp(s_clip);
                     }
-                    if (!std::isfinite(lv_max)) { record_empty(k, j); continue; }
-                    double sum = 0.0;
-                    for (size_t r = 0; r < lv.size(); r++) {
-                        if (std::isfinite(lv[r])) sum += std::exp(lv[r] - lv_max);
-                    }
-                    double log_S_kj = lv_max + std::log(sum);
-                    double log_threshold = std::log(kEmptyBucketThreshold * ct.W_input);
-                    if (!std::isfinite(log_S_kj) || log_S_kj < log_threshold) {
-                        record_empty(k, j);
-                        continue;
-                    }
-                    record_nonempty(k, j);
-                    double log_target = std::log(st.targets[k][j] * ct.W_input);
-                    if (alpha == 1.0) {
-                        lf[cat_offset[k] + j] = log_target - log_S_kj;
-                    } else {
-                        double lf_old = lf[cat_offset[k] + j];
-                        lf[cat_offset[k] + j] =
-                            (1.0 - alpha) * lf_old
-                            + alpha * (log_target - log_S_kj);
-                    }
+                    per_margin_err[k_star] = compute_margin_errRp_log(k_star);
+                    double total_err = 0.0;
+                    for (int k = 0; k < st.K; k++) total_err += per_margin_err[k];
+                    if (total_err < stop_threshold) break;
+                }
+            } else {
+                for (int k = 0; k < st.K; k++) {
+                    (void) apply_single_margin_log(k);
                 }
             }
         }
