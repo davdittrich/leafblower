@@ -831,12 +831,14 @@ if (S_lin[j] < kEmptyBucketThreshold * ct.W_input) {
 }
 ```
 
-After the per-margin sweep completes, if `sor_active && sor_auto && iter >= st.sor_cfg.burnin`, update omega[k] based on `errRp_k` sign-flip detection. Compute `errRp_k` per margin first (using the same per-margin accumulation as §2 metrics):
+After the per-margin sweep completes, if `sor_active && sor_auto && iter >= st.sor_cfg.burnin`, update omega[k] based on `errRp_k` sign-flip detection. Compute `errRp_k` per margin first.
+
+**Scope note:** `compute_margin_errRp_linear` is defined as a lambda at `ieppa.cpp:435` inside the `ieppa_solve` function scope (from prior WU-4). Insert the SOR update block INSIDE the same scope (anywhere after the lambda is defined, inside `ieppa_solve` or `inner_solve_one_level` whichever contains the iteration loop) so the lambda capture-by-reference is valid. If the SOR block must live outside that scope for any reason, promote `compute_margin_errRp_linear` to a named static helper with explicit parameters; but the default path keeps it as an in-scope lambda call.
 
 ```cpp
 if (sor_active && sor_auto && iter >= st.sor_cfg.burnin) {
     for (int k = 0; k < st.K; k++) {
-        double errRp_k = compute_margin_errRp_linear(k);  // existing helper from WU-4
+        double errRp_k = compute_margin_errRp_linear(k);  // in-scope lambda from WU-4
         bool decreasing = (errRp_k < prev_errRp_k[k]);
         bool sign_flip  = !decreasing && prev_decreasing[k];
         if (sign_flip) {

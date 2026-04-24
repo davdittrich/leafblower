@@ -297,7 +297,7 @@ for (double &w : best_weights) w *= (n / s);
 (`n`-element). Apply only the sum-normalization (`n / sum(W_best)`). No other
 post-processing.
 
-**Return in `calib_result`** as element 15 of `res_list` in `r_bridge.cpp`
+**Return in `calib_result`** as a named `REALSXP` element of `res_list` (position determined by implementation; plan WU-E specifies the exact VECSXP index after all scalar fields are added) in `r_bridge.cpp`
 (a `REALSXP` of length n, allocated with `Rf_allocVector` and `PROTECT`):
 
 ```r
@@ -346,7 +346,7 @@ double chi2;            /* total chi-square */
 double pct_change;      /* final iter weight pct change */
 double best_error;      /* errRp at best iterate */
 int    best_iter;
-/* best_weights: REALSXP element 15 of res_list in r_bridge.cpp */
+/* best_weights: REALSXP named element of res_list in r_bridge.cpp */
 double sor_min_omega;   /* iEPPA only; zero-init ensures 0.0 default */
 int    sor_n_damped;    /* iEPPA only; zero-init ensures 0 default */
 ```
@@ -477,7 +477,7 @@ for (int i = 0; i < n; i++) {
 | **WU-B Convergence criteria** | pct computation + alternative criteria (mean_err, kl, chi2) in all three solvers; active criterion dispatch; A1, A2, A8 tests | FAIL 0; A1, A2, A8 pass |
 | **WU-C Quality metrics** | All 5 metrics returned at exit from all three solvers; A7 test | FAIL 0; A7 pass |
 | **WU-D SOR (iEPPA only)** | omega[K], prev_errRp_k[K], adaptive damping, pow guard; calib_result$sor nested; C ABI sor fields; A3, A4 tests | FAIL 0; A3, A4 pass |
-| **WU-E Best-iterate** | W_best locals in all three solvers; expansion (with no-water-fill rule for iEPPA); best_weights in res_list (element 15); A5, A6 tests | FAIL 0; A5, A6 pass |
+| **WU-E Best-iterate** | W_best locals in all three solvers; expansion (with no-water-fill rule for iEPPA); best_weights as REALSXP element in res_list; A5, A6 tests | FAIL 0; A5, A6 pass |
 | **WU-F Python + docs** | Python API mirror; NEWS.md; roxygen update; A9 (CRAN gate) | R CMD check clean; pytest green |
 
 ---
@@ -496,7 +496,7 @@ for (int i = 0; i < n; i++) {
 | W_prev/W_best storage | Solver-local; M_cell for iEPPA, n for raking/lbfgsb |
 | omega_min | 0.3 empirical; reproducible via benchmark sweep script |
 | SOR disable | `sor = NULL` only (not `list(enabled=FALSE)`) |
-| best_weights return | `calib_result$best_weights` (element 15 of res_list REALSXP) |
+| best_weights return | `calib_result$best_weights` (named REALSXP element of res_list; exact VECSXP index determined in plan WU-E) |
 | sor sentinel init | c_api.cpp zero-initializes rk_result_t; non-iEPPA never writes sor fields |
 | WU breakdown | §9 — 6 WUs, one beads ticket each |
 | pct naming collision | Migration note added for old workaround users |
