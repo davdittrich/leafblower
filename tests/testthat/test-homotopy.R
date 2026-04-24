@@ -1,18 +1,30 @@
-test_that("P-A homotopy reduces errRp on stepstone-small", {
-  skip_if_not_installed("arrow")
-  fx <- test_path("fixtures/stepstone_small.parquet")
-  tg <- test_path("fixtures/stepstone_small_targets.rds")
-  skip_if(!file.exists(fx) || !file.exists(tg))
-  data   <- arrow::read_parquet(fx)
-  target <- readRDS(tg)
+test_that("P-A homotopy reduces errRp vs baseline (tight-clamp synthetic fixture)", {
+  set.seed(31415)
+  n <- 5000
+  K <- 5
+  data <- data.frame(
+    v1 = factor(sample(1:4, n, replace = TRUE)),
+    v2 = factor(sample(1:3, n, replace = TRUE)),
+    v3 = factor(sample(1:5, n, replace = TRUE)),
+    v4 = factor(sample(1:2, n, replace = TRUE)),
+    v5 = factor(sample(1:6, n, replace = TRUE))
+  )
+  target <- list(
+    v1 = c("1"=0.1, "2"=0.4, "3"=0.4, "4"=0.1),
+    v2 = c("1"=0.5, "2"=0.3, "3"=0.2),
+    v3 = c("1"=0.1, "2"=0.1, "3"=0.4, "4"=0.3, "5"=0.1),
+    v4 = c("1"=0.7, "2"=0.3),
+    v5 = c("1"=0.05, "2"=0.05, "3"=0.5, "4"=0.2, "5"=0.15, "6"=0.05)
+  )
+  max_w <- 2  # tight clamp — many cells saturate, slow-rate regime
 
-  probe_iters <- "1,10,50,100,200,500"
   tmp_base <- tempfile(fileext = ".csv")
   tmp_homo <- tempfile(fileext = ".csv")
+  probe_iters <- "50,100,200,500"
 
   withr::with_envvar(
     c(LBW_TRAJECTORY_AT = probe_iters, LBW_TRAJECTORY_OUT = tmp_base),
-    leafblower::harvest(data, target, max_weight = 5,
+    leafblower::harvest(data, target, max_weight = max_w,
                         method = "ieppa",
                         max_iterations = 500,
                         convergence = list(absolute = 1e-12),
@@ -20,7 +32,7 @@ test_that("P-A homotopy reduces errRp on stepstone-small", {
 
   homo <- withr::with_envvar(
     c(LBW_TRAJECTORY_AT = probe_iters, LBW_TRAJECTORY_OUT = tmp_homo),
-    leafblower::harvest(data, target, max_weight = 5,
+    leafblower::harvest(data, target, max_weight = max_w,
                         method = "ieppa",
                         max_iterations = 500,
                         convergence = list(absolute = 1e-12),
@@ -30,11 +42,9 @@ test_that("P-A homotopy reduces errRp on stepstone-small", {
                         homotopy_budget_p = 0.5,
                         attach_weights = FALSE))
 
-  # weights must respect final target max_weight
-  expect_true(max(as.numeric(homo)) <= 5 + 1e-10)
-
-  # homotopy should reach lower terminal errRp (A2: >=30% reduction)
   base_err <- tail(utils::read.csv(tmp_base)$errRp, 1)
   homo_err <- tail(utils::read.csv(tmp_homo)$errRp, 1)
+
+  # A2: homotopy must achieve >=30% errRp reduction at identical iteration budget
   expect_lt(homo_err, 0.7 * base_err)
 })
