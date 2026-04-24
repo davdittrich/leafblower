@@ -20,7 +20,25 @@
 #' @param start_weights Starting weights vector or NULL (uniform).
 #' @param attach_weights If TRUE, return data frame with weights column. Default TRUE.
 #' @param weight_column Name of weight column. Default "weights".
-#' @param convergence Named list/vector; "absolute" maps to tol_abs.
+#' @param convergence Named list controlling the stopping criterion. Accepted keys:
+#'   \itemize{
+#'     \item \code{pct}: proportional weight-change threshold (default \code{0.001}).
+#'       Disabled when absent and \code{absolute} is explicitly set.
+#'     \item \code{absolute}: absolute threshold for the active criterion (default \code{0}).
+#'     \item \code{criterion}: one of \code{"pct"} (default), \code{"max_err"},
+#'       \code{"mean_err"}, \code{"kl"}, \code{"chi2"}.
+#'       \code{"chi2"} scales with sample size; supply an n-scaled threshold.
+#'     \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
+#'   }
+#'   Backward compat: \code{list(absolute = 1e-6)} activates max_error criterion.
+#' @param sor Named list for SOR adaptive under-relaxation (iEPPA only).
+#'   \code{NULL} disables SOR. Keys:
+#'   \itemize{
+#'     \item \code{auto}: logical, default \code{TRUE}.
+#'     \item \code{omega_min}: lower bound on relaxation factor, default \code{0.3}.
+#'     \item \code{omega}: fixed relaxation factor (disables auto-adapt).
+#'     \item \code{burnin}: iterations before adaptation starts, default \code{20}.
+#'   }
 #' @param bounds_mode One of "cell" (default) or "unit". Controls per-observation
 #'   vs cell-aggregate bound enforcement.
 #' @param homotopy_levels Number of homotopy levels (default 1 = disabled). Values > 1

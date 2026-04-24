@@ -16,6 +16,17 @@ harvest(
   attach_weights = TRUE,
   weight_column = "weights",
   convergence = list(),
+  sor = list(auto = TRUE, omega_min = 0.3),
+  bounds_mode = "cell",
+  homotopy_levels = 1L,
+  homotopy_start_factor = 1,
+  homotopy_end_factor = 1,
+  homotopy_budget_p = 0.5,
+  scheduler = c("round_robin", "greedy"),
+  eta_schedule = c("fixed", "tang_dynamic"),
+  eta_start = 1,
+  eta_end = 1,
+  eta_schedule_power = 0.5,
   select_params = NULL,
   select_function = NULL,
   error_function = NULL,
@@ -26,6 +37,7 @@ harvest(
   auto_collapse = FALSE,
   collapse_vars = NULL,
   target_map = NULL,
+  design_weights = NULL,
   ...
 )
 }
@@ -60,7 +72,50 @@ harvest(
 
 \item{weight_column}{Name of weight column. Default "weights".}
 
-\item{convergence}{Named list/vector; "absolute" maps to tol_abs.}
+\item{convergence}{Named list controlling the stopping criterion. Accepted keys:
+\itemize{
+  \item \code{pct}: proportional weight-change threshold (default \code{0.001}).
+    Disabled when absent and \code{absolute} is explicitly set.
+  \item \code{absolute}: absolute threshold for the active criterion (default \code{0}).
+  \item \code{criterion}: one of \code{"pct"} (default), \code{"max_err"},
+    \code{"mean_err"}, \code{"kl"}, \code{"chi2"}.
+    \code{"chi2"} scales with sample size; supply an n-scaled threshold.
+  \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
+}
+Backward compat: \code{list(absolute = 1e-6)} activates max_error criterion.}
+
+\item{sor}{Named list for SOR adaptive under-relaxation (iEPPA only).
+\code{NULL} disables SOR. Keys:
+\itemize{
+  \item \code{auto}: logical, default \code{TRUE}.
+  \item \code{omega_min}: lower bound on relaxation factor, default \code{0.3}.
+  \item \code{omega}: fixed relaxation factor (disables auto-adapt).
+  \item \code{burnin}: iterations before adaptation starts, default \code{20}.
+}}
+
+\item{bounds_mode}{One of "cell" (default) or "unit". Controls per-observation
+vs cell-aggregate bound enforcement.}
+
+\item{homotopy_levels}{Number of homotopy levels (default 1 = disabled). Values > 1
+progressively tighten max_weight from homotopy_start_factor to homotopy_end_factor
+across n levels.}
+
+\item{homotopy_start_factor}{Starting max_weight multiplier (default 1.0 = no change).}
+
+\item{homotopy_end_factor}{Ending max_weight multiplier (default 1.0 = no change).}
+
+\item{homotopy_budget_p}{Budget split fraction across homotopy levels (default 0.5).}
+
+\item{scheduler}{Margin sweep scheduler: "round_robin" (default) or "greedy"
+(Greenkhorn priority).}
+
+\item{eta_schedule}{ALM penalty schedule: "fixed" (default) or "tang_dynamic".}
+
+\item{eta_start}{Starting ALM penalty multiplier (default 1.0).}
+
+\item{eta_end}{Ending ALM penalty multiplier (default 1.0).}
+
+\item{eta_schedule_power}{Power for Tang-eta schedule interpolation (default 0.5).}
 
 \item{select_params}{Ignored with verbose >= 2 note.}
 

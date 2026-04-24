@@ -14,6 +14,49 @@ except ImportError:
 
 from ._leafblower import calibrate
 
+_KNOWN_CONVERGENCE_KEYS = frozenset({"pct", "absolute", "criterion", "stop_when"})
+_CRITERION_MAP = {"pct": 0, "max_err": 1, "mean_err": 2, "kl": 3, "chi2": 4}
+_STOP_WHEN_MAP = {"any": 0, "all": 1}
+
+
+def _parse_convergence(conv):
+    """Mirror R parse_convergence(): derive pct_tol, absolute_tol, criterion, stop_when."""
+    if conv is None:
+        conv = {}
+    unknown = set(conv) - _KNOWN_CONVERGENCE_KEYS
+    if unknown:
+        raise ValueError(f"unknown convergence key '{next(iter(unknown))}'")
+    explicit_pct = "pct" in conv
+    explicit_abs = "absolute" in conv
+    pct_tol = (
+        float(conv["pct"]) if explicit_pct
+        else (0.001 if not explicit_abs else 0.0)
+    )
+    absolute_tol = float(conv.get("absolute", 0.0))
+    default_criterion = "pct" if (explicit_pct or not explicit_abs) else "max_err"
+    criterion_str = conv.get("criterion", default_criterion)
+    if criterion_str not in _CRITERION_MAP:
+        raise ValueError(f"convergence criterion must be one of {list(_CRITERION_MAP)}")
+    criterion = _CRITERION_MAP[criterion_str]
+    stop_when_str = conv.get("stop_when", "any")
+    if stop_when_str not in _STOP_WHEN_MAP:
+        raise ValueError(f"stop_when must be 'any' or 'all'")
+    stop_when = _STOP_WHEN_MAP[stop_when_str]
+    return pct_tol, absolute_tol, criterion, stop_when
+
+
+def _parse_sor(sor):
+    """Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed, burnin)."""
+    if sor is None:
+        return 0, 0, 1.0, 0.3, -1.0, 20
+    enabled = 1
+    auto = 1 if sor.get("auto", True) else 0
+    omega_init = float(sor.get("omega_init", 1.0))
+    omega_min = float(sor.get("omega_min", 0.3))
+    omega_fixed = float(sor.get("omega", -1.0))
+    burnin = int(sor.get("burnin", 20))
+    return enabled, auto, omega_init, omega_min, omega_fixed, burnin
+
 
 def harvest(
     data,
@@ -27,6 +70,7 @@ def harvest(
     attach_weights: bool = True,
     weight_column: str = "weights",
     convergence: Optional[Dict] = None,
+    sor: Optional[Dict] = None,
     bounds_mode: str = "cell",
     **kwargs,
 ):
@@ -45,8 +89,15 @@ def harvest(
     start_weights : optional 1D float64 array of initial weights
     attach_weights : if True, return DataFrame with weights column appended
     weight_column : name of the weights column (default "weights")
-    convergence : dict; key "absolute" → tol_abs; "pct" → DeprecationWarning;
-                  unknown keys → ValueError
+    convergence : dict controlling the stopping criterion. Keys:
+        "pct" (float, default 0.001) — max proportional weight-change threshold.
+        "absolute" (float) — absolute threshold for the active criterion.
+        "criterion" (str) — one of "pct" (default), "max_err", "mean_err", "kl", "chi2".
+        "stop_when" (str) — "any" (default) or "all".
+        Unknown keys raise ValueError.
+    sor : dict for SOR adaptive under-relaxation (iEPPA only). None disables SOR. Keys:
+        "auto" (bool, default True), "omega_min" (float, default 0.3),
+        "omega" (float) for fixed omega, "burnin" (int, default 20).
     bounds_mode : str, "cell" (default) or "unit". "cell": per-cell aggregate bounds —
                   individual weights may fall outside [min_weight, max_weight] when base
                   weights are skewed within a cell. "unit": per-observation strict bounds
@@ -55,19 +106,9 @@ def harvest(
     -------
     pd.DataFrame (if attach_weights=True) or np.ndarray
     """
-    # Handle convergence dict
-    tol_abs = 1e-6
-    if convergence is not None:
-        for k in convergence:
-            if k == "absolute":
-                tol_abs = float(convergence[k])
-            elif k == "pct":
-                warnings.warn(
-                    "convergence['pct'] is deprecated; use 'absolute' instead.",
-                    DeprecationWarning, stacklevel=2,
-                )
-            else:
-                raise ValueError(f"unknown convergence key '{k}'")
+    # Parse convergence and SOR
+    pct_tol, absolute_tol, criterion, stop_when = _parse_convergence(convergence)
+    sor_enabled, sor_auto, sor_omega_init, sor_omega_min, sor_omega_fixed, sor_burnin = _parse_sor(sor)
 
     # Convert dict data to DataFrame; validate input type.
     if isinstance(data, dict):
@@ -152,12 +193,25 @@ def harvest(
         "max_weight":     max_weight,
         "inner_max_iter": max_iterations,
         "outer_max_iter": max_iterations,  # mirrors R bridge: outer = inner = max_iterations
-        "tol_abs":        tol_abs,
+        # legacy tol_abs: use absolute_tol when set, else fall back to 1e-6 for old C path
+        "tol_abs":        absolute_tol if absolute_tol > 0.0 else 1e-6,
         "verbose":        verbose,
         "algorithm":      alg_int,
         "epsilon":        0.05,
         "lbfgs_m":        10,
         "bounds_mode":    _bounds_mode_int,
+        # Convergence config (WU-F)
+        "pct_tol":        pct_tol,
+        "absolute_tol":   absolute_tol,
+        "criterion":      criterion,
+        "stop_when":      stop_when,
+        # SOR config (WU-F)
+        "sor_enabled":    sor_enabled,
+        "sor_auto":       sor_auto,
+        "sor_omega_init": sor_omega_init,
+        "sor_omega_min":  sor_omega_min,
+        "sor_omega_fixed": sor_omega_fixed,
+        "sor_burnin":     sor_burnin,
     }
 
     log_fn = print if verbose > 0 else None
@@ -204,11 +258,23 @@ def harvest(
 
     # weights_out is already a copy (contract from _bindings.cpp)
     if not attach_weights:
+        weights_out_arr = np.array(weights_out)
+        # Attach result metadata via a wrapper object attribute trick is not possible
+        # for bare ndarray; return as-is (result_dict accessible via the tuple form
+        # only when calling the low-level calibrate() directly).
         return weights_out
 
     if _PANDAS_AVAILABLE:
         out = data.copy()
         out[weight_column] = weights_out
+        # Expose calibration diagnostics via DataFrame.attrs (PEP 526 / pandas 1.0+).
+        # Nest SOR fields to match R's result$sor namespace.
+        result_dict["sor"] = {
+            "min_omega": result_dict.pop("sor_min_omega"),
+            "n_damped":  result_dict.pop("sor_n_damped"),
+        }
+        out.attrs["result"] = result_dict
+        out.attrs["iterations"] = result_dict["iterations"]
         return out
     return weights_out
 

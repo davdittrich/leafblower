@@ -30,3 +30,47 @@ def test_min_weight_badarg_python():
     tgts = {"x": {"a": 0.5, "b": 0.5}}
     with pytest.raises(Exception):
         harvest(df, tgts, min_weight=5.0, max_weight=5.0)
+
+
+def _make_fixture(n=1000):
+    """Balanced 2-level fixture for parity tests."""
+    import pandas as pd
+    half = n // 2
+    df = pd.DataFrame({"x": ["a"] * half + ["b"] * half})
+    tgts = {"x": {"a": 0.5, "b": 0.5}}
+    return df, tgts
+
+
+def test_convergence_criterion_default_is_pct():
+    """Default convergence uses pct=0.001 — pct_change in result should be <= 0.001."""
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=1000)
+    res = harvest(df, tgts, max_weight=5, method="ieppa", max_iterations=500)
+    r = res.attrs.get("result", {})
+    assert "pct_change" in r, "result must contain pct_change"
+    # pct_change at convergence should be at or below the 0.001 threshold
+    assert r["pct_change"] <= 0.001 * 1.5, (
+        f"pct_change={r['pct_change']:.6f} exceeds 0.001 threshold"
+    )
+
+
+def test_all_5_metrics_present():
+    """All 5 quality metrics must be present in result attrs."""
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=1000)
+    res = harvest(df, tgts, max_weight=5, method="ieppa")
+    r = res.attrs.get("result", {})
+    for key in ("max_error", "mean_error", "kl", "chi2", "pct_change"):
+        assert key in r, f"Missing metric: {key}"
+
+
+def test_best_error_le_max_error():
+    """best_error <= max_error always (best iterate tracked throughout)."""
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=1000)
+    res = harvest(df, tgts, max_weight=5, method="ieppa", max_iterations=200)
+    r = res.attrs.get("result", {})
+    assert "best_error" in r, "result must contain best_error"
+    assert r["best_error"] <= r["max_error"] + 1e-12, (
+        f"best_error={r['best_error']} > max_error={r['max_error']}"
+    )
