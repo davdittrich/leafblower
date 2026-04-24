@@ -215,6 +215,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         used = RK_ALG_IEPPA;
         if (result) {
             result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
+            result->min_alpha_seen = res.min_alpha_seen;
+            result->final_alpha    = res.final_alpha;
         }
     }
 

@@ -49,6 +49,8 @@ typedef struct {
     rk_algorithm_t  algorithm_used;  /* actual algorithm run (never RK_ALG_AUTO) */
     char            message[256];    /* null-terminated status message */
     int             n_xcur_writes_per_iter_linear;  /* P1.1 diagnostic */
+    double          min_alpha_seen;                 /* P2.1: min alpha over all sweeps; 1.0 if never damped */
+    double          final_alpha;                    /* P2.1: alpha at solver exit */
 } rk_result_t;
 
 /* Fill *p with safe defaults */

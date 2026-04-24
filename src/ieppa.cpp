@@ -33,6 +33,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     res.M_cell = 0;
     res.n_cap_active = 0;
     res.n_xcur_writes_per_iter_linear = 0;
+    res.min_alpha_seen = 1.0;
+    res.final_alpha = 1.0;
 
     // Build cell table.
     CellTable ct;
@@ -181,30 +183,31 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
     bool linear_fallback_used = false;
 
-    // WU-3: adaptive damping. Default alpha=1.0 (stable mode, byte-identical to pre-WU-3).
-    // Auto-switch to alpha=0.5 (damped mode) when any bucket's streak reaches
-    // kInfeasPersistence/2 = 2. Latched per-solve; does not revert.
+    // P2.1 adaptive damping schedule. alpha = 1 / (1 + β · stress); stress = max streak.
+    // β = 0.5: at stress=2, alpha=0.5; at stress=10, alpha≈0.17. Unlatched — recovers as
+    // streaks reset. Preserves Peyré-Cuturi §4.4 convergence (alpha ∈ (0, 1]).
+    constexpr double kBeta = 0.5;
     double alpha = 1.0;
-    bool damped_latched = false;
     // Test-only override (parallel to LBW_IEPPA_FORCE_PATH): "on"|"off"|unset.
     // Always compiled; microsecond getenv cost. Enables falsifiable
-    // iter_damped > iter_stable assertion (spec §7, CTO B5).
+    // min_alpha_seen assertion (spec §7, CTO B5).
     const char* force_damp = std::getenv("LBW_IEPPA_FORCE_DAMPING");
     bool force_damping_on  = (force_damp != nullptr && std::strcmp(force_damp, "on")  == 0);
     bool force_damping_off = (force_damp != nullptr && std::strcmp(force_damp, "off") == 0);
-    if (force_damping_on) { alpha = 0.5; damped_latched = true; }
-    auto maybe_engage_damping = [&]() {
-        if (damped_latched || force_damping_off) return;
+    auto compute_alpha = [&]() -> double {
+        if (force_damping_on)  return 0.5;
+        if (force_damping_off) return 1.0;
+        int stress = 0;
         for (int idx = 0; idx < total_cats; idx++) {
-            if (infeas_streak[idx] >= kInfeasPersistence / 2) {
-                alpha = 0.5;
-                damped_latched = true;
-                if (st.verbose >= 1) {
-                    st.log("iEPPA: mid-streak detected; damping engaged (alpha=0.5).");
-                }
-                return;
-            }
+            if (infeas_streak[idx] > stress) stress = infeas_streak[idx];
         }
+        if (stress == 0) return 1.0;
+        // Cap stress at kInfeasPersistence to prevent unbounded streak growth from
+        // driving alpha to near-zero on inputs with long transient infeasibility.
+        // At stress=kInfeasPersistence/2=2 (original trigger point), alpha=0.5;
+        // at stress=kInfeasPersistence=5, alpha≈0.29. Bounded, recoverable.
+        int capped = std::min(stress, kInfeasPersistence);
+        return 1.0 / (1.0 + kBeta * static_cast<double>(capped));
     };
 
     // Scratch for linear-space sweep: per-category accumulators (max categories per margin).
@@ -216,7 +219,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
-        maybe_engage_damping();
+        alpha = compute_alpha();
+        if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
 
         // Margin sweep: branched by path.
         bool overflow_trip = false;
@@ -304,9 +308,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 // structural_infeas_pairs NOT cleared — static bucket topology
-                alpha = 1.0;
-                damped_latched = false;
-                if (force_damping_on) { alpha = 0.5; damped_latched = true; }
+                // alpha recomputed at top of next iter by compute_alpha().
                 iter = 0;  // outer for-loop increments -> iter=1 next round
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
@@ -516,9 +518,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
             if (errRp < st.tol_abs) {
                 res.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+                res.final_alpha = alpha;
                 break;
             }
         }
+        res.final_alpha = alpha;
     }
 
     // Expand to obs weights: w[i] = d[i] * X[c] / X_init[c]

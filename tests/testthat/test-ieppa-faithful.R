@@ -295,3 +295,60 @@ test_that("WU-3: damped mode takes strictly more iters than stable on same input
   expect_true(all(is.finite(r_damped$res$weights)))
   expect_gt(r_damped$iter, r_stable$iter)  # monotone; spec §7
 })
+
+test_that("P2.1: benign input keeps alpha == 1.0 (fast path)", {
+  set.seed(55)
+  n <- 500L
+  df <- data.frame(a = sample(letters[1:3], n, TRUE),
+                   b = sample(letters[1:3], n, TRUE))
+  targets <- list(a = c(a=0.33,b=0.33,c=0.34), b = c(a=0.33,b=0.33,c=0.34))
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 500L,
+                 convergence = list(absolute = 1e-6),
+                 attach_weights = FALSE)
+  info <- attr(res, "result")
+  expect_equal(info$min_alpha_seen, 1.0)  # no stress -> no damping
+  expect_equal(info$final_alpha, 1.0)
+})
+
+test_that("P2.1: stress input engages damping (alpha < 1.0) with smooth schedule", {
+  set.seed(314)
+  n <- 3000L
+  K <- 6L
+  df <- as.data.frame(replicate(K, sample(1:3, n, TRUE), simplify=FALSE))
+  names(df) <- paste0("m", 1:K)
+  for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
+  targets <- setNames(
+    replicate(K, c(a=0.7, b=0.2, c=0.1), simplify=FALSE),
+    paste0("m", 1:K)
+  )
+  res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+                                  max_weight = 3, min_weight = 0,
+                                  max_iterations = 500L,
+                                  convergence = list(absolute = 1e-4),
+                                  attach_weights = FALSE))
+  info <- attr(res, "result")
+  expect_lt(info$min_alpha_seen, 1.0)   # stress engaged damping at some point
+  # Unlatched schedule: if streaks subside before exit, alpha recovers.
+  # Final alpha may be 1.0 (full recovery) or intermediate. Not asserted strict.
+  expect_true(info$min_alpha_seen > 0.0)  # sanity: formula is bounded below
+})
+
+test_that("P2.1: LBW_IEPPA_FORCE_DAMPING=on forces alpha = 0.5", {
+  Sys.setenv(LBW_IEPPA_FORCE_DAMPING = "on")
+  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
+  set.seed(55)
+  n <- 500L
+  df <- data.frame(a = sample(letters[1:3], n, TRUE),
+                   b = sample(letters[1:3], n, TRUE))
+  targets <- list(a = c(a=0.33,b=0.33,c=0.34), b = c(a=0.33,b=0.33,c=0.34))
+  res <- harvest(df, targets, method = "ieppa",
+                 max_weight = 5, min_weight = 0,
+                 max_iterations = 500L,
+                 convergence = list(absolute = 1e-6),
+                 attach_weights = FALSE)
+  info <- attr(res, "result")
+  expect_equal(info$min_alpha_seen, 0.5)
+  expect_equal(info$final_alpha, 0.5)
+})

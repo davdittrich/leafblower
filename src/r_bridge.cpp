@@ -189,20 +189,24 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  6));   // was 5
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  6));   // was 5
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  8));   // was 6
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  8));   // was 6
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
     SET_STRING_ELT(res_names, 3, Rf_mkChar("algorithm_used"));
     SET_STRING_ELT(res_names, 4, Rf_mkChar("message"));
-    SET_STRING_ELT(res_names, 5, Rf_mkChar("n_xcur_writes_per_iter_linear"));  // new
+    SET_STRING_ELT(res_names, 5, Rf_mkChar("n_xcur_writes_per_iter_linear"));
+    SET_STRING_ELT(res_names, 6, Rf_mkChar("min_alpha_seen"));
+    SET_STRING_ELT(res_names, 7, Rf_mkChar("final_alpha"));
     SET_VECTOR_ELT(res_list, 0, Rf_ScalarInteger(result.status));
     SET_VECTOR_ELT(res_list, 1, Rf_ScalarInteger(result.iterations));
     SET_VECTOR_ELT(res_list, 2, Rf_ScalarReal(result.max_error));
     SET_VECTOR_ELT(res_list, 3, Rf_ScalarInteger((int)result.algorithm_used));
     SET_VECTOR_ELT(res_list, 4, Rf_mkString(result.message));
-    SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(result.n_xcur_writes_per_iter_linear));  // new
+    SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(result.n_xcur_writes_per_iter_linear));
+    SET_VECTOR_ELT(res_list, 6, Rf_ScalarReal(result.min_alpha_seen));
+    SET_VECTOR_ELT(res_list, 7, Rf_ScalarReal(result.final_alpha));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));
