@@ -229,7 +229,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // P2.1 adaptive damping schedule. alpha = 1 / (1 + β · stress); stress = max streak.
     // β = 0.5: at stress=2, alpha=0.5; at stress=10, alpha≈0.17. Unlatched — recovers as
     // streaks reset. Preserves Peyré-Cuturi §4.4 convergence (alpha ∈ (0, 1]).
-    constexpr double kBeta = 0.5;
+    // β is mutable so Tang-eta (WU-5) can scale it per homotopy level.
+    double beta  = 0.5;
     double alpha = 1.0;
     // Test-only override (parallel to LBW_IEPPA_FORCE_PATH): "on"|"off"|unset.
     // Always compiled; microsecond getenv cost. Enables falsifiable
@@ -250,7 +251,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // At stress=kInfeasPersistence/2=2 (original trigger point), alpha=0.5;
         // at stress=kInfeasPersistence=5, alpha≈0.29. Bounded, recoverable.
         int capped = std::min(stress, kInfeasPersistence);
-        return 1.0 / (1.0 + kBeta * static_cast<double>(capped));
+        return 1.0 / (1.0 + beta * static_cast<double>(capped));
     };
 
     // Scratch for linear-space sweep: per-category accumulators (max categories per margin).
@@ -300,12 +301,21 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // Loose intermediate tol until final level (enables warm-jump mid-level exit).
         const double tol_lvl = (lvl == N_levels - 1) ? st.tol_abs : kHomotopyIntermediateTol;
 
-        // WU-5 will populate Tang dynamic-eta branch; WU-3 no-op since default FIXED.
+        // Tang 2024 (arxiv:2403.05054 §4) dynamic-eta schedule.
+        // Geometric interpolation: eta_i = eta_start * (eta_end/eta_start)^(frac^power).
+        // frac=0 at lvl=0 → eta_i=eta_start; frac=1 at lvl=N-1 → eta_i=eta_end.
+        // alm_mu>0: scale ALM penalty. alm_mu=0 (default): scale damping β instead,
+        // so early levels apply stronger per-step smoothing and final level uses β=0.5.
         if (st.eta_schedule.mode == EtaScheduleMode::TANG_DYNAMIC && N_levels > 1) {
-            const double eta_lvl = st.eta_schedule.eta_start *
-                std::pow(st.eta_schedule.eta_end / st.eta_schedule.eta_start, frac);
-            st.alm_mu = eta_lvl * alm_mu_base;
-            res.eta_final = eta_lvl;
+            const double scaled_frac = std::pow(frac, st.eta_schedule.schedule_power);
+            const double eta_i = st.eta_schedule.eta_start *
+                std::pow(st.eta_schedule.eta_end / st.eta_schedule.eta_start, scaled_frac);
+            res.eta_final = eta_i;
+            if (alm_mu_base > 0.0) {
+                st.alm_mu = eta_i * alm_mu_base;
+            } else {
+                beta = 0.5 * eta_i;
+            }
         }
 
         // Recompute U_cell for this level's current_max_weight.
