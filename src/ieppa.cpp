@@ -328,9 +328,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // Margin sweep: branched by path.
         bool overflow_trip = false;
 
-        // ── Per-margin helpers (WU-4): lambdas capturing outer state.
-        // Return true on overflow-trip. Used by both round-robin and greedy
-        // schedulers. Do NOT read st.max_weight here — homotopy levels pass
+        // Do NOT read st.max_weight here — homotopy levels pass
         // current_max_weight indirectly via the shared U_cell already built.
         auto apply_single_margin_linear = [&](int k) -> bool {
             const int nj = st.cat_counts[k];
@@ -468,11 +466,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
             //   X_cur[c] rescaled by f_new/f_old in pass 2. Identical to bucket loop.
 
             if (use_greedy) {
-                // WU-4: Greenkhorn argmax-residual selection.
-                // Compute initial per-margin residuals on X_cur, select argmax,
-                // apply sweep, refresh only the touched residual. Stop when
-                // total residual drops below residual_recheck_fraction*initial_sum,
-                // or after K sweeps.
                 std::vector<double> per_margin_err(st.K);
                 for (int k = 0; k < st.K; k++) {
                     per_margin_err[k] = compute_margin_errRp_linear(k);

@@ -18,7 +18,7 @@ struct IEPPAResult {
     // ── Overlay diagnostics ──
     int    homotopy_levels_used  = 0;   // 0 iff homotopy disabled
     double homotopy_final_factor = 1.0; // max_weight multiplier at final level
-    int    greedy_sweeps_taken   = 0;   // greedy scheduler sweeps per last inner pass
+    int    greedy_sweeps_taken   = 0;   // total greedy margin sweeps across all levels and iterations
     double eta_final             = 0.0; // alm_mu multiplier at solver exit (0 = N/A)
     // ── End overlay diagnostics ──
 };
