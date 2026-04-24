@@ -118,6 +118,9 @@ RakingResult raking_solve(CalibState& st) {
     double min_errRp_window = std::numeric_limits<double>::infinity();
     int n_no_improve = 0;
 
+    // WU-B: W_prev tracks obs-level weights at the last convergence check for pct_change.
+    std::vector<double> w_prev(w);
+
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -189,6 +192,55 @@ RakingResult raking_solve(CalibState& st) {
             double errRp = compute_errRp(st, w, bucket);
             res.max_error = errRp;
 
+            // WU-B: pct_change (obs-level).
+            double pct_change = 0.0;
+            for (int i = 0; i < st.n; i++) {
+                double rel = std::fabs(w[i] - w_prev[i]) / std::max(w_prev[i], 1e-12);
+                if (rel > pct_change) pct_change = rel;
+            }
+
+            // WU-B: alternative metrics.
+            double W_total = sum_weights_ilp(w, st.n);
+            constexpr double kMetricEps = 1e-10;
+            constexpr double kChi2Floor = 1.0;
+            double mean_err_sum = 0.0;
+            double kl_max       = 0.0;
+            double chi2_total   = 0.0;
+            if (W_total > 0.0) {
+                for (int k = 0; k < st.K; k++) {
+                    const int nj = st.cat_counts[k];
+                    std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
+                    for (int i = 0; i < st.n; i++) {
+                        int g = st.group_ids[k][i];
+                        if (g >= 0 && g < nj) bucket[g] += w[i];
+                    }
+                    double max_k = 0.0;
+                    double kl_k  = 0.0;
+                    for (int j = 0; j < nj; j++) {
+                        double S_p = bucket[j] / W_total;
+                        double T   = st.targets[k][j];
+                        double err = std::fabs(S_p - T);
+                        if (err > max_k) max_k = err;
+                        if (T > 0.0) {
+                            kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
+                        }
+                        double obs = bucket[j];
+                        double exp_val = T * W_total;
+                        chi2_total += (obs - exp_val) * (obs - exp_val) / (exp_val + kChi2Floor);
+                    }
+                    mean_err_sum += max_k;
+                    if (kl_k > kl_max) kl_max = kl_k;
+                }
+            }
+            double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
+
+            // Store metrics and update w_prev.
+            res.pct_change = pct_change;
+            res.mean_error = mean_err;
+            res.kl         = kl_max;
+            res.chi2       = chi2_total;
+            for (int i = 0; i < st.n; i++) w_prev[i] = w[i];
+
             // First check: no baseline yet, just record and reset counter.
             // On subsequent checks, require relative improvement of 1% of the
             // current window minimum (floored at tol_abs so a valid convergence
@@ -213,9 +265,49 @@ RakingResult raking_solve(CalibState& st) {
                 st.log(msg);
             }
 
-            if (errRp < st.tol_abs) {
-                res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
-                break;
+            // WU-B: active-criterion dispatch + stop_when ANY/ALL logic.
+            // Legacy errRp < tol_abs always applies as a quality gate; the new
+            // criteria provide alternative stopping rules when tol_abs > 0.
+            // PCT-only convergence (no absolute_tol) requires errRp < tol_abs
+            // to prevent false convergence on stalled infeasible problems.
+            {
+                const auto& cfg = st.convergence_cfg;
+                double active_val = 0.0;
+                if (cfg.absolute_tol > 0.0) {
+                    switch (cfg.criterion) {
+                        case lbw::CalibCriterion::MAX_ERR:  active_val = errRp;      break;
+                        case lbw::CalibCriterion::MEAN_ERR: active_val = mean_err;   break;
+                        case lbw::CalibCriterion::KL:       active_val = kl_max;     break;
+                        case lbw::CalibCriterion::CHI2:     active_val = chi2_total; break;
+                        case lbw::CalibCriterion::PCT:      active_val = pct_change; break;
+                    }
+                }
+                bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
+                // PCT convergence requires errRp < tol_abs to guard against
+                // stalled infeasible problems where pct_change → 0 but errRp stays large.
+                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol)
+                                     && (errRp < st.tol_abs);
+
+                bool have_pct = (cfg.pct_tol > 0.0);
+                bool have_abs = (cfg.absolute_tol > 0.0);
+                bool converged = false;
+                if (have_pct && have_abs) {
+                    converged = (cfg.stop_when == lbw::CalibStopWhen::ALL)
+                                ? (converged_pct && converged_abs)
+                                : (converged_pct || converged_abs);
+                } else if (have_pct) {
+                    converged = converged_pct;
+                } else if (have_abs) {
+                    converged = converged_abs;
+                } else {
+                    // Fallback: legacy tol_abs check.
+                    converged = (errRp < st.tol_abs);
+                }
+
+                if (converged) {
+                    res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    break;
+                }
             }
 
             if (n_no_improve >= kMaxNoImprove) {

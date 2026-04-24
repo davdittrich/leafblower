@@ -214,7 +214,97 @@ static LBFGSResult compute_final_weights_and_error(
         }
     }
     res.max_error = max_err;
-    res.status = (max_err < st.tol_abs) ? RK_OK : RK_ERR_NOCONV;
+
+    // WU-B: compute pct_change (start weights d[i] vs. final st.weights[i]).
+    double pct_change = 0.0;
+    for (int i = 0; i < st.n; i++) {
+        double rel = std::fabs(st.weights[i] - d[i]) / std::max(d[i], 1e-12);
+        if (rel > pct_change) pct_change = rel;
+    }
+
+    // WU-B: alternative metrics from final weights.
+    constexpr double kMetricEps = 1e-10;
+    constexpr double kChi2Floor = 1.0;
+    double mean_err_sum = 0.0;
+    double kl_max       = 0.0;
+    double chi2_total   = 0.0;
+    if (Wn > 0.0) {
+        for (int k = 0; k < st.K; k++) {
+            std::vector<double> S2(st.cat_counts[k], 0.0);
+            for (int i = 0; i < st.n; i++) {
+                int g = st.group_ids[k][i];
+                if (g >= 0) S2[g] += st.weights[i];
+            }
+            double max_k = 0.0;
+            double kl_k  = 0.0;
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                double S_p = S2[j] / Wn;
+                double T   = st.targets[k][j];
+                double err = std::fabs(S_p - T);
+                if (err > max_k) max_k = err;
+                if (T > 0.0) {
+                    kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
+                }
+                double obs = S2[j];
+                double exp_val = T * Wn;
+                chi2_total += (obs - exp_val) * (obs - exp_val) / (exp_val + kChi2Floor);
+            }
+            mean_err_sum += max_k;
+            if (kl_k > kl_max) kl_max = kl_k;
+        }
+    }
+    double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
+
+    res.pct_change = pct_change;
+    res.mean_error = mean_err;
+    res.kl         = kl_max;
+    res.chi2       = chi2_total;
+
+    // WU-B: active-criterion dispatch for status.
+    // For L-BFGS-B, PCT criterion is applied post-hoc: pct_change measures
+    // total shift (start → final), which scales with problem difficulty and is
+    // not suitable as a standalone convergence gate. Require max_err < tol_abs
+    // as a quality floor for PCT-only convergence.
+    {
+        const auto& cfg = st.convergence_cfg;
+        double active_val = 0.0;
+        if (cfg.absolute_tol > 0.0) {
+            switch (cfg.criterion) {
+                case lbw::CalibCriterion::MAX_ERR:  active_val = max_err;    break;
+                case lbw::CalibCriterion::MEAN_ERR: active_val = mean_err;   break;
+                case lbw::CalibCriterion::KL:       active_val = kl_max;     break;
+                case lbw::CalibCriterion::CHI2:     active_val = chi2_total; break;
+                case lbw::CalibCriterion::PCT:      active_val = pct_change; break;
+            }
+        }
+        bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
+        // PCT convergence requires max_err < tol_abs as quality floor.
+        bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol)
+                             && (max_err < st.tol_abs);
+
+        // Legacy quality gate: max_err < tol_abs always suffices for lbfgsb,
+        // because the inner loop already converged on gradient norm and the
+        // final weights are calibration-quality regardless of pct_change
+        // (which measures total start→end shift, not iterative convergence rate).
+        bool legacy_converged = (max_err < st.tol_abs);
+
+        bool have_pct = (cfg.pct_tol > 0.0);
+        bool have_abs = (cfg.absolute_tol > 0.0);
+        bool converged = false;
+        if (have_pct && have_abs) {
+            converged = legacy_converged || ((cfg.stop_when == lbw::CalibStopWhen::ALL)
+                        ? (converged_pct && converged_abs)
+                        : (converged_pct || converged_abs));
+        } else if (have_pct) {
+            // PCT-only: require legacy quality floor (pct_change alone is unreliable for lbfgsb).
+            converged = converged_pct || legacy_converged;
+        } else if (have_abs) {
+            converged = converged_abs || legacy_converged;
+        } else {
+            converged = legacy_converged;
+        }
+        res.status = converged ? RK_OK : RK_ERR_NOCONV;
+    }
     return res;
 }
 

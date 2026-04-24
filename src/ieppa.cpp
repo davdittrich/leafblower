@@ -267,6 +267,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::deque<int> probe_queue(probe_targets.begin(), probe_targets.end());
     std::vector<std::pair<int,double>> probe_samples;
 
+    // WU-B: X_prev tracks X[c] at the last convergence check for pct_change computation.
+    // Initialized from X_init (uniform W[c]=1 at entry, X[c] = X_init[c]).
+    std::vector<double> X_prev(ct.M_cell);
+    for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X_init[c];
+
     // ── Homotopy outer driver ──
     // N=1 (default) degenerates to single level at max_weight — bit-identical to
     // prior flat-loop behaviour (net-zero identity). N>1 progressively tightens
@@ -709,6 +714,61 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
             res.max_error = errRp;
+
+            // WU-B: compute pct_change (max relative shift in cell mass since last check).
+            double pct_change = 0.0;
+            if (W_total > 0.0) {
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double rel = std::fabs(X[c] - X_prev[c]) / std::max(X_prev[c], 1e-12);
+                    if (rel > pct_change) pct_change = rel;
+                }
+            }
+
+            // WU-B: alternative metrics — accumulate per-margin S_k, then compute
+            // mean_err (mean of per-margin max), kl_max (max per-margin KL), chi2.
+            constexpr double kMetricEps = 1e-10;
+            constexpr double kChi2Floor = 1.0;
+            double mean_err_sum = 0.0;
+            double kl_max       = 0.0;
+            double chi2_total   = 0.0;
+            if (W_total > 0.0) {
+                for (int k = 0; k < st.K; k++) {
+                    const int nj = st.cat_counts[k];
+                    std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
+                    const int* gk = ct.g_per_cell[k].data();
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        int j = gk[c];
+                        if (j >= 0 && j < nj) S_lin[j] += X[c];
+                    }
+                    double max_k = 0.0;
+                    double kl_k  = 0.0;
+                    for (int j = 0; j < nj; j++) {
+                        double S_p = S_lin[j] / W_total;
+                        double T   = st.targets[k][j];
+                        double err = std::fabs(S_p - T);
+                        if (err > max_k) max_k = err;
+                        if (T > 0.0) {
+                            kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
+                        }
+                        double obs = S_lin[j];
+                        double exp_val = T * W_total;
+                        chi2_total += (obs - exp_val) * (obs - exp_val) / (exp_val + kChi2Floor);
+                    }
+                    mean_err_sum += max_k;
+                    if (kl_k > kl_max) kl_max = kl_k;
+                }
+            }
+            double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
+
+            // Store metrics in result struct.
+            res.pct_change  = pct_change;
+            res.mean_error  = mean_err;
+            res.kl          = kl_max;
+            res.chi2        = chi2_total;
+
+            // Update X_prev AFTER computing pct_change.
+            for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+
             // Trajectory probe: capture at requested iterations (captured on the
             // nearest check-interval iter >= requested iter, since errRp is only
             // computed at kErrCheckInterval boundaries, iter==1, and last iter).
@@ -752,15 +812,67 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     st.log(msg);
                 }
             }
-            if (errRp < tol_lvl) {
-                // Early exit from this homotopy level. If this is the final level,
-                // set terminal status; else warm-jump to the next (tighter) level.
-                level_converged = true;
-                if (lvl == N_levels - 1) {
-                    res.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+
+            // WU-B: active-criterion dispatch + stop_when ANY/ALL logic.
+            // Replaces the old single-criterion `errRp < tol_lvl` check.
+            // PCT criterion uses pct_change; all others use absolute_tol.
+            // tol_lvl is the homotopy-level-adjusted absolute tolerance; for
+            // intermediate levels it is kHomotopyIntermediateTol (loose), and for
+            // the final level it equals st.tol_abs. The PCT gate always uses
+            // the final pct_tol (not tol_lvl) because pct_change is scale-invariant.
+            {
+                double active_val = 0.0;
+                const auto& cfg = st.convergence_cfg;
+                if (cfg.absolute_tol > 0.0) {
+                    switch (cfg.criterion) {
+                        case lbw::CalibCriterion::MAX_ERR:  active_val = errRp;      break;
+                        case lbw::CalibCriterion::MEAN_ERR: active_val = mean_err;   break;
+                        case lbw::CalibCriterion::KL:       active_val = kl_max;     break;
+                        case lbw::CalibCriterion::CHI2:     active_val = chi2_total; break;
+                        case lbw::CalibCriterion::PCT:      active_val = pct_change; break;
+                    }
                 }
-                res.final_alpha = alpha;
-                break;
+
+                // Legacy tol_lvl: applies to MAX_ERR on all homotopy levels.
+                // For non-MAX_ERR criteria on intermediate levels, use the same
+                // kHomotopyIntermediateTol gate via errRp (conservative: still exit
+                // intermediate levels when errRp is loose enough).
+                bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
+                // PCT convergence requires errRp < tol_lvl to guard against stalled
+                // infeasible problems where pct_change → 0 but errRp remains large.
+                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol)
+                                     && (errRp < tol_lvl);
+                // Intermediate homotopy levels also exit early when errRp < tol_lvl
+                // regardless of criterion (warm-jump semantics; tol_lvl is loose).
+                bool converged_intermediate = (errRp < tol_lvl);
+
+                bool have_pct = (cfg.pct_tol > 0.0);
+                bool have_abs = (cfg.absolute_tol > 0.0);
+                bool converged = false;
+                if (have_pct && have_abs) {
+                    converged = (cfg.stop_when == lbw::CalibStopWhen::ALL)
+                                ? (converged_pct && converged_abs)
+                                : (converged_pct || converged_abs);
+                } else if (have_pct) {
+                    converged = converged_pct;
+                } else if (have_abs) {
+                    converged = converged_abs;
+                }
+                // For intermediate homotopy levels: always allow warm-jump when errRp loose.
+                if (!converged && lvl < N_levels - 1) {
+                    converged = converged_intermediate;
+                }
+
+                if (converged) {
+                    // Early exit from this homotopy level. If this is the final level,
+                    // set terminal status; else warm-jump to the next (tighter) level.
+                    level_converged = true;
+                    if (lvl == N_levels - 1) {
+                        res.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+                    }
+                    res.final_alpha = alpha;
+                    break;
+                }
             }
         }
         res.final_alpha = alpha;
