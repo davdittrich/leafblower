@@ -113,13 +113,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
         log_X_init[c] = (X_init[c] > 0.0) ? std::log(X_init[c]) : -std::numeric_limits<double>::infinity();
     }
 
-    // Per-cell bounds.
+    // Per-cell bounds. U_cell is recomputed per homotopy level below from
+    // current_max_weight; L_cell is min_weight-only and level-invariant.
     std::vector<double> L_cell(ct.M_cell), U_cell(ct.M_cell);
-    double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
     double lo = st.min_weight;
     for (int c = 0; c < ct.M_cell; c++) {
         L_cell[c] = lo * ct.n_per_cell[c];
-        U_cell[c] = hi * ct.n_per_cell[c];
     }
 
     // Log-space Sinkhorn factors per margin-category.
@@ -259,11 +258,63 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> inv_f_old_lin(max_cat, 1.0);
 
     // Trajectory probe state (internal-only; driven by LBW_TRAJECTORY_AT env var).
+    // Probe deque + samples are shared across homotopy levels so iter counts are global.
     const std::vector<int> probe_targets = parse_trajectory_iters();
     std::deque<int> probe_queue(probe_targets.begin(), probe_targets.end());
     std::vector<std::pair<int,double>> probe_samples;
 
-    for (int iter = 1; iter <= st.inner_max_iter; iter++) {
+    // ── Homotopy outer driver ──
+    // N=1 (default) degenerates to single level at max_weight — bit-identical to
+    // prior flat-loop behaviour (net-zero identity). N>1 progressively tightens
+    // max_weight from start_factor*max_weight down to end_factor*max_weight over
+    // N levels with Chizat-inspired budget split (∝ (lvl+1)^p).
+    const int    N_levels = (st.homotopy.enabled && st.homotopy.n_levels > 1)
+                            ? st.homotopy.n_levels : 1;
+    const double k_start  = st.homotopy.start_factor;
+    const double k_end    = st.homotopy.end_factor;
+    const double p_budget = st.homotopy.budget_split_p;
+    double budget_weight_sum = 0.0;
+    for (int lvl = 0; lvl < N_levels; lvl++) {
+        budget_weight_sum += std::pow(lvl + 1.0, p_budget);
+    }
+    const double alm_mu_base = st.alm_mu;
+    int total_iters = 0;
+    bool homotopy_break = false;
+
+    for (int lvl = 0; lvl < N_levels && !homotopy_break; lvl++) {
+        const double frac   = (N_levels == 1) ? 0.0
+            : static_cast<double>(lvl) / static_cast<double>(N_levels - 1);
+        const double factor = (N_levels == 1) ? 1.0
+            : k_start * std::pow(k_end / k_start, frac);
+        const double current_max_weight = st.max_weight * factor;
+        const int budget_lvl = (N_levels == 1) ? st.inner_max_iter
+            : std::max(1, static_cast<int>(std::round(
+                static_cast<double>(st.inner_max_iter) *
+                std::pow(lvl + 1.0, p_budget) / budget_weight_sum)));
+        // Loose intermediate tol until final level (enables warm-jump mid-level exit).
+        const double tol_lvl = (lvl == N_levels - 1) ? st.tol_abs : 1e-5;
+
+        // WU-5 will populate Tang dynamic-eta branch; WU-3 no-op since default FIXED.
+        if (st.eta_schedule.mode == EtaScheduleMode::TANG_DYNAMIC && N_levels > 1) {
+            const double eta_lvl = st.eta_schedule.eta_start *
+                std::pow(st.eta_schedule.eta_end / st.eta_schedule.eta_start, frac);
+            st.alm_mu = eta_lvl * alm_mu_base;
+            res.eta_final = eta_lvl;
+        }
+
+        // Recompute U_cell for this level's current_max_weight.
+        double hi = std::isfinite(current_max_weight) ? current_max_weight : 1e300;
+        for (int c = 0; c < ct.M_cell; c++) {
+            U_cell[c] = hi * ct.n_per_cell[c];
+        }
+
+        res.homotopy_levels_used  = lvl + 1;
+        res.homotopy_final_factor = factor;
+
+        bool level_converged = false;
+
+    for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
+        const int iter = total_iters + iter_in_lvl;
         res.iterations = iter;
         alpha = compute_alpha();
         if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
@@ -353,9 +404,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     X[c] = X_init[c];
                 }
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
-                // structural_infeas_pairs NOT cleared — static bucket topology
+                // structural_infeas_pairs NOT cleared — static bucket topology.
                 // alpha recomputed at top of next iter by compute_alpha().
-                iter = 0;  // outer for-loop increments -> iter=1 next round
+                // Reset iter_in_lvl: for-loop increment makes iter_in_lvl=1 next round
+                // (preserves prior iter=0 semantics; global iter counter may regress
+                // by one level's worth of iters but that matches pre-refactor behaviour).
+                iter_in_lvl = 0;
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 }
@@ -499,7 +553,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
 
         // Convergence check.
-        if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+        if (iter == 1 || iter % kErrCheckInterval == 0 || iter_in_lvl == budget_lvl) {
             double W_total = 0.0;
             for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
             double errRp = 0.0;
@@ -575,14 +629,29 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     st.log(msg);
                 }
             }
-            if (errRp < st.tol_abs) {
-                res.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+            if (errRp < tol_lvl) {
+                // Early exit from this homotopy level. If this is the final level,
+                // set terminal status; else warm-jump to the next (tighter) level.
+                level_converged = true;
+                if (lvl == N_levels - 1) {
+                    res.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+                }
                 res.final_alpha = alpha;
                 break;
             }
         }
         res.final_alpha = alpha;
     }
+        // Log-space overflow: ieppa inner loop sets res.status = RK_ERR_NOCONV
+        // and res.max_error = +inf via `break`. Must not proceed to next level.
+        if (!std::isfinite(res.max_error)) {
+            homotopy_break = true;
+        }
+        total_iters = res.iterations;  // global iter counter; picks up partial level
+        if (level_converged && lvl == N_levels - 1) {
+            homotopy_break = true;
+        }
+    }  // end homotopy level loop
 
     // Expansion to observation weights.
     std::vector<double> mult(ct.M_cell);
