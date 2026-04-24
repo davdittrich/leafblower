@@ -197,7 +197,11 @@ Expected impact: 20–40% wall reduction on kk1204 linear path; marginal on step
 
 **Current** (WU-3): when `infeas_streak[idx] ≥ kInfeasPersistence/2 = 2` for any bucket, `alpha` latches at 0.5 for the remainder of the solve. Hard 0.5 halves convergence rate unconditionally after first stress, even if stress subsides.
 
-**New**: `alpha = 1.0 / (1.0 + beta * stress)` where `stress = max_k,j infeas_streak[cat_offset[k]+j]` over all buckets with `target > 0`, `beta = 0.5`. At `stress=0`, `alpha=1.0` (fast path). At `stress=2`, `alpha=0.5`. At `stress=10`, `alpha=0.17`. Monotone, smooth, unlatched (alpha recovers as streaks reset).
+**New**: `alpha = 1.0 / (1.0 + beta * stress)` where `stress = min(max_k,j infeas_streak[cat_offset[k]+j], kInfeasPersistence)` over buckets with `target > 0`, `beta = 0.5`. At `stress=0`, `alpha=1.0` (fast path). At `stress=2`, `alpha=0.5`. At `stress=5` (cap), `alpha ≈ 0.286`. Monotone, smooth, unlatched (alpha recovers as streaks reset).
+
+**Stress cap rationale (P2.1 landing empirical finding, commit a3a5f77):** without the `min(..., kInfeasPersistence)` cap, stepstone drove stress to 490+ (one slow-settling bucket with 490-iter transient streak). Uncapped formula gave α ≈ 0.004, stalling the solver and regressing errRp from 2.21e-3 → 2.28e-3. With cap, stepstone improves to 2.14e-3. The cap reflects the design invariant that `kInfeasPersistence` is the boundary between "transient recoverable" and "de-facto stuck"; damping stronger than α=0.29 doesn't un-stick a stuck bucket (it only slows the rest of the solver).
+
+An equivalent principled formulation would exclude `infeas_streak[idx] >= kInfeasPersistence` buckets from the stress max (declaring them structural for damping purposes while keeping them outside `structural_infeas_pairs` for the INFEAS status gate). Both formulations produce α ≥ 0.286 in practice; the `min()` cap is simpler.
 
 Fast-path preserved: `if (stress == 0) { ... naive update ... }` branch avoids per-sweep recomputation of alpha.
 
