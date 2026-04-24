@@ -199,8 +199,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_STRING_ELT(res_names, 5, Rf_mkChar("n_xcur_writes_per_iter_linear"));
     SET_STRING_ELT(res_names, 6, Rf_mkChar("min_alpha_seen"));
     SET_STRING_ELT(res_names, 7, Rf_mkChar("final_alpha"));
-    SET_STRING_ELT(res_names, 8, Rf_mkChar("n_anderson_iters_engaged"));
-    SET_STRING_ELT(res_names, 9, Rf_mkChar("n_anderson_nan_fallbacks"));
+    SET_STRING_ELT(res_names, 8, Rf_mkChar("n_halpern_iters"));
+    SET_STRING_ELT(res_names, 9, Rf_mkChar("n_halpern_noop"));
     SET_VECTOR_ELT(res_list, 0, Rf_ScalarInteger(result.status));
     SET_VECTOR_ELT(res_list, 1, Rf_ScalarInteger(result.iterations));
     SET_VECTOR_ELT(res_list, 2, Rf_ScalarReal(result.max_error));
@@ -209,8 +209,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(result.n_xcur_writes_per_iter_linear));
     SET_VECTOR_ELT(res_list, 6, Rf_ScalarReal(result.min_alpha_seen));
     SET_VECTOR_ELT(res_list, 7, Rf_ScalarReal(result.final_alpha));
-    SET_VECTOR_ELT(res_list, 8, Rf_ScalarInteger(result.n_anderson_iters_engaged));
-    SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(result.n_anderson_nan_fallbacks));
+    SET_VECTOR_ELT(res_list, 8, Rf_ScalarInteger(result.n_halpern_iters));
+    SET_VECTOR_ELT(res_list, 9, Rf_ScalarInteger(result.n_halpern_noop));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

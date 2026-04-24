@@ -217,8 +217,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
             result->min_alpha_seen = res.min_alpha_seen;
             result->final_alpha    = res.final_alpha;
-            result->n_anderson_iters_engaged  = res.n_anderson_iters_engaged;
-            result->n_anderson_nan_fallbacks  = res.n_anderson_nan_fallbacks;
+            result->n_halpern_iters  = res.n_halpern_iters;
+            result->n_halpern_noop   = res.n_halpern_noop;
         }
     }
 

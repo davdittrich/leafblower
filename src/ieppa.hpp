@@ -13,8 +13,8 @@ struct IEPPAResult {
     int n_xcur_writes_per_iter_linear;  // 0 outside linear path; counter for P1.1 RED test
     double min_alpha_seen;   // min alpha over all sweeps; 1.0 if damping never engaged
     double final_alpha;      // alpha at solver exit (after last sweep)
-    int n_anderson_iters_engaged;   // iters where Anderson actually fired (not warmup, not skip)
-    int n_anderson_nan_fallbacks;   // iters Anderson skipped due to INFO/isfinite/γ-norm guard
+    int n_halpern_iters;   // iters where Halpern mixing fired (post-anchor)
+    int n_halpern_noop;   // reserved; always 0 (Halpern has no numerical blowup path)
 };
 
 // Faithful iEPPA (paper-faithful algBCD at C=0). See
