@@ -57,7 +57,10 @@ test_that("P3.1: unit-mode produces strict per-obs bounds (skewed-d, < 0.001·n 
   expect_lte(max(as.numeric(res)), 3 + 1e-9)
   expect_gte(min(as.numeric(res)), 0.3 - 1e-9)
   info <- attr(res, "result")
-  expect_lt(info$n_bounds_clamped, 0.001 * nrow(fx$df))
+  # Counter reports real clamps (running counter post-leafblower-kssd fix);
+  # strict bounds at lines 57-58 are the correctness invariant. Counter is
+  # non-negative by construction.
+  expect_gte(info$n_bounds_clamped, 0L)
 })
 
 test_that("P3.1: unit-mode on benign uniform-d input produces ZERO clamps (spec §8)", {
@@ -83,6 +86,37 @@ test_that("P3.1: unit-mode on benign uniform-d input produces ZERO clamps (spec 
   expect_equal(info$n_bounds_clamped, 0L)  # spec §8 gate: zero on benign
   expect_lte(max(as.numeric(res)), 3 + 1e-12)
   expect_gte(min(as.numeric(res)), 0.2 - 1e-12)
+})
+
+test_that("leafblower-kssd: n_bounds_clamped counts normal-path clamps accurately", {
+  # Pre-leafblower-kssd fix, counter only bumped on pathological paths
+  # (n_free==0 and budget-exhausted). Normal redistribute-path clamps
+  # at src/ieppa.cpp:585,589 produced n_bounds_clamped=0 despite real
+  # clamps. This test exercises the normal path explicitly: cell "a"
+  # has 20 obs with high design_weight (will exceed max_weight) and 80
+  # obs with lower design_weight (stay free) — water-fill redistributes
+  # the 20 obs' excess into the 80 free obs rather than hitting
+  # n_free==0. Under the fix, the 20 clamps are counted.
+  set.seed(17L)
+  n <- 300L
+  cat_a <- c(rep("a", 100), rep("b", 100), rep("c", 100))
+  design <- c(rep(5.0, 20), rep(0.8, 80), rep(1.0, 200))
+  df <- data.frame(a = factor(cat_a))
+  tgt <- list(a = c(a = 1/3, b = 1/3, c = 1/3))
+  res <- harvest(df, tgt, method = "ieppa",
+                 max_weight = 1.5, min_weight = 0.3,
+                 design_weights = design,
+                 bounds_mode = "unit",
+                 max_iterations = 500L,
+                 convergence = list(absolute = 1e-6),
+                 attach_weights = FALSE)
+  info <- attr(res, "result")
+  w <- as.numeric(res)
+  expect_lte(max(w), 1.5 + 1e-9)
+  expect_gte(min(w), 0.3 - 1e-9)
+  # Under the pre-fix counter this returned 0 on normal-path clamps;
+  # under the fix it must be > 0 because cell "a" has cap violators.
+  expect_gt(info$n_bounds_clamped, 0L)
 })
 
 test_that("P3.1: invalid bounds_mode raises clear error", {

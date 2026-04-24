@@ -178,7 +178,8 @@ def harvest(
             UserWarning, stacklevel=2)
     if result_dict.get("n_bounds_clamped", 0) > 0:
         warnings.warn(
-            f"unit-mode bounds: {result_dict['n_bounds_clamped']} weights clamped after water-fill exhausted.",
+            f"unit-mode bounds: {result_dict['n_bounds_clamped']} weights clamped "
+            f"to [{min_weight:.3f}, {max_weight:.3f}] during per-cell water-filling.",
             UserWarning, stacklevel=2)
     if result_dict["status"] == 2:
         raise RuntimeError(

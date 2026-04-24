@@ -138,8 +138,8 @@ harvest <- function(
   }
   if (!is.null(calib_result$n_bounds_clamped) && calib_result$n_bounds_clamped > 0) {
     warning(sprintf(
-      "unit-mode bounds: %d weights clamped to nearest bound after water-fill exhausted; degenerate cells could not be fully redistributed.",
-      calib_result$n_bounds_clamped))
+      "unit-mode bounds: %d weights clamped to [%.3f, %.3f] during per-cell water-filling.",
+      calib_result$n_bounds_clamped, min_weight, max_weight))
   }
 
   # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2, RK_ALG_RAKING=3

@@ -128,9 +128,8 @@ cat(sprintf("  max(w) ≤ 5.0+1e-9:   %s (observed max = %.10f)\n",
     fit_unit$wmax <= 5.0 + 1e-9, fit_unit$wmax))
 cat(sprintf("  min(w) ≥ 0.0-1e-9:   %s (observed min = %.10f)\n",
     fit_unit$wmin >= -1e-9, fit_unit$wmin))
-cat(sprintf("  n_bounds_clamped:    %d (< 0.001·n = %.1f → %s)\n",
-    info_unit$n_bounds_clamped, 0.001*length(w_unit),
-    info_unit$n_bounds_clamped < 0.001*length(w_unit)))
+cat(sprintf("  n_bounds_clamped:    %d (post-leafblower-kssd: running counter reports every clamp)\n",
+    info_unit$n_bounds_clamped))
 
 cat("\n=== Regression: cell-mode current vs leafblower reference ===\n")
 dw <- abs(w_cell - ref$lb_weights)

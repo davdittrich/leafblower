@@ -579,15 +579,24 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 double free_sum = 0.0;
                 int    n_free = 0;
                 bool   any_violation = false;
+                // Running counter: increment total_clamped at each normal-path
+                // clamp (strict > max / < min). Pinned weights stay at bound
+                // exactly, so the next-iter scan (strict-inequality here) and
+                // the redistribute guard (strict < max && > min at "free"
+                // branch below) both exclude them — no double count.
+                // Pathological re-clamps (n_free==0, budget exhausted) are
+                // redundant with these increments and do not re-count.
                 for (int i : idxs) {
                     if (st.weights[i] > st.max_weight) {
                         excess += st.weights[i] - st.max_weight;
                         st.weights[i] = st.max_weight;
                         any_violation = true;
+                        total_clamped++;
                     } else if (st.weights[i] < st.min_weight) {
                         excess -= st.min_weight - st.weights[i];
                         st.weights[i] = st.min_weight;
                         any_violation = true;
+                        total_clamped++;
                     } else {
                         free_sum += st.weights[i];
                         n_free++;
@@ -595,10 +604,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 if (!any_violation) break;
                 if (n_free == 0 || free_sum <= 0.0) {
-                    // Pathological: no room to redistribute. Last-resort clamp survives.
+                    // Pathological: no room to redistribute. Clamp already
+                    // performed (and counted) above; re-clamp is a safety net
+                    // for FP drift but does not re-count.
                     for (int i : idxs) {
-                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; total_clamped++; }
-                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; total_clamped++; }
+                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; }
+                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; }
                     }
                     break;
                 }
@@ -610,10 +621,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     }
                 }
                 if (it == kWaterFillMaxIter - 1) {
-                    // Inner budget exhausted with violations remaining — final clamp.
+                    // Budget exhausted. Re-clamp any remaining drift; already
+                    // counted above when originally pinned.
                     for (int i : idxs) {
-                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; total_clamped++; }
-                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; total_clamped++; }
+                        if (st.weights[i] > st.max_weight) { st.weights[i] = st.max_weight; }
+                        else if (st.weights[i] < st.min_weight) { st.weights[i] = st.min_weight; }
                     }
                 }
             }
