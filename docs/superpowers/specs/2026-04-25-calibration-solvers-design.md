@@ -63,7 +63,7 @@ where D is diagonal on cell masses. For stepstone: N is 836×836. Computing N co
 
 **Guard (SEC-H1):** `compute_normal_equations` must check `n_cats_total` before allocating:
 ```cpp
-constexpr int kNCatsTotalMax = 8192;  // N matrix 8192×8192 = 512MB — hard cap
+constexpr int kNCatsTotalMax = 2048;  // N matrix 2048×2048 = 32MB, LDLT O(2048³/3)≈2.9B ops ≈100ms — practical cap
 if (n_cats_total > kNCatsTotalMax)
     return RK_ERR_BADARG;  // "n_cats_total exceeds limit; use method='ieppa' or 'raking'"
 ```
@@ -262,7 +262,15 @@ Matches survey::grake's convergence criterion exactly at the fixed point.
 
 **Algorithm:** unchanged cyclic IPF multiplies cell masses. Same as current obs-level raking but indexed by cell.
 
-**Per-obs sub-weights (non-uniform d_i):** Within a cell, d_i vary. Cell multiplier M[c] is computed at cell level; obs weights recovered at exit as `w_i = d_i × M[c]`. The final marginal sums match exactly (Σ_{i∈bucket(k,j)} w_i = T_kj × n at the cell-level fixed point). However: **per-obs weight bounds** [min_weight, max_weight] are guaranteed at the cell level (`L_c ≤ X[c] ≤ U_c`), not at the individual obs level. For uniform d_i within a cell (homogeneous design weights), per-obs bounds hold exactly. For non-uniform d_i, the cell multiplier M[c] satisfies `min_weight ≤ d_i × M[c] ≤ max_weight` only in expectation over the cell; individual obs may slightly violate per-obs bounds. This is documented in A5 and A6.
+**Per-obs sub-weights (non-uniform d_i):** Within a cell, d_i vary. Cell multiplier M[c] is computed at cell level; obs weights recovered at exit as `w_i = d_i × M[c]`. The final marginal sums match exactly (Σ_{i∈bucket(k,j)} w_i = T_kj × n at the cell-level fixed point).
+
+**Per-obs hard bounds (addressing Goal 7):** After the `w_i = d_i × M[c]` expansion, a per-obs clamp is applied:
+```
+w_i = clamp(d_i × M[c], min_weight, max_weight)
+```
+This guarantees `min_weight ≤ w_i ≤ max_weight` for all i, satisfying Goal 7 strictly.
+
+**Trade-off:** For non-uniform d_i, the post-exit clamp may slightly distort margins (cells where some obs were clamped will have S_kj slightly off from T_kj × n). This is the same trade-off as obs-level raking's Dykstra which also clamps post-hoc. The residual marginal error from clamping is bounded by the within-cell d_i variance × |M[c] - clamp|, which is small when the calibration is near convergence. This is reported in `max_error` at exit.
 
 **Cell-level IPF iteration:**
 ```
@@ -339,7 +347,7 @@ Rationale: iEPPA is a Sinkhorn-type algorithm — it minimizes KL divergence fro
 
 **A6 (hard bounds):**
 - sinkhorn, chebyshev, greg, grake: per-cell AND per-obs bounds hold: `all(w >= min_weight - 1e-12) && all(w <= max_weight + 1e-12)`.
-- raking cell-table: per-cell bounds hold exactly; per-obs bounds hold exactly for homogeneous d_i, approximately for non-uniform (documented tolerance = within-cell d_i variance × M[c]).
+- raking cell-table: per-obs bounds hold exactly via post-exit obs-level clamp `w_i = clamp(d_i × M[c], min_weight, max_weight)`. Small marginal distortion from clamped cells is reported in `max_error`.
 
 **A7 (best_iter == last_iter — monotone methods only):**
 - sinkhorn: `result$convergence_used$fired_at_iter == result$iterations` (monotone KL, no overshoot by proof).
@@ -356,6 +364,7 @@ Rationale: iEPPA is a Sinkhorn-type algorithm — it minimizes KL divergence fro
 All new methods return `RK_ERR_INFEAS` (existing code = 2) when the problem has no feasible solution. Pre-entry checks are in `calib_validate_preentry(const CalibState& st, const CellTable& ct)` declared in `src/calib_validate.hpp`, implemented in `src/calib_validate.cpp`, called from `c_api.cpp:rk_calibrate()` BEFORE method dispatch:
 
 1. `L_c ≤ U_c` ∀c — if violated: `RK_ERR_BADARG` with cell index.
+1b. `X_init[c] > 0 || L_c == 0` ∀c — if X_init[c]=0 AND L_c>0: `RK_ERR_INFEAS` ("cell c has zero initial mass but positive lower bound; multiplicative solvers cannot move zero cells"). This is a pre-existing iEPPA check (structural_infeas_pairs) extended to all new methods.
 2. `Σ_c L_c ≤ n ≤ Σ_c U_c` — total mass feasibility; if violated: `RK_ERR_INFEAS` with message "total capacity incompatible with target mass n".
 3. `|Σ_j T_kj − 1| ≤ 1e-6` ∀k — targets normalized; if not: normalize + emit `warning()`.
 4. `n_cats_total ≤ kNCatsTotalMax` — memory guard; if violated: `RK_ERR_BADARG`.
