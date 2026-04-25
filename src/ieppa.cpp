@@ -277,10 +277,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Initialized to +∞ so first check never triggers convergence.
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
-    // WU-E: best-iterate tracking (cell-level W snapshot at min observed errRp).
-    // Tracks errRp regardless of the active convergence criterion.
-    // W_best is initialized to all-zeros; best_errRp = ∞ ensures first check triggers copy.
-    double best_errRp_seen = std::numeric_limits<double>::infinity();
+    // WU-E: best-iterate tracking (cell-level W snapshot at min observed active metric).
+    // Tracks the active convergence metric so best_weights minimizes the user's chosen objective.
+    // W_best is initialized to all-zeros; best_metric_seen = ∞ ensures first check triggers copy.
+    double best_metric_seen = std::numeric_limits<double>::infinity();
     int    best_iter_val   = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
 
@@ -801,14 +801,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
             res.max_error = errRp;
 
-            // WU-E: update best-iterate snapshot. Use X[c]/X_init[c] (cumulative
-            // multiplier from initial state) not W[c] (per-level factor only).
-            // W[c] resets at each homotopy level; X[c]/X_init[c] does not.
-            if (errRp < best_errRp_seen) {
-                best_errRp_seen = errRp;
-                best_iter_val   = iter;
-                for (int c = 0; c < ct.M_cell; c++) {
-                    W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+            // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
+            // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
+            if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
+                if (errRp < best_metric_seen) {
+                    best_metric_seen = errRp;
+                    best_iter_val    = iter;
+                    for (int c = 0; c < ct.M_cell; c++)
+                        W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
                 }
             }
 
@@ -955,6 +955,21 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     mean_err_sum += max_k;
                     if (kl_k > kl_max) kl_max = kl_k;
                 }
+                // WU-E / g4oj: BLOCK 2 — best-iterate for non-MAX_ERR metrics.
+                // All metric values (mean_err_sum, kl_max, chi2_total) are valid here.
+                if (st.convergence_cfg.metric != lbw::CalibMetric::MAX_ERR) {
+                    const double mean_err_blk2 = (st.K > 0)
+                        ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
+                    const double curr_best = lbw::select_metric(
+                        st.convergence_cfg.metric,
+                        errRp, mean_err_blk2, kl_max, chi2_total, grake_norm, l1_weight);
+                    if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
+                        best_metric_seen = curr_best;
+                        best_iter_val    = iter;
+                        for (int c = 0; c < ct.M_cell; c++)
+                            W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                    }
+                }
             }
             double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
 
@@ -1100,10 +1115,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.
     // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.
     // NO water-fill, NO bounds-clamping — this is a mid-loop snapshot.
-    // If best_errRp_seen == ∞ (solver exited before first check), best_weights is all zeros.
-    res.best_error = best_errRp_seen;
+    // If best_metric_seen == ∞ (solver exited before first check), best_weights is all zeros.
+    res.best_error = best_metric_seen;
     res.best_iter  = best_iter_val;
-    if (std::isfinite(best_errRp_seen)) {
+    if (std::isfinite(best_metric_seen)) {
         std::vector<double> best_weights_obs(st.n);
         for (int i = 0; i < st.n; i++) {
             best_weights_obs[i] = st.weights[i] * W_best[ct.cell_of[i]];
