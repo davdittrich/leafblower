@@ -274,3 +274,74 @@ test_that("A4: explicit improvement rule with absolute tol fires on raking", {
   expect_equal(result$convergence_used$metric, "max_err",
                info = "default metric must be max_err")
 })
+
+test_that("A4-metrics: all 6 metrics present and non-zero in calib_result", {
+  set.seed(42)
+  n <- 1000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE))
+  )
+  target <- list(a = c("1"=0.4,"2"=0.4,"3"=0.2), b = c("1"=0.6,"2"=0.4))
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+                           max_iterations = 100, attach_weights = FALSE)
+  result <- attr(w, "result")
+  for (nm in c("max_error","mean_error","kl","chi2","grake_norm","l1_weight_change"))
+    expect_true(nm %in% names(result), info = sprintf("metric '%s' missing", nm))
+  expect_false("pct_change" %in% names(result), info = "pct_change must be renamed")
+  expect_gt(result$grake_norm, 0, label = "grake_norm must be > 0 on non-trivial data")
+  expect_gt(result$l1_weight_change, 0, label = "l1_weight_change must be > 0 after calibration")
+})
+
+test_that("A4b: plateau rule rejects tol >= 1", {
+  expect_error(
+    leafblower::harvest(
+      data.frame(a = factor(c("1","2"))),
+      list(a = c("1"=0.5,"2"=0.5)),
+      max_weight = 3, method = "ieppa",
+      convergence = list(rule = "plateau", tol = 1.5),
+      attach_weights = FALSE
+    ),
+    regexp = "must be in"
+  )
+})
+
+test_that("A5: list(absolute=1e-6) sets convergence_used rule=threshold metric=max_err", {
+  set.seed(44)
+  n <- 2000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE))
+  )
+  target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+                           max_iterations = 500,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_equal(result$status, 0L)
+  expect_lt(result$max_error, 1e-6)
+  expect_equal(result$convergence_used$rule, "threshold",
+               info = "list(absolute=) must map to rule=threshold")
+  expect_equal(result$convergence_used$metric, "max_err",
+               info = "list(absolute=) must map to metric=max_err")
+})
+
+test_that("A6: grake_norm+threshold converges on raking (skip if no survey pkg)", {
+  skip_if_not_installed("survey")
+  set.seed(99)
+  n <- 1000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE))
+  )
+  target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
+  w_lb <- leafblower::harvest(data, target, max_weight = 10, method = "raking",
+                              max_iterations = 200,
+                              convergence = list(metric = "grake_norm",
+                                                 rule = "threshold", tol = 1e-7),
+                              attach_weights = FALSE)
+  result <- attr(w_lb, "result")
+  expect_equal(result$status, 0L, info = "grake_norm criterion must converge")
+  expect_lt(result$grake_norm, 1e-7)
+})

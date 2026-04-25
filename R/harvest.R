@@ -386,7 +386,10 @@ parse_convergence <- function(convergence) {
 
   # pct is autumn/anesrake compatible: stops when Σ|Δw| STOPS IMPROVING (plateau).
   # Default its rule to "plateau" when pct is specified without an explicit rule.
-  rule_default <- if (explicit_pct && is.null(convergence[["rule"]])) "plateau" else "improvement"
+  # absolute= with no explicit rule maps to "threshold" (hard stopping criterion).
+  rule_default <- if (explicit_pct && is.null(convergence[["rule"]])) "plateau"
+                  else if (explicit_abs && !explicit_pct && is.null(convergence[["rule"]])) "threshold"
+                  else "improvement"
   rule_raw     <- convergence[["rule"]] %||% rule_default
   rule         <- match.arg(rule_raw, c("threshold", "improvement", "plateau"))
 
