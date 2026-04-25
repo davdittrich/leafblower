@@ -87,7 +87,12 @@ harvest(
   \strong{Note for \code{method = "lbfgsb"}:} \code{pct_change} in the
   result measures the start-to-final weight shift (batch solver, single
   pass), not iteration-to-iteration shift as in iEPPA and raking. A
-  \code{pct} threshold tuned for iEPPA will behave differently with lbfgsb.}
+  \code{pct} threshold tuned for iEPPA will behave differently with lbfgsb.
+
+  \strong{chi2 cross-solver note:} chi2 is not directly comparable
+  across methods. iEPPA uses unnormalized cell mass as \code{W_total};
+  raking and lbfgsb use \code{n}. Use chi2 as a convergence criterion
+  within one method; do not compare values across methods.}
 
 \item{sor}{Named list for SOR adaptive under-relaxation (iEPPA only).
 \code{NULL} disables SOR. Keys:
