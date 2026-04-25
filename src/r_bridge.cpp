@@ -1,4 +1,5 @@
 #include "leafblower.h"
+#include "validation.hpp"
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
@@ -226,33 +227,25 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     else if (strcmp(method_str, "raking") == 0) p.algorithm = RK_ALG_RAKING;
     else                                          p.algorithm = RK_ALG_IEPPA;
 
-    // Validation: replicate critical validate_inputs() checks that the C ABI enforced.
-    // These guards produce the same error messages as c_api.cpp:validate_inputs().
-    if (K > 64)
-        Rf_error("leafblower: invalid arguments — K exceeds maximum (64); too many margin columns");
-    for (int k = 0; k < K; k++) {
-        if (cat_counts[k] <= 0)
-            Rf_error("leafblower: invalid arguments — cat_counts[k] must be > 0 for all k");
+    // Full input validation — shared with c_api.cpp path via validation.hpp.
+    {
+        rk_result_t validation_result;
+        rk_result_init(&validation_result);
+        rk_algorithm_t alg_for_validation =
+            (strcmp(method_str, "ieppa")  == 0) ? RK_ALG_IEPPA :
+            (strcmp(method_str, "lbfgsb") == 0) ? RK_ALG_LBFGSB :
+                                                   RK_ALG_RAKING;
+        int vrc = lbw::validate_calibrate_inputs(
+            n, K,
+            weights.data(),
+            const_cast<const int32_t**>(group_ids.data()),
+            cat_counts.data(),
+            const_cast<const double**>(targets.data()),
+            &p, &validation_result, alg_for_validation);
+        if (vrc != RK_OK)
+            Rf_error("leafblower: invalid arguments \342\200\224 %s",
+                     validation_result.message);
     }
-    if (p.min_weight >= p.max_weight)
-        Rf_error("leafblower: invalid arguments — min_weight must be strictly less than max_weight");
-    // Logit singularity guard — only applies to L-BFGS-B.
-    if (strcmp(method_str, "lbfgsb") == 0) {
-        const double kSingularityEps = 1e-6;
-        if (std::fabs(p.min_weight - 1.0) < kSingularityEps)
-            Rf_error("leafblower: invalid arguments — logit link undefined: min_weight near 1 makes denominator (1-L)~0");
-        if (std::fabs(p.max_weight - 1.0) < kSingularityEps)
-            Rf_error("leafblower: invalid arguments — logit link undefined: max_weight near 1 makes denominator (U-1)~0");
-    }
-
-    /* Criterion and stop_when must be in valid enum range.
-       R callers are guarded by match.arg; direct C/Python callers are not. */
-    if (p.criterion < 0 || p.criterion > 4)
-        Rf_error("leafblower: invalid arguments \342\200\224 criterion out of range [0,4]"
-                 " (0=PCT 1=MAX_ERR 2=MEAN_ERR 3=KL 4=CHI2)");
-    if (p.stop_when < 0 || p.stop_when > 1)
-        Rf_error("leafblower: invalid arguments \342\200\224 stop_when out of range [0,1]"
-                 " (0=ANY 1=ALL)");
 
     // WU-E: call C++ solvers directly (bypasses flat C ABI) to access best_weights vector.
     // Build CalibState mirroring c_api.cpp:rk_calibrate() setup.
