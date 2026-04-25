@@ -179,3 +179,54 @@ test_that("hawe: iEPPA warns on PCT stall with large max_error", {
     regexp = "PCT convergence stall"
   )
 })
+
+test_that("A1: default convergence (pct/l1_weight+improvement) converges smooth synthetic", {
+  set.seed(42)
+  n <- 2000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE)),
+    c = factor(sample(c("1","2","3","4"), n, replace = TRUE))
+  )
+  target <- list(
+    a = c("1"=1/3, "2"=1/3, "3"=1/3),
+    b = c("1"=0.5, "2"=0.5),
+    c = c("1"=0.25, "2"=0.25, "3"=0.25, "4"=0.25)
+  )
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+                           max_iterations = 500, attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_equal(result$status, 0L, info = "must converge")
+  expect_lt(result$max_error, 1e-3)
+  # default: rule=IMPROVEMENT (1), metric=pct/l1_weight (5)
+  expect_equal(result$convergence_rule, 1L,
+               info = "default rule must be IMPROVEMENT (1)")
+  expect_equal(result$convergence_metric, 5L,
+               info = "default metric must be pct/l1_weight (5)")
+})
+
+test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {
+  set.seed(31415)
+  n <- 2000
+  data <- data.frame(
+    v1 = factor(sample(c("A","B","C","D"), n, replace = TRUE)),
+    v2 = factor(sample(c("X","Y","Z"), n, replace = TRUE)),
+    v3 = factor(sample(c("1","2","3","4","5"), n, replace = TRUE)),
+    v4 = factor(sample(c("p","q"), n, replace = TRUE)),
+    v5 = factor(sample(c("a","b","c","d","e","f"), n, replace = TRUE))
+  )
+  target <- list(
+    v1 = c(A=0.1, B=0.4, C=0.4, D=0.1),
+    v2 = c(X=0.5, Y=0.3, Z=0.2),
+    v3 = c("1"=0.1,"2"=0.1,"3"=0.4,"4"=0.3,"5"=0.1),
+    v4 = c(p=0.7, q=0.3),
+    v5 = c(a=0.05,b=0.05,c=0.5,d=0.2,e=0.15,f=0.05)
+  )
+  w <- leafblower::harvest(data, target, max_weight = 2, method = "ieppa",
+                           max_iterations = 500, attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_lte(result$best_error, result$max_error)
+  if (result$status == 1L) {
+    expect_lt(result$best_error, 0.9 * result$max_error)
+  }
+})

@@ -272,6 +272,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> X_prev(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X_init[c];
 
+    // WU-C: improvement/plateau rule — track active metric across kErrCheckInterval checks.
+    // Initialized to +∞ so first check never triggers convergence.
+    double prev_metric_for_rule = std::numeric_limits<double>::infinity();
+
     // WU-E: best-iterate tracking (cell-level W snapshot at min observed errRp).
     // Tracks errRp regardless of the active convergence criterion.
     // W_best is initialized to all-zeros; best_errRp = ∞ ensures first check triggers copy.
@@ -363,6 +367,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // pct_change measures iteration-to-iteration shift within a level, not
         // cross-level drift from the previous level's final X.
         for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+        // WU-C: reset improvement/plateau baseline at each homotopy level.
+        prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
     for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
@@ -850,6 +856,29 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
+            // WU-C: l1_weight = Σ|ΔX| / W_input (normalized absolute shift in cell mass).
+            double l1_weight = 0.0;
+            for (int c = 0; c < ct.M_cell; c++)
+                l1_weight += std::fabs(X[c] - X_prev[c]);
+            if (ct.W_input > 0.0) l1_weight /= ct.W_input;
+
+            // WU-C: grake_norm = max_kj |S_kj/W_total - τ_kj| / (1 + |τ_kj|).
+            // Uses cells_by_margin_cat (valid for both linear and log paths).
+            double grake_norm = 0.0;
+            if (W_total > 0.0) {
+                for (int k = 0; k < st.K; k++) {
+                    const int nj = st.cat_counts[k];
+                    for (int j = 0; j < nj; j++) {
+                        const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
+                        double S_kj = 0.0;
+                        for (int c : cells) S_kj += X[c];
+                        double pop_kj = st.targets[k][j] * W_total;
+                        double nm = std::fabs(S_kj - pop_kj) / (1.0 + std::fabs(pop_kj));
+                        if (nm > grake_norm) grake_norm = nm;
+                    }
+                }
+            }
+
             // WU-B: alternative metrics — accumulate per-margin S_k, then compute
             // mean_err (mean of per-margin max), kl_max (max per-margin KL), chi2.
             //
@@ -906,7 +935,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
             // Store metrics in result struct (unconditional — intermediate checks
             // store 0 for gated metrics; final iter always populates all fields).
-            res.l1_weight_change = pct_change;  // WU-B: rename; pct_change local var preserved until WU-B updates computation
+            res.l1_weight_change = l1_weight;    // WU-C: real Σ|ΔX|/W_input (replaces pct_change stub)
+            res.grake_norm       = grake_norm;   // WU-C: max_kj normalized margin residual
             res.mean_error       = mean_err;
             res.kl               = kl_max;
             res.chi2             = chi2_total;
@@ -958,53 +988,71 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
-            // WU-B: active-criterion dispatch + stop_when ANY/ALL logic.
-            // Replaces the old single-criterion `errRp < tol_lvl` check.
-            // PCT criterion uses pct_change; all others use absolute_tol.
-            // tol_lvl is the homotopy-level-adjusted absolute tolerance; for
-            // intermediate levels it is kHomotopyIntermediateTol (loose), and for
-            // the final level it equals st.tol_abs. The PCT gate always uses
-            // the final pct_tol (not tol_lvl) because pct_change is scale-invariant.
+            // WU-C: metric + rule dispatch.
+            // Select the active metric value, apply the stopping rule, then combine
+            // with the optional secondary absolute threshold via stop_when semantics.
+            // Intermediate homotopy levels additionally allow warm-jump when errRp < tol_lvl.
             {
-                double active_val = 0.0;
                 const auto& cfg = st.convergence_cfg;
-                if (cfg.absolute_tol > 0.0) {
-                    switch (cfg.metric) {
-                        case lbw::CalibMetric::MAX_ERR:    active_val = errRp;      break;
-                        case lbw::CalibMetric::MEAN_ERR:   active_val = mean_err;   break;
-                        case lbw::CalibMetric::KL:         active_val = kl_max;     break;
-                        case lbw::CalibMetric::CHI2:       active_val = chi2_total; break;
-                        case lbw::CalibMetric::L1_WEIGHT:  active_val = pct_change; break;
-                        case lbw::CalibMetric::GRAKE_NORM: active_val = 0.0; break;  // WU-D stub
+
+                // Step 1: select active metric value.
+                double curr_metric = 0.0;
+                switch (cfg.metric) {
+                    case lbw::CalibMetric::MAX_ERR:    curr_metric = errRp;       break;
+                    case lbw::CalibMetric::MEAN_ERR:   curr_metric = mean_err;    break;
+                    case lbw::CalibMetric::KL:         curr_metric = kl_max;      break;
+                    case lbw::CalibMetric::CHI2:       curr_metric = chi2_total;  break;
+                    case lbw::CalibMetric::GRAKE_NORM: curr_metric = grake_norm;  break;
+                    case lbw::CalibMetric::L1_WEIGHT:  curr_metric = l1_weight;   break;
+                }
+
+                // Step 2: apply stopping rule using pct_tol as the tolerance.
+                bool converged_primary = false;
+                if (std::isfinite(curr_metric)) {
+                    switch (cfg.rule) {
+                        case lbw::CalibRule::THRESHOLD:
+                            converged_primary = (cfg.pct_tol > 0.0) &&
+                                                (curr_metric < cfg.pct_tol);
+                            break;
+                        case lbw::CalibRule::IMPROVEMENT: {
+                            // When both curr and prev are near-zero, the metric
+                            // is already essentially converged (no further improvement
+                            // possible at this precision). Treat rel = 0 in that case.
+                            double rel = 1.0;
+                            if (curr_metric <= 1e-15) {
+                                rel = 0.0;  // metric at machine zero — trivially converged
+                            } else if (std::isfinite(prev_metric_for_rule) &&
+                                       prev_metric_for_rule > 1e-15) {
+                                rel = std::fabs(curr_metric - prev_metric_for_rule) /
+                                      prev_metric_for_rule;
+                            }
+                            converged_primary = (cfg.pct_tol > 0.0) && (rel < cfg.pct_tol);
+                            break;
+                        }
+                        case lbw::CalibRule::PLATEAU:
+                            converged_primary = (cfg.pct_tol > 0.0) &&
+                                !(curr_metric < prev_metric_for_rule * (1.0 - cfg.pct_tol));
+                            break;
                     }
+                    prev_metric_for_rule = curr_metric;
                 }
 
-                // Legacy tol_lvl: applies to MAX_ERR on all homotopy levels.
-                // For non-MAX_ERR criteria on intermediate levels, use the same
-                // kHomotopyIntermediateTol gate via errRp (conservative: still exit
-                // intermediate levels when errRp is loose enough).
-                bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
-                // Spec §1: PCT-only convergence is pct_change < pct_tol, no errRp floor.
-                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol);
-                // Intermediate homotopy levels also exit early when errRp < tol_lvl
-                // regardless of criterion (warm-jump semantics; tol_lvl is loose).
-                bool converged_intermediate = (errRp < tol_lvl);
+                // Step 3: secondary (or sole) absolute threshold on the active metric.
+                // absolute_tol applies to curr_metric (the selected metric), not always errRp.
+                bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
 
-                bool have_pct = (cfg.pct_tol > 0.0);
-                bool have_abs = (cfg.absolute_tol > 0.0);
                 bool converged = false;
-                if (have_pct && have_abs) {
+                if (cfg.absolute_tol > 0.0) {
                     converged = (cfg.stop_when == lbw::CalibStopWhen::ALL)
-                                ? (converged_pct && converged_abs)
-                                : (converged_pct || converged_abs);
-                } else if (have_pct) {
-                    converged = converged_pct;
-                } else if (have_abs) {
-                    converged = converged_abs;
+                                ? (converged_primary && converged_abs)
+                                : (converged_primary || converged_abs);
+                } else {
+                    converged = converged_primary;
                 }
-                // For intermediate homotopy levels: always allow warm-jump when errRp loose.
+
+                // Intermediate homotopy levels: allow warm-jump when errRp is loose.
                 if (!converged && lvl < N_levels - 1) {
-                    converged = converged_intermediate;
+                    converged = (errRp < tol_lvl);
                 }
 
                 if (converged) {
@@ -1050,6 +1098,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
             st.log_fn(msg, st.log_ctx);
         }
     }
+
+    // WU-C: populate convergence diagnostics at solver exit.
+    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+    res.convergence_tol    = st.convergence_cfg.pct_tol;
+    res.convergence_iter   = (res.status == RK_OK) ? res.iterations : -1;
 
     // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.
     // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.
