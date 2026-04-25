@@ -287,8 +287,6 @@ int calib_validate_preentry(const CellTable& ct,
                              const double* X_init,
                              int n_cats_total);
 
-constexpr int kNCatsTotalMax = 2048;
-
 } // namespace lbw
 ```
 
@@ -519,10 +517,10 @@ After `conv <- parse_convergence(convergence)`, add:
 ```r
 # iEPPA is a KL minimizer — override default metric from max_err to kl
 # when the user has not explicitly set a metric.
-if (method_str == "ieppa" && is.null(convergence[["metric"]]) &&
+if (method == "ieppa" && is.null(convergence[["metric"]]) &&
     is.null(convergence[["improvement"]]) && is.null(convergence[["absolute"]]) &&
     is.null(convergence[["pct"]])) {
-  conv$metric <- "kl"
+  conv$metric <- "kl"  # iEPPA is a Sinkhorn KL minimizer
 }
 ```
 
