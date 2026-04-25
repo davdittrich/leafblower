@@ -7,7 +7,9 @@ test_that("A7: all 5 quality metrics present in calib_result for iEPPA", {
   )
   target <- list(a = c("1"=0.5,"2"=0.5), b = c("1"=1/3,"2"=1/3,"3"=1/3))
   w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
-                           max_iterations = 500, attach_weights = FALSE)
+                           max_iterations = 500,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
   result <- attr(w, "result")
   for (nm in c("max_error", "mean_error", "kl", "chi2", "pct_change"))
     expect_true(nm %in% names(result),
@@ -28,7 +30,9 @@ test_that("A7: all 5 quality metrics present in calib_result for raking", {
   )
   target <- list(a = c("1"=0.5,"2"=0.5), b = c("1"=1/3,"2"=1/3,"3"=1/3))
   w <- leafblower::harvest(data, target, max_weight = 5, method = "raking",
-                           max_iterations = 500, attach_weights = FALSE)
+                           max_iterations = 500,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
   result <- attr(w, "result")
   for (nm in c("max_error", "mean_error", "kl", "chi2", "pct_change"))
     expect_true(nm %in% names(result))
@@ -45,7 +49,9 @@ test_that("A7: all 5 quality metrics present in calib_result for lbfgsb", {
   )
   target <- list(a = c("1"=0.5,"2"=0.5), b = c("1"=1/3,"2"=1/3,"3"=1/3))
   w <- leafblower::harvest(data, target, max_weight = 5, method = "lbfgsb",
-                           max_iterations = 500, attach_weights = FALSE)
+                           max_iterations = 500,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
   result <- attr(w, "result")
   for (nm in c("max_error", "mean_error", "kl", "chi2", "pct_change"))
     expect_true(nm %in% names(result))

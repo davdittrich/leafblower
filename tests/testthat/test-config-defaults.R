@@ -11,6 +11,7 @@ test_that("all overlays default-off: baseline identical to defaulted", {
   )
   baseline <- leafblower::harvest(
     data, target, max_weight = 3, method = "ieppa",
+    convergence = list(absolute = 1e-6),
     attach_weights = FALSE
   )
   defaulted <- leafblower::harvest(
@@ -18,6 +19,7 @@ test_that("all overlays default-off: baseline identical to defaulted", {
     homotopy_levels = 1,
     scheduler      = "round_robin",
     eta_schedule   = "fixed",
+    convergence = list(absolute = 1e-6),
     attach_weights = FALSE
   )
   expect_equal(as.numeric(baseline), as.numeric(defaulted), tolerance = 1e-12)
@@ -35,7 +37,8 @@ test_that("overlay args are accepted and produce identity behaviour", {
     b = c(p = 0.6, q = 0.4)
   )
   common <- list(data = data, target = target, max_weight = 3,
-                 method = "ieppa", attach_weights = FALSE)
+                 method = "ieppa", convergence = list(absolute = 1e-6),
+                 attach_weights = FALSE)
   baseline <- do.call(leafblower::harvest, common)
   a_only <- do.call(leafblower::harvest,
     c(common, list(homotopy_levels = 3, homotopy_start_factor = 5,

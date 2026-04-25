@@ -42,7 +42,7 @@ test_that("within-cell weight equality: obs with identical tuples get equal weig
     a = setNames(c(0.25, 0.25, 0.25, 0.25), levels(df$a)),
     b = setNames(c(0.33, 0.33, 0.34), levels(df$b))
   )
-  res <- harvest(df, tgt, method = "ieppa")
+  res <- harvest(df, tgt, method = "ieppa", convergence = list(absolute = 1e-6))
   w <- res$weights
   # Group by (a, b) tuple; within each group, weights should be equal
   for (a in 0:3) for (b in 0:2) {
@@ -61,7 +61,8 @@ test_that("cap-inactive: loose bounds produce no active cap", {
   n <- 1000
   df <- data.frame(a = sample(c("x","y","z"), n, replace = TRUE))
   tgt <- list(a = c(x = 0.4, y = 0.3, z = 0.3))
-  res <- harvest(df, tgt, method = "ieppa", max_weight = 10, min_weight = 0)
+  res <- harvest(df, tgt, method = "ieppa", max_weight = 10, min_weight = 0,
+                 convergence = list(absolute = 1e-6))
   # n_cap_active accessible via attr; if not wired, skip
   # Loose bound means all weights should be in interior of [0, 10]
   expect_true(max(res$weights) < 10 - 1e-6)
@@ -75,7 +76,8 @@ test_that("cap-active: tight bounds force cap with targets still met", {
     a = c(rep("x", 100), rep("y", 900))  # 90/10 split
   )
   tgt <- list(a = c(x = 0.5, y = 0.5))  # need heavy upweighting of x
-  res <- harvest(df, tgt, method = "ieppa", max_weight = 5, min_weight = 0)
+  res <- harvest(df, tgt, method = "ieppa", max_weight = 5, min_weight = 0,
+                 convergence = list(absolute = 1e-6))
   # Target: x:y = 50:50; achieved by upweighting x ~5x
   # Some weights should hit the cap
   expect_true(max(res$weights) >= 5 - 1e-6 || max(res$weights) <= 5 + 1e-6)
@@ -89,7 +91,7 @@ test_that("infeasibility: empty cell + positive target → INFEAS error", {
   n <- 100
   df <- data.frame(a = rep("x", n))  # only x
   tgt <- list(a = c(x = 0.5, y = 0.5))  # y target positive but no y obs
-  expect_error(harvest(df, tgt, method = "ieppa"),
+  expect_error(harvest(df, tgt, method = "ieppa", convergence = list(absolute = 1e-6)),
                regexp = "infeasible|empty cell", ignore.case = TRUE)
 })
 
@@ -101,7 +103,8 @@ test_that("both-sided cap: min_weight + max_weight both active, targets met", {
   )
   tgt <- list(a = c(x = 0.5, y = 0.5))  # need up y and down x
   res <- harvest(df, tgt, method = "ieppa",
-                 min_weight = 0.3, max_weight = 3)
+                 min_weight = 0.3, max_weight = 3,
+                 convergence = list(absolute = 1e-6))
   expect_true(min(res$weights) >= 0.3 - 1e-6)
   expect_true(max(res$weights) <= 3 + 1e-6)
 })

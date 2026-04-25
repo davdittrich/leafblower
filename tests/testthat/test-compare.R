@@ -18,9 +18,9 @@ test_that("ieppa, raking, lbfgsb agree to 1e-3 on 20 random feasible datasets", 
     names(tgt) <- names(df)
     # Reasonable bounds
     mw <- sample(c(2, 3, 5), 1)
-    r_ieppa  <- suppressWarnings(harvest(df, tgt, method = "ieppa",  max_weight = mw))
-    r_raking <- suppressWarnings(harvest(df, tgt, method = "raking", max_weight = mw))
-    r_lbfgsb <- suppressWarnings(harvest(df, tgt, method = "lbfgsb", max_weight = mw))
+    r_ieppa  <- suppressWarnings(harvest(df, tgt, method = "ieppa",  max_weight = mw, convergence = list(absolute = 1e-6)))
+    r_raking <- suppressWarnings(harvest(df, tgt, method = "raking", max_weight = mw, convergence = list(absolute = 1e-6)))
+    r_lbfgsb <- suppressWarnings(harvest(df, tgt, method = "lbfgsb", max_weight = mw, convergence = list(absolute = 1e-6)))
     max_diff <- max(
       max(abs(r_ieppa$weights - r_raking$weights)),
       max(abs(r_ieppa$weights - r_lbfgsb$weights)),

@@ -16,7 +16,7 @@ test_that("get_current_miss returns max calibration error", {
   n <- 200L
   df <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE, prob=c(0.7,0.3))))
   tgt <- list(x = c(a=0.5, b=0.5))
-  result <- harvest(df, tgt)
+  result <- harvest(df, tgt, convergence = list(absolute = 1e-6))
   miss <- get_current_miss(df, tgt, result$weights)
   expect_true(is.numeric(miss))
   expect_true(miss >= 0)

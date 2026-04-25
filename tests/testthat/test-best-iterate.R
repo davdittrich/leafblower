@@ -7,7 +7,9 @@ test_that("A5: best_error <= max_error for iEPPA", {
   )
   target <- list(a = c("1" = 0.5, "2" = 0.5), b = c("1" = 0.5, "2" = 0.5))
   w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
-                           max_iterations = 200, attach_weights = FALSE)
+                           max_iterations = 200,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
   result <- attr(w, "result")
   expect_lte(result$best_error, result$max_error)
   expect_true(is.finite(result$best_error))
@@ -23,7 +25,9 @@ test_that("A5: best_error <= max_error for raking", {
   )
   target <- list(a = c("1" = 0.5, "2" = 0.5), b = c("1" = 0.5, "2" = 0.5))
   w <- leafblower::harvest(data, target, max_weight = 5, method = "raking",
-                           max_iterations = 200, attach_weights = FALSE)
+                           max_iterations = 200,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
   result <- attr(w, "result")
   expect_lte(result$best_error, result$max_error)
 })
@@ -34,6 +38,7 @@ test_that("A5: best_weights is obs-level, length n, sum normalized to n", {
   data <- data.frame(a = factor(sample(c("1", "2"), n, replace = TRUE)))
   target <- list(a = c("1" = 0.5, "2" = 0.5))
   w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+                           convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
   result <- attr(w, "result")
   expect_length(result$best_weights, n)
@@ -54,7 +59,9 @@ test_that("A6: stepstone best-iterate within 5% of reference", {
     v / sum(v)
   })
   w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
-                           max_iterations = 3000, attach_weights = FALSE)
+                           max_iterations = 3000,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
   result <- attr(w, "result")
   ref <- readRDS(ref_path)
   expect_lte(result$best_error, ref * 1.05)

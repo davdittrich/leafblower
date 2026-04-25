@@ -19,7 +19,8 @@ test_that("marginals hit targets when d[i] varies within cell", {
   # at w=2.55 without clamp — this is the intentional design post-fix. Pre-fix
   # clamp pinned them to 2.0 and distorted the a=1 marginal by ~7.7%.
   res <- harvest(df, tgt, method = "ieppa",
-                 start_weights = d, max_weight = 2.0, min_weight = 0)
+                 start_weights = d, max_weight = 2.0, min_weight = 0,
+                 convergence = list(absolute = 1e-6))
   w <- res$weights
   # PRIMARY assertion: marginals hit targets (the bug breaks this).
   m_a0 <- sum(w[df$a == 0]) / sum(w)
