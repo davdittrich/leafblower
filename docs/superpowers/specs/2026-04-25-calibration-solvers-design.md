@@ -272,7 +272,23 @@ For k = 1..K, j = 1..cat_counts[k]:
   X[c] *= scale  ∀c ∈ bucket(k,j)         ← uniform multiplier per bucket
 ```
 
-At exit: sum constraint and margin constraints satisfied to the same level as obs-level raking. Capacity bounds enforced via Dykstra on X[c] (same as current raking but per-cell).
+At exit: sum constraint and margin constraints satisfied to the same level as obs-level raking.
+
+**Capacity enforcement — cell-level Dykstra (alternating projections):**
+```
+Initialize: p[c] = 0 ∀c  (Dykstra corrections, same as q[i] in raking.cpp)
+
+Each capacity enforcement step (interleaved with IPF sweeps):
+  ① Box projection:
+     X_before[c] = X[c] + p[c]
+     X[c] = clamp(X_before[c], L_c, U_c)
+     p[c] += X_before[c] − X[c]   ← accumulate Dykstra correction
+
+  ② Sum projection:
+     total = Σ_c X[c]
+     X[c] *= n / total              ← rescale to target mass
+```
+Same two-step structure as obs-level raking's Dykstra (`q[i]` + sum hyperplane), applied to cells instead of obs. Provably convergent to the intersection of the box and the sum hyperplane (Boyle-Dykstra 1986).
 
 **Complexity:** O(K × M_cell) per iteration. stepstone speedup: 263× → expected ~0.2s vs current ~50s.
 
