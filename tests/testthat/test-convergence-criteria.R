@@ -121,3 +121,42 @@ test_that("harvest accepts sor argument without error", {
   expect_length(as.numeric(w1), n)
   expect_length(as.numeric(w2), n)
 })
+
+test_that("parse_convergence rejects unknown keys", {
+  expect_error(
+    leafblower::harvest(
+      data.frame(a = factor(c("1","2"))),
+      list(a = c("1"=0.5, "2"=0.5)),
+      max_weight = 3, method = "ieppa",
+      convergence = list(pct_tol = 0.001),
+      attach_weights = FALSE
+    ),
+    regexp = "Unknown convergence key"
+  )
+})
+
+test_that("parse_convergence rejects non-list convergence", {
+  expect_error(
+    leafblower::harvest(
+      data.frame(a = factor(c("1","2"))),
+      list(a = c("1"=0.5, "2"=0.5)),
+      max_weight = 3, method = "ieppa",
+      convergence = 1e-6,
+      attach_weights = FALSE
+    ),
+    regexp = "convergence must be a named list"
+  )
+})
+
+test_that("parse_sor rejects unknown keys", {
+  expect_error(
+    leafblower::harvest(
+      data.frame(a = factor(c("1","2"))),
+      list(a = c("1"=0.5, "2"=0.5)),
+      max_weight = 3, method = "ieppa",
+      sor = list(omega_minimum = 0.3),
+      attach_weights = FALSE
+    ),
+    regexp = "Unknown sor key"
+  )
+})

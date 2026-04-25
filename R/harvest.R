@@ -284,6 +284,14 @@ map_method <- function(method, verbose = 0) {
 }
 
 parse_convergence <- function(convergence) {
+  if (!is.null(convergence) && !is.list(convergence))
+    stop("convergence must be a named list or NULL (e.g. list(pct = 0.001))")
+  valid_keys <- c("pct", "absolute", "criterion", "stop_when")
+  bad <- setdiff(names(convergence), valid_keys)
+  if (length(bad))
+    stop(sprintf("Unknown convergence key(s): %s. Valid keys: %s",
+                 paste(bad, collapse = ", "),
+                 paste(valid_keys, collapse = ", ")))
   `%||%` <- function(a, b) if (is.null(a)) b else a
   explicit_pct <- !is.null(convergence[["pct"]])
   explicit_abs <- !is.null(convergence[["absolute"]])
@@ -307,6 +315,12 @@ parse_sor <- function(sor) {
     return(list(enabled = 0L, auto = 0L, omega_init = 1.0,
                 omega_min = 0.3, omega_fixed = -1.0, burnin = 20L))
   }
+  valid_keys <- c("auto", "omega_min", "omega", "omega_init", "burnin")
+  bad <- setdiff(names(sor), valid_keys)
+  if (length(bad))
+    stop(sprintf("Unknown sor key(s): %s. Valid keys: %s",
+                 paste(bad, collapse = ", "),
+                 paste(valid_keys, collapse = ", ")))
   list(
     enabled     = 1L,
     auto        = if (isTRUE(sor[["auto"]])) 1L else 0L,
