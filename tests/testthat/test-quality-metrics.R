@@ -11,14 +11,14 @@ test_that("A7: all 5 quality metrics present in calib_result for iEPPA", {
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
   result <- attr(w, "result")
-  for (nm in c("max_error", "mean_error", "kl", "chi2", "pct_change"))
+  for (nm in c("max_error", "mean_error", "kl", "chi2", "l1_weight_change"))
     expect_true(nm %in% names(result),
                 info = sprintf("metric '%s' missing from calib_result", nm))
   expect_true(is.finite(result$max_error))
   expect_true(is.finite(result$mean_error))
   expect_true(is.finite(result$kl))
   expect_true(is.finite(result$chi2) || is.infinite(result$chi2))  # chi2 can be Inf on degenerate
-  expect_true(is.finite(result$pct_change))
+  expect_true(is.finite(result$l1_weight_change))
 })
 
 test_that("A7: all 5 quality metrics present in calib_result for raking", {
@@ -34,10 +34,10 @@ test_that("A7: all 5 quality metrics present in calib_result for raking", {
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
   result <- attr(w, "result")
-  for (nm in c("max_error", "mean_error", "kl", "chi2", "pct_change"))
+  for (nm in c("max_error", "mean_error", "kl", "chi2", "l1_weight_change"))
     expect_true(nm %in% names(result))
   expect_true(is.finite(result$mean_error))
-  expect_true(is.finite(result$pct_change))
+  expect_true(is.finite(result$l1_weight_change))
 })
 
 test_that("A7: all 5 quality metrics present in calib_result for lbfgsb", {
@@ -53,7 +53,7 @@ test_that("A7: all 5 quality metrics present in calib_result for lbfgsb", {
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
   result <- attr(w, "result")
-  for (nm in c("max_error", "mean_error", "kl", "chi2", "pct_change"))
+  for (nm in c("max_error", "mean_error", "kl", "chi2", "l1_weight_change"))
     expect_true(nm %in% names(result))
   expect_true(is.finite(result$mean_error))
 })
@@ -72,8 +72,8 @@ test_that("A7: metrics non-zero after max_iter exit (solver exits before kErrChe
   result <- attr(w, "result")
   # Metrics must be populated (finite) even after 1 iteration:
   expect_true(is.finite(result$mean_error))
-  expect_true(is.finite(result$pct_change))
-  expect_true(result$pct_change >= 0)
+  expect_true(is.finite(result$l1_weight_change))
+  expect_true(result$l1_weight_change >= 0)
 })
 
 test_that("a0gk: metrics finite at exit with MAX_ERR criterion (gated path)", {
