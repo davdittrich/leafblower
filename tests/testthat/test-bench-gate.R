@@ -25,12 +25,11 @@ test_that("stepstone-fulldata rate slope <= -0.75 (beats O(t^-0.5) baseline)", {
   expect_lte(res$slope, -0.75)
 })
 
-test_that("kk1204 non-regression: max_err <= 1.322e-3 at max_iterations=500", {
+test_that("kk1204 gate: n=500k K=20 converges in <30s with best_error<1e-3", {
   skip_on_cran()
-  skip_if(Sys.getenv("CI") != "")  # skip in CI — 500k row test too slow
+  skip_if(Sys.getenv("CI") != "")
   set.seed(1204)
-  n <- 500000  # reduced from 1M to keep test under 60s
-  K <- 20; cats <- 5
+  n <- 500000; K <- 20; cats <- 5
   data_kk <- as.data.frame(
     replicate(K, factor(sample(seq_len(cats), n, replace = TRUE)),
               simplify = FALSE))
@@ -39,16 +38,17 @@ test_that("kk1204 non-regression: max_err <= 1.322e-3 at max_iterations=500", {
     lapply(seq_len(K), function(k)
       setNames(rep(1/cats, cats), as.character(seq_len(cats)))),
     names(data_kk))
+  t0 <- proc.time()["elapsed"]
   w <- leafblower::harvest(
     data_kk, target_kk, max_weight = 3,
     method = "ieppa",
     max_iterations = 500,
-    convergence = list(absolute = 1e-10),
     attach_weights = FALSE)
-  errs <- sapply(seq_along(target_kk), function(k) {
-    tab <- tapply(as.numeric(w), data_kk[[names(target_kk)[k]]], sum) / sum(as.numeric(w))
-    max(abs(tab - target_kk[[k]]))
-  })
-  cat(sprintf("kk1204 non-regression: max_err=%.3e\n", max(errs)))
-  expect_lte(max(errs), 1.322e-3)
+  elapsed <- proc.time()["elapsed"] - t0
+  r <- attr(w, "result")
+  cat(sprintf("kk1204 gate: status=%d iters=%d best_error=%.3e time=%.1fs\n",
+              r$status, r$iterations, r$best_error, elapsed))
+  expect_equal(r$status, 0L, label = "status: must converge with default max_err+improvement criterion")
+  expect_lte(r$best_error, 1e-3, label = "best_error: quality gate below 1e-3")
+  expect_lte(elapsed, 30, label = "elapsed: speed gate <30s on n=500k K=20")
 })
