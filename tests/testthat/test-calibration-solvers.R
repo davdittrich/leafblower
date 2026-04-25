@@ -35,3 +35,34 @@ test_that("T3: ieppa default convergence is kl+improvement", {
                info="ieppa default metric must be 'kl' after spec change")
   expect_equal(r$convergence_used$rule, "improvement")
 })
+
+test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
+  skip_on_cran()
+  skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
+          "stepstone benchmark data not available")
+  ref_path <- test_path("fixtures/ieppa_kl_reference_stepstone.rds")
+  skip_if(!file.exists(ref_path), "ieppa KL reference fixture not generated yet")
+  ref <- readRDS(ref_path)
+
+  # No unconditional skip — test FAILS with "sinkhorn not yet implemented"
+  # until Plan C implements method="sinkhorn". That failure IS the RED state.
+  library(arrow); library(jsonlite)
+  data <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
+  tgt_raw <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
+  target <- lapply(tgt_raw, function(x) { v <- unlist(x); v / sum(v) })
+
+  # Plan A: this expect_no_error call FAILS (sinkhorn is a stub returning RK_ERR_BADARG)
+  # Plan C GREEN: sinkhorn is implemented so expect_no_error passes
+  expect_no_error(
+    w_s <- leafblower::harvest(data, target, method="sinkhorn",
+                                max_weight=5, max_iterations=3000,
+                                attach_weights=FALSE),
+    message="Plan C must implement method='sinkhorn' to reach this point"
+  )
+  r_s <- attr(w_s, "result")
+  expect_lte(r_s$convergence_used$objective, ref$kl_at_best_iter,
+             label="sinkhorn KL <= ieppa best_iter KL")
+  expect_equal(r_s$status, 0L, label="sinkhorn must converge")
+  expect_equal(r_s$convergence_used$fired_at_iter, r_s$iterations,
+               label="A7: sinkhorn best_iter == last_iter (monotone)")
+})
