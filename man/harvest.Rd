@@ -150,7 +150,28 @@ across n levels.}
 \item{...}{Additional arguments ignored.}
 }
 \value{
-data frame with weights column if attach_weights=TRUE, else numeric vector.
+data frame with weights column if \code{attach_weights=TRUE}, else a numeric
+  vector of length \code{n}. In both cases the object carries attributes:
+  \describe{
+    \item{\code{result}}{Named list of solver diagnostics. Key fields:
+      \itemize{
+        \item \code{status}: 0=converged, 1=max_iter hit, 2=infeasible, 3=bad args.
+        \item \code{iterations}: number of outer iterations completed.
+        \item \code{max_error}: maximum marginal error at the returned weights.
+        \item \code{pct_change}: proportional weight change. For \code{method="lbfgsb"}
+          this is start-to-final (batch solver); for iEPPA and raking it is
+          iteration-to-iteration.
+        \item \code{best_error}: minimum marginal error seen across all iterates.
+        \item \code{best_weights}: numeric vector (length \code{n}, sum normalized to
+          \code{n}) at the iterate with minimum observed marginal error. When
+          \code{best_error} is \code{Inf} (solver exited before the first convergence
+          check), \code{best_weights} is all-zero. Guard:
+          \code{if (is.finite(attr(r, "result")$best_error))} before use.
+      }
+    }
+    \item{\code{algorithm}}{Character name of the solver used.}
+    \item{\code{iterations}}{Convenience alias for \code{result$iterations}.}
+  }
 }
 \description{
 Generate calibrated weights (drop-in for autumn::harvest)
