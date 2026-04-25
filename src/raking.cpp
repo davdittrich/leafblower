@@ -27,6 +27,7 @@
 
 #include "lbw_config.h"
 #include "raking.hpp"
+#include "cell_table.hpp"
 #include "calib_dispatch.hpp"
 #include "leafblower.h"
 #include <cmath>
@@ -75,166 +76,164 @@ static double compute_errRp(const CalibState& st,
     return err;
 }
 
+// Cell-table errRp: O(K * M_cell). bucket pre-allocated to max_cats.
+static double compute_errRp_ct(const CalibState& st,
+                                const CellTable& ct,
+                                const std::vector<double>& X,
+                                std::vector<double>& bucket) {
+    double W = 0.0;
+    for (int c = 0; c < ct.M_cell; c++) W += X[c];
+    double err = 0.0;
+    for (int k = 0; k < st.K; k++) {
+        std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
+        for (int c = 0; c < ct.M_cell; c++) {
+            int g = ct.g_per_cell[k][c];
+            if (g >= 0 && g < st.cat_counts[k]) bucket[g] += X[c];
+        }
+        for (int j = 0; j < st.cat_counts[k]; j++) {
+            double e = std::fabs(bucket[j] / W - st.targets[k][j]);
+            if (e > err) err = e;
+        }
+    }
+    return err;
+}
+
+
 // Constrained raking solver: cyclic IPF for marginal projections + Dykstra box correction.
 // Marginal step: pure IPF (Bregman/multiplicative projection — Euclidean Dykstra corrections
 // diverge on multiplicative projections and are not used here).
 // Box step: Dykstra additive correction q[i] prevents cycling at the [lo,hi]^n boundary.
 // inner_max_iter is the single iteration budget; outer_max_iter is unused.
 RakingResult raking_solve(CalibState& st) {
-    static constexpr double kEmptyBucketThreshold   = 1e-15;   // relative threshold: bucket[j] < 1e-15*W → treat as empty, skip IPF scale
-    static constexpr int    kErrCheckInterval        = 10;      // Check convergence every N inner iterations.
-                                                                 // compute_errRp costs K O(n) passes — nearly as expensive as a full sweep.
-                                                                 // Every-10 reduces that overhead by 90% at the cost of ≤9 extra IPF iters.
-                                                                 // Exception: always check on iter 1 to catch problems that converge immediately.
+    static constexpr double kEmptyBucketThreshold = 1e-15;
+    static constexpr int    kErrCheckInterval     = 10;
+    static constexpr int    kMaxNoImprove         = 5;
 
     RakingResult res;
-    res.status = RK_ERR_NOCONV;
+    res.status     = RK_ERR_NOCONV;
     res.iterations = 0;
-    res.max_error = 1.0;
+    res.max_error  = 1.0;
 
-    std::vector<double> w(st.weights, st.weights + st.n);
+    // Build cell table: O(n log n) one-time cost.
+    CellTable ct;
+    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts,
+                         st.weights, ct) != 0) {
+        // RakingResult has no message field; caller gets RK_ERR_BADARG status.
+        res.status = RK_ERR_BADARG;
+        return res;
+    }
 
-    std::vector<double> q(st.n, 0.0);
-    // Dykstra hyperplane correction: at any fixed point of the hyperplane
-    // projection, `q_hyp[i] = w[i] - w_proj = -shift` is identical for all i
-    // (shift depends only on the total sum, not on i). Store scalar, not vector.
+    // Initial cell masses: X[c] = Σ_{i∈c} st.weights[i]
+    std::vector<double> X(ct.M_cell, 0.0);
+    for (int i = 0; i < st.n; i++)
+        X[ct.cell_of[i]] += st.weights[i];
+    std::vector<double> X_init(X);
+
+    // Cell bounds: L_c = lo * n_per_cell[c], U_c = hi * n_per_cell[c]
+    const double lo = st.min_weight;
+    const double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
+    std::vector<double> L_cell(ct.M_cell), U_cell(ct.M_cell);
+    for (int c = 0; c < ct.M_cell; c++) {
+        L_cell[c] = lo * static_cast<double>(ct.n_per_cell[c]);
+        U_cell[c] = hi * static_cast<double>(ct.n_per_cell[c]);
+    }
+
+    // Dykstra corrections: p[c] box, q_hyp scalar hyperplane.
+    std::vector<double> p(ct.M_cell, 0.0);
     double q_hyp = 0.0;
 
-    double lo = st.min_weight;
-    // 1e300 not numeric_limits::max(): prevents overflow in w[i] *= scale[g]
-    // when bucket[g] is tiny (scale[g] can be large).
-    double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
     bool is_infeasible = false;
-
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
     std::vector<double> bucket(max_cats), scale(max_cats);
 
-    // Descent monitor state. Detects stalled convergence: no net progress over
-    // a sliding window of kMaxNoImprove consecutive error-checks. Uses a
-    // window-minimum comparison to avoid false positives on normal oscillation
-    // (errRp often wobbles within noise even while the running minimum still
-    // decreases). Firing condition: the window minimum has not improved by
-    // more than a relative tolerance across kMaxNoImprove checks.
-    constexpr int kMaxNoImprove = 5;  // 5 * kErrCheckInterval = 50 stalled iters
+    // Descent monitor
     double min_errRp_window = std::numeric_limits<double>::infinity();
     int n_no_improve = 0;
 
-    // WU-B: W_prev tracks obs-level weights at the last convergence check for pct_change.
-    std::vector<double> w_prev(w);
+    // pct/l1 tracking at cell level
+    std::vector<double> X_prev(X);
 
-    // WU-D: prev_metric_for_rule tracks the active metric value from the previous
-    // convergence check, used by IMPROVEMENT and PLATEAU CalibRule dispatch.
+    // Convergence rule state
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
-    // WU-E: best-iterate tracking (obs-level snapshot at min observed active metric).
-    // Tracks the active convergence metric so best_weights minimizes the user's chosen objective.
+    // Best-iterate tracking (cell-level snapshot)
     double best_metric_seen = std::numeric_limits<double>::infinity();
-    int    best_iter_val   = 0;
-    std::vector<double> w_best(st.n, 0.0);
+    int    best_iter_val    = 0;
+    std::vector<double> W_best(ct.M_cell, 0.0);
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
-        // Marginal projections: pure cyclic IPF (no clamp, no Euclidean correction).
-        // Euclidean Dykstra corrections are incompatible with multiplicative IPF steps.
+        // Cell-level cyclic IPF
+        double W_total = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
+
         for (int k = 0; k < st.K; k++) {
-            // Bucket accumulation for IPF scale computation
-            // W sum separated from scatter-add so the compiler can vectorise it.
-            double W = sum_weights_ilp(w, st.n);
-
-            // Bucket scatter-add: write aliases prevent vectorisation.
             std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-            for (int i = 0; i < st.n; i++) {
-                int g = st.group_ids[k][i];
-                if (g >= 0) bucket[g] += w[i];
+            for (int c = 0; c < ct.M_cell; c++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k]) bucket[g] += X[c];
             }
-
-            // IPF scale factors
             std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
             for (int j = 0; j < st.cat_counts[k]; j++) {
-                double Tkj = st.targets[k][j] * W;
-                if (bucket[j] < kEmptyBucketThreshold * W) {
+                double Tkj = st.targets[k][j] * W_total;
+                if (bucket[j] < kEmptyBucketThreshold * W_total) {
                     if (Tkj > 0.0) is_infeasible = true;
                 } else {
                     scale[j] = Tkj / bucket[j];
                 }
             }
-
-            // IPF step — NO CLAMP. g==-1 (NA) entries pass through unchanged.
-            for (int i = 0; i < st.n; i++) {
-                int g = st.group_ids[k][i];
-                if (g >= 0) w[i] *= scale[g];
+            for (int c = 0; c < ct.M_cell; c++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k]) X[c] *= scale[g];
             }
         }
 
-        // Box projection [lo, hi]^n with Dykstra correction (mean=1 scale).
-        // q[i] accumulates overshoot from previous box clamps.
-#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-#pragma omp simd
-#endif
-        for (int i = 0; i < st.n; i++) {
-            double yi = w[i] + q[i];
-            double wc = std::clamp(yi, lo, hi);
-            q[i] = yi - wc;
-            w[i] = wc;
+        // Dykstra box: X[c] = clamp(X[c] + p[c], L_cell[c], U_cell[c])
+        for (int c = 0; c < ct.M_cell; c++) {
+            double yc = X[c] + p[c];
+            double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
+            p[c] = yc - Xc;
+            X[c] = Xc;
         }
 
-        // Dykstra hyperplane projection: {w : sum(w) = n}
-        // q_hyp is a scalar: the hyperplane correction is uniform across i.
+        // Dykstra hyperplane: sum(X) = n.
+        // Shift is (n - s) / M_cell — M_cell cells × shift = (n-s), corrects total to n.
         {
             double s = 0.0;
-#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-#pragma omp simd reduction(+:s)
-#endif
-            for (int i = 0; i < st.n; i++) {
-                w[i] += q_hyp;  // apply prior correction uniformly
-                s += w[i];
-            }
-            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
-#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-#pragma omp simd
-#endif
-            for (int i = 0; i < st.n; i++) w[i] += shift;
-            q_hyp = -shift;  // w_pre_proj - w_post_proj = (w + q_hyp_old) - (w + q_hyp_old + shift) = -shift
+            for (int c = 0; c < ct.M_cell; c++) { X[c] += q_hyp; s += X[c]; }
+            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(ct.M_cell);
+            for (int c = 0; c < ct.M_cell; c++) X[c] += shift;
+            q_hyp = -shift;
         }
 
-        // Convergence check: run every kErrCheckInterval iters and on the final iter.
+        // Convergence check
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
-            double errRp = compute_errRp(st, w, bucket);
+            double errRp = compute_errRp_ct(st, ct, X, bucket);
             res.max_error = errRp;
 
-            // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
-            // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
+            // BLOCK 1: MAX_ERR best-iterate
             if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
                 if (errRp < best_metric_seen) {
                     best_metric_seen = errRp;
                     best_iter_val    = iter;
-                    w_best           = w;  // obs-level snapshot
+                    W_best           = X;
                 }
             }
 
-            // WU-B: pct_change (max-relative, L∞) and l1_weight (Σ|Δw|/n, L1/n).
-            double pct_change = 0.0;
-            double l1_weight_sum = 0.0;
-            for (int i = 0; i < st.n; i++) {
-                double diff = std::fabs(w[i] - w_prev[i]);
-                double rel = diff / std::max(w_prev[i], 1e-12);
+            // pct_change + l1_weight (cell-level approximation: Σ|ΔX[c]|/n)
+            double pct_change = 0.0, l1_weight_sum = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                double diff = std::fabs(X[c] - X_prev[c]);
+                double rel  = diff / std::max(X_prev[c], 1e-12);
                 if (rel > pct_change) pct_change = rel;
                 l1_weight_sum += diff;
             }
             double l1_weight = l1_weight_sum / static_cast<double>(st.n);
 
-            // WU-B: alternative metrics.
-            //
-            // Gate: skip the O(K*n) scatter-adds when the active stopping
-            // criterion does not use these metrics. Always compute on the final
-            // iteration (iter == st.inner_max_iter) so that calib_result is
-            // fully populated on exit.
+            // Extra metrics (gated, same as obs-level)
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
             const auto& cfg_m = st.convergence_cfg;
-            // Force full metrics when convergence is about to fire.
-            // Use a copy of prev_metric_for_rule — apply_rule(prev&) updates in-place
-            // and we must not corrupt the tracking variable before the dispatch call.
             const bool about_to_converge =
                 (cfg_m.absolute_tol > 0.0 && errRp < cfg_m.absolute_tol) ||
                 [&]() {
@@ -251,80 +250,67 @@ RakingResult raking_solve(CalibState& st) {
                  iter == st.inner_max_iter               ||
                  about_to_converge);
 
-            double W_total = sum_weights_ilp(w, st.n);
+            double W_tot2 = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) W_tot2 += X[c];
             constexpr double kMetricEps = 1e-10;
             constexpr double kChi2Floor = 1.0;
-            double mean_err_sum = 0.0;
-            double kl_max       = 0.0;
-            double chi2_total   = 0.0;
-            double grake_norm   = 0.0;  // WU-D: max over margins of |S_kj - T_kj*W| / (1 + |T_kj*W|)
-            if (need_extra_metrics && W_total > 0.0) {
+            double mean_err_sum = 0.0, kl_max = 0.0, chi2_total = 0.0, grake_norm = 0.0;
+            if (need_extra_metrics && W_tot2 > 0.0) {
                 for (int k = 0; k < st.K; k++) {
                     const int nj = st.cat_counts[k];
                     std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
-                    for (int i = 0; i < st.n; i++) {
-                        int g = st.group_ids[k][i];
-                        if (g >= 0 && g < nj) bucket[g] += w[i];
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        int g = ct.g_per_cell[k][c];
+                        if (g >= 0 && g < nj) bucket[g] += X[c];
                     }
-                    double max_k = 0.0;
-                    double kl_k  = 0.0;
+                    double max_k = 0.0, kl_k = 0.0;
                     for (int j = 0; j < nj; j++) {
-                        double S_p = bucket[j] / W_total;
-                        double T   = st.targets[k][j];
-                        double err = std::fabs(S_p - T);
+                        double S_p   = bucket[j] / W_tot2;
+                        double T     = st.targets[k][j];
+                        double err   = std::fabs(S_p - T);
                         if (err > max_k) max_k = err;
-                        if (T > 0.0) {
+                        if (T > 0.0)
                             kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
-                        }
-                        double obs     = bucket[j];
-                        double pop_kj  = T * W_total;
+                        double obs    = bucket[j];
+                        double pop_kj = T * W_tot2;
                         chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
-                        // WU-D: grake_norm = max_kj |S_kj - pop_kj| / (1 + |pop_kj|)
                         double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
                         if (nm > grake_norm) grake_norm = nm;
                     }
                     mean_err_sum += max_k;
                     if (kl_k > kl_max) kl_max = kl_k;
                 }
-                // WU-E / g4oj: BLOCK 2 — best-iterate for non-MAX_ERR metrics.
-                // All metric values (mean_err_sum, kl_max, chi2_total, grake_norm) are valid here.
+                // BLOCK 2: best-iterate for non-MAX_ERR
                 if (st.convergence_cfg.metric != lbw::CalibMetric::MAX_ERR) {
                     const double mean_err_blk2 = (st.K > 0)
-                        ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
+                        ? mean_err_sum / static_cast<double>(st.K) : 0.0;
                     const double curr_best = lbw::select_metric(
                         st.convergence_cfg.metric,
                         errRp, mean_err_blk2, kl_max, chi2_total, grake_norm, l1_weight);
                     if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
                         best_metric_seen = curr_best;
                         best_iter_val    = iter;
-                        w_best           = w;  // obs-level snapshot
+                        W_best           = X;
                     }
                 }
             }
-            double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
+            double mean_err = (st.K > 0) ? mean_err_sum / static_cast<double>(st.K) : 0.0;
 
-            // Store metrics and update w_prev (unconditional — intermediate checks
-            // store 0 for gated metrics; final iter always populates all fields).
-            res.l1_weight_change = l1_weight;    // Σ|Δw|/n (L1/n, scale-free)
+            res.l1_weight_change = l1_weight;
             res.mean_error       = mean_err;
             res.kl               = kl_max;
             res.chi2             = chi2_total;
-            res.grake_norm       = grake_norm;  // WU-D
-            for (int i = 0; i < st.n; i++) w_prev[i] = w[i];
+            res.grake_norm       = grake_norm;
+            for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
 
-            // First check: no baseline yet, just record and reset counter.
-            // On subsequent checks, require relative improvement of 1% of the
-            // current window minimum (floored at tol_abs so a valid convergence
-            // does not trip the monitor right before the convergence check).
+            // Descent monitor
             if (!std::isfinite(min_errRp_window)) {
-                min_errRp_window = errRp;
-                n_no_improve = 0;
+                min_errRp_window = errRp; n_no_improve = 0;
             } else {
                 const double rel_eps = 0.01 * min_errRp_window;
                 const double eps = std::max(rel_eps, st.tol_abs);
                 if (errRp < min_errRp_window - eps) {
-                    min_errRp_window = errRp;
-                    n_no_improve = 0;
+                    min_errRp_window = errRp; n_no_improve = 0;
                 } else {
                     n_no_improve++;
                 }
@@ -336,40 +322,23 @@ RakingResult raking_solve(CalibState& st) {
                 st.log(msg);
             }
 
-            // WU-D: active-criterion + CalibRule dispatch + stop_when ANY/ALL logic.
-            // The active metric value is selected by cfg.metric; the stopping rule
-            // is determined by cfg.rule (THRESHOLD/IMPROVEMENT/PLATEAU).
-            // Absolute-tol path uses the metric value directly vs absolute_tol.
-            // PCT-tol path applies the CalibRule to the metric value.
+            // Convergence dispatch (identical to obs-level)
             {
                 const auto& cfg = st.convergence_cfg;
-
-                // Select the active metric value (shared helper).
                 const double curr_metric = lbw::select_metric(
                     cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
-
-                // Absolute-tol convergence: metric < absolute_tol.
                 bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
-
-                // PCT-tol convergence: apply_rule(prev&) updates prev_metric_for_rule in-place.
                 const bool converged_pct = lbw::apply_rule(
                     cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
-
-                bool have_pct = (cfg.pct_tol > 0.0);
-                bool have_abs = (cfg.absolute_tol > 0.0);
+                bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
                 bool converged = false;
                 if (have_pct && have_abs) {
                     converged = (cfg.stop_when == lbw::CalibStopWhen::ALL)
                                 ? (converged_pct && converged_abs)
                                 : (converged_pct || converged_abs);
-                } else if (have_pct) {
-                    converged = converged_pct;
-                } else if (have_abs) {
-                    converged = converged_abs;
-                } else {
-                    // Fallback: legacy tol_abs check.
-                    converged = (errRp < st.tol_abs);
-                }
+                } else if (have_pct)  converged = converged_pct;
+                else if (have_abs)    converged = converged_abs;
+                else                  converged = (errRp < st.tol_abs);
 
                 if (converged) {
                     res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
@@ -386,10 +355,8 @@ RakingResult raking_solve(CalibState& st) {
                 if (st.verbose >= 1) {
                     char msg[256];
                     std::snprintf(msg, 256,
-                                  "raking: errRp stalled for %d consecutive checks "
-                                  "(last=%.2e, window_min=%.2e); likely near-infeasible bounds. "
-                                  "Aborting at iter %d.",
-                                  n_no_improve, errRp, min_errRp_window, iter);
+                        "raking: errRp stalled for %d consecutive checks (last=%.2e, window_min=%.2e); likely near-infeasible bounds. "
+                        "aborting at iter %d.", n_no_improve, errRp, min_errRp_window, iter);
                     st.log(msg);
                 }
                 break;
@@ -397,73 +364,61 @@ RakingResult raking_solve(CalibState& st) {
         }
     }
 
-    // Infeasibility detected during iteration: override NOCONV with INFEAS.
-    // Truly infeasible problems (empty bucket with positive target) can never
-    // converge — the empty bucket always contributes τ_kj > 0 to errRp,
-    // so errRp never drops below tol_abs and the convergence break never fires.
-    // Check the flag here and return the correct status code.
     if (is_infeasible && res.status == RK_ERR_NOCONV)
         res.status = RK_ERR_INFEAS;
 
-    // Post-loop Dykstra finalizer: alternate box+hyperplane until box-feasible.
-    // The main loop exits after the hyperplane step; the resulting shift can push
-    // weights fractionally above hi or below lo. Continue the Dykstra cycle
-    // (box then hyperplane) until all weights are within [lo, hi].
-    // At true convergence this terminates in 1 iteration (shift ~ floating-point
-    // rounding). At the end, sum(w) = n, so harvest.R's /mean(weights) is a no-op.
+    // Post-loop Dykstra finalizer at cell level.
     for (int fixup = 0; fixup < 20; fixup++) {
         bool box_ok = true;
-        for (int i = 0; i < st.n; i++) {
-            double yi = w[i] + q[i];
-            double wc = std::clamp(yi, lo, hi);
-            q[i] = yi - wc;
-            if (yi != wc) box_ok = false;
-            w[i] = wc;
+        for (int c = 0; c < ct.M_cell; c++) {
+            double yc = X[c] + p[c];
+            double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
+            p[c] = yc - Xc;
+            if (yc != Xc) box_ok = false;
+            X[c] = Xc;
         }
-        // Hyperplane step restores sum(w) = n regardless of box changes.
-        // q_hyp is scalar (uniform correction); applied uniformly to all w[i].
-        double s = 0.0;
-#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-#pragma omp simd reduction(+:s)
-#endif
-        for (int i = 0; i < st.n; i++) {
-            w[i] += q_hyp;
-            s += w[i];
+        {
+            double s = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) { X[c] += q_hyp; s += X[c]; }
+            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(ct.M_cell);
+            for (int c = 0; c < ct.M_cell; c++) X[c] += shift;
+            q_hyp = -shift;
         }
-        double shift = (static_cast<double>(st.n) - s) / static_cast<double>(st.n);
-#if defined(_OPENMP) || LBW_HAS_OMP_SIMD
-#pragma omp simd
-#endif
-        for (int i = 0; i < st.n; i++) w[i] += shift;
-        q_hyp = -shift;
         if (box_ok) break;
     }
 
-    // WU-E: finalize best-iterate result (obs-level, sum-normalize to n, no clamping).
-    res.convergence_objective          = best_metric_seen;
-    res.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
+    // Best-iterate: normalize cell snapshot, then expand to obs.
+    res.convergence_objective        = best_metric_seen;
+    res.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
     res.best_error = best_metric_seen;
     res.best_iter  = best_iter_val;
     if (std::isfinite(best_metric_seen)) {
         double s = 0.0;
-        for (int i = 0; i < st.n; i++) s += w_best[i];
+        for (int c = 0; c < ct.M_cell; c++) s += W_best[c];
         if (s > 0.0) {
-            const double scale = static_cast<double>(st.n) / s;
-            for (int i = 0; i < st.n; i++) w_best[i] *= scale;
+            const double sc = static_cast<double>(st.n) / s;
+            for (int c = 0; c < ct.M_cell; c++) W_best[c] *= sc;
         }
-        res.best_weights = std::move(w_best);
+        res.best_weights.resize(st.n);
+        const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
+        for (int i = 0; i < st.n; i++) {
+            int c = ct.cell_of[i];
+            double mult = (X_init[c] > 0.0) ? W_best[c] / X_init[c] : 1.0;
+            res.best_weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
+        }
     } else {
         res.best_weights.assign(st.n, 0.0);
     }
 
-    for (int i = 0; i < st.n; i++) st.weights[i] = w[i];
+    // Post-exit obs expansion: w_i = d_i × X[c]/X_init[c], hard clamp.
+    const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
+    for (int i = 0; i < st.n; i++) {
+        int c = ct.cell_of[i];
+        double mult = (X_init[c] > 0.0) ? X[c] / X_init[c] : 1.0;
+        st.weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
+    }
 
-    // Solver-owned normalization (moved from wrapper 2026-04-24 per user directive).
-    // Defensive: the preceding hyperplane finalizer (lines above) enforces
-    // sum(w) = n unconditionally on every iteration via shift = (n - s)/n, so
-    // this block is a no-op at both CONV and NOCONV. Kept for solver-contract
-    // self-containment against future refactors that might weaken the invariant.
-    // total_w == 0 is pathological (all-zero input weights); leave unchanged.
+    // Solver-contract normalization: sum(w) = n.
     double total_w = 0.0;
     for (int i = 0; i < st.n; i++) total_w += st.weights[i];
     if (std::isfinite(total_w) && total_w > 0.0) {
@@ -473,5 +428,4 @@ RakingResult raking_solve(CalibState& st) {
 
     return res;
 }
-
 } // namespace lbw

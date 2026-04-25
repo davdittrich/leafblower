@@ -169,6 +169,15 @@ harvest <- function(
       is.null(convergence[["absolute"]])) {
     conv$metric <- "kl"
   }
+  # Raking is a KL minimizer — same default as ieppa.
+  if (method == "raking" &&
+      is.null(convergence[["metric"]]) &&
+      is.null(convergence[["criterion"]]) &&
+      is.null(convergence[["improvement"]]) &&
+      is.null(convergence[["pct"]]) &&
+      is.null(convergence[["absolute"]])) {
+    conv$metric <- "kl"
+  }
   sor_cfg <- parse_sor(sor)
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
