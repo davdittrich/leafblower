@@ -888,11 +888,32 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // iteration of each level (iter_in_lvl == budget_lvl) so that
             // calib_result is fully populated on exit.
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
-            // also compute on any check where convergence is about to be declared
-            // (absolute_tol path) so that exit calib_result is fully populated.
+            const auto& cfg_m = st.convergence_cfg;
+            // Force full metric computation whenever convergence is about to fire.
+            // Covers: absolute_tol threshold path AND improvement/plateau rules
+            // (which use MAX_ERR/L1_WEIGHT/GRAKE_NORM — computable before extra metrics).
+            {
+                double early_m = 0.0;
+                bool can_check = true;
+                switch (metric) {
+                    case lbw::CalibMetric::MAX_ERR:    early_m = errRp;      break;
+                    case lbw::CalibMetric::L1_WEIGHT:  early_m = l1_weight;  break;
+                    case lbw::CalibMetric::GRAKE_NORM: early_m = grake_norm; break;
+                    default: can_check = false; break;
+                }
+                (void)can_check;  // suppress unused-variable warning
+                (void)early_m;
+            }
             const bool about_to_converge =
-                (st.convergence_cfg.absolute_tol > 0.0 &&
-                 errRp < st.convergence_cfg.absolute_tol);
+                (cfg_m.absolute_tol > 0.0 && errRp < cfg_m.absolute_tol) ||
+                // Improvement/plateau on MAX_ERR metric (the common default case):
+                // pre-check so exit metrics are always populated on convergence.
+                (metric == lbw::CalibMetric::MAX_ERR &&
+                 lbw::apply_rule(cfg_m.rule, errRp, prev_metric_for_rule, cfg_m.pct_tol)) ||
+                (metric == lbw::CalibMetric::L1_WEIGHT &&
+                 lbw::apply_rule(cfg_m.rule, l1_weight, prev_metric_for_rule, cfg_m.pct_tol)) ||
+                (metric == lbw::CalibMetric::GRAKE_NORM &&
+                 lbw::apply_rule(cfg_m.rule, grake_norm, prev_metric_for_rule, cfg_m.pct_tol));
             const bool need_extra_metrics =
                 (metric == lbw::CalibMetric::MEAN_ERR ||
                  metric == lbw::CalibMetric::KL       ||

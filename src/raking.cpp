@@ -228,11 +228,14 @@ RakingResult raking_solve(CalibState& st) {
             // iteration (iter == st.inner_max_iter) so that calib_result is
             // fully populated on exit.
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
-            // also compute on any check where convergence is about to be declared
-            // (absolute_tol path) so that exit calib_result is fully populated.
+            const auto& cfg_m = st.convergence_cfg;
+            // Force full metrics when convergence is about to fire (same fix as ieppa).
             const bool about_to_converge =
-                (st.convergence_cfg.absolute_tol > 0.0 &&
-                 errRp < st.convergence_cfg.absolute_tol);
+                (cfg_m.absolute_tol > 0.0 && errRp < cfg_m.absolute_tol) ||
+                (metric == lbw::CalibMetric::MAX_ERR &&
+                 lbw::apply_rule(cfg_m.rule, errRp, prev_metric_for_rule, cfg_m.pct_tol)) ||
+                (metric == lbw::CalibMetric::L1_WEIGHT &&
+                 lbw::apply_rule(cfg_m.rule, l1_weight, prev_metric_for_rule, cfg_m.pct_tol));
             const bool need_extra_metrics =
                 (metric == lbw::CalibMetric::MEAN_ERR   ||
                  metric == lbw::CalibMetric::KL         ||
