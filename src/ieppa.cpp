@@ -794,11 +794,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
             res.max_error = errRp;
 
-            // WU-E: update best-iterate snapshot (tracks errRp regardless of active criterion).
+            // WU-E: update best-iterate snapshot. Use X[c]/X_init[c] (cumulative
+            // multiplier from initial state) not W[c] (per-level factor only).
+            // W[c] resets at each homotopy level; X[c]/X_init[c] does not.
             if (errRp < best_errRp_seen) {
                 best_errRp_seen = errRp;
                 best_iter_val   = iter;
-                W_best          = W;  // cell-level capacity multiplier snapshot
+                for (int c = 0; c < ct.M_cell; c++) {
+                    W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                }
             }
 
             // WU-D: per-margin omega adaptation (both linear and log paths; auto mode only;

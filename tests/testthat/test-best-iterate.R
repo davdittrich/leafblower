@@ -59,3 +59,27 @@ test_that("A6: stepstone best-iterate within 5% of reference", {
   ref <- readRDS(ref_path)
   expect_lte(result$best_error, ref * 1.05)
 })
+
+test_that("z8wx: best_weights sum=n and best_error<=max_error with homotopy_levels=3", {
+  set.seed(77)
+  n <- 800
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2","3","4"), n, replace = TRUE))
+  )
+  target <- list(
+    a = c("1"=0.4, "2"=0.4, "3"=0.2),
+    b = c("1"=0.25, "2"=0.25, "3"=0.25, "4"=0.25)
+  )
+  w <- leafblower::harvest(data, target, max_weight = 2, method = "ieppa",
+                           max_iterations = 300,
+                           homotopy_levels = 3L,
+                           homotopy_start_factor = 4.0,
+                           homotopy_end_factor = 1.0,
+                           convergence = list(absolute = 1e-6),
+                           attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_equal(sum(result$best_weights), n, tolerance = 1e-6)
+  expect_lte(result$best_error, result$max_error)
+  expect_true(all(result$best_weights >= 0))
+})
