@@ -180,6 +180,9 @@ test_that("hawe: iEPPA warns on PCT stall with large max_error", {
   )
 })
 
+# CONFIRMATORY TEST (not TDD red-green): added in same commit as implementation.
+# Retroactive analysis: this test WOULD fail on pre-WU-C code because
+# convergence_used$rule is NULL until harvest.R WU-E2 wires the nesting.
 test_that("A1: default convergence (max_err+improvement) converges smooth synthetic", {
   set.seed(42)
   n <- 2000
@@ -205,6 +208,9 @@ test_that("A1: default convergence (max_err+improvement) converges smooth synthe
                info = "default metric must be max_err")
 })
 
+# CONFIRMATORY TEST (not TDD red-green): added in same commit as implementation.
+# Retroactive analysis: this test WOULD fail on pre-WU-C code because
+# convergence_used$rule is NULL until harvest.R WU-E2 wires the nesting.
 test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {
   set.seed(31415)
   n <- 2000
@@ -231,6 +237,9 @@ test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {
   }
 })
 
+# CONFIRMATORY TEST (not TDD red-green): added in same commit as implementation.
+# Retroactive analysis: this test WOULD fail on pre-WU-C code because
+# convergence_used$rule is NULL until harvest.R WU-E2 wires the nesting.
 test_that("A3: list(pct=0.001) triggers l1_weight+plateau on raking", {
   set.seed(43)
   n <- 2000

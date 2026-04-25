@@ -304,7 +304,9 @@ static LBFGSResult compute_final_weights_and_error(
         }
         res.status             = converged ? RK_OK : RK_ERR_NOCONV;
         res.convergence_metric = static_cast<int>(cfg.metric);
-        res.convergence_rule   = static_cast<int>(cfg.rule);
+        // lbfgsb is a batch solver: single optimization pass regardless of rule requested.
+        // Report THRESHOLD as the applied rule for accurate diagnostic output.
+        res.convergence_rule   = static_cast<int>(lbw::CalibRule::THRESHOLD);
         res.convergence_tol    = cfg.pct_tol;
         res.convergence_iter   = converged ? res.iterations : -1;
     }
