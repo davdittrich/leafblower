@@ -212,6 +212,21 @@ harvest <- function(
     warning("leafblower: calibration did not converge (max_error=",
             signif(calib_result$max_error, 3), "). Weights reflect last iterate.")
 
+  # Stall detection: PCT converged (status=0) but max_error >> pct_tol
+  # signals infeasible problem. Threshold: 10x pct_tol.
+  # Threshold derivation: well-posed problems have errRp/pct_change ratio 1-5x;
+  # infeasible stalls show 100x+; 10x cleanly separates the two regimes.
+  if (calib_result$status == 0L &&
+      !is.null(conv$pct_tol) && conv$pct_tol > 0 &&
+      !is.null(calib_result$max_error) &&
+      calib_result$max_error > 10 * conv$pct_tol) {
+    warning(sprintf(
+      "leafblower: PCT convergence stall: max_error=%.3g >> pct_tol=%.3g (%.0fx). Possible contradictory or infeasible targets.",
+      calib_result$max_error, conv$pct_tol,
+      calib_result$max_error / conv$pct_tol),
+      call. = FALSE)
+  }
+
   if (!is.null(calib_result$n_bounds_violated) && calib_result$n_bounds_violated > 0) {
     warning(sprintf(
       "cell-mode bounds: %d weights fell outside [%.3f, %.3f] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.",

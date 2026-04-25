@@ -1012,6 +1012,25 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
     }  // end homotopy level loop
 
+    // PCT stall detection: pct_change < pct_tol (PCT converged) but max_error >> pct_tol
+    // signals infeasible problem. Threshold 10x: well-posed problems have
+    // errRp/pct_change ratio 1-5x; infeasible stalls show 100x+; 10x separates them.
+    // Warning only — status unchanged for backward compatibility.
+    {
+        const auto& cfg = st.convergence_cfg;
+        if (cfg.pct_tol > 0.0 &&
+            res.max_error > 10.0 * cfg.pct_tol &&
+            st.log_fn != nullptr) {
+            char msg[256];
+            std::snprintf(msg, sizeof(msg),
+                "PCT convergence stall: pct_change < %.3g but max_error=%.3g "
+                "(%.0fx pct_tol). Possible contradictory or infeasible targets.",
+                cfg.pct_tol, res.max_error,
+                res.max_error / cfg.pct_tol);
+            st.log_fn(msg, st.log_ctx);
+        }
+    }
+
     // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.
     // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.
     // NO water-fill, NO bounds-clamping — this is a mid-loop snapshot.
