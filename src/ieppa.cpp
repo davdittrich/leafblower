@@ -1022,9 +1022,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
 
                 // Step 2: apply stopping rule using pct_tol as the tolerance (shared helper).
-                // apply_rule updates prev_metric_for_rule in-place.
+                // apply_rule takes prev by value; update prev_metric_for_rule after the call.
                 const bool converged_primary = lbw::apply_rule(
                     cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
+                prev_metric_for_rule = curr_metric;
 
                 // Step 3: secondary (or sole) absolute threshold on the active metric.
                 // absolute_tol applies to curr_metric (the selected metric), not always errRp.

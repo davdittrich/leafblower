@@ -331,10 +331,10 @@ RakingResult raking_solve(CalibState& st) {
                 bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
 
                 // PCT-tol convergence: apply CalibRule to curr_metric vs prev_metric_for_rule.
-                // apply_rule updates prev_metric_for_rule in-place when pct_tol > 0 and
-                // curr_metric is finite; returns false and leaves prev unchanged otherwise.
+                // apply_rule takes prev by VALUE; update prev_metric_for_rule after the call.
                 const bool converged_pct = lbw::apply_rule(
                     cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
+                prev_metric_for_rule = curr_metric;
 
                 bool have_pct = (cfg.pct_tol > 0.0);
                 bool have_abs = (cfg.absolute_tol > 0.0);
