@@ -1,6 +1,7 @@
 #include "cell_table.hpp"
 #include <algorithm>
 #include <numeric>
+#include <unordered_set>
 
 namespace lbw {
 
@@ -136,6 +137,23 @@ int build_cell_table(int n, int K,
     out.W_input = 0.0;
     for (int i = 0; i < n; i++) out.W_input += weights[i];
     return 0;
+}
+
+int estimate_M_cell(int n, int K,
+                    const int32_t* const* group_ids,
+                    const int* cat_counts) {
+    if (K <= 0 || n <= 0) return 0;
+    if (K > 8) return n;  // can't pack; assume incompressible
+    if (!pack_key_fits(K, cat_counts)) return n;
+
+    std::vector<int> bit_widths(K);
+    for (int k = 0; k < K; k++) bit_widths[k] = bits_needed(cat_counts[k] + 1);
+
+    std::unordered_set<uint64_t> seen;
+    seen.reserve(static_cast<size_t>(n));
+    for (int i = 0; i < n; i++)
+        seen.insert(pack_key_compute(K, group_ids, i, cat_counts, bit_widths.data()));
+    return static_cast<int>(seen.size());
 }
 
 } // namespace lbw

@@ -22,6 +22,12 @@ int build_cell_table(int n, int K,
                      const double* weights,
                      CellTable& out);
 
+// Quick O(n) cell count estimate without building the full CellTable.
+// Returns n if K > 8 or bit-packing is not feasible. Used for AUTO routing.
+int estimate_M_cell(int n, int K,
+                    const int32_t* const* group_ids,
+                    const int* cat_counts);
+
 // Maximum K supported (prevents unbounded key allocation).
 inline constexpr int K_MAX = 64;
 

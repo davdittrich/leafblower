@@ -2,8 +2,9 @@
 #include "validation.hpp"
 #include "types.hpp"
 #include "lbfgsb_solver.hpp"
-#include "ieppa.hpp"   // faithful (new)
-#include "raking.hpp"  // renamed hybrid
+#include "ieppa.hpp"      // faithful (new)
+#include "raking.hpp"     // renamed hybrid
+#include "cell_table.hpp" // estimate_M_cell for AUTO routing
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -128,10 +129,17 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 return RK_ERR_BADARG;
             }
             case RK_ALG_AUTO:
-            default:
-                alg = RK_ALG_IEPPA;  // AUTO → faithful iEPPA. Benchmark-driven refinement TBD.
+            default: {
+                // Route to raking when cell table is nearly incompressible (M_cell/n > 0.9).
+                // At high ratios iEPPA has no compression benefit; raking is equivalent and simpler.
+                static constexpr double kAutoRakingThreshold = 0.9;
+                int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
+                alg = (M_cell_est > static_cast<int>(kAutoRakingThreshold * n))
+                      ? RK_ALG_RAKING
+                      : RK_ALG_IEPPA;
                 auto_selected = true;
                 break;
+            }
         }
     } else {
         alg = p->algorithm;

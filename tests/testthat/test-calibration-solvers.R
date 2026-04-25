@@ -69,6 +69,31 @@ test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
                label="A7: sinkhorn best_iter == last_iter (monotone)")
 })
 
+test_that("T-routing: AUTO uses raking when incompressible (M_cell/n > 0.9)", {
+  # 200 obs each in its own group → M_cell = 200, ratio = 1.0 (fully incompressible).
+  # AUTO must select raking (not iEPPA) because there is no cell compression benefit.
+  set.seed(99)
+  n2 <- 200
+  # Each obs is its own group for margin 'a' → M_cell = n2
+  data <- data.frame(
+    a = factor(seq_len(n2)),
+    b = factor(sample(c("1", "2"), n2, replace = TRUE))
+  )
+  target <- list(
+    a = setNames(rep(1 / n2, n2), as.character(seq_len(n2))),
+    b = c("1" = 0.5, "2" = 0.5)
+  )
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "auto",
+                           max_iterations = 200, attach_weights = FALSE)
+  r <- attr(w, "result")
+  expect_equal(r$status, 0L,
+               label = "AUTO must converge even with incompressible data")
+  expect_lt(r$max_error, 0.1)
+  # Routing check: RK_ALG_RAKING == 3
+  expect_equal(r$algorithm_used, 3L,
+               label = "AUTO must select raking when M_cell/n > 0.9")
+})
+
 test_that("A5: raking cell-table: correct + speedup vs obs-level reference", {
   skip_on_cran()
   skip_if_not_installed("arrow")

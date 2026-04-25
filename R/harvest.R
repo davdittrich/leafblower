@@ -388,7 +388,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake"))
+  match.arg(method, c("auto", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake"))
 }
 
 parse_convergence <- function(convergence) {
