@@ -133,3 +133,24 @@ test_that("A5: raking cell-table: correct + speedup vs obs-level reference", {
   expect_true(all(w_cell >= 1/5 - 1e-10 & w_cell <= 5 + 1e-10),
               label="all weights within [1/5, 5] bounds")
 })
+
+test_that("R-bounds: raking respects min_weight/max_weight exactly after fix", {
+  # Tight bounds + skewed targets force clamping; normalization after clamp would violate bounds.
+  set.seed(7)
+  n <- 1000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3","4","5"), n, replace=TRUE)),
+    b = factor(sample(c("1","2"), n, replace=TRUE))
+  )
+  target <- list(
+    a = c("1"=0.5, "2"=0.2, "3"=0.15, "4"=0.1, "5"=0.05),
+    b = c("1"=0.8, "2"=0.2)
+  )
+  out <- leafblower::harvest(data, target, min_weight=0.5, max_weight=1.5,
+                             method="raking", max_iterations=500, attach_weights=TRUE)
+  w <- out$weights
+  expect_true(all(w >= 0.5 - 1e-10),
+              info=sprintf("min weight %.6f < 0.5", min(w)))
+  expect_true(all(w <= 1.5 + 1e-10),
+              info=sprintf("max weight %.6f > 1.5", max(w)))
+})

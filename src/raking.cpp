@@ -123,6 +123,16 @@ RakingResult raking_solve(CalibState& st) {
     int    best_iter_val    = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
 
+    // Dykstra hyperplane: projects X onto {sum(X) = n}.
+    // M_cell cells each get +shift where shift = (n-s)/M_cell → total correction = (n-s).
+    auto hyperplane_step = [&]() {
+        double s = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) { X[c] += q_hyp; s += X[c]; }
+        double shift = (static_cast<double>(st.n) - s) / static_cast<double>(ct.M_cell);
+        for (int c = 0; c < ct.M_cell; c++) X[c] += shift;
+        q_hyp = -shift;
+    };
+
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -160,14 +170,7 @@ RakingResult raking_solve(CalibState& st) {
         }
 
         // Dykstra hyperplane: sum(X) = n.
-        // Shift is (n - s) / M_cell — M_cell cells × shift = (n-s), corrects total to n.
-        {
-            double s = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) { X[c] += q_hyp; s += X[c]; }
-            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(ct.M_cell);
-            for (int c = 0; c < ct.M_cell; c++) X[c] += shift;
-            q_hyp = -shift;
-        }
+        hyperplane_step();
 
         // Convergence check
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
@@ -339,13 +342,7 @@ RakingResult raking_solve(CalibState& st) {
             if (yc != Xc) box_ok = false;
             X[c] = Xc;
         }
-        {
-            double s = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) { X[c] += q_hyp; s += X[c]; }
-            double shift = (static_cast<double>(st.n) - s) / static_cast<double>(ct.M_cell);
-            for (int c = 0; c < ct.M_cell; c++) X[c] += shift;
-            q_hyp = -shift;
-        }
+        hyperplane_step();
         if (box_ok) break;
     }
 
@@ -378,14 +375,6 @@ RakingResult raking_solve(CalibState& st) {
         int c = ct.cell_of[i];
         double mult = (X_init[c] > 0.0) ? X[c] / X_init[c] : 1.0;
         st.weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
-    }
-
-    // Solver-contract normalization: sum(w) = n.
-    double total_w = 0.0;
-    for (int i = 0; i < st.n; i++) total_w += st.weights[i];
-    if (std::isfinite(total_w) && total_w > 0.0) {
-        const double norm = static_cast<double>(st.n) / total_w;
-        for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
     }
 
     return res;
