@@ -378,11 +378,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_best_weights = std::move(res.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
         // AUTO routing: select raking when M_cell/n > 0.9, else iEPPA.
-        static constexpr double kAutoRakingThreshold = 0.9;
         int M_cell_est = lbw::estimate_M_cell(n, K,
             const_cast<const int32_t**>(group_ids.data()),
             cat_counts.data());
-        bool use_raking = (M_cell_est > static_cast<int>(kAutoRakingThreshold * n));
+        // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
+        bool use_raking = (M_cell_est * 10 > n * 9);
         if (use_raking) {
             auto res = lbw::raking_solve(st);
             res_status     = res.status;
