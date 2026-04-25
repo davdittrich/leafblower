@@ -71,8 +71,15 @@ test_that("T1: convergence_used$objective field present", {
 })
 ```
 
-Run: `Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | tail -8`
-Expected: T1 objective test FAIL (fields not yet present); method stub test FAIL (method not accepted).
+- [ ] **Step 1.1b: Run — confirm FAIL (RED)**
+```bash
+Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | tail -8
+```
+Expected output MUST show FAIL. Two failures:
+1. `T1: new method names` — FAIL because "sinkhorn" etc. are rejected with "invalid method" (not the clean stub error), or pass through as "unknown" 
+2. `T1: convergence_used$objective` — FAIL because `names(r$convergence_used)` doesn't contain "objective"
+
+Do NOT proceed to Step 1.2 until both tests FAIL here.
 
 - [ ] **Step 1.2: Add constants to `src/leafblower.h`**
 
@@ -247,37 +254,9 @@ EOF
 
 **Clean-code principle:** `calib_validate_preentry` does ONE thing: checks all preconditions and returns an error code. `compute_normal_equations` does ONE thing: computes N = ADAᵀ. No side effects.
 
-- [ ] **Step 2.1: Write failing test (validation)**
+**TDD note for Task 2:** `calib_validate_preentry` is infrastructure called by NEW solvers (sinkhorn, chebyshev, greg, grake). Those solvers are stubs in Plan A (returning RK_ERR_BADARG before reaching validation). The TDD red-green cycle for `calib_validate_preentry` happens in Plans B/C/D when the new solvers are wired and call it. Task 2's build gate (compile succeeds) IS the verification that the infrastructure is correct.
 
-Append to `tests/testthat/test-calibration-solvers.R`:
-```r
-test_that("T2: L_c > U_c rejected with RK_ERR_BADARG", {
-  # Manufacture infeasible bounds by setting min_weight > max_weight
-  data <- data.frame(a = factor(c("1","2")))
-  target <- list(a = c("1"=0.5, "2"=0.5))
-  expect_error(
-    leafblower::harvest(data, target, min_weight=10, max_weight=2,
-                        method="ieppa", attach_weights=FALSE),
-    regexp = "min_weight"
-  )
-})
-
-test_that("T2: X_init=0 with L_c>0 returns infeasible", {
-  # All obs in category "1"; category "2" has zero obs → cell has X_init=0
-  # but target T_kj > 0 means margin infeasible (structural zero)
-  data <- data.frame(a = factor(rep("1", 100)))
-  # This test already exists in ieppa via structural_infeas_pairs
-  # Just verify the error message is informative
-  expect_warning(
-    w <- leafblower::harvest(data, list(a=c("1"=0.5, "2"=0.5)),
-                              max_weight=3, method="ieppa", attach_weights=FALSE),
-    regexp = "infeas|converge",
-    ignore.case = TRUE
-  )
-})
-```
-
-Run: expected PASS (existing validation already handles these via c_api validate_inputs and iEPPA structural infeas).
+No failing test is added here — tests that exercise existing iEPPA validation are regression guards, not red-green TDD tests. They are covered in the existing test suite.
 
 - [ ] **Step 2.2: Create `src/calib_validate.hpp`**
 
@@ -503,7 +482,7 @@ ldlt_factor_inplace + ldlt_solve stubs (bodies in Plan D)."
 
 **Scientific validation:** The KL metric is already implemented in ieppa.cpp and dispatched via CalibMetric::KL. Changing the default only affects which metric applies when the user passes `convergence=list()`. Tests that pin to explicit convergence (added during a2p2) are unaffected.
 
-- [ ] **Step 3.1: Write failing test**
+- [ ] **Step 3.1: Write failing test (RED)**
 
 Append to `tests/testthat/test-calibration-solvers.R`:
 ```r
@@ -524,7 +503,11 @@ test_that("T3: ieppa default convergence is kl+improvement", {
 })
 ```
 
-Run: expected FAIL (currently metric is "max_err").
+- [ ] **Step 3.1b: Run — confirm FAIL (RED)**
+```bash
+Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep "T3\|FAIL" | head -5
+```
+Expected: `T3` test FAILS with `"kl" != "max_err"`. Do NOT proceed until it FAILS.
 
 - [ ] **Step 3.2: Change c_api.cpp default metric**
 
@@ -646,50 +629,56 @@ Rscript data-raw/gen_ieppa_kl_ref.R
 ```
 Expected: outputs KL at best_iter (should be ~3e-3 based on prior benchmarks) and saves the rds file.
 
-- [ ] **Step 4.3: Write A1 test (will FAIL until Plan C implements sinkhorn)**
+- [ ] **Step 4.3: Write A1 test — RED until Plan C (no unconditional skip)**
 
 Append to `tests/testthat/test-calibration-solvers.R`:
 ```r
-test_that("A1: sinkhorn KL <= ieppa KL at best_iter (skip until sinkhorn implemented)", {
+test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
   skip_on_cran()
-  skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"))
+  skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
+          "stepstone benchmark data not available")
   ref_path <- test_path("fixtures/ieppa_kl_reference_stepstone.rds")
-  skip_if(!file.exists(ref_path))
+  skip_if(!file.exists(ref_path), "ieppa KL reference fixture not generated yet")
   ref <- readRDS(ref_path)
 
-  # SKIP until Plan C implements sinkhorn
-  skip("sinkhorn not yet implemented — Plan C will unskip this test")
-
+  # No unconditional skip — test FAILS with "sinkhorn not yet implemented"
+  # until Plan C implements method="sinkhorn". That failure IS the RED state.
   library(arrow); library(jsonlite)
   data <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
   tgt_raw <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
   target <- lapply(tgt_raw, function(x) { v <- unlist(x); v / sum(v) })
 
-  suppressWarnings(
+  # Plan A: this expect_error call is the RED — sinkhorn is a stub returning RK_ERR_BADARG
+  # Plan C GREEN: remove the expect_error line and uncomment the expect_lte block
+  expect_no_error(
     w_s <- leafblower::harvest(data, target, method="sinkhorn",
                                 max_weight=5, max_iterations=3000,
-                                attach_weights=FALSE)
+                                attach_weights=FALSE),
+    message="Plan C must implement method='sinkhorn' to reach this point"
   )
   r_s <- attr(w_s, "result")
-
-  # Sinkhorn must reach lower KL than iEPPA's best_iter KL
   expect_lte(r_s$convergence_used$objective, ref$kl_at_best_iter,
              label="sinkhorn KL <= ieppa best_iter KL")
-  # Sinkhorn must converge (not NOCONV)
   expect_equal(r_s$status, 0L, label="sinkhorn must converge")
-  # A7: best_iter == last_iter for monotone methods
   expect_equal(r_s$convergence_used$fired_at_iter, r_s$iterations,
-               label="sinkhorn best_iter == last_iter (monotone)")
+               label="A7: sinkhorn best_iter == last_iter (monotone)")
 })
 ```
 
-Run: test PASSES (skipped).
+- [ ] **Step 4.3b: Run — confirm FAIL (RED)**
+```bash
+Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep "A1\|FAIL" | head -5
+```
+Expected: A1 FAILS because `harvest(..., method="sinkhorn")` throws error (stub returns RK_ERR_BADARG). This is correct RED state — Plan C makes it GREEN.
+
+Run: test FAILS (red — sinkhorn is stub).
 
 - [ ] **Step 4.4: Full regression**
 ```bash
 Rscript -e 'devtools::test()' 2>&1 | tail -3
 ```
-Expected: FAIL 0, PASS ≥ 338 (A1 skipped, not failed).
+Expected: FAIL 1 (A1 red — sinkhorn stub), PASS ≥ 337. A1 remains FAIL until Plan C.
+This is the correct TDD state: a known failing test that documents a future deliverable.
 
 - [ ] **Step 4.5: Commit**
 ```bash
