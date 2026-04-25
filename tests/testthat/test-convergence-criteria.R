@@ -246,11 +246,11 @@ test_that("A3: list(pct=0.001) triggers l1_weight+plateau on raking", {
   result <- attr(w, "result")
   expect_equal(result$status, 0L)
   expect_lt(result$l1_weight_change, 0.001)
-  # pct key -> metric=l1_weight (5), rule=threshold (0) for backward compat
+  # pct key -> metric=l1_weight (5), rule=plateau (2) — autumn/anesrake compatible
   expect_equal(result$convergence_metric, 5L,
                info = "pct key must select l1_weight metric (5)")
-  expect_equal(result$convergence_rule, 0L,
-               info = "pct key must default to threshold rule (0)")
+  expect_equal(result$convergence_rule, 2L,
+               info = "pct must use plateau rule")
 })
 
 test_that("A4: explicit improvement rule with absolute tol fires on raking", {

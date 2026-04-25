@@ -209,12 +209,16 @@ RakingResult raking_solve(CalibState& st) {
                 w_best          = w;  // obs-level snapshot
             }
 
-            // WU-B: pct_change (obs-level).
+            // WU-B: pct_change (max-relative, L∞) and l1_weight (Σ|Δw|/n, L1/n).
             double pct_change = 0.0;
+            double l1_weight_sum = 0.0;
             for (int i = 0; i < st.n; i++) {
-                double rel = std::fabs(w[i] - w_prev[i]) / std::max(w_prev[i], 1e-12);
+                double diff = std::fabs(w[i] - w_prev[i]);
+                double rel = diff / std::max(w_prev[i], 1e-12);
                 if (rel > pct_change) pct_change = rel;
+                l1_weight_sum += diff;
             }
+            double l1_weight = l1_weight_sum / static_cast<double>(st.n);
 
             // WU-B: alternative metrics.
             //
@@ -276,7 +280,7 @@ RakingResult raking_solve(CalibState& st) {
 
             // Store metrics and update w_prev (unconditional — intermediate checks
             // store 0 for gated metrics; final iter always populates all fields).
-            res.l1_weight_change = pct_change;  // WU-B: rename; pct_change local var preserved until WU-B updates computation
+            res.l1_weight_change = l1_weight;    // Σ|Δw|/n (L1/n, scale-free)
             res.mean_error       = mean_err;
             res.kl               = kl_max;
             res.chi2             = chi2_total;
@@ -322,7 +326,7 @@ RakingResult raking_solve(CalibState& st) {
                     case lbw::CalibMetric::MEAN_ERR:   curr_metric = mean_err;   break;
                     case lbw::CalibMetric::KL:         curr_metric = kl_max;     break;
                     case lbw::CalibMetric::CHI2:       curr_metric = chi2_total; break;
-                    case lbw::CalibMetric::L1_WEIGHT:  curr_metric = pct_change; break;
+                    case lbw::CalibMetric::L1_WEIGHT:  curr_metric = l1_weight;  break;
                     case lbw::CalibMetric::GRAKE_NORM: curr_metric = grake_norm; break;
                 }
 
