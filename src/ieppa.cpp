@@ -852,12 +852,30 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
             // WU-B: alternative metrics — accumulate per-margin S_k, then compute
             // mean_err (mean of per-margin max), kl_max (max per-margin KL), chi2.
+            //
+            // Gate: skip the O(K*M_cell) scatter-adds when the active stopping
+            // criterion does not use these metrics. Always compute on the final
+            // iteration of each level (iter_in_lvl == budget_lvl) so that
+            // calib_result is fully populated on exit.
+            const lbw::CalibCriterion crit = st.convergence_cfg.criterion;
+            // also compute on any check where convergence is about to be declared
+            // (absolute_tol path) so that exit calib_result is fully populated.
+            const bool about_to_converge =
+                (st.convergence_cfg.absolute_tol > 0.0 &&
+                 errRp < st.convergence_cfg.absolute_tol);
+            const bool need_extra_metrics =
+                (crit == lbw::CalibCriterion::MEAN_ERR ||
+                 crit == lbw::CalibCriterion::KL       ||
+                 crit == lbw::CalibCriterion::CHI2     ||
+                 iter_in_lvl == budget_lvl             ||
+                 about_to_converge);
+
             constexpr double kMetricEps = 1e-10;
             constexpr double kChi2Floor = 1.0;
             double mean_err_sum = 0.0;
             double kl_max       = 0.0;
             double chi2_total   = 0.0;
-            if (W_total > 0.0) {
+            if (need_extra_metrics && W_total > 0.0) {
                 for (int k = 0; k < st.K; k++) {
                     const int nj = st.cat_counts[k];
                     std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
@@ -886,7 +904,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
             double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
 
-            // Store metrics in result struct.
+            // Store metrics in result struct (unconditional — intermediate checks
+            // store 0 for gated metrics; final iter always populates all fields).
             res.pct_change  = pct_change;
             res.mean_error  = mean_err;
             res.kl          = kl_max;

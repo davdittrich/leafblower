@@ -69,3 +69,27 @@ test_that("A7: metrics non-zero after max_iter exit (solver exits before kErrChe
   expect_true(is.finite(result$pct_change))
   expect_true(result$pct_change >= 0)
 })
+
+test_that("a0gk: metrics finite at exit with MAX_ERR criterion (gated path)", {
+  # Gate: mean_err/kl/chi2 skipped at intermediate checks when criterion=MAX_ERR/PCT.
+  # They are computed on the check where convergence fires (about_to_converge gate)
+  # and on the final budget iteration. Verify all three metrics are finite at exit.
+  # Use 2 imbalanced margins so calibration takes multiple iterations.
+  set.seed(7)
+  n <- 600
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE, prob = c(0.6, 0.3, 0.1))),
+    b = factor(sample(c("X","Y"),     n, replace = TRUE, prob = c(0.4, 0.6)))
+  )
+  target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("X"=0.5,"Y"=0.5))
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+                           max_iterations = 100,
+                           convergence = list(absolute = 1e-3),
+                           attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_true(is.finite(result$mean_error))
+  expect_true(is.finite(result$kl) && result$kl >= 0)
+  expect_true(is.finite(result$chi2) && result$chi2 >= 0)
+  # Convergence must have fired (not budget exhaustion) to exercise the gate path
+  expect_true(result$iterations < 100)
+})
