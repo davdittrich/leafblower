@@ -133,25 +133,40 @@ case RK_ALG_GRAKE: {
 }
 ```
 
-- [ ] **Step 1.4: Unpack new fields in `src/r_bridge.cpp`**
+- [ ] **Step 1.4: Unpack new fields — two-layer approach**
 
-Read the convergence_used nesting block (grep: `grep -n "convergence_used\|SET_STRING_ELT\|convergence_metric" src/r_bridge.cpp | head -20`).
+**Layer A: r_bridge.cpp** — flat fields at indices 28 and 29 (current VECSXP size is 28, indices 0-27).
 
-Add `convergence_objective` and `convergence_minimized_metric` to the `convergence_used` list construction in the result nesting code. These come from `r.convergence_objective` and `r.convergence_minimized_metric` in the solver result.
+Change `Rf_allocVector(VECSXP, 28)` → `Rf_allocVector(VECSXP, 30)` (and same for STRSXP).
 
-In the r_bridge convergence_used nesting (where `convergence_metric`, `convergence_rule` etc are packed):
-- Add: `res_conv_objective = res.convergence_objective;`
-- Add: `res_conv_minimized_metric = res.convergence_minimized_metric;`
-- Add SET_STRING_ELT and SET_VECTOR_ELT for both
+Add result variable declarations alongside existing ones:
+```cpp
+double res_conv_objective          = 0.0;
+int    res_conv_minimized_metric   = 0;
+```
 
-In harvest.R, in the `convergence_used` nesting block (~line 242), add:
+In each solver branch (ieppa/raking/lbfgsb), add after `res_conv_iter = res.convergence_iter;`:
+```cpp
+res_conv_objective        = res.convergence_objective;
+res_conv_minimized_metric = res.convergence_minimized_metric;
+```
+
+After the existing index-27 block, add:
+```cpp
+SET_STRING_ELT(res_names, 28, Rf_mkChar("convergence_objective"));
+SET_STRING_ELT(res_names, 29, Rf_mkChar("convergence_minimized_metric"));
+SET_VECTOR_ELT(res_list, 28, Rf_ScalarReal(res_conv_objective));
+SET_VECTOR_ELT(res_list, 29, Rf_ScalarInteger(res_conv_minimized_metric));
+```
+
+**Layer B: harvest.R** — add to the `convergence_used` list construction (~line 249):
 ```r
+.metric_names <- c("max_err","mean_err","kl","chi2","grake_norm","l1_weight","pct")
 calib_result$convergence_used <- list(
-  ...existing fields...,
+  # ...existing: metric, rule, tol, fired_at_iter...
   objective        = calib_result$convergence_objective,
-  minimized_metric = .metric_names[calib_result$convergence_minimized_metric + 1L]
+  minimized_metric = .safe_lookup(.metric_names, calib_result$convergence_minimized_metric)
 )
-# NULL out the flat fields
 calib_result$convergence_objective        <- NULL
 calib_result$convergence_minimized_metric <- NULL
 ```
@@ -249,6 +264,10 @@ Run: expected PASS (existing validation already handles these via c_api validate
 #include "types.hpp"
 
 namespace lbw {
+
+// kNCatsTotalMax is defined HERE (single definition).
+// calib_linalg.hpp includes this header to share the constant.
+constexpr int kNCatsTotalMax = 2048;
 
 /**
  * Pre-entry validation for new cell-table solvers (sinkhorn, chebyshev, greg, grake).
@@ -375,12 +394,13 @@ int calib_validate_preentry(const CellTable& ct,
 
 ```cpp
 #pragma once
+#include "calib_validate.hpp"   // provides kNCatsTotalMax — DO NOT redefine
 #include "cell_table.hpp"
 #include <cstddef>
 
 namespace lbw {
 
-constexpr int kNCatsTotalMax = 2048;
+// kNCatsTotalMax is defined in calib_validate.hpp — included above.
 
 /**
  * Compute N = A × diag(D) × Aᵀ where A is the (n_cats_total × M_cell)
@@ -415,7 +435,18 @@ void ldlt_solve(const double* L, const double* d_diag, double* b, size_t n);
 } // namespace lbw
 ```
 
-- [ ] **Step 2.5: Build gate**
+- [ ] **Step 2.5: Add calib_validate.cpp to Makevars**
+
+Read `src/Makevars` (current: `PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp cell_table.cpp r_bridge.cpp`).
+
+Add `calib_validate.cpp` to the list:
+```makefile
+PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp cell_table.cpp r_bridge.cpp raking.cpp calib_validate.cpp
+```
+
+Note: `raking.cpp` should already be in `PKG_SOURCES` — verify first. Add only what is missing.
+
+- [ ] **Step 2.6: Build gate**
 ```bash
 R CMD INSTALL --preclean . 2>&1 | tail -5
 ```
@@ -478,32 +509,30 @@ Change to:
 p->metric = 2;  /* KL — iEPPA is a Sinkhorn-type algorithm minimizing KL */
 ```
 
-- [ ] **Step 3.3: Change harvest.R default**
+- [ ] **Step 3.3: Change harvest.R default — method-aware at call site**
 
-Read `parse_convergence` (~line 370). Find the default path where `default_metric = "max_err"` is set when neither pct, absolute, nor improvement is explicit:
+`parse_convergence` does not know the method name. The fix is in the harvest.R call site, AFTER `conv <- parse_convergence(convergence)`, not inside parse_convergence.
 
+Read: `grep -n "conv\s*<-\s*parse_convergence\|method_int\|map_method" R/harvest.R | head -10`
+
+After `conv <- parse_convergence(convergence)`, add:
 ```r
-# BEFORE:
-default_metric <- "max_err"
-default_rule   <- "improvement"
-
-# AFTER (lines where neither explicit_impr nor explicit_abs is set):
-default_metric <- if (method_is_ieppa) "kl" else "max_err"
+# iEPPA is a KL minimizer — override default metric from max_err to kl
+# when the user has not explicitly set a metric.
+if (method_str == "ieppa" && is.null(convergence[["metric"]]) &&
+    is.null(convergence[["improvement"]]) && is.null(convergence[["absolute"]]) &&
+    is.null(convergence[["pct"]])) {
+  conv$metric <- "kl"
+}
 ```
 
-But `parse_convergence` doesn't know the method. Simplest correct fix: change the global default in `parse_convergence` from `"max_err"` to `"kl"` for the bare-default path. This affects all methods, but per the spec, kl+improvement is the correct default for the library as a whole (iEPPA dominates usage; other methods have their own objectives baked in and won't use this default).
+This is method-aware and does NOT touch parse_convergence's generic defaults, avoiding regressions for raking/lbfgsb.
 
+Also update the `@param convergence` roxygen to mention iEPPA default:
 ```r
-# In parse_convergence, the bare-default path (~line 393):
-# BEFORE:
-default_metric <- "max_err"
-# AFTER:
-default_metric <- "kl"
-```
-
-Also update the `@param convergence` roxygen default description:
-```r
-#'   \code{convergence = list()} uses the default (kl + improvement + 0.001).
+#'   For \code{method="ieppa"}, default is \code{kl + improvement + 0.001}
+#'   (consistent with iEPPA's Sinkhorn objective). For other methods:
+#'   \code{max_err + improvement + 0.001}.
 ```
 
 - [ ] **Step 3.4: Build + run test**
