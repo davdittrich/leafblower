@@ -15,11 +15,11 @@ constexpr int kNCatsTotalMax = 2048;
  * On error, writes a human-readable message to result->message.
  *
  * Checks (in order):
- * 1. L_c <= U_c for all cells              → RK_ERR_BADARG  with cell index
- * 2. X_init[c]==0 && L_c>0 for any cell   → RK_ERR_INFEAS  ("structural zero")
- * 3. sum(L_c) <= n <= sum(U_c)             → RK_ERR_INFEAS  ("total capacity")
- * 4. |sum(T_kj) - 1| <= 1e-6 for all k   → normalizes T_kj + emits warning
- * 5. n_cats_total <= kNCatsTotalMax        → RK_ERR_BADARG  ("too many categories")
+ * 1. n_cats_total <= kNCatsTotalMax        → RK_ERR_BADARG  ("too many categories")
+ * 2. L_c <= U_c for all cells              → RK_ERR_BADARG  with cell index
+ * 3. X_init[c]==0 && L_c>0 for any cell   → RK_ERR_INFEAS  ("structural zero")
+ * 4. sum(L_c) <= n <= sum(U_c)             → RK_ERR_INFEAS  ("total capacity")
+ * 5. |sum(T_kj) - 1| <= 1e-6 for all k   → RK_ERR_BADARG  (normalize before calling)
  */
 int calib_validate_preentry(const CellTable& ct,
                              const CalibState& st,
