@@ -17,6 +17,7 @@ test_that("A3: SOR auto triggers on oscillatory tight-clamp synthetic", {
   )
   w <- leafblower::harvest(data, target, max_weight = 1.5, method = "ieppa",
                            max_iterations = 1000,
+                           convergence = list(absolute = 1e-6),
                            sor = list(auto = TRUE, omega_min = 0.3),
                            attach_weights = FALSE)
   result <- attr(w, "result")
