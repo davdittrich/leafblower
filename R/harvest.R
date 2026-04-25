@@ -241,9 +241,14 @@ harvest <- function(
   # metric_names and rule_names mirror CalibMetric/CalibRule enum order in leafblower.h.
   .metric_names <- c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight")
   .rule_names   <- c("threshold", "improvement", "plateau")
+  # C1: guard +1L indexing — integer index from C may be NA or out of range.
+  .safe_lookup <- function(v, idx) {
+    if (is.integer(idx) && !is.na(idx) && idx >= 0L && idx < length(v)) v[idx + 1L]
+    else NA_character_
+  }
   calib_result$convergence_used <- list(
-    metric        = .metric_names[calib_result$convergence_metric + 1L],
-    rule          = .rule_names[calib_result$convergence_rule + 1L],
+    metric        = .safe_lookup(.metric_names, calib_result$convergence_metric),
+    rule          = .safe_lookup(.rule_names,   calib_result$convergence_rule),
     tol           = calib_result$convergence_tol,
     fired_at_iter = calib_result$convergence_iter
   )
@@ -378,6 +383,12 @@ parse_convergence <- function(convergence) {
   explicit_improvement <- !is.null(convergence[["improvement"]])
   explicit_tol         <- !is.null(convergence[["tol"]])
 
+  # C2: improvement= and absolute= together without stop_when is ambiguous — error.
+  if (explicit_improvement && explicit_abs && is.null(convergence[["stop_when"]])) {
+    stop("convergence: 'improvement' and 'absolute' cannot be combined without ",
+         "'stop_when'. Use stop_when = 'any' or 'all' to fire on either or both.")
+  }
+
   # Shorthand: improvement=X -> max_err + improvement rule + X as pct_tol
   if (explicit_improvement) {
     tol_val <- convergence[["improvement"]]
@@ -399,10 +410,11 @@ parse_convergence <- function(convergence) {
   # pct is autumn/anesrake compatible: stops when Σ|Δw| STOPS IMPROVING (plateau).
   # Default its rule to "plateau" when pct is specified without an explicit rule.
   # absolute= with no explicit rule maps to "threshold" (hard stopping criterion).
-  rule_default <- if (explicit_pct && is.null(convergence[["rule"]])) "plateau"
-                  else if (explicit_abs && !explicit_pct && is.null(convergence[["rule"]])) "threshold"
-                  else "improvement"
-  rule_raw     <- convergence[["rule"]] %||% rule_default
+  rule_explicit <- !is.null(convergence[["rule"]])
+  rule_default  <- if (!rule_explicit && explicit_pct) "plateau"
+                   else if (!rule_explicit && explicit_abs && !explicit_pct) "threshold"
+                   else "improvement"
+  rule_raw      <- convergence[["rule"]] %||% rule_default
   rule         <- match.arg(rule_raw, c("threshold", "improvement", "plateau"))
 
   # "tol" shorthand: overrides pct_tol for threshold rule, pct_tol otherwise.

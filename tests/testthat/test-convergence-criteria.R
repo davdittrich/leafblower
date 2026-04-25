@@ -345,3 +345,25 @@ test_that("A6: grake_norm+threshold converges on raking (skip if no survey pkg)"
   expect_equal(result$status, 0L, info = "grake_norm criterion must converge")
   expect_lt(result$grake_norm, 1e-7)
 })
+
+test_that("lj5j: convergence_used metric/rule are character strings (NA-safe indexing)", {
+  set.seed(1)
+  data <- data.frame(a = factor(sample(c("1","2"), 100, replace=TRUE)))
+  target <- list(a = c("1"=0.5, "2"=0.5))
+  w <- leafblower::harvest(data, target, max_weight=3, method="ieppa",
+                           attach_weights=FALSE)
+  r <- attr(w, "result")
+  expect_true(is.character(r$convergence_used$metric) || is.na(r$convergence_used$metric))
+  expect_true(is.character(r$convergence_used$rule)   || is.na(r$convergence_used$rule))
+})
+
+test_that("we1a: improvement+absolute without stop_when errors with actionable message", {
+  data <- data.frame(a = factor(c("1","2")))
+  target <- list(a = c("1"=0.5,"2"=0.5))
+  expect_error(
+    leafblower::harvest(data, target, max_weight=3, method="ieppa",
+                        convergence = list(improvement=0.01, absolute=1e-6),
+                        attach_weights=FALSE),
+    regexp = "stop_when|ambiguous|combine"
+  )
+})
