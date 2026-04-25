@@ -73,16 +73,21 @@ harvest(
 \item{weight_column}{Name of weight column. Default "weights".}
 
 \item{convergence}{Named list controlling the stopping criterion. Accepted keys:
-\itemize{
-  \item \code{pct}: proportional weight-change threshold (default \code{0.001}).
-    Disabled when absent and \code{absolute} is explicitly set.
-  \item \code{absolute}: absolute threshold for the active criterion (default \code{0}).
-  \item \code{criterion}: one of \code{"pct"} (default), \code{"max_err"},
-    \code{"mean_err"}, \code{"kl"}, \code{"chi2"}.
-    \code{"chi2"} scales with sample size; supply an n-scaled threshold.
-  \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
-}
-Backward compat: \code{list(absolute = 1e-6)} activates max_error criterion.}
+  \itemize{
+    \item \code{pct}: proportional weight-change threshold (default \code{0.001}).
+      Disabled when absent and \code{absolute} is explicitly set.
+    \item \code{absolute}: absolute threshold for the active criterion (default \code{0}).
+    \item \code{criterion}: one of \code{"pct"} (default), \code{"max_err"},
+      \code{"mean_err"}, \code{"kl"}, \code{"chi2"}.
+      \code{"chi2"} scales with sample size; supply an n-scaled threshold.
+    \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
+  }
+  Backward compat: \code{list(absolute = 1e-6)} activates max_error criterion.
+
+  \strong{Note for \code{method = "lbfgsb"}:} \code{pct_change} in the
+  result measures the start-to-final weight shift (batch solver, single
+  pass), not iteration-to-iteration shift as in iEPPA and raking. A
+  \code{pct} threshold tuned for iEPPA will behave differently with lbfgsb.}
 
 \item{sor}{Named list for SOR adaptive under-relaxation (iEPPA only).
 \code{NULL} disables SOR. Keys:

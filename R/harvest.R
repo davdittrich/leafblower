@@ -31,6 +31,11 @@
 #'     \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
 #'   }
 #'   Backward compat: \code{list(absolute = 1e-6)} activates max_error criterion.
+#'
+#'   \strong{Note for \code{method = "lbfgsb"}:} \code{pct_change} in the
+#'   result measures the start-to-final weight shift (batch solver, single
+#'   pass), not iteration-to-iteration shift as in iEPPA and raking. A
+#'   \code{pct} threshold tuned for iEPPA will behave differently with lbfgsb.
 #' @param sor Named list for SOR adaptive under-relaxation (iEPPA only).
 #'   \code{NULL} disables SOR. Keys:
 #'   \itemize{
