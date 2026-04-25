@@ -20,7 +20,7 @@ SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -36,7 +36,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       29},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       30},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -94,7 +94,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP eta_schedule_power_sexp,
                     /* Convergence config (WU-A) */
                     SEXP pct_tol_sexp, SEXP absolute_tol_sexp,
-                    SEXP criterion_sexp, SEXP stop_when_sexp,
+                    SEXP metric_sexp, SEXP rule_sexp, SEXP stop_when_sexp,
                     /* SOR config (WU-A) */
                     SEXP sor_enabled_sexp, SEXP sor_auto_sexp,
                     SEXP sor_omega_init_sexp, SEXP sor_omega_min_sexp,
@@ -209,7 +209,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     /* Convergence config (WU-A) */
     p.pct_tol             = REAL(pct_tol_sexp)[0];
     p.absolute_tol        = REAL(absolute_tol_sexp)[0];
-    p.criterion           = INTEGER(criterion_sexp)[0];
+    p.metric              = INTEGER(metric_sexp)[0];
+    p.rule                = INTEGER(rule_sexp)[0];
     p.stop_when           = INTEGER(stop_when_sexp)[0];
     /* SOR config (WU-A) */
     p.sor_enabled         = INTEGER(sor_enabled_sexp)[0];
@@ -281,7 +282,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     st.eta_schedule.schedule_power = p.eta_schedule_power;
     st.convergence_cfg.pct_tol      = p.pct_tol;
     st.convergence_cfg.absolute_tol = p.absolute_tol;
-    st.convergence_cfg.criterion    = static_cast<lbw::CalibCriterion>(p.criterion);
+    st.convergence_cfg.metric       = static_cast<lbw::CalibMetric>(p.metric);
+    st.convergence_cfg.rule         = static_cast<lbw::CalibRule>(p.rule);
     st.convergence_cfg.stop_when    = static_cast<lbw::CalibStopWhen>(p.stop_when);
     st.sor_cfg.enabled              = (p.sor_enabled != 0);
     st.sor_cfg.auto_adapt           = (p.sor_auto != 0);
@@ -308,11 +310,16 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     double res_homotopy_final_factor = 1.0;
     int    res_greedy_sweeps_taken   = 0;
     double res_eta_final             = 0.0;
-    double res_mean_error  = 0.0;
-    double res_kl          = 0.0;
-    double res_chi2        = 0.0;
-    double res_pct_change  = 0.0;
-    double res_best_error  = std::numeric_limits<double>::infinity();
+    double res_mean_error        = 0.0;
+    double res_kl                = 0.0;
+    double res_chi2              = 0.0;
+    double res_l1_weight_change  = 0.0;
+    double res_grake_norm        = 0.0;
+    int    res_conv_metric       = 0;
+    int    res_conv_rule         = 1;
+    double res_conv_tol          = 0.001;
+    int    res_conv_iter         = -1;
+    double res_best_error        = std::numeric_limits<double>::infinity();
     int    res_best_iter   = 0;
     double res_sor_min_omega = 1.0;
     int    res_sor_n_damped  = 0;
@@ -324,12 +331,17 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_iterations = res.iterations;
         res_max_error  = res.max_error;
         res_alg_used   = (int)RK_ALG_LBFGSB;
-        res_mean_error = res.mean_error;
-        res_kl         = res.kl;
-        res_chi2       = res.chi2;
-        res_pct_change = res.pct_change;
-        res_best_error = res.best_error;
-        res_best_iter  = res.best_iter;
+        res_mean_error       = res.mean_error;
+        res_kl               = res.kl;
+        res_chi2             = res.chi2;
+        res_l1_weight_change = res.l1_weight_change;
+        res_grake_norm       = res.grake_norm;
+        res_conv_metric      = res.convergence_metric;
+        res_conv_rule        = res.convergence_rule;
+        res_conv_tol         = res.convergence_tol;
+        res_conv_iter        = res.convergence_iter;
+        res_best_error       = res.best_error;
+        res_best_iter        = res.best_iter;
         res_best_weights = std::move(res.best_weights);
     } else if (strcmp(method_str, "raking") == 0) {
         auto res = lbw::raking_solve(st);
@@ -337,12 +349,17 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_iterations = res.iterations;
         res_max_error  = res.max_error;
         res_alg_used   = (int)RK_ALG_RAKING;
-        res_mean_error = res.mean_error;
-        res_kl         = res.kl;
-        res_chi2       = res.chi2;
-        res_pct_change = res.pct_change;
-        res_best_error = res.best_error;
-        res_best_iter  = res.best_iter;
+        res_mean_error       = res.mean_error;
+        res_kl               = res.kl;
+        res_chi2             = res.chi2;
+        res_l1_weight_change = res.l1_weight_change;
+        res_grake_norm       = res.grake_norm;
+        res_conv_metric      = res.convergence_metric;
+        res_conv_rule        = res.convergence_rule;
+        res_conv_tol         = res.convergence_tol;
+        res_conv_iter        = res.convergence_iter;
+        res_best_error       = res.best_error;
+        res_best_iter        = res.best_iter;
         res_best_weights = std::move(res.best_weights);
     } else {
         // Default / ieppa
@@ -361,14 +378,19 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_homotopy_final_factor = res.homotopy_final_factor;
         res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
         res_eta_final             = res.eta_final;
-        res_mean_error = res.mean_error;
-        res_kl         = res.kl;
-        res_chi2       = res.chi2;
-        res_pct_change = res.pct_change;
-        res_best_error = res.best_error;
-        res_best_iter  = res.best_iter;
-        res_sor_min_omega = res.sor_min_omega;
-        res_sor_n_damped  = res.sor_n_damped;
+        res_mean_error       = res.mean_error;
+        res_kl               = res.kl;
+        res_chi2             = res.chi2;
+        res_l1_weight_change = res.l1_weight_change;
+        res_grake_norm       = res.grake_norm;
+        res_conv_metric      = res.convergence_metric;
+        res_conv_rule        = res.convergence_rule;
+        res_conv_tol         = res.convergence_tol;
+        res_conv_iter        = res.convergence_iter;
+        res_best_error       = res.best_error;
+        res_best_iter        = res.best_iter;
+        res_sor_min_omega    = res.sor_min_omega;
+        res_sor_n_damped     = res.sor_n_damped;
         res_best_weights = std::move(res.best_weights);
     }
 
@@ -382,8 +404,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  23));  // 14 prior + 8 scalars + best_weights
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  23));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  28));  // 14 prior + 8 scalars + best_weights + 5 convergence fields
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  28));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -416,7 +438,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_STRING_ELT(res_names, 14, Rf_mkChar("mean_error"));
     SET_STRING_ELT(res_names, 15, Rf_mkChar("kl"));
     SET_STRING_ELT(res_names, 16, Rf_mkChar("chi2"));
-    SET_STRING_ELT(res_names, 17, Rf_mkChar("pct_change"));
+    SET_STRING_ELT(res_names, 17, Rf_mkChar("l1_weight_change"));
     SET_STRING_ELT(res_names, 18, Rf_mkChar("best_error"));
     SET_STRING_ELT(res_names, 19, Rf_mkChar("best_iter"));
     SET_STRING_ELT(res_names, 20, Rf_mkChar("sor_min_omega"));
@@ -424,7 +446,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 14, Rf_ScalarReal(res_mean_error));
     SET_VECTOR_ELT(res_list, 15, Rf_ScalarReal(res_kl));
     SET_VECTOR_ELT(res_list, 16, Rf_ScalarReal(res_chi2));
-    SET_VECTOR_ELT(res_list, 17, Rf_ScalarReal(res_pct_change));
+    SET_VECTOR_ELT(res_list, 17, Rf_ScalarReal(res_l1_weight_change));
     SET_VECTOR_ELT(res_list, 18, Rf_ScalarReal(res_best_error));
     SET_VECTOR_ELT(res_list, 19, Rf_ScalarInteger(res_best_iter));
     SET_VECTOR_ELT(res_list, 20, Rf_ScalarReal(res_sor_min_omega));
@@ -439,6 +461,17 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         SET_VECTOR_ELT(res_list, 22, bw_sxp);
         UNPROTECT(1);  // bw_sxp adopted by res_list
     }
+    /* Elements 23-27: convergence diagnostics (WU-A) */
+    SET_STRING_ELT(res_names, 23, Rf_mkChar("grake_norm"));
+    SET_STRING_ELT(res_names, 24, Rf_mkChar("convergence_metric"));
+    SET_STRING_ELT(res_names, 25, Rf_mkChar("convergence_rule"));
+    SET_STRING_ELT(res_names, 26, Rf_mkChar("convergence_tol"));
+    SET_STRING_ELT(res_names, 27, Rf_mkChar("convergence_iter"));
+    SET_VECTOR_ELT(res_list, 23, Rf_ScalarReal(res_grake_norm));
+    SET_VECTOR_ELT(res_list, 24, Rf_ScalarInteger(res_conv_metric));
+    SET_VECTOR_ELT(res_list, 25, Rf_ScalarInteger(res_conv_rule));
+    SET_VECTOR_ELT(res_list, 26, Rf_ScalarReal(res_conv_tol));
+    SET_VECTOR_ELT(res_list, 27, Rf_ScalarInteger(res_conv_iter));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

@@ -34,20 +34,28 @@ struct EtaScheduleConfigLbw {
 };
 // ── End overlay config structs ─────────────────────────────────────────────
 
-enum class CalibCriterion : int {
-    PCT      = 0,
-    MAX_ERR  = 1,
-    MEAN_ERR = 2,
-    KL       = 3,
-    CHI2     = 4
+enum class CalibMetric : int {
+    MAX_ERR    = 0,
+    MEAN_ERR   = 1,
+    KL         = 2,
+    CHI2       = 3,
+    GRAKE_NORM = 4,
+    L1_WEIGHT  = 5
+};
+
+enum class CalibRule : int {
+    THRESHOLD   = 0,
+    IMPROVEMENT = 1,
+    PLATEAU     = 2
 };
 enum class CalibStopWhen : int { ANY = 0, ALL = 1 };
 
 struct CalibConvergenceCfg {
     double        pct_tol      = 0.001;
     double        absolute_tol = 0.0;
-    CalibCriterion criterion    = CalibCriterion::PCT;
-    CalibStopWhen  stop_when    = CalibStopWhen::ANY;
+    CalibMetric   metric       = CalibMetric::MAX_ERR;
+    CalibRule     rule         = CalibRule::IMPROVEMENT;
+    CalibStopWhen stop_when    = CalibStopWhen::ANY;
 };
 
 struct CalibSorCfg {

@@ -218,16 +218,16 @@ RakingResult raking_solve(CalibState& st) {
             // criterion does not use these metrics. Always compute on the final
             // iteration (iter == st.inner_max_iter) so that calib_result is
             // fully populated on exit.
-            const lbw::CalibCriterion crit = st.convergence_cfg.criterion;
+            const lbw::CalibMetric metric = st.convergence_cfg.metric;
             // also compute on any check where convergence is about to be declared
             // (absolute_tol path) so that exit calib_result is fully populated.
             const bool about_to_converge =
                 (st.convergence_cfg.absolute_tol > 0.0 &&
                  errRp < st.convergence_cfg.absolute_tol);
             const bool need_extra_metrics =
-                (crit == lbw::CalibCriterion::MEAN_ERR ||
-                 crit == lbw::CalibCriterion::KL       ||
-                 crit == lbw::CalibCriterion::CHI2     ||
+                (metric == lbw::CalibMetric::MEAN_ERR ||
+                 metric == lbw::CalibMetric::KL       ||
+                 metric == lbw::CalibMetric::CHI2     ||
                  iter == st.inner_max_iter             ||
                  about_to_converge);
 
@@ -267,10 +267,10 @@ RakingResult raking_solve(CalibState& st) {
 
             // Store metrics and update w_prev (unconditional — intermediate checks
             // store 0 for gated metrics; final iter always populates all fields).
-            res.pct_change = pct_change;
-            res.mean_error = mean_err;
-            res.kl         = kl_max;
-            res.chi2       = chi2_total;
+            res.l1_weight_change = pct_change;  // WU-B: rename; pct_change local var preserved until WU-B updates computation
+            res.mean_error       = mean_err;
+            res.kl               = kl_max;
+            res.chi2             = chi2_total;
             for (int i = 0; i < st.n; i++) w_prev[i] = w[i];
 
             // First check: no baseline yet, just record and reset counter.
@@ -306,12 +306,13 @@ RakingResult raking_solve(CalibState& st) {
                 const auto& cfg = st.convergence_cfg;
                 double active_val = 0.0;
                 if (cfg.absolute_tol > 0.0) {
-                    switch (cfg.criterion) {
-                        case lbw::CalibCriterion::MAX_ERR:  active_val = errRp;      break;
-                        case lbw::CalibCriterion::MEAN_ERR: active_val = mean_err;   break;
-                        case lbw::CalibCriterion::KL:       active_val = kl_max;     break;
-                        case lbw::CalibCriterion::CHI2:     active_val = chi2_total; break;
-                        case lbw::CalibCriterion::PCT:      active_val = pct_change; break;
+                    switch (cfg.metric) {
+                        case lbw::CalibMetric::MAX_ERR:    active_val = errRp;      break;
+                        case lbw::CalibMetric::MEAN_ERR:   active_val = mean_err;   break;
+                        case lbw::CalibMetric::KL:         active_val = kl_max;     break;
+                        case lbw::CalibMetric::CHI2:       active_val = chi2_total; break;
+                        case lbw::CalibMetric::L1_WEIGHT:  active_val = pct_change; break;
+                        case lbw::CalibMetric::GRAKE_NORM: active_val = 0.0; break;  // WU-D stub
                     }
                 }
                 bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);

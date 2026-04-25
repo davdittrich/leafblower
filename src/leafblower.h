@@ -69,9 +69,10 @@ typedef struct {
     double            eta_schedule_power;
     /* ── End overlay knobs ── */
     /* ── Convergence config ── */
-    double pct_tol;          /* default 0.001 */
-    double absolute_tol;     /* default 0.0 */
-    int    criterion;        /* 0=PCT 1=MAX_ERR 2=MEAN_ERR 3=KL 4=CHI2 */
+    double pct_tol;          /* threshold for IMPROVEMENT/PLATEAU rules (default 0.001) */
+    double absolute_tol;     /* threshold for THRESHOLD rule + stop_when secondary (default 0.0) */
+    int    metric;           /* CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT */
+    int    rule;             /* CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU */
     int    stop_when;        /* 0=ANY 1=ALL */
     /* ── SOR config (iEPPA only; ignored by raking/lbfgsb) ── */
     int    sor_enabled;
@@ -105,8 +106,13 @@ typedef struct {
     double mean_error;       /* L1-over-margins */
     double kl;               /* max KL across margins */
     double chi2;             /* total chi-square */
-    double pct_change;       /* final iter max proportional weight change */
-    double best_error;       /* errRp at best iterate */
+    double l1_weight_change;   /* L1 normalized weight change Σ|Δw|/n (renamed from pct_change) */
+    double grake_norm;         /* survey::grake normalized residual max_k|misfit|/(1+|pop|) */
+    int    convergence_metric; /* CalibMetric at exit (0=MAX_ERR...) */
+    int    convergence_rule;   /* CalibRule at exit (0=THRESHOLD...) */
+    double convergence_tol;    /* threshold that fired */
+    int    convergence_iter;   /* iteration at convergence (-1 if max_iter) */
+    double best_error;         /* errRp at best iterate */
     int    best_iter;
     double sor_min_omega;    /* iEPPA only; non-iEPPA = 1.0 */
     int    sor_n_damped;     /* iEPPA only; non-iEPPA = 0 */
@@ -160,14 +166,14 @@ static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
  *   rk_homotopy_cfg_t (n_levels int + 4B pad + 3 doubles + enabled int + 4B pad = 40B)
  *   rk_scheduler_t (int, 4B) + rk_eta_mode_t (int, 4B)
  *   eta_start (double, 8B) + eta_end (double, 8B) + eta_schedule_power (double, 8B)
- * WU-A (2026-04-24): added convergence/SOR config after eta_schedule_power:
+ * WU-A (2026-04-25): convergence redesign — criterion→metric+rule in rk_params_t:
  *   pct_tol (double, 8B) + absolute_tol (double, 8B)
- *   criterion (int, 4B) + stop_when (int, 4B)
+ *   metric (int, 4B) + rule (int, 4B) + stop_when (int, 4B)
  *   sor_enabled (int, 4B) + sor_auto (int, 4B)
  *   sor_omega_init (double, 8B) + sor_omega_min (double, 8B) + sor_omega_fixed (double, 8B)
  *   sor_burnin (int, 4B) + 4B pad
- * Total: 216B. Verified 2026-04-24 Linux x86_64. */
-#define EXPECTED_RK_PARAMS_BYTES 216
+ * Total: 224B. Verified 2026-04-25 Linux x86_64. */
+#define EXPECTED_RK_PARAMS_BYTES 224
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

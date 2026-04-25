@@ -47,7 +47,8 @@ void rk_params_init(rk_params_t* p) {
     p->eta_schedule_power      = 0.5;
     p->pct_tol                 = 0.001;
     p->absolute_tol            = 0.0;
-    p->criterion               = 0;  /* PCT */
+    p->metric                  = 0;  /* MAX_ERR */
+    p->rule                    = 1;  /* IMPROVEMENT */
     p->stop_when               = 0;  /* ANY */
     p->sor_enabled             = 1;
     p->sor_auto                = 1;
@@ -60,8 +61,11 @@ void rk_params_init(rk_params_t* p) {
 void rk_result_init(rk_result_t* r) {
     if (!r) return;
     memset(r, 0, sizeof(*r));
-    r->best_error    = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
-    r->sor_min_omega = 1.0;    /* non-iEPPA default */
+    r->best_error         = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
+    r->sor_min_omega      = 1.0;    /* non-iEPPA default */
+    r->convergence_rule   = 1;      /* IMPROVEMENT */
+    r->convergence_tol    = 0.001;
+    r->convergence_iter   = -1;     /* -1 = did not converge */
 }
 
 static int validate_inputs(int n, int K,
@@ -158,7 +162,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.eta_schedule.schedule_power = p->eta_schedule_power;
     st.convergence_cfg.pct_tol      = p->pct_tol;
     st.convergence_cfg.absolute_tol = p->absolute_tol;
-    st.convergence_cfg.criterion    = static_cast<lbw::CalibCriterion>(p->criterion);
+    st.convergence_cfg.metric       = static_cast<lbw::CalibMetric>(p->metric);
+    st.convergence_cfg.rule         = static_cast<lbw::CalibRule>(p->rule);
     st.convergence_cfg.stop_when    = static_cast<lbw::CalibStopWhen>(p->stop_when);
     st.sor_cfg.enabled              = (p->sor_enabled != 0);
     st.sor_cfg.auto_adapt           = (p->sor_auto != 0);
@@ -178,12 +183,17 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         max_error = res.max_error;
         used = RK_ALG_LBFGSB;
         if (result) {
-            result->mean_error  = res.mean_error;
-            result->kl          = res.kl;
-            result->chi2        = res.chi2;
-            result->pct_change  = res.pct_change;
-            result->best_error  = res.best_error;
-            result->best_iter   = res.best_iter;
+            result->mean_error          = res.mean_error;
+            result->kl                  = res.kl;
+            result->chi2                = res.chi2;
+            result->l1_weight_change    = res.l1_weight_change;
+            result->grake_norm          = res.grake_norm;
+            result->convergence_metric  = res.convergence_metric;
+            result->convergence_rule    = res.convergence_rule;
+            result->convergence_tol     = res.convergence_tol;
+            result->convergence_iter    = res.convergence_iter;
+            result->best_error          = res.best_error;
+            result->best_iter           = res.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
         }
     } else if (alg == RK_ALG_RAKING) {
@@ -194,12 +204,17 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         max_error = res.max_error;
         used = RK_ALG_RAKING;
         if (result) {
-            result->mean_error  = res.mean_error;
-            result->kl          = res.kl;
-            result->chi2        = res.chi2;
-            result->pct_change  = res.pct_change;
-            result->best_error  = res.best_error;
-            result->best_iter   = res.best_iter;
+            result->mean_error          = res.mean_error;
+            result->kl                  = res.kl;
+            result->chi2                = res.chi2;
+            result->l1_weight_change    = res.l1_weight_change;
+            result->grake_norm          = res.grake_norm;
+            result->convergence_metric  = res.convergence_metric;
+            result->convergence_rule    = res.convergence_rule;
+            result->convergence_tol     = res.convergence_tol;
+            result->convergence_iter    = res.convergence_iter;
+            result->best_error          = res.best_error;
+            result->best_iter           = res.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
         }
     } else {
@@ -219,14 +234,19 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->homotopy_final_factor = res.homotopy_final_factor;
             result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
             result->eta_final             = res.eta_final;
-            result->mean_error    = res.mean_error;
-            result->kl            = res.kl;
-            result->chi2          = res.chi2;
-            result->pct_change    = res.pct_change;
-            result->best_error    = res.best_error;
-            result->best_iter     = res.best_iter;
-            result->sor_min_omega = res.sor_min_omega;
-            result->sor_n_damped  = res.sor_n_damped;
+            result->mean_error          = res.mean_error;
+            result->kl                  = res.kl;
+            result->chi2                = res.chi2;
+            result->l1_weight_change    = res.l1_weight_change;
+            result->grake_norm          = res.grake_norm;
+            result->convergence_metric  = res.convergence_metric;
+            result->convergence_rule    = res.convergence_rule;
+            result->convergence_tol     = res.convergence_tol;
+            result->convergence_iter    = res.convergence_iter;
+            result->best_error          = res.best_error;
+            result->best_iter           = res.best_iter;
+            result->sor_min_omega       = res.sor_min_omega;
+            result->sor_n_damped        = res.sor_n_damped;
         }
     }
 

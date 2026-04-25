@@ -255,10 +255,10 @@ static LBFGSResult compute_final_weights_and_error(
     }
     double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
 
-    res.pct_change = pct_change;
-    res.mean_error = mean_err;
-    res.kl         = kl_max;
-    res.chi2       = chi2_total;
+    res.l1_weight_change = pct_change;  // WU-B: rename; pct_change local var preserved until WU-B updates computation
+    res.mean_error       = mean_err;
+    res.kl               = kl_max;
+    res.chi2             = chi2_total;
 
     res.best_error = max_err;
     res.best_iter  = iterations;
@@ -271,12 +271,13 @@ static LBFGSResult compute_final_weights_and_error(
         const auto& cfg = st.convergence_cfg;
         double active_val = 0.0;
         if (cfg.absolute_tol > 0.0) {
-            switch (cfg.criterion) {
-                case lbw::CalibCriterion::MAX_ERR:  active_val = max_err;    break;
-                case lbw::CalibCriterion::MEAN_ERR: active_val = mean_err;   break;
-                case lbw::CalibCriterion::KL:       active_val = kl_max;     break;
-                case lbw::CalibCriterion::CHI2:     active_val = chi2_total; break;
-                case lbw::CalibCriterion::PCT:      active_val = pct_change; break;
+            switch (cfg.metric) {
+                case lbw::CalibMetric::MAX_ERR:    active_val = max_err;    break;
+                case lbw::CalibMetric::MEAN_ERR:   active_val = mean_err;   break;
+                case lbw::CalibMetric::KL:         active_val = kl_max;     break;
+                case lbw::CalibMetric::CHI2:       active_val = chi2_total; break;
+                case lbw::CalibMetric::L1_WEIGHT:  active_val = pct_change; break;
+                case lbw::CalibMetric::GRAKE_NORM: active_val = 0.0; break;  // WU-D stub
             }
         }
         bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);

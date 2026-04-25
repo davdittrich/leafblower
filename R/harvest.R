@@ -169,7 +169,12 @@ harvest <- function(
   if (verbose >= 2 && length(supplied_ignored) > 0)
     message("[leafblower] Ignoring autumn params: ", paste(supplied_ignored, collapse = ", "))
 
-  criterion_int <- c(pct = 0L, max_err = 1L, mean_err = 2L, kl = 3L, chi2 = 4L)
+  # CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT
+  metric_int    <- c(max_err = 0L, mean_err = 1L, kl = 2L, chi2 = 3L,
+                     grake_norm = 4L, l1_weight = 5L,
+                     pct = 5L)  # pct is legacy alias for l1_weight
+  # CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU
+  rule_int      <- c(threshold = 0L, improvement = 1L, plateau = 2L)
   stop_when_int <- c(any = 0L, all = 1L)
 
   raw <- .Call("C_rk_calibrate",
@@ -195,7 +200,8 @@ harvest <- function(
                ## Convergence config (WU-A)
                as.double(conv$pct_tol),
                as.double(conv$absolute_tol),
-               as.integer(criterion_int[[conv$criterion]]),
+               as.integer(metric_int[[conv$metric]]),
+               as.integer(rule_int[[conv$rule]]),
                as.integer(stop_when_int[[conv$stop_when]]),
                ## SOR config (WU-A)
                as.integer(sor_cfg$enabled),
@@ -332,7 +338,7 @@ map_method <- function(method, verbose = 0) {
 parse_convergence <- function(convergence) {
   if (!is.null(convergence) && !is.list(convergence))
     stop("convergence must be a named list or NULL (e.g. list(pct = 0.001))")
-  valid_keys <- c("pct", "absolute", "criterion", "stop_when")
+  valid_keys <- c("pct", "absolute", "metric", "criterion", "rule", "stop_when")
   bad <- setdiff(names(convergence), valid_keys)
   if (length(bad))
     stop(sprintf("Unknown convergence key(s): %s. Valid keys: %s",
@@ -345,14 +351,16 @@ parse_convergence <- function(convergence) {
              else if (!explicit_abs) 0.001
              else 0.0
   absolute_tol <- convergence[["absolute"]] %||% 0.0
-  criterion <- match.arg(
-    convergence[["criterion"]] %||%
-      (if (explicit_pct || !explicit_abs) "pct" else "max_err"),
-    c("pct", "max_err", "mean_err", "kl", "chi2")
-  )
+  # "criterion" is a legacy alias for "metric" (backward compat)
+  metric_raw <- convergence[["metric"]] %||% convergence[["criterion"]] %||%
+                (if (explicit_pct || !explicit_abs) "pct" else "max_err")
+  metric <- match.arg(metric_raw,
+    c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "pct"))
+  rule <- match.arg(convergence[["rule"]] %||% "improvement",
+                    c("threshold", "improvement", "plateau"))
   stop_when <- match.arg(convergence[["stop_when"]] %||% "any", c("any", "all"))
   list(pct_tol = pct_tol, absolute_tol = absolute_tol,
-       criterion = criterion, stop_when = stop_when)
+       metric = metric, rule = rule, stop_when = stop_when)
 }
 
 parse_sor <- function(sor) {
