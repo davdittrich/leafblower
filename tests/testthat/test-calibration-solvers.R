@@ -39,6 +39,8 @@ test_that("T3: ieppa default convergence is kl+improvement", {
 
 test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
   skip_on_cran()
+  skip_if_not_installed("arrow")
+  skip_if_not_installed("jsonlite")
   skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
           "stepstone benchmark data not available")
   ref_path <- test_path("fixtures/ieppa_kl_reference_stepstone.rds")
@@ -47,8 +49,6 @@ test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
 
   # No unconditional skip — test FAILS with "sinkhorn not yet implemented"
   # until Plan C implements method="sinkhorn". That failure IS the RED state.
-  skip_if_not_installed("arrow")
-  skip_if_not_installed("jsonlite")
   data <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
   tgt_raw <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
   target <- lapply(tgt_raw, function(x) { v <- unlist(x); v / sum(v) })
