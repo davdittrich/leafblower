@@ -121,6 +121,10 @@ RakingResult raking_solve(CalibState& st) {
     // WU-B: W_prev tracks obs-level weights at the last convergence check for pct_change.
     std::vector<double> w_prev(w);
 
+    // WU-D: prev_metric_for_rule tracks the active metric value from the previous
+    // convergence check, used by IMPROVEMENT and PLATEAU CalibRule dispatch.
+    double prev_metric_for_rule = std::numeric_limits<double>::infinity();
+
     // WU-E: best-iterate tracking (obs-level snapshot at min observed errRp).
     // Tracks errRp regardless of active convergence criterion.
     double best_errRp_seen = std::numeric_limits<double>::infinity();
@@ -225,10 +229,11 @@ RakingResult raking_solve(CalibState& st) {
                 (st.convergence_cfg.absolute_tol > 0.0 &&
                  errRp < st.convergence_cfg.absolute_tol);
             const bool need_extra_metrics =
-                (metric == lbw::CalibMetric::MEAN_ERR ||
-                 metric == lbw::CalibMetric::KL       ||
-                 metric == lbw::CalibMetric::CHI2     ||
-                 iter == st.inner_max_iter             ||
+                (metric == lbw::CalibMetric::MEAN_ERR   ||
+                 metric == lbw::CalibMetric::KL         ||
+                 metric == lbw::CalibMetric::CHI2       ||
+                 metric == lbw::CalibMetric::GRAKE_NORM ||
+                 iter == st.inner_max_iter               ||
                  about_to_converge);
 
             double W_total = sum_weights_ilp(w, st.n);
@@ -237,6 +242,7 @@ RakingResult raking_solve(CalibState& st) {
             double mean_err_sum = 0.0;
             double kl_max       = 0.0;
             double chi2_total   = 0.0;
+            double grake_norm   = 0.0;  // WU-D: max over margins of |S_kj - T_kj*W| / (1 + |T_kj*W|)
             if (need_extra_metrics && W_total > 0.0) {
                 for (int k = 0; k < st.K; k++) {
                     const int nj = st.cat_counts[k];
@@ -255,9 +261,12 @@ RakingResult raking_solve(CalibState& st) {
                         if (T > 0.0) {
                             kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
                         }
-                        double obs = bucket[j];
-                        double exp_val = T * W_total;
-                        chi2_total += (obs - exp_val) * (obs - exp_val) / (exp_val + kChi2Floor);
+                        double obs     = bucket[j];
+                        double pop_kj  = T * W_total;
+                        chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
+                        // WU-D: grake_norm = max_kj |S_kj - pop_kj| / (1 + |pop_kj|)
+                        double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
+                        if (nm > grake_norm) grake_norm = nm;
                     }
                     mean_err_sum += max_k;
                     if (kl_k > kl_max) kl_max = kl_k;
@@ -271,6 +280,7 @@ RakingResult raking_solve(CalibState& st) {
             res.mean_error       = mean_err;
             res.kl               = kl_max;
             res.chi2             = chi2_total;
+            res.grake_norm       = grake_norm;  // WU-D
             for (int i = 0; i < st.n; i++) w_prev[i] = w[i];
 
             // First check: no baseline yet, just record and reset counter.
@@ -297,27 +307,54 @@ RakingResult raking_solve(CalibState& st) {
                 st.log(msg);
             }
 
-            // WU-B: active-criterion dispatch + stop_when ANY/ALL logic.
-            // Legacy errRp < tol_abs always applies as a quality gate; the new
-            // criteria provide alternative stopping rules when tol_abs > 0.
-            // PCT-only convergence (no absolute_tol) requires errRp < tol_abs
-            // to prevent false convergence on stalled infeasible problems.
+            // WU-D: active-criterion + CalibRule dispatch + stop_when ANY/ALL logic.
+            // The active metric value is selected by cfg.metric; the stopping rule
+            // is determined by cfg.rule (THRESHOLD/IMPROVEMENT/PLATEAU).
+            // Absolute-tol path uses the metric value directly vs absolute_tol.
+            // PCT-tol path applies the CalibRule to the metric value.
             {
                 const auto& cfg = st.convergence_cfg;
-                double active_val = 0.0;
-                if (cfg.absolute_tol > 0.0) {
-                    switch (cfg.metric) {
-                        case lbw::CalibMetric::MAX_ERR:    active_val = errRp;      break;
-                        case lbw::CalibMetric::MEAN_ERR:   active_val = mean_err;   break;
-                        case lbw::CalibMetric::KL:         active_val = kl_max;     break;
-                        case lbw::CalibMetric::CHI2:       active_val = chi2_total; break;
-                        case lbw::CalibMetric::L1_WEIGHT:  active_val = pct_change; break;
-                        case lbw::CalibMetric::GRAKE_NORM: active_val = 0.0; break;  // WU-D stub
-                    }
+
+                // Select the active metric value.
+                double curr_metric = 0.0;
+                switch (cfg.metric) {
+                    case lbw::CalibMetric::MAX_ERR:    curr_metric = errRp;      break;
+                    case lbw::CalibMetric::MEAN_ERR:   curr_metric = mean_err;   break;
+                    case lbw::CalibMetric::KL:         curr_metric = kl_max;     break;
+                    case lbw::CalibMetric::CHI2:       curr_metric = chi2_total; break;
+                    case lbw::CalibMetric::L1_WEIGHT:  curr_metric = pct_change; break;
+                    case lbw::CalibMetric::GRAKE_NORM: curr_metric = grake_norm; break;
                 }
-                bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
-                // Spec §1: PCT-only convergence is pct_change < pct_tol, no errRp floor.
-                bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol);
+
+                // Absolute-tol convergence: metric < absolute_tol.
+                bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
+
+                // PCT-tol convergence: apply CalibRule to curr_metric vs prev_metric_for_rule.
+                bool converged_pct = false;
+                if (cfg.pct_tol > 0.0 && std::isfinite(curr_metric)) {
+                    switch (cfg.rule) {
+                        case lbw::CalibRule::THRESHOLD:
+                            converged_pct = (curr_metric < cfg.pct_tol);
+                            break;
+                        case lbw::CalibRule::IMPROVEMENT: {
+                            // Relative improvement: converge when improvement fraction < pct_tol.
+                            // Skip on first check (prev is inf).
+                            if (std::isfinite(prev_metric_for_rule) && prev_metric_for_rule > 1e-15) {
+                                double rel = std::fabs(curr_metric - prev_metric_for_rule)
+                                             / prev_metric_for_rule;
+                                converged_pct = (rel < cfg.pct_tol);
+                            }
+                            break;
+                        }
+                        case lbw::CalibRule::PLATEAU:
+                            // Converge when curr_metric did NOT improve by at least pct_tol fraction.
+                            if (std::isfinite(prev_metric_for_rule)) {
+                                converged_pct = !(curr_metric < prev_metric_for_rule * (1.0 - cfg.pct_tol));
+                            }
+                            break;
+                    }
+                    prev_metric_for_rule = curr_metric;
+                }
 
                 bool have_pct = (cfg.pct_tol > 0.0);
                 bool have_abs = (cfg.absolute_tol > 0.0);
@@ -336,7 +373,11 @@ RakingResult raking_solve(CalibState& st) {
                 }
 
                 if (converged) {
-                    res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    res.convergence_metric = static_cast<int>(cfg.metric);
+                    res.convergence_rule   = static_cast<int>(cfg.rule);
+                    res.convergence_tol    = cfg.pct_tol;
+                    res.convergence_iter   = iter;
                     break;
                 }
             }

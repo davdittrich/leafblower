@@ -228,6 +228,7 @@ static LBFGSResult compute_final_weights_and_error(
     double mean_err_sum = 0.0;
     double kl_max       = 0.0;
     double chi2_total   = 0.0;
+    double grake_norm   = 0.0;  // WU-D: max over margins of |S_kj - T_kj*Wn| / (1 + |T_kj*Wn|)
     if (Wn > 0.0) {
         for (int k = 0; k < st.K; k++) {
             std::vector<double> S2(st.cat_counts[k], 0.0);
@@ -245,9 +246,12 @@ static LBFGSResult compute_final_weights_and_error(
                 if (T > 0.0) {
                     kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
                 }
-                double obs = S2[j];
-                double exp_val = T * Wn;
-                chi2_total += (obs - exp_val) * (obs - exp_val) / (exp_val + kChi2Floor);
+                double obs    = S2[j];
+                double pop_kj = T * Wn;
+                chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
+                // WU-D: grake_norm = max_kj |S_kj - pop_kj| / (1 + |pop_kj|)
+                double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
+                if (nm > grake_norm) grake_norm = nm;
             }
             mean_err_sum += max_k;
             if (kl_k > kl_max) kl_max = kl_k;
@@ -259,30 +263,36 @@ static LBFGSResult compute_final_weights_and_error(
     res.mean_error       = mean_err;
     res.kl               = kl_max;
     res.chi2             = chi2_total;
+    res.grake_norm       = grake_norm;  // WU-D
 
     res.best_error = max_err;
     res.best_iter  = iterations;
     // best_weights assigned post-normalization in lbfgsb_solve() below.
 
-    // WU-B: active-criterion dispatch for status.
-    // PCT measures start→final weight shift (batch solver: no inner iteration loop).
-    // pct_change < pct_tol alone is sufficient per spec §1.
+    // WU-D: active-criterion + CalibRule dispatch for status.
+    // lbfgsb is a batch solver (single pass); there is no per-iteration baseline.
+    // IMPROVEMENT and PLATEAU rules therefore reduce to a threshold check on the
+    // active metric value (start→final comparison is implicit in pct_change).
     {
         const auto& cfg = st.convergence_cfg;
-        double active_val = 0.0;
-        if (cfg.absolute_tol > 0.0) {
-            switch (cfg.metric) {
-                case lbw::CalibMetric::MAX_ERR:    active_val = max_err;    break;
-                case lbw::CalibMetric::MEAN_ERR:   active_val = mean_err;   break;
-                case lbw::CalibMetric::KL:         active_val = kl_max;     break;
-                case lbw::CalibMetric::CHI2:       active_val = chi2_total; break;
-                case lbw::CalibMetric::L1_WEIGHT:  active_val = pct_change; break;
-                case lbw::CalibMetric::GRAKE_NORM: active_val = 0.0; break;  // WU-D stub
-            }
+
+        // Select the active metric value.
+        double curr_metric = 0.0;
+        switch (cfg.metric) {
+            case lbw::CalibMetric::MAX_ERR:    curr_metric = max_err;    break;
+            case lbw::CalibMetric::MEAN_ERR:   curr_metric = mean_err;   break;
+            case lbw::CalibMetric::KL:         curr_metric = kl_max;     break;
+            case lbw::CalibMetric::CHI2:       curr_metric = chi2_total; break;
+            case lbw::CalibMetric::L1_WEIGHT:  curr_metric = pct_change; break;
+            case lbw::CalibMetric::GRAKE_NORM: curr_metric = grake_norm; break;
         }
-        bool converged_abs = (cfg.absolute_tol > 0.0) && (active_val < cfg.absolute_tol);
-        // Spec §1: PCT-only convergence is pct_change < pct_tol, no errRp floor.
-        bool converged_pct = (cfg.pct_tol > 0.0) && (pct_change < cfg.pct_tol);
+
+        // Absolute-tol convergence: metric < absolute_tol.
+        bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
+
+        // PCT-tol convergence: for a batch solver all rules reduce to threshold on
+        // the active metric (no prior-iteration baseline for IMPROVEMENT/PLATEAU).
+        bool converged_pct = (cfg.pct_tol > 0.0) && (curr_metric < cfg.pct_tol);
 
         bool have_pct = (cfg.pct_tol > 0.0);
         bool have_abs = (cfg.absolute_tol > 0.0);
@@ -296,7 +306,11 @@ static LBFGSResult compute_final_weights_and_error(
         } else if (have_abs) {
             converged = converged_abs;
         }
-        res.status = converged ? RK_OK : RK_ERR_NOCONV;
+        res.status             = converged ? RK_OK : RK_ERR_NOCONV;
+        res.convergence_metric = static_cast<int>(cfg.metric);
+        res.convergence_rule   = static_cast<int>(cfg.rule);
+        res.convergence_tol    = cfg.pct_tol;
+        res.convergence_iter   = converged ? res.iterations : -1;
     }
     return res;
 }

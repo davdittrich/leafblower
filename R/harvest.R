@@ -356,7 +356,10 @@ parse_convergence <- function(convergence) {
                 (if (explicit_pct) "pct" else "max_err")
   metric <- match.arg(metric_raw,
     c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "pct"))
-  rule <- match.arg(convergence[["rule"]] %||% "improvement",
+  # pct is a legacy alias meaning "stop when weight change drops below threshold";
+  # default its rule to "threshold" for backward compatibility unless overridden.
+  rule_default <- if (explicit_pct && is.null(convergence[["rule"]])) "threshold" else "improvement"
+  rule <- match.arg(convergence[["rule"]] %||% rule_default,
                     c("threshold", "improvement", "plateau"))
   stop_when <- match.arg(convergence[["stop_when"]] %||% "any", c("any", "all"))
   list(pct_tol = pct_tol, absolute_tol = absolute_tol,

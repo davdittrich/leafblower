@@ -230,3 +230,47 @@ test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {
     expect_lt(result$best_error, 0.9 * result$max_error)
   }
 })
+
+test_that("A3: list(pct=0.001) triggers l1_weight+plateau on raking", {
+  set.seed(43)
+  n <- 2000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE))
+  )
+  target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "raking",
+                           max_iterations = 500,
+                           convergence = list(pct = 0.001),
+                           attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_equal(result$status, 0L)
+  expect_lt(result$l1_weight_change, 0.001)
+  # pct key -> metric=l1_weight (5), rule=threshold (0) for backward compat
+  expect_equal(result$convergence_metric, 5L,
+               info = "pct key must select l1_weight metric (5)")
+  expect_equal(result$convergence_rule, 0L,
+               info = "pct key must default to threshold rule (0)")
+})
+
+test_that("A4: explicit improvement rule with absolute tol fires on raking", {
+  set.seed(55)
+  n <- 1500
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE))
+  )
+  target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
+  # Use absolute tol so the solver converges, and verify convergence metadata stored.
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "raking",
+                           max_iterations = 500,
+                           convergence = list(absolute = 1e-4, rule = "improvement"),
+                           attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_equal(result$status, 0L)
+  # rule="improvement" -> rule=improvement (1), metric=max_err (0)
+  expect_equal(result$convergence_rule, 1L,
+               info = "rule=improvement must produce convergence_rule=1")
+  expect_equal(result$convergence_metric, 0L,
+               info = "default metric must be max_err (0)")
+})
