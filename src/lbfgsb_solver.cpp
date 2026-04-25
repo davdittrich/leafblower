@@ -1,5 +1,6 @@
 #include "lbw_config.h"
 #include "lbfgsb_solver.hpp"
+#include "calib_dispatch.hpp"
 #include "leafblower.h"
 #include <cmath>
 #include <cstdio>
@@ -276,16 +277,11 @@ static LBFGSResult compute_final_weights_and_error(
     {
         const auto& cfg = st.convergence_cfg;
 
-        // Select the active metric value.
-        double curr_metric = 0.0;
-        switch (cfg.metric) {
-            case lbw::CalibMetric::MAX_ERR:    curr_metric = max_err;    break;
-            case lbw::CalibMetric::MEAN_ERR:   curr_metric = mean_err;   break;
-            case lbw::CalibMetric::KL:         curr_metric = kl_max;     break;
-            case lbw::CalibMetric::CHI2:       curr_metric = chi2_total; break;
-            case lbw::CalibMetric::L1_WEIGHT:  curr_metric = pct_change; break;
-            case lbw::CalibMetric::GRAKE_NORM: curr_metric = grake_norm; break;
-        }
+        // Select the active metric value (shared helper).
+        // Note: L1_WEIGHT maps to pct_change here because lbfgsb is a batch solver;
+        // pct_change captures the start→final weight shift implicitly.
+        const double curr_metric = lbw::select_metric(
+            cfg.metric, max_err, mean_err, kl_max, chi2_total, grake_norm, pct_change);
 
         // Absolute-tol convergence: metric < absolute_tol.
         bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);

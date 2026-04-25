@@ -27,6 +27,7 @@
 
 #include "lbw_config.h"
 #include "raking.hpp"
+#include "calib_dispatch.hpp"
 #include "leafblower.h"
 #include <cmath>
 #include <cstdio>
@@ -319,46 +320,18 @@ RakingResult raking_solve(CalibState& st) {
             {
                 const auto& cfg = st.convergence_cfg;
 
-                // Select the active metric value.
-                double curr_metric = 0.0;
-                switch (cfg.metric) {
-                    case lbw::CalibMetric::MAX_ERR:    curr_metric = errRp;      break;
-                    case lbw::CalibMetric::MEAN_ERR:   curr_metric = mean_err;   break;
-                    case lbw::CalibMetric::KL:         curr_metric = kl_max;     break;
-                    case lbw::CalibMetric::CHI2:       curr_metric = chi2_total; break;
-                    case lbw::CalibMetric::L1_WEIGHT:  curr_metric = l1_weight;  break;
-                    case lbw::CalibMetric::GRAKE_NORM: curr_metric = grake_norm; break;
-                }
+                // Select the active metric value (shared helper).
+                const double curr_metric = lbw::select_metric(
+                    cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
 
                 // Absolute-tol convergence: metric < absolute_tol.
                 bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
 
                 // PCT-tol convergence: apply CalibRule to curr_metric vs prev_metric_for_rule.
-                bool converged_pct = false;
-                if (cfg.pct_tol > 0.0 && std::isfinite(curr_metric)) {
-                    switch (cfg.rule) {
-                        case lbw::CalibRule::THRESHOLD:
-                            converged_pct = (curr_metric < cfg.pct_tol);
-                            break;
-                        case lbw::CalibRule::IMPROVEMENT: {
-                            // Relative improvement: converge when improvement fraction < pct_tol.
-                            // Skip on first check (prev is inf).
-                            if (std::isfinite(prev_metric_for_rule) && prev_metric_for_rule > 1e-15) {
-                                double rel = std::fabs(curr_metric - prev_metric_for_rule)
-                                             / prev_metric_for_rule;
-                                converged_pct = (rel < cfg.pct_tol);
-                            }
-                            break;
-                        }
-                        case lbw::CalibRule::PLATEAU:
-                            // Converge when curr_metric did NOT improve by at least pct_tol fraction.
-                            if (std::isfinite(prev_metric_for_rule)) {
-                                converged_pct = !(curr_metric < prev_metric_for_rule * (1.0 - cfg.pct_tol));
-                            }
-                            break;
-                    }
-                    prev_metric_for_rule = curr_metric;
-                }
+                // apply_rule updates prev_metric_for_rule in-place when pct_tol > 0 and
+                // curr_metric is finite; returns false and leaves prev unchanged otherwise.
+                const bool converged_pct = lbw::apply_rule(
+                    cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
 
                 bool have_pct = (cfg.pct_tol > 0.0);
                 bool have_abs = (cfg.absolute_tol > 0.0);

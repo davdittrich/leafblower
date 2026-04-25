@@ -1,5 +1,6 @@
 #include "lbw_config.h"
 #include "ieppa.hpp"
+#include "calib_dispatch.hpp"
 #include "cell_table.hpp"
 #include "leafblower.h"
 #include <algorithm>
@@ -995,47 +996,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
             {
                 const auto& cfg = st.convergence_cfg;
 
-                // Step 1: select active metric value.
-                double curr_metric = 0.0;
-                switch (cfg.metric) {
-                    case lbw::CalibMetric::MAX_ERR:    curr_metric = errRp;       break;
-                    case lbw::CalibMetric::MEAN_ERR:   curr_metric = mean_err;    break;
-                    case lbw::CalibMetric::KL:         curr_metric = kl_max;      break;
-                    case lbw::CalibMetric::CHI2:       curr_metric = chi2_total;  break;
-                    case lbw::CalibMetric::GRAKE_NORM: curr_metric = grake_norm;  break;
-                    case lbw::CalibMetric::L1_WEIGHT:  curr_metric = l1_weight;   break;
-                }
+                // Step 1: select active metric value (shared helper).
+                const double curr_metric = lbw::select_metric(
+                    cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
 
-                // Step 2: apply stopping rule using pct_tol as the tolerance.
-                bool converged_primary = false;
-                if (std::isfinite(curr_metric)) {
-                    switch (cfg.rule) {
-                        case lbw::CalibRule::THRESHOLD:
-                            converged_primary = (cfg.pct_tol > 0.0) &&
-                                                (curr_metric < cfg.pct_tol);
-                            break;
-                        case lbw::CalibRule::IMPROVEMENT: {
-                            // When both curr and prev are near-zero, the metric
-                            // is already essentially converged (no further improvement
-                            // possible at this precision). Treat rel = 0 in that case.
-                            double rel = 1.0;
-                            if (curr_metric <= 1e-15) {
-                                rel = 0.0;  // metric at machine zero — trivially converged
-                            } else if (std::isfinite(prev_metric_for_rule) &&
-                                       prev_metric_for_rule > 1e-15) {
-                                rel = std::fabs(curr_metric - prev_metric_for_rule) /
-                                      prev_metric_for_rule;
-                            }
-                            converged_primary = (cfg.pct_tol > 0.0) && (rel < cfg.pct_tol);
-                            break;
-                        }
-                        case lbw::CalibRule::PLATEAU:
-                            converged_primary = (cfg.pct_tol > 0.0) &&
-                                !(curr_metric < prev_metric_for_rule * (1.0 - cfg.pct_tol));
-                            break;
-                    }
-                    prev_metric_for_rule = curr_metric;
-                }
+                // Step 2: apply stopping rule using pct_tol as the tolerance (shared helper).
+                // apply_rule updates prev_metric_for_rule in-place.
+                const bool converged_primary = lbw::apply_rule(
+                    cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
 
                 // Step 3: secondary (or sole) absolute threshold on the active metric.
                 // absolute_tol applies to curr_metric (the selected metric), not always errRp.
