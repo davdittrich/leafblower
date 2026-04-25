@@ -1107,10 +1107,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
 
     // WU-C: populate convergence diagnostics at solver exit.
-    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-    res.convergence_tol    = st.convergence_cfg.pct_tol;
-    res.convergence_iter   = (res.status == RK_OK) ? res.iterations : -1;
+    res.convergence_metric             = static_cast<int>(st.convergence_cfg.metric);
+    res.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
+    res.convergence_tol                = st.convergence_cfg.pct_tol;
+    res.convergence_iter               = (res.status == RK_OK) ? res.iterations : -1;
+    res.convergence_objective          = best_metric_seen;
+    res.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
 
     // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.
     // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.

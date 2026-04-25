@@ -223,6 +223,13 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     if (LENGTH(method_sexp) != 1)
         Rf_error("method must be a length-1 character string");
     const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
+    /* Stub methods: return RK_ERR_BADARG immediately (not yet implemented). */
+    if (strcmp(method_str, "sinkhorn")  == 0 ||
+        strcmp(method_str, "chebyshev") == 0 ||
+        strcmp(method_str, "greg")      == 0 ||
+        strcmp(method_str, "grake")     == 0) {
+        Rf_error("leafblower: invalid arguments \342\200\224 method not yet implemented in this build");
+    }
     if      (strcmp(method_str, "ieppa")  == 0) p.algorithm = RK_ALG_IEPPA;
     else if (strcmp(method_str, "lbfgsb") == 0) p.algorithm = RK_ALG_LBFGSB;
     else if (strcmp(method_str, "raking") == 0) p.algorithm = RK_ALG_RAKING;
@@ -323,16 +330,20 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     int    res_best_iter   = 0;
     double res_sor_min_omega = 1.0;
     int    res_sor_n_damped  = 0;
+    double res_conv_objective          = 0.0;
+    int    res_conv_minimized_metric   = 0;
     std::vector<double> res_best_weights;  // obs-level, length n
 
-    // DRY helper: pack the 6 convergence-diagnostic fields shared by all solvers.
+    // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
     auto pack_solver_result = [&](const auto& res) {
-        res_l1_weight_change = res.l1_weight_change;
-        res_grake_norm       = res.grake_norm;
-        res_conv_metric      = res.convergence_metric;
-        res_conv_rule        = res.convergence_rule;
-        res_conv_tol         = res.convergence_tol;
-        res_conv_iter        = res.convergence_iter;
+        res_l1_weight_change         = res.l1_weight_change;
+        res_grake_norm               = res.grake_norm;
+        res_conv_metric              = res.convergence_metric;
+        res_conv_rule                = res.convergence_rule;
+        res_conv_tol                 = res.convergence_tol;
+        res_conv_iter                = res.convergence_iter;
+        res_conv_objective           = res.convergence_objective;
+        res_conv_minimized_metric    = res.convergence_minimized_metric;
     };
 
     if (strcmp(method_str, "lbfgsb") == 0) {
@@ -399,8 +410,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  28));  // 14 prior + 8 scalars + best_weights + 5 convergence fields
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  28));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  30));  // 14 prior + 8 scalars + best_weights + 5 convergence fields + 2 new
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  30));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -467,6 +478,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 25, Rf_ScalarInteger(res_conv_rule));
     SET_VECTOR_ELT(res_list, 26, Rf_ScalarReal(res_conv_tol));
     SET_VECTOR_ELT(res_list, 27, Rf_ScalarInteger(res_conv_iter));
+    /* Elements 28-29: convergence_objective and convergence_minimized_metric (Task 1) */
+    SET_STRING_ELT(res_names, 28, Rf_mkChar("convergence_objective"));
+    SET_STRING_ELT(res_names, 29, Rf_mkChar("convergence_minimized_metric"));
+    SET_VECTOR_ELT(res_list,  28, Rf_ScalarReal(res_conv_objective));
+    SET_VECTOR_ELT(res_list,  29, Rf_ScalarInteger(res_conv_minimized_metric));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

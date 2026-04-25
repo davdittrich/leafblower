@@ -63,9 +63,11 @@ void rk_result_init(rk_result_t* r) {
     memset(r, 0, sizeof(*r));
     r->best_error         = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
     r->sor_min_omega      = 1.0;    /* non-iEPPA default */
-    r->convergence_rule   = 1;      /* IMPROVEMENT */
-    r->convergence_tol    = 0.001;
-    r->convergence_iter   = -1;     /* -1 = did not converge */
+    r->convergence_rule                 = 1;      /* IMPROVEMENT */
+    r->convergence_tol                  = 0.001;
+    r->convergence_iter                 = -1;     /* -1 = did not converge */
+    r->convergence_objective            = 0.0;
+    r->convergence_minimized_metric     = 0;
 }
 
 static int validate_inputs(int n, int K,
@@ -111,9 +113,20 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     bool auto_selected = false;
     if (cat_counts && K > 0 && n > 0) {
         switch (p->algorithm) {
-            case RK_ALG_LBFGSB: alg = RK_ALG_LBFGSB; break;
-            case RK_ALG_RAKING: alg = RK_ALG_RAKING; break;
-            case RK_ALG_IEPPA:  alg = RK_ALG_IEPPA;  break;
+            case RK_ALG_LBFGSB:   alg = RK_ALG_LBFGSB; break;
+            case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
+            case RK_ALG_IEPPA:    alg = RK_ALG_IEPPA;  break;
+            case RK_ALG_SINKHORN:
+            case RK_ALG_CHEBYSHEV:
+            case RK_ALG_GREG:
+            case RK_ALG_GRAKE: {
+                if (result) {
+                    result->status = RK_ERR_BADARG;
+                    snprintf(result->message, sizeof(result->message),
+                        "method not yet implemented in this build");
+                }
+                return RK_ERR_BADARG;
+            }
             case RK_ALG_AUTO:
             default:
                 alg = RK_ALG_IEPPA;  // AUTO → faithful iEPPA. Benchmark-driven refinement TBD.
@@ -191,7 +204,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_metric  = res.convergence_metric;
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
-            result->convergence_iter    = res.convergence_iter;
+            result->convergence_iter                = res.convergence_iter;
+            result->convergence_objective           = res.best_error;
+            result->convergence_minimized_metric    = res.convergence_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
@@ -212,7 +227,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_metric  = res.convergence_metric;
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
-            result->convergence_iter    = res.convergence_iter;
+            result->convergence_iter                = res.convergence_iter;
+            result->convergence_objective           = res.best_error;
+            result->convergence_minimized_metric    = res.convergence_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
@@ -242,7 +259,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_metric  = res.convergence_metric;
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
-            result->convergence_iter    = res.convergence_iter;
+            result->convergence_iter                = res.convergence_iter;
+            result->convergence_objective           = res.best_error;
+            result->convergence_minimized_metric    = res.convergence_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;
             result->sor_min_omega       = res.sor_min_omega;

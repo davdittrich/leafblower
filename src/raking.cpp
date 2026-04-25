@@ -440,6 +440,8 @@ RakingResult raking_solve(CalibState& st) {
     }
 
     // WU-E: finalize best-iterate result (obs-level, sum-normalize to n, no clamping).
+    res.convergence_objective          = best_metric_seen;
+    res.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
     res.best_error = best_metric_seen;
     res.best_iter  = best_iter_val;
     if (std::isfinite(best_metric_seen)) {

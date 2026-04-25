@@ -39,7 +39,11 @@ typedef enum {
     RK_ALG_AUTO   = 0,
     RK_ALG_IEPPA  = 1,
     RK_ALG_LBFGSB = 2,
-    RK_ALG_RAKING = 3
+    RK_ALG_RAKING    = 3,
+    RK_ALG_SINKHORN  = 4,
+    RK_ALG_CHEBYSHEV = 5,
+    RK_ALG_GREG      = 6,
+    RK_ALG_GRAKE     = 7
 } rk_algorithm_t;
 
 /* ── Calibration parameters ── */
@@ -116,6 +120,8 @@ typedef struct {
     int    best_iter;
     double sor_min_omega;    /* iEPPA only; non-iEPPA = 1.0 */
     int    sor_n_damped;     /* iEPPA only; non-iEPPA = 0 */
+    double convergence_objective;        /* value of minimized metric at convergence */
+    int    convergence_minimized_metric; /* CalibMetric: which metric was minimized */
     /* ── End extended quality metrics ── */
 } rk_result_t;
 
@@ -158,6 +164,10 @@ int rk_calibrate(
  * update this value after auditing ABI consumers. */
 #ifdef __cplusplus
 static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
+/* rk_result_t tripwire. Linux x86_64, verified 2026-04-24: 448 bytes. */
+#define EXPECTED_RK_RESULT_BYTES 448
+static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
+    "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");
 /* Compute sizeof(rk_params_t) on the target platform at implementation time
  * and hard-code it here. Record the value in a comment. Example:
  *   Linux x86_64 GCC 13, verified 2026-04-24: 72 bytes.

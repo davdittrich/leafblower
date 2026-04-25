@@ -247,15 +247,19 @@ harvest <- function(
     else NA_character_
   }
   calib_result$convergence_used <- list(
-    metric        = .safe_lookup(.metric_names, calib_result$convergence_metric),
-    rule          = .safe_lookup(.rule_names,   calib_result$convergence_rule),
-    tol           = calib_result$convergence_tol,
-    fired_at_iter = calib_result$convergence_iter
+    metric           = .safe_lookup(.metric_names, calib_result$convergence_metric),
+    rule             = .safe_lookup(.rule_names,   calib_result$convergence_rule),
+    tol              = calib_result$convergence_tol,
+    fired_at_iter    = calib_result$convergence_iter,
+    objective        = calib_result$convergence_objective,
+    minimized_metric = .safe_lookup(.metric_names, calib_result$convergence_minimized_metric)
   )
-  calib_result$convergence_metric <- NULL
-  calib_result$convergence_rule   <- NULL
-  calib_result$convergence_tol    <- NULL
-  calib_result$convergence_iter   <- NULL
+  calib_result$convergence_metric           <- NULL
+  calib_result$convergence_rule             <- NULL
+  calib_result$convergence_tol              <- NULL
+  calib_result$convergence_iter             <- NULL
+  calib_result$convergence_objective        <- NULL
+  calib_result$convergence_minimized_metric <- NULL
 
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
@@ -364,7 +368,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("ieppa", "lbfgsb", "raking"))
+  match.arg(method, c("ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake"))
 }
 
 parse_convergence <- function(convergence) {

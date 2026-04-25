@@ -37,6 +37,8 @@ struct IEPPAResult {
     std::vector<double> best_weights;  // obs-level; length n; sum-normalized to n; empty if never checked
     double sor_min_omega  = 1.0;
     int    sor_n_damped   = 0;
+    double convergence_objective          = 0.0;   // value of minimized metric at convergence
+    int    convergence_minimized_metric   = 0;     // CalibMetric: which metric was minimized
     // ── End extended quality metrics ──
 };
 
