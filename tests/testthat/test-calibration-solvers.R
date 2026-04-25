@@ -68,3 +68,43 @@ test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
   expect_equal(r_s$convergence_used$fired_at_iter, r_s$iterations,
                label="A7: sinkhorn best_iter == last_iter (monotone)")
 })
+
+test_that("A5: raking cell-table: correct + speedup vs obs-level reference", {
+  skip_on_cran()
+  skip_if_not_installed("arrow")
+  skip_if_not_installed("jsonlite")
+  skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
+          "stepstone benchmark data not available")
+  ref_path <- test_path("fixtures/raking_obs_reference_stepstone.rds")
+  skip_if(!file.exists(ref_path), "obs-level raking reference fixture not generated")
+  ref <- readRDS(ref_path)
+
+  library(arrow); library(jsonlite)
+  data <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
+  tgt_raw <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
+  target <- lapply(tgt_raw, function(x) { v <- unlist(x); v / sum(v) })
+
+  t0 <- proc.time()["elapsed"]
+  suppressWarnings(
+    w_cell <- leafblower::harvest(data, target, method="raking",
+                                  max_weight=5, max_iterations=500, attach_weights=FALSE)
+  )
+  elapsed_cell <- proc.time()["elapsed"] - t0
+
+  r_cell <- attr(w_cell, "result")
+
+  # Convergence
+  expect_equal(r_cell$status, 0L, label="raking cell-table must converge")
+
+  # Correctness: max_err within 1e-8 of obs-level reference (homogeneous d_i)
+  expect_lt(abs(r_cell$max_error - ref$max_error), 1e-8,
+            label="cell-table max_err must match obs-level to 1e-8")
+
+  # Speedup: < 5% of obs-level elapsed (spec A5: elapsed_cell < elapsed_obs * 0.05)
+  expect_lt(elapsed_cell, ref$elapsed_obs * 0.05,
+            label=sprintf("cell-table must be < 5%% of obs-level elapsed (obs=%.1fs)", ref$elapsed_obs))
+
+  # Hard bounds: all weights in [min_weight, max_weight]
+  expect_true(all(w_cell >= 1/5 - 1e-10 & w_cell <= 5 + 1e-10),
+              label="all weights within [1/5, 5] bounds")
+})
