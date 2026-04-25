@@ -245,6 +245,15 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             Rf_error("leafblower: invalid arguments — logit link undefined: max_weight near 1 makes denominator (U-1)~0");
     }
 
+    /* Criterion and stop_when must be in valid enum range.
+       R callers are guarded by match.arg; direct C/Python callers are not. */
+    if (p.criterion < 0 || p.criterion > 4)
+        Rf_error("leafblower: invalid arguments \342\200\224 criterion out of range [0,4]"
+                 " (0=PCT 1=MAX_ERR 2=MEAN_ERR 3=KL 4=CHI2)");
+    if (p.stop_when < 0 || p.stop_when > 1)
+        Rf_error("leafblower: invalid arguments \342\200\224 stop_when out of range [0,1]"
+                 " (0=ANY 1=ALL)");
+
     // WU-E: call C++ solvers directly (bypasses flat C ABI) to access best_weights vector.
     // Build CalibState mirroring c_api.cpp:rk_calibrate() setup.
     lbw::CalibState st;
