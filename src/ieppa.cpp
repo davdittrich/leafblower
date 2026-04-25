@@ -904,16 +904,19 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 (void)can_check;  // suppress unused-variable warning
                 (void)early_m;
             }
+            // about_to_converge: peek at whether the stopping rule WILL fire this iter,
+            // so we can force full metric computation before exit.
+            // Use a COPY of prev_metric_for_rule — apply_rule updates its prev& arg and
+            // we must not corrupt the real tracking variable before the dispatch call.
             const bool about_to_converge =
                 (cfg_m.absolute_tol > 0.0 && errRp < cfg_m.absolute_tol) ||
-                // Improvement/plateau on MAX_ERR metric (the common default case):
-                // pre-check so exit metrics are always populated on convergence.
-                (metric == lbw::CalibMetric::MAX_ERR &&
-                 lbw::apply_rule(cfg_m.rule, errRp, prev_metric_for_rule, cfg_m.pct_tol)) ||
-                (metric == lbw::CalibMetric::L1_WEIGHT &&
-                 lbw::apply_rule(cfg_m.rule, l1_weight, prev_metric_for_rule, cfg_m.pct_tol)) ||
-                (metric == lbw::CalibMetric::GRAKE_NORM &&
-                 lbw::apply_rule(cfg_m.rule, grake_norm, prev_metric_for_rule, cfg_m.pct_tol));
+                [&]() {
+                    double prev_copy = prev_metric_for_rule;
+                    double active = (metric == lbw::CalibMetric::MAX_ERR)    ? errRp :
+                                    (metric == lbw::CalibMetric::L1_WEIGHT)  ? l1_weight :
+                                    (metric == lbw::CalibMetric::GRAKE_NORM) ? grake_norm : -1.0;
+                    return active >= 0.0 && lbw::apply_rule(cfg_m.rule, active, prev_copy, cfg_m.pct_tol);
+                }();
             const bool need_extra_metrics =
                 (metric == lbw::CalibMetric::MEAN_ERR ||
                  metric == lbw::CalibMetric::KL       ||
@@ -1021,11 +1024,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 const double curr_metric = lbw::select_metric(
                     cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
 
-                // Step 2: apply stopping rule using pct_tol as the tolerance (shared helper).
-                // apply_rule takes prev by value; update prev_metric_for_rule after the call.
+                // Step 2: apply stopping rule. apply_rule(prev&) updates prev_metric_for_rule
+                // in-place (sets prev=curr). This is the ONLY update inside the loop body.
                 const bool converged_primary = lbw::apply_rule(
                     cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
-                prev_metric_for_rule = curr_metric;
 
                 // Step 3: secondary (or sole) absolute threshold on the active metric.
                 // absolute_tol applies to curr_metric (the selected metric), not always errRp.

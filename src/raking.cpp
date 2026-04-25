@@ -229,13 +229,17 @@ RakingResult raking_solve(CalibState& st) {
             // fully populated on exit.
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
             const auto& cfg_m = st.convergence_cfg;
-            // Force full metrics when convergence is about to fire (same fix as ieppa).
+            // Force full metrics when convergence is about to fire.
+            // Use a copy of prev_metric_for_rule — apply_rule(prev&) updates in-place
+            // and we must not corrupt the tracking variable before the dispatch call.
             const bool about_to_converge =
                 (cfg_m.absolute_tol > 0.0 && errRp < cfg_m.absolute_tol) ||
-                (metric == lbw::CalibMetric::MAX_ERR &&
-                 lbw::apply_rule(cfg_m.rule, errRp, prev_metric_for_rule, cfg_m.pct_tol)) ||
-                (metric == lbw::CalibMetric::L1_WEIGHT &&
-                 lbw::apply_rule(cfg_m.rule, l1_weight, prev_metric_for_rule, cfg_m.pct_tol));
+                [&]() {
+                    double prev_copy = prev_metric_for_rule;
+                    double active = (metric == lbw::CalibMetric::MAX_ERR)   ? errRp :
+                                    (metric == lbw::CalibMetric::L1_WEIGHT) ? l1_weight : -1.0;
+                    return active >= 0.0 && lbw::apply_rule(cfg_m.rule, active, prev_copy, cfg_m.pct_tol);
+                }();
             const bool need_extra_metrics =
                 (metric == lbw::CalibMetric::MEAN_ERR   ||
                  metric == lbw::CalibMetric::KL         ||
@@ -330,11 +334,9 @@ RakingResult raking_solve(CalibState& st) {
                 // Absolute-tol convergence: metric < absolute_tol.
                 bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
 
-                // PCT-tol convergence: apply CalibRule to curr_metric vs prev_metric_for_rule.
-                // apply_rule takes prev by VALUE; update prev_metric_for_rule after the call.
+                // PCT-tol convergence: apply_rule(prev&) updates prev_metric_for_rule in-place.
                 const bool converged_pct = lbw::apply_rule(
                     cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
-                prev_metric_for_rule = curr_metric;
 
                 bool have_pct = (cfg.pct_tol > 0.0);
                 bool have_abs = (cfg.absolute_tol > 0.0);
