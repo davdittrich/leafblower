@@ -62,11 +62,11 @@ void rk_result_init(rk_result_t* r) {
     if (!r) return;
     memset(r, 0, sizeof(*r));
     r->best_error         = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
+    r->convergence_objective = std::numeric_limits<double>::infinity();  /* Inf sentinel, consistent with best_error */
     r->sor_min_omega      = 1.0;    /* non-iEPPA default */
     r->convergence_rule                 = 1;      /* IMPROVEMENT */
     r->convergence_tol                  = 0.001;
     r->convergence_iter                 = -1;     /* -1 = did not converge */
-    r->convergence_objective            = 0.0;
     r->convergence_minimized_metric     = 0;
 }
 
@@ -205,8 +205,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
             result->convergence_iter                = res.convergence_iter;
-            result->convergence_objective           = res.best_error;
-            result->convergence_minimized_metric    = res.convergence_metric;
+            result->convergence_objective           = res.convergence_objective;
+            result->convergence_minimized_metric    = res.convergence_minimized_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
@@ -228,8 +228,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
             result->convergence_iter                = res.convergence_iter;
-            result->convergence_objective           = res.best_error;
-            result->convergence_minimized_metric    = res.convergence_metric;
+            result->convergence_objective           = res.convergence_objective;
+            result->convergence_minimized_metric    = res.convergence_minimized_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
@@ -260,8 +260,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
             result->convergence_iter                = res.convergence_iter;
-            result->convergence_objective           = res.best_error;
-            result->convergence_minimized_metric    = res.convergence_metric;
+            result->convergence_objective           = res.convergence_objective;
+            result->convergence_minimized_metric    = res.convergence_minimized_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;
             result->sor_min_omega       = res.sor_min_omega;
