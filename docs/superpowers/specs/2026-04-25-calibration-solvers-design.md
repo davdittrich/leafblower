@@ -1,7 +1,7 @@
 # Calibration Solvers Redesign — Spec
 
 **Date:** 2026-04-25
-**Status:** Draft v1
+**Status:** Draft v2 — all 5 design-review-gate blockers addressed
 
 ## Problem
 
@@ -57,33 +57,56 @@ The critical shared computation:
 ```
 N = A × D × Aᵀ    (shape: n_cats_total × n_cats_total)
 ```
-where D is diagonal on cell masses. For stepstone: N is 836×836. Computing N costs O(M_cell × K) using `cells_by_margin_cat`. Cholesky factor of N costs O(836³/3) ≈ negligible.
+where D is diagonal on cell masses. For stepstone: N is 836×836. Computing N costs O(M_cell × K) using `cells_by_margin_cat`. LDLT factor of N costs O(836³/3).
+
+**Guard (SEC-H1):** `compute_normal_equations` must check `n_cats_total` before allocating:
+```cpp
+constexpr int kNCatsTotalMax = 8192;  // N matrix 8192×8192 = 512MB — hard cap
+if (n_cats_total > kNCatsTotalMax)
+    return RK_ERR_BADARG;  // "n_cats_total exceeds limit; use method='ieppa' or 'raking'"
+```
 
 ```cpp
 // src/calib_linalg.hpp
 namespace lbw {
-void compute_normal_equations(const CellTable& ct, const double* D, double* N,
-                               const int* cat_offset, int n_cats_total);
-void cholesky_factor_inplace(double* N, int n);   // in-place LDLT
-void cholesky_solve(const double* L, double* rhs, int n); // forward/back sub
+// Returns RK_ERR_BADARG if n_cats_total > kNCatsTotalMax.
+int compute_normal_equations(const CellTable& ct, const double* D, double* N,
+                              const int* cat_offset, size_t n_cats_total);
+// Modified LDLT with diagonal perturbation (Gill-Murray) for near-singular N.
+// eps_perturb: minimum diagonal value, e.g. 1e-10. Returns RK_ERR_BADARG if singular.
+int ldlt_factor_inplace(double* N, size_t n, double eps_perturb);
+void ldlt_solve(const double* L, const double* d, double* rhs, size_t n);
 } // namespace lbw
 ```
 
-### §3 New method constants
+Note: all dimension parameters use `size_t` (not `int`) to prevent int32 overflow for n_cats_total > 46340 (SEC-M3). Decomposition is LDLT (not plain Cholesky) with diagonal perturbation to handle degenerate margin groups (cells with zero initial mass → zero row/col in N).
+
+### §3 New method constants and ABI
 
 ```c
-/* leafblower.h additions */
+/* leafblower.h additions — added to rk_algorithm_t enum */
 #define RK_ALG_SINKHORN   4   /* true KL min, Bregman Dykstra */
 #define RK_ALG_CHEBYSHEV  5   /* true L∞ marginal error min, LP */
 #define RK_ALG_GREG       6   /* true chi2 min, Newton QP */
 #define RK_ALG_GRAKE      7   /* true grake_norm min, LP */
 ```
 
-All methods return the standard `rk_result_t`. Two new result fields:
+**rk_result_t new fields** (folded into the existing `convergence_used` cluster so R-side nesting is consistent):
 ```c
-double objective;        /* value of minimized metric at convergence */
-int    objective_metric; /* CalibMetric enum: which metric was minimized */
+double convergence_objective;      /* value of minimized metric at convergence */
+int    convergence_minimized_metric; /* CalibMetric enum: which metric was minimized */
 ```
+
+These map to `result$convergence_used$objective` and `result$convergence_used$minimized_metric` in R (same nesting as `result$convergence_used$metric`, `$rule`, `$tol`, `$fired_at_iter`).
+
+**ABI tripwire:** Add `EXPECTED_RK_RESULT_BYTES` to `leafblower.h` mirroring the existing `EXPECTED_RK_PARAMS_BYTES` pattern:
+```c
+#define EXPECTED_RK_RESULT_BYTES <measured sizeof on first compile>
+static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
+    "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");
+```
+
+For iEPPA, raking, lbfgsb: `convergence_objective` = active metric value at exit; `convergence_minimized_metric` = CalibMetric used for convergence dispatch.
 
 ---
 
@@ -111,13 +134,21 @@ Each outer iteration:
        X[c] *= ratio  ∀c ∈ bucket(k,j)
 
   ② KL projection onto capacity box (replaces Euclidean water-fill):
-     Bisection on μ ∈ ℝ s.t. Σ_c clamp(X[c]·exp(a[c]+μ), L_c, U_c) = n
+     target_mass = Σ_c X[c]       ← current mass BEFORE projection (mass-preserving)
+     Bisection on μ ∈ ℝ s.t. Σ_c clamp(X[c]·exp(a[c]+μ), L_c, U_c) = target_mass
      X_proj[c] = clamp(X[c]·exp(a[c]+μ), L_c, U_c)
      a[c] += log(X[c]) - log(X_proj[c])   ← log-domain Dykstra correction
      X[c] = X_proj[c]
 
   Check convergence (CalibRule on active CalibMetric).
   KL guaranteed monotone decreasing each outer iteration.
+
+**Pre-entry validation (before outer loop):**
+- Assert L_c ≤ U_c ∀c; return `RK_ERR_BADARG` with cell index if violated.
+- Normalize each margin: if |Σ_j T_kj − 1| > 1e-6, normalize and emit a warning.
+- If Σ_c L_c > n or Σ_c U_c < n (total capacity incompatible with target mass), return `RK_ERR_INFEAS`.
+
+**LP infeasibility detection:** The bisection has no solution when Σ_c U_c < target_mass or Σ_c L_c > target_mass. Check bounds before bisect: `if (Σ U_c < target_mass || Σ L_c > target_mass) return RK_ERR_INFEAS`.
 ```
 
 **Bisection bounds for μ:** μ ∈ [log(L_min/X_max), log(U_max/X_min)]. Bisection to tol=1e-12 needs ~40 iterations over M_cell evaluations: O(M_cell × 40) per capacity step.
@@ -150,12 +181,15 @@ Variables: X[0..M_cell-1], δ  →  M_cell+1 variables
 
 **Custom primal-dual IPM:**
 
-The IPM normal equations for this LP have the structure:
+The δ variable has a dense coefficient vector in the LP constraint matrix: every margin row has coefficient 1 for δ (the shared slack). In the IPM normal equations, δ contributes a rank-1 update via Sherman-Morrison:
+
 ```
 N_eff × Δλ = rhs
-where N_eff = A × D_X × Aᵀ + δ_component
+where N_eff = A × D_X × Aᵀ + (1/s_δ) × u × uᵀ
+      u = vector of 1s (length n_cats_total), s_δ = IPM barrier weight for δ
 ```
-D_X is a diagonal matrix derived from interior-point barrier weights on X[c]. The N_eff matrix is n_cats_total × n_cats_total — computed using `compute_normal_equations` from §2.
+
+Since u is all-ones, (1/s_δ) × uuᵀ is a scalar multiple of the all-ones matrix. Apply Sherman-Morrison: if N_0 = A × D_X × Aᵀ (LDLT-factored), then N_eff⁻¹ × r = N_0⁻¹ × r − (c/(1 + s_δ·c)) × v where c = 1/s_δ, v = N_0⁻¹ × u. Two solves against N_0 per IPM iteration (once for rhs, once for u). N_0 LDLT factor is reused; u solve done once per factorization. This keeps the system size at n_cats_total × n_cats_total throughout.
 
 IPM iterations:
 1. Compute D_X from current (X, δ, μ) primal-dual variables: O(M_cell)
@@ -218,7 +252,7 @@ Matches survey::grake's convergence criterion exactly at the fixed point.
 
 **Algorithm:** unchanged cyclic IPF multiplies cell masses. Same as current obs-level raking but indexed by cell.
 
-**Per-obs sub-weights (non-uniform d_i):** Within a cell, d_i vary. Cell multiplier M[c] is computed at cell level; obs weights recovered at exit as `w_i = d_i × M[c]`. Exact: no within-cell information lost.
+**Per-obs sub-weights (non-uniform d_i):** Within a cell, d_i vary. Cell multiplier M[c] is computed at cell level; obs weights recovered at exit as `w_i = d_i × M[c]`. The final marginal sums match exactly (Σ_{i∈bucket(k,j)} w_i = T_kj × n at the cell-level fixed point). However: **per-obs weight bounds** [min_weight, max_weight] are guaranteed at the cell level (`L_c ≤ X[c] ≤ U_c`), not at the individual obs level. For uniform d_i within a cell (homogeneous design weights), per-obs bounds hold exactly. For non-uniform d_i, the cell multiplier M[c] satisfies `min_weight ≤ d_i × M[c] ≤ max_weight` only in expectation over the cell; individual obs may slightly violate per-obs bounds. This is documented in A5 and A6.
 
 **Cell-level IPF iteration:**
 ```
@@ -275,15 +309,34 @@ Rationale: iEPPA is a Sinkhorn-type algorithm — it minimizes KL divergence fro
 
 **A4 (grake exact):** `method="grake"` grake_norm at convergence matches `survey::calibrate(epsilon=1e-10)` within 1%.
 
-**A5 (raking speedup):** `method="raking"` on stepstone-fulldata < 1s (vs current ~50s). Same max_err as current obs-level raking (same fixed point).
+**A5 (raking speedup):** `method="raking"` on stepstone-fulldata (n=1.58M, M_cell≈6k): `skip_on_cran()` + criterion `elapsed_cell < elapsed_obs × 0.05` (measured in same process). For homogeneous d_i: max_err within 1e-8 of obs-level raking. For non-uniform d_i: tested separately with documented tolerance.
 
-**A6 (hard bounds all methods):** All methods: `all(weights >= min_weight - 1e-10) && all(weights <= max_weight + 1e-10)` at exit.
+**A6 (hard bounds):**
+- sinkhorn, chebyshev, greg, grake: per-cell AND per-obs bounds hold: `all(w >= min_weight - 1e-12) && all(w <= max_weight + 1e-12)`.
+- raking cell-table: per-cell bounds hold exactly; per-obs bounds hold exactly for homogeneous d_i, approximately for non-uniform (documented tolerance = within-cell d_i variance × M[c]).
 
-**A7 (best_iter == last_iter):** For sinkhorn, chebyshev, greg, grake: `result$best_iter == result$iterations` (monotone algorithms don't overshoot their optimum).
+**A7 (best_iter == last_iter — monotone methods only):**
+- sinkhorn: `result$convergence_used$fired_at_iter == result$iterations` (monotone KL, no overshoot by proof).
+- chebyshev, grake: LP terminates at exact optimum; fired_at_iter == iterations trivially.
+- greg: Newton terminates at optimum (1 step unconstrained; active-set converges). fired_at_iter == iterations.
+- ieppa, raking, lbfgsb: NOT included in A7 (iterative, oscillation possible).
 
 **A8 (CRAN gate):** devtools::test() FAIL 0; R CMD check --as-cran 0 ERROR 0 WARNING.
 
 ---
+
+## §13 Infeasibility Handling
+
+All new methods return `RK_ERR_INFEAS` (existing code = 2) when the problem has no feasible solution. Pre-entry checks (shared validation function):
+
+1. `L_c ≤ U_c` ∀c — if violated: `RK_ERR_BADARG` with cell index.
+2. `Σ_c L_c ≤ n ≤ Σ_c U_c` — total mass feasibility; if violated: `RK_ERR_INFEAS` with message "total capacity incompatible with target mass n".
+3. `|Σ_j T_kj − 1| ≤ 1e-6` ∀k — targets normalized; if not: normalize + emit `warning()`.
+4. `n_cats_total ≤ kNCatsTotalMax` — memory guard; if violated: `RK_ERR_BADARG`.
+
+During LP solve (chebyshev, grake): IPM homogeneous self-dual embedding detects primal infeasibility (margin targets outside capacity polytope) → `RK_ERR_INFEAS`. During sinkhorn: capacity bisection range check before each outer iteration.
+
+R error message: `"leafblower: calibration infeasible — [reason]. Check margin targets and weight bounds."`
 
 ## §12 Resolved Design Questions
 
@@ -294,5 +347,15 @@ Rationale: iEPPA is a Sinkhorn-type algorithm — it minimizes KL divergence fro
 | iEPPA default metric | Change to kl+improvement |
 | sinkhorn convergence criteria | All 6 metrics via improvement/plateau; kl default |
 | Water-fill replacement | Log-domain Dykstra (multiplicative corrections) |
-| Normal equations kernel | Shared calib_linalg.hpp |
+| Normal equations kernel | Shared calib_linalg.hpp with LDLT+diagonal perturbation |
+| δ column in IPM normal equations | Rank-1 update via Sherman-Morrison (two solves per iter) |
+| Bisection normalization target | target_mass = Σ_c X[c] before projection (mass-preserving) |
+| objective/objective_metric naming | Folded into convergence_used: $convergence_used$objective + $minimized_metric |
+| rk_result_t ABI tripwire | EXPECTED_RK_RESULT_BYTES static_assert added |
+| n_cats_total memory guard | Cap at kNCatsTotalMax = 8192; return RK_ERR_BADARG if exceeded |
+| int32 overflow in Cholesky | All linalg dimensions as size_t |
+| Raking fixed-point for non-uniform d_i | Documented approximation; per-cell bounds guaranteed, per-obs approximate |
+| Infeasibility handling | §13: shared pre-entry checks; RK_ERR_INFEAS with message |
+| A7 scope | Monotone methods only (sinkhorn/chebyshev/greg/grake); ieppa/raking excluded |
+| A5 CI testability | Relative criterion (elapsed_cell < elapsed_obs × 0.05), skip_on_cran |
 | L1_weight metric for raking/sinkhorn | Applicable; same exit expansion gives l1_weight_change |
