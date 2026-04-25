@@ -171,7 +171,31 @@ calib_result$convergence_objective        <- NULL
 calib_result$convergence_minimized_metric <- NULL
 ```
 
-- [ ] **Step 1.5: Build gate**
+- [ ] **Step 1.5: Populate new fields in solver exit blocks**
+
+`rk_result_init` zeros all fields including `convergence_objective=0.0` and `convergence_minimized_metric=0`. But these must be populated at solver exit to hold meaningful values.
+
+Read `grep -n "convergence_metric\|convergence_rule\|convergence_tol\|convergence_iter" src/ieppa.cpp | head -8` — find the exit block where these are set (~line 1103-1106).
+
+In **ieppa.cpp** at the same exit block, add after `res.convergence_iter`:
+```cpp
+res.convergence_objective        = best_metric_seen;   // min of active metric across iters
+res.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
+```
+
+In **raking.cpp**: `grep -n "convergence_metric\|convergence_rule" src/raking.cpp | head -5` — same pattern, add:
+```cpp
+res.convergence_objective        = best_metric_seen;
+res.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
+```
+
+In **lbfgsb_solver.cpp**: `grep -n "convergence_metric\|convergence_rule" src/lbfgsb_solver.cpp | head -5` — same pattern:
+```cpp
+res.convergence_objective        = res.max_error;   // lbfgsb single-pass: final = best
+res.convergence_minimized_metric = static_cast<int>(cfg.metric);
+```
+
+- [ ] **Step 1.5b: Build gate**
 ```bash
 R CMD INSTALL --preclean . 2>&1 | tail -5
 ```
@@ -370,15 +394,17 @@ int calib_validate_preentry(const CellTable& ct,
         return fail(RK_ERR_INFEAS, msg);
     }
 
-    // 5. Target normalization (warn if off, but normalize silently)
+    // 5. Target sum validation (st.targets is const — cannot normalize in-place)
+    // Callers must normalize before calling. Return RK_ERR_BADARG if off by > 1e-6.
     for (int k = 0; k < st.K; k++) {
         double s = 0.0;
         for (int j = 0; j < st.cat_counts[k]; j++) s += st.targets[k][j];
-        if (std::fabs(s - 1.0) > 1e-6 && st.log_fn != nullptr) {
+        if (std::fabs(s - 1.0) > 1e-6) {
             char msg[256];
             std::snprintf(msg, sizeof(msg),
-                "margin %d targets sum to %.8f (not 1.0); auto-normalizing", k, s);
-            st.log_fn(msg, st.log_ctx);
+                "margin %d targets sum to %.8f (expected 1.0±1e-6); "
+                "normalize targets before calling", k, s);
+            return fail(RK_ERR_BADARG, msg);
         }
     }
 
@@ -433,16 +459,18 @@ void ldlt_solve(const double* L, const double* d_diag, double* b, size_t n);
 } // namespace lbw
 ```
 
-- [ ] **Step 2.5: Add calib_validate.cpp to Makevars**
+- [ ] **Step 2.5: Add calib_validate.cpp to Makevars AND Makevars.in**
 
-Read `src/Makevars` (current: `PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp cell_table.cpp r_bridge.cpp`).
+The project has BOTH `src/Makevars` and `src/Makevars.in`. A `configure` script regenerates `Makevars` from `Makevars.in`. **Edit BOTH files** or changes to `Makevars` will be lost on the next configure run.
 
-Add `calib_validate.cpp` to the list:
+Read both: `cat src/Makevars src/Makevars.in`
+
+In BOTH files, add `calib_validate.cpp`:
 ```makefile
 PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp cell_table.cpp r_bridge.cpp raking.cpp calib_validate.cpp
 ```
 
-Note: `raking.cpp` should already be in `PKG_SOURCES` — verify first. Add only what is missing.
+Note: verify `raking.cpp` is present before adding. Add only what is missing.
 
 - [ ] **Step 2.6: Build gate**
 ```bash
