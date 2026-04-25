@@ -184,7 +184,7 @@ test_that("hawe: iEPPA warns on PCT stall with large max_error", {
 # CONFIRMATORY TEST (not TDD red-green): added in same commit as implementation.
 # Retroactive analysis: this test WOULD fail on pre-WU-C code because
 # convergence_used$rule is NULL until harvest.R WU-E2 wires the nesting.
-test_that("A1: default convergence (max_err+improvement) converges smooth synthetic", {
+test_that("A1: default convergence (kl+improvement) converges smooth synthetic", {
   set.seed(42)
   n <- 2000
   data <- data.frame(
@@ -202,11 +202,11 @@ test_that("A1: default convergence (max_err+improvement) converges smooth synthe
   result <- attr(w, "result")
   expect_equal(result$status, 0L, info = "must converge")
   expect_lt(result$max_error, 1e-3)
-  # default: rule=improvement, metric=max_err (via convergence_used nested list)
+  # ieppa default: rule=improvement, metric=kl (Sinkhorn-type KL minimizer)
   expect_equal(result$convergence_used$rule, "improvement",
                info = "default rule must be improvement")
-  expect_equal(result$convergence_used$metric, "max_err",
-               info = "default metric must be max_err")
+  expect_equal(result$convergence_used$metric, "kl",
+               info = "ieppa default metric must be kl")
 })
 
 # CONFIRMATORY TEST (not TDD red-green): added in same commit as implementation.

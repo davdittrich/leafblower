@@ -43,7 +43,8 @@
 #'   }
 #'   Shorthands and explicit keys may be combined; explicit keys override shorthand
 #'   defaults. \code{convergence = list()} uses the default (max_err + improvement +
-#'   tol = 0.001).
+#'   tol = 0.001). For \code{method="ieppa"}, the default metric is \code{kl}
+#'   (Sinkhorn-type algorithm minimizing KL divergence). For other methods: \code{max_err}.
 #'
 #'   \strong{chi2 cross-solver note:} chi2 is not directly comparable
 #'   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
@@ -158,6 +159,16 @@ harvest <- function(
   target  <- parse_target(target, target_map)
   method  <- map_method(method, verbose)
   conv    <- parse_convergence(convergence)
+  # iEPPA is a Sinkhorn-type KL minimizer — override default metric to kl when
+  # the user did not specify any metric-bearing convergence key.
+  if (method == "ieppa" &&
+      is.null(convergence[["metric"]]) &&
+      is.null(convergence[["criterion"]]) &&
+      is.null(convergence[["improvement"]]) &&
+      is.null(convergence[["pct"]]) &&
+      is.null(convergence[["absolute"]])) {
+    conv$metric <- "kl"
+  }
   sor_cfg <- parse_sor(sor)
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)

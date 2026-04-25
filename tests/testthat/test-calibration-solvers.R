@@ -20,3 +20,18 @@ test_that("T1b: convergence_used$objective and $minimized_metric present", {
   expect_true("minimized_metric" %in% names(r$convergence_used))
   expect_true(is.finite(r$convergence_used$objective))
 })
+
+test_that("T3: ieppa default convergence is kl+improvement", {
+  set.seed(42)
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), 500, replace=TRUE)),
+    b = factor(sample(c("1","2"), 500, replace=TRUE))
+  )
+  target <- list(a=c("1"=1/3,"2"=1/3,"3"=1/3), b=c("1"=0.5,"2"=0.5))
+  w <- leafblower::harvest(data, target, max_weight=10, method="ieppa",
+                           max_iterations=500, attach_weights=FALSE)
+  r <- attr(w, "result")
+  expect_equal(r$convergence_used$metric, "kl",
+               info="ieppa default metric must be 'kl' after spec change")
+  expect_equal(r$convergence_used$rule, "improvement")
+})
