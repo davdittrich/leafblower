@@ -4,7 +4,8 @@ test_that("T1a: new method names error cleanly (stubs)", {
   for (m in c("sinkhorn", "chebyshev", "greg", "grake")) {
     expect_error(
       leafblower::harvest(data, target, max_weight=3, method=m, attach_weights=FALSE),
-      info = paste("method", m, "should error not crash")
+      regexp = "not yet implemented",
+      info = paste("method", m, "should error with 'not yet implemented'")
     )
   }
 })
@@ -46,7 +47,8 @@ test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
 
   # No unconditional skip — test FAILS with "sinkhorn not yet implemented"
   # until Plan C implements method="sinkhorn". That failure IS the RED state.
-  library(arrow); library(jsonlite)
+  skip_if_not_installed("arrow")
+  skip_if_not_installed("jsonlite")
   data <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
   tgt_raw <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
   target <- lapply(tgt_raw, function(x) { v <- unlist(x); v / sum(v) })

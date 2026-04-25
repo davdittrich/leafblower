@@ -223,7 +223,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     if (LENGTH(method_sexp) != 1)
         Rf_error("method must be a length-1 character string");
     const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
-    /* Stub methods: return RK_ERR_BADARG immediately (not yet implemented). */
+    /* Stub methods: error immediately rather than falling through to "unknown method".
+     * Plan C: remove this block and wire p.algorithm = RK_ALG_SINKHORN/CHEBYSHEV/GREG/GRAKE
+     * in the if/else chain below. */
     if (strcmp(method_str, "sinkhorn")  == 0 ||
         strcmp(method_str, "chebyshev") == 0 ||
         strcmp(method_str, "greg")      == 0 ||
@@ -410,7 +412,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  30));  // 14 prior + 8 scalars + best_weights + 5 convergence fields + 2 new
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  30));  // 14 prior + 8 scalars + best_weights + 7 convergence fields
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  30));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
