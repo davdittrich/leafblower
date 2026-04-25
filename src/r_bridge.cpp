@@ -325,6 +325,16 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     int    res_sor_n_damped  = 0;
     std::vector<double> res_best_weights;  // obs-level, length n
 
+    // DRY helper: pack the 6 convergence-diagnostic fields shared by all solvers.
+    auto pack_solver_result = [&](const auto& res) {
+        res_l1_weight_change = res.l1_weight_change;
+        res_grake_norm       = res.grake_norm;
+        res_conv_metric      = res.convergence_metric;
+        res_conv_rule        = res.convergence_rule;
+        res_conv_tol         = res.convergence_tol;
+        res_conv_iter        = res.convergence_iter;
+    };
+
     if (strcmp(method_str, "lbfgsb") == 0) {
         auto res = lbw::lbfgsb_solve(st);
         res_status     = res.status;
@@ -334,12 +344,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_mean_error       = res.mean_error;
         res_kl               = res.kl;
         res_chi2             = res.chi2;
-        res_l1_weight_change = res.l1_weight_change;
-        res_grake_norm       = res.grake_norm;
-        res_conv_metric      = res.convergence_metric;
-        res_conv_rule        = res.convergence_rule;
-        res_conv_tol         = res.convergence_tol;
-        res_conv_iter        = res.convergence_iter;
+        pack_solver_result(res);
         res_best_error       = res.best_error;
         res_best_iter        = res.best_iter;
         res_best_weights = std::move(res.best_weights);
@@ -352,12 +357,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_mean_error       = res.mean_error;
         res_kl               = res.kl;
         res_chi2             = res.chi2;
-        res_l1_weight_change = res.l1_weight_change;
-        res_grake_norm       = res.grake_norm;
-        res_conv_metric      = res.convergence_metric;
-        res_conv_rule        = res.convergence_rule;
-        res_conv_tol         = res.convergence_tol;
-        res_conv_iter        = res.convergence_iter;
+        pack_solver_result(res);
         res_best_error       = res.best_error;
         res_best_iter        = res.best_iter;
         res_best_weights = std::move(res.best_weights);
@@ -381,12 +381,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_mean_error       = res.mean_error;
         res_kl               = res.kl;
         res_chi2             = res.chi2;
-        res_l1_weight_change = res.l1_weight_change;
-        res_grake_norm       = res.grake_norm;
-        res_conv_metric      = res.convergence_metric;
-        res_conv_rule        = res.convergence_rule;
-        res_conv_tol         = res.convergence_tol;
-        res_conv_iter        = res.convergence_iter;
+        pack_solver_result(res);
         res_best_error       = res.best_error;
         res_best_iter        = res.best_iter;
         res_sor_min_omega    = res.sor_min_omega;
