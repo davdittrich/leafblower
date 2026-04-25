@@ -83,3 +83,17 @@ test_that("z8wx: best_weights sum=n and best_error<=max_error with homotopy_leve
   expect_lte(result$best_error, result$max_error)
   expect_true(all(result$best_weights >= 0))
 })
+
+test_that("qbsf: best_iter is positive (cumulative counter confirmed)", {
+  set.seed(88)
+  n <- 500
+  data <- data.frame(a = factor(sample(c("1","2","3"), n, replace = TRUE)))
+  target <- list(a = c("1"=0.4, "2"=0.4, "3"=0.2))
+  w <- leafblower::harvest(data, target, max_weight = 2, method = "ieppa",
+                           max_iterations = 100,
+                           convergence = list(absolute = 1e-10),
+                           attach_weights = FALSE)
+  result <- attr(w, "result")
+  expect_gte(result$best_iter, 1L)
+  expect_true(is.numeric(result$best_iter) || is.integer(result$best_iter))
+})
