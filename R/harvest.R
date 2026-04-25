@@ -22,20 +22,28 @@
 #' @param weight_column Name of weight column. Default "weights".
 #' @param convergence Named list controlling the stopping criterion. Accepted keys:
 #'   \itemize{
-#'     \item \code{pct}: proportional weight-change threshold (default \code{0.001}).
-#'       Disabled when absent and \code{absolute} is explicitly set.
-#'     \item \code{absolute}: absolute threshold for the active criterion (default \code{0}).
-#'     \item \code{criterion}: one of \code{"pct"} (default), \code{"max_err"},
-#'       \code{"mean_err"}, \code{"kl"}, \code{"chi2"}.
-#'       \code{"chi2"} scales with sample size; supply an n-scaled threshold.
+#'     \item \code{metric}: quality metric to monitor. One of \code{"max_err"}
+#'       (default), \code{"mean_err"}, \code{"kl"}, \code{"chi2"},
+#'       \code{"grake_norm"}, \code{"l1_weight"}.
+#'     \item \code{rule}: stopping rule. One of \code{"improvement"} (default) —
+#'       stop when metric improves by less than \code{tol} relative; \code{"threshold"} —
+#'       stop when metric falls below \code{tol} absolutely; \code{"plateau"} —
+#'       stop when metric changes less than \code{tol} over a window.
+#'     \item \code{tol}: tolerance value (default \code{0.001}).
 #'     \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
 #'   }
-#'   Backward compat: \code{list(absolute = 1e-6)} activates max_error criterion.
-#'
-#'   \strong{Note for \code{method = "lbfgsb"}:} \code{pct_change} in the
-#'   result measures the start-to-final weight shift (batch solver, single
-#'   pass), not iteration-to-iteration shift as in iEPPA and raking. A
-#'   \code{pct} threshold tuned for iEPPA will behave differently with lbfgsb.
+#'   Shorthand keys (each sets metric+rule+tol simultaneously):
+#'   \itemize{
+#'     \item \code{pct}: sets \code{metric="l1_weight"}, \code{rule="plateau"},
+#'       \code{tol=pct}. Example: \code{list(pct = 0.001)}.
+#'     \item \code{absolute}: sets \code{metric="max_err"}, \code{rule="threshold"},
+#'       \code{tol=absolute}. Example: \code{list(absolute = 1e-4)}.
+#'     \item \code{improvement}: sets \code{metric="max_err"}, \code{rule="improvement"},
+#'       \code{tol=improvement}. Example: \code{list(improvement = 0.001)}.
+#'   }
+#'   Shorthands and explicit keys may be combined; explicit keys override shorthand
+#'   defaults. \code{convergence = list()} uses the default (max_err + improvement +
+#'   tol = 0.001).
 #'
 #'   \strong{chi2 cross-solver note:} chi2 is not directly comparable
 #'   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
@@ -82,9 +90,13 @@
 #'         \item \code{status}: 0=converged, 1=max_iter hit, 2=infeasible, 3=bad args.
 #'         \item \code{iterations}: number of outer iterations completed.
 #'         \item \code{max_error}: maximum marginal error at the returned weights.
-#'         \item \code{pct_change}: proportional weight change. For \code{method="lbfgsb"}
-#'           this is start-to-final (batch solver); for iEPPA and raking it is
-#'           iteration-to-iteration.
+#'         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
+#'           For \code{method="lbfgsb"} this is start-to-final (batch solver);
+#'           for iEPPA and raking it is iteration-to-iteration.
+#'         \item \code{grake_norm}: survey-grake normalized residual
+#'           max_k|misfit|/(1+|pop|).
+#'         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},
+#'           \code{tol}, and \code{fired_at_iter} documenting which criterion fired.
 #'         \item \code{best_error}: minimum marginal error seen across all iterates.
 #'         \item \code{best_weights}: numeric vector (length \code{n}, sum normalized to
 #'           \code{n}) at the iterate with minimum observed marginal error. When

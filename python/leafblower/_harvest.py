@@ -14,35 +14,75 @@ except ImportError:
 
 from ._leafblower import calibrate
 
-_KNOWN_CONVERGENCE_KEYS = frozenset({"pct", "absolute", "criterion", "stop_when"})
-_CRITERION_MAP = {"pct": 0, "max_err": 1, "mean_err": 2, "kl": 3, "chi2": 4}
+_METRIC_MAP = {
+    "max_err": 0, "mean_err": 1, "kl": 2, "chi2": 3,
+    "grake_norm": 4, "l1_weight": 5,
+}
+_RULE_MAP = {"threshold": 0, "improvement": 1, "plateau": 2}
 _STOP_WHEN_MAP = {"any": 0, "all": 1}
+_KNOWN_CONVERGENCE_KEYS = frozenset({
+    "metric", "rule", "tol", "pct", "absolute", "improvement", "stop_when",
+})
+# Reverse-lookup arrays mirror CalibMetric/CalibRule enum order in leafblower.h
+_METRIC_NAMES = ["max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight"]
+_RULE_NAMES   = ["threshold", "improvement", "plateau"]
 
 
 def _parse_convergence(conv):
-    """Mirror R parse_convergence(): derive pct_tol, absolute_tol, criterion, stop_when."""
+    """Derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict.
+
+    Mirrors R's parse_convergence() logic exactly:
+      - Default: max_err + improvement + tol=0.001
+      - 'improvement' key: max_err + improvement rule, tol = improvement value
+      - 'pct' key: l1_weight + plateau rule, tol = pct value
+      - 'absolute' key alone: max_err + threshold rule, tol = absolute value
+      - 'metric'/'rule'/'tol' keys override the derived defaults
+    """
     if conv is None:
         conv = {}
     unknown = set(conv) - _KNOWN_CONVERGENCE_KEYS
     if unknown:
-        raise ValueError(f"unknown convergence key '{next(iter(unknown))}'")
-    explicit_pct = "pct" in conv
-    explicit_abs = "absolute" in conv
-    pct_tol = (
-        float(conv["pct"]) if explicit_pct
-        else (0.001 if not explicit_abs else 0.0)
-    )
-    absolute_tol = float(conv.get("absolute", 0.0))
-    default_criterion = "pct" if (explicit_pct or not explicit_abs) else "max_err"
-    criterion_str = conv.get("criterion", default_criterion)
-    if criterion_str not in _CRITERION_MAP:
-        raise ValueError(f"convergence criterion must be one of {list(_CRITERION_MAP)}")
-    criterion = _CRITERION_MAP[criterion_str]
+        raise ValueError(f"unknown convergence key(s): {', '.join(sorted(unknown))}")
+
+    explicit_impr = "improvement" in conv
+    explicit_pct  = "pct" in conv
+    explicit_abs  = "absolute" in conv
+
+    if explicit_impr and explicit_abs and "stop_when" not in conv:
+        raise ValueError(
+            "convergence: 'improvement' and 'absolute' cannot be combined without "
+            "'stop_when'. Use stop_when='any' (fire on either) or 'all' (require both).")
+
+    if explicit_impr:
+        default_metric, default_rule, default_tol = "max_err", "improvement", float(conv["improvement"])
+    elif explicit_pct:
+        default_metric, default_rule, default_tol = "l1_weight", "plateau", float(conv["pct"])
+    elif not explicit_abs:
+        default_metric, default_rule, default_tol = "max_err", "improvement", 0.001
+    else:
+        default_metric, default_rule, default_tol = "max_err", "threshold", float(conv["absolute"])
+
+    metric_str    = conv.get("metric", default_metric)
+    rule_str      = conv.get("rule", default_rule)
+    tol           = float(conv.get("tol", default_tol))
+    abs_tol_raw   = float(conv.get("absolute", 0.0))
     stop_when_str = conv.get("stop_when", "any")
+
+    if metric_str not in _METRIC_MAP:
+        raise ValueError(f"metric must be one of {list(_METRIC_MAP)}")
+    if rule_str not in _RULE_MAP:
+        raise ValueError(f"rule must be one of {list(_RULE_MAP)}")
     if stop_when_str not in _STOP_WHEN_MAP:
         raise ValueError(f"stop_when must be 'any' or 'all'")
-    stop_when = _STOP_WHEN_MAP[stop_when_str]
-    return pct_tol, absolute_tol, criterion, stop_when
+
+    if rule_str == "threshold":
+        pct_tol      = 0.0
+        absolute_tol = tol
+    else:
+        pct_tol      = tol
+        absolute_tol = abs_tol_raw
+
+    return pct_tol, absolute_tol, _METRIC_MAP[metric_str], _RULE_MAP[rule_str], _STOP_WHEN_MAP[stop_when_str]
 
 
 def _parse_sor(sor):
@@ -90,9 +130,13 @@ def harvest(
     attach_weights : if True, return DataFrame with weights column appended
     weight_column : name of the weights column (default "weights")
     convergence : dict controlling the stopping criterion. Keys:
-        "pct" (float, default 0.001) — max proportional weight-change threshold.
-        "absolute" (float) — absolute threshold for the active criterion.
-        "criterion" (str) — one of "pct" (default), "max_err", "mean_err", "kl", "chi2".
+        "metric" (str) — one of "max_err" (default), "mean_err", "kl", "chi2",
+            "grake_norm", "l1_weight".
+        "rule" (str) — one of "improvement" (default), "threshold", "plateau".
+        "tol" (float) — tolerance value (default 0.001).
+        "pct" (float) — shorthand: activates l1_weight + plateau rule.
+        "absolute" (float) — shorthand: activates max_err + threshold rule.
+        "improvement" (float) — shorthand: activates max_err + improvement rule.
         "stop_when" (str) — "any" (default) or "all".
         Unknown keys raise ValueError.
     sor : dict for SOR adaptive under-relaxation (iEPPA only). None disables SOR. Keys:
@@ -107,7 +151,7 @@ def harvest(
     pd.DataFrame (if attach_weights=True) or np.ndarray
     """
     # Parse convergence and SOR
-    pct_tol, absolute_tol, criterion, stop_when = _parse_convergence(convergence)
+    pct_tol, absolute_tol, metric, rule, stop_when = _parse_convergence(convergence)
     sor_enabled, sor_auto, sor_omega_init, sor_omega_min, sor_omega_fixed, sor_burnin = _parse_sor(sor)
 
     # Convert dict data to DataFrame; validate input type.
@@ -200,10 +244,11 @@ def harvest(
         "epsilon":        0.05,
         "lbfgs_m":        10,
         "bounds_mode":    _bounds_mode_int,
-        # Convergence config (WU-F)
+        # Convergence config (WU-G)
         "pct_tol":        pct_tol,
         "absolute_tol":   absolute_tol,
-        "criterion":      criterion,
+        "metric":         metric,    # replaces criterion
+        "rule":           rule,      # new
         "stop_when":      stop_when,
         # SOR config (WU-F)
         "sor_enabled":    sor_enabled,
@@ -219,6 +264,15 @@ def harvest(
     _, weights_out, result_dict = calibrate(
         n, K, w, group_ids_list, cat_counts_list, targets_list, params, log_fn
     )
+
+    # Build convergence_used nested dict from raw integer fields (WU-G).
+    # Mirrors R's harvest.R WU-E2 block.
+    result_dict["convergence_used"] = {
+        "metric":        _METRIC_NAMES[result_dict.get("convergence_metric", 0)],
+        "rule":          _RULE_NAMES[result_dict.get("convergence_rule", 1)],
+        "tol":           result_dict.get("convergence_tol", 0.001),
+        "fired_at_iter": result_dict.get("convergence_iter", -1),
+    }
 
     if result_dict["status"] == 1:
         warnings.warn(

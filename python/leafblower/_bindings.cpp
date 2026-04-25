@@ -85,13 +85,15 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.lbfgs_m = params_dict["lbfgs_m"].cast<int>();
             if (params_dict.contains("bounds_mode"))
                 p.bounds_mode = (rk_bounds_mode_t)params_dict["bounds_mode"].cast<int>();
-            // Convergence config (WU-F)
+            // Convergence config (WU-G)
             if (params_dict.contains("pct_tol"))
                 p.pct_tol = params_dict["pct_tol"].cast<double>();
             if (params_dict.contains("absolute_tol"))
                 p.absolute_tol = params_dict["absolute_tol"].cast<double>();
-            if (params_dict.contains("criterion"))
-                p.criterion = params_dict["criterion"].cast<int>();
+            if (params_dict.contains("metric"))
+                p.metric = params_dict["metric"].cast<int>();
+            if (params_dict.contains("rule"))
+                p.rule = params_dict["rule"].cast<int>();
             if (params_dict.contains("stop_when"))
                 p.stop_when = params_dict["stop_when"].cast<int>();
             // SOR config (WU-F)
@@ -136,15 +138,20 @@ PYBIND11_MODULE(_leafblower, m) {
             result_dict["message"]          = std::string(result.message);
             result_dict["n_bounds_violated"] = result.n_bounds_violated;
             result_dict["n_bounds_clamped"]  = result.n_bounds_clamped;
-            // New result fields (WU-F)
-            result_dict["mean_error"]    = result.mean_error;
-            result_dict["kl"]            = result.kl;
-            result_dict["chi2"]          = result.chi2;
-            result_dict["pct_change"]    = result.pct_change;
-            result_dict["best_error"]    = result.best_error;
-            result_dict["best_iter"]     = result.best_iter;
-            result_dict["sor_min_omega"] = result.sor_min_omega;
-            result_dict["sor_n_damped"]  = result.sor_n_damped;
+            // Extended result fields (WU-G)
+            result_dict["mean_error"]          = result.mean_error;
+            result_dict["kl"]                  = result.kl;
+            result_dict["chi2"]                = result.chi2;
+            result_dict["l1_weight_change"]    = result.l1_weight_change;
+            result_dict["grake_norm"]          = result.grake_norm;
+            result_dict["convergence_metric"]  = result.convergence_metric;
+            result_dict["convergence_rule"]    = result.convergence_rule;
+            result_dict["convergence_tol"]     = result.convergence_tol;
+            result_dict["convergence_iter"]    = result.convergence_iter;
+            result_dict["best_error"]          = result.best_error;
+            result_dict["best_iter"]           = result.best_iter;
+            result_dict["sor_min_omega"]       = result.sor_min_omega;
+            result_dict["sor_n_damped"]        = result.sor_n_damped;
 
             return py::make_tuple(rc, weights_out, result_dict);
         },

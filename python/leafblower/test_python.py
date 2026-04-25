@@ -41,26 +41,35 @@ def _make_fixture(n=1000):
     return df, tgts
 
 
-def test_convergence_criterion_default_is_pct():
-    """Default convergence uses pct=0.001 — pct_change in result should be <= 0.001."""
+def test_default_convergence_is_max_err_improvement():
+    """Default convergence: metric=max_err, rule=improvement (WU-G)."""
     from leafblower import harvest
-    df, tgts = _make_fixture(n=1000)
-    res = harvest(df, tgts, max_weight=5, method="ieppa", max_iterations=500)
+    df, tgts = _make_fixture(n=500)
+    res = harvest(df, tgts, max_weight=5, method="ieppa")
     r = res.attrs.get("result", {})
-    assert "pct_change" in r, "result must contain pct_change"
-    # pct_change at convergence should be at or below the 0.001 threshold
-    assert r["pct_change"] <= 0.001 * 1.5, (
-        f"pct_change={r['pct_change']:.6f} exceeds 0.001 threshold"
-    )
+    cu = r.get("convergence_used", {})
+    assert cu.get("metric") == "max_err", f"expected max_err, got {cu.get('metric')}"
+    assert cu.get("rule") == "improvement", f"expected improvement, got {cu.get('rule')}"
 
 
-def test_all_5_metrics_present():
-    """All 5 quality metrics must be present in result attrs."""
+def test_all_metrics_in_result_pct_change_removed():
+    """l1_weight_change and grake_norm present; pct_change absent (WU-G)."""
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=500)
+    res = harvest(df, tgts, max_weight=5, method="ieppa")
+    r = res.attrs.get("result", {})
+    assert "l1_weight_change" in r, "result must contain l1_weight_change"
+    assert "grake_norm" in r, "result must contain grake_norm"
+    assert "pct_change" not in r, "pct_change must be absent (renamed to l1_weight_change)"
+
+
+def test_all_6_metrics_present():
+    """All 6 quality metrics must be present in result attrs (WU-G)."""
     from leafblower import harvest
     df, tgts = _make_fixture(n=1000)
     res = harvest(df, tgts, max_weight=5, method="ieppa")
     r = res.attrs.get("result", {})
-    for key in ("max_error", "mean_error", "kl", "chi2", "pct_change"):
+    for key in ("max_error", "mean_error", "kl", "chi2", "l1_weight_change", "grake_norm"):
         assert key in r, f"Missing metric: {key}"
 
 

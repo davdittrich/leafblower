@@ -2,14 +2,23 @@
 
 ## Breaking changes
 
-* **Default convergence criterion changed** from `absolute = 1e-6` (max marginal
-  error) to `pct = 0.001` (max proportional weight change). To restore prior
-  behaviour: `convergence = list(absolute = 1e-6)`. The Python `harvest()`
-  default is updated in lockstep.
+* **Convergence API redesigned** — `criterion` key replaced by `metric` + `rule`:
+  - **Default changed** to `metric = "max_err"`, `rule = "improvement"`, `tol = 0.001`
+    (was: `pct = 0.001`, i.e., l1_weight plateau). To restore the old `pct` default:
+    `convergence = list(pct = 0.001)` (still accepted as a shorthand).
+  - `convergence[["criterion"]]` is removed. Replace with `metric`.
+  - `convergence[["pct"]]` is now a shorthand for `metric="l1_weight"` +
+    `rule="plateau"`. Previously it controlled an L1 weight-change threshold.
+  - Valid `metric` values: `"max_err"`, `"mean_err"`, `"kl"`, `"chi2"`,
+    `"grake_norm"`, `"l1_weight"`.
+  - Valid `rule` values: `"improvement"`, `"threshold"`, `"plateau"`.
+  - `tol` replaces the implicit tolerance in `pct`/`absolute` shortcuts.
+  - Python `harvest()` convergence API updated in lockstep.
 
-* `convergence[["pct"]]` was previously deprecated and discarded. It is now
-  the primary convergence threshold — any code that suppressed the deprecation
-  warning will observe the pct value being honoured.
+* **`pct_change` removed from result** — renamed to `l1_weight_change` to
+  match the field name in the C struct (`rk_result_t::l1_weight_change`).
+  Update any code reading `attr(result, "result")$pct_change` or
+  `df.attrs["result"]["pct_change"]` to use `l1_weight_change`.
 
 * `method="ieppa"` now runs the paper-faithful algBCD (Chu, Liang, Toh &
   Yang 2022, arXiv:2011.14312) at C=0, using cell-compressed representation
@@ -26,12 +35,17 @@
 
 ## New features
 
-* Pluggable convergence criteria via `convergence = list(criterion = "kl")`:
-  accepts `"pct"` (default), `"max_err"`, `"mean_err"`, `"kl"`, `"chi2"`.
-  `"stop_when"` controls whether any or all criteria must fire.
+* Pluggable convergence via `convergence = list(metric = "kl", rule = "threshold", tol = 1e-4)`:
+  six metrics (`max_err`, `mean_err`, `kl`, `chi2`, `grake_norm`, `l1_weight`),
+  three rules (`improvement`, `threshold`, `plateau`). `stop_when` controls
+  whether any or all conditions must fire.
 
-* Five quality metrics always returned in `attr(result, "result")`:
-  `max_error`, `mean_error`, `kl`, `chi2`, `pct_change`.
+* `convergence_used` nested list in `attr(result, "result")$convergence_used`
+  (R) and `df.attrs["result"]["convergence_used"]` (Python) documents the
+  metric, rule, tol, and `fired_at_iter` that caused the solver to stop.
+
+* Six quality metrics always returned in `attr(result, "result")`:
+  `max_error`, `mean_error`, `kl`, `chi2`, `l1_weight_change`, `grake_norm`.
 
 * SOR adaptive under-relaxation for iEPPA via `sor` argument (default:
   auto-enabled). Diagnostics in `attr(result, "result")$sor`.
