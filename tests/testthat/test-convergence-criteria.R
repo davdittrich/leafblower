@@ -51,7 +51,7 @@ test_that("A2: pct=0.001 default converges on smooth synthetic", {
   expect_gt(r10$l1_weight_change, 0)
 })
 
-test_that("A8a: criterion='mean_err' actively stops solver", {
+test_that("A8a: metric='mean_err' actively stops solver", {
   set.seed(43)
   n <- 2000
   data <- data.frame(
@@ -60,7 +60,7 @@ test_that("A8a: criterion='mean_err' actively stops solver", {
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
   w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
-    convergence = list(absolute = 1e-4, criterion = "mean_err"),
+    convergence = list(absolute = 1e-4, metric = "mean_err"),
     max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
   # mean_error must be computed (non-zero) and within threshold
@@ -69,7 +69,7 @@ test_that("A8a: criterion='mean_err' actively stops solver", {
   expect_equal(result$status, 0L)
 })
 
-test_that("A8b: criterion='kl' actively stops solver", {
+test_that("A8b: metric='kl' actively stops solver", {
   set.seed(44)
   n <- 2000
   data <- data.frame(
@@ -78,7 +78,7 @@ test_that("A8b: criterion='kl' actively stops solver", {
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
   w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
-    convergence = list(absolute = 1e-6, criterion = "kl"),
+    convergence = list(absolute = 1e-6, metric = "kl"),
     max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
   # kl must be computed (non-zero) and within threshold
@@ -87,7 +87,7 @@ test_that("A8b: criterion='kl' actively stops solver", {
   expect_equal(result$status, 0L)
 })
 
-test_that("A8c: criterion='chi2' actively stops solver", {
+test_that("A8c: metric='chi2' actively stops solver", {
   set.seed(45)
   n <- 2000
   data <- data.frame(
@@ -97,7 +97,7 @@ test_that("A8c: criterion='chi2' actively stops solver", {
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
   # chi2 scales with n; threshold n-scaled (~1e-3 * 2000 = 2)
   w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
-    convergence = list(absolute = 2.0, criterion = "chi2"),
+    convergence = list(absolute = 2.0, metric = "chi2"),
     max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
   # chi2 must be computed (non-zero) and within threshold
