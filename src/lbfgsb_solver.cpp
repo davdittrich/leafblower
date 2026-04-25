@@ -260,12 +260,9 @@ static LBFGSResult compute_final_weights_and_error(
     res.kl         = kl_max;
     res.chi2       = chi2_total;
 
-    // WU-E: L-BFGS-B is a batch solver with a single errRp evaluation at exit.
-    // best_error == max_error.  best_weights is a provisional capture here;
-    // lbfgsb_solve() re-assigns it after the Σ=n normalization to satisfy spec §4.
-    res.best_error   = max_err;
-    res.best_iter    = iterations;
-    res.best_weights = std::vector<double>(st.weights, st.weights + st.n);
+    res.best_error = max_err;
+    res.best_iter  = iterations;
+    // best_weights assigned post-normalization in lbfgsb_solve() below.
 
     // WU-B: active-criterion dispatch for status.
     // PCT measures start→final weight shift (batch solver: no inner iteration loop).
