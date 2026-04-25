@@ -198,11 +198,11 @@ test_that("A1: default convergence (max_err+improvement) converges smooth synthe
   result <- attr(w, "result")
   expect_equal(result$status, 0L, info = "must converge")
   expect_lt(result$max_error, 1e-3)
-  # default: rule=IMPROVEMENT (1), metric=max_err (0)
-  expect_equal(result$convergence_rule, 1L,
-               info = "default rule must be IMPROVEMENT (1)")
-  expect_equal(result$convergence_metric, 0L,
-               info = "default metric must be max_err (0)")
+  # default: rule=improvement, metric=max_err (via convergence_used nested list)
+  expect_equal(result$convergence_used$rule, "improvement",
+               info = "default rule must be improvement")
+  expect_equal(result$convergence_used$metric, "max_err",
+               info = "default metric must be max_err")
 })
 
 test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {
@@ -246,10 +246,10 @@ test_that("A3: list(pct=0.001) triggers l1_weight+plateau on raking", {
   result <- attr(w, "result")
   expect_equal(result$status, 0L)
   expect_lt(result$l1_weight_change, 0.001)
-  # pct key -> metric=l1_weight (5), rule=plateau (2) — autumn/anesrake compatible
-  expect_equal(result$convergence_metric, 5L,
-               info = "pct key must select l1_weight metric (5)")
-  expect_equal(result$convergence_rule, 2L,
+  # pct key -> metric=l1_weight, rule=plateau — autumn/anesrake compatible
+  expect_equal(result$convergence_used$metric, "l1_weight",
+               info = "pct key must select l1_weight metric")
+  expect_equal(result$convergence_used$rule, "plateau",
                info = "pct must use plateau rule")
 })
 
@@ -268,9 +268,9 @@ test_that("A4: explicit improvement rule with absolute tol fires on raking", {
                            attach_weights = FALSE)
   result <- attr(w, "result")
   expect_equal(result$status, 0L)
-  # rule="improvement" -> rule=improvement (1), metric=max_err (0)
-  expect_equal(result$convergence_rule, 1L,
-               info = "rule=improvement must produce convergence_rule=1")
-  expect_equal(result$convergence_metric, 0L,
-               info = "default metric must be max_err (0)")
+  # rule="improvement" -> rule=improvement, metric=max_err (via convergence_used)
+  expect_equal(result$convergence_used$rule, "improvement",
+               info = "rule=improvement must produce convergence_used$rule=improvement")
+  expect_equal(result$convergence_used$metric, "max_err",
+               info = "default metric must be max_err")
 })

@@ -225,6 +225,21 @@ harvest <- function(
   calib_result$sor_min_omega <- NULL
   calib_result$sor_n_damped  <- NULL
 
+  # WU-E2: nest convergence diagnostics under $convergence_used for clean namespace.
+  # metric_names and rule_names mirror CalibMetric/CalibRule enum order in leafblower.h.
+  .metric_names <- c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight")
+  .rule_names   <- c("threshold", "improvement", "plateau")
+  calib_result$convergence_used <- list(
+    metric        = .metric_names[calib_result$convergence_metric + 1L],
+    rule          = .rule_names[calib_result$convergence_rule + 1L],
+    tol           = calib_result$convergence_tol,
+    fired_at_iter = calib_result$convergence_iter
+  )
+  calib_result$convergence_metric <- NULL
+  calib_result$convergence_rule   <- NULL
+  calib_result$convergence_tol    <- NULL
+  calib_result$convergence_iter   <- NULL
+
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
   if (calib_result$status == 2L)
@@ -338,29 +353,56 @@ map_method <- function(method, verbose = 0) {
 parse_convergence <- function(convergence) {
   if (!is.null(convergence) && !is.list(convergence))
     stop("convergence must be a named list or NULL (e.g. list(pct = 0.001))")
-  valid_keys <- c("pct", "absolute", "metric", "criterion", "rule", "stop_when")
+  valid_keys <- c("pct", "absolute", "metric", "criterion", "rule", "stop_when",
+                  "tol", "improvement")
   bad <- setdiff(names(convergence), valid_keys)
   if (length(bad))
     stop(sprintf("Unknown convergence key(s): %s. Valid keys: %s",
                  paste(bad, collapse = ", "),
                  paste(valid_keys, collapse = ", ")))
   `%||%` <- function(a, b) if (is.null(a)) b else a
-  explicit_pct <- !is.null(convergence[["pct"]])
-  explicit_abs <- !is.null(convergence[["absolute"]])
+  explicit_pct         <- !is.null(convergence[["pct"]])
+  explicit_abs         <- !is.null(convergence[["absolute"]])
+  explicit_improvement <- !is.null(convergence[["improvement"]])
+  explicit_tol         <- !is.null(convergence[["tol"]])
+
+  # Shorthand: improvement=X -> max_err + improvement rule + X as pct_tol
+  if (explicit_improvement) {
+    tol_val <- convergence[["improvement"]]
+    return(list(pct_tol = as.double(tol_val), absolute_tol = 0.0,
+                metric = "max_err", rule = "improvement", stop_when = "any"))
+  }
+
   pct_tol <- if (explicit_pct) convergence[["pct"]]
              else if (!explicit_abs) 0.001
              else 0.0
   absolute_tol <- convergence[["absolute"]] %||% 0.0
+
   # "criterion" is a legacy alias for "metric" (backward compat)
   metric_raw <- convergence[["metric"]] %||% convergence[["criterion"]] %||%
                 (if (explicit_pct) "pct" else "max_err")
   metric <- match.arg(metric_raw,
     c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "pct"))
+
   # pct is autumn/anesrake compatible: stops when Σ|Δw| STOPS IMPROVING (plateau).
   # Default its rule to "plateau" when pct is specified without an explicit rule.
   rule_default <- if (explicit_pct && is.null(convergence[["rule"]])) "plateau" else "improvement"
-  rule <- match.arg(convergence[["rule"]] %||% rule_default,
-                    c("threshold", "improvement", "plateau"))
+  rule_raw     <- convergence[["rule"]] %||% rule_default
+  rule         <- match.arg(rule_raw, c("threshold", "improvement", "plateau"))
+
+  # "tol" shorthand: overrides pct_tol for threshold rule, pct_tol otherwise.
+  if (explicit_tol) {
+    tol_val <- as.double(convergence[["tol"]])
+    if (rule == "threshold") {
+      absolute_tol <- tol_val
+      pct_tol      <- 0.0
+    } else {
+      pct_tol <- tol_val
+    }
+    if (rule == "plateau" && (tol_val <= 0 || tol_val >= 1))
+      stop("convergence$tol must be in (0,1) for rule='plateau'")
+  }
+
   stop_when <- match.arg(convergence[["stop_when"]] %||% "any", c("any", "all"))
   list(pct_tol = pct_tol, absolute_tol = absolute_tol,
        metric = metric, rule = rule, stop_when = stop_when)
