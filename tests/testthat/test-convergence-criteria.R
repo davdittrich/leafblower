@@ -180,7 +180,7 @@ test_that("hawe: iEPPA warns on PCT stall with large max_error", {
   )
 })
 
-test_that("A1: default convergence (pct/l1_weight+improvement) converges smooth synthetic", {
+test_that("A1: default convergence (max_err+improvement) converges smooth synthetic", {
   set.seed(42)
   n <- 2000
   data <- data.frame(
@@ -198,11 +198,11 @@ test_that("A1: default convergence (pct/l1_weight+improvement) converges smooth 
   result <- attr(w, "result")
   expect_equal(result$status, 0L, info = "must converge")
   expect_lt(result$max_error, 1e-3)
-  # default: rule=IMPROVEMENT (1), metric=pct/l1_weight (5)
+  # default: rule=IMPROVEMENT (1), metric=max_err (0)
   expect_equal(result$convergence_rule, 1L,
                info = "default rule must be IMPROVEMENT (1)")
-  expect_equal(result$convergence_metric, 5L,
-               info = "default metric must be pct/l1_weight (5)")
+  expect_equal(result$convergence_metric, 0L,
+               info = "default metric must be max_err (0)")
 })
 
 test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {

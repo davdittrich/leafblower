@@ -353,7 +353,7 @@ parse_convergence <- function(convergence) {
   absolute_tol <- convergence[["absolute"]] %||% 0.0
   # "criterion" is a legacy alias for "metric" (backward compat)
   metric_raw <- convergence[["metric"]] %||% convergence[["criterion"]] %||%
-                (if (explicit_pct || !explicit_abs) "pct" else "max_err")
+                (if (explicit_pct) "pct" else "max_err")
   metric <- match.arg(metric_raw,
     c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "pct"))
   rule <- match.arg(convergence[["rule"]] %||% "improvement",
