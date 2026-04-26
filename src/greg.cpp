@@ -133,9 +133,9 @@ GregResult greg_solve(CalibState& st) {
         res.chi2       = m.chi2;
         res.mean_error = m.mean_err;
         res.grake_norm = m.grake_norm;
+        res.convergence_objective = m.chi2;
+        res.best_error = m.chi2;
     }
-    res.convergence_objective = res.chi2;
-    res.best_error = res.chi2;
 
     // Obs expansion + clamp
     const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
