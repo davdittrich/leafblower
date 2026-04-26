@@ -382,7 +382,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             const_cast<const int32_t**>(group_ids.data()),
             cat_counts.data());
         // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
-        bool use_raking = (M_cell_est * 10 > n * 9);
+        bool use_raking = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9);
         if (use_raking) {
             auto res = lbw::raking_solve(st);
             res_status     = res.status;

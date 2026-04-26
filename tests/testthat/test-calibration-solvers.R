@@ -154,3 +154,23 @@ test_that("R-bounds: raking respects min_weight/max_weight exactly after fix", {
   expect_true(all(w <= 1.5 + 1e-10),
               info=sprintf("max weight %.6f > 1.5", max(w)))
 })
+
+test_that("T-overflow: AUTO routing + algorithm_used populated", {
+  set.seed(1)
+  n <- 1e5L
+  data <- data.frame(
+    a = factor(sample(1:100, n, replace=TRUE)),
+    b = factor(sample(1:2, n, replace=TRUE))
+  )
+  target <- list(
+    a = setNames(rep(0.01, 100), as.character(1:100)),
+    b = c("1"=0.5, "2"=0.5)
+  )
+  w <- leafblower::harvest(data, target, max_weight=5, method="auto", attach_weights=FALSE)
+  r <- attr(w, "result")
+  expect_equal(r$status, 0L)
+  expect_lt(r$max_error, 0.01)
+  # algorithm_used: AUTO with M_cell << n should route to ieppa (algorithm=1)
+  expect_equal(r$algorithm_used, 1L,
+               info="AUTO must select ieppa when M_cell/n << 0.9")
+})

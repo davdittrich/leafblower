@@ -125,6 +125,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                     result->status = RK_ERR_BADARG;
                     snprintf(result->message, sizeof(result->message),
                         "method not yet implemented in this build");
+                    result->algorithm_used = p->algorithm;
                 }
                 return RK_ERR_BADARG;
             }
@@ -134,7 +135,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 // At high ratios iEPPA has no compression benefit; raking is equivalent and simpler.
                 int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
                 // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
-                alg = (M_cell_est * 10 > n * 9) ? RK_ALG_RAKING : RK_ALG_IEPPA;
+                alg = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9)
+                      ? RK_ALG_RAKING : RK_ALG_IEPPA;
                 auto_selected = true;
                 break;
             }
