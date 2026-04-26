@@ -26,7 +26,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     // L1_WEIGHT is not computable by IPM (no prev-weight reference).
     // Fall back to MAX_ERR so the improvement rule tracks the actual objective.
     if (st.convergence_cfg.metric == lbw::CalibMetric::L1_WEIGHT)
-        const_cast<lbw::CalibConvergence&>(st.convergence_cfg).metric = lbw::CalibMetric::MAX_ERR;
+        st.convergence_cfg.metric = lbw::CalibMetric::MAX_ERR;
 
     CellTable ct;
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
