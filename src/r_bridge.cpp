@@ -384,6 +384,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             cat_counts.data());
         // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
         bool use_raking = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9);
+        // Save for auto-fallback: only st.weights is mutated by solvers in-place
+        const std::vector<double> weights_backup(weights);
         if (use_raking) {
             auto res = lbw::raking_solve(st);
             res_status     = res.status;
@@ -422,6 +424,26 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
             res_best_weights = std::move(res.best_weights);
+        }
+        // Auto-fallback: if primary solver NOCONVs, retry with L-BFGS-B
+        if (res_status == RK_ERR_NOCONV) {
+            if (st.verbose >= 1)
+                st.log("auto: primary solver NOCONV; retrying with L-BFGS-B");
+            // Restore original weights (only mutated field in CalibState)
+            std::copy(weights_backup.begin(), weights_backup.end(), weights.begin());
+            st.ieppa_auto_selected = false;
+            auto fb = lbw::lbfgsb_solve(st);
+            res_status     = fb.status;
+            res_iterations = fb.iterations;
+            res_max_error  = fb.max_error;
+            res_alg_used   = (int)RK_ALG_LBFGSB;
+            res_mean_error = fb.mean_error;
+            res_kl         = fb.kl;
+            res_chi2       = fb.chi2;
+            pack_solver_result(fb);
+            res_best_error = fb.best_error;
+            res_best_iter  = fb.best_iter;
+            res_best_weights = std::move(fb.best_weights);
         }
     } else if (strcmp(method_str, "sinkhorn") == 0) {
         auto res = lbw::sinkhorn_solve(st);

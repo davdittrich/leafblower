@@ -219,3 +219,18 @@ test_that("method='lbfgsb' output weights satisfy max_weight/min_weight", {
   expect_true(max(res$weights) <= 1.5 + 1e-6)
   expect_true(min(res$weights) >= 0.2 - 1e-6)
 })
+
+test_that("auto: falls back to lbfgsb after primary NOCONV at 1 iter", {
+  set.seed(77L)
+  n <- 200L
+  data <- data.frame(
+    a = factor(sample(1:3, n, TRUE)),
+    b = factor(sample(1:2, n, TRUE))
+  )
+  target <- list(a = c("1" = 0.4, "2" = 0.4, "3" = 0.2),
+                 b = c("1" = 0.6, "2" = 0.4))
+  r <- leafblower::harvest(data, target, method = "auto", max_iterations = 1L,
+                           verbose = 0)
+  # max_iterations=1 forces primary solver NOCONV; fallback should fire
+  expect_equal(attr(r, "algorithm"), "lbfgsb")
+})

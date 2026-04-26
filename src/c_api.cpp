@@ -210,6 +210,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.sor_cfg.omega_min            = p->sor_omega_min;
     st.sor_cfg.omega_fixed          = p->sor_omega_fixed;
     st.sor_cfg.burnin               = p->sor_burnin;
+    // Save for auto-fallback: only st.weights is mutated by solvers in-place
+    const std::vector<double> weights_backup(weights, weights + n);
     int status;
     int iterations;
     double max_error;
@@ -310,6 +312,34 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->sor_min_omega       = res.sor_min_omega;
             result->sor_n_damped        = res.sor_n_damped;
         }
+        }
+    }
+
+    // Auto-fallback: if primary solver NOCONVs, retry with L-BFGS-B
+    if (status == RK_ERR_NOCONV && p->algorithm == RK_ALG_AUTO) {
+        if (p->verbose >= 1)
+            st.log("auto: primary solver NOCONV; retrying with L-BFGS-B");
+        // Restore original weights (only mutated field in CalibState)
+        std::copy(weights_backup.begin(), weights_backup.end(), weights);
+        auto fb = lbw::lbfgsb_solve(st);
+        status     = fb.status;
+        iterations = fb.iterations;
+        max_error  = fb.max_error;
+        used       = RK_ALG_LBFGSB;
+        if (result) {
+            result->mean_error                       = fb.mean_error;
+            result->kl                               = fb.kl;
+            result->chi2                             = fb.chi2;
+            result->l1_weight_change                 = fb.l1_weight_change;
+            result->grake_norm                       = fb.grake_norm;
+            result->convergence_metric               = fb.convergence_metric;
+            result->convergence_rule                 = fb.convergence_rule;
+            result->convergence_tol                  = fb.convergence_tol;
+            result->convergence_iter                 = fb.convergence_iter;
+            result->convergence_objective            = fb.convergence_objective;
+            result->convergence_minimized_metric     = fb.convergence_minimized_metric;
+            result->best_error                       = fb.best_error;
+            result->best_iter                        = fb.best_iter;
         }
     }
 
