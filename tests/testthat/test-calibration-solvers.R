@@ -207,3 +207,28 @@ test_that("S1: sinkhorn handles tight bounds without overflow (a[c] clamp guard)
   expect_true(all(w >= 0.1 - 1e-10 & w <= 2.0 + 1e-10),
               info="bounds violated")
 })
+
+test_that("S2: sinkhorn achieves KL <= raking on synthetic (no external data)", {
+  set.seed(7)
+  n <- 300
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace=TRUE)),
+    b = factor(sample(c("1","2"), n, replace=TRUE))
+  )
+  target <- list(
+    a = c("1"=0.5, "2"=0.3, "3"=0.2),
+    b = c("1"=0.6, "2"=0.4)
+  )
+  w_sink <- leafblower::harvest(data, target, max_weight=5, method="sinkhorn",
+                                max_iterations=500, attach_weights=FALSE)
+  w_rake <- leafblower::harvest(data, target, max_weight=5, method="raking",
+                                max_iterations=500, attach_weights=FALSE)
+  r_sink <- attr(w_sink, "result")
+  r_rake <- attr(w_rake, "result")
+  expect_equal(r_sink$status, 0L, info="sinkhorn must converge")
+  expect_equal(r_rake$status, 0L, info="raking must converge")
+  expect_lte(r_sink$kl, r_rake$kl + 1e-6,
+             label="sinkhorn KL <= raking KL (competitive KL minimizer)")
+  expect_true(all(w_sink >= 1/5 - 1e-10 & w_sink <= 5 + 1e-10),
+              info="sinkhorn weights must respect bounds")
+})
