@@ -23,6 +23,11 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     ChebyshevResult res;
     res.status = RK_ERR_NOCONV;
 
+    // L1_WEIGHT is not computable by IPM (no prev-weight reference).
+    // Fall back to MAX_ERR so the improvement rule tracks the actual objective.
+    if (st.convergence_cfg.metric == lbw::CalibMetric::L1_WEIGHT)
+        const_cast<lbw::CalibConvergence&>(st.convergence_cfg).metric = lbw::CalibMetric::MAX_ERR;
+
     CellTable ct;
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
         res.status = RK_ERR_BADARG;
@@ -133,6 +138,8 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     std::vector<double> dX(ct.M_cell);
     std::vector<double> dS_up(nct), dS_dn(nct);
     std::vector<double> dY_lo(ct.M_cell), dY_hi(ct.M_cell), dY_up(nct), dY_dn(nct);
+    std::vector<double> dlambda(nct);   // hoisted: Sherman-Morrison result
+    std::vector<double> delta_S(nct);   // hoisted: ΔS[m] = Σ_c A_mc*ΔX[c]
     std::vector<double> bucket_tmp(max_cats);
     double best_delta = delta;
     // Convergence rule state — uses CalibState cfg (not hardcoded tol)
@@ -285,7 +292,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         for (int m = 0; m < nct; m++) { utv += u_vec[m]*v_vec[m]; utw += u_vec[m]*w_sol[m]; }
         double sm_denom = 1.0 + alpha_sm*utv;
         double sm_coeff = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw/sm_denom) : 0.0;
-        std::vector<double> dlambda(nct);
         for (int m = 0; m < nct; m++) dlambda[m] = w_sol[m] - sm_coeff*v_vec[m];
 
         // ΔX[c] = D_eff[c] * Σ_k Δλ[m_k]
@@ -309,7 +315,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         );
 
         // Compute ΔS from ΔX in O(K*M_cell)
-        std::vector<double> delta_S(nct, 0.0);
+        std::fill(delta_S.begin(), delta_S.end(), 0.0);
         for (int k = 0; k < st.K; k++)
             for (int c = 0; c < ct.M_cell; c++) {
                 int g = ct.g_per_cell[k][c];
