@@ -74,6 +74,12 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         for (int j = 0; j < st.cat_counts[k]; j++)
             Tgt[cat_offset[k]+j] = st.targets[k][j] * n_d;
 
+    // T_flat[m] = pure target proportion (without n_d factor).
+    // Slack updates use T_flat[m]*W_current to track the actual calibration
+    // objective max_m |S[m]/W - T[m]| rather than |S[m]/n_d - T[m]|.
+    std::vector<double> T_flat(nct);
+    for (int m = 0; m < nct; m++) T_flat[m] = Tgt[m] / n_d;
+
     // Initial cell masses
     std::vector<double> X_init(ct.M_cell, 0.0);
     for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
@@ -145,6 +151,11 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     std::vector<double> delta_S(nct);   // hoisted: ΔS[m] = Σ_c A_mc*ΔX[c]
     std::vector<double> bucket_tmp(max_cats);
     double best_delta = delta;
+    // Track best X by actual calibration error (errRp) rather than LP delta.
+    // LP delta can hit the floor (kEps) due to numerical degeneration while the
+    // primal is far from the LP optimum; errRp directly measures calibration quality.
+    double best_errRp = std::numeric_limits<double>::infinity();
+    std::vector<double> X_best(X);
     // Convergence rule state — uses CalibState cfg (not hardcoded tol)
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
@@ -191,6 +202,9 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         }
         double mean_err = (st.K > 0) ? mean_err_sum/static_cast<double>(st.K) : 0.0;
         double l1_weight = 0.0;  // not tracked per IPM step (no prev weights)
+
+        // Track X with the best actual calibration error seen so far.
+        if (errRp < best_errRp) { best_errRp = errRp; res.best_iter = iter+1; X_best = X; }
 
         // Convergence dispatch — uses CalibState cfg (metric+rule+tol), same as all other solvers.
         // apply_rule updates prev_metric_for_rule in-place (tracks improvement across iterations).
@@ -251,12 +265,14 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         if (W < 1e-300) { res.status = RK_ERR_INFEAS; return res; }
 
         // RHS WITH complementarity centering (correct formula):
-        // rhs[m] = -(S[m]-Tgt[m])  +  D_marg[m]*( rmu_up/s_up - rmu_dn/s_dn )
+        // rhs[m] = -(S[m] - T_flat[m]*W)  +  D_marg[m]*( rmu_up/s_up - rmu_dn/s_dn )
+        // Using T_flat[m]*W (= T[m]*W) as the dynamic target so the Newton step
+        // drives S[m]/W → T[m] directly rather than S[m] → T[m]*n_d.
         // where rmu_up = sigma*mu - s_up*y_up  (centering residual)
         for (int m = 0; m < nct; m++) {
             double rmu_up = sigma_mu - s_up[m]*y_up[m];
             double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
-            rhs_v[m] = -(S[m]-Tgt[m])
+            rhs_v[m] = -(S[m] - T_flat[m]*W)
                        + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
         }
 
@@ -375,9 +391,17 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
             s_hi[c] = std::max(U_cell[c]-X[c], kEps);
         }
         compute_S(X, S);
-        for (int m = 0; m < nct; m++) {
-            s_up[m] = std::max(Tgt[m]+w_kj[m]*delta-S[m], kEps);
-            s_dn[m] = std::max(S[m]-Tgt[m]+w_kj[m]*delta, kEps);
+        // Use T_flat[m]*W_current as the dynamic target so that the LP tracks
+        // the actual calibration objective max_m |S[m]/W - T[m]| rather than
+        // max_m |S[m]/n_d - T[m]|. W drifts when bounds are asymmetric; fixing
+        // the target to T[m]*n_d causes slacks to diverge when W != n_d.
+        {
+            double W_upd = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) W_upd += X[c];
+            for (int m = 0; m < nct; m++) {
+                s_up[m] = std::max(T_flat[m]*W_upd + w_kj[m]*delta - S[m], kEps);
+                s_dn[m] = std::max(S[m] - T_flat[m]*W_upd + w_kj[m]*delta, kEps);
+            }
         }
 
         // Update dual (Newton step, not reset!)
@@ -392,26 +416,49 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
             y_dn[m] += alpha_d*dY_dn[m]; if (y_dn[m] < kEps) y_dn[m] = kEps;
         }
 
-        if (delta < best_delta) { best_delta = delta; res.best_iter = iter+1; }
+        // Guard: cap complementarity products s*y to prevent dual explosion.
+        // When duals blow up (mu increases by >100x), reset them to maintain
+        // the central path mu_target = current_complementarity / n_comp.
+        // This prevents runaway dual variables while preserving primal progress.
+        {
+            double comp_new = y_delta*s_delta;
+            for (int c = 0; c < ct.M_cell; c++) comp_new += y_lo[c]*s_lo[c] + y_hi[c]*s_hi[c];
+            for (int m = 0; m < nct; m++) comp_new += y_up[m]*s_up[m] + y_dn[m]*s_dn[m];
+            double mu_new = comp_new / n_comp;
+            if (mu_new > 100.0 * mu) {
+                // Dual explosion detected: re-center duals at mu_target = mu
+                // (central path: y = mu/s for each complementarity pair)
+                y_delta = mu / s_delta;
+                for (int c = 0; c < ct.M_cell; c++) { y_lo[c] = mu/s_lo[c]; y_hi[c] = mu/s_hi[c]; }
+                for (int m = 0; m < nct; m++) { y_up[m] = mu/s_up[m]; y_dn[m] = mu/s_dn[m]; }
+            }
+        }
+
+        if (delta < best_delta) { best_delta = delta; }
     }
 
     // Populate metrics
     res.convergence_objective = best_delta;
-    res.best_error = best_delta;
+    res.best_error = best_errRp;  // actual calibration error at best_iter
     res.convergence_minimized_metric = static_cast<int>(
         variant == LpVariant::CHEBYSHEV ? CalibMetric::MAX_ERR : CalibMetric::GRAKE_NORM);
     res.convergence_metric = res.convergence_minimized_metric;
 
+    // Use X_best (X at lowest errRp iteration) for final metrics and weights.
+    // The final IPM iterate may have drifted due to numerical degeneration; the
+    // best-errRp iterate gives the most accurate calibration.
+    const std::vector<double>& X_out = X_best;
+
     // All 6 metrics
     double W_final = 0.0;
-    for (int c = 0; c < ct.M_cell; c++) W_final += X[c];
+    for (int c = 0; c < ct.M_cell; c++) W_final += X_out[c];
     double errRp2 = 0.0, mean_err_sum2 = 0.0, kl_max2 = 0.0, chi2_total2 = 0.0, grn = 0.0;
     for (int k = 0; k < st.K; k++) {
         const int nj = st.cat_counts[k];
         std::fill(bucket_tmp.begin(), bucket_tmp.begin()+nj, 0.0);
         for (int c = 0; c < ct.M_cell; c++) {
             int g = ct.g_per_cell[k][c];
-            if (g >= 0 && g < nj) bucket_tmp[g] += X[c];
+            if (g >= 0 && g < nj) bucket_tmp[g] += X_out[c];
         }
         double max_k = 0.0, kl_k = 0.0;
         for (int j = 0; j < nj; j++) {
@@ -434,11 +481,11 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     res.mean_error = mean_err_sum2 / (st.K > 0 ? st.K : 1);
     res.grake_norm = grn;
 
-    // Obs expansion (same as raking/sinkhorn/greg)
+    // Obs expansion using X_out (best-errRp iterate)
     const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
-        double mult = (X_init[c] > 1e-10) ? X[c]/X_init[c] : 1.0;
+        double mult = (X_init[c] > 1e-10) ? X_out[c]/X_init[c] : 1.0;
         st.weights[i] = std::clamp(st.weights[i]*mult, lo, hi_obs);
     }
     res.best_weights.resize(st.n);
