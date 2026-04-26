@@ -50,6 +50,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     static constexpr int    kErrCheckInterval = 10;
     static constexpr double kMetricEps        = 1e-10;
     static constexpr double kChi2Floor        = 1.0;
+    static constexpr double kAmax             = 30.0;  // exp(30)≈1e13 >> max practical weight ratio
 
     SinkhornResult res;
     res.status = RK_ERR_NOCONV;
@@ -128,6 +129,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         for (int c = 0; c < ct.M_cell; c++) {
             if (X[c] > 1e-300 && X_proj[c] > 1e-300)
                 a[c] += std::log(X[c]) - std::log(X_proj[c]);
+            a[c] = std::clamp(a[c], -kAmax, kAmax);
             X[c] = X_proj[c];
         }
 

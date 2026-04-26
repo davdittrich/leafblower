@@ -184,3 +184,26 @@ test_that("T-auto-kl: method='auto' defaults to kl convergence metric", {
   expect_equal(r$convergence_used$metric, "kl",
                info="AUTO must use kl default — both ieppa and raking default to kl")
 })
+
+test_that("S1: sinkhorn handles tight bounds without overflow (a[c] clamp guard)", {
+  # Regression guard: without a[c] clamping, exp overflows after ~700 iters of persistent clamping.
+  set.seed(99)
+  n <- 500
+  data <- data.frame(
+    a = factor(sample(c("1","2","3","4","5"), n, replace=TRUE)),
+    b = factor(sample(c("1","2"), n, replace=TRUE))
+  )
+  target <- list(
+    a = c("1"=0.6, "2"=0.2, "3"=0.1, "4"=0.05, "5"=0.05),
+    b = c("1"=0.9, "2"=0.1)
+  )
+  w <- leafblower::harvest(data, target, min_weight=0.1, max_weight=2.0,
+                           method="sinkhorn", max_iterations=2000, attach_weights=FALSE)
+  r <- attr(w, "result")
+  expect_false(r$status == 3L,
+               info=sprintf("sinkhorn returned INFEAS (status=%d) — likely a[c] overflow", r$status))
+  expect_true(r$status %in% c(0L, 1L),
+              info=sprintf("expected 0 (OK) or 1 (NOCONV), got %d", r$status))
+  expect_true(all(w >= 0.1 - 1e-10 & w <= 2.0 + 1e-10),
+              info="bounds violated")
+})
