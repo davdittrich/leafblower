@@ -167,10 +167,14 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     // Hoisted work vectors
     const int max_cats = *std::max_element(st.cat_counts, st.cat_counts+st.K);
     std::vector<double> D_eff(ct.M_cell), D_marg(nct);
+    // Full nct system (for δ Sherman-Morrison — must use full space to preserve E1/E2)
+    std::vector<double> N0((size_t)nct * (size_t)nct);
+    std::vector<double> u_vec(nct), v_vec(nct), rhs_v(nct), w_sol(nct);
+    std::vector<double> dlambda(nct);
+    // Reduced nct_red system (for ν second SM only)
     std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
-    std::vector<double> u_red(nct_red), v_red(nct_red), rhs_red(nct_red), w_sol_red(nct_red);
     std::vector<double> e_red(nct_red), w_e_red(nct_red);
-    std::vector<double> dlambda_red(nct_red);  // reduced Newton solution (post-ν correction)
+    std::vector<double> dlambda_red(nct_red);  // ν SM internals
     std::vector<double> dX(ct.M_cell);
     std::vector<double> dS_up(nct), dS_dn(nct);
     std::vector<double> dY_lo(ct.M_cell), dY_hi(ct.M_cell), dY_up(nct), dY_dn(nct);
@@ -258,14 +262,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         for (int m = 0; m < nct; m++)
             D_marg[m] = 1.0 / (y_up[m]/s_up[m] + y_dn[m]/s_dn[m] + 1e-300);
 
-        // N_red = A_red * D_eff * A_red^T (reference margins excluded)
-        if (lbw::compute_normal_equations_reduced(ct, D_eff.data(), N_red.data(),
-                                                  cat_offset.data(), st.K,
-                                                  static_cast<size_t>(nct_red),
-                                                  full_to_red.data()) != RK_OK) {
-            res.status = RK_ERR_BADARG; return res;
-        }
-
         if (W < 1e-300) { res.status = RK_ERR_INFEAS; return res; }
 
         // RHS WITH complementarity centering (correct formula):
@@ -273,12 +269,11 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         // Using T_flat[m]*W (= T[m]*W) as the dynamic target so the Newton step
         // drives S[m]/W → T[m] directly rather than S[m] → T[m]*n_d.
         // where rmu_up = sigma*mu - s_up*y_up  (centering residual)
-        for (int nr = 0; nr < nct_red; nr++) {
-            int m = red_to_full[nr];
+        for (int m = 0; m < nct; m++) {
             double rmu_up = sigma_mu - s_up[m]*y_up[m];
             double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
-            rhs_red[nr] = -(S[m] - T_flat[m]*W)
-                          + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
+            rhs_v[m] = -(S[m] - T_flat[m]*W)
+                       + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
         }
 
         // δ stationarity: r_δ = 1 - Σ_m w_m*(y_up+y_dn) - y_delta
@@ -298,66 +293,73 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         for (int m = 0; m < nct; m++)
             Theta += w_kj[m]*w_kj[m] * (y_up[m]/s_up[m] + y_dn[m]/s_dn[m]);
         double alpha_sm = (Theta > 1e-300) ? 1.0/Theta : 0.0;
-        for (int nr = 0; nr < nct_red; nr++) u_red[nr] = w_kj[red_to_full[nr]];
+        for (int m = 0; m < nct; m++) u_vec[m] = w_kj[m];
 
-        // LDLT factor N_red (reduced, nct_red × nct_red)
-        if (ldlt_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsLdlt) != RK_OK) {
+        // N_0 = A * D_eff * A^T (full nct×nct, for δ SM — preserves E1/E2 correctness)
+        if (lbw::compute_normal_equations(ct, D_eff.data(), N0.data(),
+                                          cat_offset.data(), st.K,
+                                          static_cast<size_t>(nct)) != RK_OK) {
             res.status = RK_ERR_BADARG; return res;
         }
 
-        // Back-solve 1: w_sol_red = N_red^{-1} · rhs_red
-        std::copy(rhs_red.begin(), rhs_red.end(), w_sol_red.begin());
-        ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), w_sol_red.data());
+        // LDLT factor N_0 (full nct × nct)
+        if (ldlt_factor_inplace(N0.data(), static_cast<size_t>(nct), kEpsLdlt) != RK_OK) {
+            res.status = RK_ERR_BADARG; return res;
+        }
 
-        // Back-solve 2: v_red = N_red^{-1} · u_red  (first SM: δ correction)
-        std::copy(u_red.begin(), u_red.end(), v_red.begin());
-        ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), v_red.data());
+        // Back-solve 1: w_sol = N_0^{-1} · rhs_v
+        std::copy(rhs_v.begin(), rhs_v.end(), w_sol.begin());
+        ldlt_solve(N0.data(), static_cast<size_t>(nct), w_sol.data());
+
+        // Back-solve 2: v_vec = N_0^{-1} · u_vec  (first SM: δ correction)
+        std::copy(u_vec.begin(), u_vec.end(), v_vec.begin());
+        ldlt_solve(N0.data(), static_cast<size_t>(nct), v_vec.data());
 
         double utv = 0.0, utw = 0.0;
-        for (int nr = 0; nr < nct_red; nr++) { utv += u_red[nr]*v_red[nr]; utw += u_red[nr]*w_sol_red[nr]; }
+        for (int m = 0; m < nct; m++) { utv += u_vec[m]*v_vec[m]; utw += u_vec[m]*w_sol[m]; }
         double sm_denom = 1.0 + alpha_sm*utv;
         double sm_coeff = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw/sm_denom) : 0.0;
-        for (int nr = 0; nr < nct_red; nr++) dlambda_red[nr] = w_sol_red[nr] - sm_coeff*v_red[nr];
+        for (int m = 0; m < nct; m++) dlambda[m] = w_sol[m] - sm_coeff*v_vec[m];
 
-        // Back-solve 3 (ν): e_red[nr] = Σ_{c∈margin red_to_full[nr]} D_eff[c]
-        std::fill(e_red.begin(), e_red.end(), 0.0);
-        for (int c = 0; c < ct.M_cell; c++) {
-            for (int k = 0; k < st.K; k++) {
-                int g = ct.g_per_cell[k][c];
-                if (g < 0 || g >= st.cat_counts[k]) continue;
-                int m = cat_offset[k] + g;
-                int nr = full_to_red[m];
-                if (nr >= 0) e_red[nr] += D_eff[c];
+        // ν diagnostic: compute schur_nu via N_red (reference elimination guarantees > 0).
+        // The ν dual correction (dnu) is NOT applied: the normalization W = n_d is
+        // maintained implicitly by the LP slack structure (s_up, s_dn). Applying dnu
+        // explicitly from an inconsistent (perturbed-singular N0) system destabilizes
+        // convergence. The schur_nu value is logged for diagnostic purposes only.
+        if (st.verbose >= 2 && iter == 0) {
+            // N_red = A_red * D_eff * A_red^T
+            if (lbw::compute_normal_equations_reduced(ct, D_eff.data(), N_red.data(),
+                                                      cat_offset.data(), st.K,
+                                                      static_cast<size_t>(nct_red),
+                                                      full_to_red.data()) == RK_OK &&
+                ldlt_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsLdlt) == RK_OK) {
+                // e_red[nr] = Σ_{c∈margin red_to_full[nr]} D_eff[c]
+                std::fill(e_red.begin(), e_red.end(), 0.0);
+                for (int c = 0; c < ct.M_cell; c++) {
+                    for (int k = 0; k < st.K; k++) {
+                        int g = ct.g_per_cell[k][c];
+                        if (g < 0 || g >= st.cat_counts[k]) continue;
+                        int m = cat_offset[k] + g;
+                        int nr = full_to_red[m];
+                        if (nr >= 0) e_red[nr] += D_eff[c];
+                    }
+                }
+                std::copy(e_red.begin(), e_red.end(), w_e_red.begin());
+                ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), w_e_red.data());
+                double D_nu = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) D_nu += D_eff[c];
+                double eTw_e = 0.0;
+                for (int nr = 0; nr < nct_red; nr++) eTw_e += e_red[nr] * w_e_red[nr];
+                const double schur_nu = D_nu - eTw_e;
+                char msg[128];
+                std::snprintf(msg, sizeof(msg), "chebyshev: schur_nu=%.4e (iter 0)", schur_nu);
+                st.log(msg);
             }
         }
-        std::copy(e_red.begin(), e_red.end(), w_e_red.begin());
-        ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), w_e_red.data());
-        // Apply first SM correction to w_e_red (same sm_denom as above)
-        double ute = 0.0;
-        for (int nr = 0; nr < nct_red; nr++) ute += u_red[nr] * w_e_red[nr];
-        double sm_coeff_e = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*ute/sm_denom) : 0.0;
-        for (int nr = 0; nr < nct_red; nr++) w_e_red[nr] -= sm_coeff_e * v_red[nr];
+        // dnu = 0: normalization handled implicitly by LP slack structure
+        const double dnu = 0.0;
 
-        // Compute ν: schur_nu = D_nu - e^T·w_e > 0 (guaranteed by reference elimination)
-        double D_nu = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) D_nu += D_eff[c];
-        double eTw_e = 0.0, eTdlambda = 0.0;
-        for (int nr = 0; nr < nct_red; nr++) {
-            eTw_e     += e_red[nr] * w_e_red[nr];
-            eTdlambda += e_red[nr] * dlambda_red[nr];
-        }
-        const double schur_nu = D_nu - eTw_e;
-        if (st.verbose >= 2 && iter == 0) {
-            char msg[128];
-            std::snprintf(msg, sizeof(msg), "chebyshev: schur_nu=%.4e (iter 0)", schur_nu);
-            st.log(msg);
-        }
-        const double r_nu = W - n_d;
-        const double dnu  = (schur_nu > 1e-8) ? (-r_nu - eTdlambda) / schur_nu : 0.0;
-        // Correct dlambda_red with ν contribution
-        for (int nr = 0; nr < nct_red; nr++) dlambda_red[nr] -= dnu * w_e_red[nr];
-
-        // ΔX[c] = D_eff[c] * Σ_k Δλ[m_k]
+        // ΔX[c] = D_eff[c] * (Σ_k dlambda[cat_offset[k]+g_k(c)] + dnu)
         std::fill(dX.begin(), dX.end(), 0.0);
         for (int k = 0; k < st.K; k++)
             for (int c = 0; c < ct.M_cell; c++) {
@@ -365,7 +367,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
                 if (g >= 0 && g < st.cat_counts[k])
                     dX[c] += dlambda[cat_offset[k]+g];
             }
-        for (int c = 0; c < ct.M_cell; c++) dX[c] *= D_eff[c];
+        for (int c = 0; c < ct.M_cell; c++) dX[c] = D_eff[c] * (dX[c] + dnu);
 
         // Δδ: full formula including δ-stationarity residual and margin centering
         double w_dot_dlambda = 0.0;
