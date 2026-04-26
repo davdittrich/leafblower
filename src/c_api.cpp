@@ -5,6 +5,7 @@
 #include "ieppa.hpp"      // faithful (new)
 #include "raking.hpp"     // renamed hybrid
 #include "sinkhorn.hpp"   // KL Bregman Dykstra
+#include "greg.hpp"       // Newton QP chi2 (GREG, Deville-Sarnal 1992)
 #include "cell_table.hpp" // estimate_M_cell for AUTO routing
 #include <cstring>
 #include <cstdio>
@@ -119,8 +120,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
             case RK_ALG_IEPPA:    alg = RK_ALG_IEPPA;  break;
             case RK_ALG_SINKHORN: alg = RK_ALG_SINKHORN; break;
+            case RK_ALG_GREG:    alg = RK_ALG_GREG; break;
             case RK_ALG_CHEBYSHEV:
-            case RK_ALG_GREG:
             case RK_ALG_GRAKE: {
                 if (result) {
                     result->status = RK_ERR_BADARG;
@@ -266,6 +267,29 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             std::strncpy(result->message, sres.message, sizeof(result->message) - 1);
         }
         return sres.status;
+    } else if (alg == RK_ALG_GREG) {
+        auto gres = lbw::greg_solve(st);
+        if (result) {
+            result->status                       = gres.status;
+            result->iterations                   = gres.iterations;
+            result->max_error                    = gres.max_error;
+            result->convergence_metric           = gres.convergence_metric;
+            result->convergence_rule             = gres.convergence_rule;
+            result->convergence_tol              = gres.convergence_tol;
+            result->convergence_iter             = gres.convergence_iter;
+            result->convergence_objective        = gres.convergence_objective;
+            result->convergence_minimized_metric = gres.convergence_minimized_metric;
+            result->best_error                   = gres.best_error;
+            result->best_iter                    = gres.best_iter;
+            result->mean_error                   = gres.mean_error;
+            result->kl                           = gres.kl;
+            result->chi2                         = gres.chi2;
+            result->grake_norm                   = gres.grake_norm;
+            result->l1_weight_change             = gres.l1_weight_change;
+            result->algorithm_used               = alg;
+            std::strncpy(result->message, gres.message, sizeof(result->message) - 1);
+        }
+        return gres.status;
     } else {
         // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
         auto res = lbw::ieppa_solve(st);
