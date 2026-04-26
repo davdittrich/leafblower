@@ -863,58 +863,20 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 l1_weight += std::fabs(X[c] - X_prev[c]);
             if (ct.W_input > 0.0) l1_weight /= ct.W_input;
 
-            // WU-C: grake_norm = max_kj |S_kj/W_total - τ_kj| / (1 + |τ_kj|).
-            // Uses cells_by_margin_cat (valid for both linear and log paths).
-            double grake_norm = 0.0;
-            if (W_total > 0.0) {
-                for (int k = 0; k < st.K; k++) {
-                    const int nj = st.cat_counts[k];
-                    for (int j = 0; j < nj; j++) {
-                        const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
-                        double S_kj = 0.0;
-                        for (int c : cells) S_kj += X[c];
-                        double pop_kj = st.targets[k][j] * W_total;
-                        double nm = std::fabs(S_kj - pop_kj) / (1.0 + std::fabs(pop_kj));
-                        if (nm > grake_norm) grake_norm = nm;
-                    }
-                }
-            }
-
-            // WU-B: alternative metrics — accumulate per-margin S_k, then compute
-            // mean_err (mean of per-margin max), kl_max (max per-margin KL), chi2.
-            //
-            // Gate: skip the O(K*M_cell) scatter-adds when the active stopping
-            // criterion does not use these metrics. Always compute on the final
-            // iteration of each level (iter_in_lvl == budget_lvl) so that
-            // calib_result is fully populated on exit.
+            // WU-B/C extra metrics gate: skip O(K*M_cell) passes when the active
+            // stopping criterion does not need them. Always compute on the final
+            // iteration (iter_in_lvl == budget_lvl) so result struct is fully
+            // populated on exit. grake_norm moved inside this gate (was unconditional,
+            // causing 9x slowdown on K=20/M_cell=1M with MAX_ERR+IMPROVEMENT default).
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
             const auto& cfg_m = st.convergence_cfg;
-            // Force full metric computation whenever convergence is about to fire.
-            // Covers: absolute_tol threshold path AND improvement/plateau rules
-            // (which use MAX_ERR/L1_WEIGHT/GRAKE_NORM — computable before extra metrics).
-            {
-                double early_m = 0.0;
-                bool can_check = true;
-                switch (metric) {
-                    case lbw::CalibMetric::MAX_ERR:    early_m = errRp;      break;
-                    case lbw::CalibMetric::L1_WEIGHT:  early_m = l1_weight;  break;
-                    case lbw::CalibMetric::GRAKE_NORM: early_m = grake_norm; break;
-                    default: can_check = false; break;
-                }
-                (void)can_check;  // suppress unused-variable warning
-                (void)early_m;
-            }
-            // Extra metrics only when required for the active convergence criterion
-            // or at the final iteration for result reporting.
-            // Removed: about_to_converge pre-trigger. For MAX_ERR+IMPROVEMENT (default),
-            // errRp suffices; O(K*M_cell) metrics at every near-convergence check
-            // caused 9x slowdown on K=20/M_cell=1M (0.109s→0.94s/iter).
             const bool need_extra_metrics =
                 (metric == lbw::CalibMetric::MEAN_ERR   ||
                  metric == lbw::CalibMetric::KL         ||
                  metric == lbw::CalibMetric::CHI2       ||
                  metric == lbw::CalibMetric::GRAKE_NORM ||
                  iter_in_lvl == budget_lvl);
+            double grake_norm = 0.0;
 
             constexpr double kMetricEps = 1e-10;
             constexpr double kChi2Floor = 1.0;
@@ -943,6 +905,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         double obs = S_lin[j];
                         double exp_val = T * W_total;
                         chi2_total += (obs - exp_val) * (obs - exp_val) / (exp_val + kChi2Floor);
+                        // grake_norm computed here (reuses S_lin, no extra O(K*M_cell) pass)
+                        double nm = std::fabs(obs - exp_val) / (1.0 + std::fabs(exp_val));
+                        if (nm > grake_norm) grake_norm = nm;
                     }
                     mean_err_sum += max_k;
                     if (kl_k > kl_max) kl_max = kl_k;
