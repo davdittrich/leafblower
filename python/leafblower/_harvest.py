@@ -312,11 +312,16 @@ def harvest(
 
     # weights_out is already a copy (contract from _bindings.cpp)
     if not attach_weights:
-        weights_out_arr = np.array(weights_out)
-        # Attach result metadata via a wrapper object attribute trick is not possible
-        # for bare ndarray; return as-is (result_dict accessible via the tuple form
-        # only when calling the low-level calibrate() directly).
-        return weights_out
+        weights_out_arr = np.asarray(weights_out, dtype=np.float64)
+        # Expose result diagnostics even when attach_weights=False.
+        # ndarray.attrs does not exist, so we must return a dict wrapper with
+        # 'weights' key containing the array and 'result' key for diagnostics.
+        # This preserves the contract: callers can access diagnostics via
+        # result['result'] when attach_weights=False (same key as DataFrame.attrs).
+        return {
+            "weights": weights_out_arr,
+            "result": result_dict,
+        }
 
     if _PANDAS_AVAILABLE:
         out = data.copy()
