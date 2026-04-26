@@ -324,8 +324,8 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         // ν diagnostic: compute schur_nu via N_red (reference elimination guarantees > 0).
         // The ν dual correction (dnu) is NOT applied: the normalization W = n_d is
         // maintained implicitly by the LP slack structure (s_up, s_dn). Applying dnu
-        // explicitly from an inconsistent (perturbed-singular N0) system destabilizes
-        // convergence. The schur_nu value is logged for diagnostic purposes only.
+        // explicitly destabilizes convergence. The schur_nu value is logged at verbose >= 2.
+        const double dnu = 0.0;
         if (st.verbose >= 2 && iter == 0) {
             // N_red = A_red * D_eff * A_red^T
             if (lbw::compute_normal_equations_reduced(ct, D_eff.data(), N_red.data(),
@@ -356,8 +356,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
                 st.log(msg);
             }
         }
-        // dnu = 0: normalization handled implicitly by LP slack structure
-        const double dnu = 0.0;
 
         // ΔX[c] = D_eff[c] * (Σ_k dlambda[cat_offset[k]+g_k(c)] + dnu)
         std::fill(dX.begin(), dX.end(), 0.0);

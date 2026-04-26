@@ -86,14 +86,17 @@ test_that("chebyshev: schur_nu diagnostic logged at verbose=2 (non-degeneracy)",
     b = factor(sample(c("1","2"),     n, TRUE))
   )
   target <- list(a = c("1"=0.4,"2"=0.4,"3"=0.2), b = c("1"=0.6,"2"=0.4))
+
+  # Capture Rprintf output (stdout) via capture.output(type="output")
   log_lines <- capture.output(
     leafblower::harvest(data, target, method = "chebyshev",
                         min_weight = 0.2, max_weight = 5,
                         max_iterations = 5, attach_weights = FALSE,
                         verbose = 2),
-    type = "message"
+    type = "output"
   )
   schur_lines <- grep("schur_nu=", log_lines, value = TRUE)
+
   expect_gt(length(schur_lines), 0L,
             label = "schur_nu should be logged at verbose=2")
   if (length(schur_lines) > 0) {
