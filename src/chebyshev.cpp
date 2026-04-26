@@ -13,10 +13,9 @@ namespace lbw {
 
 ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
 {
-    static constexpr int    kMaxIpm    = 60;
-    static constexpr int    kMinIpmIters = 15;   // IPM primal improves slowly; skip early rule checks
+    static constexpr int    kMaxIpm    = 500;   // hard cap; user controls via max_iterations
     static constexpr double kSigma     = 0.1;    // centering parameter
-    static constexpr double kTolMu     = 1e-9;   // μ fallback floor (degenerate guard)
+    static constexpr double kTolMu     = 1e-6;   // complementarity gap convergence threshold
     static constexpr double kEps       = 1e-14;  // strict interior buffer
     static constexpr double kEpsLdlt   = 1e-10;  // LDLT perturbation
     static constexpr double kStepScale = 0.99;   // line search safety factor
@@ -110,10 +109,12 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     std::vector<double> S(nct);
     compute_S(X, S);
 
-    // Initial delta: strictly above current max violation
+    // Initial delta: strictly above current max violation (use W_init for consistent scaling)
+    double W_init_pre = 0.0;
+    for (int c = 0; c < ct.M_cell; c++) W_init_pre += X[c];
     double delta = 0.0;
     for (int m = 0; m < nct; m++)
-        delta = std::max(delta, std::fabs(S[m]-Tgt[m]) / w_kj[m]);
+        delta = std::max(delta, std::fabs(S[m]-T_flat[m]*W_init_pre) / w_kj[m]);
     delta = 1.1*delta + 1e-8;
 
     // Primal slacks
@@ -124,8 +125,8 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     }
     std::vector<double> s_up(nct), s_dn(nct);
     for (int m = 0; m < nct; m++) {
-        s_up[m] = std::max(Tgt[m]+w_kj[m]*delta-S[m], kEps);
-        s_dn[m] = std::max(S[m]-Tgt[m]+w_kj[m]*delta, kEps);
+        s_up[m] = std::max(T_flat[m]*W_init_pre+w_kj[m]*delta-S[m], kEps);
+        s_dn[m] = std::max(S[m]-T_flat[m]*W_init_pre+w_kj[m]*delta, kEps);
     }
     double s_delta = delta;
 
@@ -159,7 +160,8 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     // Convergence rule state — uses CalibState cfg (not hardcoded tol)
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
-    for (int iter = 0; iter < kMaxIpm; iter++) {
+    const int max_ipm = std::min(kMaxIpm, st.inner_max_iter);
+    for (int iter = 0; iter < max_ipm; iter++) {
         res.iterations = iter+1;
         compute_S(X, S);
 
@@ -217,16 +219,14 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
                 cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
             // apply_rule updates prev_metric_for_rule in-place — no separate assignment needed
             bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
-            bool converged = false;
-            if (have_pct && have_abs)
-                converged = (cfg.stop_when == lbw::CalibStopWhen::ALL)
-                            ? (converged_pct && converged_abs)
-                            : (converged_pct || converged_abs);
-            else if (have_pct)  converged = converged_pct;
-            else if (have_abs)  converged = converged_abs;
-            else                converged = (mu < kTolMu);
+            // IPM convergence: μ → 0 is the correct criterion (not improvement on errRp).
+            // CalibRule (improvement/plateau) is designed for iterative projection methods;
+            // for IPM it fires prematurely while the algorithm is still making progress.
+            // Primary: μ < kTolMu. Secondary: user absolute_tol if set.
+            bool converged = (mu < kTolMu);
+            if (have_abs) converged = converged || converged_abs;
 
-            if (converged && iter >= kMinIpmIters) {
+            if (converged) {
                 res.status             = RK_OK;
                 res.convergence_metric = static_cast<int>(cfg.metric);
                 res.convergence_rule   = static_cast<int>(cfg.rule);
