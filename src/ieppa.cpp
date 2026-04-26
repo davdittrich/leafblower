@@ -904,25 +904,17 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 (void)can_check;  // suppress unused-variable warning
                 (void)early_m;
             }
-            // about_to_converge: peek at whether the stopping rule WILL fire this iter,
-            // so we can force full metric computation before exit.
-            // Use a COPY of prev_metric_for_rule — apply_rule updates its prev& arg and
-            // we must not corrupt the real tracking variable before the dispatch call.
-            const bool about_to_converge =
-                (cfg_m.absolute_tol > 0.0 && errRp < cfg_m.absolute_tol) ||
-                [&]() {
-                    double prev_copy = prev_metric_for_rule;
-                    double active = (metric == lbw::CalibMetric::MAX_ERR)    ? errRp :
-                                    (metric == lbw::CalibMetric::L1_WEIGHT)  ? l1_weight :
-                                    (metric == lbw::CalibMetric::GRAKE_NORM) ? grake_norm : -1.0;
-                    return active >= 0.0 && lbw::apply_rule(cfg_m.rule, active, prev_copy, cfg_m.pct_tol);
-                }();
+            // Extra metrics only when required for the active convergence criterion
+            // or at the final iteration for result reporting.
+            // Removed: about_to_converge pre-trigger. For MAX_ERR+IMPROVEMENT (default),
+            // errRp suffices; O(K*M_cell) metrics at every near-convergence check
+            // caused 9x slowdown on K=20/M_cell=1M (0.109s→0.94s/iter).
             const bool need_extra_metrics =
-                (metric == lbw::CalibMetric::MEAN_ERR ||
-                 metric == lbw::CalibMetric::KL       ||
-                 metric == lbw::CalibMetric::CHI2     ||
-                 iter_in_lvl == budget_lvl             ||
-                 about_to_converge);
+                (metric == lbw::CalibMetric::MEAN_ERR   ||
+                 metric == lbw::CalibMetric::KL         ||
+                 metric == lbw::CalibMetric::CHI2       ||
+                 metric == lbw::CalibMetric::GRAKE_NORM ||
+                 iter_in_lvl == budget_lvl);
 
             constexpr double kMetricEps = 1e-10;
             constexpr double kChi2Floor = 1.0;

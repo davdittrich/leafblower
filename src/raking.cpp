@@ -199,21 +199,12 @@ RakingResult raking_solve(CalibState& st) {
             // Extra metrics (gated, same as obs-level)
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
             const auto& cfg_m = st.convergence_cfg;
-            const bool about_to_converge =
-                (cfg_m.absolute_tol > 0.0 && errRp < cfg_m.absolute_tol) ||
-                [&]() {
-                    double prev_copy = prev_metric_for_rule;
-                    double active = (metric == lbw::CalibMetric::MAX_ERR)   ? errRp :
-                                    (metric == lbw::CalibMetric::L1_WEIGHT) ? l1_weight : -1.0;
-                    return active >= 0.0 && lbw::apply_rule(cfg_m.rule, active, prev_copy, cfg_m.pct_tol);
-                }();
             const bool need_extra_metrics =
                 (metric == lbw::CalibMetric::MEAN_ERR   ||
                  metric == lbw::CalibMetric::KL         ||
                  metric == lbw::CalibMetric::CHI2       ||
                  metric == lbw::CalibMetric::GRAKE_NORM ||
-                 iter == st.inner_max_iter               ||
-                 about_to_converge);
+                 iter == st.inner_max_iter);
 
             double W_tot2 = 0.0;
             for (int c = 0; c < ct.M_cell; c++) W_tot2 += X[c];
