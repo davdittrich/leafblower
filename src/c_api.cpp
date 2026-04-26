@@ -257,6 +257,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_minimized_metric = sres.convergence_minimized_metric;
             result->best_error                   = sres.best_error;
             result->best_iter                    = sres.best_iter;
+            result->mean_error                   = sres.mean_error;
+            result->kl                           = sres.kl;
+            result->chi2                         = sres.chi2;
+            result->grake_norm                   = sres.grake_norm;
+            result->l1_weight_change             = sres.l1_weight_change;
             result->algorithm_used               = alg;
             std::strncpy(result->message, sres.message, sizeof(result->message) - 1);
         }
