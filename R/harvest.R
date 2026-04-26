@@ -159,18 +159,8 @@ harvest <- function(
   target  <- parse_target(target, target_map)
   method  <- map_method(method, verbose)
   conv    <- parse_convergence(convergence)
-  # iEPPA is a Sinkhorn-type KL minimizer — override default metric to kl when
-  # the user did not specify any metric-bearing convergence key.
-  if (method == "ieppa" &&
-      is.null(convergence[["metric"]]) &&
-      is.null(convergence[["criterion"]]) &&
-      is.null(convergence[["improvement"]]) &&
-      is.null(convergence[["pct"]]) &&
-      is.null(convergence[["absolute"]])) {
-    conv$metric <- "kl"
-  }
-  # Raking is a KL minimizer — same default as ieppa.
-  if (method == "raking" &&
+  # iEPPA, raking, and auto all route to KL minimizers — apply kl+improvement default.
+  if (method %in% c("ieppa", "raking", "auto") &&
       is.null(convergence[["metric"]]) &&
       is.null(convergence[["criterion"]]) &&
       is.null(convergence[["improvement"]]) &&

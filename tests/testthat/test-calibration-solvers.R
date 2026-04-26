@@ -174,3 +174,13 @@ test_that("T-overflow: AUTO routing + algorithm_used populated", {
   expect_equal(r$algorithm_used, 1L,
                info="AUTO must select ieppa when M_cell/n << 0.9")
 })
+
+test_that("T-auto-kl: method='auto' defaults to kl convergence metric", {
+  set.seed(3)
+  data <- data.frame(a=factor(sample(c("1","2","3"),300,TRUE)))
+  target <- list(a=c("1"=0.4,"2"=0.4,"3"=0.2))
+  w <- leafblower::harvest(data, target, max_weight=5, method="auto", attach_weights=FALSE)
+  r <- attr(w, "result")
+  expect_equal(r$convergence_used$metric, "kl",
+               info="AUTO must use kl default — both ieppa and raking default to kl")
+})
