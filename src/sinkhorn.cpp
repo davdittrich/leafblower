@@ -48,8 +48,6 @@ static bool bisect_capacity(const std::vector<double>& X,
 
 SinkhornResult sinkhorn_solve(CalibState& st) {
     static constexpr int    kErrCheckInterval = 10;
-    static constexpr double kMetricEps        = 1e-10;
-    static constexpr double kChi2Floor        = 1.0;
     static constexpr double kAmax             = 30.0;  // exp(30)≈1e13 >> max practical weight ratio
 
     SinkhornResult res;
@@ -147,34 +145,9 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
             const double W = W_total;  // preserved by Sinkhorn sweeps + bisection
-            double errRp = 0.0, mean_err_sum = 0.0, kl_max = 0.0;
-            double chi2_total = 0.0, grake_norm = 0.0;
-            for (int k = 0; k < st.K; k++) {
-                const int nj = st.cat_counts[k];
-                std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
-                for (int c = 0; c < ct.M_cell; c++) {
-                    int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < nj) bucket[g] += X[c];
-                }
-                double max_k = 0.0, kl_k = 0.0;
-                for (int j = 0; j < nj; j++) {
-                    double S_p   = bucket[j] / W;
-                    double T     = st.targets[k][j];
-                    double err   = std::fabs(S_p - T);
-                    if (err > max_k) max_k = err;
-                    if (err > errRp) errRp = err;
-                    if (T > 0.0)
-                        kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
-                    double obs    = bucket[j];
-                    double pop_kj = T * W;
-                    chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
-                    double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
-                    if (nm > grake_norm) grake_norm = nm;
-                }
-                mean_err_sum += max_k;
-                if (kl_k > kl_max) kl_max = kl_k;
-            }
-            double mean_err = (st.K > 0) ? mean_err_sum / static_cast<double>(st.K) : 0.0;
+            auto m = lbw::compute_cell_metrics(st, ct, X, W, bucket);
+            double errRp = m.errRp, mean_err = m.mean_err;
+            double kl_max = m.kl, chi2_total = m.chi2, grake_norm = m.grake_norm;
 
             double l1_sum = 0.0;
             for (int c = 0; c < ct.M_cell; c++)

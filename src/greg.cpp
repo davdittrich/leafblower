@@ -126,38 +126,16 @@ GregResult greg_solve(CalibState& st) {
     // Compute 6 metrics at exit
     double W = 0.0;
     for (int c = 0; c < ct.M_cell; c++) W += X[c];
-    std::vector<double> bucket_m(max_cats);
-    constexpr double kMetricEps = 1e-10, kChi2Floor = 1.0;
-    double errRp = 0.0, mean_err_sum = 0.0, kl_max = 0.0, chi2_total = 0.0, grake_norm = 0.0;
-    for (int k = 0; k < st.K; k++) {
-        const int nj = st.cat_counts[k];
-        std::fill(bucket_m.begin(), bucket_m.begin() + nj, 0.0);
-        for (int c = 0; c < ct.M_cell; c++) {
-            int g = ct.g_per_cell[k][c];
-            if (g >= 0 && g < nj) bucket_m[g] += X[c];
-        }
-        double max_k = 0.0, kl_k = 0.0;
-        for (int j = 0; j < nj; j++) {
-            double S_p = bucket_m[j] / W, T = st.targets[k][j];
-            double err = std::fabs(S_p - T);
-            if (err > max_k) max_k = err;
-            if (err > errRp) errRp = err;
-            if (T > 0.0) kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
-            double obs = bucket_m[j], pop_kj = T * W;
-            chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
-            double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
-            if (nm > grake_norm) grake_norm = nm;
-        }
-        mean_err_sum += max_k;
-        if (kl_k > kl_max) kl_max = kl_k;
+    {
+        auto m = lbw::compute_cell_metrics(st, ct, X, W, bucket_b);
+        res.max_error  = m.errRp;
+        res.kl         = m.kl;
+        res.chi2       = m.chi2;
+        res.mean_error = m.mean_err;
+        res.grake_norm = m.grake_norm;
     }
-    res.max_error   = errRp;
-    res.kl          = kl_max;
-    res.chi2        = chi2_total;
-    res.mean_error  = mean_err_sum / (st.K > 0 ? st.K : 1);
-    res.grake_norm  = grake_norm;
-    res.convergence_objective = chi2_total;
-    res.best_error = chi2_total;
+    res.convergence_objective = res.chi2;
+    res.best_error = res.chi2;
 
     // Obs expansion + clamp
     const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;

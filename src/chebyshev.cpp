@@ -19,9 +19,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     static constexpr double kEps       = 1e-14;  // strict interior buffer
     static constexpr double kEpsLdlt   = 1e-10;  // LDLT perturbation
     static constexpr double kStepScale = 0.99;   // line search safety factor
-    static constexpr double kMetricEps = 1e-10;
-    static constexpr double kChi2Floor = 1.0;
-
     ChebyshevResult res;
     res.status = RK_ERR_NOCONV;
 
@@ -177,32 +174,10 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         // O(K*nct) pass — cheap vs LDLT O(nct³). Computes all 6 metrics from current S[].
         double W = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W += X[c];
-        double errRp = 0.0, mean_err_sum = 0.0, kl_max = 0.0;
-        double chi2_total = 0.0, grake_norm = 0.0;
-        if (W > 1e-300) {
-            for (int k = 0; k < st.K; k++) {
-                std::fill(bucket_tmp.begin(), bucket_tmp.begin()+st.cat_counts[k], 0.0);
-                for (int c = 0; c < ct.M_cell; c++) {
-                    int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < st.cat_counts[k]) bucket_tmp[g] += X[c];
-                }
-                double max_k = 0.0, kl_k = 0.0;
-                for (int j = 0; j < st.cat_counts[k]; j++) {
-                    double Sp = bucket_tmp[j]/W, T = st.targets[k][j];
-                    double err = std::fabs(Sp-T);
-                    if (err > max_k) max_k = err;
-                    if (err > errRp) errRp = err;
-                    if (T > 0.0) kl_k += T*std::log((T+kMetricEps)/(Sp+kMetricEps));
-                    double obs = bucket_tmp[j], pop = T*W;
-                    chi2_total += (obs-pop)*(obs-pop)/(pop+kChi2Floor);
-                    double nm = std::fabs(obs-pop)/(1.0+std::fabs(pop));
-                    if (nm > grake_norm) grake_norm = nm;
-                }
-                mean_err_sum += max_k;
-                if (kl_k > kl_max) kl_max = kl_k;
-            }
-        }
-        double mean_err = (st.K > 0) ? mean_err_sum/static_cast<double>(st.K) : 0.0;
+        CellMetrics cm;
+        if (W > 1e-300) cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
+        double errRp = cm.errRp, mean_err = cm.mean_err;
+        double kl_max = cm.kl, chi2_total = cm.chi2, grake_norm = cm.grake_norm;
         double l1_weight = 0.0;  // not tracked per IPM step (no prev weights)
 
         // Track X with the best actual calibration error seen so far.
@@ -453,34 +428,14 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     // All 6 metrics
     double W_final = 0.0;
     for (int c = 0; c < ct.M_cell; c++) W_final += X_out[c];
-    double errRp2 = 0.0, mean_err_sum2 = 0.0, kl_max2 = 0.0, chi2_total2 = 0.0, grn = 0.0;
-    for (int k = 0; k < st.K; k++) {
-        const int nj = st.cat_counts[k];
-        std::fill(bucket_tmp.begin(), bucket_tmp.begin()+nj, 0.0);
-        for (int c = 0; c < ct.M_cell; c++) {
-            int g = ct.g_per_cell[k][c];
-            if (g >= 0 && g < nj) bucket_tmp[g] += X_out[c];
-        }
-        double max_k = 0.0, kl_k = 0.0;
-        for (int j = 0; j < nj; j++) {
-            double Sp = bucket_tmp[j]/W_final, T = st.targets[k][j];
-            double err = std::fabs(Sp-T);
-            if (err > max_k) max_k = err;
-            if (err > errRp2) errRp2 = err;
-            if (T > 0.0) kl_k += T*std::log((T+kMetricEps)/(Sp+kMetricEps));
-            double obs = bucket_tmp[j], pop = T*W_final;
-            chi2_total2 += (obs-pop)*(obs-pop)/(pop+kChi2Floor);
-            double nm = std::fabs(obs-pop)/(1.0+std::fabs(pop));
-            if (nm > grn) grn = nm;
-        }
-        mean_err_sum2 += max_k;
-        if (kl_k > kl_max2) kl_max2 = kl_k;
+    {
+        auto m2 = lbw::compute_cell_metrics(st, ct, X_out, W_final, bucket_tmp);
+        res.max_error  = m2.errRp;
+        res.kl         = m2.kl;
+        res.chi2       = m2.chi2;
+        res.mean_error = m2.mean_err;
+        res.grake_norm = m2.grake_norm;
     }
-    res.max_error  = errRp2;
-    res.kl         = kl_max2;
-    res.chi2       = chi2_total2;
-    res.mean_error = mean_err_sum2 / (st.K > 0 ? st.K : 1);
-    res.grake_norm = grn;
 
     // Obs expansion using X_out (best-errRp iterate)
     const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;

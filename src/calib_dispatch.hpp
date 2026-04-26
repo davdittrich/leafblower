@@ -116,6 +116,52 @@ inline bool check_convergence(
     return (errRp < tol_abs_fallback);
 }
 
+struct CellMetrics {
+    double errRp      = 0.0;
+    double mean_err   = 0.0;
+    double kl         = 0.0;
+    double chi2       = 0.0;
+    double grake_norm = 0.0;
+};
+
+// Compute 5 calibration metrics over all K margins from cell-level weight vector X.
+// W = sum(X) — passed in to avoid recomputation.
+// bucket: pre-allocated scratch of size >= max(st.cat_counts[k]).
+inline CellMetrics compute_cell_metrics(
+    const CalibState& st, const CellTable& ct,
+    const std::vector<double>& X, double W,
+    std::vector<double>& bucket) noexcept
+{
+    constexpr double kMetricEps = 1e-10;
+    constexpr double kChi2Floor = 1.0;
+    CellMetrics m;
+    double mean_sum = 0.0;
+    for (int k = 0; k < st.K; k++) {
+        const int nj = st.cat_counts[k];
+        std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
+        for (int c = 0; c < ct.M_cell; c++) {
+            int g = ct.g_per_cell[k][c];
+            if (g >= 0 && g < nj) bucket[g] += X[c];
+        }
+        double max_k = 0.0, kl_k = 0.0;
+        for (int j = 0; j < nj; j++) {
+            double S_p = bucket[j] / W, T = st.targets[k][j];
+            double err = std::fabs(S_p - T);
+            if (err > max_k)        max_k = err;
+            if (err > m.errRp)      m.errRp = err;
+            if (T > 0.0)            kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
+            double obs = bucket[j], pop = T * W;
+            m.chi2 += (obs - pop) * (obs - pop) / (pop + kChi2Floor);
+            double nm = std::fabs(obs - pop) / (1.0 + std::fabs(pop));
+            if (nm > m.grake_norm)  m.grake_norm = nm;
+        }
+        mean_sum += max_k;
+        if (kl_k > m.kl) m.kl = kl_k;
+    }
+    m.mean_err = (st.K > 0) ? mean_sum / static_cast<double>(st.K) : 0.0;
+    return m;
+}
+
 // Post-solve obs expansion: w[i] ← clamp(w[i] × X[cell]/X_init[cell], lo, hi)
 // Guard: X_init[c] > 1e-10 matches greg's kEps and chebyshev's hardcoded threshold.
 // Functionally identical to > 0.0 for all realistic inputs (X_init[c] = sum of initial
