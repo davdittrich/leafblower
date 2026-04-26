@@ -64,13 +64,11 @@ GregResult greg_solve(CalibState& st) {
     for (int newton_iter = 0; newton_iter < kMaxNewtonIters; newton_iter++) {
         res.iterations = newton_iter + 1;
 
-        // D_eff: X_init[c] for free cells, 0 for fixed cells
         std::fill(D_eff.begin(), D_eff.end(), 0.0);
         for (int c = 0; c < ct.M_cell; c++)
             if (!fixed_lo[c] && !fixed_hi[c] && X_init[c] > kEps)
                 D_eff[c] = X_init[c];
 
-        // N = A * diag(D_eff) * A^T  (compute_normal_equations fills N from scratch)
         if (compute_normal_equations(ct, D_eff.data(), N.data(),
                                      cat_offset.data(), st.K,
                                      static_cast<size_t>(n_cats_total)) != RK_OK) {
@@ -78,7 +76,6 @@ GregResult greg_solve(CalibState& st) {
         }
 
         // b[k][j] = T_kj * n - sum_{c in (k,j)} X[c]  (marginal defect, fixed n)
-        std::fill(b.begin(), b.end(), 0.0);
         for (int k = 0; k < st.K; k++) {
             std::fill(bucket_b.begin(), bucket_b.begin() + st.cat_counts[k], 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
