@@ -22,6 +22,29 @@
   #define LBW_NODISCARD
 #endif
 
+template <typename R>
+static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t alg) noexcept {
+    if (!dst) return;
+    dst->status                       = src.status;
+    dst->iterations                   = src.iterations;
+    dst->max_error                    = src.max_error;
+    dst->convergence_metric           = src.convergence_metric;
+    dst->convergence_rule             = src.convergence_rule;
+    dst->convergence_tol              = src.convergence_tol;
+    dst->convergence_iter             = src.convergence_iter;
+    dst->convergence_objective        = src.convergence_objective;
+    dst->convergence_minimized_metric = src.convergence_minimized_metric;
+    dst->best_error                   = src.best_error;
+    dst->best_iter                    = src.best_iter;
+    dst->mean_error                   = src.mean_error;
+    dst->kl                           = src.kl;
+    dst->chi2                         = src.chi2;
+    dst->grake_norm                   = src.grake_norm;
+    dst->l1_weight_change             = src.l1_weight_change;
+    dst->algorithm_used               = alg;
+    std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
+}
+
 extern "C" {
 
 void rk_params_init(rk_params_t* p) {
@@ -239,79 +262,21 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         }
     } else if (alg == RK_ALG_SINKHORN) {
         auto sres = lbw::sinkhorn_solve(st);
-        if (result) {
-            result->status                       = sres.status;
-            result->iterations                   = sres.iterations;
-            result->max_error                    = sres.max_error;
-            result->convergence_metric           = sres.convergence_metric;
-            result->convergence_rule             = sres.convergence_rule;
-            result->convergence_tol              = sres.convergence_tol;
-            result->convergence_iter             = sres.convergence_iter;
-            result->convergence_objective        = sres.convergence_objective;
-            result->convergence_minimized_metric = sres.convergence_minimized_metric;
-            result->best_error                   = sres.best_error;
-            result->best_iter                    = sres.best_iter;
-            result->mean_error                   = sres.mean_error;
-            result->kl                           = sres.kl;
-            result->chi2                         = sres.chi2;
-            result->grake_norm                   = sres.grake_norm;
-            result->l1_weight_change             = sres.l1_weight_change;
-            result->algorithm_used               = alg;
-            std::strncpy(result->message, sres.message, sizeof(result->message) - 1);
-        }
+        pack_solver_result(result, sres, alg);
         return sres.status;
     } else if (alg == RK_ALG_GREG) {
         auto gres = lbw::greg_solve(st);
-        if (result) {
-            result->status                       = gres.status;
-            result->iterations                   = gres.iterations;
-            result->max_error                    = gres.max_error;
-            result->convergence_metric           = gres.convergence_metric;
-            result->convergence_rule             = gres.convergence_rule;
-            result->convergence_tol              = gres.convergence_tol;
-            result->convergence_iter             = gres.convergence_iter;
-            result->convergence_objective        = gres.convergence_objective;
-            result->convergence_minimized_metric = gres.convergence_minimized_metric;
-            result->best_error                   = gres.best_error;
-            result->best_iter                    = gres.best_iter;
-            result->mean_error                   = gres.mean_error;
-            result->kl                           = gres.kl;
-            result->chi2                         = gres.chi2;
-            result->grake_norm                   = gres.grake_norm;
-            result->l1_weight_change             = gres.l1_weight_change;
-            result->algorithm_used               = alg;
-            std::strncpy(result->message, gres.message, sizeof(result->message) - 1);
-        }
+        pack_solver_result(result, gres, alg);
         return gres.status;
     } else {
-        // Shared packer for ChebyshevResult (used by CHEBYSHEV and GRAKE).
-        auto pack_cheb = [&](const lbw::ChebyshevResult& r, rk_algorithm_t a) -> int {
-            if (result) {
-                result->status                       = r.status;
-                result->iterations                   = r.iterations;
-                result->max_error                    = r.max_error;
-                result->convergence_metric           = r.convergence_metric;
-                result->convergence_rule             = r.convergence_rule;
-                result->convergence_tol              = r.convergence_tol;
-                result->convergence_iter             = r.convergence_iter;
-                result->convergence_objective        = r.convergence_objective;
-                result->convergence_minimized_metric = r.convergence_minimized_metric;
-                result->best_error                   = r.best_error;
-                result->best_iter                    = r.best_iter;
-                result->mean_error                   = r.mean_error;
-                result->kl                           = r.kl;
-                result->chi2                         = r.chi2;
-                result->grake_norm                   = r.grake_norm;
-                result->l1_weight_change             = r.l1_weight_change;
-                result->algorithm_used               = a;
-                std::strncpy(result->message, r.message, sizeof(result->message) - 1);
-            }
-            return r.status;
-        };
         if (alg == RK_ALG_CHEBYSHEV) {
-            return pack_cheb(lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV), alg);
+            auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
+            pack_solver_result(result, r, alg);
+            return r.status;
         } else if (alg == RK_ALG_GRAKE) {
-            return pack_cheb(lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE), alg);
+            auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE);
+            pack_solver_result(result, r, alg);
+            return r.status;
         } else {
             // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
             auto res = lbw::ieppa_solve(st);
