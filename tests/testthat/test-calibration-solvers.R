@@ -253,3 +253,45 @@ test_that("D1: greg achieves chi2 <= raking on synthetic (no external data)", {
   expect_true(all(w_greg >= 0.2 - 1e-10 & w_greg <= 5 + 1e-10),
               info="greg bounds must hold")
 })
+
+test_that("E1: chebyshev achieves max_err <= raking on synthetic", {
+  set.seed(11)
+  n <- 400
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace=TRUE)),
+    b = factor(sample(c("1","2"), n, replace=TRUE))
+  )
+  target <- list(a=c("1"=0.4,"2"=0.4,"3"=0.2), b=c("1"=0.6,"2"=0.4))
+  w_cheb <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
+                                method="chebyshev", attach_weights=FALSE)
+  w_rake <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
+                                method="raking", max_iterations=500, attach_weights=FALSE)
+  r_cheb <- attr(w_cheb, "result")
+  r_rake <- attr(w_rake, "result")
+  expect_equal(r_cheb$status, 0L, info="chebyshev must converge")
+  expect_lte(r_cheb$max_error, r_rake$max_error + 1e-6,
+             label="chebyshev max_err <= raking max_err")
+  expect_true(all(w_cheb >= 0.2 - 1e-10 & w_cheb <= 5 + 1e-10),
+              info="chebyshev bounds must hold")
+})
+
+test_that("E2: grake achieves grake_norm <= raking on synthetic", {
+  set.seed(13)
+  n <- 400
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace=TRUE)),
+    b = factor(sample(c("1","2"), n, replace=TRUE))
+  )
+  target <- list(a=c("1"=0.4,"2"=0.4,"3"=0.2), b=c("1"=0.6,"2"=0.4))
+  w_grake <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
+                                 method="grake", attach_weights=FALSE)
+  w_rake  <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
+                                 method="raking", max_iterations=500, attach_weights=FALSE)
+  r_grake <- attr(w_grake, "result")
+  r_rake  <- attr(w_rake, "result")
+  expect_equal(r_grake$status, 0L, info="grake must converge")
+  expect_lte(r_grake$grake_norm, r_rake$grake_norm + 1e-6,
+             label="grake grake_norm <= raking grake_norm")
+  expect_true(all(w_grake >= 0.2 - 1e-10 & w_grake <= 5 + 1e-10),
+              info="grake bounds must hold")
+})
