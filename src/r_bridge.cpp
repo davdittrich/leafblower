@@ -349,6 +349,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_conv_iter                = res.convergence_iter;
         res_conv_objective           = res.convergence_objective;
         res_conv_minimized_metric    = res.convergence_minimized_metric;
+        res_mean_error               = res.mean_error;
+        res_kl                       = res.kl;
+        res_chi2                     = res.chi2;
+        res_best_error               = res.best_error;
+        res_best_iter                = res.best_iter;
     };
 
     if (strcmp(method_str, "lbfgsb") == 0) {
@@ -357,12 +362,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_iterations = res.iterations;
         res_max_error  = res.max_error;
         res_alg_used   = (int)RK_ALG_LBFGSB;
-        res_mean_error       = res.mean_error;
-        res_kl               = res.kl;
-        res_chi2             = res.chi2;
         pack_solver_result(res);
-        res_best_error       = res.best_error;
-        res_best_iter        = res.best_iter;
         res_best_weights = std::move(res.best_weights);
     } else if (strcmp(method_str, "raking") == 0) {
         auto res = lbw::raking_solve(st);
@@ -370,12 +370,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_iterations = res.iterations;
         res_max_error  = res.max_error;
         res_alg_used   = (int)RK_ALG_RAKING;
-        res_mean_error       = res.mean_error;
-        res_kl               = res.kl;
-        res_chi2             = res.chi2;
         pack_solver_result(res);
-        res_best_error       = res.best_error;
-        res_best_iter        = res.best_iter;
         res_best_weights = std::move(res.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
         // AUTO routing: select raking when M_cell/n > 0.9, else iEPPA.
@@ -392,12 +387,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_iterations = res.iterations;
             res_max_error  = res.max_error;
             res_alg_used   = (int)RK_ALG_RAKING;
-            res_mean_error       = res.mean_error;
-            res_kl               = res.kl;
-            res_chi2             = res.chi2;
             pack_solver_result(res);
-            res_best_error       = res.best_error;
-            res_best_iter        = res.best_iter;
             res_best_weights = std::move(res.best_weights);
         } else {
             st.ieppa_auto_selected = true;
@@ -415,12 +405,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_homotopy_final_factor = res.homotopy_final_factor;
             res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
             res_eta_final             = res.eta_final;
-            res_mean_error       = res.mean_error;
-            res_kl               = res.kl;
-            res_chi2             = res.chi2;
             pack_solver_result(res);
-            res_best_error       = res.best_error;
-            res_best_iter        = res.best_iter;
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
             res_best_weights = std::move(res.best_weights);
@@ -437,12 +422,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_iterations = fb.iterations;
             res_max_error  = fb.max_error;
             res_alg_used   = (int)RK_ALG_LBFGSB;
-            res_mean_error = fb.mean_error;
-            res_kl         = fb.kl;
-            res_chi2       = fb.chi2;
             pack_solver_result(fb);
-            res_best_error = fb.best_error;
-            res_best_iter  = fb.best_iter;
             res_best_weights = std::move(fb.best_weights);
         }
     } else if (strcmp(method_str, "sinkhorn") == 0) {
@@ -452,11 +432,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_iterations = res.iterations;
         res_max_error  = res.max_error;
         res_alg_used   = static_cast<int>(RK_ALG_SINKHORN);
-        res_mean_error       = res.mean_error;
-        res_kl               = res.kl;
-        res_chi2             = res.chi2;
-        res_best_error       = res.best_error;
-        res_best_iter        = res.best_iter;
         if (!res.best_weights.empty())
             res_best_weights = std::move(res.best_weights);
         else
@@ -468,11 +443,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_iterations = res.iterations;
         res_max_error  = res.max_error;
         res_alg_used   = static_cast<int>(RK_ALG_GREG);
-        res_mean_error = res.mean_error;
-        res_kl         = res.kl;
-        res_chi2       = res.chi2;
-        res_best_error = res.best_error;
-        res_best_iter  = res.best_iter;
         if (!res.best_weights.empty())
             res_best_weights = std::move(res.best_weights);
         else
@@ -486,11 +456,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_iterations = res.iterations;
             res_max_error  = res.max_error;
             res_alg_used   = alg_code;
-            res_mean_error = res.mean_error;
-            res_kl         = res.kl;
-            res_chi2       = res.chi2;
-            res_best_error = res.best_error;
-            res_best_iter  = res.best_iter;
             if (!res.best_weights.empty())
                 res_best_weights = std::move(res.best_weights);
             else
@@ -517,12 +482,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_homotopy_final_factor = res.homotopy_final_factor;
         res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
         res_eta_final             = res.eta_final;
-        res_mean_error       = res.mean_error;
-        res_kl               = res.kl;
-        res_chi2             = res.chi2;
         pack_solver_result(res);
-        res_best_error       = res.best_error;
-        res_best_iter        = res.best_iter;
         res_sor_min_omega    = res.sor_min_omega;
         res_sor_n_damped     = res.sor_n_damped;
         res_best_weights = std::move(res.best_weights);
