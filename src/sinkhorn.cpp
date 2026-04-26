@@ -120,10 +120,23 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         double target_mass = 0.0;
         for (int c = 0; c < ct.M_cell; c++) target_mass += X[c];
 
-        double mu;
-        if (!bisect_capacity(X, a, L_cell, U_cell, ct.M_cell, target_mass, mu, X_proj)) {
-            res.status = RK_ERR_INFEAS;
-            break;
+        // Short-circuit: if X already within capacity bounds, bisection is a no-op
+        // (projection is identity; Dykstra correction adds 0).
+        bool needs_projection = false;
+        for (int c = 0; c < ct.M_cell; c++) {
+            if (X[c] < L_cell[c] - 1e-12 || X[c] > U_cell[c] + 1e-12) {
+                needs_projection = true;
+                break;
+            }
+        }
+        double mu = 0.0;
+        if (needs_projection) {
+            if (!bisect_capacity(X, a, L_cell, U_cell, ct.M_cell, target_mass, mu, X_proj)) {
+                res.status = RK_ERR_INFEAS;
+                break;
+            }
+        } else {
+            X_proj = X;
         }
         // log-domain Dykstra correction update
         for (int c = 0; c < ct.M_cell; c++) {
