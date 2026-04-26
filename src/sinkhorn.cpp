@@ -251,11 +251,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     // Obs expansion: w_i = d_i × X[c]/X_init[c], hard clamp.
     // sum(X[c])=n preserved by Sinkhorn+bisection → no normalization needed.
     const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
-    for (int i = 0; i < st.n; i++) {
-        int c = ct.cell_of[i];
-        double mult = (X_init[c] > 0.0) ? X[c] / X_init[c] : 1.0;
-        st.weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
-    }
+    apply_obs_expansion(ct, X, X_init, st.n, lo, hi_obs, st.weights);
     return res;
 }
 

@@ -20,6 +20,9 @@
 #include "types.hpp"
 #include <cmath>
 #include <limits>
+#include "cell_table.hpp"
+#include <vector>
+#include <algorithm>
 
 namespace lbw {
 
@@ -90,6 +93,24 @@ inline bool apply_rule(
 
     prev = curr;   // always update so next call has a valid baseline
     return converged;
+}
+
+// Post-solve obs expansion: w[i] ← clamp(w[i] × X[cell]/X_init[cell], lo, hi)
+// Guard: X_init[c] > 1e-10 matches greg's kEps and chebyshev's hardcoded threshold.
+// Functionally identical to > 0.0 for all realistic inputs (X_init[c] = sum of initial
+// weights for obs in cell c; always >= min_weight when the cell is non-empty).
+inline void apply_obs_expansion(
+    const CellTable& ct,
+    const std::vector<double>& X,
+    const std::vector<double>& X_init,
+    int n, double lo, double hi,
+    double* weights) noexcept
+{
+    for (int i = 0; i < n; i++) {
+        int c = ct.cell_of[i];
+        double mult = (X_init[c] > 1e-10) ? X[c] / X_init[c] : 1.0;
+        weights[i] = std::clamp(weights[i] * mult, lo, hi);
+    }
 }
 
 } // namespace lbw
