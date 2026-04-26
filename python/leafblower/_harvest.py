@@ -123,7 +123,8 @@ def harvest(
     targets : dict of dicts, e.g. {"age": {"18-34": 0.3, "35+": 0.7}}
     min_weight : float, lower bound on weights (default 0 = no bound)
     max_weight : float, upper bound on weights (default 5)
-    method : "ieppa" | "lbfgsb" (default "ieppa")
+    method : str, one of "ieppa" (default), "lbfgsb", "raking", "sinkhorn",
+        "chebyshev", "greg", "grake"
     verbose : int, 0=silent, 1=progress, 2=debug
     max_iterations : int, inner BCD max sweeps per outer iter (default 500)
     start_weights : optional 1D float64 array of initial weights
@@ -176,7 +177,10 @@ def harvest(
         warnings.warn("method='nr' not implemented; using L-BFGS-B", UserWarning, stacklevel=2)
         method_lc = "lbfgsb"
 
-    alg_map = {"ieppa": 1, "lbfgsb": 2, "raking": 3}  # "auto" (0) removed from user API
+    alg_map = {
+        "ieppa": 1, "lbfgsb": 2, "raking": 3,
+        "sinkhorn": 4, "chebyshev": 5, "greg": 6, "grake": 7,
+    }  # "auto" (0) removed from Python user API
     if method_lc not in alg_map:
         raise ValueError(f"method must be one of {list(alg_map)}")
     alg_int = alg_map[method_lc]
@@ -272,6 +276,8 @@ def harvest(
         "rule":          _RULE_NAMES[result_dict.get("convergence_rule", 1)],
         "tol":           result_dict.get("convergence_tol", 0.001),
         "fired_at_iter": result_dict.get("convergence_iter", -1),
+        "objective":         result_dict.get("convergence_objective", float("inf")),
+        "minimized_metric":  _METRIC_NAMES[result_dict.get("convergence_minimized_metric", 0)],
     }
 
     if result_dict["status"] == 1:
