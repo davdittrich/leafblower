@@ -112,7 +112,7 @@ def harvest(
     convergence: Optional[Dict] = None,
     sor: Optional[Dict] = None,
     bounds_mode: str = "cell",
-    **kwargs,  # absorbed for forward-compat; not passed to R
+    **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
     Calibrate survey weights. Drop-in for R leafblower::harvest().
