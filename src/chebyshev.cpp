@@ -14,6 +14,7 @@ namespace lbw {
 ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
 {
     static constexpr int    kMaxIpm    = 60;
+    static constexpr int    kMinIpmIters = 15;   // IPM primal improves slowly; skip early rule checks
     static constexpr double kSigma     = 0.1;    // centering parameter
     static constexpr double kTolMu     = 1e-9;   // μ fallback floor (degenerate guard)
     static constexpr double kEps       = 1e-14;  // strict interior buffer
@@ -210,7 +211,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
             else if (have_abs)  converged = converged_abs;
             else                converged = (mu < kTolMu);
 
-            if (converged) {
+            if (converged && iter >= kMinIpmIters) {
                 res.status             = RK_OK;
                 res.convergence_metric = static_cast<int>(cfg.metric);
                 res.convergence_rule   = static_cast<int>(cfg.rule);
@@ -366,6 +367,8 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         delta += alpha_p*d_delta;
         if (delta < kEps) delta = kEps;
         s_delta = delta;
+
+
         for (int c = 0; c < ct.M_cell; c++) {
             s_lo[c] = std::max(X[c]-L_cell[c], kEps);
             s_hi[c] = std::max(U_cell[c]-X[c], kEps);
