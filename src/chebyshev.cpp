@@ -319,6 +319,44 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         double sm_coeff = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw/sm_denom) : 0.0;
         for (int nr = 0; nr < nct_red; nr++) dlambda_red[nr] = w_sol_red[nr] - sm_coeff*v_red[nr];
 
+        // Back-solve 3 (ν): e_red[nr] = Σ_{c∈margin red_to_full[nr]} D_eff[c]
+        std::fill(e_red.begin(), e_red.end(), 0.0);
+        for (int c = 0; c < ct.M_cell; c++) {
+            for (int k = 0; k < st.K; k++) {
+                int g = ct.g_per_cell[k][c];
+                if (g < 0 || g >= st.cat_counts[k]) continue;
+                int m = cat_offset[k] + g;
+                int nr = full_to_red[m];
+                if (nr >= 0) e_red[nr] += D_eff[c];
+            }
+        }
+        std::copy(e_red.begin(), e_red.end(), w_e_red.begin());
+        ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), w_e_red.data());
+        // Apply first SM correction to w_e_red (same sm_denom as above)
+        double ute = 0.0;
+        for (int nr = 0; nr < nct_red; nr++) ute += u_red[nr] * w_e_red[nr];
+        double sm_coeff_e = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*ute/sm_denom) : 0.0;
+        for (int nr = 0; nr < nct_red; nr++) w_e_red[nr] -= sm_coeff_e * v_red[nr];
+
+        // Compute ν: schur_nu = D_nu - e^T·w_e > 0 (guaranteed by reference elimination)
+        double D_nu = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) D_nu += D_eff[c];
+        double eTw_e = 0.0, eTdlambda = 0.0;
+        for (int nr = 0; nr < nct_red; nr++) {
+            eTw_e     += e_red[nr] * w_e_red[nr];
+            eTdlambda += e_red[nr] * dlambda_red[nr];
+        }
+        const double schur_nu = D_nu - eTw_e;
+        if (st.verbose >= 2 && iter == 0) {
+            char msg[128];
+            std::snprintf(msg, sizeof(msg), "chebyshev: schur_nu=%.4e (iter 0)", schur_nu);
+            st.log(msg);
+        }
+        const double r_nu = W - n_d;
+        const double dnu  = (schur_nu > 1e-8) ? (-r_nu - eTdlambda) / schur_nu : 0.0;
+        // Correct dlambda_red with ν contribution
+        for (int nr = 0; nr < nct_red; nr++) dlambda_red[nr] -= dnu * w_e_red[nr];
+
         // ΔX[c] = D_eff[c] * Σ_k Δλ[m_k]
         std::fill(dX.begin(), dX.end(), 0.0);
         for (int k = 0; k < st.K; k++)
