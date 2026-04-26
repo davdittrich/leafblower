@@ -93,7 +93,6 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
-        // ① Sinkhorn sweeps: O(K × M_cell)
         double W_total = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
 
@@ -116,7 +115,6 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             }
         }
 
-        // ② KL capacity projection via bisection
         double target_mass = 0.0;
         for (int c = 0; c < ct.M_cell; c++) target_mass += X[c];
 
@@ -138,20 +136,17 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         } else {
             X_proj = X;
         }
-        // log-domain Dykstra correction update
-        for (int c = 0; c < ct.M_cell; c++) {
-            if (X[c] > 1e-300 && X_proj[c] > 1e-300)
-                a[c] += std::log(X[c]) - std::log(X_proj[c]);
-            a[c] = std::clamp(a[c], -kAmax, kAmax);
-            X[c] = X_proj[c];
+        if (needs_projection) {
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X[c] > 1e-300 && X_proj[c] > 1e-300)
+                    a[c] += std::log(X[c]) - std::log(X_proj[c]);
+                a[c] = std::clamp(a[c], -kAmax, kAmax);
+            }
         }
+        for (int c = 0; c < ct.M_cell; c++) X[c] = X_proj[c];
 
-        // Convergence check
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
-            double W = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) W += X[c];
-
-            // All 6 metrics — mirrors raking.cpp convergence block exactly
+            const double W = W_total;  // preserved by Sinkhorn sweeps + bisection
             double errRp = 0.0, mean_err_sum = 0.0, kl_max = 0.0;
             double chi2_total = 0.0, grake_norm = 0.0;
             for (int k = 0; k < st.K; k++) {

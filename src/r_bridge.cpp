@@ -429,7 +429,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_status     = res.status;
         res_iterations = res.iterations;
         res_max_error  = res.max_error;
-        res_alg_used   = (int)RK_ALG_SINKHORN;
+        res_alg_used   = static_cast<int>(RK_ALG_SINKHORN);
         res_mean_error       = res.mean_error;
         res_kl               = res.kl;
         res_chi2             = res.chi2;
@@ -469,7 +469,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
 
     const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)   ? "L-BFGS-B"
                          : (res_alg_used == (int)RK_ALG_RAKING)    ? "raking"
-                         : (res_alg_used == (int)RK_ALG_SINKHORN)  ? "sinkhorn"
+                         : (res_alg_used == static_cast<int>(RK_ALG_SINKHORN))  ? "sinkhorn"
                          : "iEPPA";
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
                   alg_name, res_iterations, res_max_error);
