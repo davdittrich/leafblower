@@ -1,7 +1,7 @@
 test_that("T1a: new method names error cleanly (stubs)", {
   data <- data.frame(a = factor(c("1","2")))
   target <- list(a = c("1"=0.5, "2"=0.5))
-  for (m in c("sinkhorn", "chebyshev", "greg", "grake")) {
+  for (m in c("chebyshev", "greg", "grake")) {
     expect_error(
       leafblower::harvest(data, target, max_weight=3, method=m, attach_weights=FALSE),
       regexp = "not yet implemented",
