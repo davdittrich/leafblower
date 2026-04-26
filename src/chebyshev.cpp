@@ -20,6 +20,8 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     static constexpr double kEps       = 1e-14;  // strict interior buffer
     static constexpr double kEpsLdlt   = 1e-10;  // LDLT perturbation
     static constexpr double kStepScale = 0.99;   // line search safety factor
+    static constexpr double kMetricEps = 1e-10;
+    static constexpr double kChi2Floor = 1.0;
 
     ChebyshevResult res;
     res.status = RK_ERR_NOCONV;
@@ -164,7 +166,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         for (int c = 0; c < ct.M_cell; c++) W += X[c];
         double errRp = 0.0, mean_err_sum = 0.0, kl_max = 0.0;
         double chi2_total = 0.0, grake_norm = 0.0;
-        constexpr double kMetricEps2 = 1e-10, kChi2Floor2 = 1.0;
         if (W > 1e-300) {
             for (int k = 0; k < st.K; k++) {
                 std::fill(bucket_tmp.begin(), bucket_tmp.begin()+st.cat_counts[k], 0.0);
@@ -178,9 +179,9 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
                     double err = std::fabs(Sp-T);
                     if (err > max_k) max_k = err;
                     if (err > errRp) errRp = err;
-                    if (T > 0.0) kl_k += T*std::log((T+kMetricEps2)/(Sp+kMetricEps2));
+                    if (T > 0.0) kl_k += T*std::log((T+kMetricEps)/(Sp+kMetricEps));
                     double obs = bucket_tmp[j], pop = T*W;
-                    chi2_total += (obs-pop)*(obs-pop)/(pop+kChi2Floor2);
+                    chi2_total += (obs-pop)*(obs-pop)/(pop+kChi2Floor);
                     double nm = std::fabs(obs-pop)/(1.0+std::fabs(pop));
                     if (nm > grake_norm) grake_norm = nm;
                 }
@@ -404,7 +405,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     // All 6 metrics
     double W_final = 0.0;
     for (int c = 0; c < ct.M_cell; c++) W_final += X[c];
-    constexpr double kMetricEps = 1e-10, kChi2Floor = 1.0;
     double errRp2 = 0.0, mean_err_sum2 = 0.0, kl_max2 = 0.0, chi2_total2 = 0.0, grn = 0.0;
     for (int k = 0; k < st.K; k++) {
         const int nj = st.cat_counts[k];
