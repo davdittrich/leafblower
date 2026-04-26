@@ -50,17 +50,12 @@ harvest(
 
 \item{max_weight}{Upper bound on weights. Default 5.}
 
-\item{method}{One of "auto", "ieppa", "lbfgsb", "raking".
-\itemize{
-  \item \code{"ieppa"}: paper-faithful algBCD at C=0 (cell-compressed
-    Sinkhorn, Chu-Liang-Toh-Yang 2022 arXiv:2011.14312).
-  \item \code{"raking"}: classical IPF + Dykstra box + hyperplane
-    projections (Deming-Stephan 1940 / Csiszar 1975 + Boyle-Dykstra
-    1986). Renamed from the prior misnamed "iEPPA" hybrid.
-  \item \code{"lbfgsb"}: L-BFGS-B on the Deville-Sarndal logit dual.
-  \item \code{"auto"} (default): currently routes unconditionally to
-    \code{"ieppa"}. Benchmark-driven routing refinement is planned.
-}}
+\item{method}{Calibration method. One of \code{"auto"} (default: iEPPA or
+raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
+\code{"raking"} (IPF + Dykstra box projection), \code{"lbfgsb"}
+(L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
+\code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
+(L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM).}
 
 \item{verbose}{Integer verbosity: 0=silent, 1=progress, 2=debug.}
 
@@ -95,7 +90,8 @@ harvest(
   }
   Shorthands and explicit keys may be combined; explicit keys override shorthand
   defaults. \code{convergence = list()} uses the default (max_err + improvement +
-  tol = 0.001).
+  tol = 0.001). For \code{method="ieppa"}, the default metric is \code{kl}
+  (Sinkhorn-type algorithm minimizing KL divergence). For other methods: \code{max_err}.
 
   \strong{chi2 cross-solver note:} chi2 is not directly comparable
   across methods. iEPPA uses unnormalized cell mass as \code{W_total};

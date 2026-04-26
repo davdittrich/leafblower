@@ -4,17 +4,12 @@
 #' @param target A named list of named numeric vectors (variable -> proportions).
 #' @param min_weight Lower bound on weights. Default 0 (no lower bound).
 #' @param max_weight Upper bound on weights. Default 5.
-#' @param method One of "auto", "ieppa", "lbfgsb", "raking".
-#'   \itemize{
-#'     \item \code{"ieppa"}: paper-faithful algBCD at C=0 (cell-compressed
-#'       Sinkhorn, Chu-Liang-Toh-Yang 2022 arXiv:2011.14312).
-#'     \item \code{"raking"}: classical IPF + Dykstra box + hyperplane
-#'       projections (Deming-Stephan 1940 / Csiszar 1975 + Boyle-Dykstra
-#'       1986). Renamed from the prior misnamed "iEPPA" hybrid.
-#'     \item \code{"lbfgsb"}: L-BFGS-B on the Deville-Sarndal logit dual.
-#'     \item \code{"auto"} (default): currently routes unconditionally to
-#'       \code{"ieppa"}. Benchmark-driven routing refinement is planned.
-#'   }
+#' @param method Calibration method. One of \code{"auto"} (default: iEPPA or
+#'   raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
+#'   \code{"raking"} (IPF + Dykstra box projection), \code{"lbfgsb"}
+#'   (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
+#'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
+#'   (L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM).
 #' @param verbose Integer verbosity: 0=silent, 1=progress, 2=debug.
 #' @param max_iterations Maximum inner BCD iterations per outer step. Default 500.
 #' @param start_weights Starting weights vector or NULL (uniform).
