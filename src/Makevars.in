@@ -1,3 +1,3 @@
 PKG_CXXFLAGS = @CXXFLAGS_STD@ @OPT_FLAGS@ @OMP_FLAGS@ @SIMD_FLAGS@ @MAVX2_FLAG@ -I. -DSTRICT_R_HEADERS
 PKG_LIBS = @MVEC_LIBS@
-PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp cell_table.cpp r_bridge.cpp calib_validate.cpp
+PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp cell_table.cpp r_bridge.cpp calib_validate.cpp sinkhorn.cpp

@@ -4,6 +4,7 @@
 #include "lbfgsb_solver.hpp"
 #include "ieppa.hpp"      // faithful (new)
 #include "raking.hpp"     // renamed hybrid
+#include "sinkhorn.hpp"   // KL Bregman Dykstra
 #include "cell_table.hpp" // estimate_M_cell for AUTO routing
 #include <cstring>
 #include <cstdio>
@@ -117,7 +118,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_LBFGSB:   alg = RK_ALG_LBFGSB; break;
             case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
             case RK_ALG_IEPPA:    alg = RK_ALG_IEPPA;  break;
-            case RK_ALG_SINKHORN:
+            case RK_ALG_SINKHORN: alg = RK_ALG_SINKHORN; break;
             case RK_ALG_CHEBYSHEV:
             case RK_ALG_GREG:
             case RK_ALG_GRAKE: {
@@ -125,7 +126,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                     result->status = RK_ERR_BADARG;
                     snprintf(result->message, sizeof(result->message),
                         "method not yet implemented in this build");
-                    result->algorithm_used = p->algorithm;  // named unimplemented alg, not AUTO
+                    result->algorithm_used = p->algorithm;
                 }
                 return RK_ERR_BADARG;
             }
@@ -242,6 +243,24 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->best_iter           = res.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
         }
+    } else if (alg == RK_ALG_SINKHORN) {
+        auto sres = lbw::sinkhorn_solve(st);
+        if (result) {
+            result->status                       = sres.status;
+            result->iterations                   = sres.iterations;
+            result->max_error                    = sres.max_error;
+            result->convergence_metric           = sres.convergence_metric;
+            result->convergence_rule             = sres.convergence_rule;
+            result->convergence_tol              = sres.convergence_tol;
+            result->convergence_iter             = sres.convergence_iter;
+            result->convergence_objective        = sres.convergence_objective;
+            result->convergence_minimized_metric = sres.convergence_minimized_metric;
+            result->best_error                   = sres.best_error;
+            result->best_iter                    = sres.best_iter;
+            result->algorithm_used               = alg;
+            std::strncpy(result->message, sres.message, sizeof(result->message) - 1);
+        }
+        return sres.status;
     } else {
         // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
         auto res = lbw::ieppa_solve(st);

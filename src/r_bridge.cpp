@@ -12,6 +12,7 @@
 #include "types.hpp"
 #include "ieppa.hpp"
 #include "raking.hpp"
+#include "sinkhorn.hpp"
 #include "lbfgsb_solver.hpp"
 
 extern "C" {
@@ -226,8 +227,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     /* Stub methods: error immediately rather than falling through to "unknown method".
      * Plan C: remove this block and wire p.algorithm = RK_ALG_SINKHORN/CHEBYSHEV/GREG/GRAKE
      * in the if/else chain below. */
-    if (strcmp(method_str, "sinkhorn")  == 0 ||
-        strcmp(method_str, "chebyshev") == 0 ||
+    if (strcmp(method_str, "chebyshev") == 0 ||
         strcmp(method_str, "greg")      == 0 ||
         strcmp(method_str, "grake")     == 0) {
         Rf_error("leafblower: invalid arguments \342\200\224 method not yet implemented in this build");
@@ -243,10 +243,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         rk_result_t validation_result;
         rk_result_init(&validation_result);
         rk_algorithm_t alg_for_validation =
-            (strcmp(method_str, "ieppa")  == 0) ? RK_ALG_IEPPA :
-            (strcmp(method_str, "lbfgsb") == 0) ? RK_ALG_LBFGSB :
-            (strcmp(method_str, "auto")   == 0) ? RK_ALG_AUTO :
-                                                   RK_ALG_RAKING;
+            (strcmp(method_str, "ieppa")    == 0) ? RK_ALG_IEPPA :
+            (strcmp(method_str, "lbfgsb")   == 0) ? RK_ALG_LBFGSB :
+            (strcmp(method_str, "auto")     == 0) ? RK_ALG_AUTO :
+            (strcmp(method_str, "sinkhorn") == 0) ? RK_ALG_SINKHORN :
+                                                     RK_ALG_RAKING;
         int vrc = lbw::validate_calibrate_inputs(
             n, K,
             weights.data(),
@@ -422,6 +423,22 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_sor_n_damped     = res.sor_n_damped;
             res_best_weights = std::move(res.best_weights);
         }
+    } else if (strcmp(method_str, "sinkhorn") == 0) {
+        auto res = lbw::sinkhorn_solve(st);
+        pack_solver_result(res);
+        res_status     = res.status;
+        res_iterations = res.iterations;
+        res_max_error  = res.max_error;
+        res_alg_used   = (int)RK_ALG_SINKHORN;
+        res_mean_error       = res.mean_error;
+        res_kl               = res.kl;
+        res_chi2             = res.chi2;
+        res_best_error       = res.best_error;
+        res_best_iter        = res.best_iter;
+        if (!res.best_weights.empty())
+            res_best_weights = std::move(res.best_weights);
+        else
+            res_best_weights.assign(st.n, 0.0);
     } else {
         // Default / ieppa
         st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);
@@ -450,8 +467,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_best_weights = std::move(res.best_weights);
     }
 
-    const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB) ? "L-BFGS-B"
-                         : (res_alg_used == (int)RK_ALG_RAKING)  ? "raking"
+    const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)   ? "L-BFGS-B"
+                         : (res_alg_used == (int)RK_ALG_RAKING)    ? "raking"
+                         : (res_alg_used == (int)RK_ALG_SINKHORN)  ? "sinkhorn"
                          : "iEPPA";
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
                   alg_name, res_iterations, res_max_error);
