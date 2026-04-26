@@ -1,13 +1,12 @@
-test_that("T1a: new method names error cleanly (stubs)", {
-  data <- data.frame(a = factor(c("1","2")))
+test_that("T1a: chebyshev and grake are now implemented (no stub error)", {
+  data <- data.frame(a = factor(c("1","2","1","2","1")))
   target <- list(a = c("1"=0.5, "2"=0.5))
-  for (m in c("chebyshev", "grake")) {
-    expect_error(
-      leafblower::harvest(data, target, max_weight=3, method=m, attach_weights=FALSE),
-      regexp = "not yet implemented",
-      info = paste("method", m, "should error with 'not yet implemented'")
-    )
-  }
+  expect_no_error(
+    leafblower::harvest(data, target, max_weight=3, method="chebyshev", attach_weights=FALSE)
+  )
+  expect_no_error(
+    leafblower::harvest(data, target, max_weight=3, method="grake", attach_weights=FALSE)
+  )
 })
 
 test_that("T1b: convergence_used$objective and $minimized_metric present", {

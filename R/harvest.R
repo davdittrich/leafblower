@@ -168,6 +168,15 @@ harvest <- function(
       is.null(convergence[["absolute"]])) {
     conv$metric <- "kl"
   }
+  # grake minimizes grake_norm — override default metric when user hasn't specified one.
+  if (method == "grake" &&
+      is.null(convergence[["metric"]]) &&
+      is.null(convergence[["criterion"]]) &&
+      is.null(convergence[["improvement"]]) &&
+      is.null(convergence[["pct"]]) &&
+      is.null(convergence[["absolute"]])) {
+    conv$metric <- "grake_norm"
+  }
   sor_cfg <- parse_sor(sor)
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
