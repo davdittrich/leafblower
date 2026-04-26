@@ -125,7 +125,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                     result->status = RK_ERR_BADARG;
                     snprintf(result->message, sizeof(result->message),
                         "method not yet implemented in this build");
-                    result->algorithm_used = p->algorithm;
+                    result->algorithm_used = p->algorithm;  // named unimplemented alg, not AUTO
                 }
                 return RK_ERR_BADARG;
             }
