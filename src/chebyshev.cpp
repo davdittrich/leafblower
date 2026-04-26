@@ -76,6 +76,33 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     std::vector<double> T_flat(nct);
     for (int m = 0; m < nct; m++) T_flat[m] = Tgt[m] / n_d;
 
+    // Reference category elimination: drop last category per multi-cat margin
+    // to break the normalization degeneracy (schur_nu=0 for sum-to-1 targets).
+    // Single-category margins (cat_counts[k] < 2) are not eliminated.
+    int nct_red_count = 0;
+    for (int k = 0; k < st.K; k++)
+        if (st.cat_counts[k] >= 2) nct_red_count++;
+    const int nct_red = nct - nct_red_count;
+
+    std::vector<bool> is_ref(nct, false);
+    std::vector<int>  full_to_red(nct, -1);
+    std::vector<int>  red_to_full(nct_red);
+    {
+        int nr = 0;
+        for (int k = 0; k < st.K; k++) {
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                int m = cat_offset[k] + j;
+                if (st.cat_counts[k] >= 2 && j == st.cat_counts[k] - 1) {
+                    is_ref[m] = true;
+                } else {
+                    full_to_red[m] = nr;
+                    red_to_full[nr++] = m;
+                }
+            }
+        }
+        // Invariant: nr == nct_red
+    }
+
     // Initial cell masses
     std::vector<double> X_init(ct.M_cell, 0.0);
     for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
@@ -140,13 +167,14 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     // Hoisted work vectors
     const int max_cats = *std::max_element(st.cat_counts, st.cat_counts+st.K);
     std::vector<double> D_eff(ct.M_cell), D_marg(nct);
-    std::vector<double> N0((size_t)nct*(size_t)nct);
-    std::vector<double> u_vec(nct), v_vec(nct), rhs_v(nct), w_sol(nct);
+    std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
+    std::vector<double> u_red(nct_red), v_red(nct_red), rhs_red(nct_red), w_sol_red(nct_red);
+    std::vector<double> e_red(nct_red), w_e_red(nct_red);
+    std::vector<double> dlambda_red(nct_red);  // reduced Newton solution (post-ν correction)
     std::vector<double> dX(ct.M_cell);
     std::vector<double> dS_up(nct), dS_dn(nct);
     std::vector<double> dY_lo(ct.M_cell), dY_hi(ct.M_cell), dY_up(nct), dY_dn(nct);
-    std::vector<double> dlambda(nct);   // hoisted: Sherman-Morrison result
-    std::vector<double> delta_S(nct);   // hoisted: ΔS[m] = Σ_c A_mc*ΔX[c]
+    std::vector<double> delta_S(nct);   // full nct — reference margins included
     std::vector<double> bucket_tmp(max_cats);
     double best_delta = delta;
     // Track best X by actual calibration error (errRp) rather than LP delta.
