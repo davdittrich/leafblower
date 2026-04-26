@@ -20,6 +20,22 @@ int compute_normal_equations(const CellTable& ct,
                               size_t n_cats_total);
 
 /**
+ * Compute N = A_red × diag(D) × A_red^T where A_red excludes reference margins.
+ * full_to_red[m] == -1 for reference margins (skipped); >= 0 for the reduced row/col index.
+ * nct_red: number of non-reference constraints.
+ * N output: nct_red × nct_red, row-major. No bounds check on nct_red (caller guards via nct).
+ */
+int compute_normal_equations_reduced(
+    const CellTable& ct,
+    const double* D,
+    double* N,
+    const int* cat_offset,
+    int K,
+    size_t nct_red,
+    const int* full_to_red
+) noexcept;
+
+/**
  * In-place LDLT factorization of a symmetric positive semidefinite n×n matrix.
  * eps_perturb: minimum diagonal value after factorization (Gill-Murray stability).
  * Returns RK_OK or RK_ERR_BADARG if n > kNCatsTotalMax.

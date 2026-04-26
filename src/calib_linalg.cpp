@@ -34,6 +34,36 @@ int compute_normal_equations(const CellTable& ct,
     return RK_OK;
 }
 
+int compute_normal_equations_reduced(const CellTable& ct,
+                                      const double* D,
+                                      double* N,
+                                      const int* cat_offset,
+                                      int K,
+                                      size_t nct_red,
+                                      const int* full_to_red)
+{
+    std::fill(N, N + nct_red * nct_red, 0.0);
+    for (int c = 0; c < ct.M_cell; c++) {
+        if (D[c] <= 0.0) continue;
+        for (int k1 = 0; k1 < K; k1++) {
+            int j1 = ct.g_per_cell[k1][c];
+            if (j1 < 0) continue;
+            int m1 = cat_offset[k1] + j1;
+            int r1 = full_to_red[m1];
+            if (r1 < 0) continue;  // reference margin — skip row
+            for (int k2 = 0; k2 < K; k2++) {
+                int j2 = ct.g_per_cell[k2][c];
+                if (j2 < 0) continue;
+                int m2 = cat_offset[k2] + j2;
+                int r2 = full_to_red[m2];
+                if (r2 < 0) continue;  // reference margin — skip col
+                N[static_cast<size_t>(r1) * nct_red + static_cast<size_t>(r2)] += D[c];
+            }
+        }
+    }
+    return RK_OK;
+}
+
 int ldlt_factor_inplace(double* A, size_t n, double eps_perturb)
 {
     if (n > static_cast<size_t>(kNCatsTotalMax)) return RK_ERR_BADARG;
