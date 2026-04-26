@@ -95,6 +95,27 @@ inline bool apply_rule(
     return converged;
 }
 
+// Returns true when the convergence criterion fires. Updates prev_metric via apply_rule.
+// tol_abs_fallback: value of CalibState::tol_abs, used when neither pct_tol nor absolute_tol set.
+inline bool check_convergence(
+    const CalibConvergenceCfg& cfg,
+    double errRp, double mean_err, double kl,
+    double chi2, double grake_norm, double l1,
+    double& prev_metric,
+    double tol_abs_fallback) noexcept
+{
+    const double curr = select_metric(cfg.metric, errRp, mean_err, kl, chi2, grake_norm, l1);
+    const bool c_abs = (cfg.absolute_tol > 0.0) && (curr < cfg.absolute_tol);
+    const bool c_pct = apply_rule(cfg.rule, curr, prev_metric, cfg.pct_tol);
+    const bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
+    if (have_pct && have_abs)
+        return (cfg.stop_when == CalibStopWhen::ALL)
+               ? (c_pct && c_abs) : (c_pct || c_abs);
+    if (have_pct) return c_pct;
+    if (have_abs) return c_abs;
+    return (errRp < tol_abs_fallback);
+}
+
 // Post-solve obs expansion: w[i] ← clamp(w[i] × X[cell]/X_init[cell], lo, hi)
 // Guard: X_init[c] > 1e-10 matches greg's kEps and chebyshev's hardcoded threshold.
 // Functionally identical to > 0.0 for all realistic inputs (X_init[c] = sum of initial

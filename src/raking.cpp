@@ -287,32 +287,16 @@ RakingResult raking_solve(CalibState& st) {
                 st.log(msg);
             }
 
-            // Convergence dispatch (identical to obs-level)
-            {
-                const auto& cfg = st.convergence_cfg;
-                const double curr_metric = lbw::select_metric(
-                    cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
-                bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
-                const bool converged_pct = lbw::apply_rule(
-                    cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
-                bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
-                bool converged = false;
-                if (have_pct && have_abs) {
-                    converged = (cfg.stop_when == lbw::CalibStopWhen::ALL)
-                                ? (converged_pct && converged_abs)
-                                : (converged_pct || converged_abs);
-                } else if (have_pct)  converged = converged_pct;
-                else if (have_abs)    converged = converged_abs;
-                else                  converged = (errRp < st.tol_abs);
-
-                if (converged) {
-                    res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
-                    res.convergence_metric = static_cast<int>(cfg.metric);
-                    res.convergence_rule   = static_cast<int>(cfg.rule);
-                    res.convergence_tol    = cfg.pct_tol;
-                    res.convergence_iter   = iter;
-                    break;
-                }
+            if (lbw::check_convergence(st.convergence_cfg,
+                                       errRp, mean_err, kl_max,
+                                       chi2_total, grake_norm, l1_weight,
+                                       prev_metric_for_rule, st.tol_abs)) {
+                res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                res.convergence_tol    = st.convergence_cfg.pct_tol;
+                res.convergence_iter   = iter;
+                break;
             }
 
             if (n_no_improve >= kMaxNoImprove) {
