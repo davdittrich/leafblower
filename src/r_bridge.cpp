@@ -455,39 +455,30 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_best_weights = std::move(res.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
-    } else if (strcmp(method_str, "chebyshev") == 0) {
-        auto res = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
-        pack_solver_result(res);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
-        res_alg_used   = static_cast<int>(RK_ALG_CHEBYSHEV);
-        res_mean_error = res.mean_error;
-        res_kl         = res.kl;
-        res_chi2       = res.chi2;
-        res_best_error = res.best_error;
-        res_best_iter  = res.best_iter;
-        if (!res.best_weights.empty())
-            res_best_weights = std::move(res.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);
-    } else if (strcmp(method_str, "grake") == 0) {
-        auto res = lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE);
-        pack_solver_result(res);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
-        res_alg_used   = static_cast<int>(RK_ALG_GRAKE);
-        res_mean_error = res.mean_error;
-        res_kl         = res.kl;
-        res_chi2       = res.chi2;
-        res_best_error = res.best_error;
-        res_best_iter  = res.best_iter;
-        if (!res.best_weights.empty())
-            res_best_weights = std::move(res.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);
     } else {
+        // Shared dispatch for both chebyshev and grake (same solver, different variant).
+        auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
+            auto res = lbw::chebyshev_ipm(st, variant);
+            pack_solver_result(res);
+            res_status     = res.status;
+            res_iterations = res.iterations;
+            res_max_error  = res.max_error;
+            res_alg_used   = alg_code;
+            res_mean_error = res.mean_error;
+            res_kl         = res.kl;
+            res_chi2       = res.chi2;
+            res_best_error = res.best_error;
+            res_best_iter  = res.best_iter;
+            if (!res.best_weights.empty())
+                res_best_weights = std::move(res.best_weights);
+            else
+                res_best_weights.assign(st.n, 0.0);
+        };
+        if (strcmp(method_str, "chebyshev") == 0) {
+            dispatch_cheb(lbw::LpVariant::CHEBYSHEV, static_cast<int>(RK_ALG_CHEBYSHEV));
+        } else if (strcmp(method_str, "grake") == 0) {
+            dispatch_cheb(lbw::LpVariant::GRAKE, static_cast<int>(RK_ALG_GRAKE));
+        } else {
         // Default / ieppa
         st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);
         auto res = lbw::ieppa_solve(st);
@@ -513,6 +504,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_sor_min_omega    = res.sor_min_omega;
         res_sor_n_damped     = res.sor_n_damped;
         res_best_weights = std::move(res.best_weights);
+        }
     }
 
     const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)                    ? "L-BFGS-B"
