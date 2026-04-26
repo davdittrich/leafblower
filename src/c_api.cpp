@@ -283,59 +283,42 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             std::strncpy(result->message, gres.message, sizeof(result->message) - 1);
         }
         return gres.status;
-    } else if (alg == RK_ALG_CHEBYSHEV) {
-        auto cres = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
-        if (result) {
-            result->status                       = cres.status;
-            result->iterations                   = cres.iterations;
-            result->max_error                    = cres.max_error;
-            result->convergence_metric           = cres.convergence_metric;
-            result->convergence_rule             = cres.convergence_rule;
-            result->convergence_tol              = cres.convergence_tol;
-            result->convergence_iter             = cres.convergence_iter;
-            result->convergence_objective        = cres.convergence_objective;
-            result->convergence_minimized_metric = cres.convergence_minimized_metric;
-            result->best_error                   = cres.best_error;
-            result->best_iter                    = cres.best_iter;
-            result->mean_error                   = cres.mean_error;
-            result->kl                           = cres.kl;
-            result->chi2                         = cres.chi2;
-            result->grake_norm                   = cres.grake_norm;
-            result->l1_weight_change             = cres.l1_weight_change;
-            result->algorithm_used               = alg;
-            std::strncpy(result->message, cres.message, sizeof(result->message) - 1);
-        }
-        return cres.status;
-    } else if (alg == RK_ALG_GRAKE) {
-        auto gres2 = lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE);
-        if (result) {
-            result->status                       = gres2.status;
-            result->iterations                   = gres2.iterations;
-            result->max_error                    = gres2.max_error;
-            result->convergence_metric           = gres2.convergence_metric;
-            result->convergence_rule             = gres2.convergence_rule;
-            result->convergence_tol              = gres2.convergence_tol;
-            result->convergence_iter             = gres2.convergence_iter;
-            result->convergence_objective        = gres2.convergence_objective;
-            result->convergence_minimized_metric = gres2.convergence_minimized_metric;
-            result->best_error                   = gres2.best_error;
-            result->best_iter                    = gres2.best_iter;
-            result->mean_error                   = gres2.mean_error;
-            result->kl                           = gres2.kl;
-            result->chi2                         = gres2.chi2;
-            result->grake_norm                   = gres2.grake_norm;
-            result->l1_weight_change             = gres2.l1_weight_change;
-            result->algorithm_used               = alg;
-            std::strncpy(result->message, gres2.message, sizeof(result->message) - 1);
-        }
-        return gres2.status;
     } else {
-        // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
-        auto res = lbw::ieppa_solve(st);
-        status = res.status;
-        iterations = res.iterations;
-        max_error = res.max_error;
-        used = RK_ALG_IEPPA;
+        // Shared packer for ChebyshevResult (used by CHEBYSHEV and GRAKE).
+        auto pack_cheb = [&](const lbw::ChebyshevResult& r, rk_algorithm_t a) -> int {
+            if (result) {
+                result->status                       = r.status;
+                result->iterations                   = r.iterations;
+                result->max_error                    = r.max_error;
+                result->convergence_metric           = r.convergence_metric;
+                result->convergence_rule             = r.convergence_rule;
+                result->convergence_tol              = r.convergence_tol;
+                result->convergence_iter             = r.convergence_iter;
+                result->convergence_objective        = r.convergence_objective;
+                result->convergence_minimized_metric = r.convergence_minimized_metric;
+                result->best_error                   = r.best_error;
+                result->best_iter                    = r.best_iter;
+                result->mean_error                   = r.mean_error;
+                result->kl                           = r.kl;
+                result->chi2                         = r.chi2;
+                result->grake_norm                   = r.grake_norm;
+                result->l1_weight_change             = r.l1_weight_change;
+                result->algorithm_used               = a;
+                std::strncpy(result->message, r.message, sizeof(result->message) - 1);
+            }
+            return r.status;
+        };
+        if (alg == RK_ALG_CHEBYSHEV) {
+            return pack_cheb(lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV), alg);
+        } else if (alg == RK_ALG_GRAKE) {
+            return pack_cheb(lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE), alg);
+        } else {
+            // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
+            auto res = lbw::ieppa_solve(st);
+            status = res.status;
+            iterations = res.iterations;
+            max_error = res.max_error;
+            used = RK_ALG_IEPPA;
         if (result) {
             result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
             result->min_alpha_seen  = res.min_alpha_seen;
@@ -361,6 +344,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->best_iter           = res.best_iter;
             result->sor_min_omega       = res.sor_min_omega;
             result->sor_n_damped        = res.sor_n_damped;
+        }
         }
     }
 
