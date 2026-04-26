@@ -34,6 +34,7 @@ static bool bisect_capacity(const std::vector<double>& X,
     double lo = -50.0, hi = 50.0;
     while (lo > -500.0 && f(lo) > 0.0) lo *= 2.0;
     while (hi < 500.0  && f(hi) < 0.0) hi *= 2.0;
+    if (f(lo) > 0.0 || f(hi) < 0.0) return false;  // bracket failed — infeasible
     for (int i = 0; i < 80; i++) {
         double mid = 0.5 * (lo + hi);
         if (f(mid) < 0.0) lo = mid; else hi = mid;
