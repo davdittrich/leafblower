@@ -43,12 +43,30 @@ For each margin k, drop the **last category** (index J_k − 1) from the Newton 
 
 ---
 
+## Edge Case: Single-Category Margins
+
+If `cat_counts[k] == 1` for any margin k, that margin has only one category. Dropping it as reference removes all Newton correction for that margin, leaving a 0-contribution row in the reduced system (or a 0×0 system for K=1). 
+
+**Rule**: When `cat_counts[k] < 2`, do NOT eliminate a reference for that margin. Treat all categories as non-reference. The margin is already trivially satisfied (only one category, T[k][0]=1, so X must sum to W) — ν alone handles the normalization.
+
+This adjusts `nct_red` dynamically:
+```
+nct_red = nct - count(k : cat_counts[k] >= 2)
+```
+
+---
+
 ## Data Structures
 
 ```cpp
 // Computed once per IPM call, after cat_offset is built:
-const int nct_red = nct - st.K;                // reduced constraint count
-std::vector<bool> is_ref(nct, false);          // true for last category of each margin k
+// nct_red = nct - number of margins with >=2 categories (reference elimination only there)
+int nct_red_count = 0;
+for (int k = 0; k < st.K; k++)
+    if (st.cat_counts[k] >= 2) nct_red_count++;
+const int nct_red = nct - nct_red_count;
+
+std::vector<bool> is_ref(nct, false);          // true for last category of each margin k (only when cat_counts[k]>=2)
 std::vector<int>  full_to_red(nct, -1);        // -1 for reference margins
 std::vector<int>  red_to_full(nct_red);        // reduced → full index
 
@@ -56,8 +74,8 @@ int nr = 0;
 for (int k = 0; k < st.K; k++) {
     for (int j = 0; j < st.cat_counts[k]; j++) {
         int m = cat_offset[k] + j;
-        if (j == st.cat_counts[k] - 1) {
-            is_ref[m] = true;  // reference: last category
+        if (st.cat_counts[k] >= 2 && j == st.cat_counts[k] - 1) {
+            is_ref[m] = true;  // reference: last category (only for multi-category margins)
         } else {
             full_to_red[m] = nr;
             red_to_full[nr++] = m;
@@ -126,9 +144,12 @@ for (int nr = 0; nr < nct_red; nr++) {
     eTdlambda += e_red[nr] * dlambda_red[nr];  // dlambda_red = SM-corrected w_sol_red
 }
 const double D_nu       = /* Σ_c D_eff[c] */;
-const double schur_nu   = D_nu - eTw_e;        // > 0 after reference elimination
+const double schur_nu   = D_nu - eTw_e;
+// schur_nu > 0 guaranteed by reference elimination (key invariant).
+// Verbose diagnostic: if (st.verbose >= 2 && iter == 1) log schur_nu value.
+// Tightened guard: 1e-8 (schur_nu is O(D_ν) = O(n_d) >> 1e-8 for any realistic problem).
 const double r_nu       = W - n_d;             // normalization residual
-const double dnu        = (std::fabs(schur_nu) > 1e-14)
+const double dnu        = (schur_nu > 1e-8)
                         ? (-r_nu - eTdlambda) / schur_nu : 0.0;
 
 // Correct dlambda_red
@@ -230,10 +251,16 @@ Still applies to full `nct`. Reference elimination reduces the Newton system but
 
 ## Verification
 
-1. **E1/E2 correctness tests** (existing) — must stay GREEN after fix.
-2. **Synthetic K=2 test**: Compare chebyshev solution vs raking on balanced 2-margin problem. Max_err should be ≤ raking.
-3. **Stepstone K=9 benchmark**: chebyshev/grake should converge (status=0) with max_err ≤ 2× raking. Previously: NOCONV, W→0.
-4. **kk1204 K=20**: run after fix; should converge where previously failed.
+### In-scope (required for this ticket)
+
+1. **E1/E2 correctness tests** (existing, `test-calibration-solvers.R`) — must stay GREEN after fix. E1: chebyshev max_err ≤ raking max_err + 1e-6. E2: grake grake_norm ≤ raking grake_norm + 1e-6.
+2. **schur_nu diagnostic**: On first IPM iteration (`iter == 0`), log `schur_nu` value when `verbose >= 2`. Add `expect_gt(schur_nu_logged, 1e-6)` in a test fixture that captures log output. This verifies the non-degeneracy claim. File: `tests/testthat/test-calib-linalg.R` (new test).
+3. **Single-category margin test**: Add test with `a = factor(c("x","x","x"))` (1 category). Verify no crash and sensible output (chevyshev with K=1, J=1 should trivially converge or return INFEAS, not crash).
+
+### Deferred (follow-on tickets)
+
+4. **Stepstone K=9 convergence**: chebyshev/grake should converge (status=0). Deferred to `leafblower-yned` (spike validation ticket).
+5. **kk1204 K=20 convergence**: run after fix. Deferred to P1 gate `leafblower-kk1.20.4`.
 
 ---
 
