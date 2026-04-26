@@ -9,28 +9,28 @@ namespace lbw {
  * Compute N = A × diag(D) × Aᵀ where A is the (n_cats_total × M_cell)
  * marginal incidence matrix.
  * N is n_cats_total × n_cats_total, stored row-major.
+ * K: number of margins (ct has no K field; caller must supply it).
  * Returns RK_OK or RK_ERR_BADARG (if n_cats_total > kNCatsTotalMax).
- * NOTE: implementation in Plan D (calib_linalg.cpp).
  */
 int compute_normal_equations(const CellTable& ct,
                               const double* D,
                               double* N,
                               const int* cat_offset,
+                              int K,
                               size_t n_cats_total);
 
 /**
  * In-place LDLT factorization of a symmetric positive semidefinite n×n matrix.
  * eps_perturb: minimum diagonal value after factorization (Gill-Murray stability).
  * Returns RK_OK or RK_ERR_BADARG if n > kNCatsTotalMax.
- * NOTE: implementation in Plan D (calib_linalg.cpp).
  */
 int ldlt_factor_inplace(double* A, size_t n, double eps_perturb);
 
 /**
- * Solve A×x = b using a previously LDLT-factored matrix.
- * Overwrites b with the solution.
- * NOTE: implementation in Plan D (calib_linalg.cpp).
+ * Solve A×x = b using a previously LDLT-factored matrix (in-place combined storage).
+ * A is the factored matrix from ldlt_factor_inplace: lower triangle holds L,
+ * diagonal holds d.  Overwrites b with the solution.
  */
-void ldlt_solve(const double* L, const double* d_diag, double* b, size_t n);
+void ldlt_solve(const double* A, size_t n, double* b);
 
 } // namespace lbw
