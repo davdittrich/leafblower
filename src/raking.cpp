@@ -287,9 +287,14 @@ RakingResult raking_solve(CalibState& st) {
                 st.log(msg);
             }
 
-            if (lbw::check_convergence(st.convergence_cfg,
-                                       errRp, mean_err, kl_max,
-                                       chi2_total, grake_norm, l1_weight,
+            lbw::CellMetrics m_conv;
+            m_conv.errRp      = errRp;
+            m_conv.mean_err   = mean_err;
+            m_conv.kl         = kl_max;
+            m_conv.chi2       = chi2_total;
+            m_conv.grake_norm = grake_norm;
+            m_conv.l1         = l1_weight;
+            if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                        prev_metric_for_rule, st.tol_abs)) {
                 res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
                 res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);

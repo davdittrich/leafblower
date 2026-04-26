@@ -146,35 +146,30 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
             const double W = W_total;  // preserved by Sinkhorn sweeps + bisection
             auto m = lbw::compute_cell_metrics(st, ct, X, W, bucket);
-            double errRp = m.errRp, mean_err = m.mean_err;
-            double kl_max = m.kl, chi2_total = m.chi2, grake_norm = m.grake_norm;
 
             double l1_sum = 0.0;
             for (int c = 0; c < ct.M_cell; c++)
                 l1_sum += std::fabs(X[c] - X_prev[c]);
-            double l1_weight = l1_sum / static_cast<double>(st.n);
+            m.l1 = l1_sum / static_cast<double>(st.n);
 
-            res.max_error        = errRp;
-            res.kl               = kl_max;
-            res.mean_error       = mean_err;
-            res.chi2             = chi2_total;
-            res.grake_norm       = grake_norm;
-            res.l1_weight_change = l1_weight;
+            res.max_error        = m.errRp;
+            res.kl               = m.kl;
+            res.mean_error       = m.mean_err;
+            res.chi2             = m.chi2;
+            res.grake_norm       = m.grake_norm;
+            res.l1_weight_change = m.l1;
             for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
 
             const double curr_best = lbw::select_metric(
                 st.convergence_cfg.metric,
-                errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
+                m.errRp, m.mean_err, m.kl, m.chi2, m.grake_norm, m.l1);
             if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
                 best_metric_seen = curr_best;
                 best_iter_val    = iter;
                 W_best           = X;
             }
 
-            if (lbw::check_convergence(st.convergence_cfg,
-                                       errRp, mean_err, kl_max,
-                                       chi2_total, grake_norm, l1_weight,
-                                       prev_metric_for_rule, st.tol_abs)) {
+            if (lbw::check_convergence(st.convergence_cfg, m, prev_metric_for_rule, st.tol_abs)) {
                 res.status             = RK_OK;
                 res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
                 res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);

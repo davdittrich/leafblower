@@ -96,16 +96,24 @@ inline bool apply_rule(
     return converged;
 }
 
+struct CellMetrics {
+    double errRp      = 0.0;
+    double mean_err   = 0.0;
+    double kl         = 0.0;
+    double chi2       = 0.0;
+    double grake_norm = 0.0;
+    double l1         = 0.0;
+};
+
 // Returns true when the convergence criterion fires. Updates prev_metric via apply_rule.
 // tol_abs_fallback: value of CalibState::tol_abs, used when neither pct_tol nor absolute_tol set.
 inline bool check_convergence(
     const CalibConvergenceCfg& cfg,
-    double errRp, double mean_err, double kl,
-    double chi2, double grake_norm, double l1,
+    const CellMetrics& m,
     double& prev_metric,
     double tol_abs_fallback) noexcept
 {
-    const double curr = select_metric(cfg.metric, errRp, mean_err, kl, chi2, grake_norm, l1);
+    const double curr = select_metric(cfg.metric, m.errRp, m.mean_err, m.kl, m.chi2, m.grake_norm, m.l1);
     const bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
     const bool c_abs = have_abs && (curr < cfg.absolute_tol);
     const bool c_pct = have_pct && apply_rule(cfg.rule, curr, prev_metric, cfg.pct_tol);
@@ -114,16 +122,8 @@ inline bool check_convergence(
                ? (c_pct && c_abs) : (c_pct || c_abs);
     if (have_pct) return c_pct;
     if (have_abs) return c_abs;
-    return (errRp < tol_abs_fallback);
+    return (m.errRp < tol_abs_fallback);
 }
-
-struct CellMetrics {
-    double errRp      = 0.0;
-    double mean_err   = 0.0;
-    double kl         = 0.0;
-    double chi2       = 0.0;
-    double grake_norm = 0.0;
-};
 
 // Compute 5 calibration metrics over all K margins from cell-level weight vector X.
 // W = sum(X) — passed in to avoid recomputation.
