@@ -74,3 +74,49 @@ test_that("calib_linalg: LDLT on 2-margin balanced problem", {
   expect_equal(r_greg$status, 0L, info = "greg converges on 2-margin problem")
   expect_true(r_greg$max_error < 0.01, info = "max margin error < 1%")
 })
+
+# ──────────────────────────────────────────────────────────────────────────────
+# chebyshev nu-fix: reference elimination makes schur_nu > 0
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("chebyshev: schur_nu diagnostic logged at verbose=2 (non-degeneracy)", {
+  set.seed(42); n <- 200L
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, TRUE)),
+    b = factor(sample(c("1","2"),     n, TRUE))
+  )
+  target <- list(a = c("1"=0.4,"2"=0.4,"3"=0.2), b = c("1"=0.6,"2"=0.4))
+  log_lines <- capture.output(
+    leafblower::harvest(data, target, method = "chebyshev",
+                        min_weight = 0.2, max_weight = 5,
+                        max_iterations = 5, attach_weights = FALSE,
+                        verbose = 2),
+    type = "message"
+  )
+  schur_lines <- grep("schur_nu=", log_lines, value = TRUE)
+  expect_gt(length(schur_lines), 0L,
+            label = "schur_nu should be logged at verbose=2")
+  if (length(schur_lines) > 0) {
+    val <- as.numeric(regmatches(schur_lines[1],
+                                 regexpr("[0-9]+\\.?[0-9]*[eE][+-]?[0-9]+|[0-9]+\\.?[0-9]*",
+                                         schur_lines[1])))
+    expect_gt(val[1], 1e-6, label = "schur_nu must be positive (non-degenerate)")
+  }
+})
+
+test_that("chebyshev: single-category margin does not crash", {
+  set.seed(99); n <- 100L
+  data <- data.frame(
+    a = factor(sample(c("1","2"), n, TRUE)),
+    b = factor(rep("x", n))   # single category — trivial constraint
+  )
+  target <- list(a = c("1"=0.5,"2"=0.5), b = c("x"=1.0))
+  r <- leafblower::harvest(data, target, method = "chebyshev",
+                           min_weight = 0.2, max_weight = 5,
+                           max_iterations = 20, attach_weights = FALSE,
+                           verbose = 0)
+  expect_true(all(is.finite(r)),
+              label = "chebyshev with 1-cat margin: weights must be finite")
+  expect_true(all(r >= 0),
+              label = "chebyshev with 1-cat margin: weights must be non-negative")
+})
