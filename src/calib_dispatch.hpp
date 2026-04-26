@@ -23,6 +23,7 @@
 #include "cell_table.hpp"
 #include <vector>
 #include <algorithm>
+#include <cassert>
 
 namespace lbw {
 
@@ -105,9 +106,9 @@ inline bool check_convergence(
     double tol_abs_fallback) noexcept
 {
     const double curr = select_metric(cfg.metric, errRp, mean_err, kl, chi2, grake_norm, l1);
-    const bool c_abs = (cfg.absolute_tol > 0.0) && (curr < cfg.absolute_tol);
-    const bool c_pct = apply_rule(cfg.rule, curr, prev_metric, cfg.pct_tol);
     const bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
+    const bool c_abs = have_abs && (curr < cfg.absolute_tol);
+    const bool c_pct = have_pct && apply_rule(cfg.rule, curr, prev_metric, cfg.pct_tol);
     if (have_pct && have_abs)
         return (cfg.stop_when == CalibStopWhen::ALL)
                ? (c_pct && c_abs) : (c_pct || c_abs);
@@ -138,6 +139,7 @@ inline CellMetrics compute_cell_metrics(
     double mean_sum = 0.0;
     for (int k = 0; k < st.K; k++) {
         const int nj = st.cat_counts[k];
+        assert(static_cast<int>(bucket.size()) >= nj);
         std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
         for (int c = 0; c < ct.M_cell; c++) {
             int g = ct.g_per_cell[k][c];

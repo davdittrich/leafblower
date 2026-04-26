@@ -45,6 +45,24 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
 }
 
+static void pack_lbfgsb_result(rk_result_t* dst, const lbw::LBFGSResult& src) noexcept {
+    if (!dst) return;
+    dst->mean_error                   = src.mean_error;
+    dst->kl                           = src.kl;
+    dst->chi2                         = src.chi2;
+    dst->l1_weight_change             = src.l1_weight_change;
+    dst->grake_norm                   = src.grake_norm;
+    dst->convergence_metric           = src.convergence_metric;
+    dst->convergence_rule             = src.convergence_rule;
+    dst->convergence_tol              = src.convergence_tol;
+    dst->convergence_iter             = src.convergence_iter;
+    dst->convergence_objective        = src.convergence_objective;
+    dst->convergence_minimized_metric = src.convergence_minimized_metric;
+    dst->best_error                   = src.best_error;
+    dst->best_iter                    = src.best_iter;
+    /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
+}
+
 extern "C" {
 
 void rk_params_init(rk_params_t* p) {
@@ -210,8 +228,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.sor_cfg.omega_min            = p->sor_omega_min;
     st.sor_cfg.omega_fixed          = p->sor_omega_fixed;
     st.sor_cfg.burnin               = p->sor_burnin;
-    // Save for auto-fallback: only st.weights is mutated by solvers in-place
-    const std::vector<double> weights_backup(weights, weights + n);
+    // Only the auto-fallback path needs this; skip O(n) copy for explicit method calls.
+    const std::vector<double> weights_backup = (p->algorithm == RK_ALG_AUTO)
+        ? std::vector<double>(weights, weights + n)
+        : std::vector<double>();
     int status;
     int iterations;
     double max_error;
@@ -223,22 +243,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = res.iterations;
         max_error = res.max_error;
         used = RK_ALG_LBFGSB;
-        if (result) {
-            result->mean_error          = res.mean_error;
-            result->kl                  = res.kl;
-            result->chi2                = res.chi2;
-            result->l1_weight_change    = res.l1_weight_change;
-            result->grake_norm          = res.grake_norm;
-            result->convergence_metric  = res.convergence_metric;
-            result->convergence_rule    = res.convergence_rule;
-            result->convergence_tol     = res.convergence_tol;
-            result->convergence_iter                = res.convergence_iter;
-            result->convergence_objective           = res.convergence_objective;
-            result->convergence_minimized_metric    = res.convergence_minimized_metric;
-            result->best_error          = res.best_error;
-            result->best_iter           = res.best_iter;
-            /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
-        }
+        pack_lbfgsb_result(result, res);
     } else if (alg == RK_ALG_RAKING) {
         // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
         auto res = lbw::raking_solve(st);
@@ -326,21 +331,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = fb.iterations;
         max_error  = fb.max_error;
         used       = RK_ALG_LBFGSB;
-        if (result) {
-            result->mean_error                       = fb.mean_error;
-            result->kl                               = fb.kl;
-            result->chi2                             = fb.chi2;
-            result->l1_weight_change                 = fb.l1_weight_change;
-            result->grake_norm                       = fb.grake_norm;
-            result->convergence_metric               = fb.convergence_metric;
-            result->convergence_rule                 = fb.convergence_rule;
-            result->convergence_tol                  = fb.convergence_tol;
-            result->convergence_iter                 = fb.convergence_iter;
-            result->convergence_objective            = fb.convergence_objective;
-            result->convergence_minimized_metric     = fb.convergence_minimized_metric;
-            result->best_error                       = fb.best_error;
-            result->best_iter                        = fb.best_iter;
-        }
+        pack_lbfgsb_result(result, fb);
+        /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
     }
 
     if (result) {
