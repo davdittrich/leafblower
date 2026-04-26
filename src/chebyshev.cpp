@@ -426,8 +426,9 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
             for (int m = 0; m < nct; m++) comp_new += y_up[m]*s_up[m] + y_dn[m]*s_dn[m];
             double mu_new = comp_new / n_comp;
             if (mu_new > 100.0 * mu) {
-                // Dual explosion detected: re-center duals at mu_target = mu
-                // (central path: y = mu/s for each complementarity pair)
+                // Dual explosion: re-center at current mu (prevents runaway duals).
+                // Using current mu (not sigma*mu) is intentional: sigma*mu resets too aggressively
+                // and causes subsequent steps to overshoot in the dual direction.
                 y_delta = mu / s_delta;
                 for (int c = 0; c < ct.M_cell; c++) { y_lo[c] = mu/s_lo[c]; y_hi[c] = mu/s_hi[c]; }
                 for (int m = 0; m < nct; m++) { y_up[m] = mu/s_up[m]; y_dn[m] = mu/s_dn[m]; }
