@@ -258,10 +258,11 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         for (int m = 0; m < nct; m++)
             D_marg[m] = 1.0 / (y_up[m]/s_up[m] + y_dn[m]/s_dn[m] + 1e-300);
 
-        // N_0 = A * D_eff * A^T
-        if (compute_normal_equations(ct, D_eff.data(), N0.data(),
-                                     cat_offset.data(), st.K,
-                                     static_cast<size_t>(nct)) != RK_OK) {
+        // N_red = A_red * D_eff * A_red^T (reference margins excluded)
+        if (lbw::compute_normal_equations_reduced(ct, D_eff.data(), N_red.data(),
+                                                  cat_offset.data(), st.K,
+                                                  static_cast<size_t>(nct_red),
+                                                  full_to_red.data()) != RK_OK) {
             res.status = RK_ERR_BADARG; return res;
         }
 
@@ -272,11 +273,12 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         // Using T_flat[m]*W (= T[m]*W) as the dynamic target so the Newton step
         // drives S[m]/W → T[m] directly rather than S[m] → T[m]*n_d.
         // where rmu_up = sigma*mu - s_up*y_up  (centering residual)
-        for (int m = 0; m < nct; m++) {
+        for (int nr = 0; nr < nct_red; nr++) {
+            int m = red_to_full[nr];
             double rmu_up = sigma_mu - s_up[m]*y_up[m];
             double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
-            rhs_v[m] = -(S[m] - T_flat[m]*W)
-                       + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
+            rhs_red[nr] = -(S[m] - T_flat[m]*W)
+                          + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
         }
 
         // δ stationarity: r_δ = 1 - Σ_m w_m*(y_up+y_dn) - y_delta
@@ -296,24 +298,26 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         for (int m = 0; m < nct; m++)
             Theta += w_kj[m]*w_kj[m] * (y_up[m]/s_up[m] + y_dn[m]/s_dn[m]);
         double alpha_sm = (Theta > 1e-300) ? 1.0/Theta : 0.0;
-        for (int m = 0; m < nct; m++) u_vec[m] = w_kj[m];
+        for (int nr = 0; nr < nct_red; nr++) u_red[nr] = w_kj[red_to_full[nr]];
 
-        // LDLT factor N_0
-        if (ldlt_factor_inplace(N0.data(), static_cast<size_t>(nct), kEpsLdlt) != RK_OK) {
+        // LDLT factor N_red (reduced, nct_red × nct_red)
+        if (ldlt_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsLdlt) != RK_OK) {
             res.status = RK_ERR_BADARG; return res;
         }
 
-        // Two back-solves (Sherman-Morrison)
-        std::copy(rhs_v.begin(), rhs_v.end(), w_sol.begin());
-        ldlt_solve(N0.data(), static_cast<size_t>(nct), w_sol.data());
-        std::copy(u_vec.begin(), u_vec.end(), v_vec.begin());
-        ldlt_solve(N0.data(), static_cast<size_t>(nct), v_vec.data());
+        // Back-solve 1: w_sol_red = N_red^{-1} · rhs_red
+        std::copy(rhs_red.begin(), rhs_red.end(), w_sol_red.begin());
+        ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), w_sol_red.data());
+
+        // Back-solve 2: v_red = N_red^{-1} · u_red  (first SM: δ correction)
+        std::copy(u_red.begin(), u_red.end(), v_red.begin());
+        ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), v_red.data());
 
         double utv = 0.0, utw = 0.0;
-        for (int m = 0; m < nct; m++) { utv += u_vec[m]*v_vec[m]; utw += u_vec[m]*w_sol[m]; }
+        for (int nr = 0; nr < nct_red; nr++) { utv += u_red[nr]*v_red[nr]; utw += u_red[nr]*w_sol_red[nr]; }
         double sm_denom = 1.0 + alpha_sm*utv;
         double sm_coeff = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw/sm_denom) : 0.0;
-        for (int m = 0; m < nct; m++) dlambda[m] = w_sol[m] - sm_coeff*v_vec[m];
+        for (int nr = 0; nr < nct_red; nr++) dlambda_red[nr] = w_sol_red[nr] - sm_coeff*v_red[nr];
 
         // ΔX[c] = D_eff[c] * Σ_k Δλ[m_k]
         std::fill(dX.begin(), dX.end(), 0.0);
