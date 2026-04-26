@@ -175,13 +175,13 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         double W = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W += X[c];
         CellMetrics cm;
-        if (W > 1e-300) cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
+        if (W > 1e-300) {
+            cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
+            if (cm.errRp < best_errRp) { best_errRp = cm.errRp; res.best_iter = iter+1; X_best = X; }
+        }
         double errRp = cm.errRp, mean_err = cm.mean_err;
         double kl_max = cm.kl, chi2_total = cm.chi2, grake_norm = cm.grake_norm;
         double l1_weight = 0.0;  // not tracked per IPM step (no prev weights)
-
-        // Track X with the best actual calibration error seen so far.
-        if (errRp < best_errRp) { best_errRp = errRp; res.best_iter = iter+1; X_best = X; }
 
         // Convergence dispatch — uses CalibState cfg (metric+rule+tol), same as all other solvers.
         // apply_rule updates prev_metric_for_rule in-place (tracks improvement across iterations).
@@ -428,7 +428,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     // All 6 metrics
     double W_final = 0.0;
     for (int c = 0; c < ct.M_cell; c++) W_final += X_out[c];
-    {
+    if (W_final > 1e-300) {
         auto m2 = lbw::compute_cell_metrics(st, ct, X_out, W_final, bucket_tmp);
         res.max_error  = m2.errRp;
         res.kl         = m2.kl;
@@ -436,6 +436,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         res.mean_error = m2.mean_err;
         res.grake_norm = m2.grake_norm;
     }
+    // else: X_best collapsed — leave metrics at default 0.0 (not NaN)
 
     // Obs expansion using X_out (best-errRp iterate)
     const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
