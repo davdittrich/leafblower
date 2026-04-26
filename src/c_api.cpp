@@ -6,6 +6,7 @@
 #include "raking.hpp"     // renamed hybrid
 #include "sinkhorn.hpp"   // KL Bregman Dykstra
 #include "greg.hpp"       // Newton QP chi2 (GREG, Deville-Sarnal 1992)
+#include "chebyshev.hpp"  // Chebyshev/GRAKE LP-based solvers
 #include "cell_table.hpp" // estimate_M_cell for AUTO routing
 #include <cstring>
 #include <cstdio>
@@ -121,16 +122,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_IEPPA:    alg = RK_ALG_IEPPA;  break;
             case RK_ALG_SINKHORN: alg = RK_ALG_SINKHORN; break;
             case RK_ALG_GREG:    alg = RK_ALG_GREG; break;
-            case RK_ALG_CHEBYSHEV:
-            case RK_ALG_GRAKE: {
-                if (result) {
-                    result->status = RK_ERR_BADARG;
-                    snprintf(result->message, sizeof(result->message),
-                        "method not yet implemented in this build");
-                    result->algorithm_used = p->algorithm;
-                }
-                return RK_ERR_BADARG;
-            }
+            case RK_ALG_CHEBYSHEV: alg = RK_ALG_CHEBYSHEV; break;
+            case RK_ALG_GRAKE:    alg = RK_ALG_GRAKE; break;
             case RK_ALG_AUTO:
             default: {
                 // Route to raking when cell table is nearly incompressible (M_cell/n > 0.9).
@@ -290,6 +283,52 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             std::strncpy(result->message, gres.message, sizeof(result->message) - 1);
         }
         return gres.status;
+    } else if (alg == RK_ALG_CHEBYSHEV) {
+        auto cres = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
+        if (result) {
+            result->status                       = cres.status;
+            result->iterations                   = cres.iterations;
+            result->max_error                    = cres.max_error;
+            result->convergence_metric           = cres.convergence_metric;
+            result->convergence_rule             = cres.convergence_rule;
+            result->convergence_tol              = cres.convergence_tol;
+            result->convergence_iter             = cres.convergence_iter;
+            result->convergence_objective        = cres.convergence_objective;
+            result->convergence_minimized_metric = cres.convergence_minimized_metric;
+            result->best_error                   = cres.best_error;
+            result->best_iter                    = cres.best_iter;
+            result->mean_error                   = cres.mean_error;
+            result->kl                           = cres.kl;
+            result->chi2                         = cres.chi2;
+            result->grake_norm                   = cres.grake_norm;
+            result->l1_weight_change             = cres.l1_weight_change;
+            result->algorithm_used               = alg;
+            std::strncpy(result->message, cres.message, sizeof(result->message) - 1);
+        }
+        return cres.status;
+    } else if (alg == RK_ALG_GRAKE) {
+        auto gres2 = lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE);
+        if (result) {
+            result->status                       = gres2.status;
+            result->iterations                   = gres2.iterations;
+            result->max_error                    = gres2.max_error;
+            result->convergence_metric           = gres2.convergence_metric;
+            result->convergence_rule             = gres2.convergence_rule;
+            result->convergence_tol              = gres2.convergence_tol;
+            result->convergence_iter             = gres2.convergence_iter;
+            result->convergence_objective        = gres2.convergence_objective;
+            result->convergence_minimized_metric = gres2.convergence_minimized_metric;
+            result->best_error                   = gres2.best_error;
+            result->best_iter                    = gres2.best_iter;
+            result->mean_error                   = gres2.mean_error;
+            result->kl                           = gres2.kl;
+            result->chi2                         = gres2.chi2;
+            result->grake_norm                   = gres2.grake_norm;
+            result->l1_weight_change             = gres2.l1_weight_change;
+            result->algorithm_used               = alg;
+            std::strncpy(result->message, gres2.message, sizeof(result->message) - 1);
+        }
+        return gres2.status;
     } else {
         // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
         auto res = lbw::ieppa_solve(st);
