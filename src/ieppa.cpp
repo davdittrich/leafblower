@@ -1191,14 +1191,22 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
 
     if (st.bounds_mode == RK_BOUNDS_CELL) {
-        // Diagnostic scan: count violations without action.
+        // Clamp post-normalization violations: normalization (w *= n/total_w)
+        // can push weights above max_weight when cells were clamped (W_total<n).
+        // Cell mode previously only counted — now clamps too, mirroring unit mode.
+        // n_bounds_clamped = n_bounds_violated: every violation is clamped.
         int violations = 0;
         for (int i = 0; i < st.n; i++) {
-            if (st.weights[i] > st.max_weight || st.weights[i] < st.min_weight) {
+            if (st.weights[i] > st.max_weight) {
+                st.weights[i] = st.max_weight;
+                violations++;
+            } else if (st.weights[i] < st.min_weight) {
+                st.weights[i] = st.min_weight;
                 violations++;
             }
         }
         res.n_bounds_violated = violations;
+        res.n_bounds_clamped  = violations;   // every violation was clamped
     } else {
         // Unit mode: per-cell water-filling.
         // Water-fill redistributes excess within each cell, preserving the
