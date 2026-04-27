@@ -572,6 +572,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         };
 
         auto compute_margin_errRp_log = [&](int k) -> double {
+            if (X_tilde.empty()) return std::numeric_limits<double>::infinity();
             double W_total = 0.0;
             for (int c = 0; c < ct.M_cell; c++) W_total += X_tilde[c];
             if (W_total <= 0.0) return 0.0;
