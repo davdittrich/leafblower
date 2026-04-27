@@ -246,7 +246,7 @@ RakingResult raking_solve(CalibState& st) {
     };
 
     if (st.accelerate) {
-        static constexpr double kAlphaMax    = -1.0;
+        static constexpr double kAlphaMax    = -1.0;    // alpha is strictly ≤ 0; -1.0 = least-aggressive bound
         static constexpr double kAlphaMin    = -1000.0;
         static constexpr double kVNormEps    = 1e-300;
         static constexpr double kVNormRel    = 1e-10;
@@ -258,7 +258,7 @@ RakingResult raking_solve(CalibState& st) {
             while (f_eval_count + 3 <= st.inner_max_iter) {
                 auto w1 = X; auto p1 = p; double qh1 = q_hyp;
                 double errRp_w1 = F_eval(w1, p1, qh1);  ++f_eval_count;
-                (void)errRp_w1;
+                (void)errRp_w1;  // advance IPF side effects (errRp_k, sor_omega); value unused
 
                 auto w2 = w1; auto p2 = p1; double qh2 = qh1;
                 double errRp_w2 = F_eval(w2, p2, qh2);  ++f_eval_count;
