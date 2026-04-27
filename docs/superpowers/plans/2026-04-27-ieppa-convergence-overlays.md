@@ -50,9 +50,9 @@
 
 ### Step 0.1: Add MARGINAL_KL to CalibMetric enum
 
-Read `src/types.hpp`. Find `enum class CalibMetric`. Confirm existing entries end at value ≤ 6. Add:
+Read `src/types.hpp`. Find `enum class CalibMetric`. Confirm existing entries: MAX_ERR=0, MEAN_ERR=1, KL=2, CHI2=3, GRAKE_NORM=4, L1_WEIGHT=5. Add immediately after L1_WEIGHT:
 ```cpp
-MARGINAL_KL = 7,   // Σ_k Σ_j t_kj log(t_kj / achieved_kj) — calibration quality
+MARGINAL_KL = 6,   // Σ_k Σ_j t_kj log(t_kj / achieved_kj) — calibration quality
 ```
 
 ### Step 0.2: Add marginal_kl_at_iter to IEPPAResult
@@ -101,7 +101,17 @@ Replace the inner body to accumulate marginal KL alongside errRp:
         }
 ```
 
-Also declare `double marg_kl = 0.0;` before the `if/else` block and add `res.marginal_kl_at_iter = marg_kl;` in the linear-path branch too (search for the other errRp block that uses `S_lin` or `g_per_cell` — add the same KL accumulation using the same per-cell X[c] data).
+Declare `double marg_kl = 0.0;` before the `if/else` block. Also add marginal KL in the **linear-path branch** (the `if (use_linear) { ... }` block that uses `S_lin`). Find the inner k+j loop in the linear branch that computes `S_lin[j]` from `g_per_cell[k]`. After that j-loop, add:
+```cpp
+            // Linear-path marginal KL (mirrors log-path computation above)
+            for (int j = 0; j < nj; j++) {
+                double tkj = st.targets[k][j];
+                double skj = (W_total > 0.0) ? S_lin[j] / W_total : 0.0;
+                if (tkj > 1e-300 && skj > 1e-300)
+                    marg_kl += tkj * std::log(tkj / skj);
+            }
+```
+After all k-loops in both branches: `res.marginal_kl_at_iter = marg_kl;` (place before `res.max_error = errRp;`).
 
 ### Step 0.4: Add MARGINAL_KL best-iterate tracking
 
@@ -131,7 +141,22 @@ Change to:
 if (is.null(convergence$metric) && method == "ieppa") convergence$metric <- "marginal_kl"
 ```
 
-Also add `"marginal_kl"` to the valid metric names vector in harvest.R (search for where other metric names like `"max_err"`, `"kl"` are listed for validation).
+Also add `"marginal_kl"` to the metric names vector in `R/harvest.R`. Find the line like:
+```r
+.metric_names <- c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight")
+```
+Append `"marginal_kl"` as the 7th element (index 7 in R = CalibMetric::MARGINAL_KL = 6 in C++ 0-based):
+```r
+.metric_names <- c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl")
+```
+
+### Step 0.5b: Update Python `_harvest.py`
+
+Find `python/leafblower/_harvest.py`. Locate `_METRIC_NAMES` list (mirrors the C++ enum). Add `"marginal_kl"` as the 7th element at index 6:
+```python
+_METRIC_NAMES = ["max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl"]
+```
+Without this, the Python wrapper returns `None` for `convergence_used["metric"]` when MARGINAL_KL fires.
 
 ### Step 0.6: Compile gate
 ```bash
@@ -162,7 +187,7 @@ Update `run()` to pass `res` to `fit_metrics`.
 
 ### Step 0.9: Commit
 ```bash
-git add src/types.hpp src/ieppa.hpp src/ieppa.cpp R/harvest.R benchmarks/stepstone_all_methods.R
+git add src/types.hpp src/ieppa.hpp src/ieppa.cpp R/harvest.R python/leafblower/_harvest.py benchmarks/stepstone_all_methods.R
 git commit -m "feat(ieppa): marginal_kl convergence metric + best_iter selection
 
 Add MARGINAL_KL=7 to CalibMetric. Compute Σ_k Σ_j t_kj log(t_kj/achieved_kj)
