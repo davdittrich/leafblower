@@ -23,7 +23,8 @@ SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+                    SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -39,7 +40,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       30},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       31},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -101,7 +102,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     /* SOR config (WU-A) */
                     SEXP sor_enabled_sexp, SEXP sor_auto_sexp,
                     SEXP sor_omega_init_sexp, SEXP sor_omega_min_sexp,
-                    SEXP sor_omega_fixed_sexp, SEXP sor_burnin_sexp) {
+                    SEXP sor_omega_fixed_sexp, SEXP sor_burnin_sexp,
+                    /* SQUAREM */
+                    SEXP accelerate_sexp) {
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -308,6 +311,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm_lambda = 0.0;
     st.alm_mu     = 0.0;
+    st.accelerate = (INTEGER(accelerate_sexp)[0] != 0);
 
     // Scalar fields mirrored from rk_result_t for compatibility with downstream assembly.
     int    res_status     = RK_ERR_NOCONV;

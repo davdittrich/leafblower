@@ -93,6 +93,7 @@ struct CalibState {
     EtaScheduleConfigLbw eta_schedule;
     CalibConvergenceCfg  convergence_cfg;
     CalibSorCfg          sor_cfg;
+    bool                 accelerate = false;  // SQUAREM outer loop for raking
     // ── End overlay config ──
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;
