@@ -69,7 +69,12 @@ Hyperplane lambda `hyperplane_step()` at lines 141-147 must be replaced:
 
 **Post-loop finalizer**: apply same multiplicative pattern (shown in raking.cpp lines 334-345).
 
-**A5 fixture note**: Bregman Dykstra changes the fixed point — cell-table raking no longer matches the obs-level Euclidean reference. `data-raw/gen_raking_obs_ref.R` (confirmed present) must be rerun with the new algorithm after confirming AC4.
+**A5 fixture note**: Bregman Dykstra changes the fixed point — cell-table raking no longer matches the obs-level Euclidean reference. `data-raw/gen_raking_obs_ref.R` (confirmed present) must be rerun:
+```bash
+# Run ONLY after AC4 is verified (max_err < 5.44e-3). If AC4 fails, HALT.
+OMP_NUM_THREADS=1 Rscript data-raw/gen_raking_obs_ref.R
+```
+Verify: the generated fixture's `max_error` field ≤ 5.44e-3 (confirms AC4 holds for obs-level ref too).
 
 ### 2. SOR (Successive Over-Relaxation) wiring
 
@@ -77,11 +82,15 @@ Wire existing `CalibState::sor_cfg` (type `CalibSorCfg`, line 95 of types.hpp, a
 
 Apply under-relaxation to scaling: `X[c] *= pow(T/S, eff_omega)` where `eff_omega ≤ 1`.
 
-**"Bounds active" condition** (triggers SOR): `lo > 0.0 || hi < 1e300` where `lo = st.min_weight` and `hi = capped st.max_weight` (both declared at lines 95-96 of raking.cpp). If bounds are absent (unconstrained IPF), oscillation doesn't occur and `eff_omega=1.0` (effectively disabled).
+**"Bounds active" condition** (triggers SOR): `st.min_weight > 0.0 || hi < 1e300` where local variable `hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300` at raking.cpp line 96. Both are accessible via `CalibState& st`. If bounds are absent (unconstrained IPF), oscillation doesn't occur and `eff_omega=1.0` (effectively disabled).
 
 **S=0 guard in SOR marginal scaling**: In the IPF step, `X[c] *= pow(T/S, eff_omega)` where `S` = sum of weights in margin group. If `S=0` (structurally empty group), skip scaling for that group (`continue`). Add: `if (S <= 0.0) continue;` before the pow() call.
 
-Update `harvest.R` docstring at line ~48: remove "iEPPA only" from `@param sor` description; add raking.
+Update `harvest.R` docstring at **line 48** (confirmed exact):
+```r
+# Before: #' @param sor Named list for SOR adaptive under-relaxation (iEPPA only).
+# After:  #' @param sor Named list for SOR adaptive under-relaxation (iEPPA and raking).
+```
 
 Same `sor=list(auto=TRUE, omega_min=0.3)` API as ieppa. No new types.
 
@@ -89,25 +98,35 @@ Same `sor=list(auto=TRUE, omega_min=0.3)` API as ieppa. No new types.
 
 Wire existing `CalibState::scheduler` (type `SchedulerConfigLbw`, line 93 of types.hpp) into raking's K-margin sweep at line ~156 (`for (int k=0; k<st.K; k++)`).
 
-**Prerequisite — per-margin residual vector**: Raking currently computes only a scalar max `errRp` via `compute_errRp_ct()` (line 190). Greedy requires a per-margin residual vector `errRp_k[K]`. Add this after the convergence check:
+**Prerequisite — per-margin residual vector**: Raking's marginal sweep (lines 158-171) already computes per-category `bucket[j]` sums for each margin `k`. Track per-margin `errRp_k[k]` DURING the sweep (not after), where those sums are available:
+
 ```cpp
-// After compute_errRp_ct call, accumulate per-margin residuals:
-std::vector<double> errRp_k(st.K, 0.0);
-for (int k = 0; k < st.K; k++) {
-    const int nj = st.cat_counts[k];
-    double sum = 0.0;
-    for (int c = 0; c < ct.M_cell; c++) sum += X[c];
+// Declare before the outer iter loop (alongside existing declarations):
+std::vector<double> errRp_k(st.K, 1.0 / st.K);  // init uniform; updated each iter
+std::vector<int> order(st.K);
+std::iota(order.begin(), order.end(), 0);
+
+// Inside the K-margin sweep, replace `for (int k = 0; k < st.K; k++)` with:
+// (when scheduler==GREEDY) sort order descending by errRp_k:
+if (st.scheduler.mode == SchedulerMode::GREEDY)
+    std::sort(order.begin(), order.end(),
+              [&](int a, int b){ return errRp_k[a] > errRp_k[b]; });
+
+for (int ki = 0; ki < st.K; ki++) {
+    int k = (st.scheduler.mode == SchedulerMode::GREEDY) ? order[ki] : ki;
+    // ... existing sweep body for margin k, which fills bucket[j] ...
+    // After sweep, update per-margin residual:
+    double ek = 0.0, W = 0.0;
+    for (int j = 0; j < nj; j++) W += bucket[j];  // total
     for (int j = 0; j < nj; j++) {
-        // bucket[j] = sum of X[c] for cells in category j of margin k
-        double e = std::fabs(bucket[j] / sum - st.targets[k][j]);
-        if (e > errRp_k[k]) errRp_k[k] = e;
+        double e = std::fabs(bucket[j]/W - st.targets[k][j]);
+        if (e > ek) ek = e;
     }
+    errRp_k[k] = ek;
 }
-// sort order[0..K-1] descending by errRp_k[k]:
-std::sort(order.begin(), order.end(),
-    [&](int a, int b) { return errRp_k[a] > errRp_k[b]; });
 ```
-(adapt to exact raking.cpp variable names for bucket sums — they're already computed in the marginal sweep at lines 158-171)
+
+`bucket[j]` and `nj` are already computed within the sweep body — no extra cell-pass needed.
 
 Same `scheduler="greedy"` API as ieppa. No new types.
 
@@ -146,7 +165,11 @@ test_that("raking-bregman: unconstrained raking matches ipfn weight_kl (unified 
 })
 ```
 
-This is provably RED before implementation because the Euclidean additive hyperplane shifts the fixed point away from the KL minimum, while pure IPF (ieppa without bounds) finds the KL minimum directly.
+This is provably RED before implementation: the Euclidean additive hyperplane correction (`q_hyp -= shift`) changes the fixed point — it normalizes by subtraction instead of scaling, which is not the KL projection onto `{sum=n}`. The KL projection is multiplicative (`q_hyp = 1/scale`). Therefore, unconstrained raking with Euclidean Dykstra converges to a different fixed point than ieppa (pure multiplicative IPF), making the comparison fail.
+
+**Field existence confirmed**: `convergence_solver_objective` is populated in `src/raking.cpp` at line 349 and exposed via `R/harvest.R` line 280 as `result$convergence_used$solver_objective`. The test will not ERROR on a NULL field.
+
+**AC4→AC5 halting gate**: The spec mandates that fixture regeneration is a MANUAL step. An implementer must run the A/B benchmark, confirm AC4, then run `gen_raking_obs_ref.R`. This is not automated in CI. Add a comment in the CI test file: `# MANUAL GATE: regenerate fixture only after AC4 benchmark confirms max_err < 5.44e-3`.
 
 ---
 
