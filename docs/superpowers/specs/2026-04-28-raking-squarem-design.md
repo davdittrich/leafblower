@@ -1,14 +1,14 @@
 # Raking SQUAREM Acceleration Design
 
 **Date**: 2026-04-28
-**Status**: Pending design review (rev 2 — gate round-1 fixes)
+**Status**: Pending design review (rev 3 — gate round-2 fixes)
 **File**: `src/raking.cpp`, `R/harvest.R`
 
 ---
 
 ## Problem
 
-Leafblower raking with `max_weight=5` on stepstone-fulldata (n=1.58M, K=9) converges in 60 iterations (Greedy) to max_err=3.48e-3 — but improvement criterion fires before reaching the true KL minimum. The trajectory stalls. Autumn achieves max_err=1.60e-3 using SQUAREM acceleration (Varadhan & Roland 2008). The gap is 2.2×.
+Leafblower raking with `max_weight=5` on stepstone-fulldata (n=1.58M, K=9) converges in ~60 iterations (Greedy) to max_err=3.48e-3 — but improvement criterion fires before reaching the true KL minimum. Autumn achieves max_err=1.60e-3 using SQUAREM acceleration (Varadhan & Roland 2008). The gap is 2.2×.
 
 ---
 
@@ -26,79 +26,81 @@ One call to F = one complete inner iteration:
 ### SQUAREM SqS3 super-step
 
 ```
-w1  = F(X)
-w2  = F(w1)
+w1 = F(X)
+w2 = F(w1)
+r  = w1 - X      # fixed-point residual at X
+v  = w2 - w1     # change in residual direction
 
-# Guard: if w1 == w2 (‖v‖₂ < ε), already at fixed point → return w2
-r   = w1 - X
-v   = w2 - w1
-if ‖v‖₂ < 1e-15: return w2
+# Guard: already at fixed point → skip extrapolation
+if ‖v‖₂ / (‖w2‖₂ + 1e-300) < 1e-10:
+    X ← w2; continue to next super-step
 
-α   = -‖r‖₂ / ‖v‖₂      (CBB step; capped at -1000)
-X*  = X - 2α·r + α²·v    (quadratic extrapolation)
-X*  = max(X*, 0)           (clamp: structural zeros cannot go negative)
+α  = -‖r‖₂ / ‖v‖₂   (CBB step; capped to [-1000, -1])
 
-# Snapshot X[], p[], q_hyp HERE (after w2, before extrapolation)
-X_new = F(X*)
+# Snapshot BEFORE extrapolation (state at w2, not post-X*)
+X_snap = copy(X); p_snap = copy(p); q_snap = q_hyp
 
-# Step-halving safety (up to 16 halvings):
-# Residual = ‖F(X)-X‖₂ = ‖r‖₂  (fixed-point residual from first F call this super-step)
-# Reference residual for w2 = ‖F(w2)-w2‖₂ (computed once before halving loop)
-if ‖F(X_new)-X_new‖₂ > 1.01 × ‖F(w2)-w2‖₂:
-    halve α toward -1 (α ← (α-1)/2 + (-1 if α < -1 else 1))
-    restore X[], p[], q_hyp from snapshot
-    recompute X* = X - 2α·r + α²·v; X* = max(X*, 0); X_new = F(X*)
-    repeat up to 16 times; if still diverging after 16 halvings, accept w2
+X*     = X - 2α·r + α²·v    (quadratic extrapolation)
+X*     = max(X*, 0)           (clamp structural zeros)
+X_new  = F(X*)
+
+# Step-halving: compare against reference residual ‖r‖₂ = ‖w1-X‖₂
+# (already computed above; no extra F call needed)
+for up to 16 halvings:
+    if ‖F(X_new) - X_new‖₂ ≤ 1.01 × ‖r‖₂:
+        break  # accept X_new
+    α ← (α - 1) / 2        # midpoint toward -1; converges to -1 for any α ≤ 0
+    X = copy(X_snap); p = copy(p_snap); q_hyp = q_snap  # restore
+    X* = X - 2α·r + α²·v; X* = max(X*, 0)
+    X_new = F(X*)
+if all 16 halvings exhausted and still failing: accept w2 (α = -1 → X* = w2)
+
+X ← X_new
 ```
 
-**Residual definition**: `‖F(X)-X‖₂` — the Euclidean norm of the fixed-point residual for the current iterate X. For the halving check, `‖F(X_new)-X_new‖₂` = one extra F evaluation. The reference for w2 is computed once as `‖F(w2)-w2‖₂` = `‖w1_next - w2‖₂` where w1_next is obtained by calling F(w2) once.
+**Key design decisions:**
 
-Cost per super-step: 3–4 F-evaluations + O(M_cell) arithmetic.
+- **Reference residual for step-halving**: `‖r‖₂ = ‖w1-X‖₂` (already computed, no extra F call). This is the fixed-point residual at the super-step start. Alternative `‖F(w2)-w2‖₂` would require a 4th F call per super-step.
+- **Halving formula**: `α ← (α-1)/2` is the midpoint between α and -1. This is a contraction mapping with fixed point -1: converges monotonically to -1 for all α ≤ 0. No branching needed.
+- **‖v‖₂ threshold**: relative `‖v‖₂ / (‖w2‖₂ + ε) < 1e-10` avoids false triggers at large weight magnitudes (n=1.58M cells, values O(1), ‖w2‖₂ ~ O(√n)).
+- **α cap at -1**: if α from CBB formula is in (-1, 0), cap α = -1 (gentler than CBB, avoids extrapolating past w2).
 
-### Snapshot timing (B1 fix)
+**Cost per super-step**: 3 F-evaluations (F(X), F(w1), F(X*)) + 1 per halving iteration (F(X*)). Baseline (no halving) = 3 F-evals. Total = 3 + k where k = halvings triggered (typically 0).
 
-**Store snapshots of X[], p[], q_hyp AFTER computing w2 = F(w1)**, immediately before the extrapolation step. This is the correct restore point for step-halving: we restore to the state after w2 and re-try with a smaller α, without re-running F twice.
+### Snapshot timing
+
+**Store snapshots of X[], p[], q_hyp AFTER computing w2 and AFTER the ‖v‖₂ guard, BEFORE computing X***. This is the correct restore point: on backtrack, we re-derive X* from the same X, r, v (which are fixed for this super-step) with a new α.
 
 ```cpp
-// Correct snapshot point (AFTER w2 computed, BEFORE extrapolation):
-auto X_snap    = X;
-auto p_snap    = p;
-auto q_snap    = q_hyp;
-
-// ... extrapolation and step-halving use these snapshots ...
+// CORRECT order in pseudocode:
+//   1. w1 = F(X); w2 = F(w1)
+//   2. r = w1-X; v = w2-w1
+//   3. if relative ‖v‖₂ guard → skip
+//   4. compute α
+//   5. SNAPSHOT HERE: X_snap=X; p_snap=p; q_snap=q_hyp
+//   6. X* = extrapolate; X_new = F(X*)
+//   7. step-halving loop (restores from snap, recomputes X* with new α)
 ```
-
-Snapshots at the start of the super-step (before w1) are WRONG — they would force re-running two F calls per halving step, tripling cost.
 
 ### Integration
 
-- **Greedy**: runs inside F. Greedy sorts margins by per-margin errRp_k before each F call. The errRp_k from the final F(X*) is used for the next super-step's sort.
-- **SOR**: kept wired but **not activated by default** in accelerate mode (zero empirical effect on stepstone). If `sor=list(auto=TRUE)` passed, SOR fires inside each F-call as usual.
-- **Bregman Dykstra**: already in F; no change. p[] and q_hyp state saved/restored when stepping back during step-halving.
-- **‖v‖₂ guard**: If ‖v‖₂ < 1e-15 (w1 ≈ w2 — already at fixed point), skip extrapolation and return w2. This avoids division-by-zero in α computation and terminates the outer loop immediately.
-
-### Convergence criterion
-
-Same as non-accelerated raking (improvement criterion on errRp). SQUAREM's larger steps mean the criterion fires much later = closer to the true KL minimum before stopping.
+- **Greedy**: runs inside F. errRp_k from the final F(X*) used for next super-step's sort.
+- **SOR**: not activated by default in accelerate mode (zero empirical benefit). Fires if `sor=list(auto=TRUE)` passed.
+- **accelerate=TRUE with non-raking methods**: emits `warning("accelerate=TRUE is only supported for method='raking'; ignoring")` and falls back to standard solver.
 
 ---
 
 ## RED Test (TDD prerequisite)
 
-Write and commit BEFORE implementation. The test must be RED (error) before implementation and GREEN after.
+`harvest()` uses `...` and passes unrecognized arguments to the C++ dispatch; they are currently silently ignored. Therefore `accelerate=TRUE` currently runs identically to `accelerate=FALSE`. The RED test exploits this:
 
 ```r
-test_that("squarem-red: accelerate=TRUE signals not-yet-implemented before SQUAREM is added", {
-  # This test is RED before SQUAREM is wired up:
-  #   raking_solve() ignores accelerate=TRUE silently, so harvest() returns a result
-  #   rather than erroring. The test below will pass once SQUAREM is implemented
-  #   (no error) and fail (RED) before — confirming TDD prerequisite.
-  #
-  # The RED phase: calling accelerate=TRUE currently produces the same result as
-  # accelerate=FALSE (parameter silently ignored). We assert the result is DIFFERENT
-  # from accelerate=FALSE on a convergeable problem — which cannot pass before
-  # SQUAREM is implemented.
-  set.seed(42L); n <- 500L
+test_that("squarem-red: accelerate=TRUE produces different iterations than accelerate=FALSE", {
+  # RED before SQUAREM: accelerate=TRUE silently ignored → same weights as FALSE.
+  # GREEN after SQUAREM: accelerate=TRUE takes different (larger) steps → different weights.
+  # Verified empirically: n=2000, K=2, max_weight=5 does NOT converge in 1 iteration,
+  # so SQUAREM will produce different path than standard.
+  set.seed(42L); n <- 2000L
   df  <- data.frame(v1 = factor(sample(3L, n, TRUE)), v2 = factor(sample(2L, n, TRUE)))
   tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
 
@@ -107,35 +109,46 @@ test_that("squarem-red: accelerate=TRUE signals not-yet-implemented before SQUAR
   r_acc  <- leafblower::harvest(df, tgt, method="raking",
     accelerate=TRUE,  max_weight=5, max_iterations=500L, attach_weights=FALSE)
 
-  w_base <- as.numeric(r_base)
-  w_acc  <- as.numeric(r_acc)
+  iters_base <- attr(r_base, "result")$iterations
+  iters_acc  <- attr(r_acc,  "result")$iterations
 
-  # Before SQUAREM: accelerate=TRUE is silently ignored → identical weights
-  # After  SQUAREM: accelerate=TRUE takes different steps → different weights
-  expect_false(isTRUE(all.equal(w_base, w_acc, tolerance=1e-8)),
-               label="accelerate=TRUE must produce different weights than accelerate=FALSE (SQUAREM must fire)")
+  # Before SQUAREM: same iterations (accelerate=TRUE ignored)
+  # After  SQUAREM: fewer iterations (SQUAREM reaches convergence faster)
+  expect_false(isTRUE(all.equal(iters_base, iters_acc)),
+               label="accelerate=TRUE must use different (fewer) iterations than accelerate=FALSE")
 })
 ```
 
-This is provably RED before implementation: with no SQUAREM wiring, `accelerate=TRUE` is silently ignored and the result equals `accelerate=FALSE`, causing `expect_false(all.equal(...))` to fail.
+Using `iterations` rather than weight vectors is more stable: even if SQUAREM reaches the same fixed point, it will do so in fewer super-steps, making `iters` the reliable discriminator.
 
 ---
 
 ## API
 
 ```r
-harvest(df, tgt, method="raking", accelerate=TRUE, max_weight=5, ...)
+harvest(df, tgt, method="raking", accelerate=FALSE, max_weight=5, ...)
+
+#' @param accelerate Logical. If \code{TRUE}, applies SQUAREM SqS3 outer-loop
+#'   acceleration (Varadhan & Roland 2008) to the raking fixed-point iteration.
+#'   Only supported for \code{method="raking"}; silently ignored (with a warning)
+#'   for all other methods. Default \code{FALSE} preserves pre-SQUAREM behavior.
 ```
 
-- `accelerate=FALSE` (default): current behavior unchanged
-- `accelerate=TRUE`: SQUAREM outer loop; inner F uses same parameters (sor=, scheduler=, convergence=)
-- Mirrors autumn's `accelerate=TRUE` API
+---
+
+## Acceptance Criteria
+
+1. **AC1**: `accelerate=TRUE, method="raking"` runs without error
+2. **AC2** *(local benchmark, manual gate)*: On stepstone-fulldata, `accelerate=TRUE` achieves max_err ≤ 2.50e-3. This must be verified locally before merge; it is not runnable in CI (dataset not committed). Log the result in the PR description.
+3. **AC3**: `accelerate=FALSE` is bit-identical to pre-SQUAREM Approach C results. **Fixture**: generate `tests/testthat/fixtures/raking_squarem_baseline.rds` by running `accelerate=FALSE` BEFORE implementing SQUAREM. The test asserts `all.equal(w_new, w_baseline, tolerance=0)`.
+4. **AC4**: Step-halving correctly restores X[], p[], q_hyp from snapshot taken after F(w2) (before extrapolation)
+5. **AC5**: ‖v‖₂ / (‖w2‖₂ + ε) < 1e-10 triggers early return without NaN/Inf
+6. **AC6**: `accelerate=TRUE` with `method="ieppa"` emits a warning and does not error
+7. **AC7**: RED test passes after implementation; `devtools::test()` FAIL ≤ 2 (pre-existing)
 
 ---
 
 ## A/B Test Expectation
-
-Benchmark on `stepstone-fulldata` (n=1.58M, K=9, max_weight=5):
 
 | Config | Expected max_err |
 |--------|-----------------|
@@ -145,24 +158,14 @@ Benchmark on `stepstone-fulldata` (n=1.58M, K=9, max_weight=5):
 
 ---
 
-## Acceptance Criteria
-
-1. **AC1**: `accelerate=TRUE` for raking runs without error
-2. **AC2**: On stepstone-fulldata, `accelerate=TRUE` achieves max_err ≤ 2.50e-3 (hard threshold; must beat Greedy-only baseline of 3.48e-3 by at least 28%)
-3. **AC3**: `accelerate=FALSE` (default) is bit-identical to pre-SQUAREM Approach C results
-4. **AC4**: Step-halving correctly restores X[], p[], q_hyp on backtrack (snapshots taken after F(w2))
-5. **AC5**: ‖v‖₂ < 1e-15 guard triggers early return (no NaN/Inf in α)
-6. **AC6**: RED test passes after implementation; `devtools::test()` FAIL ≤ 2 (pre-existing)
-
----
-
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/raking.cpp` | SQUAREM outer loop wrapping existing inner sweep |
-| `R/harvest.R` | Add `accelerate` parameter; wire to raking dispatch |
-| `tests/testthat/test-calibration-solvers.R` | RED test (written before implementation) |
+| `src/raking.cpp` | SQUAREM outer loop; `accelerate` bool from CalibState |
+| `R/harvest.R` | Add `accelerate` parameter + `@param`; warn if non-raking |
+| `tests/testthat/test-calibration-solvers.R` | RED test + AC3 fixture test |
+| `tests/testthat/fixtures/raking_squarem_baseline.rds` | Generated before implementation |
 
 No new structs, no ABI change, no other files.
 
@@ -170,6 +173,6 @@ No new structs, no ABI change, no other files.
 
 ## Out of Scope
 
-- SQUAREM for ieppa (different solver structure, different failure mode)
-- Nesterov acceleration (requires lf[] tracking infrastructure not yet in raking)
+- SQUAREM for ieppa (different solver structure)
+- Nesterov acceleration (requires lf[] tracking not yet in raking)
 - Python wrapper changes
