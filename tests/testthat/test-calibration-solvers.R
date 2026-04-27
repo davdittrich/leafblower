@@ -327,3 +327,25 @@ test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.B)", {
   # After  T1.B: renorm prevents overflow → no message → PASS
   expect_length(overflow_msgs, 0L)
 })
+
+test_that("ieppa: cell-mode weights respect max_weight hard cap", {
+  # Reliable trigger: K=1, max_weight=1.5, targets=(0.9,0.1), uniform data.
+  # Ideal weight for cat "A" ≈ 1.8 > cap 1.5 → cells clamped → W_total < n
+  # → norm = n/W_total > 1 → post-norm wmax = 1.5 * norm > 1.5.  Bug fires.
+  set.seed(1); n <- 1000L
+  df <- data.frame(v1 = factor(sample(c("A","B"), n, replace=TRUE, prob=c(.5,.5))))
+  tgt <- list(v1 = c("A"=0.9, "B"=0.1))
+
+  r <- leafblower::harvest(df, tgt, method = "ieppa",
+    max_weight = 1.5, min_weight = 0.0,
+    bounds_mode = "cell", max_iterations = 500L,
+    attach_weights = FALSE, verbose = 0)
+  w <- as.numeric(r)
+
+  # Before fix: post-norm wmax ≈ 1.5 * (1000/850) ≈ 1.76 > 1.5 → FAIL
+  # After fix:  cell-mode clamp applied → wmax ≤ 1.5 → PASS
+  expect_true(max(w) <= 1.5 + 1e-9,
+    label = sprintf("max weight %.6f exceeds cap 1.5", max(w)))
+  expect_true(min(w) >= 0.0 - 1e-9,
+    label = sprintf("min weight %.6f below floor 0.0", min(w)))
+})
