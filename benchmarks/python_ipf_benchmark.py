@@ -88,11 +88,17 @@ def run_ipfn(df_pl, df_pd, tgt, max_iter=500, tol=1e-5):
         dimensions.append([col])  # list-of-lists required by ipfn_df
 
     # Run ipfn.IPFN — DataFrame mode
-    ipf = IPFN(cell_table, aggregates, dimensions,
-               weight_col="total",
-               convergence_rate=tol,
-               max_iteration=max_iter)
-    cell_result = ipf.iteration()
+    # Redirect stdout to stderr: ipfn prints convergence messages to stdout
+    # which would corrupt our JSON output.
+    import contextlib, io
+    _buf = io.StringIO()
+    with contextlib.redirect_stdout(_buf):
+        ipf = IPFN(cell_table, aggregates, dimensions,
+                   weight_col="total",
+                   convergence_rate=tol,
+                   max_iteration=max_iter)
+        cell_result = ipf.iteration()
+    print(_buf.getvalue().strip(), file=sys.stderr)  # forward to stderr
 
     wall = time.time() - t0
 
