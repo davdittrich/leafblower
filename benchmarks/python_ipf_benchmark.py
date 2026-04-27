@@ -8,7 +8,7 @@ import json, sys, time
 import numpy as np
 import pandas as pd
 import polars as pl
-from ipfn.ipfn import ipfn as IPFN  # class, not module
+from ipfn.ipfn import ipfn as IPFN  # type: ignore[import]  # nested pkg structure; Pyright false positive
 
 
 def load_data():
