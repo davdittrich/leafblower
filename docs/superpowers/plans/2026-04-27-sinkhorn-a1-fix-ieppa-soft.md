@@ -352,10 +352,9 @@ Find the `rk_algorithm_t` enum (lines ~39-47). Add after `RK_ALG_GRAKE = 7`:
 RK_ALG_IEPPA_SOFT = 8    /* ieppa + ADMM soft capacity enforcement */
 ```
 
-Also add RK_ALG_IEPPA_SOFT case to `select_solver_objective` in `calib_dispatch.hpp`:
-```cpp
-case RK_ALG_IEPPA_SOFT:  return m.kl;  // same objective as ieppa
-```
+Do NOT add RK_ALG_IEPPA_SOFT to `select_solver_objective` — ieppa_soft is a KL-minimizing
+solver and uses `compute_weight_kl` inline (same as ieppa), not m.kl which is marginal KL.
+The only change to calib_dispatch.hpp in Task 3 is the RK_ALG_IEPPA_SOFT constant itself.
 
 ### Step 3.2: Add `use_admm_capacity` to CalibState
 
