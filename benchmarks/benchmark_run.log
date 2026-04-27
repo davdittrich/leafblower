@@ -1,0 +1,22 @@
+Welcome back dd!
+Working directory is: /home/dd/Gemini/leafblower
+Initialising: 8-point Latin hypercube design...
+  LHC 1/8: lc=7.69, lt=-4.08 ... y=-4.922
+  LHC 2/8: lc=5.14, lt=-5.04 ... y=-4.718
+  LHC 3/8: lc=6.73, lt=-3.70 ... y=-3.918
+  LHC 4/8: lc=6.31, lt=-5.64 ... y=-5.019
+  LHC 5/8: lc=6.81, lt=-5.43 ... y=-5.058
+  LHC 6/8: lc=5.57, lt=-4.54 ... y=-5.002
+  LHC 7/8: lc=4.21, lt=-4.19 ... y=-4.248
+  LHC 8/8: lc=4.80, lt=-3.07 ... y=-3.219
+Iter 1/25: classified=1.00
+Termination: 90% classified.
+Generating plots...
+Plots saved to benchmarks/
+
+Done. 8 total evaluations, 100% classified.
+Inspect: benchmarks/algo_selection_contour.pdf
+  K-stability: evaluating K=3 (16 points)...
+  K-stability: evaluating K=18 (16 points)...
+  K-stability plot saved to benchmarks/algo_selection_k_stability.pdf
+There were 14 warnings (use warnings() to see them)

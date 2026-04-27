@@ -1,0 +1,234 @@
+Welcome back dd!
+Working directory is: /home/dd/Gemini/leafblower
+ℹ Testing leafblower
+SKIP: 'test-bench-gate.R:4:3' ---------------------
+Reason: Sys.getenv("LBW_BENCH_GATE") == "" is TRUE
+
+SKIP: 'test-bench-gate.R:21:3' --------------------
+Reason: Sys.getenv("LBW_BENCH_GATE") == "" is TRUE
+
+kk1204 gate: status=0 iters=10 best_error=0.000e+00 time=1.1s
+SKIP: 'test-best-iterate.R:54:3' ------------------
+Reason: !file.exists(fx) || !file.exists(tg) is TRUE
+
+WARNING: 'test-bounded-convergence.R:13:3' ----------
+cell-mode bounds: 157 weights fell outside [0.000, 5.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-bounded-convergence.R:13:3
+
+SKIP: 'test-calibration-solvers.R:44:3' -----------
+Reason: stepstone benchmark data not available
+
+SKIP: 'test-calibration-solvers.R:76:3' -----------
+Reason: stepstone benchmark data not available
+
+WARNING: 'test-convergence-criteria.R:232:3' ----------
+leafblower: PCT convergence stall: max_error=0.147 >> pct_tol=0.001 (147x). Possible contradictory or infeasible targets.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-convergence-criteria.R:232:3
+
+WARNING: 'test-convergence-criteria.R:232:3' ----------
+cell-mode bounds: 783 weights fell outside [0.000, 2.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-convergence-criteria.R:232:3
+
+WARNING: 'test-convergence-trajectory.R:13:7' ----------
+leafblower: calibration did not converge (max_error=0.00113). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-convergence-trajectory.R:9:3
+ 2. │ └─base::force(code)
+ 3. └─leafblower::harvest(...) at test-convergence-trajectory.R:13:7
+
+WARNING: 'test-convergence-trajectory.R:13:7' ----------
+cell-mode bounds: 2 weights fell outside [0.000, 5.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-convergence-trajectory.R:9:3
+ 2. │ └─base::force(code)
+ 3. └─leafblower::harvest(...) at test-convergence-trajectory.R:13:7
+
+WARNING: 'test-eta-schedule.R:25:3' ---------------
+leafblower: calibration did not converge (max_error=0.00107). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-eta-schedule.R:25:3
+ 2. │ └─base::force(code)
+ 3. ├─base::do.call(leafblower::harvest, c(common, list(eta_schedule = "fixed")))
+ 4. └─leafblower (local) `<fn>`(...)
+
+WARNING: 'test-eta-schedule.R:25:3' ---------------
+cell-mode bounds: 2 weights fell outside [0.000, 5.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-eta-schedule.R:25:3
+ 2. │ └─base::force(code)
+ 3. ├─base::do.call(leafblower::harvest, c(common, list(eta_schedule = "fixed")))
+ 4. └─leafblower (local) `<fn>`(...)
+
+WARNING: 'test-eta-schedule.R:29:3' ---------------
+leafblower: calibration did not converge (max_error=0.00113). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-eta-schedule.R:29:3
+ 2. │ └─base::force(code)
+ 3. ├─base::do.call(...)
+ 4. └─leafblower (local) `<fn>`(...)
+
+WARNING: 'test-eta-schedule.R:29:3' ---------------
+cell-mode bounds: 2 weights fell outside [0.000, 5.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-eta-schedule.R:29:3
+ 2. │ └─base::force(code)
+ 3. ├─base::do.call(...)
+ 4. └─leafblower (local) `<fn>`(...)
+
+WARNING: 'test-homotopy.R:25:3' -------------------
+leafblower: calibration did not converge (max_error=0.129). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-homotopy.R:25:3
+ 2. │ └─base::force(code)
+ 3. └─leafblower::harvest(...)
+
+WARNING: 'test-homotopy.R:25:3' -------------------
+cell-mode bounds: 2101 weights fell outside [0.000, 2.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-homotopy.R:25:3
+ 2. │ └─base::force(code)
+ 3. └─leafblower::harvest(...)
+
+WARNING: 'test-homotopy.R:33:3' -------------------
+leafblower: calibration did not converge (max_error=0.095). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-homotopy.R:33:3
+ 2. │ └─base::force(code)
+ 3. └─leafblower::harvest(...)
+
+WARNING: 'test-homotopy.R:33:3' -------------------
+cell-mode bounds: 1933 weights fell outside [0.000, 2.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. ├─withr::with_envvar(...) at test-homotopy.R:33:3
+ 2. │ └─base::force(code)
+ 3. └─leafblower::harvest(...)
+
+WARNING: 'test-ieppa-bounds-mode.R:15:3' ----------
+cell-mode bounds: 5 weights fell outside [0.300, 3.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-bounds-mode.R:15:3
+
+WARNING: 'test-ieppa-bounds-mode.R:21:3' ----------
+cell-mode bounds: 5 weights fell outside [0.300, 3.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-bounds-mode.R:21:3
+
+WARNING: 'test-ieppa-bounds-mode.R:50:3' ----------
+unit-mode bounds: 5 weights clamped to [0.300, 3.000] during per-cell water-filling.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-bounds-mode.R:50:3
+
+WARNING: 'test-ieppa-bounds-mode.R:108:3' ----------
+unit-mode bounds: 20 weights clamped to [0.300, 1.500] during per-cell water-filling.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-bounds-mode.R:108:3
+
+WARNING: 'test-ieppa-bounds-mode.R:135:3' ----------
+unit-mode bounds: 50 weights clamped to [0.300, 1.500] during per-cell water-filling.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-bounds-mode.R:135:3
+
+WARNING: 'test-ieppa-bounds-mode.R:166:3' ----------
+unit-mode bounds: 5 weights clamped to [0.300, 3.000] during per-cell water-filling.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-bounds-mode.R:166:3
+
+WARNING: 'test-ieppa-bounds-mode.R:182:3' ----------
+unit-mode bounds: 5 weights clamped to [0.300, 3.000] during per-cell water-filling.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-bounds-mode.R:182:3
+
+WARNING: 'test-ieppa-faithful.R:79:3' -------------
+cell-mode bounds: 100 weights fell outside [0.000, 5.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-faithful.R:79:3
+
+[leafblower] iEPPA: n=10000 K=2 M_cell=25 compression=400.0x path=log
+[leafblower] iEPPA iter 1: errRp=8.068e-05
+[leafblower] iEPPA iter 10: errRp=1.665e-16
+[leafblower] iEPPA converged in 10 iters, errRp=1.665e-16
+WARNING: 'test-ieppa-faithful.R:242:3' ------------
+leafblower: calibration did not converge (max_error=5.55e-17). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-faithful.R:242:3
+
+WARNING: 'test-ieppa-nonuniform-d.R:21:3' ----------
+cell-mode bounds: 250 weights fell outside [0.000, 2.000] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-ieppa-nonuniform-d.R:21:3
+
+WARNING: 'test-lbfgsb.R:58:3' ---------------------
+leafblower: calibration did not converge (max_error=0.0111). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-lbfgsb.R:58:3
+
+WARNING: 'test-lbfgsb.R:72:3' ---------------------
+leafblower: calibration did not converge (max_error=0.219). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-lbfgsb.R:72:3
+
+WARNING: 'test-quality-metrics.R:68:3' ------------
+leafblower: calibration did not converge (max_error=5.55e-17). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-quality-metrics.R:68:3
+
+FAILURE: 'test-raking.R:88:3' ---------------------
+Expected `probe` to match regexp "errRp stalled for [0-9]+ consecutive checks".
+Actual text:
+✖ │ [leafblower] raking iter 1: errRp=4.46e-01
+  │ [leafblower] raking iter 10: errRp=4.46e-01
+  │ [leafblower] raking iter 20: errRp=4.46e-01
+  │ [leafblower] raking iter 30: errRp=4.46e-01
+  │ [leafblower] raking iter 40: errRp=4.46e-01
+  │ [leafblower] raking iter 50: errRp=4.46e-01
+  │ [leafblower] raking: errRp stalled for 5 checks (last=4.46e-01, window_min=4.46e-01); aborting at iter 50.
+expected descent-monitor message; got: [leafblower] raking iter 1: errRp=4.46e-01
+[leafblower] raking iter 10: errRp=4.46e-01
+[leafblower] raking iter 20: errRp=4.46e-01
+[leafblower] raking iter 30: errRp=4.46e-01
+[leafblower] raking iter 40: errRp=4.46e-01
+[leafblower] raking iter 50: errRp=4.46e-01
+[leafblower] raking: errRp stalled for 5 checks (last=4.46e-01, window_min=4.46e-01); aborting at iter 50.
+
+WARNING: 'test-sor.R:18:3' ------------------------
+leafblower: calibration did not converge (max_error=0.171). Weights reflect last iterate.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-sor.R:18:3
+
+WARNING: 'test-sor.R:18:3' ------------------------
+cell-mode bounds: 2386 weights fell outside [0.000, 1.500] due to skewed base weights within cells. Consider bounds_mode='unit' for strict per-observation bounds.
+Backtrace:
+    ▆
+ 1. └─leafblower::harvest(...) at test-sor.R:18:3
+
+[ FAIL 1 | WARN 28 | SKIP 5 | PASS 345 ]

@@ -1,0 +1,108 @@
+{
+  "edges": [
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "effective_sample_size"
+    },
+    {
+      "from_file": "patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": "patch_wolfe.py",
+      "to_func": "patch_wolfe"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "<module>",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "effective_sample_size",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "bench_harvest"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "effective_sample_size"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "<module>",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": "patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": "patch_wolfe.py",
+      "to_func": "patch_wolfe_line_search"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "bench_harvest"
+    },
+    {
+      "from_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "to_func": "patch_wolfe_line_search"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "effective_sample_size",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "to_func": "patch_wolfe"
+    }
+  ],
+  "languages": [
+    "c",
+    "cpp",
+    "javascript",
+    "python",
+    "rust"
+  ],
+  "timestamp": 1777046333.2156394
+}

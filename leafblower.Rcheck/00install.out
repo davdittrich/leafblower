@@ -1,0 +1,29 @@
+Welcome back dd!
+Working directory is: /home/dd/Gemini/leafblower
+* installing *source* package ‘leafblower’ ...
+** this is package ‘leafblower’ version ‘0.1.0’
+** using staged installation
+configure: -fopenmp-simd detected — omp simd hints enabled
+configure: glibc libmvec detected — vectorised exp enabled for L-BFGS-B
+** libs
+using C++ compiler: ‘g++ (GCC) 15.2.1 20260209’
+using C++17
+g++ -std=gnu++17 -I"/usr/include/R/" -DNDEBUG   -I/usr/local/include   -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS -fpic  -march=native -mtune=native -O2 -fno-math-errno -pipe -fPIC  -c c_api.cpp -o c_api.o
+g++ -std=gnu++17 -I"/usr/include/R/" -DNDEBUG   -I/usr/local/include   -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS -fpic  -march=native -mtune=native -O2 -fno-math-errno -pipe -fPIC  -c cell_table.cpp -o cell_table.o
+g++ -std=gnu++17 -I"/usr/include/R/" -DNDEBUG   -I/usr/local/include   -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS -fpic  -march=native -mtune=native -O2 -fno-math-errno -pipe -fPIC  -c ieppa.cpp -o ieppa.o
+g++ -std=gnu++17 -I"/usr/include/R/" -DNDEBUG   -I/usr/local/include   -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS -fpic  -march=native -mtune=native -O2 -fno-math-errno -pipe -fPIC  -c lbfgsb_solver.cpp -o lbfgsb_solver.o
+g++ -std=gnu++17 -I"/usr/include/R/" -DNDEBUG   -I/usr/local/include   -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS -fpic  -march=native -mtune=native -O2 -fno-math-errno -pipe -fPIC  -c logit.cpp -o logit.o
+g++ -std=gnu++17 -I"/usr/include/R/" -DNDEBUG   -I/usr/local/include   -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS -fpic  -march=native -mtune=native -O2 -fno-math-errno -pipe -fPIC  -c r_bridge.cpp -o r_bridge.o
+g++ -std=gnu++17 -I"/usr/include/R/" -DNDEBUG   -I/usr/local/include   -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS -fpic  -march=native -mtune=native -O2 -fno-math-errno -pipe -fPIC  -c raking.cpp -o raking.o
+g++ -std=gnu++17 -shared -L/usr/lib64/R/lib -Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs -flto=auto -o leafblower.so c_api.o cell_table.o ieppa.o lbfgsb_solver.o logit.o r_bridge.o raking.o -lm -lmvec -L/usr/lib64/R/lib -lR
+installing to /home/dd/Gemini/leafblower/leafblower.Rcheck/00LOCK-leafblower/00new/leafblower/libs
+** R
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (leafblower)

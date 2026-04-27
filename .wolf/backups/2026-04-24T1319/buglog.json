@@ -1,0 +1,293 @@
+{
+  "version": 1,
+  "bugs": [
+    {
+      "id": "bug-001",
+      "timestamp": "2026-04-18T00:52:53.464Z",
+      "error_message": "Significant refactor of ",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→5 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T00:52:53.464Z"
+    },
+    {
+      "id": "bug-002",
+      "timestamp": "2026-04-18T07:15:53.511Z",
+      "error_message": "Incorrect value in code",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "Had \"absolute\"",
+      "fix": "Changed to `convergence`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 13,
+      "last_seen": "2026-04-18T07:23:03.461Z"
+    },
+    {
+      "id": "bug-003",
+      "timestamp": "2026-04-18T08:19:07.758Z",
+      "error_message": "Incorrect value in code",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "Had `max_weight == 1.0`",
+      "fix": "Changed to `(1-L)=0`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-18T08:21:21.997Z"
+    },
+    {
+      "id": "bug-004",
+      "timestamp": "2026-04-18T08:19:41.454Z",
+      "error_message": "Wrong return value",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "Was returning: `RK_ERR_BADARG` with message `\"problem too large f",
+      "fix": "Now returns: `RK_ERR_BADARG` with message `\"problem too large f",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T08:19:41.454Z"
+    },
+    {
+      "id": "bug-005",
+      "timestamp": "2026-04-18T09:45:51.818Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 6→7 lines (3 removed) | Also: - [ ] Create `src/r_bridge.cpp` with the logit tes; // Called from .onLoad — registers routines (stub: | Also: // Write back weights; // Normalize to mean 1 | Also: from ._harvest import harvest; from ._harvest import _PANDAS_AVAILABLE",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-18T09:46:36.819Z"
+    },
+    {
+      "id": "bug-006",
+      "timestamp": "2026-04-18T09:46:52.017Z",
+      "error_message": "Missing guard clause",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "No early return/throw for edge case: is.null(outcome",
+      "fix": "Added guard clause: if (is.null(outcome)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:46:52.017Z"
+    },
+    {
+      "id": "bug-007",
+      "timestamp": "2026-04-18T09:52:06.185Z",
+      "error_message": "Wrong reference: r_log_trampoline should be p",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"r_log_trampoline\" instead of \"p\"",
+      "fix": "Changed r_log_trampoline → p",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:52:06.185Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-04-18T09:52:12.230Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Had `feat(lbfgsb): add L-BFGS-B solver with Wolfe line",
+      "fix": "Changed to `feat(lbfgsb): add L-BFGS-B solver with Armijo bac",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:52:12.230Z"
+    },
+    {
+      "id": "bug-009",
+      "timestamp": "2026-04-18T09:58:34.856Z",
+      "error_message": "Wrong reference: errRp_prev should be last_outer_errRp",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"errRp_prev\" instead of \"last_outer_errRp\"",
+      "fix": "Changed errRp_prev → last_outer_errRp",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:58:34.856Z"
+    },
+    {
+      "id": "bug-010",
+      "timestamp": "2026-04-18T09:59:01.077Z",
+      "error_message": "Wrong return value",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Was returning: infeas_flag;",
+      "fix": "Now returns: value (void)",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T10:00:10.192Z"
+    },
+    {
+      "id": "bug-011",
+      "timestamp": "2026-04-18T09:59:59.281Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 8→11 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:59:59.281Z"
+    },
+    {
+      "id": "bug-012",
+      "timestamp": "2026-04-18T10:01:01.136Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Had ` (not `",
+      "fix": "Changed to `INT64_C(0)`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T10:01:05.239Z"
+    },
+    {
+      "id": "bug-013",
+      "timestamp": "2026-04-18T11:26:20.070Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "21 lines replaced/restructured",
+      "fix": "Rewrote 26→12 lines (21 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T11:26:20.070Z"
+    },
+    {
+      "id": "bug-014",
+      "timestamp": "2026-04-18T11:26:24.041Z",
+      "error_message": "Wrong condition in logic",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Condition was: if (sy > 1e-20 && yy > 1e-20)",
+      "fix": "Changed to: if (sy > kLbfgsCurvatureMin && yy > kLbfgsCurvatureMin)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T11:26:24.041Z"
+    },
+    {
+      "id": "bug-015",
+      "timestamp": "2026-04-18T11:26:34.830Z",
+      "error_message": "Wrong operator: == should be >=",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"==\" instead of \">=\"",
+      "fix": "Changed operator == → >=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T11:26:59.605Z"
+    },
+    {
+      "id": "bug-016",
+      "timestamp": "2026-04-18T11:38:01.830Z",
+      "error_message": "Wrong reference: int should be int32_t",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"int\" instead of \"int32_t\"",
+      "fix": "Changed int → int32_t",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T11:38:01.830Z"
+    },
+    {
+      "id": "bug-017",
+      "timestamp": "2026-04-18T11:38:10.127Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Had `const int**`",
+      "fix": "Changed to `const int32_t**`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T11:38:17.744Z"
+    },
+    {
+      "id": "bug-018",
+      "timestamp": "2026-04-18T12:06:35.445Z",
+      "error_message": "Wrong reference: Imports should be Suggests",
+      "file": "DESCRIPTION",
+      "root_cause": "Used \"Imports\" instead of \"Suggests\"",
+      "fix": "Changed Imports → Suggests",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "unknown"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T12:06:35.445Z"
+    }
+  ]
+}

@@ -1,0 +1,3141 @@
+{
+  "version": 1,
+  "bugs": [
+    {
+      "id": "bug-001",
+      "timestamp": "2026-04-18T00:52:53.464Z",
+      "error_message": "Significant refactor of ",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→5 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T00:52:53.464Z"
+    },
+    {
+      "id": "bug-002",
+      "timestamp": "2026-04-18T07:15:53.511Z",
+      "error_message": "Incorrect value in code",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "Had \"absolute\"",
+      "fix": "Changed to `convergence`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 13,
+      "last_seen": "2026-04-18T07:23:03.461Z"
+    },
+    {
+      "id": "bug-003",
+      "timestamp": "2026-04-18T08:19:07.758Z",
+      "error_message": "Incorrect value in code",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "Had `max_weight == 1.0`",
+      "fix": "Changed to `(1-L)=0`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-18T08:21:21.997Z"
+    },
+    {
+      "id": "bug-004",
+      "timestamp": "2026-04-18T08:19:41.454Z",
+      "error_message": "Wrong return value",
+      "file": "tasks/prd-leafblower-core.md",
+      "root_cause": "Was returning: `RK_ERR_BADARG` with message `\"problem too large f",
+      "fix": "Now returns: `RK_ERR_BADARG` with message `\"problem too large f",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T08:19:41.454Z"
+    },
+    {
+      "id": "bug-005",
+      "timestamp": "2026-04-18T09:45:51.818Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 6→7 lines (3 removed) | Also: - [ ] Create `src/r_bridge.cpp` with the logit tes; // Called from .onLoad — registers routines (stub: | Also: // Write back weights; // Normalize to mean 1 | Also: from ._harvest import harvest; from ._harvest import _PANDAS_AVAILABLE",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-18T09:46:36.819Z"
+    },
+    {
+      "id": "bug-006",
+      "timestamp": "2026-04-18T09:46:52.017Z",
+      "error_message": "Missing guard clause",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "No early return/throw for edge case: is.null(outcome",
+      "fix": "Added guard clause: if (is.null(outcome)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:46:52.017Z"
+    },
+    {
+      "id": "bug-007",
+      "timestamp": "2026-04-18T09:52:06.185Z",
+      "error_message": "Wrong reference: r_log_trampoline should be p",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"r_log_trampoline\" instead of \"p\"",
+      "fix": "Changed r_log_trampoline → p",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:52:06.185Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-04-18T09:52:12.230Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Had `feat(lbfgsb): add L-BFGS-B solver with Wolfe line",
+      "fix": "Changed to `feat(lbfgsb): add L-BFGS-B solver with Armijo bac",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:52:12.230Z"
+    },
+    {
+      "id": "bug-009",
+      "timestamp": "2026-04-18T09:58:34.856Z",
+      "error_message": "Wrong reference: errRp_prev should be last_outer_errRp",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"errRp_prev\" instead of \"last_outer_errRp\"",
+      "fix": "Changed errRp_prev → last_outer_errRp",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:58:34.856Z"
+    },
+    {
+      "id": "bug-010",
+      "timestamp": "2026-04-18T09:59:01.077Z",
+      "error_message": "Wrong return value",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Was returning: infeas_flag;",
+      "fix": "Now returns: value (void)",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T10:00:10.192Z"
+    },
+    {
+      "id": "bug-011",
+      "timestamp": "2026-04-18T09:59:59.281Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 8→11 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T09:59:59.281Z"
+    },
+    {
+      "id": "bug-012",
+      "timestamp": "2026-04-18T10:01:01.136Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Had ` (not `",
+      "fix": "Changed to `INT64_C(0)`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T10:01:05.239Z"
+    },
+    {
+      "id": "bug-013",
+      "timestamp": "2026-04-18T11:26:20.070Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "21 lines replaced/restructured",
+      "fix": "Rewrote 26→12 lines (21 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T11:26:20.070Z"
+    },
+    {
+      "id": "bug-014",
+      "timestamp": "2026-04-18T11:26:24.041Z",
+      "error_message": "Wrong condition in logic",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Condition was: if (sy > 1e-20 && yy > 1e-20)",
+      "fix": "Changed to: if (sy > kLbfgsCurvatureMin && yy > kLbfgsCurvatureMin)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T11:26:24.041Z"
+    },
+    {
+      "id": "bug-015",
+      "timestamp": "2026-04-18T11:26:34.830Z",
+      "error_message": "Wrong operator: == should be >=",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"==\" instead of \">=\"",
+      "fix": "Changed operator == → >=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T11:26:59.605Z"
+    },
+    {
+      "id": "bug-016",
+      "timestamp": "2026-04-18T11:38:01.830Z",
+      "error_message": "Wrong reference: int should be int32_t",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Used \"int\" instead of \"int32_t\"",
+      "fix": "Changed int → int32_t",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T11:38:01.830Z"
+    },
+    {
+      "id": "bug-017",
+      "timestamp": "2026-04-18T11:38:10.127Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-18-leafblower-core.md",
+      "root_cause": "Had `const int**`",
+      "fix": "Changed to `const int32_t**`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-18T11:38:17.744Z"
+    },
+    {
+      "id": "bug-018",
+      "timestamp": "2026-04-18T12:06:35.445Z",
+      "error_message": "Wrong reference: Imports should be Suggests",
+      "file": "DESCRIPTION",
+      "root_cause": "Used \"Imports\" instead of \"Suggests\"",
+      "fix": "Changed Imports → Suggests",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "unknown"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-18T12:06:35.445Z"
+    },
+    {
+      "id": "bug-019",
+      "timestamp": "2026-04-24T16:03:01.303Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/benchmarks/make_stepstone_small_fixture.R",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 10→24 lines (5 removed) | Also: target <- lapply(target_raw, function(x) {; if (is.list(x)) unlist(x) else x",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-24T16:04:52.908Z"
+    },
+    {
+      "id": "bug-020",
+      "timestamp": "2026-04-24T16:03:31.375Z",
+      "error_message": "Missing guard clause",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "No early return/throw for edge case: !s || !*s",
+      "fix": "Added guard clause: if (!s || !*s)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T16:03:31.375Z"
+    },
+    {
+      "id": "bug-021",
+      "timestamp": "2026-04-24T16:03:50.068Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "Condition was: if (st.verbose >= 1)",
+      "fix": "Changed to: if (!probe_queue.empty()",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T16:03:50.068Z"
+    },
+    {
+      "id": "bug-022",
+      "timestamp": "2026-04-24T16:09:39.241Z",
+      "error_message": "Missing error handling in unknown",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T16:09:39.241Z"
+    },
+    {
+      "id": "bug-023",
+      "timestamp": "2026-04-24T16:29:54.444Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 4→7 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T16:29:54.444Z"
+    },
+    {
+      "id": "bug-024",
+      "timestamp": "2026-04-24T16:29:58.453Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "Condition was: if (iter == 1 || iter % kErrCheckInterval == 0 || iter)",
+      "fix": "Changed to: if (iter == 1 || iter % kErrCheckInterval == 0 || iter)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T16:29:58.453Z"
+    },
+    {
+      "id": "bug-025",
+      "timestamp": "2026-04-24T16:50:10.645Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/tests/testthat/test-homotopy.R",
+      "root_cause": "Had \"P-A homotopy reduces errRp vs baseline (tight-cla",
+      "fix": "Changed to \"P-A homotopy achieves >=30pct errRp reduction vs ",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T16:50:10.645Z"
+    },
+    {
+      "id": "bug-026",
+      "timestamp": "2026-04-24T16:53:52.898Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "16 lines replaced/restructured",
+      "fix": "Rewrote 72→177 lines (16 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T16:53:52.898Z"
+    },
+    {
+      "id": "bug-027",
+      "timestamp": "2026-04-24T19:29:42.839Z",
+      "error_message": "Wrong reference: kBeta should be beta",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "Used \"kBeta\" instead of \"beta\"",
+      "fix": "Changed kBeta → beta",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T19:29:42.839Z"
+    },
+    {
+      "id": "bug-028",
+      "timestamp": "2026-04-24T19:29:53.816Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 7→16 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T19:29:53.816Z"
+    },
+    {
+      "id": "bug-029",
+      "timestamp": "2026-04-24T19:41:05.211Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/benchmarks/stepstone_fulldata_homotopy.R",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 3→5 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T19:41:05.211Z"
+    },
+    {
+      "id": "bug-030",
+      "timestamp": "2026-04-24T20:51:53.825Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/docs/superpowers/specs/2026-04-24-convergence-metrics-sor-design.md",
+      "root_cause": "Had \"or\"",
+      "fix": "Changed to `pct`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T20:51:53.825Z"
+    },
+    {
+      "id": "bug-031",
+      "timestamp": "2026-04-24T20:51:58.370Z",
+      "error_message": "Wrong reference: global should be uniform",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/docs/superpowers/specs/2026-04-24-convergence-metrics-sor-design.md",
+      "root_cause": "Used \"global\" instead of \"uniform\"",
+      "fix": "Changed global → uniform",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T20:51:58.370Z"
+    },
+    {
+      "id": "bug-032",
+      "timestamp": "2026-04-24T21:26:46.637Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/docs/superpowers/specs/2026-04-24-convergence-metrics-sor-design.md",
+      "root_cause": "Had `res_list`",
+      "fix": "Changed to `REALSXP`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T21:26:46.637Z"
+    },
+    {
+      "id": "bug-033",
+      "timestamp": "2026-04-24T21:26:52.211Z",
+      "error_message": "Wrong return value",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/docs/superpowers/specs/2026-04-24-convergence-metrics-sor-design.md",
+      "root_cause": "Was returning: | `calib_result$best_weights` (element 15 of res_l",
+      "fix": "Now returns: | `calib_result$best_weights` (named REALSXP eleme",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T21:26:52.211Z"
+    },
+    {
+      "id": "bug-034",
+      "timestamp": "2026-04-24T21:27:04.534Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/docs/superpowers/plans/2026-04-24-convergence-metrics-sor-impl.md",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→8 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T21:27:04.534Z"
+    },
+    {
+      "id": "bug-035",
+      "timestamp": "2026-04-24T21:57:02.192Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/leafblower.h",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→12 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "h"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T21:57:02.192Z"
+    },
+    {
+      "id": "bug-036",
+      "timestamp": "2026-04-24T21:59:39.701Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/R/harvest.R",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 5→4 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T21:59:39.701Z"
+    },
+    {
+      "id": "bug-037",
+      "timestamp": "2026-04-24T22:00:10.527Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/R/harvest.R",
+      "root_cause": "Condition was: if (!is.null(convergence[[\"pct\"]])",
+      "fix": "Changed to: if (is.null(a)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T22:00:10.528Z"
+    },
+    {
+      "id": "bug-038",
+      "timestamp": "2026-04-24T22:05:03.066Z",
+      "error_message": "Missing guard clause",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/c_api.cpp",
+      "root_cause": "No early return/throw for edge case: !std::isfinite(p->tol_abs",
+      "fix": "Added guard clause: if (!std::isfinite(p->tol_abs)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T22:05:03.066Z"
+    },
+    {
+      "id": "bug-039",
+      "timestamp": "2026-04-24T22:14:03.000Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/tests/testthat/test-convergence-criteria.R",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→13 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T22:14:03.000Z"
+    },
+    {
+      "id": "bug-040",
+      "timestamp": "2026-04-24T22:18:42.533Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/lbfgsb_solver.cpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 16→22 lines (6 removed) | Also: // PCT convergence requires max_err < tol_abs as q; bool converged_pct = (cfg.pct_tol > 0.0) && (pct_c",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-24T22:22:47.284Z"
+    },
+    {
+      "id": "bug-041",
+      "timestamp": "2026-04-24T22:30:41.107Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/lbfgsb_solver.cpp",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 5→3 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T22:30:41.107Z"
+    },
+    {
+      "id": "bug-042",
+      "timestamp": "2026-04-24T22:37:48.559Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 48→80 lines (2 removed) | Also: if (alpha == 1.0) {; (1.0 - alpha) * lf_old",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-24T22:39:16.362Z"
+    },
+    {
+      "id": "bug-043",
+      "timestamp": "2026-04-24T22:47:45.787Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/src/r_bridge.cpp",
+      "root_cause": "33 lines replaced/restructured",
+      "fix": "Rewrote 60→193 lines (33 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T22:47:45.787Z"
+    },
+    {
+      "id": "bug-044",
+      "timestamp": "2026-04-24T22:59:00.273Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/feat-ieppa-homotopy-greenkhorn/python/leafblower/_harvest.py",
+      "root_cause": "14 lines replaced/restructured",
+      "fix": "Rewrote 56→97 lines (14 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-24T22:59:00.273Z"
+    },
+    {
+      "id": "bug-045",
+      "timestamp": "2026-04-25T08:59:03.795Z",
+      "error_message": "Missing error handling in unknown",
+      "file": "docs/superpowers/plans/2026-04-25-convergence-reform-fixes.md",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T08:59:03.795Z"
+    },
+    {
+      "id": "bug-046",
+      "timestamp": "2026-04-25T08:59:27.659Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-25-convergence-reform-fixes.md",
+      "root_cause": "7 lines replaced/restructured",
+      "fix": "Rewrote 13→17 lines (7 removed) | Also: - [ ] **Step 8.1: Write failing test to confirm ex; test_that(\"a0gk: metrics populated at exit even fo | Also: ## Task 2 — Immediate enum range guards in r_bridg; Add the two missing guards now. The full validatio",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-25T09:02:00.478Z"
+    },
+    {
+      "id": "bug-047",
+      "timestamp": "2026-04-25T09:00:18.084Z",
+      "error_message": "Missing guard clause",
+      "file": "docs/superpowers/plans/2026-04-25-convergence-reform-fixes.md",
+      "root_cause": "No early return/throw for edge case: p->criterion < 0 || p->criterion > 4",
+      "fix": "Added guard clause: if (p->criterion < 0 || p->criterion > 4)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:00:18.084Z"
+    },
+    {
+      "id": "bug-048",
+      "timestamp": "2026-04-25T09:06:35.527Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-fixes/src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→10 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:06:35.527Z"
+    },
+    {
+      "id": "bug-049",
+      "timestamp": "2026-04-25T09:13:07.517Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/convergence-fixes/R/harvest.R",
+      "root_cause": "Condition was: if (is.null(a)",
+      "fix": "Changed to: if (!is.null(convergence)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:13:07.518Z"
+    },
+    {
+      "id": "bug-050",
+      "timestamp": "2026-04-25T09:16:37.506Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-fixes/src/c_api.cpp",
+      "root_cause": "72 lines replaced/restructured",
+      "fix": "Rewrote 99→11 lines (72 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:16:37.506Z"
+    },
+    {
+      "id": "bug-051",
+      "timestamp": "2026-04-25T09:17:07.934Z",
+      "error_message": "Wrong operator: >= should be !=",
+      "file": ".worktrees/convergence-fixes/src/r_bridge.cpp",
+      "root_cause": "Used \">=\" instead of \"!=\"",
+      "fix": "Changed operator >= → !=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:17:07.934Z"
+    },
+    {
+      "id": "bug-052",
+      "timestamp": "2026-04-25T09:20:43.068Z",
+      "error_message": "Null/undefined access in ",
+      "file": ".worktrees/convergence-fixes/src/ieppa.cpp",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:20:43.068Z"
+    },
+    {
+      "id": "bug-053",
+      "timestamp": "2026-04-25T09:23:09.358Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-fixes/src/lbfgsb_solver.cpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 6→3 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:23:09.358Z"
+    },
+    {
+      "id": "bug-054",
+      "timestamp": "2026-04-25T09:26:22.301Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-fixes/src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 41→53 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:26:22.301Z"
+    },
+    {
+      "id": "bug-055",
+      "timestamp": "2026-04-25T09:26:39.950Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-fixes/src/raking.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 40→52 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:26:39.950Z"
+    },
+    {
+      "id": "bug-056",
+      "timestamp": "2026-04-25T09:40:45.393Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-fixes/tests/testthat/test-quality-metrics.R",
+      "root_cause": "11 lines replaced/restructured",
+      "fix": "Rewrote 16→23 lines (11 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:40:45.393Z"
+    },
+    {
+      "id": "bug-057",
+      "timestamp": "2026-04-25T09:44:18.156Z",
+      "error_message": "Wrong return value",
+      "file": ".worktrees/convergence-fixes/R/harvest.R",
+      "root_cause": "Was returning: data frame with weights column if attach_weights=T",
+      "fix": "Now returns: data frame with weights column if \\code{attach_wei",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-25T09:45:50.069Z"
+    },
+    {
+      "id": "bug-058",
+      "timestamp": "2026-04-25T09:44:53.447Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-fixes/R/harvest.R",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 9→4 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T09:44:53.447Z"
+    },
+    {
+      "id": "bug-059",
+      "timestamp": "2026-04-25T12:38:49.640Z",
+      "error_message": "Missing guard clause",
+      "file": "docs/superpowers/specs/2026-04-25-convergence-redesign.md",
+      "root_cause": "No early return/throw for edge case: p->metric < 0 || p->metric > 5",
+      "fix": "Added guard clause: if (p->metric < 0 || p->metric > 5)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T12:38:49.640Z"
+    },
+    {
+      "id": "bug-060",
+      "timestamp": "2026-04-25T12:39:14.394Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/specs/2026-04-25-convergence-redesign.md",
+      "root_cause": "14 lines replaced/restructured",
+      "fix": "Rewrote 16→7 lines (14 removed) | Also: **rk_result_t new field** (alongside existing scal; double l1_weight_change;  /* renamed from pct_chan | Also: ### §6 Migration; | Old code | New code | | Also: synthetic (K=3, n=2000, max_weight=10): status=OK,; **A2 (default handles oscillation):** On tight-cla",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-25T12:40:34.623Z"
+    },
+    {
+      "id": "bug-061",
+      "timestamp": "2026-04-25T13:02:14.957Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-25-convergence-redesign-impl.md",
+      "root_cause": "18 lines replaced/restructured",
+      "fix": "Rewrote 26→11 lines (18 removed) | Also: /* In IEPPAResult, RakingResult, LBFGSResult: */; /* OLD: double pct_change = 0.0; */ | Also: Also extend res_list to include the 4 new converge; SET_STRING_ELT(res_names, N+0, Rf_mkChar(\"converge | Also: After the existing chi2_total computation loop (wi; present, or in the metrics section), add: | Also: // lbfgsb IMPROVEMENT: compare initial errRp (befo; // Record initial errRp from unoptimized weights b | Also: test_that(\"A4: all 6 metrics present in calib_resu; n <- 500 | Also: **Files:** `src/r_bridge.cpp`, `R/harvest.R`; - [ ] **Step E0: Claim ticket** | Also: In result handling, rename `pct_change` → `l1_weig; # Find where pct_change is extracted/used and rena",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 8,
+      "last_seen": "2026-04-25T13:05:34.078Z"
+    },
+    {
+      "id": "bug-062",
+      "timestamp": "2026-04-25T13:25:10.031Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/tests/testthat/test-compare.R",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 3→3 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:25:10.031Z"
+    },
+    {
+      "id": "bug-063",
+      "timestamp": "2026-04-25T13:30:09.218Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/types.hpp",
+      "root_cause": "8 lines replaced/restructured",
+      "fix": "Rewrote 15→23 lines (8 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:30:09.218Z"
+    },
+    {
+      "id": "bug-064",
+      "timestamp": "2026-04-25T13:30:23.651Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/leafblower.h",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 4→5 lines (3 removed) | Also: double pct_change;       /* final iter max proport; double best_error;       /* errRp at best iterate ",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "h"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-25T13:30:30.300Z"
+    },
+    {
+      "id": "bug-065",
+      "timestamp": "2026-04-25T13:30:51.106Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/c_api.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→9 lines (2 removed) | Also: result->mean_error  = res.mean_error;; result->kl          = res.kl; | Also: result->mean_error    = res.mean_error;; result->kl            = res.kl;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-25T13:31:13.396Z"
+    },
+    {
+      "id": "bug-066",
+      "timestamp": "2026-04-25T13:31:53.438Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/r_bridge.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 5→10 lines (5 removed) | Also: res_mean_error = res.mean_error;; res_kl         = res.kl;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-25T13:32:09.662Z"
+    },
+    {
+      "id": "bug-067",
+      "timestamp": "2026-04-25T13:32:18.536Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/convergence-redesign/src/r_bridge.cpp",
+      "root_cause": "Had \"pct_change\"",
+      "fix": "Changed to \"l1_weight_change\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:32:18.536Z"
+    },
+    {
+      "id": "bug-068",
+      "timestamp": "2026-04-25T13:32:22.113Z",
+      "error_message": "Wrong reference: res_pct_change should be res_l1_weight_change",
+      "file": ".worktrees/convergence-redesign/src/r_bridge.cpp",
+      "root_cause": "Used \"res_pct_change\" instead of \"res_l1_weight_change\"",
+      "fix": "Changed res_pct_change → res_l1_weight_change",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:32:22.113Z"
+    },
+    {
+      "id": "bug-069",
+      "timestamp": "2026-04-25T13:33:09.144Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/ieppa.hpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 11→16 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:33:09.144Z"
+    },
+    {
+      "id": "bug-070",
+      "timestamp": "2026-04-25T13:33:15.907Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/raking.hpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 9→14 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:33:15.907Z"
+    },
+    {
+      "id": "bug-071",
+      "timestamp": "2026-04-25T13:33:22.429Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/lbfgsb_solver.hpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 9→14 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:33:22.429Z"
+    },
+    {
+      "id": "bug-072",
+      "timestamp": "2026-04-25T13:33:59.715Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/ieppa.cpp",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 4→4 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:33:59.715Z"
+    },
+    {
+      "id": "bug-073",
+      "timestamp": "2026-04-25T13:34:18.524Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/raking.cpp",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 4→4 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:34:18.524Z"
+    },
+    {
+      "id": "bug-074",
+      "timestamp": "2026-04-25T13:34:42.714Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/lbfgsb_solver.cpp",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 4→4 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:34:42.714Z"
+    },
+    {
+      "id": "bug-075",
+      "timestamp": "2026-04-25T13:35:06.250Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/convergence-redesign/src/validation.hpp",
+      "root_cause": "Condition was: if (p->criterion < 0 || p->criterion > 4)",
+      "fix": "Changed to: if (p->metric < 0 || p->metric > 5)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:35:06.250Z"
+    },
+    {
+      "id": "bug-076",
+      "timestamp": "2026-04-25T13:53:36.687Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 9→15 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:53:36.687Z"
+    },
+    {
+      "id": "bug-077",
+      "timestamp": "2026-04-25T13:57:44.804Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/convergence-redesign/R/harvest.R",
+      "root_cause": "Condition was: if (explicit_pct || !explicit_abs)",
+      "fix": "Changed to: if (explicit_pct)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:57:44.804Z"
+    },
+    {
+      "id": "bug-078",
+      "timestamp": "2026-04-25T13:57:48.829Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/convergence-redesign/tests/testthat/test-convergence-criteria.R",
+      "root_cause": "Had \"A1: default convergence (pct/l1_weight+improvemen",
+      "fix": "Changed to \"A1: default convergence (max_err+improvement) con",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T13:57:48.829Z"
+    },
+    {
+      "id": "bug-079",
+      "timestamp": "2026-04-25T14:03:05.812Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/raking.cpp",
+      "root_cause": "17 lines replaced/restructured",
+      "fix": "Rewrote 43→74 lines (17 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T14:03:05.812Z"
+    },
+    {
+      "id": "bug-080",
+      "timestamp": "2026-04-25T14:09:37.520Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/convergence-redesign/R/harvest.R",
+      "root_cause": "Had \"stop when weight change drops below threshold\"",
+      "fix": "Changed to \"plateau\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T14:09:37.520Z"
+    },
+    {
+      "id": "bug-081",
+      "timestamp": "2026-04-25T14:09:49.437Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/raking.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→10 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T14:09:49.437Z"
+    },
+    {
+      "id": "bug-082",
+      "timestamp": "2026-04-25T14:09:57.805Z",
+      "error_message": "Wrong reference: pct_change should be l1_weight",
+      "file": ".worktrees/convergence-redesign/src/raking.cpp",
+      "root_cause": "Used \"pct_change\" instead of \"l1_weight\"",
+      "fix": "Changed pct_change → l1_weight",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T14:09:57.805Z"
+    },
+    {
+      "id": "bug-083",
+      "timestamp": "2026-04-25T14:24:20.471Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/R/harvest.R",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 21→47 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T14:24:20.471Z"
+    },
+    {
+      "id": "bug-084",
+      "timestamp": "2026-04-25T14:45:10.738Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-25-convergence-simplify.md",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 7→5 lines (3 removed) | Also: Same replacement. Verify `prev_metric_for_rule` is; Same replacement for the post-solve dispatch. lbfg | Also: - [ ] **Step A8: Commit C1 (one ticket)**; git commit -m \"fix(harvest.R): guard +1L indexing ",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-25T14:47:31.969Z"
+    },
+    {
+      "id": "bug-085",
+      "timestamp": "2026-04-25T15:17:12.962Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/python/leafblower/_harvest.py",
+      "root_cause": "18 lines replaced/restructured",
+      "fix": "Rewrote 29→69 lines (18 removed) | Also: \"pct\" (float, default 0.001) — max proportional we; \"absolute\" (float) — absolute threshold for the ac | Also: # Convergence config (WU-F); \"criterion\":      criterion,",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-25T15:17:31.069Z"
+    },
+    {
+      "id": "bug-086",
+      "timestamp": "2026-04-25T15:17:54.650Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/python/leafblower/_bindings.cpp",
+      "root_cause": "9 lines replaced/restructured",
+      "fix": "Rewrote 9→14 lines (9 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:17:54.650Z"
+    },
+    {
+      "id": "bug-087",
+      "timestamp": "2026-04-25T15:18:21.179Z",
+      "error_message": "Wrong operator: <= should be ==",
+      "file": ".worktrees/convergence-redesign/python/leafblower/test_python.py",
+      "root_cause": "Used \"<=\" instead of \"==\"",
+      "fix": "Changed operator <= → ==",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:18:21.179Z"
+    },
+    {
+      "id": "bug-088",
+      "timestamp": "2026-04-25T15:20:10.648Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/NEWS.md",
+      "root_cause": "12 lines replaced/restructured",
+      "fix": "Rewrote 32→46 lines (12 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:20:10.648Z"
+    },
+    {
+      "id": "bug-089",
+      "timestamp": "2026-04-25T15:20:31.411Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/R/harvest.R",
+      "root_cause": "11 lines replaced/restructured",
+      "fix": "Rewrote 21→29 lines (11 removed) | Also: #'         \\item \\code{pct_change}: proportional w; #'           this is start-to-final (batch solver) | Also: metric        = .metric_names[calib_result$converg; rule          = .rule_names[calib_result$convergen",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-25T15:24:50.225Z"
+    },
+    {
+      "id": "bug-090",
+      "timestamp": "2026-04-25T15:24:58.568Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/convergence-redesign/R/harvest.R",
+      "root_cause": "Condition was: if (explicit_pct && is.null(convergence[[\"rule\"]])",
+      "fix": "Changed to: if (!rule_explicit && explicit_pct)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:24:58.568Z"
+    },
+    {
+      "id": "bug-091",
+      "timestamp": "2026-04-25T15:28:03.464Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/ieppa.cpp",
+      "root_cause": "40 lines replaced/restructured",
+      "fix": "Rewrote 45→12 lines (40 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:28:03.464Z"
+    },
+    {
+      "id": "bug-092",
+      "timestamp": "2026-04-25T15:28:43.557Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/raking.cpp",
+      "root_cause": "35 lines replaced/restructured",
+      "fix": "Rewrote 40→12 lines (35 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:28:43.557Z"
+    },
+    {
+      "id": "bug-093",
+      "timestamp": "2026-04-25T15:29:04.437Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/lbfgsb_solver.cpp",
+      "root_cause": "10 lines replaced/restructured",
+      "fix": "Rewrote 10→5 lines (10 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:29:04.437Z"
+    },
+    {
+      "id": "bug-094",
+      "timestamp": "2026-04-25T15:31:17.073Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/convergence-redesign/src/r_bridge.cpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 10→5 lines (6 removed) | Also: res_l1_weight_change = res.l1_weight_change;; res_grake_norm       = res.grake_norm;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-25T15:31:35.778Z"
+    },
+    {
+      "id": "bug-095",
+      "timestamp": "2026-04-25T15:42:23.708Z",
+      "error_message": "Incorrect value in code",
+      "file": "tests/testthat/test-bench-gate.R",
+      "root_cause": "Had \"must converge with default max_err+improvement cr",
+      "fix": "Changed to \"status: must converge with default max_err+improv",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T15:42:23.708Z"
+    },
+    {
+      "id": "bug-096",
+      "timestamp": "2026-04-25T16:03:17.867Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 12→33 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T16:03:17.867Z"
+    },
+    {
+      "id": "bug-097",
+      "timestamp": "2026-04-25T16:03:41.267Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/raking.cpp",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 13→16 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T16:03:41.267Z"
+    },
+    {
+      "id": "bug-098",
+      "timestamp": "2026-04-25T16:59:08.758Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 8→4 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T16:59:08.758Z"
+    },
+    {
+      "id": "bug-099",
+      "timestamp": "2026-04-25T16:59:17.056Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/raking.cpp",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 5→3 lines (3 removed) | Also: // Force full metrics when convergence is about to; (metric == lbw::CalibMetric::MAX_ERR &&",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-25T16:59:29.373Z"
+    },
+    {
+      "id": "bug-100",
+      "timestamp": "2026-04-25T20:04:01.046Z",
+      "error_message": "Wrong operator: || should be !=",
+      "file": "docs/superpowers/plans/2026-04-25-best-iter-active-metric.md",
+      "root_cause": "Used \"||\" instead of \"!=\"",
+      "fix": "Changed operator || → !=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T20:04:01.046Z"
+    },
+    {
+      "id": "bug-101",
+      "timestamp": "2026-04-25T20:04:51.699Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-25-best-iter-active-metric.md",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 16→42 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T20:04:51.699Z"
+    },
+    {
+      "id": "bug-102",
+      "timestamp": "2026-04-25T20:07:23.909Z",
+      "error_message": "Wrong condition in logic",
+      "file": "src/ieppa.cpp",
+      "root_cause": "Condition was: if (std::isfinite(best_errRp_seen)",
+      "fix": "Changed to: if (std::isfinite(best_metric_seen)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T20:07:23.909Z"
+    },
+    {
+      "id": "bug-103",
+      "timestamp": "2026-04-25T20:07:44.689Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/raking.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 6→9 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T20:07:44.689Z"
+    },
+    {
+      "id": "bug-104",
+      "timestamp": "2026-04-25T20:08:01.901Z",
+      "error_message": "Wrong condition in logic",
+      "file": "src/raking.cpp",
+      "root_cause": "Condition was: if (std::isfinite(best_errRp_seen)",
+      "fix": "Changed to: if (std::isfinite(best_metric_seen)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T20:08:01.901Z"
+    },
+    {
+      "id": "bug-105",
+      "timestamp": "2026-04-25T20:09:26.440Z",
+      "error_message": "Significant refactor of ",
+      "file": "tests/testthat/test-best-iterate.R",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 24→34 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T20:09:26.440Z"
+    },
+    {
+      "id": "bug-106",
+      "timestamp": "2026-04-25T21:17:56.909Z",
+      "error_message": "Missing guard clause",
+      "file": "docs/superpowers/specs/2026-04-25-calibration-solvers-design.md",
+      "root_cause": "No early return/throw for edge case: n_cats_total > kNCatsTotalMax",
+      "fix": "Added guard clause: if (n_cats_total > kNCatsTotalMax)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-25T21:19:01.012Z"
+    },
+    {
+      "id": "bug-107",
+      "timestamp": "2026-04-25T21:18:18.358Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/specs/2026-04-25-calibration-solvers-design.md",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 15→26 lines (5 removed) | Also: The IPM normal equations for this LP have the stru; where N_eff = A × D_X × Aᵀ + δ_component | Also: **A5 (raking speedup):** `method=\"raking\"` on step; **A6 (hard bounds all methods):** All methods: `al | Also: 2. Compute N_eff = A × D_X × Aᵀ: O(M_cell × K); 3. Cholesky factor N_eff (836×836): O(836³/3)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-25T21:23:22.128Z"
+    },
+    {
+      "id": "bug-108",
+      "timestamp": "2026-04-25T21:23:45.096Z",
+      "error_message": "Wrong return value",
+      "file": "docs/superpowers/specs/2026-04-25-calibration-solvers-design.md",
+      "root_cause": "Was returning: `RK_ERR_INFEAS` (existing code = 2) when the probl",
+      "fix": "Now returns: `RK_ERR_INFEAS` (existing code = 2) when the probl",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T21:23:45.096Z"
+    },
+    {
+      "id": "bug-109",
+      "timestamp": "2026-04-25T21:38:04.806Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-25-calibration-solvers-A-infrastructure.md",
+      "root_cause": "11 lines replaced/restructured",
+      "fix": "Rewrote 22→37 lines (11 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T21:38:04.806Z"
+    },
+    {
+      "id": "bug-110",
+      "timestamp": "2026-04-25T21:41:48.141Z",
+      "error_message": "Wrong condition in logic",
+      "file": "docs/superpowers/plans/2026-04-25-calibration-solvers-A-infrastructure.md",
+      "root_cause": "Condition was: if (method_str == \"ieppa\" && is.null(convergence[[\"met)",
+      "fix": "Changed to: if (method == \"ieppa\" && is.null(convergence[[\"metric\")",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T21:41:48.141Z"
+    },
+    {
+      "id": "bug-111",
+      "timestamp": "2026-04-25T21:49:13.301Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-25-calibration-solvers-A-infrastructure.md",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 4→11 lines (2 removed) | Also: - [ ] **Step 2.1: Write failing test (validation)*; Append to `tests/testthat/test-calibration-solvers | Also: - [ ] **Step 4.3: Write A1 test (will FAIL until P; test_that(\"A1: sinkhorn KL <= ieppa KL at best_ite",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-25T21:50:33.970Z"
+    },
+    {
+      "id": "bug-112",
+      "timestamp": "2026-04-25T21:56:11.958Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/cal-solvers-a/src/c_api.cpp",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 4→6 lines (3 removed) | Also: case RK_ALG_LBFGSB: alg = RK_ALG_LBFGSB; break;; case RK_ALG_RAKING: alg = RK_ALG_RAKING; break;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-25T21:56:19.465Z"
+    },
+    {
+      "id": "bug-113",
+      "timestamp": "2026-04-25T21:56:43.675Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/cal-solvers-a/src/ieppa.cpp",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 6→8 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T21:56:43.675Z"
+    },
+    {
+      "id": "bug-114",
+      "timestamp": "2026-04-25T21:57:53.353Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/cal-solvers-a/src/r_bridge.cpp",
+      "root_cause": "7 lines replaced/restructured",
+      "fix": "Rewrote 19→23 lines (7 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T21:57:53.353Z"
+    },
+    {
+      "id": "bug-115",
+      "timestamp": "2026-04-25T21:58:36.686Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/cal-solvers-a/R/harvest.R",
+      "root_cause": "8 lines replaced/restructured",
+      "fix": "Rewrote 10→14 lines (8 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T21:58:36.686Z"
+    },
+    {
+      "id": "bug-116",
+      "timestamp": "2026-04-25T23:16:01.191Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/chores/R/harvest.R",
+      "root_cause": "Had \"ieppa\"",
+      "fix": "Changed to \"auto\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T23:16:01.191Z"
+    },
+    {
+      "id": "bug-117",
+      "timestamp": "2026-04-25T23:16:27.410Z",
+      "error_message": "Missing guard clause",
+      "file": ".worktrees/chores/src/cell_table.cpp",
+      "root_cause": "No early return/throw for edge case: K <= 0 || n <= 0",
+      "fix": "Added guard clause: if (K <= 0 || n <= 0)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-25T23:16:27.410Z"
+    },
+    {
+      "id": "bug-118",
+      "timestamp": "2026-04-25T23:16:34.368Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/chores/src/c_api.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→12 lines (2 removed) | Also: #include \"ieppa.hpp\"   // faithful (new); #include \"raking.hpp\"  // renamed hybrid",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-25T23:16:51.003Z"
+    },
+    {
+      "id": "bug-119",
+      "timestamp": "2026-04-25T23:41:31.427Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-26-critical-review-fixes.md",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 14→24 lines (5 removed) | Also: ### Step 2.9: Commit B — algorithm_used on BADARG ; result->algorithm_used = algorithm before returnin",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-25T23:42:48.008Z"
+    },
+    {
+      "id": "bug-120",
+      "timestamp": "2026-04-26T00:55:53.676Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/review-fixes2/R/harvest.R",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 22→12 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T00:55:53.676Z"
+    },
+    {
+      "id": "bug-121",
+      "timestamp": "2026-04-26T09:01:18.081Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/sinkhorn/tests/testthat/test-calibration-solvers.R",
+      "root_cause": "Had \"sinkhorn\"",
+      "fix": "Changed to \"chebyshev\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T09:01:18.081Z"
+    },
+    {
+      "id": "bug-122",
+      "timestamp": "2026-04-26T09:03:01.508Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/sinkhorn/src/c_api.cpp",
+      "root_cause": "Had \"cell_table.hpp\"",
+      "fix": "Changed to \"sinkhorn.hpp\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T09:03:01.508Z"
+    },
+    {
+      "id": "bug-123",
+      "timestamp": "2026-04-26T09:03:24.888Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/sinkhorn/src/r_bridge.cpp",
+      "root_cause": "Had \"lbfgsb_solver.hpp\"",
+      "fix": "Changed to \"sinkhorn.hpp\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T09:03:24.888Z"
+    },
+    {
+      "id": "bug-124",
+      "timestamp": "2026-04-26T09:03:45.900Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/sinkhorn/src/r_bridge.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 3→4 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T09:03:45.900Z"
+    },
+    {
+      "id": "bug-125",
+      "timestamp": "2026-04-26T09:04:13.328Z",
+      "error_message": "Wrong reference: static_cast should be alg",
+      "file": ".worktrees/sinkhorn/src/c_api.cpp",
+      "root_cause": "Used \"static_cast\" instead of \"alg\"",
+      "fix": "Changed static_cast → alg",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T09:04:13.328Z"
+    },
+    {
+      "id": "bug-126",
+      "timestamp": "2026-04-26T10:13:36.910Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-26-sinkhorn-correctness-fixes.md",
+      "root_cause": "Had \"sinkhorn KL <= raking KL (sinkhorn is the true KL",
+      "fix": "Changed to \"sinkhorn KL <= raking KL (sinkhorn is a KL minimi",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T10:13:36.910Z"
+    },
+    {
+      "id": "bug-127",
+      "timestamp": "2026-04-26T10:18:08.387Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/sinkhorn-fixes/src/sinkhorn.cpp",
+      "root_cause": "Condition was: if (!bisect_capacity(X, a, L_cell, U_cell, ct.M_cell, )",
+      "fix": "Changed to: if (X[c] < L_cell[c] - 1e-12 || X[c] > U_cell[c] + 1e-)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T10:18:08.387Z"
+    },
+    {
+      "id": "bug-128",
+      "timestamp": "2026-04-26T10:31:14.980Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-26-calibration-solvers-D-greg.md",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 9→32 lines (6 removed) | Also: // b[k][j] = T_kj * n - Σ_{c∈bucket(k,j)} X[c]   (; for (int c = 0; c < ct.M_cell; c++) W += X[c];",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T10:31:25.520Z"
+    },
+    {
+      "id": "bug-129",
+      "timestamp": "2026-04-26T10:36:29.274Z",
+      "error_message": "Wrong operator: == should be >=",
+      "file": "docs/superpowers/plans/2026-04-26-calibration-solvers-D-greg.md",
+      "root_cause": "Used \"==\" instead of \">=\"",
+      "fix": "Changed operator == → >=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T10:36:53.084Z"
+    },
+    {
+      "id": "bug-130",
+      "timestamp": "2026-04-26T10:50:01.606Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/greg/tests/testthat/test-calibration-solvers.R",
+      "root_cause": "Had \"greg\"",
+      "fix": "Changed to \"grake\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T10:50:01.606Z"
+    },
+    {
+      "id": "bug-131",
+      "timestamp": "2026-04-26T10:52:57.362Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/greg/src/r_bridge.cpp",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 4→5 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T10:52:57.362Z"
+    },
+    {
+      "id": "bug-132",
+      "timestamp": "2026-04-26T10:53:47.986Z",
+      "error_message": "Wrong reference: static_cast should be alg",
+      "file": ".worktrees/greg/src/c_api.cpp",
+      "root_cause": "Used \"static_cast\" instead of \"alg\"",
+      "fix": "Changed static_cast → alg",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T10:53:47.986Z"
+    },
+    {
+      "id": "bug-133",
+      "timestamp": "2026-04-26T11:16:58.372Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-26-calibration-solvers-E-chebyshev-grake.md",
+      "root_cause": "7 lines replaced/restructured",
+      "fix": "Rewrote 7→14 lines (7 removed) | Also: **δ Sherman-Morrison update:**; The δ variable couples all margin constraints. Let",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T11:17:10.771Z"
+    },
+    {
+      "id": "bug-134",
+      "timestamp": "2026-04-26T11:47:22.732Z",
+      "error_message": "Wrong condition in logic",
+      "file": "docs/superpowers/plans/2026-04-26-calibration-solvers-E-chebyshev-grake.md",
+      "root_cause": "Condition was: if (mu < kTolMu)",
+      "fix": "Changed to: if (mu < kTolMu && max_primal / n_d < kTolFeas)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T11:47:22.732Z"
+    },
+    {
+      "id": "bug-135",
+      "timestamp": "2026-04-26T11:48:13.218Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-26-calibration-solvers-E-chebyshev-grake.md",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 12→18 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T11:48:13.218Z"
+    },
+    {
+      "id": "bug-136",
+      "timestamp": "2026-04-26T11:57:49.402Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-26-calibration-solvers-E-chebyshev-grake.md",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 8→12 lines (4 removed) | Also: // Convergence: δ stops improving (same improvemen; // δ* may be > 0 when bounds are active — never ch | Also: ## Task 2 — T1a update; **Ticket + step:** Remove \"chebyshev\" and \"grake\"  | Also: // select_metric picks the active metric (max_err ; // apply_rule tracks improvement/plateau; threshol",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-26T12:03:03.117Z"
+    },
+    {
+      "id": "bug-137",
+      "timestamp": "2026-04-26T12:01:25.130Z",
+      "error_message": "Incorrect value in code",
+      "file": "docs/superpowers/plans/2026-04-26-calibration-solvers-E-chebyshev-grake.md",
+      "root_cause": "Had `|δ_new − δ_old| / δ_old < 1e-8`",
+      "fix": "Changed to `st.convergence_cfg`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T12:01:25.130Z"
+    },
+    {
+      "id": "bug-138",
+      "timestamp": "2026-04-26T12:18:30.738Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/chebyshev/src/r_bridge.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 7→9 lines (5 removed) | Also: const char* alg_name = (res_alg_used == (int)RK_AL; : (res_alg_used == (int)RK_ALG_RAKING)            ",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T12:18:50.276Z"
+    },
+    {
+      "id": "bug-139",
+      "timestamp": "2026-04-26T12:23:36.084Z",
+      "error_message": "Incorrect value in code",
+      "file": ".worktrees/chebyshev/tests/testthat/test-calibration-solvers.R",
+      "root_cause": "Had \"algorithm_used must be RK_ALG_CHEBYSHEV (6)\"",
+      "fix": "Changed to \"algorithm_used must be RK_ALG_CHEBYSHEV (5)\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T12:23:36.084Z"
+    },
+    {
+      "id": "bug-140",
+      "timestamp": "2026-04-26T12:26:18.411Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/chebyshev/src/chebyshev.cpp",
+      "root_cause": "Condition was: if (converged)",
+      "fix": "Changed to: if (converged && iter >= kMinIpmIters)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T12:26:18.411Z"
+    },
+    {
+      "id": "bug-141",
+      "timestamp": "2026-04-26T12:44:13.161Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/cheb-simplify/src/c_api.cpp",
+      "root_cause": "41 lines replaced/restructured",
+      "fix": "Rewrote 47→29 lines (41 removed) | Also: } else if (alg == RK_ALG_CHEBYSHEV) {; auto cres = lbw::chebyshev_ipm(st, lbw::LpVariant:",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T12:46:13.711Z"
+    },
+    {
+      "id": "bug-142",
+      "timestamp": "2026-04-26T12:44:29.839Z",
+      "error_message": "Wrong reference: static_cast should be a",
+      "file": ".worktrees/cheb-simplify/src/c_api.cpp",
+      "root_cause": "Used \"static_cast\" instead of \"a\"",
+      "fix": "Changed static_cast → a",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T12:44:29.839Z"
+    },
+    {
+      "id": "bug-143",
+      "timestamp": "2026-04-26T12:47:58.662Z",
+      "error_message": "Wrong reference: kMetricEps2 should be kMetricEps",
+      "file": ".worktrees/cheb-simplify/src/chebyshev.cpp",
+      "root_cause": "Used \"kMetricEps2\" instead of \"kMetricEps\"",
+      "fix": "Changed kMetricEps2 → kMetricEps",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T12:48:00.973Z"
+    },
+    {
+      "id": "bug-144",
+      "timestamp": "2026-04-26T13:07:13.321Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/nu-fix/tests/testthat/test-calibration-solvers.R",
+      "root_cause": "13 lines replaced/restructured",
+      "fix": "Rewrote 24→19 lines (13 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T13:07:13.321Z"
+    },
+    {
+      "id": "bug-145",
+      "timestamp": "2026-04-26T13:42:15.609Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/nu-fix/src/chebyshev.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 7→8 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T13:42:15.609Z"
+    },
+    {
+      "id": "bug-146",
+      "timestamp": "2026-04-26T13:59:55.633Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/nu-fix/src/chebyshev.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→7 lines (2 removed) | Also: // Compute ΔS from ΔX in O(K*M_cell); dS_up[m] = w_kj[m]*d_delta - delta_S[m];   // Δs_u | Also: // Compute ΔS and ΔW from ΔX in O(K*M_cell); double dW = 0.0;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T14:03:48.442Z"
+    },
+    {
+      "id": "bug-147",
+      "timestamp": "2026-04-26T14:20:40.599Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/nu-fix/src/chebyshev.cpp",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 17→41 lines (3 removed) | Also: // Compute ΔS from ΔX in O(K*M_cell); dS_up[m] = w_kj[m]*d_delta - delta_S[m];   // Δs_u | Also: // ΔX[c] = D_eff[c] * Σ_k Δλ[m_k]; std::fill(dX.begin(), dX.end(), 0.0);",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T14:21:16.864Z"
+    },
+    {
+      "id": "bug-148",
+      "timestamp": "2026-04-26T14:29:00.954Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/nu-fix/src/chebyshev.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→13 lines (2 removed) | Also: // rhs[m] = -(S[m]-Tgt[m])  +  D_marg[m]*( rmu_up/; rhs_v[m] = -(S[m]-Tgt[m])",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T14:29:15.037Z"
+    },
+    {
+      "id": "bug-149",
+      "timestamp": "2026-04-26T16:05:50.647Z",
+      "error_message": "Significant refactor of ",
+      "file": ".worktrees/nu-fix/src/chebyshev.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→7 lines (2 removed) | Also: // Initial delta: strictly above current max viola; delta = std::max(delta, std::fabs(S[m]-Tgt[m]) / w",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T16:05:58.220Z"
+    },
+    {
+      "id": "bug-150",
+      "timestamp": "2026-04-26T16:11:18.973Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/nu-fix/src/chebyshev.cpp",
+      "root_cause": "Condition was: if (converged && iter >= kMinIpmIters)",
+      "fix": "Changed to: if (converged)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T16:11:18.973Z"
+    },
+    {
+      "id": "bug-151",
+      "timestamp": "2026-04-26T16:22:55.458Z",
+      "error_message": "Significant refactor of ",
+      "file": "python/leafblower/_harvest.py",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 7→12 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T16:22:55.458Z"
+    },
+    {
+      "id": "bug-152",
+      "timestamp": "2026-04-26T16:25:08.805Z",
+      "error_message": "Wrong reference: kwargs should be _kwargs",
+      "file": "python/leafblower/_harvest.py",
+      "root_cause": "Used \"kwargs\" instead of \"_kwargs\"",
+      "fix": "Changed kwargs → _kwargs",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T16:25:08.805Z"
+    },
+    {
+      "id": "bug-153",
+      "timestamp": "2026-04-26T17:00:26.840Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/sinkhorn.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 8→4 lines (5 removed) | Also: const auto& cfg = st.convergence_cfg;; const double curr_metric = lbw::select_metric( | Also: double errRp = 0.0, mean_err_sum = 0.0, kl_max = 0; double chi2_total = 0.0, grake_norm = 0.0;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T17:06:30.007Z"
+    },
+    {
+      "id": "bug-154",
+      "timestamp": "2026-04-26T17:00:38.421Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/raking.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 7→3 lines (5 removed) | Also: // Convergence dispatch (identical to obs-level); {",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T17:04:11.313Z"
+    },
+    {
+      "id": "bug-155",
+      "timestamp": "2026-04-26T17:00:50.415Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/greg.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 7→3 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T17:00:50.415Z"
+    },
+    {
+      "id": "bug-156",
+      "timestamp": "2026-04-26T17:04:00.742Z",
+      "error_message": "Missing guard clause",
+      "file": "src/calib_dispatch.hpp",
+      "root_cause": "No early return/throw for edge case: have_pct && have_abs",
+      "fix": "Added guard clause: if (have_pct && have_abs)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T17:04:00.742Z"
+    },
+    {
+      "id": "bug-157",
+      "timestamp": "2026-04-26T17:06:59.514Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/greg.cpp",
+      "root_cause": "27 lines replaced/restructured",
+      "fix": "Rewrote 33→11 lines (27 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T17:06:59.514Z"
+    },
+    {
+      "id": "bug-158",
+      "timestamp": "2026-04-26T17:07:38.000Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "26 lines replaced/restructured",
+      "fix": "Rewrote 27→5 lines (26 removed) | Also: double errRp2 = 0.0, mean_err_sum2 = 0.0, kl_max2 ; for (int k = 0; k < st.K; k++) {",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T17:07:48.400Z"
+    },
+    {
+      "id": "bug-159",
+      "timestamp": "2026-04-26T17:12:00.770Z",
+      "error_message": "Missing guard clause",
+      "file": "src/c_api.cpp",
+      "root_cause": "No early return/throw for edge case: !dst",
+      "fix": "Added guard clause: if (!dst)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T17:12:00.770Z"
+    },
+    {
+      "id": "bug-160",
+      "timestamp": "2026-04-26T17:12:05.429Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/c_api.cpp",
+      "root_cause": "20 lines replaced/restructured",
+      "fix": "Rewrote 23→4 lines (20 removed) | Also: if (result) {; result->status                       = gres.status | Also: // Shared packer for ChebyshevResult (used by CHEB; auto pack_cheb = [&](const lbw::ChebyshevResult& r",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T17:12:15.948Z"
+    },
+    {
+      "id": "bug-161",
+      "timestamp": "2026-04-26T17:41:43.676Z",
+      "error_message": "Missing guard clause",
+      "file": "src/c_api.cpp",
+      "root_cause": "No early return/throw for edge case: !dst",
+      "fix": "Added guard clause: if (!dst)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T17:41:43.676Z"
+    },
+    {
+      "id": "bug-162",
+      "timestamp": "2026-04-26T17:41:54.589Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/c_api.cpp",
+      "root_cause": "14 lines replaced/restructured",
+      "fix": "Rewrote 16→3 lines (14 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T17:41:54.589Z"
+    },
+    {
+      "id": "bug-163",
+      "timestamp": "2026-04-26T19:51:53.961Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/r_bridge.cpp",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 14→9 lines (5 removed) | Also: res_mean_error       = res.mean_error;; res_kl               = res.kl;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 4,
+      "last_seen": "2026-04-26T19:52:28.849Z"
+    },
+    {
+      "id": "bug-164",
+      "timestamp": "2026-04-26T19:55:00.738Z",
+      "error_message": "Wrong condition in logic",
+      "file": "src/raking.cpp",
+      "root_cause": "Condition was: if (lbw::check_convergence(st.convergence_cfg,\n       )",
+      "fix": "Changed to: if (lbw::check_convergence(st.convergence_cfg, m_conv,)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T19:55:00.738Z"
+    },
+    {
+      "id": "bug-165",
+      "timestamp": "2026-04-26T20:44:45.014Z",
+      "error_message": "Wrong condition in logic",
+      "file": ".worktrees/cheb-renorm/src/chebyshev.cpp",
+      "root_cause": "Condition was: if (delta < best_delta)",
+      "fix": "Changed to: if (W_cur > 1e-300 && std::fabs(W_cur / n_d - 1.0)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T20:44:45.014Z"
+    },
+    {
+      "id": "bug-166",
+      "timestamp": "2026-04-26T21:03:37.629Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/specs/2026-04-26-chebyshev-nu-reference-elimination.md",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 15→33 lines (4 removed) | Also: const double schur_nu   = D_nu - eTw_e;        // ; const double dnu        = (std::fabs(schur_nu) > 1 | Also: 1. **E1/E2 correctness tests** (existing) — must s; 2. **Synthetic K=2 test**: Compare chebyshev solut",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T21:04:09.837Z"
+    },
+    {
+      "id": "bug-167",
+      "timestamp": "2026-04-26T21:42:00.444Z",
+      "error_message": "Missing guard clause",
+      "file": "src/calib_linalg.cpp",
+      "root_cause": "No early return/throw for edge case: D[c] <= 0.0",
+      "fix": "Added guard clause: if (D[c] <= 0.0)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T21:42:00.444Z"
+    },
+    {
+      "id": "bug-168",
+      "timestamp": "2026-04-26T21:44:48.731Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 6→7 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T21:44:48.731Z"
+    },
+    {
+      "id": "bug-169",
+      "timestamp": "2026-04-26T21:46:26.308Z",
+      "error_message": "Missing guard clause",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "No early return/throw for edge case: g < 0 || g >= st.cat_counts[k]",
+      "fix": "Added guard clause: if (g < 0 || g >= st.cat_counts[k])",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T21:51:57.400Z"
+    },
+    {
+      "id": "bug-170",
+      "timestamp": "2026-04-26T22:05:11.087Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 7→11 lines (2 removed) | Also: // N_red = A_red * D_eff * A_red^T (reference marg; if (lbw::compute_normal_equations_reduced(ct, D_ef | Also: for (int nr = 0; nr < nct_red; nr++) u_red[nr] = w; // LDLT factor N_red (reduced, nct_red × nct_red)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-26T22:06:18.259Z"
+    },
+    {
+      "id": "bug-171",
+      "timestamp": "2026-04-26T22:06:54.601Z",
+      "error_message": "Wrong condition in logic",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "Condition was: if (compute_normal_equations(ct, D_eff.data()",
+      "fix": "Changed to: if (lbw::compute_normal_equations(ct, D_eff.data()",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T22:06:54.601Z"
+    },
+    {
+      "id": "bug-172",
+      "timestamp": "2026-04-26T22:26:29.029Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "41 lines replaced/restructured",
+      "fix": "Rewrote 83→37 lines (41 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T22:26:29.029Z"
+    },
+    {
+      "id": "bug-173",
+      "timestamp": "2026-04-26T22:35:49.188Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "11 lines replaced/restructured",
+      "fix": "Rewrote 37→53 lines (11 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T22:35:49.188Z"
+    },
+    {
+      "id": "bug-174",
+      "timestamp": "2026-04-26T22:38:06.289Z",
+      "error_message": "Significant refactor of ",
+      "file": "tests/testthat/test-calib-linalg.R",
+      "root_cause": "10 lines replaced/restructured",
+      "fix": "Rewrote 16→9 lines (10 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T22:38:06.289Z"
+    },
+    {
+      "id": "bug-175",
+      "timestamp": "2026-04-26T22:49:36.405Z",
+      "error_message": "Incorrect value in code",
+      "file": "python/leafblower/_harvest.py",
+      "root_cause": "Had \"ieppa\"",
+      "fix": "Changed to \"raking\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T22:49:36.405Z"
+    },
+    {
+      "id": "bug-176",
+      "timestamp": "2026-04-26T22:49:43.719Z",
+      "error_message": "Significant refactor of ",
+      "file": "R/harvest.R",
+      "root_cause": "11 lines replaced/restructured",
+      "fix": "Rewrote 11→6 lines (11 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T22:49:43.719Z"
+    },
+    {
+      "id": "bug-177",
+      "timestamp": "2026-04-26T23:10:41.140Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "18 lines replaced/restructured",
+      "fix": "Rewrote 19→11 lines (18 removed) | Also: // about_to_converge: peek at whether the stopping; // so we can force full metric computation before ",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-26T23:14:23.771Z"
+    },
+    {
+      "id": "bug-178",
+      "timestamp": "2026-04-26T23:14:36.741Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/raking.cpp",
+      "root_cause": "10 lines replaced/restructured",
+      "fix": "Rewrote 15→6 lines (10 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T23:14:36.741Z"
+    },
+    {
+      "id": "bug-179",
+      "timestamp": "2026-04-26T23:22:19.696Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "42 lines replaced/restructured",
+      "fix": "Rewrote 52→14 lines (42 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-26T23:22:19.696Z"
+    },
+    {
+      "id": "bug-180",
+      "timestamp": "2026-04-27T07:57:00.484Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/specs/2026-04-27-ieppa-linear-overflow-fix.md",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 9→13 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T07:57:00.484Z"
+    },
+    {
+      "id": "bug-181",
+      "timestamp": "2026-04-27T07:57:11.095Z",
+      "error_message": "Missing error handling in unknown",
+      "file": "docs/superpowers/specs/2026-04-27-ieppa-linear-overflow-fix.md",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T07:57:11.095Z"
+    },
+    {
+      "id": "bug-182",
+      "timestamp": "2026-04-27T08:08:27.229Z",
+      "error_message": "Significant refactor of ",
+      "file": "docs/superpowers/plans/2026-04-27-ieppa-overflow-fix.md",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 11→29 lines (3 removed) | Also: # Math: kLinearOverflowTrip ≈ (DBL_MAX/2)^(1/20) ≈; # f_lin for high-target category grows as 1.5x/ite",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-27T08:10:17.188Z"
+    },
+    {
+      "id": "bug-183",
+      "timestamp": "2026-04-27T08:10:23.866Z",
+      "error_message": "Wrong reference: 100 should be 150",
+      "file": "docs/superpowers/plans/2026-04-27-ieppa-overflow-fix.md",
+      "root_cause": "Used \"100\" instead of \"150\"",
+      "fix": "Changed 100 → 150",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T08:10:23.866Z"
+    },
+    {
+      "id": "bug-184",
+      "timestamp": "2026-04-27T09:03:08.849Z",
+      "error_message": "Missing guard clause",
+      "file": "src/ieppa.cpp",
+      "root_cause": "No early return/throw for edge case: !overflow_trip",
+      "fix": "Added guard clause: if (!overflow_trip)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-27T09:04:05.682Z"
+    },
+    {
+      "id": "bug-185",
+      "timestamp": "2026-04-27T09:09:05.891Z",
+      "error_message": "Wrong operator: == should be <=",
+      "file": "src/ieppa.cpp",
+      "root_cause": "Used \"==\" instead of \"<=\"",
+      "fix": "Changed operator == → <=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T09:09:05.891Z"
+    },
+    {
+      "id": "bug-186",
+      "timestamp": "2026-04-27T09:10:05.469Z",
+      "error_message": "Wrong condition in logic",
+      "file": "src/ieppa.cpp",
+      "root_cause": "Condition was: if (iter >= 40 && iter <= 65)",
+      "fix": "Changed to: if (iter >= 40 && iter <= 80)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T09:10:05.469Z"
+    },
+    {
+      "id": "bug-187",
+      "timestamp": "2026-04-27T09:12:02.187Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→12 lines (2 removed) | Also: // Compute the f_lin product for this cell to unde; double flin_prod = 1.0;",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-27T09:13:24.229Z"
+    },
+    {
+      "id": "bug-188",
+      "timestamp": "2026-04-27T09:15:18.329Z",
+      "error_message": "Missing guard clause",
+      "file": "src/ieppa.cpp",
+      "root_cause": "No early return/throw for edge case: use_linear && !overflow_trip",
+      "fix": "Added guard clause: if (use_linear && !overflow_trip)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T09:15:18.329Z"
+    },
+    {
+      "id": "bug-189",
+      "timestamp": "2026-04-27T09:53:13.705Z",
+      "error_message": "Missing guard clause",
+      "file": "src/ieppa.cpp",
+      "root_cause": "No early return/throw for edge case: use_linear && !overflow_trip",
+      "fix": "Added guard clause: if (use_linear && !overflow_trip)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T09:53:13.705Z"
+    },
+    {
+      "id": "bug-190",
+      "timestamp": "2026-04-27T10:00:23.072Z",
+      "error_message": "Missing guard clause",
+      "file": "src/ieppa.cpp",
+      "root_cause": "No early return/throw for edge case: apply_single_margin_linear(k",
+      "fix": "Added guard clause: if (apply_single_margin_linear(k)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T10:00:23.072Z"
+    },
+    {
+      "id": "bug-191",
+      "timestamp": "2026-04-27T10:08:47.807Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "13 lines replaced/restructured",
+      "fix": "Rewrote 16→3 lines (13 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T10:08:47.807Z"
+    },
+    {
+      "id": "bug-192",
+      "timestamp": "2026-04-27T10:18:36.154Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 11→18 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T10:18:36.154Z"
+    },
+    {
+      "id": "bug-193",
+      "timestamp": "2026-04-27T10:26:21.940Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 12→5 lines (6 removed) | Also: if (st.verbose >= 2) {; char dmsg[256]; | Also: if (st.verbose >= 2) {; // Find which margin categories this cell belongs ",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-04-27T10:26:33.141Z"
+    },
+    {
+      "id": "bug-194",
+      "timestamp": "2026-04-27T12:03:36.167Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "42 lines replaced/restructured",
+      "fix": "Rewrote 57→3 lines (42 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T12:03:36.167Z"
+    },
+    {
+      "id": "bug-195",
+      "timestamp": "2026-04-27T12:08:24.811Z",
+      "error_message": "Wrong condition in logic",
+      "file": "src/ieppa.cpp",
+      "root_cause": "Condition was: if (overflow_trip && !linear_fallback_used)",
+      "fix": "Changed to: if (!overflow_trip && cell_lf_hwm >= std::log(kLinearO)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-04-27T12:08:24.811Z"
+    },
+    {
+      "id": "bug-196",
+      "timestamp": "2026-04-27T12:36:24.057Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 9→14 lines (6 removed) | Also: // lf changed only at k_star, so X_tilde multiplie; // per cell — simpler to recompute X_tilde fully (",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-04-27T12:36:34.501Z"
+    }
+  ]
+}
