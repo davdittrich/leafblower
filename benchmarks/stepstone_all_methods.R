@@ -115,3 +115,37 @@ for (nm in c("raking","sinkhorn","grake","greg","cheby","autumn")) {
   rv <- get(paste0("r_", nm))
   cat(sprintf("  ieppa ↔ %-10s  r=%.6f\n", nm, cor(r_ieppa$w, rv$w)))
 }
+
+cat("\n=== Python IPF implementations ===\n")
+cat("Note: Python methods have NO max_weight/min_weight bounds.\n")
+cat("ipfn: DataFrame mode on unique cells (K=9, n=1.58M).\n")
+cat("aequilibrae: 2D subset only (rk_gender x rk_time).\n\n")
+
+py_json <- tryCatch({
+  py_out <- system(
+    "OMP_NUM_THREADS=1 python3 benchmarks/python_ipf_benchmark.py 2>/dev/null",
+    intern = TRUE)
+  if (length(py_out) == 0L) stop("no output")
+  jsonlite::fromJSON(paste(py_out, collapse = "\n"))
+}, error = function(e) {
+  cat(sprintf("Python benchmark failed: %s\n", conditionMessage(e)))
+  NULL
+})
+
+if (!is.null(py_json)) {
+  for (i in seq_len(nrow(py_json))) {
+    r <- py_json[i, ]
+    note <- if (!is.null(r$note) && !is.na(r$note))
+      sprintf("  [%s]", r$note) else ""
+    cat(sprintf(
+      "%-26s  wall=%6.1fs  iters=%4s  status=%d  max_err=%.4e  marg_kl=%.3e  weight_kl=%s  DEFF=%.4f  ESS=%s  wmin=%.3f  wmax=%.3f%s\n",
+      r$method, r$wall,
+      ifelse(is.na(r$iters), "  —", as.character(r$iters)),
+      r$status, r$max_err, r$marg_kl,
+      ifelse(is.na(r$weight_kl) | is.nan(r$weight_kl), "       —",
+             sprintf("%.3e", r$weight_kl)),
+      r$DEFF,
+      format(round(r$ESS), big.mark = ","),
+      r$wmin, r$wmax, note))
+  }
+}
