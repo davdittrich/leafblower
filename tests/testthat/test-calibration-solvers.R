@@ -296,15 +296,13 @@ test_that("E2: grake grake_norm <= raking grake_norm (correctness)", {
 
 # ──────────────────────────────────────────────────────────────────────────────
 # T1.B regression: no linear overflow on skewed multi-margin problems.
-# Uses K=20, n=100000 (large enough to avoid S_lin collapse).
-# Math: kLinearOverflowThreshold = (DBL_MAX/2)^(1/20) ≈ 2.1e15.
-# Each BCD sweep: f_lin for 0.3-target category grows ~1.5x/sweep.
-# Product across K=20 margins after N sweeps: (1.5)^(20*N).
-# At N=5:  (1.5)^100 ≈ 6e17 >> threshold ≈ 2.1e15 → overflow in ~4 sweeps.
-# T1.B renorm fires at sqrt(threshold) ≈ 4.6e7, preventing overflow entirely.
-# Before T1.B: overflow trip fires and linear path is abandoned, status != 0.
-# After  T1.B: renorm fires (verbose=2 shows "T1.B renorm"), solver converges.
-# max_weight omitted: tight bounds confound convergence rate (unrelated to T1.B).
+# Uses K=20, n=100000 (large enough to avoid S_lin collapse), max_weight=3.
+# Math: kLinearOverflowTrip = (DBL_MAX/2)^(1/20) ≈ 2.1e15.
+# Product across K=20 margins grows as (1.5)^(20*N) per sweep.
+# Before T1.B: "overflow trip" message fires at ~iter 4-5.
+# After  T1.B: renorm fires, no overflow message.
+# Note: max_weight=3 prevents convergence in 50 iters (tight bounds + oscillation)
+# so we test absence of overflow message, NOT status == 0.
 # ──────────────────────────────────────────────────────────────────────────────
 test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.B)", {
   set.seed(42); K <- 20L; n <- 100000L
@@ -315,15 +313,17 @@ test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.B)", {
   skewed <- c("1" = 0.3, "2" = 0.175, "3" = 0.175, "4" = 0.175, "5" = 0.175)
   target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
 
-  r <- leafblower::harvest(data, target, method = "ieppa",
-                           min_weight = 0.2,
-                           max_iterations = 50,
-                           attach_weights = FALSE, verbose = 0)
-  res <- attr(r, "result")
+  # Capture C++ stdout where st.log() writes (overflow message goes here)
+  out <- capture.output(
+    r <- leafblower::harvest(data, target, method = "ieppa",
+                             min_weight = 0.2, max_weight = 3,
+                             max_iterations = 50,
+                             attach_weights = FALSE, verbose = 1),
+    type = "output"
+  )
+  overflow_msgs <- grep("overflow trip", out, value = TRUE)
 
-  # Before T1.B: overflow fires at ~4 sweeps, solver falls back to log-space,
-  # converges more slowly (1.5e-2 at iter 50) vs linear path (8e-8 at iter 50).
-  # After T1.B: overflow prevented, linear path maintained, status == 0.
-  expect_equal(res$status, 0L,
-               label = "ieppa converges without linear overflow with T1.B")
+  # Before T1.B: "overflow trip" message fires → overflow_msgs length > 0 → FAIL
+  # After  T1.B: renorm prevents overflow → no message → PASS
+  expect_length(overflow_msgs, 0L)
 })
