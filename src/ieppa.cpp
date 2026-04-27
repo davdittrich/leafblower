@@ -136,7 +136,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     // Per-cell capacity multiplier (linear-space).
     std::vector<double> W(ct.M_cell, 1.0);
-    std::vector<double> X_tilde(ct.M_cell);
+    std::vector<double> X_tilde;  // deferred: allocated at first log-path/fallback use
     std::vector<double> X(ct.M_cell);
     // T1.B: per-cell log-product shadow. cell_lf[c] = Σ_k lf[k][g_k(c)].
     // Reuses lf[] (line 135) as log(f_lin) in the linear path.
@@ -660,6 +660,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(f_lin.begin(), f_lin.end(), 1.0);
                 std::fill(X_cur.begin(), X_cur.end(), 0.0);
                 std::fill(W.begin(), W.end(), 1.0);
+                if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
                 for (int c = 0; c < ct.M_cell; c++) {
                     X_tilde[c] = X_init[c];
                     X[c] = X_init[c];
@@ -683,6 +684,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // probe; rebuild it cheaply (residual-only; no capacity side-effect).
             if (use_greedy) {
                 // Rebuild X_tilde from current lf for residual scoring.
+                if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
                 for (int c = 0; c < ct.M_cell; c++) {
                     if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
                     double s = log_X_init[c];
@@ -787,6 +789,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // Log-path: X_tilde + capacity + X_cur unchanged from current implementation.
             bool overflow_detected = false;
             double max_log_X_tilde = -std::numeric_limits<double>::infinity();
+            if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
                 double s = log_X_init[c];
