@@ -61,7 +61,7 @@ test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
     message="Plan C must implement method='sinkhorn' to reach this point"
   )
   r_s <- attr(w_s, "result")
-  expect_lte(r_s$convergence_used$objective, ref$kl_at_best_iter,
+  expect_lte(attr(w_s, "result")$convergence_used$solver_objective, ref$kl_at_best_iter,
              label="sinkhorn KL <= ieppa best_iter KL")
   expect_equal(r_s$status, 0L, label="sinkhorn must converge")
   expect_equal(r_s$convergence_used$fired_at_iter, r_s$iterations,

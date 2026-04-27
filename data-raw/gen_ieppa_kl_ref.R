@@ -22,7 +22,7 @@ suppressWarnings(
 r <- attr(w, "result")
 
 ref <- list(
-  kl_at_best_iter = r$best_error,
+  kl_at_best_iter = r$convergence_used$solver_objective,
   best_iter       = r$best_iter,
   max_error       = r$max_error,
   ieppa_version   = as.character(packageVersion("leafblower")),
