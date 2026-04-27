@@ -223,6 +223,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // At this point, f_lin geometric mean = sqrt(trip); product f_lin^K = trip^(K/2),
     // leaving sqrt(trip) multiplicative headroom before the trip fires.
     const double kLinearOverflowThreshold = std::sqrt(kLinearOverflowTrip);
+    const double kLogOverflowThreshold = std::log(kLinearOverflowThreshold);
 
     // Linear-space Sinkhorn factors (mirror of lf[], but in linear domain).
     // Populated lazily -- only read by the linear-space sweep.
@@ -463,8 +464,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 rescale_lin[j] = new_f * inv_f_old_lin[j];
                 f_lin[off + j] = new_f;
                 // T1.B: update lf shadow and propagate delta to cell_lf.
-                // new_f is guaranteed finite and <= kLinearOverflowTrip by the check above.
-                if (new_f > 1e-300) {
+                // new_f > 0 guaranteed: empty buckets continue before reaching here,
+                // and the overflow check above ensures isfinite(new_f).
+                // Guard new_f > 0 (not 1e-300) to keep lf consistent even for subnormals —
+                // log(subnormal) is finite and correct; skipping lf update would diverge
+                // cell_lf from Σ lf[k][g_k(c)] after an over-correction.
+                if (new_f > 0.0) {
                     double lf_new = std::log(new_f);
                     double delta = lf_new - lf[off + j];
                     lf[off + j] = lf_new;
@@ -633,7 +638,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // T1.B: correct before X_tilde product overflows.
             // Fires when max_c log(X_init[c] * Π_k f_lin[k][g_k(c)]) >= log(threshold).
             // shift > 0 guaranteed by >=; x_scale in (0,1].
-            const double kLogOverflowThreshold = std::log(kLinearOverflowThreshold);
             if (!overflow_trip && cell_lf_hwm >= kLogOverflowThreshold) {
                 double shift = cell_lf_hwm - kLogOverflowThreshold;
                 double lf_correction = -shift / static_cast<double>(st.K);
@@ -652,7 +656,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     cell_lf[c] -= shift;
                     X_cur[c] *= x_scale;
                 }
-                cell_lf_hwm = kLogOverflowThreshold;
+                // Reset to lowest so hwm repopulates honestly from next positive delta,
+                // avoiding spurious re-trigger when true max is exactly at threshold.
+                cell_lf_hwm = std::numeric_limits<double>::lowest();
                 if (st.verbose >= 2) {
                     char msg[128];
                     std::snprintf(msg, sizeof(msg), "iEPPA T1.B renorm shift=%.2e", shift);
