@@ -72,7 +72,10 @@
 #' @param error_function Ignored.
 #' @param adaptive_order Ignored.
 #' @param enforce_mean Ignored (retained for compatibility).
-#' @param accelerate Ignored.
+#' @param accelerate Logical. If \code{TRUE}, applies SQUAREM SqS3 outer-loop
+#'   acceleration (Varadhan & Roland 2008) to the raking fixed-point iteration.
+#'   Only supported for \code{method="raking"}; a warning is emitted and the
+#'   parameter is ignored for all other methods. Default \code{FALSE}.
 #' @param add_na_proportion Not supported in v1; raises error if TRUE.
 #' @param auto_collapse Not supported in v1; raises error if TRUE.
 #' @param collapse_vars Not supported in v1; raises error if TRUE.
@@ -184,6 +187,10 @@ harvest <- function(
     conv$metric <- "grake_norm"
   }
   sor_cfg <- parse_sor(sor)
+  if (isTRUE(accelerate) && method != "raking")
+    warning("accelerate=TRUE is only supported for method='raking'; ignoring for method='",
+            method, "'")
+  accelerate_bool <- isTRUE(accelerate) && method == "raking"
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
   if (!is.null(design_weights) && is.null(start_weights)) {
@@ -201,7 +208,7 @@ harvest <- function(
   # Ignored-param verbose notes
   # enforce_mean is always TRUE: normalization is unconditional (line ~86).
   ignored <- c("select_params", "select_function", "error_function",
-                "adaptive_order", "accelerate", "enforce_mean")
+                "adaptive_order", "enforce_mean")
   supplied_ignored <- intersect(ignored, names(match.call(expand.dots = FALSE)))
   if (verbose >= 2 && length(supplied_ignored) > 0)
     message("[leafblower] Ignoring autumn params: ", paste(supplied_ignored, collapse = ", "))
@@ -248,6 +255,8 @@ harvest <- function(
                as.double(sor_cfg$omega_min),
                as.double(sor_cfg$omega_fixed),
                as.integer(sor_cfg$burnin),
+               ## SQUAREM
+               as.integer(accelerate_bool),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
