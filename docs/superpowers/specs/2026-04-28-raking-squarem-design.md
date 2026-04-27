@@ -162,12 +162,14 @@ harvest(df, tgt, method="raking", accelerate=FALSE, max_weight=5, ...)
 
 | File | Change |
 |------|--------|
-| `src/raking.cpp` | SQUAREM outer loop; `accelerate` bool from CalibState |
-| `R/harvest.R` | Add `accelerate` parameter + `@param`; warn if non-raking |
-| `tests/testthat/test-calibration-solvers.R` | RED test + AC3 fixture test |
+| `src/types.hpp` | Add `bool accelerate = false` to CalibState (C++ only; not rk_params_t) |
+| `src/r_bridge.cpp` | Add 31st SEXP arg (`accelerate_sexp`); update `R_registerRoutines` count 30→31 |
+| `src/raking.cpp` | SQUAREM outer loop; read `st.accelerate` |
+| `R/harvest.R` | Update `@param accelerate`; remove from ignored list; warn if non-raking; pass to `.Call` |
+| `tests/testthat/test-calibration-solvers.R` | RED test + AC3 fixture test + AC4 step-halving test |
 | `tests/testthat/fixtures/raking_squarem_baseline.rds` | Generated before implementation |
 
-No new structs, no ABI change, no other files.
+**ABI note**: `rk_params_t` (public C API in `leafblower.h`) is NOT modified. The `.Call` registration count changes from 30→31 — this is a package-internal R/C bridge change, not a public C ABI change. No `static_assert` tripwire needs updating.
 
 ---
 

@@ -39,21 +39,18 @@ Expected: `* DONE (leafblower)` — no errors.
 
 - [ ] **Step 2: Generate and save the baseline fixture**
 
-```r
-# Run from the package root directory
-set.seed(42L); n <- 2000L
-df  <- data.frame(v1 = factor(sample(3L, n, TRUE)), v2 = factor(sample(2L, n, TRUE)))
-tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
-
-r_base <- leafblower::harvest(df, tgt, method="raking",
-  accelerate=FALSE, max_weight=5, max_iterations=500L, attach_weights=FALSE)
-w_base <- as.numeric(r_base)
-saveRDS(w_base, "tests/testthat/fixtures/raking_squarem_baseline.rds")
-cat("Saved", length(w_base), "weights, sum=", sum(w_base), "\n")
+```bash
+Rscript -e "
+  set.seed(42L); n <- 2000L
+  df  <- data.frame(v1=factor(sample(3L,n,TRUE)), v2=factor(sample(2L,n,TRUE)))
+  tgt <- list(v1=c('1'=0.5,'2'=0.3,'3'=0.2), v2=c('1'=0.6,'2'=0.4))
+  r <- leafblower::harvest(df, tgt, method='raking',
+        accelerate=FALSE, max_weight=5, max_iterations=500L, attach_weights=FALSE)
+  w <- as.numeric(r)
+  saveRDS(w, 'tests/testthat/fixtures/raking_squarem_baseline.rds')
+  cat('Saved', length(w), 'weights, sum=', sum(w), '\n')
+"
 ```
-
-Run: `Rscript -e 'source("tests/testthat/fixtures/gen_squarem_baseline.R")'`
-Or paste directly in R console.
 
 Expected output: `Saved 2000 weights, sum= 2000`
 
@@ -122,8 +119,26 @@ test_that("squarem-ac3: accelerate=FALSE is bit-identical to pre-SQUAREM baselin
   w <- as.numeric(r)
   w_ref <- readRDS(ref_path)
 
-  expect_equal(w, w_ref, tolerance=0,
-               label="accelerate=FALSE must be bit-identical to pre-SQUAREM baseline")
+  # tolerance=1e-14 (not 0): platform FP non-determinism (compiler flags, libm)
+  # makes exact bit-equality unreliable across machines.
+  expect_equal(w, w_ref, tolerance=1e-14,
+               label="accelerate=FALSE must match pre-SQUAREM baseline to 1e-14")
+})
+
+test_that("squarem-ac4: step-halving path produces valid weights (no NaN, bounds respected)", {
+  # Construct a problem where CBB alpha is large and the first X* extrapolation degrades errRp.
+  # Large max_weight + tight targets → first super-step likely triggers step-halving.
+  set.seed(7L); n <- 300L
+  df  <- data.frame(v1=factor(sample(4L,n,TRUE)), v2=factor(sample(3L,n,TRUE)))
+  tgt <- list(v1=c("1"=0.4,"2"=0.3,"3"=0.2,"4"=0.1),
+              v2=c("1"=0.5,"2"=0.3,"3"=0.2))
+  r <- leafblower::harvest(df, tgt, method="raking", accelerate=TRUE,
+                           max_weight=2, max_iterations=200L, attach_weights=FALSE)
+  w <- as.numeric(r)
+  # AC4 property: weights are finite, within bounds, sum to n
+  expect_true(all(is.finite(w)), label="AC4: no NaN/Inf in weights")
+  expect_true(all(w >= 0 & w <= 2 + 1e-9), label="AC4: weights within [0, max_weight]")
+  expect_equal(sum(w), n, tolerance=1e-8, label="AC4: weights sum to n")
 })
 
 test_that("squarem-ac5: accelerate=TRUE with non-raking method warns and runs", {
@@ -450,138 +465,158 @@ After the existing variable declarations (around line 160, before `for (int iter
 
 ### Step 2: Add SQUAREM outer loop
 
-- [ ] **Step 2: Add the SQUAREM branch immediately before the existing flat loop**
+- [ ] **Step 2: Wrap existing flat loop in `else` and insert SQUAREM `if` branch above it**
 
-Insert this block before `for (int iter = 1; iter <= st.inner_max_iter; iter++) {`:
+The structure of raking_solve after this step:
+
+```
+if (st.accelerate) { /* SQUAREM */ }
+else               { /* existing flat for loop */ }
+// unified post-loop code (infeasibility fix + Bregman finalizer + best-weights)
+```
+
+**No goto.** Both branches converge at the same post-loop section.
+
+Replace the line `for (int iter = 1; iter <= st.inner_max_iter; iter++) {` with the entire block below. The flat loop body is unchanged except it is now wrapped in `else { ... }`.
+
+Insert BEFORE the flat loop:
 
 ```cpp
     if (st.accelerate) {
         // ── SQUAREM SqS3 outer loop ──────────────────────────────────────────
         // 3 F-evals per super-step baseline + 1 per halving iteration.
-        static constexpr double kAlphaMax    = -1.0;    // gentlest step
+        static constexpr double kAlphaMax    = -1.0;    // gentlest step (CBB cap)
         static constexpr double kAlphaMin    = -1000.0; // most aggressive step
         static constexpr double kVNormEps    = 1e-300;
-        static constexpr double kVNormRel    = 1e-10;   // ‖v‖/‖w2‖ convergence guard
+        static constexpr double kVNormRel    = 1e-10;   // ‖v‖/‖w2‖ fixed-point guard
         static constexpr double kHalvingSlack = 1.01;
         static constexpr int    kMaxHalvings  = 16;
 
-        int f_eval_count = 0;
-        while (f_eval_count + 3 <= st.inner_max_iter) {
-            auto w1 = X; auto p1 = p; double qh1 = q_hyp;
-            double errRp_w1 = F_eval(w1, p1, qh1);  ++f_eval_count;
+        // Need at least 3 F-evals for one super-step; if budget < 3 run flat loop instead.
+        if (st.inner_max_iter >= 3) {
+            int f_eval_count = 0;
+            while (f_eval_count + 3 <= st.inner_max_iter) {
+                auto w1 = X; auto p1 = p; double qh1 = q_hyp;
+                double errRp_w1 = F_eval(w1, p1, qh1);  ++f_eval_count;
 
-            auto w2 = w1; auto p2 = p1; double qh2 = qh1;
-            double errRp_w2 = F_eval(w2, p2, qh2);  ++f_eval_count;
+                auto w2 = w1; auto p2 = p1; double qh2 = qh1;
+                double errRp_w2 = F_eval(w2, p2, qh2);  ++f_eval_count;
 
-            res.iterations = f_eval_count;
+                res.iterations = f_eval_count;
 
-            // Compute norms of r = w1-X and v = w2-w1
-            double norm_r = 0.0, norm_v = 0.0, norm_w2 = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) {
-                double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
-                norm_r  += ri * ri;
-                norm_v  += vi * vi;
-                norm_w2 += w2[c] * w2[c];
-            }
-            norm_r = std::sqrt(norm_r);
-            norm_v = std::sqrt(norm_v);
-            norm_w2 = std::sqrt(norm_w2);
+                double norm_r = 0.0, norm_v = 0.0, norm_w2 = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                    norm_r  += ri * ri;
+                    norm_v  += vi * vi;
+                    norm_w2 += w2[c] * w2[c];
+                }
+                norm_r = std::sqrt(norm_r);
+                norm_v = std::sqrt(norm_v);
+                norm_w2 = std::sqrt(norm_w2);
 
-            // Fixed-point guard: ‖v‖/‖w2‖ < threshold → already converged
-            if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
-                X = w2; p = p2; q_hyp = qh2;
-                res.max_error = errRp_w2;
-                res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
-                res.convergence_iter = f_eval_count;
-                break;
-            }
+                // Fixed-point guard: ‖v‖/‖w2‖ < threshold
+                if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
+                    X = w2; p = p2; q_hyp = qh2;
+                    res.max_error        = errRp_w2;
+                    res.status           = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    res.convergence_iter = f_eval_count;
+                    break;
+                }
 
-            // CBB step, capped to [kAlphaMin, kAlphaMax]
-            double alpha = std::max(kAlphaMin,
-                           std::min(kAlphaMax, -norm_r / (norm_v + kVNormEps)));
+                double alpha = std::max(kAlphaMin,
+                               std::min(kAlphaMax, -norm_r / (norm_v + kVNormEps)));
 
-            // Snapshot is w2 (state after second F-eval, before extrapolation)
-            auto X_snap = w2; auto p_snap = p2; double q_snap = qh2;
+                // Snapshot: state at w2, before extrapolation
+                auto X_snap = w2; auto p_snap = p2; double q_snap = qh2;
 
-            // Extrapolate X* = X_snap - 2α·r + α²·v; clamp negative cells to 0
-            auto X_star = X_snap;
-            for (int c = 0; c < ct.M_cell; c++) {
-                double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
-                X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                if (X_star[c] < 0.0) X_star[c] = 0.0;
-            }
-
-            // X_new = F(X*); step-halving reference is errRp_w2 (already computed, no extra call)
-            auto p_star = p_snap; double qh_star = q_snap;
-            double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
-
-            for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
-                alpha = (alpha - 1.0) / 2.0;  // converges to -1 for all α ≤ 0
-                X_star = X_snap; p_star = p_snap; qh_star = q_snap;
+                // Extrapolate X* = X_snap - 2α·r + α²·v; clamp to ≥ 0
+                auto X_star = X_snap;
                 for (int c = 0; c < ct.M_cell; c++) {
                     double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
                     X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
                     if (X_star[c] < 0.0) X_star[c] = 0.0;
                 }
-                errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
-            }
 
-            X = X_star; p = p_star; q_hyp = qh_star;
-            res.max_error  = errRp_new;
-            res.iterations = f_eval_count;
+                auto p_star = p_snap; double qh_star = q_snap;
+                double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
 
-            // Best-iterate tracking
-            if (errRp_new < best_metric_seen) {
-                best_metric_seen    = errRp_new;
-                best_iter_val       = f_eval_count;
-                best_objective_seen = compute_weight_kl();
-                W_best              = X;
-            }
+                // Step-halving: errRp_new must not exceed 1.01× errRp_w2
+                for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
+                    alpha = (alpha - 1.0) / 2.0;  // midpoint toward -1; all α ≤ 0 converge
+                    X_star = X_snap; p_star = p_snap; qh_star = q_snap;
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                        X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
+                        if (X_star[c] < 0.0) X_star[c] = 0.0;
+                    }
+                    errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
+                }
 
-            // Convergence criterion (same improvement rule as flat loop)
-            lbw::CellMetrics m_conv; m_conv.errRp = errRp_new;
-            if (lbw::check_convergence(st.convergence_cfg, m_conv,
-                                       prev_metric_for_rule, st.tol_abs)) {
-                res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
-                res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-                res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-                res.convergence_tol    = st.convergence_cfg.pct_tol;
-                res.convergence_iter   = f_eval_count;
-                break;
-            }
+                X = X_star; p = p_star; q_hyp = qh_star;
+                res.max_error  = errRp_new;
+                res.iterations = f_eval_count;
 
-            if (st.verbose >= 1) {
-                char msg[256];
-                std::snprintf(msg, 256,
-                    "raking[sq] f_eval=%d errRp=%.2e alpha=%.4g", f_eval_count, errRp_new, alpha);
-                st.log(msg);
-            }
+                if (errRp_new < best_metric_seen) {
+                    best_metric_seen    = errRp_new;
+                    best_iter_val       = f_eval_count;
+                    best_objective_seen = compute_weight_kl();
+                    W_best              = X;
+                }
 
-            // No-improve stall (5 checks with no drop ≥ 1% + tol_abs)
-            if (!std::isfinite(min_errRp_window)) {
-                min_errRp_window = errRp_new; n_no_improve = 0;
-            } else {
-                const double eps = std::max(0.01 * min_errRp_window, st.tol_abs);
-                if (errRp_new < min_errRp_window - eps) {
+                lbw::CellMetrics m_conv; m_conv.errRp = errRp_new;
+                if (lbw::check_convergence(st.convergence_cfg, m_conv,
+                                           prev_metric_for_rule, st.tol_abs)) {
+                    res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                    res.convergence_tol    = st.convergence_cfg.pct_tol;
+                    res.convergence_iter   = f_eval_count;
+                    break;
+                }
+
+                if (st.verbose >= 1) {
+                    char msg[256];
+                    std::snprintf(msg, 256,
+                        "raking[sq] f_eval=%d errRp=%.2e alpha=%.4g",
+                        f_eval_count, errRp_new, alpha);
+                    st.log(msg);
+                }
+
+                if (!std::isfinite(min_errRp_window)) {
                     min_errRp_window = errRp_new; n_no_improve = 0;
                 } else {
-                    n_no_improve++;
+                    const double eps = std::max(0.01 * min_errRp_window, st.tol_abs);
+                    if (errRp_new < min_errRp_window - eps) {
+                        min_errRp_window = errRp_new; n_no_improve = 0;
+                    } else {
+                        n_no_improve++;
+                    }
                 }
+                if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_NOCONV; break; }
             }
-            if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_NOCONV; break; }
+            // Budget exhausted without convergence break → ensure infeasibility status
+            if (is_infeasible && res.status == RK_ERR_NOCONV)
+                res.status = RK_ERR_INFEAS;
         }
-        goto squarem_post_loop;  // skip flat loop, go to post-loop finalizer
-    }
-    // ── Flat loop (accelerate=FALSE) ──────────────────────────────────────────
+        // inner_max_iter < 3: fall through to flat loop (handled by else branch below)
+        // by NOT entering the if(inner_max_iter >= 3) block, X/p/q_hyp are unchanged
+        // and the else branch runs the flat loop on the original state.
+    } else {
 ```
 
-Add `squarem_post_loop:` label immediately before the post-loop Bregman finalizer (line ~403):
+Immediately after the closing `}` of the existing flat `for` loop (line ~398), add:
 
 ```cpp
-    squarem_post_loop:
-    // Post-loop Bregman/KL Dykstra finalizer (multiplicative pattern).
-    for (int fixup = 0; fixup < 20; fixup++) {
+    }  // end else (flat loop)
+    // Unified: infeasibility fix-up for flat-loop path (SQUAREM handles it inline above)
+    if (is_infeasible && res.status == RK_ERR_NOCONV)
+        res.status = RK_ERR_INFEAS;
 ```
+
+Then remove the existing `if (is_infeasible && res.status == RK_ERR_NOCONV)` line at line ~400 (it is now covered by the unified block above).
+
+**Note on inner_max_iter < 3**: When `accelerate=TRUE` and `inner_max_iter < 3`, SQUAREM cannot run even one super-step. The code falls through to the flat loop (the `else` branch). This is safe — the flat loop runs normally. Informally document this: "SQUAREM requires at least 3 F-evals; if inner_max_iter < 3, falls back to flat loop."
 
 - [ ] **Step 3: Build**
 
