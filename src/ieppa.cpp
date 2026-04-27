@@ -596,39 +596,56 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
-            // T1.A: Renormalize f_lin per margin when factors approach overflow.
-            // Identity: dividing f_lin[k][j] by c_k and multiplying X_cur by c_k
-            // cancels per-cell (each cell maps to exactly one j per margin k).
-            // Inserted BEFORE P1.1 capacity block — X_cur equals
-            // X_init * W_prev * Π_k f_lin[k][g_k(c)] at this point.
+            // T1.A: Renormalize f_lin per margin when the worst-case X_tilde product
+            // approaches overflow. Trigger: Σ_k max_j |log f_lin[k][j]| >= log(threshold),
+            // which equals log(X_init * max_cell_product) for the worst-case cell.
+            // Invariant: X_cur = X_init × W × Π_k f_lin[k][g_k(c)].
+            // After f_lin[k][j] /= c_k: RHS = X_cur_old / c_k → X_cur /= c_k to match.
             if (!overflow_trip) {
-                double log_cumul = 0.0;
-                for (int k = 0; k < st.K && !overflow_trip; k++) {
-                    double log_sum = 0.0; int cnt = 0;
+                // First pass: check if product of max f_lin across margins nears threshold
+                double log_max_product = 0.0;
+                for (int k = 0; k < st.K; k++) {
+                    double max_logf = 0.0;
                     for (int j = 0; j < st.cat_counts[k]; j++) {
                         double fkj = f_lin[cat_offset[k] + j];
                         if (std::isfinite(fkj) && fkj > 1e-300) {
-                            log_sum += std::log(fkj);
-                            cnt++;
+                            double alf = std::fabs(std::log(fkj));
+                            if (alf > max_logf) max_logf = alf;
                         }
                     }
-                    if (cnt == 0) continue;
-                    double log_c = log_sum / cnt;
-                    if (std::fabs(log_c) < std::log(kLinearOverflowThreshold)) continue;
-                    log_cumul += log_c;
-                    if (std::fabs(log_cumul) > 700.0) {
-                        // Cumulative renorm would overflow X_cur — trip to log-space.
-                        overflow_trip = true; break;
-                    }
-                    double c_k = std::exp(log_c);
-                    for (int j = 0; j < st.cat_counts[k]; j++)
-                        f_lin[cat_offset[k] + j] /= c_k;
-                    for (int c = 0; c < ct.M_cell; c++) X_cur[c] *= c_k;
-                    if (st.verbose >= 2) {
-                        char msg[128];
-                        std::snprintf(msg, sizeof(msg),
-                            "iEPPA linear renorm k=%d c_k=%.2e", k, c_k);
-                        st.log(msg);
+                    log_max_product += max_logf;
+                }
+
+                if (log_max_product >= std::log(kLinearOverflowThreshold)) {
+                    // Second pass: renorm each margin by geometric mean
+                    double log_cumul = 0.0;
+                    for (int k = 0; k < st.K && !overflow_trip; k++) {
+                        double log_sum = 0.0; int cnt = 0;
+                        for (int j = 0; j < st.cat_counts[k]; j++) {
+                            double fkj = f_lin[cat_offset[k] + j];
+                            if (std::isfinite(fkj) && fkj > 1e-300) {
+                                log_sum += std::log(fkj);
+                                cnt++;
+                            }
+                        }
+                        if (cnt == 0) continue;
+                        double log_c = log_sum / cnt;
+                        if (std::fabs(log_c) < 1e-6) continue;  // already centered
+                        log_cumul += log_c;
+                        if (std::fabs(log_cumul) > 700.0) {
+                            overflow_trip = true; break;
+                        }
+                        double c_k = std::exp(log_c);
+                        for (int j = 0; j < st.cat_counts[k]; j++)
+                            f_lin[cat_offset[k] + j] /= c_k;
+                        // X_cur /= c_k to maintain invariant X_cur = X_init × W × Π f_lin
+                        for (int c = 0; c < ct.M_cell; c++) X_cur[c] /= c_k;
+                        if (st.verbose >= 2) {
+                            char msg[128];
+                            std::snprintf(msg, sizeof(msg),
+                                "iEPPA linear renorm k=%d c_k=%.2e", k, c_k);
+                            st.log(msg);
+                        }
                     }
                 }
             }
