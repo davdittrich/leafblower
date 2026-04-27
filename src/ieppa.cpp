@@ -138,6 +138,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> W(ct.M_cell, 1.0);
     std::vector<double> X_tilde(ct.M_cell);
     std::vector<double> X(ct.M_cell);
+    // T1.B: per-cell log-product shadow. cell_lf[c] = Σ_k lf[k][g_k(c)].
+    // Reuses lf[] (line 135) as log(f_lin) in the linear path.
+    // cell_lf also used by T2.A in the log path.
+    std::vector<double> cell_lf(ct.M_cell, 0.0);
+    // High-water mark: max_c(log_X_init[c] + cell_lf[c]) ≈ max_c log(X_tilde[c]).
+    // Monotone-nondecreasing between corrections — stale-high is intentional.
+    double cell_lf_hwm = std::numeric_limits<double>::lowest();
 
     // Scratch for margin sweep.
     std::vector<std::vector<int>> cells_by_margin_cat(total_cats);
@@ -455,6 +462,23 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 rescale_lin[j] = new_f * inv_f_old_lin[j];
                 f_lin[off + j] = new_f;
+                // T1.B: update lf shadow and propagate delta to cell_lf.
+                // new_f is guaranteed finite and <= kLinearOverflowTrip by the check above.
+                if (new_f > 1e-300) {
+                    double lf_new = std::log(new_f);
+                    double delta = lf_new - lf[off + j];
+                    lf[off + j] = lf_new;
+                    if (std::fabs(delta) > 1e-12) {
+                        for (int c : cells_by_margin_cat[off + j]) {
+                            cell_lf[c] += delta;
+                            if (delta > 0.0) {
+                                double val = cell_lf[c] + log_X_init[c];
+                                if (std::isfinite(val) && val > cell_lf_hwm)
+                                    cell_lf_hwm = val;
+                            }
+                        }
+                    }
+                }
             }
             for (int c = 0; c < ct.M_cell; c++) {
                 int j = gk[c];
@@ -596,12 +620,43 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
+            // T1.B: correct before X_tilde product overflows.
+            // Fires when max_c log(X_init[c] * Π_k f_lin[k][g_k(c)]) >= log(threshold).
+            // shift > 0 guaranteed by >=; x_scale in (0,1].
+            if (!overflow_trip && cell_lf_hwm >= std::log(kLinearOverflowThreshold)) {
+                double shift = cell_lf_hwm - std::log(kLinearOverflowThreshold);
+                double lf_correction = -shift / static_cast<double>(st.K);
+                double x_scale = std::exp(-shift);
+                // j <= cat_counts[k2]: include NA bucket (cat_offset has +1 per margin).
+                // Without NA shift, cells NA for a margin would have cell_lf decremented
+                // by full shift but lf[k][NA] unchanged — invariant violated.
+                for (int k2 = 0; k2 < st.K; k2++) {
+                    for (int j = 0; j <= st.cat_counts[k2]; j++) {
+                        lf[cat_offset[k2] + j] += lf_correction;
+                        f_lin[cat_offset[k2] + j] = std::exp(lf[cat_offset[k2] + j]);
+                    }
+                }
+                // X_cur *= exp(-shift): maintains X_cur = X_init × W × Π f_lin.
+                for (int c = 0; c < ct.M_cell; c++) {
+                    cell_lf[c] -= shift;
+                    X_cur[c] *= x_scale;
+                }
+                cell_lf_hwm = std::log(kLinearOverflowThreshold);
+                if (st.verbose >= 2) {
+                    char msg[128];
+                    std::snprintf(msg, sizeof(msg), "iEPPA T1.B renorm shift=%.2e", shift);
+                    st.log(msg);
+                }
+            }
+
             if (overflow_trip && !linear_fallback_used) {
                 // One-shot fallback: reset all solver state, switch to log-space,
                 // restart outer loop from iter 0. State-clean list per spec rev 5 §5.
                 linear_fallback_used = true;
                 use_linear = false;
                 std::fill(lf.begin(), lf.end(), 0.0);
+                std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+                cell_lf_hwm = std::numeric_limits<double>::lowest();
                 std::fill(f_lin.begin(), f_lin.end(), 1.0);
                 std::fill(X_cur.begin(), X_cur.end(), 0.0);
                 std::fill(W.begin(), W.end(), 1.0);
@@ -716,6 +771,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(X.begin(),       X.end(),       0.0);
                 std::fill(X_tilde.begin(), X_tilde.end(), 0.0);
                 std::fill(lf.begin(),      lf.end(),      0.0);
+                std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+                cell_lf_hwm = std::numeric_limits<double>::lowest();
                 std::fill(f_lin.begin(),   f_lin.end(),   1.0);
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 res.n_xcur_writes_per_iter_linear = 0;
