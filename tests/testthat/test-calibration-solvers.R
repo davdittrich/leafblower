@@ -293,3 +293,43 @@ test_that("E2: grake grake_norm <= raking grake_norm (correctness)", {
              label="grake grake_norm <= raking grake_norm")
   expect_true(all(w_grake >= 0.2 - 1e-10 & w_grake <= 5 + 1e-10))
 })
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T1.A regression: no linear overflow on skewed multi-margin problems.
+# Uses K=20, n=1000 (fast), max_weight=3, skewed targets.
+# Math: kLinearOverflowTrip = (DBL_MAX/2)^(1/20) ≈ 2.3e15 (per-factor limit).
+# f_lin for 0.3-target category grows as 1.5x/iter.
+#   Overflow fires when: 1.5^N > 2.3e15 → N ≈ 88 iters.
+#   T1.A renorm fires when: 1.5^N > sqrt(2.3e15) ≈ 4.8e7 → N ≈ 44 iters.
+# Before T1.A: overflow at ~88 iters (FAIL at 150-iter budget).
+# After  T1.A: renorm at ~44 iters prevents overflow (PASS).
+# ──────────────────────────────────────────────────────────────────────────────
+test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)", {
+  set.seed(42); K <- 20L; n <- 1000L
+  cols <- paste0("v", seq_len(K))
+  data <- as.data.frame(lapply(seq_len(K),
+    function(k) factor(sample(5L, n, TRUE), levels = 1:5)))
+  names(data) <- cols
+  skewed <- c("1"=0.3,"2"=0.175,"3"=0.175,"4"=0.175,"5"=0.175)
+  target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
+
+  # Capture verbose log — overflow message goes via R message channel
+  msg_file <- tempfile(fileext = ".txt")
+  sink(file(msg_file, "w"), type = "message")
+  r <- tryCatch(
+    leafblower::harvest(data, target, method = "ieppa",
+                        min_weight = 0.2, max_weight = 3,
+                        max_iterations = 150,
+                        attach_weights = FALSE, verbose = 1),
+    finally = sink(type = "message")
+  )
+  log_lines <- readLines(msg_file)
+  overflow_msgs <- grep("overflow trip", log_lines, value = TRUE)
+
+  # Before T1.A: FAILS — overflow fires at iter ~88, message present
+  # After  T1.A: PASSES — renorm prevents overflow, no message
+  # label: "no linear overflow trip with T1.A renormalization"
+  expect_length(overflow_msgs, 0L)
+  expect_equal(attr(r, "result")$status, 0L,
+               label = "ieppa converges without overflow fallback")
+})
