@@ -278,7 +278,6 @@ harvest <- function(
     tol              = calib_result$convergence_tol,
     fired_at_iter    = calib_result$convergence_iter,
     solver_objective = calib_result$solver_objective,   # Task 2: solver mathematical objective
-    objective        = calib_result$solver_objective,   # backward-compat alias
     minimized_metric = .safe_lookup(.metric_names, calib_result$convergence_minimized_metric)
   )
   calib_result$convergence_metric           <- NULL
