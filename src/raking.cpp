@@ -588,14 +588,7 @@ RakingResult raking_solve(CalibState& st) {
     if (is_infeasible && res.status == RK_ERR_NOCONV)
         res.status = RK_ERR_INFEAS;
 
-    // Reset Dykstra corrections so the finalizer projects from current X,
-    // not from accumulated per-step corrections (needed after SQUAREM).
-    std::fill(p.begin(), p.end(), 1.0);
-    q_hyp = 1.0;
-
     // Post-loop Bregman/KL Dykstra finalizer (multiplicative pattern).
-    // Cap raised to 200 to handle SQUAREM exit states that are far from the
-    // feasible set (infeasible/near-infeasible targets cause slow convergence).
     for (int fixup = 0; fixup < 200; fixup++) {
         bool box_ok = true;
         for (int c = 0; c < ct.M_cell; c++) {
