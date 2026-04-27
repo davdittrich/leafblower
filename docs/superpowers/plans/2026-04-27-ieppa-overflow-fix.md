@@ -51,8 +51,8 @@ test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)", {
   sink(file(msg_file, "w"), type = "message")
   r <- tryCatch(
     leafblower::harvest(data, target, method = "ieppa",
-                        min_weight = 0.2, max_weight = 5,
-                        max_iterations = 150,  # overflow fires at ~88 iters
+                        min_weight = 0.2, max_weight = 3,  # same as kk1204 — bounds cause oscillation
+                        max_iterations = 150,
                         attach_weights = FALSE, verbose = 1),
     finally = sink(type = "message")
   )
