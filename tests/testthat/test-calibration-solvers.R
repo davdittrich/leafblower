@@ -400,3 +400,35 @@ test_that("T3: ieppa_soft max_err strictly < ieppa max_err on tight bounds", {
   expect_true(me_soft <= me_hard + 1e-9,
               label="ieppa_soft max_err not worse than ieppa (no regression)")
 })
+
+# ── Raking Bregman Dykstra RED test ─────────────────────────────────────────
+# Before fix: Euclidean hyperplane correction changes fixed point vs pure IPF.
+# After fix:  multiplicative hyperplane = KL projection → same fixed point as ieppa.
+# RED: expect_equal(wkl_raking, wkl_ieppa, tol=1e-4) FAILS before Bregman Dykstra.
+# solver_objective field confirmed: raking.cpp:349, harvest.R:280.
+# ────────────────────────────────────────────────────────────────────────────
+test_that("raking-bregman: unconstrained raking matches ieppa weight_kl (unified KL fixed point)", {
+  set.seed(1L); n <- 2000L
+  df <- data.frame(
+    v1 = factor(sample(3L, n, TRUE)),
+    v2 = factor(sample(2L, n, TRUE))
+  )
+  tgt <- list(v1 = c("1"=0.5, "2"=0.3, "3"=0.2),
+              v2 = c("1"=0.6, "2"=0.4))
+
+  r_raking <- leafblower::harvest(df, tgt, method="raking",
+    min_weight=0, max_weight=Inf, max_iterations=500L,
+    attach_weights=FALSE)
+  r_ieppa  <- leafblower::harvest(df, tgt, method="ieppa",
+    min_weight=0, max_weight=Inf, max_iterations=500L,
+    attach_weights=FALSE)
+
+  wkl_raking <- attr(r_raking, "result")$convergence_used$solver_objective
+  wkl_ieppa  <- attr(r_ieppa,  "result")$convergence_used$solver_objective
+
+  # Both are unconstrained IPF → same KL minimum → same weight_kl.
+  # Before Bregman: Euclidean hyperplane shifts raking fixed point → FAIL.
+  # After  Bregman: unified KL geometry → PASS.
+  expect_equal(wkl_raking, wkl_ieppa, tolerance=1e-4,
+               label="unconstrained raking must reach same weight_kl as ieppa")
+})
