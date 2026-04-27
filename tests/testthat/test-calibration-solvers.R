@@ -432,3 +432,71 @@ test_that("raking-bregman: unconstrained raking matches ieppa weight_kl (unified
   expect_equal(wkl_raking, wkl_ieppa, tolerance=1e-4,
                label="unconstrained raking must reach same weight_kl as ieppa")
 })
+
+# ── SQUAREM acceleration tests ──────────────────────────────────────────────
+
+test_that("squarem-red: accelerate=TRUE produces different iterations than accelerate=FALSE", {
+  # RED state (before SQUAREM): accelerate=TRUE silently ignored → same iterations.
+  # GREEN state (after SQUAREM): accelerate=TRUE takes fewer super-steps → different iters.
+  # Note: harvest() currently has accelerate in its 'ignored' list → same result as FALSE.
+  set.seed(42L); n <- 2000L
+  df  <- data.frame(v1 = factor(sample(3L, n, TRUE)), v2 = factor(sample(2L, n, TRUE)))
+  tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
+
+  r_base <- leafblower::harvest(df, tgt, method="raking",
+    accelerate=FALSE, max_weight=5, max_iterations=500L, attach_weights=FALSE)
+  r_acc  <- leafblower::harvest(df, tgt, method="raking",
+    accelerate=TRUE,  max_weight=5, max_iterations=500L, attach_weights=FALSE)
+
+  iters_base <- attr(r_base, "result")$iterations
+  iters_acc  <- attr(r_acc,  "result")$iterations
+
+  # Before SQUAREM: accelerate=TRUE ignored → same iterations as FALSE
+  # After  SQUAREM: fewer super-steps (each = 3 F-evals) → different iters
+  expect_false(isTRUE(all.equal(iters_base, iters_acc)),
+               label="accelerate=TRUE must use different iterations than accelerate=FALSE")
+})
+
+test_that("squarem-ac3: accelerate=FALSE matches pre-SQUAREM baseline to 1e-14", {
+  ref_path <- test_path("fixtures/raking_squarem_baseline.rds")
+  skip_if(!file.exists(ref_path), "raking_squarem_baseline.rds not generated yet")
+
+  set.seed(42L); n <- 2000L
+  df  <- data.frame(v1 = factor(sample(3L, n, TRUE)), v2 = factor(sample(2L, n, TRUE)))
+  tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
+
+  r <- leafblower::harvest(df, tgt, method="raking",
+    accelerate=FALSE, max_weight=5, max_iterations=500L, attach_weights=FALSE)
+  w <- as.numeric(r)
+  w_ref <- readRDS(ref_path)
+
+  # tolerance=1e-14 (not 0): platform FP non-determinism makes exact bit-equality unreliable
+  expect_equal(w, w_ref, tolerance=1e-14,
+               label="accelerate=FALSE must match pre-SQUAREM baseline to 1e-14")
+})
+
+test_that("squarem-ac4: step-halving path produces valid weights (no NaN, bounds respected)", {
+  # Tests that step-halving backtrack correctness holds: weights must be finite and bounded.
+  set.seed(7L); n <- 300L
+  df  <- data.frame(v1=factor(sample(4L,n,TRUE)), v2=factor(sample(3L,n,TRUE)))
+  tgt <- list(v1=c("1"=0.4,"2"=0.3,"3"=0.2,"4"=0.1),
+              v2=c("1"=0.5,"2"=0.3,"3"=0.2))
+  r <- leafblower::harvest(df, tgt, method="raking", accelerate=TRUE,
+                           max_weight=2, max_iterations=200L, attach_weights=FALSE)
+  w <- as.numeric(r)
+  expect_true(all(is.finite(w)), label="AC4: no NaN/Inf in weights")
+  expect_true(all(w >= 0 & w <= 2 + 1e-9), label="AC4: weights within [0, max_weight]")
+  expect_equal(sum(w), n, tolerance=1e-8, label="AC4: weights sum to n")
+})
+
+test_that("squarem-ac5: accelerate=TRUE with non-raking method warns and runs", {
+  df  <- data.frame(v1 = factor(c("1","2","1","2","1")))
+  tgt <- list(v1=c("1"=0.5,"2"=0.5))
+
+  expect_warning(
+    leafblower::harvest(df, tgt, method="ieppa", accelerate=TRUE,
+                        max_weight=3, attach_weights=FALSE),
+    regexp="accelerate.*raking",
+    label="accelerate=TRUE with ieppa must warn"
+  )
+})
