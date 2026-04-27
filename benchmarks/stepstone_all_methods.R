@@ -46,7 +46,11 @@ run <- function(method, ...) {
         max_weight=5, min_weight=0, ..., attach_weights=FALSE, verbose=0)
   )
   wall <- proc.time()["elapsed"] - t0
-  w    <- as.numeric(r)
+  w <- tryCatch(as.numeric(r),
+    error = function(e) {
+      if (!is.null(r$weights)) as.numeric(r$weights)
+      else as.numeric(unlist(r)[seq_len(nrow(df))])
+    })
   res  <- attr(r, "result")
   m    <- fit_metrics(w, df, tgt)
   iters  <- if (!is.null(res$iterations)) res$iterations else NA
@@ -71,7 +75,7 @@ cat("\n=== autumn (reference) ===\n")
 r_autumn   <- run("autumn")
 
 cat("\n=== Pearson r vs iEPPA ===\n")
-for (nm in c("raking","sinkhorn","grake","greg","chebyshev","autumn")) {
+for (nm in c("raking","sinkhorn","grake","greg","cheby","autumn")) {
   rv <- get(paste0("r_", nm))
   cat(sprintf("  ieppa ↔ %-10s  r=%.6f\n", nm, cor(r_ieppa$w, rv$w)))
 }
