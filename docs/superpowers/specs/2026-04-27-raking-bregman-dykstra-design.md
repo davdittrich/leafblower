@@ -24,20 +24,45 @@ Replaces additive Euclidean Dykstra corrections with multiplicative KL-Dykstra c
 - `p` = `std::vector<double>(ct.M_cell, 0.0)` — per-cell box correction (vector)
 - `q_hyp` = `double = 0.0` — scalar hyperplane correction
 
-**Box correction** (`p[c]`, init 0→1, additive→multiplicative ratio):
+**Box correction** (`p[c]`, init 0→1, additive→multiplicative ratio).
+Exact variable names: `L_cell[c]`, `U_cell[c]` (per-cell bounds at lines 99-100):
 ```cpp
-// Before: yc = X[c] + p[c]; Xc = clamp(yc, L, U); p[c] = yc - Xc;
-// After:  yc = X[c] * p[c]; Xc = clamp(yc, L, U);
-//         if (Xc > 0) p[c] = yc / Xc; else p[c] = 1.0;  // guard: Xc=0 when L=0 and X[c]=0
+// Before (Euclidean, line 179-181):
+//   double yc = X[c] + p[c];
+//   double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
+//   p[c] = yc - Xc;
+// After  (Bregman):
+//   double yc = X[c] * p[c];
+//   double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
+//   p[c] = (Xc > 0.0) ? yc / Xc : 1.0;  // guard: Xc=0 when L_cell=0 and X[c]=0
 ```
 
 **Guard for Xc=0**: When `min_weight=0` (default) and a cell has zero total weight (structural zero), `yc=X[c]*p[c]=0`, `Xc=clamp(0,0,U)=0`. Without the guard, `p[c]=0/0=NaN` propagates silently. If `Xc ≤ 0`, set `p[c]=1.0` (multiplicative identity = no correction).
 
-**Hyperplane correction** (`q_hyp`, init 1.0, shift→scale):
+**Hyperplane correction** (`q_hyp` scalar at line 105, init 1.0, shift→scale).
+Hyperplane lambda `hyperplane_step()` at lines 141-147 must be replaced:
 ```cpp
-// Before: X[c] += q_hyp; scale to sum=n; q_hyp = -shift;
-// After:  X[c] *= q_hyp; scale to sum=n;
-//         if (scale > 0) q_hyp = 1.0/scale; else q_hyp = 1.0;  // guard: scale=0 for empty data
+// Before (Euclidean, hyperplane_step lines 143-146):
+//   for (int c = 0; c < ct.M_cell; c++) { X[c] += q_hyp; s += X[c]; }
+//   double shift = (n - s) / M_cell;
+//   for (int c = 0; c < ct.M_cell; c++) X[c] += shift;
+//   q_hyp = -shift;
+// After  (Bregman):
+//   for (int c = 0; c < ct.M_cell; c++) { X[c] *= q_hyp; s += X[c]; }
+//   double scale = static_cast<double>(st.n) / s;
+//   for (int c = 0; c < ct.M_cell; c++) X[c] *= scale;
+//   q_hyp = (scale > 0.0) ? 1.0 / scale : 1.0;  // guard: scale=0 for degenerate input
+```
+
+**Post-loop finalizer** (lines 335-346) — apply same multiplicative pattern:
+```cpp
+// Before (Euclidean, lines 338-340):
+//   double yc = X[c] + p[c]; Xc = clamp(yc, L_cell, U_cell); p[c] = yc - Xc;
+//   + hyperplane_step() (additive)
+// After  (Bregman):
+//   double yc = X[c] * p[c]; Xc = clamp(yc, L_cell, U_cell);
+//   p[c] = (Xc > 0.0) ? yc / Xc : 1.0;
+//   + hyperplane_step() (multiplicative, updated above)
 ```
 
 **Guard for scale=0**: If all cells have zero weight (degenerate input), `scale=0`. Set `q_hyp=1.0` (no correction). Input validation in harvest.R should catch this upstream.
@@ -52,7 +77,9 @@ Wire existing `CalibState::sor_cfg` (type `CalibSorCfg`, line 95 of types.hpp, a
 
 Apply under-relaxation to scaling: `X[c] *= pow(T/S, eff_omega)` where `eff_omega ≤ 1`.
 
-**"Bounds active" condition** (triggers SOR): `lo > 0.0 || hi < 1e300`. If bounds are absent (unconstrained IPF), oscillation doesn't occur and `eff_omega=1.0` (effectively disabled).
+**"Bounds active" condition** (triggers SOR): `lo > 0.0 || hi < 1e300` where `lo = st.min_weight` and `hi = capped st.max_weight` (both declared at lines 95-96 of raking.cpp). If bounds are absent (unconstrained IPF), oscillation doesn't occur and `eff_omega=1.0` (effectively disabled).
+
+**S=0 guard in SOR marginal scaling**: In the IPF step, `X[c] *= pow(T/S, eff_omega)` where `S` = sum of weights in margin group. If `S=0` (structurally empty group), skip scaling for that group (`continue`). Add: `if (S <= 0.0) continue;` before the pow() call.
 
 Update `harvest.R` docstring at line ~48: remove "iEPPA only" from `@param sor` description; add raking.
 
@@ -62,7 +89,25 @@ Same `sor=list(auto=TRUE, omega_min=0.3)` API as ieppa. No new types.
 
 Wire existing `CalibState::scheduler` (type `SchedulerConfigLbw`, line 93 of types.hpp) into raking's K-margin sweep at line ~156 (`for (int k=0; k<st.K; k++)`).
 
-**Prerequisite**: Raking currently computes only a scalar max `errRp` (no per-margin breakdown). Greedy requires a per-margin residual vector `errRp_k[K]`. Must add this vector computation before the Greedy sort (analogous to ieppa's `per_margin_err_prev`).
+**Prerequisite — per-margin residual vector**: Raking currently computes only a scalar max `errRp` via `compute_errRp_ct()` (line 190). Greedy requires a per-margin residual vector `errRp_k[K]`. Add this after the convergence check:
+```cpp
+// After compute_errRp_ct call, accumulate per-margin residuals:
+std::vector<double> errRp_k(st.K, 0.0);
+for (int k = 0; k < st.K; k++) {
+    const int nj = st.cat_counts[k];
+    double sum = 0.0;
+    for (int c = 0; c < ct.M_cell; c++) sum += X[c];
+    for (int j = 0; j < nj; j++) {
+        // bucket[j] = sum of X[c] for cells in category j of margin k
+        double e = std::fabs(bucket[j] / sum - st.targets[k][j]);
+        if (e > errRp_k[k]) errRp_k[k] = e;
+    }
+}
+// sort order[0..K-1] descending by errRp_k[k]:
+std::sort(order.begin(), order.end(),
+    [&](int a, int b) { return errRp_k[a] > errRp_k[b]; });
+```
+(adapt to exact raking.cpp variable names for bucket sums — they're already computed in the marginal sweep at lines 158-171)
 
 Same `scheduler="greedy"` API as ieppa. No new types.
 
@@ -70,24 +115,38 @@ Same `scheduler="greedy"` API as ieppa. No new types.
 
 ## RED Test (TDD prerequisite)
 
-Before implementing Bregman Dykstra, write a failing test:
+The RED test must assert a PROPERTY that changes when Bregman Dykstra is implemented. Single-margin equality bounds are easy for Euclidean Dykstra and may not fail.
+
+**Correct RED test** — on an unconstrained problem (no bounds), pure IPF = Bregman. Before Bregman fix, the Euclidean hyperplane correction (`q_hyp` additive) changes the fixed point vs pure IPF. After fix, raking without bounds must give the SAME weight_kl as ipfn on the same data.
 
 ```r
-test_that("raking-bregman: Euclidean cycling breaks, Bregman converges on tight bounds", {
-  # Synthetic: 1 margin, 2 categories, L=U=0.5 (equality bound)
-  # Pure Euclidean Dykstra cycles here; Bregman should converge to exact target
-  set.seed(1); n <- 100L
-  df <- data.frame(a = factor(sample(c("1","2"), n, TRUE)))
-  tgt <- list(a = c("1"=0.5, "2"=0.5))
-  r <- leafblower::harvest(df, tgt, method="raking",
-    min_weight=0.5, max_weight=0.5,  # equality bounds
-    max_iterations=200L, attach_weights=FALSE)
-  expect_equal(attr(r,"result")$status, 0L)
-  expect_lt(attr(r,"result")$max_error, 1e-6)
+test_that("raking-bregman: unconstrained raking matches ipfn weight_kl (unified KL fixed point)", {
+  # Without bounds, raking = pure IPF = same KL fixed point as ipfn.
+  # Before Bregman fix: Euclidean hyperplane correction changes fixed point → different weight_kl.
+  # After  Bregman fix: multiplicative hyperplane = identity for IPF → same weight_kl as ipfn.
+  set.seed(1); n <- 2000L
+  df <- data.frame(
+    v1 = factor(sample(3L, n, TRUE)),
+    v2 = factor(sample(2L, n, TRUE))
+  )
+  tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
+
+  r_raking <- leafblower::harvest(df, tgt, method="raking",
+    min_weight=0, max_weight=Inf, max_iterations=500L, attach_weights=FALSE)
+  r_ipfn   <- leafblower::harvest(df, tgt, method="ieppa",  # ieppa = pure IPF at cell level
+    min_weight=0, max_weight=Inf, max_iterations=500L, attach_weights=FALSE)
+
+  wkl_raking <- attr(r_raking,"result")$convergence_used$solver_objective
+  wkl_ipfn   <- attr(r_ipfn, "result")$convergence_used$solver_objective
+
+  # Before fix: wkl_raking ≠ wkl_ipfn (Euclidean hyperplane diverges from KL minimum)
+  # After  fix: wkl_raking ≈ wkl_ipfn (same KL fixed point, tolerance 1e-4)
+  expect_equal(wkl_raking, wkl_ipfn, tolerance=1e-4,
+               label="unconstrained raking must reach same KL minimum as ipfn")
 })
 ```
 
-With Euclidean Dykstra this may NOCONV (oscillate). With Bregman Dykstra it must converge to `max_err < 1e-6`. This is the RED test.
+This is provably RED before implementation because the Euclidean additive hyperplane shifts the fixed point away from the KL minimum, while pure IPF (ieppa without bounds) finds the KL minimum directly.
 
 ---
 
