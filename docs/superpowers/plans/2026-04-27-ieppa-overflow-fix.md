@@ -30,9 +30,12 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # T1.A regression: no linear overflow on skewed multi-margin problems.
 # Uses K=20, n=1000 (fast), max_weight=5, skewed targets.
-# Math: kLinearOverflowTrip ≈ (DBL_MAX/2)^(1/20) ≈ 4.8e6.
-# f_lin for high-target category grows as 1.5x/iter → trip at ~34 iters.
-# Confirmed overflow fires at iter ~45 on this class of problem.
+# Math: kLinearOverflowTrip = (DBL_MAX/2)^(1/20) ≈ 2.3e15 (per-factor limit).
+# f_lin for 0.3-target category grows as 1.5x/iter.
+#   Overflow fires when: 1.5^N > 2.3e15 → N ≈ 88 iters.
+#   T1.A renorm fires when: 1.5^N > sqrt(2.3e15) ≈ 4.8e7 → N ≈ 44 iters.
+# Before T1.A: overflow at ~88 iters (FAIL at 150-iter budget).
+# After  T1.A: renorm at ~44 iters prevents overflow (PASS).
 # ──────────────────────────────────────────────────────────────────────────────
 test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)", {
   set.seed(42); K <- 20L; n <- 1000L
@@ -49,7 +52,7 @@ test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)", {
   r <- tryCatch(
     leafblower::harvest(data, target, method = "ieppa",
                         min_weight = 0.2, max_weight = 5,
-                        max_iterations = 100,
+                        max_iterations = 150,  # overflow fires at ~88 iters
                         attach_weights = FALSE, verbose = 1),
     finally = sink(type = "message")
   )
