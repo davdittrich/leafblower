@@ -352,30 +352,6 @@ RakingResult raking_solve(CalibState& st) {
                 }
                 if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_NOCONV; break; }
             }
-            if (is_infeasible && res.status == RK_ERR_NOCONV)
-                res.status = RK_ERR_INFEAS;
-            // Post-SQUAREM Dykstra cleanup: alternating box + hyperplane until
-            // X is simultaneously in [L_cell, U_cell] and sums to n.
-            // This prevents apply_obs_expansion from clipping individual weights
-            // (which breaks sum(w)=n) when F_eval's inline hyperplane pushed X above U_cell.
-            // Reset Dykstra corrections so this cleanup starts from scratch.
-            std::fill(p.begin(), p.end(), 1.0);
-            q_hyp = 1.0;
-            for (int fixup_sq = 0; fixup_sq < 200; fixup_sq++) {
-                bool box_ok_sq = true;
-                for (int c = 0; c < ct.M_cell; c++) {
-                    double yc = X[c] * p[c];
-                    double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
-                    p[c] = (Xc > 0.0) ? yc / Xc : 1.0;
-                    if (yc != Xc) box_ok_sq = false;
-                    X[c] = Xc;
-                }
-                hyperplane_step();
-                if (box_ok_sq) break;
-            }
-            // After cleanup, reset again so the shared finalizer is a no-op.
-            std::fill(p.begin(), p.end(), 1.0);
-            q_hyp = 1.0;
         }
     } else {
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
@@ -612,8 +588,15 @@ RakingResult raking_solve(CalibState& st) {
     if (is_infeasible && res.status == RK_ERR_NOCONV)
         res.status = RK_ERR_INFEAS;
 
+    // Reset Dykstra corrections so the finalizer projects from current X,
+    // not from accumulated per-step corrections (needed after SQUAREM).
+    std::fill(p.begin(), p.end(), 1.0);
+    q_hyp = 1.0;
+
     // Post-loop Bregman/KL Dykstra finalizer (multiplicative pattern).
-    for (int fixup = 0; fixup < 20; fixup++) {
+    // Cap raised to 200 to handle SQUAREM exit states that are far from the
+    // feasible set (infeasible/near-infeasible targets cause slow convergence).
+    for (int fixup = 0; fixup < 200; fixup++) {
         bool box_ok = true;
         for (int c = 0; c < ct.M_cell; c++) {
             double yc = X[c] * p[c];
