@@ -3,6 +3,8 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+| 20:47 | Task 4: A1 fixture generation fix | data-raw/gen_ieppa_kl_ref.R, tests/testthat/fixtures/ieppa_kl_reference_stepstone.rds, tests/testthat/test-calibration-solvers.R | Fixed extraction: best_error → convergence_used$solver_objective; A1 test field correction; PASS 388 (2 pre-existing failures), A1 satisfied (sinkhorn 0.342 < ieppa 0.344) | ~6K |
+
 | 12:30 | T4.B: Defer X_tilde allocation to save 8MB | src/ieppa.cpp | 3 guards added (fallback, greedy, log-path), audit verified, compile+test passed | ~8K |
 
 | 14:28 | T1.B iEPPA overflow fix: cell_lf + cell_lf_hwm, apply_single_margin_linear maintenance, post-sweep correction, fallback resets | src/ieppa.cpp, tests/testthat/test-calibration-solvers.R | PASS 331 (1 pre-existing fail: lhs package missing) | ~8000 |
@@ -1234,3 +1236,25 @@
 | 14:36 | Edited src/ieppa.cpp | modified for() | ~136 |
 | 14:36 | Edited src/ieppa.cpp | modified for() | ~229 |
 | 14:52 | T2.A complete: cell_lf rebuild (lines 535-550, 688-697, 716-725, 789-802) | src/ieppa.cpp | PASS 331, FAIL 1 (pre-existing lhs pkg missing) | ~400 |
+| 19:46 | Edited src/leafblower.h | 2→3 lines | ~32 |
+| 19:46 | Edited src/types.hpp | 1→2 lines | ~53 |
+| 19:46 | Edited src/ieppa.cpp | added 1 condition(s) | ~68 |
+| 19:46 | Edited src/ieppa.cpp | added 1 condition(s) | ~186 |
+| 19:47 | Edited src/ieppa.cpp | added 1 condition(s) | ~59 |
+| 19:47 | Edited src/ieppa.cpp | added 1 condition(s) | ~55 |
+| 19:47 | Edited src/c_api.cpp | 2→3 lines | ~55 |
+| 19:47 | Edited src/c_api.cpp | added 2 condition(s) | ~566 |
+| 19:47 | Edited src/c_api.cpp | 3→4 lines | ~68 |
+| 19:47 | Edited src/r_bridge.cpp | added 1 condition(s) | ~193 |
+| 19:48 | Edited src/r_bridge.cpp | 9→10 lines | ~181 |
+| 19:48 | Edited src/r_bridge.cpp | added 1 condition(s) | ~315 |
+| 19:48 | Edited R/harvest.R | inline fix | ~31 |
+| 19:48 | Edited R/harvest.R | 2→2 lines | ~24 |
+| 19:48 | Edited R/harvest.R | 2→2 lines | ~58 |
+| 21:56 | Session end: 80 writes across 9 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, leafblower.h) | 9 reads | ~77206 tok |
+| 21:58 | Session end: 80 writes across 9 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, leafblower.h) | 9 reads | ~77206 tok |
+| 21:59 | Edited tests/testthat/test-calibration-solvers.R | 1→3 lines | ~61 |
+| 21:59 | Edited tests/testthat/test-calibration-solvers.R | 2→2 lines | ~32 |
+| 22:00 | Edited tests/testthat/test-calibration-solvers.R | 11→11 lines | ~143 |
+| 22:03 | Edited data-raw/gen_ieppa_kl_ref.R | 7→7 lines | ~62 |
+| 22:03 | Edited tests/testthat/test-calibration-solvers.R | 3→3 lines | ~47 |
