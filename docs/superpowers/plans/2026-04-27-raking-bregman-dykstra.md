@@ -273,11 +273,14 @@ Replace with:
                 }
             }
 
-            // SOR auto-adaptation: sign flip in per-margin errRp → damp omega.
-            if (sor_active && sor_auto) {
+            // SOR auto-adaptation: sign flip in per-margin ABSOLUTE errRp → damp omega.
+            // Use fabs(bucket[j]/W_total - targets[k][j]) — same formula as Task 4.2's
+            // errRp_k computation. Do NOT use scale[j]-1.0 (relative residual —
+            // inconsistent magnitude for skewed categories).
+            if (sor_active && sor_auto && W_total > 0.0) {
                 double ek = 0.0;
                 for (int j = 0; j < st.cat_counts[k]; j++) {
-                    double e = std::fabs(scale[j] - 1.0);
+                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
                     if (e > ek) ek = e;
                 }
                 if (sor_prev_errRp[k] < ek) {
@@ -300,12 +303,28 @@ Replace with:
 #' @param sor Named list for SOR adaptive under-relaxation (iEPPA and raking).
 ```
 
-### Step 3.4: Compile + full test suite
+### Step 3.4: Compile + full test suite + verify SOR fires
 
 ```bash
 cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
 Rscript -e 'devtools::test()' 2>&1 | tail -3
 ```
+
+**Verify SOR actually fires** (omega changes from 1.0):
+```bash
+OMP_NUM_THREADS=1 Rscript -e '
+suppressPackageStartupMessages({library(leafblower)})
+set.seed(1); n <- 500L
+df <- data.frame(v1=factor(sample(3L,n,TRUE)), v2=factor(sample(2L,n,TRUE)))
+tgt <- list(v1=c("1"=0.6,"2"=0.3,"3"=0.1), v2=c("1"=0.7,"2"=0.3))
+r <- leafblower::harvest(df, tgt, method="raking",
+  max_weight=1.5, min_weight=0.3, sor=list(auto=TRUE), max_iterations=100L,
+  attach_weights=FALSE, verbose=2)
+cat("status:", attr(r,"result")$status, "\n")
+' 2>&1 | grep -E "SOR|omega|status|damp" | head -5
+```
+Expected: SOR messages OR status=0 with fewer iterations than without SOR.
+If no SOR messages appear, check that `st.sor_cfg.enabled` is being set by harvest.R when `sor=list(auto=TRUE)` is passed.
 
 ### Step 3.5: Commit SOR
 
@@ -441,11 +460,18 @@ run("Approach C (Bregman+SOR+G)", sor=list(auto=TRUE), scheduler="greedy")
 ' 2>&1 | grep -v "^$"
 ```
 
-### Step 5.2: Verify AC4 — winner must beat baseline
+### Step 5.2: Verify AC4 and convergence
 
-Expected: at least one of A or C achieves max_err < 5.44e-3 (current raking baseline).
+**Convergence gate**: if either Approach A or C shows `status != 0` (NOCONV, hit 500-iter budget), the result is invalid. Check the output — if `iters=500` and `status=1`, increase `max_iterations` and re-run before comparing. A valid winner must have `status=0` and `iters < 500`.
 
-If both fail AC4, **HALT** and do NOT proceed to fixture regeneration (Task 6). File a blocker ticket.
+**AC4 gate**: at least one of A or C achieves max_err < 5.44e-3 (current raking baseline).
+
+If both fail AC4 after ensuring convergence, **HALT** and do NOT proceed to fixture regeneration (Task 6). File a blocker ticket.
+
+**Winner selection** (explicit tiebreaker):
+- Primary: lower `max_err`
+- Tiebreaker (if max_err within 1e-5): lower `marg_kl`
+- If still tied: prefer A (simpler, no Greedy)
 
 ### Step 5.3: Document winner in commit
 
