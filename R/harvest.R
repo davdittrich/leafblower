@@ -19,7 +19,7 @@
 #'   \itemize{
 #'     \item \code{metric}: quality metric to monitor. One of \code{"max_err"}
 #'       (default), \code{"mean_err"}, \code{"kl"}, \code{"chi2"},
-#'       \code{"grake_norm"}, \code{"l1_weight"}.
+#'       \code{"grake_norm"}, \code{"l1_weight"}, \code{"marginal_kl"}.
 #'     \item \code{rule}: stopping rule. One of \code{"improvement"} (default) —
 #'       stop when metric improves by less than \code{tol} relative; \code{"threshold"} —
 #'       stop when metric falls below \code{tol} absolutely; \code{"plateau"} —
@@ -38,8 +38,8 @@
 #'   }
 #'   Shorthands and explicit keys may be combined; explicit keys override shorthand
 #'   defaults. \code{convergence = list()} uses the default (max_err + improvement +
-#'   tol = 0.001). For \code{method="ieppa"}, the default metric is \code{kl}
-#'   (Sinkhorn-type algorithm minimizing KL divergence). For other methods: \code{max_err}.
+#'   tol = 0.001). For \code{method="ieppa"}, the default metric is \code{marginal_kl}
+#'   (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)). For other methods: \code{max_err}.
 #'
 #'   \strong{chi2 cross-solver note:} chi2 is not directly comparable
 #'   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
@@ -161,7 +161,7 @@ harvest <- function(
       is.null(convergence[["improvement"]]) &&
       is.null(convergence[["pct"]]) &&
       is.null(convergence[["absolute"]])) {
-    conv$metric <- "kl"
+    conv$metric <- "marginal_kl"
   }
   # grake minimizes grake_norm — override default metric when user hasn't specified one.
   if (method == "grake" &&
@@ -195,9 +195,10 @@ harvest <- function(
   if (verbose >= 2 && length(supplied_ignored) > 0)
     message("[leafblower] Ignoring autumn params: ", paste(supplied_ignored, collapse = ", "))
 
-  # CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT
+  # CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT 6=MARGINAL_KL
   metric_int    <- c(max_err = 0L, mean_err = 1L, kl = 2L, chi2 = 3L,
                      grake_norm = 4L, l1_weight = 5L,
+                     marginal_kl = 6L,
                      pct = 5L)  # pct is legacy alias for l1_weight
   # CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU
   rule_int      <- c(threshold = 0L, improvement = 1L, plateau = 2L)
@@ -253,7 +254,7 @@ harvest <- function(
 
   # WU-E2: nest convergence diagnostics under $convergence_used for clean namespace.
   # metric_names and rule_names mirror CalibMetric/CalibRule enum order in leafblower.h.
-  .metric_names <- c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight")
+  .metric_names <- c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl")
   .rule_names   <- c("threshold", "improvement", "plateau")
   # C1: guard +1L indexing — integer index from C may be NA or out of range.
   .safe_lookup <- function(v, idx) {
@@ -423,7 +424,7 @@ parse_convergence <- function(convergence) {
   metric_raw <- convergence[["metric"]] %||% convergence[["criterion"]] %||%
                 (if (explicit_pct) "pct" else "max_err")
   metric <- match.arg(metric_raw,
-    c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "pct"))
+    c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl", "pct"))
 
   # pct is autumn/anesrake compatible: stops when Σ|Δw| STOPS IMPROVING (plateau).
   # Default its rule to "plateau" when pct is specified without an explicit rule.

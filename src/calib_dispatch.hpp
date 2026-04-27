@@ -28,8 +28,9 @@
 namespace lbw {
 
 // Select the active metric value from the pre-computed metric set.
-// The caller provides all six metric values in canonical order; only the
-// one matching `metric` is used.
+// The caller provides all seven metric values in canonical order; only the
+// one matching `metric` is used. marginal_kl defaults to 0.0 for callers
+// that pre-date MARGINAL_KL=6 and do not compute it.
 inline double select_metric(
     CalibMetric metric,
     double max_err,
@@ -37,15 +38,17 @@ inline double select_metric(
     double kl,
     double chi2,
     double grake_norm,
-    double l1_weight) noexcept
+    double l1_weight,
+    double marginal_kl = 0.0) noexcept
 {
     switch (metric) {
-        case CalibMetric::MAX_ERR:    return max_err;
-        case CalibMetric::MEAN_ERR:   return mean_err;
-        case CalibMetric::KL:         return kl;
-        case CalibMetric::CHI2:       return chi2;
-        case CalibMetric::GRAKE_NORM: return grake_norm;
-        case CalibMetric::L1_WEIGHT:  return l1_weight;
+        case CalibMetric::MAX_ERR:     return max_err;
+        case CalibMetric::MEAN_ERR:    return mean_err;
+        case CalibMetric::KL:          return kl;
+        case CalibMetric::CHI2:        return chi2;
+        case CalibMetric::GRAKE_NORM:  return grake_norm;
+        case CalibMetric::L1_WEIGHT:   return l1_weight;
+        case CalibMetric::MARGINAL_KL: return marginal_kl;
     }
     return max_err;  // unreachable; exhaustive enum silences -Wreturn-type
 }

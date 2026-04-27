@@ -101,8 +101,8 @@ inline int validate_calibrate_inputs(int n, int K,
         return err("tol_abs must be finite and positive");
 
     /* Enum range guards: prevent silent UB from out-of-range static_cast */
-    if (p->metric < 0 || p->metric > 5)
-        return err("metric out of range [0,5]: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT");
+    if (p->metric < 0 || p->metric > 6)
+        return err("metric out of range [0,6]: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT 6=MARGINAL_KL");
     if (p->rule < 0 || p->rule > 2)
         return err("rule out of range [0,2]: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU");
     if (p->stop_when < 0 || p->stop_when > 1)

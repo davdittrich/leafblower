@@ -202,11 +202,11 @@ test_that("A1: default convergence (kl+improvement) converges smooth synthetic",
   result <- attr(w, "result")
   expect_equal(result$status, 0L, info = "must converge")
   expect_lt(result$max_error, 1e-3)
-  # ieppa default: rule=improvement, metric=kl (Sinkhorn-type KL minimizer)
+  # ieppa default: rule=improvement, metric=marginal_kl (Task 0 calibration quality)
   expect_equal(result$convergence_used$rule, "improvement",
                info = "default rule must be improvement")
-  expect_equal(result$convergence_used$metric, "kl",
-               info = "ieppa default metric must be kl")
+  expect_equal(result$convergence_used$metric, "marginal_kl",
+               info = "ieppa default metric must be marginal_kl (Task 0)")
 })
 
 # CONFIRMATORY TEST (not TDD red-green): added in same commit as implementation.

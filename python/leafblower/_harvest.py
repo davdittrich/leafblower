@@ -16,7 +16,7 @@ from ._leafblower import calibrate
 
 _METRIC_MAP = {
     "max_err": 0, "mean_err": 1, "kl": 2, "chi2": 3,
-    "grake_norm": 4, "l1_weight": 5,
+    "grake_norm": 4, "l1_weight": 5, "marginal_kl": 6,
 }
 _RULE_MAP = {"threshold": 0, "improvement": 1, "plateau": 2}
 _STOP_WHEN_MAP = {"any": 0, "all": 1}
@@ -24,7 +24,7 @@ _KNOWN_CONVERGENCE_KEYS = frozenset({
     "metric", "rule", "tol", "pct", "absolute", "improvement", "stop_when",
 })
 # Reverse-lookup arrays mirror CalibMetric/CalibRule enum order in leafblower.h
-_METRIC_NAMES = ["max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight"]
+_METRIC_NAMES = ["max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl"]
 _RULE_NAMES   = ["threshold", "improvement", "plateau"]
 
 

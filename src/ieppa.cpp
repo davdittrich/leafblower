@@ -843,6 +843,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             double W_total = 0.0;
             for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
             double errRp = 0.0;
+            double marg_kl = 0.0;
             if (use_linear) {
                 // Sequential (raking-style) errRp: 2 sequential passes over M_cell per margin.
                 // Avoids stride-5 cache pattern of bucket approach.
@@ -859,6 +860,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
                         if (e > errRp) errRp = e;
                     }
+                    // Marginal KL: Σ_k Σ_j t_kj log(t_kj / achieved_kj)
+                    for (int j = 0; j < nj; j++) {
+                        double tkj = st.targets[k][j];
+                        double skj = (W_total > 0.0) ? S_lin[j] / W_total : 0.0;
+                        if (tkj > 1e-300 && skj > 1e-300)
+                            marg_kl += tkj * std::log(tkj / skj);
+                    }
                 }
             } else {
                 for (int k = 0; k < st.K; k++) {
@@ -868,9 +876,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         for (int c : cells) Skj += X[c];
                         double e = std::fabs(Skj / W_total - st.targets[k][j]);
                         if (e > errRp) errRp = e;
+                        // Marginal KL contribution for this (k, j) cell
+                        double tkj = st.targets[k][j];
+                        double skj = (W_total > 0.0) ? Skj / W_total : 0.0;
+                        if (tkj > 1e-300 && skj > 1e-300)
+                            marg_kl += tkj * std::log(tkj / skj);
                     }
                 }
             }
+            res.marginal_kl_at_iter = marg_kl;
             res.max_error = errRp;
 
             // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
@@ -878,6 +892,16 @@ IEPPAResult ieppa_solve(CalibState& st) {
             if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
                 if (errRp < best_metric_seen) {
                     best_metric_seen = errRp;
+                    best_iter_val    = iter;
+                    for (int c = 0; c < ct.M_cell; c++)
+                        W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                }
+            }
+            // BLOCK 1b — MARGINAL_KL best-iterate (marg_kl always valid alongside errRp).
+            // Tracks min marginal KL when MARGINAL_KL is active.
+            if (st.convergence_cfg.metric == lbw::CalibMetric::MARGINAL_KL) {
+                if (res.marginal_kl_at_iter < best_metric_seen) {
+                    best_metric_seen = res.marginal_kl_at_iter;
                     best_iter_val    = iter;
                     for (int c = 0; c < ct.M_cell; c++)
                         W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
@@ -943,11 +967,16 @@ IEPPAResult ieppa_solve(CalibState& st) {
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
             const auto& cfg_m = st.convergence_cfg;
             const bool need_extra_metrics =
-                (metric == lbw::CalibMetric::MEAN_ERR   ||
-                 metric == lbw::CalibMetric::KL         ||
-                 metric == lbw::CalibMetric::CHI2       ||
-                 metric == lbw::CalibMetric::GRAKE_NORM ||
+                (metric == lbw::CalibMetric::MEAN_ERR    ||
+                 metric == lbw::CalibMetric::KL          ||
+                 metric == lbw::CalibMetric::CHI2        ||
+                 metric == lbw::CalibMetric::GRAKE_NORM  ||
+                 metric == lbw::CalibMetric::MARGINAL_KL ||
                  iter_in_lvl == budget_lvl);
+            // Note: MARGINAL_KL is in need_extra_metrics to ensure grake_norm, kl, etc.
+            // are populated in the result struct at convergence (marg_kl itself is already
+            // computed in the errRp loop above at zero extra cost, but the full metrics
+            // pass is needed to populate the other result fields for diagnostics).
             double grake_norm = 0.0;
 
             constexpr double kMetricEps = 1e-10;
@@ -984,9 +1013,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     mean_err_sum += max_k;
                     if (kl_k > kl_max) kl_max = kl_k;
                 }
-                // WU-E / g4oj: BLOCK 2 — best-iterate for non-MAX_ERR metrics.
+                // WU-E / g4oj: BLOCK 2 — best-iterate for non-MAX_ERR, non-MARGINAL_KL metrics.
                 // All metric values (mean_err_sum, kl_max, chi2_total) are valid here.
-                if (st.convergence_cfg.metric != lbw::CalibMetric::MAX_ERR) {
+                // MARGINAL_KL is handled by BLOCK 1b (marg_kl already computed in errRp loop).
+                if (st.convergence_cfg.metric != lbw::CalibMetric::MAX_ERR &&
+                    st.convergence_cfg.metric != lbw::CalibMetric::MARGINAL_KL) {
                     const double mean_err_blk2 = (st.K > 0)
                         ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
                     const double curr_best = lbw::select_metric(
@@ -1065,8 +1096,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 const auto& cfg = st.convergence_cfg;
 
                 // Step 1: select active metric value (shared helper).
+                // marg_kl is passed as the 7th arg (marginal_kl slot); valid for all metrics
+                // because it is computed unconditionally in the errRp loop above.
                 const double curr_metric = lbw::select_metric(
-                    cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
+                    cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight,
+                    marg_kl);
 
                 // Step 2: apply stopping rule. apply_rule(prev&) updates prev_metric_for_rule
                 // in-place (sets prev=curr). This is the ONLY update inside the loop body.

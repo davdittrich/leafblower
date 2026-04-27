@@ -39,8 +39,9 @@ enum class CalibMetric : int {
     MEAN_ERR   = 1,
     KL         = 2,
     CHI2       = 3,
-    GRAKE_NORM = 4,
-    L1_WEIGHT  = 5
+    GRAKE_NORM   = 4,
+    L1_WEIGHT    = 5,
+    MARGINAL_KL  = 6    // Σ_k Σ_j t_kj log(t_kj / achieved_kj) — calibration quality
 };
 
 enum class CalibRule : int {

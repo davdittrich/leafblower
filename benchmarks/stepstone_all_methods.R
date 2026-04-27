@@ -16,21 +16,23 @@ cat(sprintf("n=%s  K=%d  margins: %s\n\n",
   format(nrow(df), big.mark=","), length(tgt),
   paste(names(tgt), collapse=", ")))
 
-fit_metrics <- function(w, df, tgt) {
+fit_metrics <- function(w, df, tgt, res = NULL) {
   W <- sum(w); n <- length(w)
-  max_err <- 0; L1 <- 0; chi2 <- 0; KL <- 0
+  max_err <- 0; L1 <- 0; chi2 <- 0; marg_kl <- 0
   for (nm in names(tgt)) {
     lv <- names(tgt[[nm]])
     S  <- tapply(w, df[[nm]], sum, default=0)[lv]; S[is.na(S)] <- 0
     tk <- unname(tgt[[nm]]); Sr <- S/W
-    max_err <- max(max_err, max(abs(Sr - tk)))
-    L1   <- L1   + sum(abs(Sr - tk))
-    exp_ <- tk * W
-    chi2 <- chi2 + sum(ifelse(exp_>0, (S-exp_)^2/exp_, 0))
-    safe <- tk>0 & Sr>0
-    KL   <- KL   + sum(ifelse(safe, tk*log(tk/pmax(Sr,1e-300)), 0))
+    max_err  <- max(max_err, max(abs(Sr - tk)))
+    L1       <- L1 + sum(abs(Sr - tk))
+    exp_     <- tk * W
+    chi2     <- chi2 + sum(ifelse(exp_>0, (S-exp_)^2/exp_, 0))
+    safe     <- tk>0 & Sr>0
+    marg_kl  <- marg_kl + sum(ifelse(safe, tk*log(tk/pmax(Sr,1e-300)), 0))
   }
-  list(max_err=max_err, L1=L1, chi2=chi2, KL=KL,
+  weight_kl <- if (!is.null(res) && !is.null(res$convergence_used$objective))
+                 res$convergence_used$objective else NA_real_
+  list(max_err=max_err, L1=L1, chi2=chi2, marg_kl=marg_kl, weight_kl=weight_kl,
        DEFF=n*sum(w^2)/W^2, ESS=W^2/sum(w^2),
        wmin=min(w), wmed=median(w), wmax=max(w))
 }
@@ -52,13 +54,14 @@ run <- function(method, ...) {
       else as.numeric(unlist(r)[seq_len(nrow(df))])
     })
   res  <- attr(r, "result")
-  m    <- fit_metrics(w, df, tgt)
+  m    <- fit_metrics(w, df, tgt, res = res)
   iters  <- if (!is.null(res$iterations)) res$iterations else NA
   status <- if (!is.null(res$status)) res$status else 0L
-  cat(sprintf("  wall=%6.1fs  iters=%4s  status=%d  max_err=%.4e  L1=%.4e  chi2=%.3e  KL=%.3e  DEFF=%.4f  ESS=%s  wmin=%.3f  wmax=%.3f\n",
+  cat(sprintf("  wall=%6.1fs  iters=%4s  status=%d  max_err=%.4e  L1=%.4e  chi2=%.3e  marg_kl=%.3e  weight_kl=%s  DEFF=%.4f  ESS=%s  wmin=%.3f  wmax=%.3f\n",
     wall, ifelse(is.na(iters),"  —",iters), status,
-    m$max_err, m$L1, m$chi2, m$KL, m$DEFF,
-    format(round(m$ESS), big.mark=","), m$wmin, m$wmax))
+    m$max_err, m$L1, m$chi2, m$marg_kl,
+    ifelse(is.na(m$weight_kl), "  —", sprintf("%.3e", m$weight_kl)),
+    m$DEFF, format(round(m$ESS), big.mark=","), m$wmin, m$wmax))
   invisible(list(w=w, wall=wall, m=m))
 }
 
