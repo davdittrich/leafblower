@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Python IPF benchmark: ipfn (DataFrame mode) + AequilibraE (2D subset).
+Python IPF benchmark: ipfn (DataFrame mode) vs leafblower methods.
 Outputs JSON to stdout. Use: OMP_NUM_THREADS=1 python3 benchmarks/python_ipf_benchmark.py
 """
 
@@ -113,59 +113,6 @@ def run_ipfn(df_pl, df_pd, tgt, max_iter=500, tol=1e-5):
                 **m)
 
 
-def run_aequilibrae_2d(df_pd, tgt, max_iter=500, tol=1e-5):
-    """AequilibraE 2D IPF on rk_gender x rk_time subset (K=9 out of design scope)."""
-    col1, col2 = "rk_gender", "rk_time"
-    if col1 not in tgt or col2 not in tgt:
-        return dict(method="aequilibrae-2D-subset", wall=0, iters=0,
-                    status=-1, bounds="none",
-                    note="required margins not in targets",
-                    **{k: float("nan") for k in
-                       ["max_err","L1","chi2","marg_kl","weight_kl","DEFF","ESS","wmin","wmax"]})
-
-    cats1 = sorted(tgt[col1].keys())
-    cats2 = sorted(tgt[col2].keys())
-    n = len(df_pd)
-
-    seed = np.zeros((len(cats1), len(cats2)), dtype=float)
-    for i, c1 in enumerate(cats1):
-        for j, c2 in enumerate(cats2):
-            seed[i, j] = ((df_pd[col1] == c1) & (df_pd[col2] == c2)).sum()
-
-    target1 = np.array([tgt[col1][c] * n for c in cats1])
-    target2 = np.array([tgt[col2][c] * n for c in cats2])
-
-    t0 = time.time()
-    M = seed.copy()
-    iters = 0
-    for it in range(max_iter):
-        iters = it + 1
-        old = M.copy()
-        rs = M.sum(axis=1)
-        for i in range(len(cats1)):
-            if rs[i] > 0:
-                M[i, :] *= target1[i] / rs[i]
-        cs = M.sum(axis=0)
-        for j in range(len(cats2)):
-            if cs[j] > 0:
-                M[:, j] *= target2[j] / cs[j]
-        if np.max(np.abs(M - old)) < tol:
-            break
-    wall = time.time() - t0
-
-    weights = np.ones(n, dtype=float)
-    for i, c1 in enumerate(cats1):
-        for j, c2 in enumerate(cats2):
-            mask = (df_pd[col1] == c1) & (df_pd[col2] == c2)
-            if seed[i, j] > 0:
-                weights[mask.values] = M[i, j] / seed[i, j]
-
-    m = compute_metrics(weights, df_pd, tgt)
-    note = f"2D only ({col1} x {col2}); K=9 out of AequilibraE ipf_core design scope"
-    return dict(method="aequilibrae-2D-subset", wall=round(wall, 2),
-                iters=iters, status=0, bounds="none", note=note, **m)
-
-
 def main():
     print("Loading data (Polars)...", file=sys.stderr)
     df_pl, df_pd, tgt = load_data()
@@ -176,9 +123,6 @@ def main():
 
     print("Running ipfn.IPFN (DataFrame mode, K=9, no bounds)...", file=sys.stderr)
     results.append(run_ipfn(df_pl, df_pd, tgt))
-
-    print("Running AequilibraE 2D subset (rk_gender x rk_time)...", file=sys.stderr)
-    results.append(run_aequilibrae_2d(df_pd, tgt))
 
     print(json.dumps(results, indent=2))
 

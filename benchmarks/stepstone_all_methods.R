@@ -119,7 +119,6 @@ for (nm in c("raking","sinkhorn","grake","greg","cheby","autumn")) {
 cat("\n=== Python IPF implementations ===\n")
 cat("Note: Python methods have NO max_weight/min_weight bounds.\n")
 cat("ipfn: DataFrame mode on unique cells (K=9, n=1.58M).\n")
-cat("aequilibrae: 2D subset only (rk_gender x rk_time).\n\n")
 
 py_json <- tryCatch({
   py_out <- system(
