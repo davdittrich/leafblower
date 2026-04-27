@@ -212,6 +212,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     const double kLinearOverflowTrip = std::pow(
         std::numeric_limits<double>::max() / (2.0 * max_X_init_val),
         1.0 / static_cast<double>(st.K));
+    // Renorm threshold: halfway in log-space before the trip.
+    // At this point, f_lin geometric mean = sqrt(trip); product f_lin^K = trip^(K/2),
+    // leaving sqrt(trip) multiplicative headroom before the trip fires.
+    const double kLinearOverflowThreshold = std::sqrt(kLinearOverflowTrip);
 
     // Linear-space Sinkhorn factors (mirror of lf[], but in linear domain).
     // Populated lazily -- only read by the linear-space sweep.
@@ -591,6 +595,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     if (apply_single_margin_linear(k)) overflow_trip = true;
                 }
             }
+
             if (overflow_trip && !linear_fallback_used) {
                 // One-shot fallback: reset all solver state, switch to log-space,
                 // restart outer loop from iter 0. State-clean list per spec rev 5 §5.
@@ -669,6 +674,55 @@ IEPPAResult ieppa_solve(CalibState& st) {
             } else {
                 for (int k = 0; k < st.K; k++) {
                     (void) apply_single_margin_log(k);
+                }
+            }
+        }
+
+
+        // T1.A: Pre-P1.1 renorm. When X_tilde_max = max_c(X_cur[c]/W[c]) >= threshold,
+        // renorm f_lin so the max per-cell X_tilde = X_init*Π f_lin drops to max(U_cell).
+        // Reset W=1 and rebuild X_cur. After renorm, P1.1 sees X_tilde within clamping range,
+        // so W resets to 1 naturally — breaking the W-accumulation spiral.
+        if (use_linear && !overflow_trip) {
+            double X_tilde_max = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
+                double xt = X_cur[c] / W[c];
+                if (std::isfinite(xt) && xt > X_tilde_max) X_tilde_max = xt;
+            }
+            if (X_tilde_max >= kLinearOverflowThreshold) {
+                // Compute max U_cell to set the renorm target.
+                double U_cell_max = 0.0;
+                for (int c = 0; c < ct.M_cell; c++)
+                    if (U_cell[c] > U_cell_max) U_cell_max = U_cell[c];
+                if (U_cell_max <= 0.0) U_cell_max = 1.0;
+                // Renorm target: bring X_tilde down to U_cell_max so P1.1 doesn't clamp
+                // and W resets to 1, breaking the W-accumulation cycle.
+                double total_factor = X_tilde_max / U_cell_max;
+                double log_c = std::log(total_factor) / static_cast<double>(st.K);
+                double c_per_margin = std::exp(log_c);
+                if (c_per_margin > 1.0) {
+                    for (int k = 0; k < st.K; k++)
+                        for (int j = 0; j < st.cat_counts[k]; j++)
+                            f_lin[cat_offset[k] + j] /= c_per_margin;
+                    // Reset W to 1 and rebuild X_cur = X_init * Π f_lin_new.
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        W[c] = 1.0;
+                        if (X_init[c] <= 0.0) { X_cur[c] = 0.0; continue; }
+                        double v = X_init[c];
+                        for (int k = 0; k < st.K; k++) {
+                            int gk = ct.g_per_cell[k][c];
+                            if (gk >= 0) v *= f_lin[cat_offset[k] + gk];
+                        }
+                        X_cur[c] = std::isfinite(v) ? v : 0.0;
+                    }
+                    if (st.verbose >= 2) {
+                        char msg[128];
+                        std::snprintf(msg, sizeof(msg),
+                            "iEPPA linear renorm: X_tilde_max=%.2e U_max=%.2e c=%.2e",
+                            X_tilde_max, U_cell_max, c_per_margin);
+                        st.log(msg);
+                    }
                 }
             }
         }
