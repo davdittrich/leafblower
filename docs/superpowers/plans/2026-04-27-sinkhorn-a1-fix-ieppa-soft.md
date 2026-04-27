@@ -32,6 +32,7 @@
 | `src/leafblower.h` | 2, 3 | Rename C API field; add `RK_ALG_IEPPA_SOFT = 8` |
 | `src/ieppa.cpp` | 2, 3 | Atomic BEST-ITER UPDATE blocks; gate ADMM; revert default |
 | `src/sinkhorn.cpp` | 2 | Atomic BEST-ITER UPDATE; `convergence_solver_objective = best_objective_seen` |
+| `src/raking.cpp` | 2 | Same (raking minimizes weight KL — missing from original plan, added) |
 | `src/greg.cpp` | 2 | Same |
 | `src/grake.cpp` | 2 | Same |
 | `src/c_api.cpp` | 2, 3 | Field rename; `ieppa_soft` dispatch + `use_admm_capacity` |
@@ -121,7 +122,7 @@ Closes: leafblower-4ijo"
 
 ## Task 2: Decouple solver_objective + rename + sinkhorn default (leafblower-3mq8)
 
-**Files:** `src/calib_dispatch.hpp`, `src/ieppa.hpp`, `src/leafblower.h`, `src/ieppa.cpp`, `src/sinkhorn.cpp`, `src/greg.cpp`, `src/grake.cpp`, `src/c_api.cpp`, `src/r_bridge.cpp`, `R/harvest.R`
+**Files:** `src/calib_dispatch.hpp`, `src/ieppa.hpp`, `src/leafblower.h`, `src/ieppa.cpp`, `src/sinkhorn.cpp`, `src/raking.cpp`, `src/greg.cpp`, `src/grake.cpp`, `src/c_api.cpp`, `src/r_bridge.cpp`, `R/harvest.R`
 
 ### Step 2.1: Add `select_solver_objective` to calib_dispatch.hpp
 
@@ -252,9 +253,14 @@ At line 183 (`res.convergence_objective = best_metric_seen;`), change to:
 res.convergence_solver_objective = best_objective_seen;
 ```
 
-### Step 2.6: Update greg.cpp and grake.cpp
+### Step 2.6: Update raking.cpp, greg.cpp, and grake.cpp
 
-For greg and grake, the mathematical objective IS in `m` (chi² and grake_norm respectively),
+**raking.cpp** also has `res.convergence_objective = best_metric_seen` (line 330) and
+best_iter tracking. Raking minimizes weight KL — add `compute_weight_kl` lambda and
+atomic BEST-ITER UPDATE blocks, same pattern as sinkhorn (Steps 2.4-2.5).
+Change `res.convergence_objective = best_metric_seen;` → `res.convergence_solver_objective = best_objective_seen;`.
+
+For **greg and grake**, the mathematical objective IS in `m` (chi² and grake_norm respectively),
 so `select_solver_objective(alg_id, m)` can be used:
 ```cpp
 best_objective_seen = select_solver_objective(RK_ALG_GREG, m);   // m.chi2
@@ -320,7 +326,7 @@ Expected: FAIL 2 (pre-existing), PASS ≥ 381.
 ### Step 2.13: Commit Task 2
 ```bash
 git add src/calib_dispatch.hpp src/ieppa.hpp src/sinkhorn.hpp src/greg.hpp src/grake.hpp \
-        src/leafblower.h src/ieppa.cpp src/sinkhorn.cpp src/greg.cpp src/grake.cpp \
+        src/leafblower.h src/ieppa.cpp src/sinkhorn.cpp src/raking.cpp src/greg.cpp src/grake.cpp \
         src/c_api.cpp src/r_bridge.cpp R/harvest.R
 git commit -m "feat: decouple solver_objective from stopping criterion
 
