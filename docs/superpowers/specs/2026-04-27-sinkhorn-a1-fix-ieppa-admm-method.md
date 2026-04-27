@@ -193,6 +193,10 @@ fail and requires a deeper algorithmic investigation (separate ticket).
 
 ### RED tests (must fail before implementation, pass after)
 
+Expected RED failure modes: T1 = error ("solver_objective" field not found / NULL);
+T2 = error ("ieppa_soft" unknown method); T3 = error ("ieppa_soft" unknown method).
+These are ERROR-type failures, not FAIL-type. Both constitute a valid RED state.
+
 **T1 — objective decoupling for sinkhorn:**
 ```r
 test_that("sinkhorn: solver_objective reports weight KL, not stopping metric", {
@@ -239,11 +243,12 @@ test_that("ieppa and ieppa_soft produce different convergence paths", {
     max_weight=1.8, min_weight=0, max_iterations=500, attach_weights=FALSE)
   r_soft <- leafblower::harvest(df, tgt, method="ieppa_soft",
     max_weight=1.8, min_weight=0, max_iterations=500, attach_weights=FALSE)
-  # ieppa_soft should achieve lower max_err on tight-bounds problem
+  # ieppa_soft should achieve strictly lower max_err on tight-bounds problem.
+  # Tolerance 0: broken ADMM that converges identically to hard clamp must fail this test.
   me_hard <- attr(r_hard,"result")$max_error
   me_soft <- attr(r_soft,"result")$max_error
-  expect_true(me_soft <= me_hard + 1e-4,
-              label="ieppa_soft max_err not worse than ieppa on tight bounds")
+  expect_true(me_soft < me_hard,
+              label="ieppa_soft max_err strictly better than ieppa on tight bounds")
 })
 ```
 
