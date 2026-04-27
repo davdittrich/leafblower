@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <limits>
+#include <numeric>
 #include <vector>
 
 namespace lbw {
@@ -134,6 +135,14 @@ RakingResult raking_solve(CalibState& st) {
     std::vector<double> sor_omega(st.K, omega_init);
     std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
 
+    // Greedy scheduler: per-margin residuals + sort order.
+    // errRp_k[k] updated each iter during sweep using bucket[] sums.
+    // Survives across iterations — first iter uses uniform priority (1/K init).
+    std::vector<double> errRp_k(st.K, 1.0 / st.K);
+    std::vector<int> margin_order(st.K);
+    std::iota(margin_order.begin(), margin_order.end(), 0);
+    const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
+
     // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
     // Distinct from m.kl (marginal KL) — this is what raking actually minimizes.
     auto compute_weight_kl = [&]() -> double {
@@ -165,7 +174,13 @@ RakingResult raking_solve(CalibState& st) {
         double W_total = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
 
-        for (int k = 0; k < st.K; k++) {
+        // Greedy: sort margins descending by per-margin errRp from previous iter.
+        if (use_greedy)
+            std::sort(margin_order.begin(), margin_order.end(),
+                      [&](int a, int b){ return errRp_k[a] > errRp_k[b]; });
+
+        for (int ki = 0; ki < st.K; ki++) {
+            const int k = use_greedy ? margin_order[ki] : ki;
             std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
                 int g = ct.g_per_cell[k][c];
@@ -212,6 +227,18 @@ RakingResult raking_solve(CalibState& st) {
                     sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
                 }
                 sor_prev_errRp[k] = ek;
+            }
+
+            // Track per-margin residual for next iter's Greedy sort.
+            // Uses bucket[] and W_total in scope from this margin's sweep.
+            // bucket[j] holds pre-scale sums — correct for Greedy (residual BEFORE update).
+            if (W_total > 0.0) {
+                double ek = 0.0;
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
+                    if (e > ek) ek = e;
+                }
+                errRp_k[k] = ek;
             }
         }
 
