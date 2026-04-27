@@ -28,54 +28,57 @@
 
 ```r
 # ──────────────────────────────────────────────────────────────────────────────
-# T1.A regression: no linear overflow on skewed multi-margin problems
+# T1.A regression: no linear overflow on skewed multi-margin problems.
+# Uses K=20, n=1000 (fast), max_weight=5, skewed targets.
+# Math: kLinearOverflowTrip ≈ (DBL_MAX/2)^(1/20) ≈ 4.8e6.
+# f_lin for high-target category grows as 1.5x/iter → trip at ~34 iters.
+# Confirmed overflow fires at iter ~45 on this class of problem.
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("ieppa: no linear overflow trip on K=3 highly skewed (T1.A)", {
-  set.seed(42); n <- 2000L
-  data <- data.frame(
-    a = factor(sample(c("1","2","3"), n, TRUE)),
-    b = factor(sample(c("1","2","3"), n, TRUE)),
-    c = factor(sample(c("1","2","3"), n, TRUE))
-  )
-  target <- list(
-    a = c("1"=0.7, "2"=0.2, "3"=0.1),
-    b = c("1"=0.7, "2"=0.2, "3"=0.1),
-    c = c("1"=0.7, "2"=0.2, "3"=0.1)
-  )
-  # Capture verbose log — overflow message goes to stderr via REprintf
+test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)", {
+  set.seed(42); K <- 20L; n <- 1000L
+  cols <- paste0("v", seq_len(K))
+  data <- as.data.frame(lapply(seq_len(K),
+    function(k) factor(sample(5L, n, TRUE), levels = 1:5)))
+  names(data) <- cols
+  skewed <- c("1"=0.3,"2"=0.175,"3"=0.175,"4"=0.175,"5"=0.175)
+  target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
+
+  # Capture verbose log — overflow message goes via R message channel
   msg_file <- tempfile(fileext = ".txt")
   sink(file(msg_file, "w"), type = "message")
   r <- tryCatch(
     leafblower::harvest(data, target, method = "ieppa",
-                        min_weight = 0.1, max_weight = 10,
-                        max_iterations = 200,
+                        min_weight = 0.2, max_weight = 5,
+                        max_iterations = 100,
                         attach_weights = FALSE, verbose = 1),
     finally = sink(type = "message")
   )
   log_lines <- readLines(msg_file)
   overflow_msgs <- grep("overflow trip", log_lines, value = TRUE)
 
-  # Before T1.A: this test FAILS (overflow fires on iter ~30-80 with max_weight=10)
-  # After T1.A:  this test PASSES (renorm prevents overflow)
+  # Before T1.A: FAILS — overflow fires at iter ~34, message present
+  # After  T1.A: PASSES — renorm prevents overflow, no message
   expect_length(overflow_msgs, 0L,
                 label = "no linear overflow trip with T1.A renormalization")
   expect_equal(attr(r, "result")$status, 0L,
-               label = "ieppa converges without overflow")
+               label = "ieppa converges without overflow fallback")
 })
 ```
 
-- [ ] **Step 2: Verify RED**
+- [ ] **Step 2: Verify RED — run test, expect FAIL**
 
 ```bash
-Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep -E "overflow|FAIL|PASS" | head -5
+Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep -E "overflow|FAIL|PASS|T1" | head -8
 ```
-Expected: FAIL with "overflow trip" message appearing, `length(overflow_msgs) > 0`.
+Expected: test FAILS, `overflow_msgs` length > 0 (the "overflow trip" message was found).
+
+If it PASSES (no overflow message), the problem is too easy — increase max_weight to 10 and recheck.
 
 - [ ] **Step 3: Commit RED test**
 
 ```bash
 git add tests/testthat/test-calibration-solvers.R
-git commit -m "test(ieppa): RED — no overflow trip on K=3 skewed (T1.A)"
+git commit -m "test(ieppa): RED — no overflow trip on K=20 skewed (T1.A)"
 ```
 
 ---
@@ -116,7 +119,7 @@ R CMD INSTALL --preclean . 2>&1 | tail -3
                 for (int k = 0; k < st.K && !overflow_trip; k++) {
                     if (apply_single_margin_linear(k)) overflow_trip = true;
                 }
-            }
+            }         // ← line 593: closes the else-branch wrapping the K-loop
             if (overflow_trip && !linear_fallback_used) {
 ```
 
@@ -418,15 +421,33 @@ Replace with:
 
 - [ ] **Step 5.4: Update cell_lf in apply_single_margin_log**
 
-Find `apply_single_margin_log` function (search for its definition). Inside it, after `lf[cat_offset[k] + j] += delta_lf;` (the lf update), add:
+`apply_single_margin_log` (line 464) updates `lf[cat_offset[k]+j]` in two branches (lines 508-514):
 ```cpp
-                // T2.A: maintain cell_lf incrementally
-                if (!cell_lf.empty()) {
-                    for (int c : cells_by_margin_cat[cat_offset[k] + j])
-                        cell_lf[c] += delta_lf;
+                if (net_log == 1.0) {
+                    lf[cat_offset[k] + j] = log_target - log_S_kj;
+                } else {
+                    double lf_old = lf[cat_offset[k] + j];
+                    lf[cat_offset[k] + j] =
+                        (1.0 - net_log) * lf_old
+                        + net_log * (log_target - log_S_kj);
                 }
 ```
-Note: `delta_lf` is the change applied to `lf[cat_offset[k]+j]`. Find the exact variable name in `apply_single_margin_log` before implementing.
+There is no `delta_lf` variable — we must restructure to capture the delta. Replace the two-branch block with:
+```cpp
+                {
+                    double lf_old = lf[cat_offset[k] + j];
+                    double lf_new = (net_log == 1.0)
+                        ? (log_target - log_S_kj)
+                        : ((1.0 - net_log) * lf_old + net_log * (log_target - log_S_kj));
+                    lf[cat_offset[k] + j] = lf_new;
+                    // T2.A: maintain cell_lf incrementally
+                    if (!cell_lf.empty()) {
+                        double delta = lf_new - lf_old;
+                        for (int c : cells_by_margin_cat[cat_offset[k] + j])
+                            cell_lf[c] += delta;
+                    }
+                }
+```
 
 - [ ] **Compile gate:**
 ```bash
