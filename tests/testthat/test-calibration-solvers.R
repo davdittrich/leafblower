@@ -324,6 +324,7 @@ test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)", {
     finally = sink(type = "message")
   )
   log_lines <- readLines(msg_file)
+  unlink(msg_file)
   overflow_msgs <- grep("overflow trip", log_lines, value = TRUE)
 
   # Before T1.A: FAILS — overflow fires at iter ~88, message present
