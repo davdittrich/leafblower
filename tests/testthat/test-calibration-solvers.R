@@ -349,3 +349,52 @@ test_that("ieppa: cell-mode weights respect max_weight hard cap", {
   expect_true(min(w) >= 0.0 - 1e-9,
     label = sprintf("min weight %.6f below floor 0.0", min(w)))
 })
+
+# ── T1: solver_objective field existence (RED: field not found before Task 2) ──
+test_that("T1: sinkhorn convergence_used$solver_objective exists and is weight KL", {
+  set.seed(1L); n <- 800L
+  df  <- data.frame(v1 = factor(sample(c("A","B","C"), n, TRUE)))
+  tgt <- list(v1 = c("A"=0.6, "B"=0.3, "C"=0.1))
+  r_mx <- leafblower::harvest(df, tgt, method="sinkhorn",
+    convergence=list(metric="max_err"), max_iterations=200L, attach_weights=FALSE)
+  r_kl <- leafblower::harvest(df, tgt, method="sinkhorn",
+    convergence=list(metric="kl"),     max_iterations=200L, attach_weights=FALSE)
+  # RED state: $solver_objective field doesn't exist — stopifnot ERRORs if NULL
+  obj_mx <- attr(r_mx, "result")$convergence_used$solver_objective
+  obj_kl <- attr(r_kl, "result")$convergence_used$solver_objective
+  # Force ERROR if field not present (returns NULL before Task 2)
+  stopifnot(!is.null(obj_mx), !is.null(obj_kl))
+  # Both stopping criteria -> same mathematical objective (weight KL, not stopping value)
+  expect_true(is.finite(obj_mx),  label="solver_objective is finite")
+  expect_true(obj_mx < 0.5,       label="solver_objective is weight KL (not max_err ~0.05)")
+  expect_true(abs(obj_mx - obj_kl) / max(obj_mx, obj_kl) < 0.5,
+              label="objective consistent across stopping criteria")
+})
+
+# ── T2: ieppa_soft available (RED: unknown method before Task 3) ──
+test_that("T2: ieppa_soft method exists and respects max_weight", {
+  set.seed(2L); n <- 2000L
+  df  <- data.frame(v1 = factor(sample(c("X","Y"), n, TRUE, prob=c(.3,.7))))
+  tgt <- list(v1 = c("X"=0.8, "Y"=0.2))
+  r <- leafblower::harvest(df, tgt, method="ieppa_soft",
+    max_weight=2.0, min_weight=0.0, max_iterations=300L, attach_weights=FALSE)
+  w <- as.numeric(r)
+  expect_true(max(w) <= 2.0 + 1e-9, label="ieppa_soft wmax <= max_weight")
+  expect_true(min(w) >= 0.0 - 1e-9, label="ieppa_soft wmin >= min_weight")
+  expect_equal(attr(r, "result")$status, 0L)
+})
+
+# ── T3: ieppa_soft strictly better than ieppa on tight-bounds problem ──
+test_that("T3: ieppa_soft max_err strictly < ieppa max_err on tight bounds", {
+  set.seed(3L); n <- 5000L
+  df  <- data.frame(v1 = factor(sample(5L, n, TRUE)))
+  tgt <- list(v1 = setNames(c(0.4, 0.3, 0.15, 0.1, 0.05), as.character(1:5)))
+  r_hard <- leafblower::harvest(df, tgt, method="ieppa",
+    max_weight=1.8, min_weight=0, max_iterations=500L, attach_weights=FALSE)
+  r_soft <- leafblower::harvest(df, tgt, method="ieppa_soft",
+    max_weight=1.8, min_weight=0, max_iterations=500L, attach_weights=FALSE)
+  me_hard <- attr(r_hard, "result")$max_error
+  me_soft <- attr(r_soft, "result")$max_error
+  expect_true(me_soft < me_hard,
+              label="ieppa_soft max_err strictly better on tight bounds")
+})
