@@ -42,7 +42,7 @@ test_that("P3.1: cell-mode emits warning + n_bounds_violated > 0 on skewed-d", {
   )
   info <- attr(res, "result")
   expect_gt(info$n_bounds_violated, 0)
-  expect_equal(info$n_bounds_clamped, 0)  # no clamping in cell mode
+  expect_equal(info$n_bounds_clamped, info$n_bounds_violated)  # cell mode now clamps
 })
 
 test_that("P3.1: unit-mode produces strict per-obs bounds (skewed-d, < 0.001·n clamps)", {
