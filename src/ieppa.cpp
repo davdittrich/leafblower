@@ -533,13 +533,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // lf_new = lf_old + net*(log_target - log_S_kj), where net = alpha * eff_omega_log.
                 // alpha=1 && eff_omega_log=1 → lf_new = log_target - log_S_kj (fast path, no change).
                 double net_log = alpha * eff_omega_log;
-                if (net_log == 1.0) {
-                    lf[cat_offset[k] + j] = log_target - log_S_kj;
-                } else {
+                {
                     double lf_old = lf[cat_offset[k] + j];
-                    lf[cat_offset[k] + j] =
-                        (1.0 - net_log) * lf_old
-                        + net_log * (log_target - log_S_kj);
+                    double lf_new = (net_log == 1.0)
+                        ? (log_target - log_S_kj)
+                        : ((1.0 - net_log) * lf_old + net_log * (log_target - log_S_kj));
+                    lf[cat_offset[k] + j] = lf_new;
+                    // T2.A: maintain cell_lf incrementally (eliminates K=20 DRAM streams)
+                    double delta = lf_new - lf_old;
+                    if (std::fabs(delta) > 1e-12) {
+                        for (int c : cells_by_margin_cat[cat_offset[k] + j])
+                            cell_lf[c] += delta;
+                    }
                 }
             }
             return false;  // log path does not trip overflow mid-sweep
@@ -687,11 +692,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
                 for (int c = 0; c < ct.M_cell; c++) {
                     if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-                    double s = log_X_init[c];
-                    for (int m = 0; m < st.K; m++) {
-                        int gm = ct.g_per_cell[m][c];
-                        s += lf[cat_offset[m] + gm];
-                    }
+                    // T2.A: single-stream exp via cell_lf (was K=20 DRAM streams)
+                    double s = log_X_init[c] + cell_lf[c];
                     double s_clip = (s > kLogClip) ? kLogClip : s;
                     X_tilde[c] = std::exp(s_clip);
                 }
@@ -711,15 +713,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     (void) apply_single_margin_log(k_star);
                     res.greedy_sweeps_taken++;
                     // Refresh X_tilde for the touched margin's effect; cheap:
-                    // lf changed only at k_star, so X_tilde multiplies by exp(lf_new-lf_old)
-                    // per cell — simpler to recompute X_tilde fully (O(K*M_cell) but correct).
+                    // T2.A: lf delta is captured in cell_lf[c], single-stream exp
                     for (int c = 0; c < ct.M_cell; c++) {
                         if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-                        double s = log_X_init[c];
-                        for (int m = 0; m < st.K; m++) {
-                            int gm = ct.g_per_cell[m][c];
-                            s += lf[cat_offset[m] + gm];
-                        }
+                        double s = log_X_init[c] + cell_lf[c];
                         double s_clip = (s > kLogClip) ? kLogClip : s;
                         X_tilde[c] = std::exp(s_clip);
                     }
@@ -792,11 +789,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
             if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-                double s = log_X_init[c];
-                for (int m = 0; m < st.K; m++) {
-                    int gm = ct.g_per_cell[m][c];
-                    s += lf[cat_offset[m] + gm];
-                }
+                // T2.A: single-stream exp via cell_lf (was K=20 DRAM streams)
+                double s = log_X_init[c] + cell_lf[c];
                 if (s > max_log_X_tilde) max_log_X_tilde = s;
                 double s_clip = (s > kLogClip) ? kLogClip : s;
                 if (s > kLogClip && U_cell[c] >= 1e299) {
