@@ -124,6 +124,16 @@ RakingResult raking_solve(CalibState& st) {
     int    best_iter_val    = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
 
+    // SOR: wire st.sor_cfg into raking's IPF step (same API as ieppa).
+    // Apply only when bounds are active (oscillation risk).
+    const bool sor_active  = st.sor_cfg.enabled &&
+                              (st.min_weight > 0.0 || hi < 1e300);
+    const bool sor_auto    = st.sor_cfg.auto_adapt;
+    const double omega_min = st.sor_cfg.omega_min;    // default 0.3
+    const double omega_init = st.sor_cfg.omega_init;  // default 1.0
+    std::vector<double> sor_omega(st.K, omega_init);
+    std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
+
     // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
     // Distinct from m.kl (marginal KL) — this is what raking actually minimizes.
     auto compute_weight_kl = [&]() -> double {
@@ -170,9 +180,38 @@ RakingResult raking_solve(CalibState& st) {
                     scale[j] = Tkj / bucket[j];
                 }
             }
+            // Apply IPF scaling with optional SOR damping.
+            // IMPORTANT: do NOT guard on s_g > 0. When target=0: scale[g]=0,
+            // X[c] must be zeroed (pow(0, omega)=0 correctly; plain *= 0 also correct).
+            // Guarding on s_g>0 would leave non-zero weights in zero-target categories.
+            const double eff_omega = sor_active ? sor_omega[k] : 1.0;
             for (int c = 0; c < ct.M_cell; c++) {
                 int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) X[c] *= scale[g];
+                if (g >= 0 && g < st.cat_counts[k]) {
+                    const double s_g = scale[g];
+                    // pow(max(s_g,0), eff_omega): handles s_g=0 (zero target) correctly.
+                    X[c] *= (eff_omega == 1.0)
+                        ? s_g
+                        : std::pow(std::max(s_g, 0.0), eff_omega);
+                }
+            }
+
+            // SOR auto-adaptation: sign flip in per-margin ABSOLUTE errRp → damp omega.
+            // Use fabs(bucket[j]/W_total - targets[k][j]) — same formula as errRp_k
+            // computation for Greedy. Do NOT use scale[j]-1.0 (relative residual —
+            // inconsistent magnitude for skewed categories).
+            if (sor_active && sor_auto && W_total > 0.0) {
+                double ek = 0.0;
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
+                    if (e > ek) ek = e;
+                }
+                if (sor_prev_errRp[k] < ek) {
+                    sor_omega[k] = std::max(omega_min, sor_omega[k] * 0.7);
+                } else {
+                    sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
+                }
+                sor_prev_errRp[k] = ek;
             }
         }
 

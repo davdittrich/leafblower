@@ -45,7 +45,7 @@
 #'   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
 #'   raking and lbfgsb use \code{n}. Use chi2 as a convergence criterion
 #'   within one method; do not compare values across methods.
-#' @param sor Named list for SOR adaptive under-relaxation (iEPPA only).
+#' @param sor Named list for SOR adaptive under-relaxation (iEPPA and raking).
 #'   \code{NULL} disables SOR. Keys:
 #'   \itemize{
 #'     \item \code{auto}: logical, default \code{TRUE}.
