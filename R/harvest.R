@@ -154,8 +154,10 @@ harvest <- function(
   target  <- parse_target(target, target_map)
   method  <- map_method(method, verbose)
   conv    <- parse_convergence(convergence)
-  # iEPPA, raking, and auto all route to KL minimizers — apply kl+improvement default.
-  if (method %in% c("ieppa", "raking", "auto") &&
+  # iEPPA only: marginal_kl is the calibration-quality loss (best_iter criterion).
+  # Raking and other solvers keep their own defaults — raking minimizes weight KL
+  # via IPF, not marginal KL.
+  if (method == "ieppa" &&
       is.null(convergence[["metric"]]) &&
       is.null(convergence[["criterion"]]) &&
       is.null(convergence[["improvement"]]) &&
