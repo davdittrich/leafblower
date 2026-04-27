@@ -125,16 +125,23 @@ Closes: leafblower-4ijo"
 
 ### Step 2.1: Add `select_solver_objective` to calib_dispatch.hpp
 
+**Critical distinction:** `m.kl` from `compute_cell_metrics` is **marginal KL** (max over margins
+of Σ_j T_kj log(T_kj/achieved_kj)), NOT weight-space KL. Sinkhorn and ieppa minimize
+weight-space KL = Σ_i w_i log(w_i/d_i). These are different quantities — using m.kl for
+solver_objective of KL-minimizing solvers would make A1 compare apples to oranges.
+
+For KL-minimizing solvers (ieppa, sinkhorn, raking), weight-space KL is computed inline
+via a `compute_weight_kl` lambda (see Step 2.4). `select_solver_objective` handles only
+the non-KL solvers where m.chi2/m.grake_norm/m.errRp are the correct objectives:
+
 Read `src/calib_dispatch.hpp`. After the existing `select_metric` function, add:
 ```cpp
-// Returns solver's mathematical objective value from pre-computed metrics.
-// Independent of stopping criterion — each solver's own objective, always.
+// Solver mathematical objective for NON-KL solvers only.
+// KL-minimizing solvers (ieppa, sinkhorn, raking) compute weight-space KL inline
+// via compute_weight_kl lambda — DO NOT use this for those solvers.
 // chebyshev: objective == stopping metric by design (documented).
 inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
     switch (alg_id) {
-    case RK_ALG_IEPPA:
-    case RK_ALG_RAKING:
-    case RK_ALG_SINKHORN:  return m.kl;
     case RK_ALG_GREG:      return m.chi2;
     case RK_ALG_GRAKE:     return m.grake_norm;
     case RK_ALG_CHEBYSHEV: return m.errRp;   // objective == stopping metric
@@ -142,7 +149,7 @@ inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
     }
 }
 ```
-(RK_ALG_IEPPA_SOFT = 8 is added in Task 3; add its case in Task 3.)
+(RK_ALG_IEPPA_SOFT is added in Task 3 — it is a KL solver, so not in this switch.)
 
 ### Step 2.2: Rename field in `src/leafblower.h`
 
@@ -220,15 +227,19 @@ res.convergence_solver_objective = best_objective_seen;
 
 Also at line ~1193 (`res.best_error = best_metric_seen;`) — leave unchanged (best_error tracks the stopping metric, correct).
 
-### Step 2.5: Update sinkhorn.cpp
+### Step 2.5: Update sinkhorn.cpp (src/sinkhorn.hpp)
 
-Read lines 163-185 of `src/sinkhorn.cpp`. The update pattern:
+Read lines 163-185 of `src/sinkhorn.hpp`. Add `compute_weight_kl` lambda before the
+error-check loop (same lambda as in ieppa.cpp, Step 2.4). Declare
+`double best_objective_seen = 0.0;` near `best_metric_seen` (~line 81).
+
+The best-iter update pattern:
 ```cpp
             if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
                 // === BEST-ITER UPDATE ===
                 best_metric_seen    = curr_best;
                 best_iter_val       = iter;
-                best_objective_seen = select_solver_objective(RK_ALG_SINKHORN, m);
+                best_objective_seen = compute_weight_kl();  // weight-space KL, not m.kl
                 W_best              = X;
                 // === END BEST-ITER UPDATE ===
             }
@@ -243,7 +254,18 @@ res.convergence_solver_objective = best_objective_seen;
 
 ### Step 2.6: Update greg.cpp and grake.cpp
 
-Apply the same `best_objective_seen` + `select_solver_objective(RK_ALG_GREG, m)` / `(RK_ALG_GRAKE, m)` pattern. Change `res.convergence_objective = best_metric_seen;` to `res.convergence_solver_objective = best_objective_seen;` in each.
+For greg and grake, the mathematical objective IS in `m` (chi² and grake_norm respectively),
+so `select_solver_objective(alg_id, m)` can be used:
+```cpp
+best_objective_seen = select_solver_objective(RK_ALG_GREG, m);   // m.chi2
+// or
+best_objective_seen = select_solver_objective(RK_ALG_GRAKE, m);  // m.grake_norm
+```
+
+Declare `double best_objective_seen = 0.0;` and add the atomic BEST-ITER UPDATE block
+in each solver's best_iter update location. Change
+`res.convergence_objective = best_metric_seen;` to
+`res.convergence_solver_objective = best_objective_seen;` in each.
 
 ### Step 2.7: Update c_api.cpp
 
@@ -251,9 +273,16 @@ Find all occurrences of `result->convergence_objective` (or `res.convergence_obj
 
 ### Step 2.8: Update r_bridge.cpp
 
-Find the line that exposes `convergence_objective` (search: `"convergence_objective"`). Replace with `"solver_objective"` and update the field access to `res.convergence_solver_objective`.
-
-(The field appears in `result$convergence_used` as a named element. Change the name string from `"objective"` to `"solver_objective"`.)
+Find the line that exposes `convergence_objective` (search: `"convergence_objective"` — this
+is the literal string in the R element name, at line ~575):
+```cpp
+SET_STRING_ELT(res_names, 28, Rf_mkChar("convergence_objective"));
+```
+Replace with:
+```cpp
+SET_STRING_ELT(res_names, 28, Rf_mkChar("solver_objective"));
+```
+Update the corresponding `SET_VECTOR_ELT` line to use `res.convergence_solver_objective`.
 
 ### Step 2.9: Update R/harvest.R — sinkhorn default + field reference
 
