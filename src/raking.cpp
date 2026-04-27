@@ -101,8 +101,8 @@ RakingResult raking_solve(CalibState& st) {
     }
 
     // Dykstra corrections: p[c] box, q_hyp scalar hyperplane.
-    std::vector<double> p(ct.M_cell, 0.0);
-    double q_hyp = 0.0;
+    std::vector<double> p(ct.M_cell, 1.0);   // Bregman: multiplicative identity
+    double q_hyp = 1.0;                        // Bregman: multiplicative identity
 
     bool is_infeasible = false;
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
@@ -139,11 +139,13 @@ RakingResult raking_solve(CalibState& st) {
     // Dykstra hyperplane: projects X onto {sum(X) = n}.
     // M_cell cells each get +shift where shift = (n-s)/M_cell → total correction = (n-s).
     auto hyperplane_step = [&]() {
+        // Bregman/KL Dykstra hyperplane: multiplicative scale instead of additive shift.
+        // KL projection onto {sum(X)=n}: scale all cells uniformly.
         double s = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) { X[c] += q_hyp; s += X[c]; }
-        double shift = (static_cast<double>(st.n) - s) / static_cast<double>(ct.M_cell);
-        for (int c = 0; c < ct.M_cell; c++) X[c] += shift;
-        q_hyp = -shift;
+        for (int c = 0; c < ct.M_cell; c++) { X[c] *= q_hyp; s += X[c]; }
+        const double scale_hp = static_cast<double>(st.n) / s;
+        for (int c = 0; c < ct.M_cell; c++) X[c] *= scale_hp;
+        q_hyp = (scale_hp > 0.0) ? 1.0 / scale_hp : 1.0;
     };
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
@@ -174,11 +176,12 @@ RakingResult raking_solve(CalibState& st) {
             }
         }
 
-        // Dykstra box: X[c] = clamp(X[c] + p[c], L_cell[c], U_cell[c])
+        // Bregman/KL Dykstra box: multiplicative correction p[c] (init=1.0).
+        // Guard: if Xc=0 (min_weight=0 and structural zero cell), p[c]=1.0 (no correction).
         for (int c = 0; c < ct.M_cell; c++) {
-            double yc = X[c] + p[c];
+            double yc = X[c] * p[c];
             double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
-            p[c] = yc - Xc;
+            p[c] = (Xc > 0.0) ? yc / Xc : 1.0;
             X[c] = Xc;
         }
 
@@ -331,13 +334,13 @@ RakingResult raking_solve(CalibState& st) {
     if (is_infeasible && res.status == RK_ERR_NOCONV)
         res.status = RK_ERR_INFEAS;
 
-    // Post-loop Dykstra finalizer at cell level.
+    // Post-loop Bregman/KL Dykstra finalizer (multiplicative pattern).
     for (int fixup = 0; fixup < 20; fixup++) {
         bool box_ok = true;
         for (int c = 0; c < ct.M_cell; c++) {
-            double yc = X[c] + p[c];
+            double yc = X[c] * p[c];
             double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
-            p[c] = yc - Xc;
+            p[c] = (Xc > 0.0) ? yc / Xc : 1.0;
             if (yc != Xc) box_ok = false;
             X[c] = Xc;
         }
