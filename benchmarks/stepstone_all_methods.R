@@ -30,8 +30,8 @@ fit_metrics <- function(w, df, tgt, res = NULL) {
     safe     <- tk>0 & Sr>0
     marg_kl  <- marg_kl + sum(ifelse(safe, tk*log(tk/pmax(Sr,1e-300)), 0))
   }
-  weight_kl <- if (!is.null(res) && !is.null(res$convergence_used$objective))
-                 res$convergence_used$objective else NA_real_
+  weight_kl <- if (!is.null(res) && !is.null(res$convergence_used$solver_objective))
+                 res$convergence_used$solver_objective else NA_real_
   list(max_err=max_err, L1=L1, chi2=chi2, marg_kl=marg_kl, weight_kl=weight_kl,
        DEFF=n*sum(w^2)/W^2, ESS=W^2/sum(w^2),
        wmin=min(w), wmed=median(w), wmax=max(w))
