@@ -77,6 +77,39 @@ r_cheby    <- run("chebyshev",max_iterations=ITERS)
 cat("\n=== autumn (reference) ===\n")
 r_autumn   <- run("autumn")
 
+cat("\n=== ieppa overlay combinations ===\n")
+
+# P-B: greedy margin scheduler (max-residual priority)
+run("ieppa",
+    scheduler = "greedy",
+    max_iterations = ITERS)
+
+# P-A: progressive bound tightening (3 levels, k=5)
+run("ieppa",
+    homotopy_levels = 3L,
+    homotopy_start_factor = 5.0,
+    homotopy_end_factor = 1.0,
+    max_iterations = ITERS)
+
+# P-A + Tang-eta: combined dynamic schedule
+run("ieppa",
+    homotopy_levels = 3L,
+    homotopy_start_factor = 5.0,
+    homotopy_end_factor = 1.0,
+    eta_schedule = "tang_dynamic",
+    eta_schedule_power = 0.5,
+    max_iterations = ITERS)
+
+# P-A + P-B + Tang-eta: all combined
+run("ieppa",
+    scheduler = "greedy",
+    homotopy_levels = 3L,
+    homotopy_start_factor = 5.0,
+    homotopy_end_factor = 1.0,
+    eta_schedule = "tang_dynamic",
+    eta_schedule_power = 0.5,
+    max_iterations = ITERS)
+
 cat("\n=== Pearson r vs iEPPA ===\n")
 for (nm in c("raking","sinkhorn","grake","greg","cheby","autumn")) {
   rv <- get(paste0("r_", nm))
