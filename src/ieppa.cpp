@@ -596,6 +596,43 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
+            // T1.A: Renormalize f_lin per margin when factors approach overflow.
+            // Identity: dividing f_lin[k][j] by c_k and multiplying X_cur by c_k
+            // cancels per-cell (each cell maps to exactly one j per margin k).
+            // Inserted BEFORE P1.1 capacity block — X_cur equals
+            // X_init * W_prev * Π_k f_lin[k][g_k(c)] at this point.
+            if (!overflow_trip) {
+                double log_cumul = 0.0;
+                for (int k = 0; k < st.K && !overflow_trip; k++) {
+                    double log_sum = 0.0; int cnt = 0;
+                    for (int j = 0; j < st.cat_counts[k]; j++) {
+                        double fkj = f_lin[cat_offset[k] + j];
+                        if (std::isfinite(fkj) && fkj > 1e-300) {
+                            log_sum += std::log(fkj);
+                            cnt++;
+                        }
+                    }
+                    if (cnt == 0) continue;
+                    double log_c = log_sum / cnt;
+                    if (std::fabs(log_c) < std::log(kLinearOverflowThreshold)) continue;
+                    log_cumul += log_c;
+                    if (std::fabs(log_cumul) > 700.0) {
+                        // Cumulative renorm would overflow X_cur — trip to log-space.
+                        overflow_trip = true; break;
+                    }
+                    double c_k = std::exp(log_c);
+                    for (int j = 0; j < st.cat_counts[k]; j++)
+                        f_lin[cat_offset[k] + j] /= c_k;
+                    for (int c = 0; c < ct.M_cell; c++) X_cur[c] *= c_k;
+                    if (st.verbose >= 2) {
+                        char msg[128];
+                        std::snprintf(msg, sizeof(msg),
+                            "iEPPA linear renorm k=%d c_k=%.2e", k, c_k);
+                        st.log(msg);
+                    }
+                }
+            }
+
             if (overflow_trip && !linear_fallback_used) {
                 // One-shot fallback: reset all solver state, switch to log-space,
                 // restart outer loop from iter 0. State-clean list per spec rev 5 §5.
@@ -678,54 +715,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
         }
 
-
-        // T1.A: Pre-P1.1 renorm. When X_tilde_max = max_c(X_cur[c]/W[c]) >= threshold,
-        // renorm f_lin so the max per-cell X_tilde = X_init*Π f_lin drops to max(U_cell).
-        // Reset W=1 and rebuild X_cur. After renorm, P1.1 sees X_tilde within clamping range,
-        // so W resets to 1 naturally — breaking the W-accumulation spiral.
-        if (use_linear && !overflow_trip) {
-            double X_tilde_max = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) {
-                if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
-                double xt = X_cur[c] / W[c];
-                if (std::isfinite(xt) && xt > X_tilde_max) X_tilde_max = xt;
-            }
-            if (X_tilde_max >= kLinearOverflowThreshold) {
-                // Compute max U_cell to set the renorm target.
-                double U_cell_max = 0.0;
-                for (int c = 0; c < ct.M_cell; c++)
-                    if (U_cell[c] > U_cell_max) U_cell_max = U_cell[c];
-                if (U_cell_max <= 0.0) U_cell_max = 1.0;
-                // Renorm target: bring X_tilde down to U_cell_max so P1.1 doesn't clamp
-                // and W resets to 1, breaking the W-accumulation cycle.
-                double total_factor = X_tilde_max / U_cell_max;
-                double log_c = std::log(total_factor) / static_cast<double>(st.K);
-                double c_per_margin = std::exp(log_c);
-                if (c_per_margin > 1.0) {
-                    for (int k = 0; k < st.K; k++)
-                        for (int j = 0; j < st.cat_counts[k]; j++)
-                            f_lin[cat_offset[k] + j] /= c_per_margin;
-                    // Reset W to 1 and rebuild X_cur = X_init * Π f_lin_new.
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        W[c] = 1.0;
-                        if (X_init[c] <= 0.0) { X_cur[c] = 0.0; continue; }
-                        double v = X_init[c];
-                        for (int k = 0; k < st.K; k++) {
-                            int gk = ct.g_per_cell[k][c];
-                            if (gk >= 0) v *= f_lin[cat_offset[k] + gk];
-                        }
-                        X_cur[c] = std::isfinite(v) ? v : 0.0;
-                    }
-                    if (st.verbose >= 2) {
-                        char msg[128];
-                        std::snprintf(msg, sizeof(msg),
-                            "iEPPA linear renorm: X_tilde_max=%.2e U_max=%.2e c=%.2e",
-                            X_tilde_max, U_cell_max, c_per_margin);
-                        st.log(msg);
-                    }
-                }
-            }
-        }
 
         if (use_linear) {
             // P1.1 fused block: X_tilde derived inline as X_cur / W; capacity + X_cur rebuild fused.
