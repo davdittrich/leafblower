@@ -78,7 +78,13 @@ if (!overflow_trip) {
 }
 ```
 
-**kLinearOverflowThreshold**: use the existing `kLinearOverflowTrip` threshold already computed at line ~207 (which caps f_lin at `DBL_MAX/(2*max_X_init)^(1/K)`). Renorm when geometric mean exceeds `kLinearOverflowThreshold = sqrt(kLinearOverflowTrip)` — halfway in log space to the trip, leaving comfortable headroom. Do NOT use a hardcoded 1e7 — derive from `kLinearOverflowTrip`.
+**kLinearOverflowThreshold**: declare immediately after `kLinearOverflowTrip` (line ~212):
+```cpp
+// kLinearOverflowTrip already defined above (line ~212)
+const double kLinearOverflowThreshold = std::sqrt(kLinearOverflowTrip);
+// √trip ≈ (DBL_MAX/2)^(1/(2K)) — halfway in log space before the overflow trip
+```
+Guard uses `std::fabs(log_c) >= std::log(kLinearOverflowThreshold)`. Guard for degenerate f_lin: `std::isfinite(fkj) && fkj > 1e-300` (catches NaN upstream).
 
 **Mathematical correctness**: At insertion point, X_cur[c] = X_init[c] × W_prev[c] × Π_k f_lin[k][g_k(c)]. After renorm for margin k: f_lin[k][g_k(c)] → f_lin[k][g_k(c)]/c_k, X_cur[c] → X_cur[c] × c_k. Net: X_cur[c] unchanged. ✓
 
@@ -99,10 +105,14 @@ if (!overflow_trip) {
 // Replace: std::vector<double> X_tilde(ct.M_cell);
 // With:
 std::vector<double> X_tilde;  // deferred — allocate only at log-path/fallback entry
-
-// At the start of the fallback reset block (line ~604) and log-path entry:
-if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
 ```
+
+Add the guard `if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);` at THREE sites:
+1. **Line ~594** — start of `if (overflow_trip && !linear_fallback_used)` block (before line ~604's write)
+2. **Line ~711** — start of `if (overflow_detected)` block (before `std::fill(X_tilde...)`)
+3. **Log-path entry** — before lines 728+ (X_tilde rebuild)
+
+Both overflow blocks (BCD-loop trip at line ~594 and P1.1 capacity trip at line ~706) are independent paths that can each be reached with an empty deferred X_tilde.
 
 When T1.A prevents overflow, X_tilde is NEVER allocated. Saves 8MB allocation on every `ieppa_solve` call for large M_cell problems.
 
