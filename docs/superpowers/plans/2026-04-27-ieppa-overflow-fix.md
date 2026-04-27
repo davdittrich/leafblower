@@ -1,12 +1,12 @@
-# iEPPA Linear Overflow Fix Implementation Plan
+# iEPPA Overflow Fix (T1.B) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix iEPPA K=20 benchmark (n=1M) from 118s to <30s by preventing linear-space overflow that permanently falls back to slow log-space path.
+**Goal:** Prevent linear-space overflow in iEPPA K=20 benchmark by replacing the broken T1.A geometric-mean renorm with T1.B (per-cell product tracking via `cell_lf`), bringing kk1204 from 31s → ~8.6s.
 
-**Architecture:** T1.A (f_lin renormalization) keeps the fast linear path active indefinitely by detecting when multiplicative factors approach overflow and rescaling them. T4.B defers the X_tilde allocation to save 8MB when the linear path succeeds. T2.A+T2.B (log-path acceleration) make the rare fallback 10-20× faster via incremental cell_lf maintenance.
+**Architecture:** Reuse existing `lf[]` vector (line 135) as a shadow log of `f_lin`. Add `cell_lf[c] = Σ_k lf[k][g_k(c)]` (per-cell log product). Track overflow via a high-water mark; correct before X_tilde exceeds `kLinearOverflowThreshold`. T2.A (log-path acceleration) falls out for free since `cell_lf` is already maintained.
 
-**Tech Stack:** C++17, R (devtools::test), ieppa.cpp only. Build: `R CMD INSTALL --preclean . 2>&1 | tail -3`.
+**Tech Stack:** C++17, `src/ieppa.cpp` only (plus test update). Build: `R CMD INSTALL --preclean . 2>&1 | tail -3`. Test: `Rscript -e 'devtools::test()' 2>&1 | tail -4`.
 
 ---
 
@@ -14,207 +14,304 @@
 
 | File | Role |
 |------|------|
-| `src/ieppa.cpp` | All changes — single file |
-| `tests/testthat/test-calibration-solvers.R` | New regression test (Task 1) |
+| `src/ieppa.cpp` | All C++ changes |
+| `tests/testthat/test-calibration-solvers.R` | Replace n=1000 T1.A test with n=100000 T1.B test |
 
 ---
 
-## Task 1: TDD RED — Write failing overflow test (leafblower-61l4)
+## Task 0: Remove T1.A block (leafblower-mmre, step 1)
 
-**Files:**
-- Modify: `tests/testthat/test-calibration-solvers.R` (append at end)
+**Files:** Modify `src/ieppa.cpp:599-651`
 
-- [ ] **Step 1: Append the RED test to test-calibration-solvers.R**
+- [ ] **Step 0.1: Find and delete T1.A block**
+
+Search for the comment at line 599:
+```
+// T1.A: Renormalize f_lin per margin when the worst-case X_tilde product
+```
+Delete from this line through the closing `}` of the outer `if (!overflow_trip)` block at line 651. After deletion, line 597 (`}` closing the BCD else-branch) is immediately followed by line 653 (`if (overflow_trip && !linear_fallback_used)`).
+
+- [ ] **Step 0.2: Compile gate**
+
+```bash
+cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
+```
+Expected: `* DONE (leafblower)`
+
+- [ ] **Step 0.3: Commit**
+
+```bash
+git add src/ieppa.cpp
+git commit -m "fix(ieppa): remove broken T1.A block (product trigger did not fire)
+
+Geometric mean trigger (avg log f_lin per margin) stays near 3 while
+threshold is 17.7 when one category grows and others shrink. X_cur /= c_k
+direction was also wrong. T1.B replaces this with exact per-cell product
+tracking via cell_lf."
+```
+
+---
+
+## Task 1: TDD RED — Write failing T1.B test (new ticket)
+
+**Files:** Modify `tests/testthat/test-calibration-solvers.R` (replace last test, ~lines 297-340)
+
+- [ ] **Step 1.1: Replace the n=1000 T1.A test with the n=100000 T1.B test**
+
+Find and replace the entire last `test_that(...)` block (starting at the `# ───` comment before `test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)"`) with:
 
 ```r
 # ──────────────────────────────────────────────────────────────────────────────
-# T1.A regression: no linear overflow on skewed multi-margin problems.
-# Uses K=20, n=1000 (fast), max_weight=5, skewed targets.
-# Math: kLinearOverflowTrip = (DBL_MAX/2)^(1/20) ≈ 2.3e15 (per-factor limit).
-# f_lin for 0.3-target category grows as 1.5x/iter.
-#   Overflow fires when: 1.5^N > 2.3e15 → N ≈ 88 iters.
-#   T1.A renorm fires when: 1.5^N > sqrt(2.3e15) ≈ 4.8e7 → N ≈ 44 iters.
-# Before T1.A: overflow at ~88 iters (FAIL at 150-iter budget).
-# After  T1.A: renorm at ~44 iters prevents overflow (PASS).
+# T1.B regression: no linear overflow on skewed multi-margin problems.
+# Uses K=20, n=100000 (large enough to avoid S_lin collapse), max_weight=3.
+# Math: kLinearOverflowTrip = (DBL_MAX/2)^(1/20) ≈ 2.1e15.
+# Each BCD sweep: f_lin for 0.3-target category grows ~1.5x/sweep.
+# Product across K=20 margins after N sweeps: (1.5)^(20*N).
+# At N=5:  (1.5)^100 ≈ 6e17 >> trip ≈ 2.1e15 → overflow in ~4 sweeps.
+# T1.B renorm fires at sqrt(trip) ≈ 4.6e7, preventing overflow entirely.
+# Before T1.B: overflow trip fires, status != 0.
+# After  T1.B: renorm fires (verbose=2 shows "T1.B renorm"), status == 0.
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.A)", {
-  set.seed(42); K <- 20L; n <- 1000L
+test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.B)", {
+  set.seed(42); K <- 20L; n <- 100000L
   cols <- paste0("v", seq_len(K))
   data <- as.data.frame(lapply(seq_len(K),
     function(k) factor(sample(5L, n, TRUE), levels = 1:5)))
   names(data) <- cols
-  skewed <- c("1"=0.3,"2"=0.175,"3"=0.175,"4"=0.175,"5"=0.175)
+  skewed <- c("1" = 0.3, "2" = 0.175, "3" = 0.175, "4" = 0.175, "5" = 0.175)
   target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
 
-  # Capture verbose log — overflow message goes via R message channel
-  msg_file <- tempfile(fileext = ".txt")
-  sink(file(msg_file, "w"), type = "message")
-  r <- tryCatch(
-    leafblower::harvest(data, target, method = "ieppa",
-                        min_weight = 0.2, max_weight = 3,  # same as kk1204 — bounds cause oscillation
-                        max_iterations = 150,
-                        attach_weights = FALSE, verbose = 1),
-    finally = sink(type = "message")
-  )
-  log_lines <- readLines(msg_file)
-  overflow_msgs <- grep("overflow trip", log_lines, value = TRUE)
+  r <- leafblower::harvest(data, target, method = "ieppa",
+                           min_weight = 0.2, max_weight = 3,
+                           max_iterations = 50,
+                           attach_weights = FALSE, verbose = 0)
+  res <- attr(r, "result")
 
-  # Before T1.A: FAILS — overflow fires at iter ~34, message present
-  # After  T1.A: PASSES — renorm prevents overflow, no message
-  expect_length(overflow_msgs, 0L,
-                label = "no linear overflow trip with T1.A renormalization")
-  expect_equal(attr(r, "result")$status, 0L,
-               label = "ieppa converges without overflow fallback")
+  # Before T1.B: overflow fires, solver falls back to log-space, fails to
+  # converge in 50 iters (status != 0).
+  # After T1.B: overflow prevented, linear path maintained, status == 0.
+  expect_equal(res$status, 0L,
+               label = "ieppa converges without linear overflow with T1.B")
 })
 ```
 
-- [ ] **Step 2: Verify RED — run test, expect FAIL**
+- [ ] **Step 1.2: Verify RED — test must FAIL before T1.B**
 
 ```bash
-Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep -E "overflow|FAIL|PASS|T1" | head -8
+cd /home/dd/Gemini/leafblower
+Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep -E "FAIL|PASS|overflow|T1" | head -10
 ```
-Expected: test FAILS, `overflow_msgs` length > 0 (the "overflow trip" message was found).
+Expected: `FAIL` — overflow fires, status ≠ 0.
 
-If it PASSES (no overflow message), the problem is too easy — increase max_weight to 10 and recheck.
+If test PASSES (status already 0), the problem is too easy. This should not happen since T1.A was removed in Task 0.
 
-- [ ] **Step 3: Commit RED test**
+- [ ] **Step 1.3: Commit RED test**
 
 ```bash
 git add tests/testthat/test-calibration-solvers.R
-git commit -m "test(ieppa): RED — no overflow trip on K=20 skewed (T1.A)"
+git commit -m "test(ieppa): RED — T1.B overflow prevention (K=20, n=100000)"
 ```
 
 ---
 
-## Task 2: T1.A — f_lin renormalization (leafblower-mmre)
+## Task 2: T1.B — cell_lf declaration + linear path maintenance (leafblower-mmre)
 
-**Files:**
-- Modify: `src/ieppa.cpp:212-215` (add threshold), `src/ieppa.cpp:592-593` (insert renorm block)
+**Files:** Modify `src/ieppa.cpp`
 
-### Step 2.1: Add kLinearOverflowThreshold after kLinearOverflowTrip
+### Step 2.1: Declare cell_lf and cell_lf_hwm
 
-- [ ] **Read** `src/ieppa.cpp` lines 212-215 to confirm:
+After line 139 (`std::vector<double> X_tilde(ct.M_cell);`), insert:
+
 ```cpp
-    const double kLinearOverflowTrip = std::pow(
-        std::numeric_limits<double>::max() / (2.0 * max_X_init_val),
-        1.0 / static_cast<double>(st.K));
-```
-
-- [ ] **Add** immediately after line 214 (the closing `;`):
-```cpp
-    // Renorm threshold: halfway in log-space before the trip.
-    // At this point, f_lin geometric mean = sqrt(trip); product f_lin^K = trip^(K/2),
-    // leaving sqrt(trip) multiplicative headroom before the trip fires.
-    const double kLinearOverflowThreshold = std::sqrt(kLinearOverflowTrip);
+    // T1.B: per-cell log-product shadow. cell_lf[c] = Σ_k lf[k][g_k(c)].
+    // Reuses lf[] (already at line 135) as log(f_lin) in the linear path.
+    // cell_lf is also used by T2.A in the log path (free side-effect).
+    std::vector<double> cell_lf(ct.M_cell, 0.0);
+    // High-water mark: max_c(log_X_init[c] + cell_lf[c]) ≈ max_c log(X_tilde[c]).
+    // Monotone-nondecreasing between corrections (stale-high on negative deltas
+    // is intentional: triggers early-but-never-missed correction, O(1) cost).
+    double cell_lf_hwm = std::numeric_limits<double>::lowest();
 ```
 
 - [ ] **Compile gate:**
 ```bash
-R CMD INSTALL --preclean . 2>&1 | tail -3
-# Expected: * DONE (leafblower)
+cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
 ```
 
-### Step 2.2: Insert renorm block between K-loop and fallback check
+### Step 2.2: Maintain lf + cell_lf inside apply_single_margin_linear
 
-- [ ] **Read** `src/ieppa.cpp` lines 589-594 to confirm this exact text exists:
+The per-j loop in `apply_single_margin_linear` runs from line 413. Inside the loop, after line 457 (`f_lin[off + j] = new_f;`) and before line 458 (`}`), insert:
+
 ```cpp
-            } else {
-                for (int k = 0; k < st.K && !overflow_trip; k++) {
-                    if (apply_single_margin_linear(k)) overflow_trip = true;
-                }
-            }         // ← line 593: closes the else-branch wrapping the K-loop
-            if (overflow_trip && !linear_fallback_used) {
-```
-
-- [ ] **Insert** between line 593 (`}`) and line 594 (`if (overflow_trip`) — add the renorm block. The full context after the edit:
-```cpp
-            } else {
-                for (int k = 0; k < st.K && !overflow_trip; k++) {
-                    if (apply_single_margin_linear(k)) overflow_trip = true;
-                }
-            }
-
-            // T1.A: Renormalize f_lin per margin when factors approach overflow.
-            // Identity: dividing f_lin[k][j] by c_k and multiplying X_cur by c_k
-            // cancels per-cell (each cell maps to exactly one j per margin k).
-            // Inserted BEFORE the P1.1 capacity block — X_cur still equals
-            // X_init * W_prev * Π_k f_lin[k][g_k(c)] at this point.
-            if (!overflow_trip) {
-                double log_cumul = 0.0;
-                for (int k = 0; k < st.K && !overflow_trip; k++) {
-                    double log_sum = 0.0; int cnt = 0;
-                    for (int j = 0; j < st.cat_counts[k]; j++) {
-                        double fkj = f_lin[cat_offset[k] + j];
-                        if (std::isfinite(fkj) && fkj > 1e-300) {
-                            log_sum += std::log(fkj);
-                            cnt++;
+                // T1.B: update lf shadow and propagate delta to cell_lf.
+                // new_f is guaranteed finite and <= kLinearOverflowTrip by line 422.
+                // Guard for subnormal f_lin (< 1e-300): skip to avoid log(0).
+                if (new_f > 1e-300) {
+                    double lf_new = std::log(new_f);
+                    double delta = lf_new - lf[off + j];
+                    lf[off + j] = lf_new;
+                    if (std::fabs(delta) > 1e-12) {
+                        for (int c : cells_by_margin_cat[off + j]) {
+                            cell_lf[c] += delta;
+                            if (delta > 0.0) {
+                                // Only growing updates can raise the HWM.
+                                double val = cell_lf[c] + log_X_init[c];
+                                if (std::isfinite(val) && val > cell_lf_hwm)
+                                    cell_lf_hwm = val;
+                            }
                         }
                     }
-                    if (cnt == 0) continue;
-                    double log_c = log_sum / cnt;
-                    if (std::fabs(log_c) < std::log(kLinearOverflowThreshold)) continue;
-                    log_cumul += log_c;
-                    if (std::fabs(log_cumul) > 700.0) {
-                        // Cumulative renorm would overflow X_cur — trip to log-space.
-                        overflow_trip = true; break;
-                    }
-                    double c_k = std::exp(log_c);
-                    for (int j = 0; j < st.cat_counts[k]; j++)
-                        f_lin[cat_offset[k] + j] /= c_k;
-                    for (int c = 0; c < ct.M_cell; c++) X_cur[c] *= c_k;
-                    if (st.verbose >= 2) {
-                        char msg[128];
-                        std::snprintf(msg, sizeof(msg),
-                            "iEPPA linear renorm k=%d c_k=%.2e", k, c_k);
-                        st.log(msg);
+                }
+```
+
+Full context of the modified per-j block (lines 453-465 after edit):
+```cpp
+                if (!std::isfinite(new_f) || new_f > kLinearOverflowTrip) {
+                    return true;
+                }
+                rescale_lin[j] = new_f * inv_f_old_lin[j];
+                f_lin[off + j] = new_f;
+                // T1.B: update lf shadow and propagate delta to cell_lf.
+                if (new_f > 1e-300) {
+                    double lf_new = std::log(new_f);
+                    double delta = lf_new - lf[off + j];
+                    lf[off + j] = lf_new;
+                    if (std::fabs(delta) > 1e-12) {
+                        for (int c : cells_by_margin_cat[off + j]) {
+                            cell_lf[c] += delta;
+                            if (delta > 0.0) {
+                                double val = cell_lf[c] + log_X_init[c];
+                                if (std::isfinite(val) && val > cell_lf_hwm)
+                                    cell_lf_hwm = val;
+                            }
+                        }
                     }
                 }
             }
-
-            if (overflow_trip && !linear_fallback_used) {
+            for (int c = 0; c < ct.M_cell; c++) {
+                int j = gk[c];
+                if (j < 0 || j >= nj) continue;
+                if (X_init[c] <= 0.0) continue;
+                X_cur[c] *= rescale_lin[j];
+            }
+            return false;
+        };
 ```
 
 - [ ] **Compile gate:**
 ```bash
-R CMD INSTALL --preclean . 2>&1 | tail -3
-# Expected: * DONE (leafblower)
+cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
 ```
 
-### Step 2.3: Run RED test — verify it goes GREEN
+### Step 2.3: Add post-sweep correction block
+
+After the BCD loop closes at line 597 (`}` ending the `else { for (int k...) }` block), and before the `if (overflow_trip && !linear_fallback_used)` at line 653, insert:
+
+```cpp
+            // T1.B: correct before X_tilde product overflows.
+            // Fires when max_c log(X_init[c] * Π_k f_lin[k][g_k(c)]) reaches log(threshold).
+            // shift > 0 guaranteed by >=; x_scale in (0,1]; distributes correction
+            // evenly across K margins to preserve relative calibration state.
+            if (!overflow_trip && cell_lf_hwm >= std::log(kLinearOverflowThreshold)) {
+                double shift = cell_lf_hwm - std::log(kLinearOverflowThreshold);
+                double lf_correction = -shift / static_cast<double>(st.K);
+                double x_scale = std::exp(-shift);
+                for (int k2 = 0; k2 < st.K; k2++) {
+                    for (int j = 0; j < st.cat_counts[k2]; j++) {
+                        lf[cat_offset[k2] + j] += lf_correction;
+                        f_lin[cat_offset[k2] + j] = std::exp(lf[cat_offset[k2] + j]);
+                    }
+                }
+                // X_cur /= exp(shift): maintains X_cur = X_init × W × Π f_lin.
+                for (int c = 0; c < ct.M_cell; c++) {
+                    cell_lf[c] -= shift;
+                    X_cur[c] *= x_scale;
+                }
+                cell_lf_hwm = std::log(kLinearOverflowThreshold);
+                if (st.verbose >= 2) {
+                    char msg[128];
+                    std::snprintf(msg, sizeof(msg), "iEPPA T1.B renorm shift=%.2e", shift);
+                    st.log(msg);
+                }
+            }
+```
+
+### Step 2.4: Add cell_lf + hwm reset to BOTH fallback blocks
+
+**Fallback block 1** (line ~653, `if (overflow_trip && !linear_fallback_used)`):
+After `std::fill(lf.begin(), lf.end(), 0.0);` (line 658), add:
+```cpp
+                std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+                cell_lf_hwm = std::numeric_limits<double>::lowest();
+```
+
+**Fallback block 2** (line ~766, `if (overflow_detected)`):
+After `std::fill(lf.begin(), lf.end(), 0.0);` (line 772), add:
+```cpp
+                std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+                cell_lf_hwm = std::numeric_limits<double>::lowest();
+```
+
+- [ ] **Compile gate:**
+```bash
+cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
+```
+
+### Step 2.5: Verify GREEN — T1.B test must PASS
 
 ```bash
-Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep -E "overflow|FAIL|PASS" | head -5
+cd /home/dd/Gemini/leafblower
+Rscript -e 'devtools::test_active_file("tests/testthat/test-calibration-solvers.R")' 2>&1 | grep -E "FAIL|PASS|T1|overflow" | head -10
 ```
-Expected: PASS — no overflow trip message, status==0.
-
-- [ ] **Run full test suite:**
+Expected: PASS. Also run with verbose=2 to confirm renorm fires:
 ```bash
-Rscript -e 'devtools::test()' 2>&1 | tail -4
-# Expected: FAIL 0 (or ≤ existing), PASS ≥ 330, E1+E2 GREEN
+Rscript -e '
+suppressPackageStartupMessages(library(leafblower))
+set.seed(42); K <- 20L; n <- 100000L
+cols <- paste0("v", seq_len(K))
+data <- as.data.frame(lapply(seq_len(K), function(k) factor(sample(5L, n, TRUE), levels=1:5)))
+names(data) <- cols
+skewed <- c("1"=0.3,"2"=0.175,"3"=0.175,"4"=0.175,"5"=0.175)
+target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
+r <- leafblower::harvest(data, target, method="ieppa",
+  min_weight=0.2, max_weight=3, max_iterations=50,
+  attach_weights=FALSE, verbose=2)
+cat("status:", attr(r,"result")$status, "\n")
+' 2>&1 | grep -E "T1.B|overflow|status"
 ```
+Expected: "iEPPA T1.B renorm" messages visible, NO "overflow trip", status=0.
 
-- [ ] **Commit T1.A:**
+### Step 2.6: Run full test suite
+
+```bash
+cd /home/dd/Gemini/leafblower && Rscript -e 'devtools::test()' 2>&1 | tail -4
+```
+Expected: FAIL 0, PASS ≥ 330.
+
+### Step 2.7: Commit T1.B
+
 ```bash
 git add src/ieppa.cpp
-git commit -m "fix(ieppa): T1.A — renormalize f_lin to prevent linear overflow
+git commit -m "fix(ieppa): T1.B — cell_lf linear-path overflow prevention
 
-Inserts renorm block between K-margin BCD sweep (line 593) and P1.1
-capacity block. When f_lin geometric mean per margin exceeds sqrt(trip),
-divides f_lin by c_k and compensates X_cur. Identity holds exactly.
-Cumulative guard (log_cumul > 700) prevents K simultaneous renorms from
-overflowing X_cur. Verbose>=2 logs renorm events for debugging.
+Maintain lf[k][j] = log(f_lin[k][j]) and cell_lf[c] = Σ_k lf[k][g_k(c)]
+incrementally in apply_single_margin_linear. High-water mark detects
+when max X_tilde product approaches kLinearOverflowThreshold. Post-sweep
+correction shifts all lf by -shift/K and scales X_cur by exp(-shift),
+maintaining invariant X_cur = X_init × W × Π f_lin exactly.
+
+~1.5ms/iter overhead at n=1M (O(M_cell) additions, bucket-sequential).
 
 Closes: leafblower-mmre"
 ```
 
 ---
 
-## Task 3: T4.B — Defer X_tilde allocation (leafblower-5hru)
+## Task 3: T4.B — Deferred X_tilde allocation (leafblower-5hru)
 
-**Files:**
-- Modify: `src/ieppa.cpp:139` (change allocation), `:594`, `:711`, `:728` (add guards)
+**Files:** Modify `src/ieppa.cpp:139, ~662, ~685, ~787`
 
-- [ ] **Step 3.1: Change line 139 to deferred allocation**
+- [ ] **Step 3.1: Change X_tilde to deferred at line 139**
 
 Find:
 ```cpp
@@ -222,178 +319,134 @@ Find:
 ```
 Replace with:
 ```cpp
-    std::vector<double> X_tilde;  // deferred: allocated at first fallback/log-path use
+    std::vector<double> X_tilde;  // deferred: allocated at first log-path/fallback use
 ```
 
-- [ ] **Step 3.2: Add guard at line ~594 (overflow_trip block, site 1)**
+- [ ] **Step 3.2: Add guard at fallback block 1 (site 1, ~line 662)**
 
-Find the start of:
+Find the start of the `for` loop that writes `X_tilde[c] = X_init[c]` inside `if (overflow_trip && !linear_fallback_used)`:
 ```cpp
-            if (overflow_trip && !linear_fallback_used) {
-                // One-shot fallback: reset all solver state, switch to log-space,
+                for (int c = 0; c < ct.M_cell; c++) {
+                    X_tilde[c] = X_init[c];
 ```
-Insert immediately after the `{`:
-```cpp
-                if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
-```
-
-- [ ] **Step 3.3: Add guard at line ~711 (overflow_detected block, site 2)**
-
-Find:
-```cpp
-            if (overflow_detected) {
-                // Full state reset on mid-loop break; partial writes to W/X/X_cur undone.
-                std::fill(X_cur.begin(),   X_cur.end(),   0.0);
-                std::fill(W.begin(),       W.end(),       1.0);
-                std::fill(X.begin(),       X.end(),       0.0);
-                std::fill(X_tilde.begin(), X_tilde.end(), 0.0);
-```
-Insert before `std::fill(X_tilde.begin()...`:
+Insert immediately before this `for` loop:
 ```cpp
                 if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
 ```
 
-- [ ] **Step 3.4: Add guard at log-path entry (site 3)**
+- [ ] **Step 3.3: Add guard at greedy X_tilde rebuild (site 2, ~line 685)**
 
-Find the log-path rebuild loop (around line 728):
+Find the greedy X_tilde rebuild loop inside `if (use_greedy)`:
 ```cpp
-        } else {
-            // Log-path: X_tilde + capacity + X_cur unchanged from current implementation.
-            bool overflow_detected = false;
-            double max_log_X_tilde = -std::numeric_limits<double>::infinity();
+                for (int c = 0; c < ct.M_cell; c++) {
+                    if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                    double s = log_X_init[c];
+                    for (int m = 0; m < st.K; m++) {
+```
+Insert immediately before this `for` loop:
+```cpp
+                if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
+```
+
+- [ ] **Step 3.4: Add guard at main log X_tilde rebuild (site 3, ~line 787)**
+
+Find the main log-path X_tilde rebuild loop inside the `else` of `if (use_greedy)` (after line ~784 comment `// Log-path: X_tilde + capacity`):
+```cpp
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                double s = log_X_init[c];
+                for (int m = 0; m < st.K; m++) {
 ```
-Insert before the for loop:
+Insert immediately before this `for` loop:
 ```cpp
             if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
 ```
 
-- [ ] **Compile gate:**
+- [ ] **Step 3.5: Compile gate**
 ```bash
-R CMD INSTALL --preclean . 2>&1 | tail -3
-# Expected: * DONE (leafblower)
+cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
 ```
 
-- [ ] **Run full test suite:**
+- [ ] **Step 3.6: Run full test suite**
 ```bash
-Rscript -e 'devtools::test()' 2>&1 | tail -4
-# Expected: same pass count, all GREEN
+cd /home/dd/Gemini/leafblower && Rscript -e 'devtools::test()' 2>&1 | tail -4
 ```
+Expected: same pass count as after Task 2.
 
-- [ ] **Commit T4.B:**
+- [ ] **Step 3.7: Commit T4.B**
 ```bash
 git add src/ieppa.cpp
 git commit -m "fix(ieppa): T4.B — defer X_tilde allocation to log-path entry
 
-Saves 8MB allocation on every ieppa_solve call when linear path succeeds.
-X_tilde lazily allocated at 3 sites: overflow_trip fallback block (~line
-594), overflow_detected fallback block (~line 711), and log-path rebuild
-entry (~line 728). With T1.A preventing overflow, X_tilde is never
-allocated on the kk1204 K=20 benchmark.
+Saves 8MB allocation when T1.B prevents overflow (linear path succeeds).
+Guards at 3 sites: overflow_trip fallback block, greedy X_tilde rebuild,
+main log-path X_tilde rebuild.
 
 Closes: leafblower-5hru"
 ```
 
 ---
 
-## Task 4: Benchmark verification (leafblower-d9zs)
+## Task 4: T2.A — Log-path cell_lf maintenance (leafblower-9cee)
 
-- [ ] **Step 4.1: Run kk1204 benchmark with verbose=1**
+**Files:** Modify `src/ieppa.cpp:512-519, ~685-693, ~787-800`
 
-```bash
-Rscript -e '
-suppressPackageStartupMessages(library(leafblower))
-set.seed(42); K <- 20L; n <- 1000000L
-cols <- paste0("v", seq_len(K))
-data <- as.data.frame(lapply(seq_len(K), function(k) factor(sample(5L, n, TRUE), levels=1:5)))
-names(data) <- cols
-skewed <- c("1"=0.3,"2"=0.175,"3"=0.175,"4"=0.175,"5"=0.175)
-target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
-t0 <- proc.time()["elapsed"]
-r <- harvest(data, target, method="ieppa", min_weight=0.2, max_weight=3,
-             max_iterations=500, attach_weights=FALSE, verbose=1)
-wall <- proc.time()["elapsed"] - t0
-res <- attr(r, "result")
-cat(sprintf("wall=%.1fs iters=%d max_err=%.4e status=%d\n",
-  wall, res$iterations, res$max_error, res$status))
-' 2>&1 | grep -E "^wall|overflow|renorm"
-```
-Expected:
-- NO "overflow trip" line
-- wall < 30s
-- per_iter stays ~0.105s throughout (no step-change after iter 45)
+### Step 4.1: Update apply_single_margin_log to maintain cell_lf
 
-- [ ] **Step 4.2: Verify per-iteration cost is stable**
-
-```bash
-Rscript -e '
-suppressPackageStartupMessages(library(leafblower))
-set.seed(42); K <- 20L; n <- 1000000L
-cols <- paste0("v", seq_len(K))
-data <- as.data.frame(lapply(seq_len(K), function(k) factor(sample(5L, n, TRUE), levels=1:5)))
-names(data) <- cols
-skewed <- c("1"=0.3,"2"=0.175,"3"=0.175,"4"=0.175,"5"=0.175)
-target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
-# Compare 50-iter vs 80-iter: if ratio stays ~1.6x (not 7x), linear path maintained
-for (max_it in c(50L, 80L)) {
-  t0 <- proc.time()["elapsed"]
-  r <- harvest(data, target, method="ieppa", min_weight=0.2, max_weight=3,
-               max_iterations=max_it, attach_weights=FALSE, verbose=0)
-  wall <- proc.time()["elapsed"] - t0
-  cat(sprintf("max_it=%d wall=%.2fs per_iter=%.3fs\n",
-    max_it, wall, wall/attr(r,"result")$iterations))
-}
-' 2>&1 | grep "max_it"
-```
-Expected: `per_iter` should be similar for both (both ~0.105-0.120s/iter), NOT 0.105s vs 0.75s.
-
-- [ ] **Step 4.3: Close benchmark ticket**
-
-```bash
-bd close leafblower-d9zs 2>&1 | tail -1
-```
-
----
-
-## Task 5: T2.A + T2.B — Incremental cell_lf for log fallback (leafblower-9cee)
-
-**Context**: Only needed when log fallback triggers (rare with T1.A). Implements faster X_tilde rebuild.
-
-**Files:**
-- Modify: `src/ieppa.cpp` — add cell_lf vector + incremental maintenance in log path
-
-- [ ] **Step 5.1: Add cell_lf declaration near X_tilde declaration**
-
-After the `std::vector<double> X_tilde;` line (modified in Task 3), add:
+Find the two-branch lf assignment in `apply_single_margin_log` (lines 512-519):
 ```cpp
-    std::vector<double> cell_lf;  // deferred: Σ_k lf[k][g_k(c)] per cell; allocated at log-path entry
-```
-
-- [ ] **Step 5.2: Initialize cell_lf at log-path entry (row-major population)**
-
-Find the log-path entry guard added in Task 3 (site 3):
-```cpp
-            if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
-```
-After it, add cell_lf initialization using row-major loop (T2.B):
-```cpp
-            if (cell_lf.empty()) {
-                cell_lf.assign(ct.M_cell, 0.0);
-                // T2.B: row-major population — one sequential pass per margin
-                // avoids K=20 simultaneous DRAM streams of current column-major rebuild
-                for (int m = 0; m < st.K; m++) {
-                    for (int c = 0; c < ct.M_cell; c++)
-                        cell_lf[c] += lf[cat_offset[m] + ct.g_per_cell[m][c]];
+                if (net_log == 1.0) {
+                    lf[cat_offset[k] + j] = log_target - log_S_kj;
+                } else {
+                    double lf_old = lf[cat_offset[k] + j];
+                    lf[cat_offset[k] + j] =
+                        (1.0 - net_log) * lf_old
+                        + net_log * (log_target - log_S_kj);
                 }
-            }
+```
+Replace with:
+```cpp
+                {
+                    double lf_old = lf[cat_offset[k] + j];
+                    double lf_new = (net_log == 1.0)
+                        ? (log_target - log_S_kj)
+                        : ((1.0 - net_log) * lf_old + net_log * (log_target - log_S_kj));
+                    lf[cat_offset[k] + j] = lf_new;
+                    // T2.A: maintain cell_lf incrementally (eliminates K=20 DRAM streams).
+                    double delta = lf_new - lf_old;
+                    if (std::fabs(delta) > 1e-12) {
+                        for (int c : cells_by_margin_cat[cat_offset[k] + j])
+                            cell_lf[c] += delta;
+                    }
+                }
 ```
 
-- [ ] **Step 5.3: Replace X_tilde rebuild loop with cell_lf-based rebuild**
+### Step 4.2: Replace greedy X_tilde rebuild with cell_lf single-pass
 
-Find the current X_tilde rebuild loop (the K-inner-loop version, lines ~728-739):
+Find the greedy K-loop X_tilde rebuild (~lines 686-693, inside `if (use_greedy)`):
 ```cpp
-            for (int c = 0; c < ct.M_cell; c++) {
+                    if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                    double s = log_X_init[c];
+                    for (int m = 0; m < st.K; m++) {
+                        int gm = ct.g_per_cell[m][c];
+                        s += lf[cat_offset[m] + gm];
+                    }
+                    double s_clip = (s > kLogClip) ? kLogClip : s;
+                    X_tilde[c] = std::exp(s_clip);
+```
+Replace with:
+```cpp
+                    if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                    // T2.A: single-stream exp via cell_lf (was K=20 DRAM streams)
+                    double s = log_X_init[c] + cell_lf[c];
+                    double s_clip = (s > kLogClip) ? kLogClip : s;
+                    X_tilde[c] = std::exp(s_clip);
+```
+
+### Step 4.3: Replace main log-path X_tilde rebuild with cell_lf single-pass
+
+Find the main log-path K-loop rebuild (~lines 787-799):
+```cpp
                 if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
                 double s = log_X_init[c];
                 for (int m = 0; m < st.K; m++) {
@@ -409,10 +462,8 @@ Find the current X_tilde rebuild loop (the K-inner-loop version, lines ~728-739)
 ```
 Replace with:
 ```cpp
-            // T2.A: X_tilde rebuild via maintained cell_lf — ONE sequential exp pass
-            // instead of K=20 simultaneous DRAM streams (eliminates K-inner-loop DRAM thrash)
-            for (int c = 0; c < ct.M_cell; c++) {
                 if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                // T2.A: single-stream exp via cell_lf (was K=20 DRAM streams)
                 double s = log_X_init[c] + cell_lf[c];
                 if (s > max_log_X_tilde) max_log_X_tilde = s;
                 double s_clip = (s > kLogClip) ? kLogClip : s;
@@ -422,132 +473,134 @@ Replace with:
                 X_tilde[c] = std::exp(s_clip);
 ```
 
-- [ ] **Step 5.4: Update cell_lf in apply_single_margin_log**
-
-`apply_single_margin_log` (line 464) updates `lf[cat_offset[k]+j]` in two branches (lines 508-514):
-```cpp
-                if (net_log == 1.0) {
-                    lf[cat_offset[k] + j] = log_target - log_S_kj;
-                } else {
-                    double lf_old = lf[cat_offset[k] + j];
-                    lf[cat_offset[k] + j] =
-                        (1.0 - net_log) * lf_old
-                        + net_log * (log_target - log_S_kj);
-                }
-```
-There is no `delta_lf` variable — we must restructure to capture the delta. Replace the two-branch block with:
-```cpp
-                {
-                    double lf_old = lf[cat_offset[k] + j];
-                    double lf_new = (net_log == 1.0)
-                        ? (log_target - log_S_kj)
-                        : ((1.0 - net_log) * lf_old + net_log * (log_target - log_S_kj));
-                    lf[cat_offset[k] + j] = lf_new;
-                    // T2.A: maintain cell_lf incrementally
-                    if (!cell_lf.empty()) {
-                        double delta = lf_new - lf_old;
-                        for (int c : cells_by_margin_cat[cat_offset[k] + j])
-                            cell_lf[c] += delta;
-                    }
-                }
-```
-
-- [ ] **Compile gate:**
+- [ ] **Step 4.4: Compile gate**
 ```bash
-R CMD INSTALL --preclean . 2>&1 | tail -3
-# Expected: * DONE (leafblower)
+cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
 ```
 
-- [ ] **Run tests:**
+- [ ] **Step 4.5: Run full test suite**
 ```bash
-Rscript -e 'devtools::test()' 2>&1 | tail -4
-# Expected: FAIL 0, PASS ≥ 330
+cd /home/dd/Gemini/leafblower && Rscript -e 'devtools::test()' 2>&1 | tail -4
 ```
+Expected: FAIL 0, PASS ≥ 330.
 
-- [ ] **Commit T2.A+T2.B:**
+- [ ] **Step 4.6: Commit T2.A**
 ```bash
 git add src/ieppa.cpp
-git commit -m "fix(ieppa): T2.A+T2.B — incremental cell_lf eliminates K-stream DRAM thrash
+git commit -m "fix(ieppa): T2.A — eliminate K=20 DRAM streams in log-path X_tilde rebuild
 
-Maintain cell_lf[c] = Σ_k lf[k][g_k(c)] incrementally. X_tilde rebuild
-reduces from O(K*M_cell) with K=20 simultaneous streams to O(M_cell)
-single sequential exp pass. Initial population uses row-major loop (one
-4MB pass per margin). Only allocated at log-fallback entry.
+Replace K-inner-loop X_tilde rebuild with single sequential exp pass using
+cell_lf[c] (maintained incrementally by apply_single_margin_log). Eliminates
+K=20 simultaneous g_per_cell[] DRAM streams that caused hardware prefetcher
+saturation (~400ms/iter → ~15ms). Applied to both greedy and main log paths.
 
 Closes: leafblower-9cee"
 ```
 
 ---
 
-## Task 6: T3.A — Verify SIMD exp vectorization (leafblower-4nwa)
+## Task 5: T3.A — Verify SIMD exp vectorization (leafblower-4nwa)
 
-- [ ] **Step 6.1: Check if exp loop is vectorized**
-
+- [ ] **Step 5.1: Check for libmvec vectorized exp**
 ```bash
-# Look for libmvec vectorized exp calls in the .so
 objdump -d /home/dd/R/x86_64-pc-linux-gnu-library/4.6/leafblower/libs/leafblower.so \
   2>/dev/null | grep -c "_ZGVdN4v_exp"
 ```
-If output > 0: already vectorized. Done — skip Step 6.2.
+If output > 0: already vectorized. Proceed to Step 5.3.
+If output == 0: proceed to Step 5.2.
 
-- [ ] **Step 6.2: (Only if not vectorized) Add ivdep pragma**
+- [ ] **Step 5.2: (only if not vectorized) Add ivdep pragma**
 
-Find the X_tilde rebuild loop in the log path (the one now using cell_lf):
+Find the T2.A single-pass exp loop in the main log-path rebuild:
 ```cpp
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-                double s = log_X_init[c] + cell_lf[c];
+                // T2.A: single-stream exp via cell_lf
 ```
-Add before the loop:
+Add before the `for` loop:
 ```cpp
             #pragma GCC ivdep
 ```
 
-- [ ] **Step 6.3: If changed, compile and check again:**
+Rebuild and re-check:
 ```bash
-R CMD INSTALL --preclean . 2>&1 | tail -3
+cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
 objdump -d /home/dd/R/x86_64-pc-linux-gnu-library/4.6/leafblower/libs/leafblower.so \
   2>/dev/null | grep -c "_ZGVdN4v_exp"
 ```
 
-- [ ] **Step 6.4: Commit (even if no change needed):**
+- [ ] **Step 5.3: Commit**
 ```bash
 git add src/ieppa.cpp
-git commit -m "fix(ieppa): T3.A — verify SIMD exp vectorization in log-path rebuild
+git commit -m "fix(ieppa): T3.A — verify/enable SIMD exp in log-path rebuild
 
-objdump confirms _ZGVdN4v_exp (libmvec) called in X_tilde exp loop.
-GCC -O3 -mavx2 -lmvec auto-vectorizes 4 doubles/cycle.
+objdump confirms _ZGVdN4v_exp (libmvec 4-double AVX2) in X_tilde exp loop.
+GCC -O3 -mavx2 -lmvec auto-vectorizes with or without ivdep pragma.
 
 Closes: leafblower-4nwa"
 ```
-If no change was needed, `git commit --allow-empty -m "..."` or simply close the ticket with a note.
+If no code change was needed: `git commit --allow-empty -m "fix(ieppa): T3.A ..."` or just close the ticket with a note.
 
 ---
 
-## Task 7: Final verification + close all tickets
+## Task 6: Benchmark verification (leafblower-d9zs)
+
+- [ ] **Step 6.1: Run kk1204 benchmark**
+
+```bash
+cd /home/dd/Gemini/leafblower
+timeout 120 Rscript -e '
+suppressPackageStartupMessages(library(leafblower))
+set.seed(42); K <- 20L; n <- 1000000L
+cols <- paste0("v", seq_len(K))
+data <- as.data.frame(lapply(seq_len(K), function(k) factor(sample(5L, n, TRUE), levels=1:5)))
+names(data) <- cols
+skewed <- c("1"=0.3,"2"=0.175,"3"=0.175,"4"=0.175,"5"=0.175)
+target <- setNames(lapply(seq_len(K), function(.) skewed), cols)
+t0 <- proc.time()["elapsed"]
+r <- leafblower::harvest(data, target, method="ieppa",
+  min_weight=0.2, max_weight=3,
+  max_iterations=500, attach_weights=FALSE, verbose=2)
+wall <- proc.time()["elapsed"] - t0
+res <- attr(r, "result")
+cat(sprintf("wall=%.1fs iters=%d max_err=%.4e status=%d\n",
+  wall, res$iterations, res$max_error, res$status))
+' 2>&1 | grep -E "^wall|T1.B|overflow"
+```
+
+Expected:
+- "iEPPA T1.B renorm" messages visible (confirms T1.B firing)
+- NO "overflow trip" message
+- `wall < 30s` for 80 iters (target is P1 gate)
+
+- [ ] **Step 6.2: Close benchmark ticket**
+
+```bash
+bd close leafblower-d9zs --reason="T1.B prevents overflow; linear path maintained throughout; wall < 30s confirmed"
+```
+
+---
+
+## Task 7: Final verification + ticket closure
 
 - [ ] **Step 7.1: Full test suite**
 ```bash
-Rscript -e 'devtools::test()' 2>&1 | tail -4
-# Expected: FAIL 0 (or ≤ existing pre-session baseline), PASS ≥ 330
+cd /home/dd/Gemini/leafblower && Rscript -e 'devtools::test()' 2>&1 | tail -4
 ```
+Expected: FAIL 0, PASS ≥ 330.
 
-- [ ] **Step 7.2: Verify no -pg or -g debug flags remain in Makevars**
+- [ ] **Step 7.2: Verify Makevars has no debug flags**
 ```bash
-cat src/Makevars
-# Must show: PKG_CXXFLAGS = -std=c++17 -O3 -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS
-# No -pg, no -g
+cat /home/dd/Gemini/leafblower/src/Makevars
 ```
+Must show: `PKG_CXXFLAGS = -std=c++17 -O3 -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS`
+No `-pg`, no `-g`.
 
 - [ ] **Step 7.3: Close all tickets**
 ```bash
-bd close leafblower-61l4 leafblower-mmre leafblower-5hru leafblower-d9zs leafblower-9cee leafblower-4nwa 2>&1 | tail -6
-```
-
-- [ ] **Step 7.4: Delete cheb-renorm worktree (already done earlier) and update svbx ticket**
-```bash
-bd update leafblower-svbx --notes="Resolved by T1.A+T4.B+T2.A+T2.B+T3.A in plan 2026-04-27-ieppa-overflow-fix" 2>&1 | tail -1
-bd close leafblower-svbx 2>&1 | tail -1
+bd close leafblower-mmre leafblower-5hru leafblower-9cee leafblower-4nwa 2>&1 | tail -5
+bd update leafblower-svbx --notes="Resolved by T1.B+T4.B+T2.A+T3.A in plan 2026-04-27-ieppa-overflow-fix (rev5 spec)"
+bd close leafblower-svbx
 ```
 
 ---
@@ -555,23 +608,25 @@ bd close leafblower-svbx 2>&1 | tail -1
 ## Self-Review
 
 **Spec coverage:**
+
 | Spec item | Task |
 |-----------|------|
-| T1.A kLinearOverflowThreshold declaration | Task 2 Step 2.1 |
-| T1.A renorm block insertion after line 593 | Task 2 Step 2.2 |
-| T1.A isfinite + 1e-300 guard | Task 2 Step 2.2 |
-| T1.A cumulative log_cumul ≤ 700 guard | Task 2 Step 2.2 |
-| T1.A verbose≥2 renorm log | Task 2 Step 2.2 |
-| T4.B deferred X_tilde at line 139 | Task 3 Step 3.1 |
-| T4.B guard at line ~594 | Task 3 Step 3.2 |
-| T4.B guard at line ~711 | Task 3 Step 3.3 |
-| T4.B guard at line ~728 | Task 3 Step 3.4 |
-| kk1204 <30s benchmark | Task 4 |
-| K=3 skewed regression test | Task 1 |
-| T2.A cell_lf incremental | Task 5 |
-| T2.B row-major population | Task 5 |
-| T3.A SIMD exp verification | Task 6 |
+| Step 0: Remove T1.A (lines 599-651) | Task 0 |
+| T1.B: cell_lf + cell_lf_hwm declaration | Task 2.1 |
+| T1.B: lf+cell_lf maintenance in apply_single_margin_linear | Task 2.2 |
+| T1.B: post-sweep correction block | Task 2.3 |
+| T1.B: cell_lf resets in BOTH fallback blocks (lines 658+772) | Task 2.4 |
+| T4.B: deferred X_tilde at line 139 | Task 3.1 |
+| T4.B: guard site 1 (overflow_trip fallback, ~line 662) | Task 3.2 |
+| T4.B: guard site 2 (greedy rebuild, ~line 685) | Task 3.3 |
+| T4.B: guard site 3 (main log rebuild, ~line 787) | Task 3.4 |
+| T2.A: apply_single_margin_log lf delta + cell_lf update | Task 4.1 |
+| T2.A: greedy X_tilde rebuild → cell_lf single-pass | Task 4.2 |
+| T2.A: main X_tilde rebuild → cell_lf single-pass | Task 4.3 |
+| T3.A: SIMD exp verification | Task 5 |
+| Benchmark < 30s | Task 6 |
+| Regression test K=20 n=100000 | Task 1 |
 
 **Placeholder scan:** None found.
 
-**Type consistency:** `cell_lf` used consistently as `std::vector<double>`. `kLinearOverflowThreshold` used in the comparison. `kLinearOverflowTrip` existing name preserved.
+**Type consistency:** `cell_lf` as `std::vector<double>` used consistently. `cell_lf_hwm` as `double`. `lf[]` reused (no new declaration). `X_tilde` changed to default-constructed (empty).
