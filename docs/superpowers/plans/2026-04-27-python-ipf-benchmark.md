@@ -43,7 +43,7 @@ import json, sys, time
 import numpy as np
 import pandas as pd
 import polars as pl
-from ipfn import ipfn as IPFN
+from ipfn.ipfn import ipfn as IPFN  # import the class, not the module
 
 
 def load_data():
@@ -129,7 +129,7 @@ def run_ipfn(df_pl, df_pd, tgt, max_iter=500, tol=1e-5):
             name="total", dtype=float
         )
         aggregates.append(target_total)
-        dimensions.append(col)
+        dimensions.append([col])  # ipfn_df requires list-of-lists
 
     # Run ipfn.IPFN — DataFrame mode with column name dimensions
     ipf = IPFN(cell_table, aggregates, dimensions,
