@@ -216,8 +216,12 @@ After the BCD loop closes at line 597 (`}` ending the `else { for (int k...) }` 
                 double shift = cell_lf_hwm - std::log(kLinearOverflowThreshold);
                 double lf_correction = -shift / static_cast<double>(st.K);
                 double x_scale = std::exp(-shift);
+                // j <= cat_counts[k2]: include NA bucket at j=cat_counts[k2].
+                // cat_offset is built with +1 for NA (line 132), so lf[] has room.
+                // Without NA shift: cells NA for margin k have cell_lf decremented by
+                // full shift but their lf[k][NA] unchanged — invariant violated.
                 for (int k2 = 0; k2 < st.K; k2++) {
-                    for (int j = 0; j < st.cat_counts[k2]; j++) {
+                    for (int j = 0; j <= st.cat_counts[k2]; j++) {
                         lf[cat_offset[k2] + j] += lf_correction;
                         f_lin[cat_offset[k2] + j] = std::exp(lf[cat_offset[k2] + j]);
                     }

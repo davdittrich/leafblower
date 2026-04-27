@@ -118,8 +118,11 @@ if (!overflow_trip && cell_lf_hwm >= std::log(kLinearOverflowThreshold)) {
     double x_scale = std::exp(-shift);  // < 1, bounded: x_scale in (0, 1]
 
     // Distribute shift evenly across all K margins (lf and f_lin).
+    // j <= cat_counts[k2]: include NA bucket (cat_offset built with +1 per margin,
+    // so lf[] always has room). Without NA shift, cells NA for a margin would have
+    // cell_lf decremented by full shift but lf[k][NA] unchanged — invariant broken.
     for (int k2 = 0; k2 < st.K; k2++) {
-        for (int j = 0; j < st.cat_counts[k2]; j++) {
+        for (int j = 0; j <= st.cat_counts[k2]; j++) {
             lf[cat_offset[k2] + j] += lf_correction;
             f_lin[cat_offset[k2] + j] = std::exp(lf[cat_offset[k2] + j]);
         }
