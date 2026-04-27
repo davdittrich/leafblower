@@ -357,30 +357,28 @@ git commit -m "feat(squarem): wire accelerate bool through CalibState → C brid
 **Files:**
 - Modify: `src/raking.cpp`
 
-The strategy: extract the per-iteration body into a lambda `F_eval`, then replace the flat iteration loop with a SQUAREM outer loop (when `st.accelerate`) or the existing flat loop (when `!st.accelerate`).
+The strategy: extract the per-iteration body into an `F_eval` lambda, then add a SQUAREM outer loop (when `st.accelerate`) alongside the existing flat loop.
+
+**Clean code constraint**: Do NOT use `std::swap(X, Xv)` or `std::swap(q_hyp, q_hyp_v)` to redirect the existing `hyperplane_step` lambda. That pattern is a fragile side-effect hack. Instead, inline the hyperplane projection directly inside `F_eval` (3 lines). The existing `hyperplane_step` lambda (which captures `X` and `q_hyp`) is only used by the flat loop — leave it unchanged.
 
 ### Step 1: Extract F_eval lambda
 
-- [ ] **Step 1: Read the current inner loop body (lines 170–398 of raking.cpp) and extract it into a lambda**
+- [ ] **Step 1: Insert the F_eval lambda before the flat iteration loop**
 
-After the existing variable declarations (around line 160, before `for (int iter = 1; ...)`), add the `F_eval` lambda. Insert this block:
+After the existing variable declarations (around line 160, before `for (int iter = 1; ...)`), insert:
 
 ```cpp
-    // F_eval: one complete inner IPF iteration on (Xv, pv, q_hyp_v).
-    // Modifies Xv, pv, q_hyp_v in place. Returns errRp for the new state.
-    // Also updates errRp_k[] (shared, used by Greedy sort next call).
-    // W_total recomputed internally.
+    // F_eval: one complete IPF inner iteration operating on explicit (Xv, pv, q_hyp_v).
+    // Does NOT use the outer X, p, q_hyp — no swaps, no captured-ref side effects on
+    // those outer variables. Side effects on shared state: errRp_k[], sor_omega[],
+    // sor_prev_errRp[], is_infeasible (all intentional — they persist across F calls).
+    // Returns errRp of the resulting state.
     auto F_eval = [&](std::vector<double>& Xv,
                       std::vector<double>& pv,
                       double& q_hyp_v) -> double {
-        // Save/restore shared state: hyperplane_step uses q_hyp directly
-        // (captured by reference from outer scope). Temporarily swap with q_hyp_v.
-        std::swap(q_hyp, q_hyp_v);
-
         double W_total = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W_total += Xv[c];
 
-        // Greedy sort
         if (use_greedy)
             std::sort(margin_order.begin(), margin_order.end(),
                       [&](int a, int b){ return errRp_k[a] > errRp_k[b]; });
@@ -431,7 +429,7 @@ After the existing variable declarations (around line 160, before `for (int iter
             }
         }
 
-        // Bregman box correction (using pv, not outer p)
+        // Bregman box correction
         for (int c = 0; c < ct.M_cell; c++) {
             double yc = Xv[c] * pv[c];
             double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
@@ -439,164 +437,150 @@ After the existing variable declarations (around line 160, before `for (int iter
             Xv[c] = Xc;
         }
 
-        // Hyperplane step: uses q_hyp (swapped to q_hyp_v above) and Xv.
-        // hyperplane_step() operates on X and q_hyp (outer references).
-        // Temporarily swap Xv ↔ X so hyperplane_step() operates on Xv.
-        std::swap(X, Xv);
-        hyperplane_step();   // modifies X (=Xv) and q_hyp (=q_hyp_v)
-        std::swap(X, Xv);
+        // KL Dykstra hyperplane: scale Xv to sum = n. Inline (no swap trick needed).
+        double s_hp = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) { Xv[c] *= q_hyp_v; s_hp += Xv[c]; }
+        const double sc_hp = static_cast<double>(st.n) / s_hp;
+        for (int c = 0; c < ct.M_cell; c++) Xv[c] *= sc_hp;
+        q_hyp_v = (sc_hp > 0.0) ? 1.0 / sc_hp : 1.0;
 
-        // Restore outer q_hyp
-        std::swap(q_hyp, q_hyp_v);
-
-        // Compute and return errRp of the new state
         return compute_errRp_ct(st, ct, Xv, bucket);
     };
 ```
 
-**Note on the swap pattern**: `hyperplane_step()` is a lambda capturing `X` and `q_hyp` by reference. To avoid rewriting it, we swap Xv↔X before calling it, then swap back. The same trick applies to q_hyp ↔ q_hyp_v.
+### Step 2: Add SQUAREM outer loop
 
-- [ ] **Step 2: Add SQUAREM outer loop (replaces the flat loop when st.accelerate)**
+- [ ] **Step 2: Add the SQUAREM branch immediately before the existing flat loop**
 
-After the F_eval lambda definition, add the SQUAREM branch. The structure is:
+Insert this block before `for (int iter = 1; iter <= st.inner_max_iter; iter++) {`:
 
 ```cpp
     if (st.accelerate) {
         // ── SQUAREM SqS3 outer loop ──────────────────────────────────────────
-        // Each super-step: 3 F-evals (w1=F(X), w2=F(w1), X_new=F(X*)) + k halvings.
-        static constexpr double kAlphaMax   = -1.0;    // cap: never gentler than -1
-        static constexpr double kAlphaMin   = -1000.0; // cap: never more aggressive
-        static constexpr double kVNormEps   = 1e-300;  // denominator guard
-        static constexpr double kVNormRel   = 1e-10;   // relative convergence: ‖v‖/‖w2‖
+        // 3 F-evals per super-step baseline + 1 per halving iteration.
+        static constexpr double kAlphaMax    = -1.0;    // gentlest step
+        static constexpr double kAlphaMin    = -1000.0; // most aggressive step
+        static constexpr double kVNormEps    = 1e-300;
+        static constexpr double kVNormRel    = 1e-10;   // ‖v‖/‖w2‖ convergence guard
         static constexpr double kHalvingSlack = 1.01;
         static constexpr int    kMaxHalvings  = 16;
 
-        int sq_iter = 0;   // super-step count (each ≈ 3 F-evals)
-        while (sq_iter * 3 < st.inner_max_iter) {
-            // w1 = F(X), w2 = F(w1)
+        int f_eval_count = 0;
+        while (f_eval_count + 3 <= st.inner_max_iter) {
             auto w1 = X; auto p1 = p; double qh1 = q_hyp;
-            F_eval(w1, p1, qh1);
+            double errRp_w1 = F_eval(w1, p1, qh1);  ++f_eval_count;
 
             auto w2 = w1; auto p2 = p1; double qh2 = qh1;
-            F_eval(w2, p2, qh2);
+            double errRp_w2 = F_eval(w2, p2, qh2);  ++f_eval_count;
 
-            sq_iter++;
-            res.iterations = sq_iter * 3;  // approximate F-eval count
+            res.iterations = f_eval_count;
 
-            // r = w1-X, v = w2-w1; compute norms
+            // Compute norms of r = w1-X and v = w2-w1
             double norm_r = 0.0, norm_v = 0.0, norm_w2 = 0.0;
             for (int c = 0; c < ct.M_cell; c++) {
-                double ri = w1[c] - X[c];
-                double vi = w2[c] - w1[c];
+                double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
                 norm_r  += ri * ri;
                 norm_v  += vi * vi;
                 norm_w2 += w2[c] * w2[c];
             }
-            norm_r  = std::sqrt(norm_r);
-            norm_v  = std::sqrt(norm_v);
+            norm_r = std::sqrt(norm_r);
+            norm_v = std::sqrt(norm_v);
             norm_w2 = std::sqrt(norm_w2);
 
-            // ‖v‖/‖w2‖ guard: already at fixed point
+            // Fixed-point guard: ‖v‖/‖w2‖ < threshold → already converged
             if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
                 X = w2; p = p2; q_hyp = qh2;
-                res.max_error = compute_errRp_ct(st, ct, X, bucket);
+                res.max_error = errRp_w2;
                 res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                res.convergence_iter = f_eval_count;
                 break;
             }
 
-            // α = -‖r‖/‖v‖, capped to [kAlphaMin, kAlphaMax]
-            double alpha = std::max(kAlphaMin, std::min(kAlphaMax, -norm_r / (norm_v + kVNormEps)));
+            // CBB step, capped to [kAlphaMin, kAlphaMax]
+            double alpha = std::max(kAlphaMin,
+                           std::min(kAlphaMax, -norm_r / (norm_v + kVNormEps)));
 
-            // Snapshot after w2, before extrapolation
+            // Snapshot is w2 (state after second F-eval, before extrapolation)
             auto X_snap = w2; auto p_snap = p2; double q_snap = qh2;
 
-            // Extrapolate: X* = X - 2α·r + α²·v; clamp to ≥ 0
-            auto X_star = X;  // copy to compute X*
+            // Extrapolate X* = X_snap - 2α·r + α²·v; clamp negative cells to 0
+            auto X_star = X_snap;
             for (int c = 0; c < ct.M_cell; c++) {
-                double ri = w1[c] - X[c];
-                double vi = w2[c] - w1[c];
+                double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
                 X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                X_star[c] = std::max(X_star[c], 0.0);
+                if (X_star[c] < 0.0) X_star[c] = 0.0;
             }
 
-            // X_new = F(X*)
+            // X_new = F(X*); step-halving reference is errRp_w2 (already computed, no extra call)
             auto p_star = p_snap; double qh_star = q_snap;
-            double errRp_new = F_eval(X_star, p_star, qh_star);
+            double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
 
-            // Step-halving: ‖F(X*)-X*‖₂ vs 1.01×‖r‖₂
-            // ‖F(X*)-X*‖₂ = ‖X_star_after_F - X_star_before_F‖ — but we overwrote X_star.
-            // Proxy: errRp of X_new vs errRp of w2 (simpler, no extra storage).
-            double errRp_w2 = compute_errRp_ct(st, ct, w2, bucket);
             for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
-                alpha = (alpha - 1.0) / 2.0;  // midpoint toward -1; converges for all α ≤ 0
-                // Restore from w2 snapshot
+                alpha = (alpha - 1.0) / 2.0;  // converges to -1 for all α ≤ 0
                 X_star = X_snap; p_star = p_snap; qh_star = q_snap;
                 for (int c = 0; c < ct.M_cell; c++) {
-                    double ri = w1[c] - X[c];
-                    double vi = w2[c] - w1[c];
+                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
                     X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                    X_star[c] = std::max(X_star[c], 0.0);
+                    if (X_star[c] < 0.0) X_star[c] = 0.0;
                 }
-                errRp_new = F_eval(X_star, p_star, qh_star);
-                res.iterations++;  // count each halving F-eval
+                errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
             }
 
-            // Accept X_star (= X_new = F(X*) after halving)
             X = X_star; p = p_star; q_hyp = qh_star;
-            res.max_error = errRp_new;
+            res.max_error  = errRp_new;
+            res.iterations = f_eval_count;
 
-            // Best-iterate tracking (same logic as flat loop)
+            // Best-iterate tracking
             if (errRp_new < best_metric_seen) {
                 best_metric_seen    = errRp_new;
-                best_iter_val       = res.iterations;
+                best_iter_val       = f_eval_count;
                 best_objective_seen = compute_weight_kl();
                 W_best              = X;
             }
 
-            // Convergence check (improvement criterion on errRp)
+            // Convergence criterion (same improvement rule as flat loop)
             lbw::CellMetrics m_conv; m_conv.errRp = errRp_new;
             if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                        prev_metric_for_rule, st.tol_abs)) {
-                res.status = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
                 res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
                 res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
                 res.convergence_tol    = st.convergence_cfg.pct_tol;
-                res.convergence_iter   = res.iterations;
+                res.convergence_iter   = f_eval_count;
                 break;
             }
 
             if (st.verbose >= 1) {
                 char msg[256];
-                std::snprintf(msg, 256, "raking[sq] super-step %d: errRp=%.2e alpha=%.4g",
-                              sq_iter, errRp_new, alpha);
+                std::snprintf(msg, 256,
+                    "raking[sq] f_eval=%d errRp=%.2e alpha=%.4g", f_eval_count, errRp_new, alpha);
                 st.log(msg);
             }
 
-            // No-improve stall (same as flat loop: 5 consecutive checks without improvement)
+            // No-improve stall (5 checks with no drop ≥ 1% + tol_abs)
             if (!std::isfinite(min_errRp_window)) {
                 min_errRp_window = errRp_new; n_no_improve = 0;
             } else {
-                const double rel_eps = 0.01 * min_errRp_window;
-                const double eps = std::max(rel_eps, st.tol_abs);
+                const double eps = std::max(0.01 * min_errRp_window, st.tol_abs);
                 if (errRp_new < min_errRp_window - eps) {
                     min_errRp_window = errRp_new; n_no_improve = 0;
                 } else {
                     n_no_improve++;
                 }
             }
-            if (n_no_improve >= kMaxNoImprove) {
-                res.status = RK_ERR_NOCONV;
-                break;
-            }
+            if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_NOCONV; break; }
         }
-        // End SQUAREM branch: fall through to post-loop finalizer below.
-    } else {
+        goto squarem_post_loop;  // skip flat loop, go to post-loop finalizer
+    }
+    // ── Flat loop (accelerate=FALSE) ──────────────────────────────────────────
 ```
 
-Then wrap the existing flat loop with a closing `}` after line 398 (the end of the `for (int iter...)` loop):
+Add `squarem_post_loop:` label immediately before the post-loop Bregman finalizer (line ~403):
 
 ```cpp
-    }   // end if (st.accelerate) ... else (flat loop)
+    squarem_post_loop:
+    // Post-loop Bregman/KL Dykstra finalizer (multiplicative pattern).
+    for (int fixup = 0; fixup < 20; fixup++) {
 ```
 
 - [ ] **Step 3: Build**
