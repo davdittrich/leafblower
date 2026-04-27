@@ -362,18 +362,30 @@ Insert immediately before this `for` loop:
             if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
 ```
 
-- [ ] **Step 3.5: Compile gate**
+- [ ] **Step 3.5: Audit all X_tilde read sites — confirm no unguarded access**
+
+```bash
+grep -n "X_tilde\[" /home/dd/Gemini/leafblower/src/ieppa.cpp
+```
+Every `X_tilde[c]` WRITE or READ must be at or downstream of one of the three guard sites:
+- Site 1 guard at ~line 662 covers: lines 663-665 (fallback write)
+- Site 2 guard at ~line 685 covers: lines 686-693 (greedy rebuild), lines 547/553 (errRp log lambda — called from greedy path at lines ~697/723)
+- Site 3 guard at ~line 787 covers: lines 788-800 (main log rebuild), lines ~814-820 (log capacity block)
+
+If any `X_tilde[` access is NOT covered by one of these sites, add the missing guard.
+
+- [ ] **Step 3.6: Compile gate**
 ```bash
 cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3
 ```
 
-- [ ] **Step 3.6: Run full test suite**
+- [ ] **Step 3.7: Run full test suite**
 ```bash
 cd /home/dd/Gemini/leafblower && Rscript -e 'devtools::test()' 2>&1 | tail -4
 ```
 Expected: same pass count as after Task 2.
 
-- [ ] **Step 3.7: Commit T4.B**
+- [ ] **Step 3.8: Commit T4.B**
 ```bash
 git add src/ieppa.cpp
 git commit -m "fix(ieppa): T4.B — defer X_tilde allocation to log-path entry
