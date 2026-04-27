@@ -167,6 +167,217 @@ RakingResult raking_solve(CalibState& st) {
         q_hyp = (scale_hp > 0.0) ? 1.0 / scale_hp : 1.0;
     };
 
+    // F_eval: one complete IPF inner iteration on explicit (Xv, pv, q_hyp_v).
+    // Does NOT touch the outer X, p, q_hyp — no swap tricks, no aliasing.
+    // Intentional shared side effects: errRp_k[], sor_omega[], sor_prev_errRp[], is_infeasible.
+    // Returns errRp of the resulting state.
+    auto F_eval = [&](std::vector<double>& Xv,
+                      std::vector<double>& pv,
+                      double& q_hyp_v) -> double {
+        double W_total = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) W_total += Xv[c];
+
+        if (use_greedy)
+            std::sort(margin_order.begin(), margin_order.end(),
+                      [&](int a, int b){ return errRp_k[a] > errRp_k[b]; });
+
+        for (int ki = 0; ki < st.K; ki++) {
+            const int k = use_greedy ? margin_order[ki] : ki;
+            std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
+            for (int c = 0; c < ct.M_cell; c++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k]) bucket[g] += Xv[c];
+            }
+            std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                double Tkj = st.targets[k][j] * W_total;
+                if (bucket[j] < kEmptyBucketThreshold * W_total) {
+                    if (Tkj > 0.0) is_infeasible = true;
+                } else {
+                    scale[j] = Tkj / bucket[j];
+                }
+            }
+            const double eff_omega = sor_active ? sor_omega[k] : 1.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k]) {
+                    const double s_g = scale[g];
+                    Xv[c] *= (eff_omega == 1.0) ? s_g : std::pow(std::max(s_g, 0.0), eff_omega);
+                }
+            }
+            if (sor_active && sor_auto && W_total > 0.0) {
+                double ek = 0.0;
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
+                    if (e > ek) ek = e;
+                }
+                if (sor_prev_errRp[k] < ek)
+                    sor_omega[k] = std::max(omega_min, sor_omega[k] * 0.7);
+                else
+                    sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
+                sor_prev_errRp[k] = ek;
+            }
+            if (W_total > 0.0) {
+                double ek = 0.0;
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
+                    if (e > ek) ek = e;
+                }
+                errRp_k[k] = ek;
+            }
+        }
+
+        // Bregman box correction (pv, not outer p)
+        for (int c = 0; c < ct.M_cell; c++) {
+            double yc = Xv[c] * pv[c];
+            double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
+            pv[c] = (Xc > 0.0) ? yc / Xc : 1.0;
+            Xv[c] = Xc;
+        }
+
+        // KL Dykstra hyperplane: inline (avoids aliasing the outer hyperplane_step lambda)
+        double s_hp = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) { Xv[c] *= q_hyp_v; s_hp += Xv[c]; }
+        const double sc_hp = static_cast<double>(st.n) / s_hp;
+        for (int c = 0; c < ct.M_cell; c++) Xv[c] *= sc_hp;
+        q_hyp_v = (sc_hp > 0.0) ? 1.0 / sc_hp : 1.0;
+
+        return compute_errRp_ct(st, ct, Xv, bucket);
+    };
+
+    if (st.accelerate) {
+        static constexpr double kAlphaMax    = -1.0;
+        static constexpr double kAlphaMin    = -1000.0;
+        static constexpr double kVNormEps    = 1e-300;
+        static constexpr double kVNormRel    = 1e-10;
+        static constexpr double kHalvingSlack = 1.01;
+        static constexpr int    kMaxHalvings  = 16;
+
+        if (st.inner_max_iter >= 3) {
+            int f_eval_count = 0;
+            while (f_eval_count + 3 <= st.inner_max_iter) {
+                auto w1 = X; auto p1 = p; double qh1 = q_hyp;
+                double errRp_w1 = F_eval(w1, p1, qh1);  ++f_eval_count;
+                (void)errRp_w1;
+
+                auto w2 = w1; auto p2 = p1; double qh2 = qh1;
+                double errRp_w2 = F_eval(w2, p2, qh2);  ++f_eval_count;
+
+                res.iterations = f_eval_count;
+
+                double norm_r = 0.0, norm_v = 0.0, norm_w2 = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                    norm_r  += ri * ri;
+                    norm_v  += vi * vi;
+                    norm_w2 += w2[c] * w2[c];
+                }
+                norm_r = std::sqrt(norm_r);
+                norm_v = std::sqrt(norm_v);
+                norm_w2 = std::sqrt(norm_w2);
+
+                if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
+                    X = w2; p = p2; q_hyp = qh2;
+                    res.max_error        = errRp_w2;
+                    res.status           = RK_OK;
+                    res.convergence_iter = f_eval_count;
+                    break;
+                }
+
+                double alpha = std::max(kAlphaMin,
+                               std::min(kAlphaMax, -norm_r / (norm_v + kVNormEps)));
+
+                auto X_snap = w2; auto p_snap = p2; double q_snap = qh2;
+
+                auto X_star = X_snap;
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                    X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
+                    if (X_star[c] < 0.0) X_star[c] = 0.0;
+                }
+
+                auto p_star = p_snap; double qh_star = q_snap;
+                double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
+
+                for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
+                    alpha = (alpha - 1.0) / 2.0;
+                    X_star = X_snap; p_star = p_snap; qh_star = q_snap;
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                        X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
+                        if (X_star[c] < 0.0) X_star[c] = 0.0;
+                    }
+                    errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
+                }
+
+                X = X_star; p = p_star; q_hyp = qh_star;
+                res.max_error  = errRp_new;
+                res.iterations = f_eval_count;
+
+                if (errRp_new < best_metric_seen) {
+                    best_metric_seen    = errRp_new;
+                    best_iter_val       = f_eval_count;
+                    best_objective_seen = compute_weight_kl();
+                    W_best              = X;
+                }
+
+                lbw::CellMetrics m_conv; m_conv.errRp = errRp_new;
+                if (lbw::check_convergence(st.convergence_cfg, m_conv,
+                                           prev_metric_for_rule, st.tol_abs)) {
+                    res.status             = RK_OK;
+                    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                    res.convergence_tol    = st.convergence_cfg.pct_tol;
+                    res.convergence_iter   = f_eval_count;
+                    break;
+                }
+
+                if (st.verbose >= 1) {
+                    char msg[256];
+                    std::snprintf(msg, 256,
+                        "raking[sq] f_eval=%d errRp=%.2e alpha=%.4g",
+                        f_eval_count, errRp_new, alpha);
+                    st.log(msg);
+                }
+
+                if (!std::isfinite(min_errRp_window)) {
+                    min_errRp_window = errRp_new; n_no_improve = 0;
+                } else {
+                    const double eps = std::max(0.01 * min_errRp_window, st.tol_abs);
+                    if (errRp_new < min_errRp_window - eps) {
+                        min_errRp_window = errRp_new; n_no_improve = 0;
+                    } else {
+                        n_no_improve++;
+                    }
+                }
+                if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_NOCONV; break; }
+            }
+            if (is_infeasible && res.status == RK_ERR_NOCONV)
+                res.status = RK_ERR_INFEAS;
+            // Post-SQUAREM Dykstra cleanup: alternating box + hyperplane until
+            // X is simultaneously in [L_cell, U_cell] and sums to n.
+            // This prevents apply_obs_expansion from clipping individual weights
+            // (which breaks sum(w)=n) when F_eval's inline hyperplane pushed X above U_cell.
+            // Reset Dykstra corrections so this cleanup starts from scratch.
+            std::fill(p.begin(), p.end(), 1.0);
+            q_hyp = 1.0;
+            for (int fixup_sq = 0; fixup_sq < 200; fixup_sq++) {
+                bool box_ok_sq = true;
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double yc = X[c] * p[c];
+                    double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
+                    p[c] = (Xc > 0.0) ? yc / Xc : 1.0;
+                    if (yc != Xc) box_ok_sq = false;
+                    X[c] = Xc;
+                }
+                hyperplane_step();
+                if (box_ok_sq) break;
+            }
+            // After cleanup, reset again so the shared finalizer is a no-op.
+            std::fill(p.begin(), p.end(), 1.0);
+            q_hyp = 1.0;
+        }
+    } else {
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.iterations = iter;
 
@@ -396,6 +607,7 @@ RakingResult raking_solve(CalibState& st) {
             }
         }
     }
+    } // end else (flat loop)
 
     if (is_infeasible && res.status == RK_ERR_NOCONV)
         res.status = RK_ERR_INFEAS;
