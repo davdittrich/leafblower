@@ -347,7 +347,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_conv_rule                = res.convergence_rule;
         res_conv_tol                 = res.convergence_tol;
         res_conv_iter                = res.convergence_iter;
-        res_conv_objective           = res.convergence_objective;
+        res_conv_objective           = res.convergence_solver_objective;
         res_conv_minimized_metric    = res.convergence_minimized_metric;
         res_mean_error               = res.mean_error;
         res_kl                       = res.kl;
@@ -572,7 +572,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 26, Rf_ScalarReal(res_conv_tol));
     SET_VECTOR_ELT(res_list, 27, Rf_ScalarInteger(res_conv_iter));
     /* Elements 28-29: convergence_objective and convergence_minimized_metric (Task 1) */
-    SET_STRING_ELT(res_names, 28, Rf_mkChar("convergence_objective"));
+    SET_STRING_ELT(res_names, 28, Rf_mkChar("solver_objective"));
     SET_STRING_ELT(res_names, 29, Rf_mkChar("convergence_minimized_metric"));
     SET_VECTOR_ELT(res_list,  28, Rf_ScalarReal(res_conv_objective));
     SET_VECTOR_ELT(res_list,  29, Rf_ScalarInteger(res_conv_minimized_metric));

@@ -133,7 +133,7 @@ GregResult greg_solve(CalibState& st) {
         res.chi2       = m.chi2;
         res.mean_error = m.mean_err;
         res.grake_norm = m.grake_norm;
-        res.convergence_objective = m.chi2;
+        res.convergence_solver_objective = lbw::select_solver_objective(RK_ALG_GREG, m);
         res.best_error = m.chi2;
     }
 

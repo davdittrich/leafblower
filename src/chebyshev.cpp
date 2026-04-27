@@ -484,7 +484,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     }
 
     // Populate metrics
-    res.convergence_objective = best_delta;
+    res.convergence_solver_objective = best_delta;
     res.best_error = best_errRp;  // actual calibration error at best_iter
     res.convergence_minimized_metric = static_cast<int>(
         variant == LpVariant::CHEBYSHEV ? CalibMetric::MAX_ERR : CalibMetric::GRAKE_NORM);

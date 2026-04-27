@@ -78,9 +78,22 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
 
-    double best_metric_seen = std::numeric_limits<double>::infinity();
+    double best_metric_seen    = std::numeric_limits<double>::infinity();
+    double best_objective_seen = 0.0;  // weight KL at best_iter (A1 fix)
     int    best_iter_val    = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
+
+    // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
+    // Distinct from m.kl (marginal KL) — this is what sinkhorn actually minimizes.
+    auto compute_weight_kl = [&]() -> double {
+        double wkl = 0.0;
+        const double inv_n = 1.0 / static_cast<double>(st.n);
+        for (int c = 0; c < ct.M_cell; c++) {
+            if (X_init[c] > 0.0 && X[c] > 0.0)
+                wkl += X[c] * std::log(X[c] / X_init[c]) * inv_n;
+        }
+        return std::isfinite(wkl) ? wkl : 0.0;
+    };
 
     std::vector<double> bucket(max_cats);
     std::vector<double> scale(max_cats);
@@ -164,9 +177,12 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                 st.convergence_cfg.metric,
                 m.errRp, m.mean_err, m.kl, m.chi2, m.grake_norm, m.l1);
             if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
-                best_metric_seen = curr_best;
-                best_iter_val    = iter;
-                W_best           = X;
+                // === BEST-ITER UPDATE ===
+                best_metric_seen    = curr_best;
+                best_iter_val       = iter;
+                best_objective_seen = compute_weight_kl();
+                W_best              = X;
+                // === END BEST-ITER UPDATE ===
             }
 
             if (lbw::check_convergence(st.convergence_cfg, m, prev_metric_for_rule, st.tol_abs)) {
@@ -180,7 +196,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         }
     }
 
-    res.convergence_objective        = best_metric_seen;
+    res.convergence_solver_objective = best_objective_seen;
     res.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
     res.best_error = best_metric_seen;
     res.best_iter  = best_iter_val;

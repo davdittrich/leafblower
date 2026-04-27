@@ -21,7 +21,8 @@ struct ChebyshevResult {
     int    convergence_rule   = 0;
     double convergence_tol    = 0.0;
     int    convergence_iter   = -1;
-    double convergence_objective        = std::numeric_limits<double>::infinity();
+    double best_objective_seen          = std::numeric_limits<double>::infinity();
+    double convergence_solver_objective = std::numeric_limits<double>::infinity();
     int    convergence_minimized_metric = 0;
     double best_error   = std::numeric_limits<double>::infinity();
     int    best_iter    = 1;

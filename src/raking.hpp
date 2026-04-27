@@ -20,8 +20,9 @@ struct RakingResult {
     double best_error          = std::numeric_limits<double>::infinity();
     int    best_iter           = 0;
     std::vector<double> best_weights;  // obs-level; length n; sum-normalized to n; empty if never checked
-    double convergence_objective          = 0.0;   // value of minimized metric at convergence
-    int    convergence_minimized_metric   = 0;     // CalibMetric: which metric was minimized
+    double best_objective_seen          = 0.0;   // internal: weight KL at best_iter
+    double convergence_solver_objective = 0.0;   // exposed: solver's mathematical objective
+    int    convergence_minimized_metric = 0;     // CalibMetric: which metric was minimized
     // ── End extended quality metrics ──
 };
 RakingResult raking_solve(CalibState& state);

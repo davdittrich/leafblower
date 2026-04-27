@@ -296,7 +296,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // WU-E: best-iterate tracking (cell-level W snapshot at min observed active metric).
     // Tracks the active convergence metric so best_weights minimizes the user's chosen objective.
     // W_best is initialized to all-zeros; best_metric_seen = ∞ ensures first check triggers copy.
-    double best_metric_seen = std::numeric_limits<double>::infinity();
+    double best_metric_seen    = std::numeric_limits<double>::infinity();
+    double best_objective_seen = 0.0;  // weight KL at best_iter (A1 fix)
     int    best_iter_val   = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
 
@@ -317,6 +318,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<bool>   sor_prev_decreasing(st.K, false);
     double sor_min_omega = 1.0;
     int    sor_n_damped  = 0;
+
+    // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
+    // Distinct from m.kl (marginal KL) — this is what ieppa actually minimizes.
+    auto compute_weight_kl = [&]() -> double {
+        double wkl = 0.0;
+        const double inv_n = 1.0 / static_cast<double>(st.n);
+        for (int c = 0; c < ct.M_cell; c++) {
+            if (X_init[c] > 0.0 && X[c] > 0.0)
+                wkl += X[c] * std::log(X[c] / X_init[c]) * inv_n;
+        }
+        return std::isfinite(wkl) ? wkl : 0.0;
+    };
 
     // ── Homotopy outer driver ──
     // N=1 (default) degenerates to single level at max_weight — bit-identical to
@@ -900,20 +913,26 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
             if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
                 if (errRp < best_metric_seen) {
-                    best_metric_seen = errRp;
-                    best_iter_val    = iter;
+                    // === BEST-ITER UPDATE (metric, iter, objective MUST stay co-located) ===
+                    best_metric_seen    = errRp;
+                    best_iter_val       = iter;
+                    best_objective_seen = compute_weight_kl();
                     for (int c = 0; c < ct.M_cell; c++)
                         W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                    // === END BEST-ITER UPDATE ===
                 }
             }
             // BLOCK 1b — MARGINAL_KL best-iterate (marg_kl always valid alongside errRp).
             // Tracks min marginal KL when MARGINAL_KL is active.
             if (st.convergence_cfg.metric == lbw::CalibMetric::MARGINAL_KL) {
                 if (res.marginal_kl_at_iter < best_metric_seen) {
-                    best_metric_seen = res.marginal_kl_at_iter;
-                    best_iter_val    = iter;
+                    // === BEST-ITER UPDATE ===
+                    best_metric_seen    = res.marginal_kl_at_iter;
+                    best_iter_val       = iter;
+                    best_objective_seen = compute_weight_kl();
                     for (int c = 0; c < ct.M_cell; c++)
                         W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                    // === END BEST-ITER UPDATE ===
                 }
             }
 
@@ -1033,10 +1052,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         st.convergence_cfg.metric,
                         errRp, mean_err_blk2, kl_max, chi2_total, grake_norm, l1_weight);
                     if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
-                        best_metric_seen = curr_best;
-                        best_iter_val    = iter;
+                        // === BEST-ITER UPDATE ===
+                        best_metric_seen    = curr_best;
+                        best_iter_val       = iter;
+                        best_objective_seen = compute_weight_kl();
                         for (int c = 0; c < ct.M_cell; c++)
                             W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                        // === END BEST-ITER UPDATE ===
                     }
                 }
             }
@@ -1183,7 +1205,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     res.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
     res.convergence_tol                = st.convergence_cfg.pct_tol;
     res.convergence_iter               = (res.status == RK_OK) ? res.iterations : -1;
-    res.convergence_objective          = best_metric_seen;
+    res.convergence_solver_objective   = best_objective_seen;
     res.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
 
     // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.

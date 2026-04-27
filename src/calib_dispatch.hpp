@@ -17,6 +17,7 @@
 // The caller is responsible for passing the correct local variable names for each
 // metric; lbfgsb passes pct_change for L1_WEIGHT because it is a batch solver.
 
+#include "leafblower.h"
 #include "types.hpp"
 #include <cmath>
 #include <limits>
@@ -107,6 +108,17 @@ struct CellMetrics {
     double grake_norm = 0.0;
     double l1         = 0.0;
 };
+
+// Mathematical objective for NON-KL solvers only.
+// KL-minimizing solvers (ieppa, sinkhorn, raking) use compute_weight_kl inline.
+inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
+    switch (alg_id) {
+    case RK_ALG_GREG:      return m.chi2;
+    case RK_ALG_GRAKE:     return m.grake_norm;
+    case RK_ALG_CHEBYSHEV: return m.errRp;
+    default:               return m.errRp;
+    }
+}
 
 // Returns true when the convergence criterion fires. Updates prev_metric via apply_rule.
 // tol_abs_fallback: value of CalibState::tol_abs, used when neither pct_tol nor absolute_tol set.

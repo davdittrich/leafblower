@@ -309,7 +309,7 @@ static LBFGSResult compute_final_weights_and_error(
         res.convergence_rule   = static_cast<int>(lbw::CalibRule::THRESHOLD);
         res.convergence_tol    = cfg.pct_tol;
         res.convergence_iter               = converged ? res.iterations : -1;
-        res.convergence_objective          = res.max_error;
+        res.convergence_solver_objective   = res.max_error;
         res.convergence_minimized_metric   = static_cast<int>(cfg.metric);
     }
     return res;

@@ -120,7 +120,7 @@ typedef struct {
     int    best_iter;
     double sor_min_omega;    /* iEPPA only; non-iEPPA = 1.0 */
     int    sor_n_damped;     /* iEPPA only; non-iEPPA = 0 */
-    double convergence_objective;        /* value of minimized metric at convergence */
+    double convergence_solver_objective;  /* solver's mathematical objective at best_iter */
     int    convergence_minimized_metric; /* CalibMetric: which metric was minimized */
     /* ── End extended quality metrics ── */
 } rk_result_t;

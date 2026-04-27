@@ -32,7 +32,7 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     dst->convergence_rule             = src.convergence_rule;
     dst->convergence_tol              = src.convergence_tol;
     dst->convergence_iter             = src.convergence_iter;
-    dst->convergence_objective        = src.convergence_objective;
+    dst->convergence_solver_objective        = src.convergence_solver_objective;
     dst->convergence_minimized_metric = src.convergence_minimized_metric;
     dst->best_error                   = src.best_error;
     dst->best_iter                    = src.best_iter;
@@ -56,7 +56,7 @@ static void pack_lbfgsb_result(rk_result_t* dst, const lbw::LBFGSResult& src) no
     dst->convergence_rule             = src.convergence_rule;
     dst->convergence_tol              = src.convergence_tol;
     dst->convergence_iter             = src.convergence_iter;
-    dst->convergence_objective        = src.convergence_objective;
+    dst->convergence_solver_objective        = src.convergence_solver_objective;
     dst->convergence_minimized_metric = src.convergence_minimized_metric;
     dst->best_error                   = src.best_error;
     dst->best_iter                    = src.best_iter;
@@ -107,7 +107,7 @@ void rk_result_init(rk_result_t* r) {
     if (!r) return;
     memset(r, 0, sizeof(*r));
     r->best_error         = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
-    r->convergence_objective = std::numeric_limits<double>::infinity();  /* Inf sentinel, consistent with best_error */
+    r->convergence_solver_objective = std::numeric_limits<double>::infinity();  /* Inf sentinel, consistent with best_error */
     r->sor_min_omega      = 1.0;    /* non-iEPPA default */
     r->convergence_rule                 = 1;      /* IMPROVEMENT */
     r->convergence_tol                  = 0.001;
@@ -261,7 +261,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
             result->convergence_iter                = res.convergence_iter;
-            result->convergence_objective           = res.convergence_objective;
+            result->convergence_solver_objective           = res.convergence_solver_objective;
             result->convergence_minimized_metric    = res.convergence_minimized_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;
@@ -310,7 +310,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_rule    = res.convergence_rule;
             result->convergence_tol     = res.convergence_tol;
             result->convergence_iter                = res.convergence_iter;
-            result->convergence_objective           = res.convergence_objective;
+            result->convergence_solver_objective           = res.convergence_solver_objective;
             result->convergence_minimized_metric    = res.convergence_minimized_metric;
             result->best_error          = res.best_error;
             result->best_iter           = res.best_iter;

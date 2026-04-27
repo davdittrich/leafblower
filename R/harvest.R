@@ -165,6 +165,15 @@ harvest <- function(
       is.null(convergence[["absolute"]])) {
     conv$metric <- "marginal_kl"
   }
+  # Sinkhorn minimizes weight KL — override default metric when user hasn't specified one.
+  if (method == "sinkhorn" &&
+      is.null(convergence[["metric"]]) &&
+      is.null(convergence[["criterion"]]) &&
+      is.null(convergence[["improvement"]]) &&
+      is.null(convergence[["pct"]]) &&
+      is.null(convergence[["absolute"]])) {
+    conv$metric <- "kl"
+  }
   # grake minimizes grake_norm — override default metric when user hasn't specified one.
   if (method == "grake" &&
       is.null(convergence[["metric"]]) &&
@@ -268,14 +277,15 @@ harvest <- function(
     rule             = .safe_lookup(.rule_names,   calib_result$convergence_rule),
     tol              = calib_result$convergence_tol,
     fired_at_iter    = calib_result$convergence_iter,
-    objective        = calib_result$convergence_objective,
+    solver_objective = calib_result$solver_objective,   # Task 2: solver mathematical objective
+    objective        = calib_result$solver_objective,   # backward-compat alias
     minimized_metric = .safe_lookup(.metric_names, calib_result$convergence_minimized_metric)
   )
   calib_result$convergence_metric           <- NULL
   calib_result$convergence_rule             <- NULL
   calib_result$convergence_tol              <- NULL
   calib_result$convergence_iter             <- NULL
-  calib_result$convergence_objective        <- NULL
+  calib_result$solver_objective             <- NULL
   calib_result$convergence_minimized_metric <- NULL
 
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
