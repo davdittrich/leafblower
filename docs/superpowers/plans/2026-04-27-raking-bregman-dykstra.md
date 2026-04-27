@@ -263,13 +263,18 @@ Find:
 Replace with:
 ```cpp
             // Apply IPF scaling with optional SOR damping.
+            // IMPORTANT: do NOT guard on s_g > 0. When target=0: scale[g]=0,
+            // X[c] must be zeroed (pow(0, omega)=0 correctly; plain *= 0 also correct).
+            // Guarding on s_g>0 would leave non-zero weights in zero-target categories.
             const double eff_omega = sor_active ? sor_omega[k] : 1.0;
             for (int c = 0; c < ct.M_cell; c++) {
                 int g = ct.g_per_cell[k][c];
                 if (g >= 0 && g < st.cat_counts[k]) {
                     const double s_g = scale[g];
-                    if (s_g > 0.0)  // guard: S=0 bucket → skip
-                        X[c] *= (eff_omega == 1.0) ? s_g : std::pow(s_g, eff_omega);
+                    // pow(max(s_g,0), eff_omega): handles s_g=0 (zero target) correctly.
+                    X[c] *= (eff_omega == 1.0)
+                        ? s_g
+                        : std::pow(std::max(s_g, 0.0), eff_omega);
                 }
             }
 
