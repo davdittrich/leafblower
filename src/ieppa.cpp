@@ -469,13 +469,17 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     double delta = lf_new - lf[off + j];
                     lf[off + j] = lf_new;
                     if (std::fabs(delta) > 1e-12) {
-                        for (int c : cells_by_margin_cat[off + j]) {
-                            cell_lf[c] += delta;
-                            if (delta > 0.0) {
+                        if (delta > 0.0) {
+                            // Positive delta: update cell_lf and high-water mark together.
+                            for (int c : cells_by_margin_cat[off + j]) {
+                                cell_lf[c] += delta;
                                 double val = cell_lf[c] + log_X_init[c];
                                 if (std::isfinite(val) && val > cell_lf_hwm)
                                     cell_lf_hwm = val;
                             }
+                        } else {
+                            for (int c : cells_by_margin_cat[off + j])
+                                cell_lf[c] += delta;
                         }
                     }
                 }
@@ -629,17 +633,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // T1.B: correct before X_tilde product overflows.
             // Fires when max_c log(X_init[c] * Π_k f_lin[k][g_k(c)]) >= log(threshold).
             // shift > 0 guaranteed by >=; x_scale in (0,1].
-            if (!overflow_trip && cell_lf_hwm >= std::log(kLinearOverflowThreshold)) {
-                double shift = cell_lf_hwm - std::log(kLinearOverflowThreshold);
+            const double kLogOverflowThreshold = std::log(kLinearOverflowThreshold);
+            if (!overflow_trip && cell_lf_hwm >= kLogOverflowThreshold) {
+                double shift = cell_lf_hwm - kLogOverflowThreshold;
                 double lf_correction = -shift / static_cast<double>(st.K);
                 double x_scale = std::exp(-shift);
-                // j <= cat_counts[k2]: include NA bucket (cat_offset has +1 per margin).
+                // j <= cat_counts[k]: include NA bucket (cat_offset has +1 per margin).
                 // Without NA shift, cells NA for a margin would have cell_lf decremented
                 // by full shift but lf[k][NA] unchanged — invariant violated.
-                for (int k2 = 0; k2 < st.K; k2++) {
-                    for (int j = 0; j <= st.cat_counts[k2]; j++) {
-                        lf[cat_offset[k2] + j] += lf_correction;
-                        f_lin[cat_offset[k2] + j] = std::exp(lf[cat_offset[k2] + j]);
+                for (int k = 0; k < st.K; k++) {
+                    for (int j = 0; j <= st.cat_counts[k]; j++) {
+                        lf[cat_offset[k] + j] += lf_correction;
+                        f_lin[cat_offset[k] + j] = std::exp(lf[cat_offset[k] + j]);
                     }
                 }
                 // X_cur *= exp(-shift): maintains X_cur = X_init × W × Π f_lin.
@@ -647,7 +652,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     cell_lf[c] -= shift;
                     X_cur[c] *= x_scale;
                 }
-                cell_lf_hwm = std::log(kLinearOverflowThreshold);
+                cell_lf_hwm = kLogOverflowThreshold;
                 if (st.verbose >= 2) {
                     char msg[128];
                     std::snprintf(msg, sizeof(msg), "iEPPA T1.B renorm shift=%.2e", shift);
