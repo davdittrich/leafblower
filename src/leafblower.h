@@ -43,7 +43,8 @@ typedef enum {
     RK_ALG_SINKHORN  = 4,
     RK_ALG_CHEBYSHEV = 5,
     RK_ALG_GREG      = 6,
-    RK_ALG_GRAKE     = 7
+    RK_ALG_GRAKE      = 7,
+    RK_ALG_IEPPA_SOFT = 8    /* ieppa + ADMM soft capacity enforcement */
 } rk_algorithm_t;
 
 /* ── Calibration parameters ── */

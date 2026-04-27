@@ -226,28 +226,30 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     if (LENGTH(method_sexp) != 1)
         Rf_error("method must be a length-1 character string");
     const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
-    if      (strcmp(method_str, "ieppa")     == 0) p.algorithm = RK_ALG_IEPPA;
-    else if (strcmp(method_str, "lbfgsb")   == 0) p.algorithm = RK_ALG_LBFGSB;
-    else if (strcmp(method_str, "raking")   == 0) p.algorithm = RK_ALG_RAKING;
-    else if (strcmp(method_str, "greg")     == 0) p.algorithm = RK_ALG_GREG;
-    else if (strcmp(method_str, "chebyshev")== 0) p.algorithm = RK_ALG_CHEBYSHEV;
-    else if (strcmp(method_str, "grake")    == 0) p.algorithm = RK_ALG_GRAKE;
-    else if (strcmp(method_str, "auto")     == 0) p.algorithm = RK_ALG_AUTO;
-    else                                           p.algorithm = RK_ALG_IEPPA;
+    if      (strcmp(method_str, "ieppa")      == 0) p.algorithm = RK_ALG_IEPPA;
+    else if (strcmp(method_str, "ieppa_soft") == 0) p.algorithm = RK_ALG_IEPPA_SOFT;
+    else if (strcmp(method_str, "lbfgsb")    == 0) p.algorithm = RK_ALG_LBFGSB;
+    else if (strcmp(method_str, "raking")    == 0) p.algorithm = RK_ALG_RAKING;
+    else if (strcmp(method_str, "greg")      == 0) p.algorithm = RK_ALG_GREG;
+    else if (strcmp(method_str, "chebyshev") == 0) p.algorithm = RK_ALG_CHEBYSHEV;
+    else if (strcmp(method_str, "grake")     == 0) p.algorithm = RK_ALG_GRAKE;
+    else if (strcmp(method_str, "auto")      == 0) p.algorithm = RK_ALG_AUTO;
+    else                                            p.algorithm = RK_ALG_IEPPA;
 
     // Full input validation — shared with c_api.cpp path via validation.hpp.
     {
         rk_result_t validation_result;
         rk_result_init(&validation_result);
         rk_algorithm_t alg_for_validation =
-            (strcmp(method_str, "ieppa")     == 0) ? RK_ALG_IEPPA :
-            (strcmp(method_str, "lbfgsb")    == 0) ? RK_ALG_LBFGSB :
-            (strcmp(method_str, "auto")      == 0) ? RK_ALG_AUTO :
-            (strcmp(method_str, "sinkhorn")  == 0) ? RK_ALG_SINKHORN :
-            (strcmp(method_str, "greg")      == 0) ? RK_ALG_GREG :
-            (strcmp(method_str, "chebyshev") == 0) ? RK_ALG_CHEBYSHEV :
-            (strcmp(method_str, "grake")     == 0) ? RK_ALG_GRAKE :
-                                                      RK_ALG_RAKING;
+            (strcmp(method_str, "ieppa")      == 0) ? RK_ALG_IEPPA :
+            (strcmp(method_str, "ieppa_soft") == 0) ? RK_ALG_IEPPA_SOFT :
+            (strcmp(method_str, "lbfgsb")     == 0) ? RK_ALG_LBFGSB :
+            (strcmp(method_str, "auto")       == 0) ? RK_ALG_AUTO :
+            (strcmp(method_str, "sinkhorn")   == 0) ? RK_ALG_SINKHORN :
+            (strcmp(method_str, "greg")       == 0) ? RK_ALG_GREG :
+            (strcmp(method_str, "chebyshev")  == 0) ? RK_ALG_CHEBYSHEV :
+            (strcmp(method_str, "grake")      == 0) ? RK_ALG_GRAKE :
+                                                       RK_ALG_RAKING;
         int vrc = lbw::validate_calibrate_inputs(
             n, K,
             weights.data(),
@@ -465,6 +467,27 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             dispatch_cheb(lbw::LpVariant::CHEBYSHEV, static_cast<int>(RK_ALG_CHEBYSHEV));
         } else if (strcmp(method_str, "grake") == 0) {
             dispatch_cheb(lbw::LpVariant::GRAKE, static_cast<int>(RK_ALG_GRAKE));
+        } else if (strcmp(method_str, "ieppa_soft") == 0) {
+        st.ieppa_auto_selected = false;
+        st.use_admm_capacity   = true;
+        auto res = lbw::ieppa_solve(st);
+        res_status     = res.status;
+        res_iterations = res.iterations;
+        res_max_error  = res.max_error;
+        res_alg_used   = (int)RK_ALG_IEPPA_SOFT;
+        res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+        res_min_alpha             = res.min_alpha_seen;
+        res_final_alpha           = res.final_alpha;
+        res_n_bounds_violated     = res.n_bounds_violated;
+        res_n_bounds_clamped      = res.n_bounds_clamped;
+        res_homotopy_levels_used  = res.homotopy_levels_used;
+        res_homotopy_final_factor = res.homotopy_final_factor;
+        res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
+        res_eta_final             = res.eta_final;
+        pack_solver_result(res);
+        res_sor_min_omega    = res.sor_min_omega;
+        res_sor_n_damped     = res.sor_n_damped;
+        res_best_weights = std::move(res.best_weights);
         } else {
         // Default / ieppa
         st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);

@@ -148,7 +148,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     // ADMM dual variable for capacity constraint.
     // u[c] accumulates X_tilde - z violations; converges to 0 at fixed point.
-    std::vector<double> u(ct.M_cell, 0.0);
+    std::vector<double> u;  // allocated only for ieppa_soft (ADMM)
+    if (st.use_admm_capacity) u.assign(ct.M_cell, 0.0);
 
     // Scratch for margin sweep.
     std::vector<std::vector<int>> cells_by_margin_cat(total_cats);
@@ -676,7 +677,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // Reset to lowest so hwm repopulates honestly from next positive delta,
                 // avoiding spurious re-trigger when true max is exactly at threshold.
                 cell_lf_hwm = std::numeric_limits<double>::lowest();
-                std::fill(u.begin(), u.end(), 0.0);
+                if (st.use_admm_capacity) std::fill(u.begin(), u.end(), 0.0);
                 if (st.verbose >= 2) {
                     char msg[128];
                     std::snprintf(msg, sizeof(msg), "iEPPA T1.B renorm shift=%.2e", shift);
@@ -692,7 +693,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(lf.begin(), lf.end(), 0.0);
                 std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
                 cell_lf_hwm = std::numeric_limits<double>::lowest();
-                std::fill(u.begin(), u.end(), 0.0);
+                if (st.use_admm_capacity) std::fill(u.begin(), u.end(), 0.0);
                 std::fill(f_lin.begin(), f_lin.end(), 1.0);
                 std::fill(X_cur.begin(), X_cur.end(), 0.0);
                 std::fill(W.begin(), W.end(), 1.0);
@@ -786,15 +787,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     W[c] = 1.0;
                     continue;
                 }
-                // ADMM: z-update projects adjusted X_tilde onto capacity box.
-                // u[c] accumulates violations across iterations; converges to 0.
-                double z = std::clamp(X_tilde_c + u[c], L_cell[c], U_cell[c]);
-                u[c] += X_tilde_c - z;
-                X[c] = z;
-                W[c] = z / X_tilde_c;
-                X_cur[c] = z;
+                if (st.use_admm_capacity) {
+                    // ADMM: z-update projects adjusted X_tilde onto capacity box.
+                    // u[c] accumulates violations across iterations; converges to 0.
+                    double z = std::clamp(X_tilde_c + u[c], L_cell[c], U_cell[c]);
+                    u[c] += X_tilde_c - z;
+                    X[c] = z; W[c] = z / X_tilde_c; X_cur[c] = z;
+                } else {
+                    double xc = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
+                    X[c] = xc; W[c] = xc / X_tilde_c; X_cur[c] = xc;
+                }
                 res.n_xcur_writes_per_iter_linear++;
-                if (z != X_tilde_c) n_cap++;
+                if (X[c] != X_tilde_c) n_cap++;
             }
             res.n_cap_active = n_cap;
             if (overflow_detected) {

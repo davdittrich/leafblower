@@ -160,8 +160,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         switch (p->algorithm) {
             case RK_ALG_LBFGSB:   alg = RK_ALG_LBFGSB; break;
             case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
-            case RK_ALG_IEPPA:    alg = RK_ALG_IEPPA;  break;
-            case RK_ALG_SINKHORN: alg = RK_ALG_SINKHORN; break;
+            case RK_ALG_IEPPA:      alg = RK_ALG_IEPPA;      break;
+            case RK_ALG_IEPPA_SOFT: alg = RK_ALG_IEPPA_SOFT; break;
+            case RK_ALG_SINKHORN:   alg = RK_ALG_SINKHORN;   break;
             case RK_ALG_GREG:    alg = RK_ALG_GREG; break;
             case RK_ALG_CHEBYSHEV: alg = RK_ALG_CHEBYSHEV; break;
             case RK_ALG_GRAKE:    alg = RK_ALG_GRAKE; break;
@@ -284,6 +285,39 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE);
             pack_solver_result(result, r, alg);
             return r.status;
+        } else if (alg == RK_ALG_IEPPA_SOFT) {
+            st.use_admm_capacity = true;
+            auto res = lbw::ieppa_solve(st);
+            status = res.status;
+            iterations = res.iterations;
+            max_error = res.max_error;
+            used = RK_ALG_IEPPA_SOFT;
+            if (result) {
+                result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
+                result->min_alpha_seen  = res.min_alpha_seen;
+                result->final_alpha     = res.final_alpha;
+                result->n_bounds_violated = res.n_bounds_violated;
+                result->n_bounds_clamped  = res.n_bounds_clamped;
+                result->homotopy_levels_used  = res.homotopy_levels_used;
+                result->homotopy_final_factor = res.homotopy_final_factor;
+                result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
+                result->eta_final             = res.eta_final;
+                result->mean_error          = res.mean_error;
+                result->kl                  = res.kl;
+                result->chi2                = res.chi2;
+                result->l1_weight_change    = res.l1_weight_change;
+                result->grake_norm          = res.grake_norm;
+                result->convergence_metric  = res.convergence_metric;
+                result->convergence_rule    = res.convergence_rule;
+                result->convergence_tol     = res.convergence_tol;
+                result->convergence_iter                = res.convergence_iter;
+                result->convergence_solver_objective    = res.convergence_solver_objective;
+                result->convergence_minimized_metric    = res.convergence_minimized_metric;
+                result->best_error          = res.best_error;
+                result->best_iter           = res.best_iter;
+                result->sor_min_omega       = res.sor_min_omega;
+                result->sor_n_damped        = res.sor_n_damped;
+            }
         } else {
             // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
             auto res = lbw::ieppa_solve(st);
@@ -341,8 +375,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         result->max_error = max_error;
         result->algorithm_used = used;
         if (result->message[0] == '\0') {
-            const char* name = (used == RK_ALG_LBFGSB) ? "L-BFGS-B"
-                             : (used == RK_ALG_RAKING) ? "raking"
+            const char* name = (used == RK_ALG_LBFGSB)     ? "L-BFGS-B"
+                             : (used == RK_ALG_RAKING)     ? "raking"
+                             : (used == RK_ALG_IEPPA_SOFT) ? "iEPPA-soft"
                              : "iEPPA";
             snprintf(result->message, 256, "%s: %d iters, max_error=%.2e",
                      name, iterations, max_error);

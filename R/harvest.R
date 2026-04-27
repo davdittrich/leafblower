@@ -157,7 +157,7 @@ harvest <- function(
   # iEPPA only: marginal_kl is the calibration-quality loss (best_iter criterion).
   # Raking and other solvers keep their own defaults — raking minimizes weight KL
   # via IPF, not marginal KL.
-  if (method == "ieppa" &&
+  if (method %in% c("ieppa", "ieppa_soft") &&
       is.null(convergence[["metric"]]) &&
       is.null(convergence[["criterion"]]) &&
       is.null(convergence[["improvement"]]) &&
@@ -337,8 +337,8 @@ harvest <- function(
       calib_result$n_bounds_clamped, min_weight, max_weight))
   }
 
-  # Enum: RK_ALG_AUTO=0, RK_ALG_IEPPA=1, RK_ALG_LBFGSB=2, RK_ALG_RAKING=3
-  alg_names <- c("", "ieppa", "lbfgsb", "raking")  # index 0 (auto) removed from user API
+  # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7, IEPPA_SOFT=8
+  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake", "ieppa_soft")
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
 
   if (!attach_weights) {
@@ -394,7 +394,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("auto", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake"))
+  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake"))
 }
 
 parse_convergence <- function(convergence) {

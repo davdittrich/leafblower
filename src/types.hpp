@@ -82,7 +82,8 @@ struct CalibState {
     int outer_max_iter;
     int lbfgs_m;
     int verbose;
-    bool ieppa_auto_selected = false;  // true iff AUTO routing selected iEPPA; used for verbose prefix
+    bool ieppa_auto_selected  = false;  // true iff AUTO routing selected iEPPA; used for verbose prefix
+    bool use_admm_capacity    = false;  // ieppa_soft: ADMM P1.1; default false = hard clamp
     double alm_lambda = 0.0;  // dual variable for sum(w)=n; only read when alm_mu > 0
     double alm_mu     = 0.0;  // penalty coefficient; 0.0 = ALM inactive
     rk_bounds_mode_t bounds_mode = RK_BOUNDS_CELL;  /* P3.1: per-obs vs cell-aggregate bounds */
