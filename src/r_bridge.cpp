@@ -236,6 +236,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     else if (strcmp(method_str, "greg")      == 0) p.algorithm = RK_ALG_GREG;
     else if (strcmp(method_str, "chebyshev") == 0) p.algorithm = RK_ALG_CHEBYSHEV;
     else if (strcmp(method_str, "grake")     == 0) p.algorithm = RK_ALG_GRAKE;
+    else if (strcmp(method_str, "sinkhorn")  == 0) p.algorithm = RK_ALG_SINKHORN;
     else if (strcmp(method_str, "auto")      == 0) p.algorithm = RK_ALG_AUTO;
     else                                            p.algorithm = RK_ALG_IEPPA;
 
@@ -454,7 +455,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         else
             res_best_weights.assign(st.n, 0.0);
     } else {
-        // Shared dispatch for both chebyshev and grake (same solver, different variant).
+        // Dispatch for chebyshev, grake (shared solver), ieppa_soft, and default ieppa.
         auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
             auto res = lbw::chebyshev_ipm(st, variant);
             pack_solver_result(res);
@@ -472,47 +473,47 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         } else if (strcmp(method_str, "grake") == 0) {
             dispatch_cheb(lbw::LpVariant::GRAKE, static_cast<int>(RK_ALG_GRAKE));
         } else if (strcmp(method_str, "ieppa_soft") == 0) {
-        st.ieppa_auto_selected = false;
-        st.use_admm_capacity   = true;
-        auto res = lbw::ieppa_solve(st);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
-        res_alg_used   = (int)RK_ALG_IEPPA_SOFT;
-        res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
-        res_min_alpha             = res.min_alpha_seen;
-        res_final_alpha           = res.final_alpha;
-        res_n_bounds_violated     = res.n_bounds_violated;
-        res_n_bounds_clamped      = res.n_bounds_clamped;
-        res_homotopy_levels_used  = res.homotopy_levels_used;
-        res_homotopy_final_factor = res.homotopy_final_factor;
-        res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
-        res_eta_final             = res.eta_final;
-        pack_solver_result(res);
-        res_sor_min_omega    = res.sor_min_omega;
-        res_sor_n_damped     = res.sor_n_damped;
-        res_best_weights = std::move(res.best_weights);
+            st.ieppa_auto_selected = false;
+            st.use_admm_capacity   = true;
+            auto res = lbw::ieppa_solve(st);
+            res_status     = res.status;
+            res_iterations = res.iterations;
+            res_max_error  = res.max_error;
+            res_alg_used   = (int)RK_ALG_IEPPA_SOFT;
+            res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+            res_min_alpha             = res.min_alpha_seen;
+            res_final_alpha           = res.final_alpha;
+            res_n_bounds_violated     = res.n_bounds_violated;
+            res_n_bounds_clamped      = res.n_bounds_clamped;
+            res_homotopy_levels_used  = res.homotopy_levels_used;
+            res_homotopy_final_factor = res.homotopy_final_factor;
+            res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
+            res_eta_final             = res.eta_final;
+            pack_solver_result(res);
+            res_sor_min_omega    = res.sor_min_omega;
+            res_sor_n_damped     = res.sor_n_damped;
+            res_best_weights = std::move(res.best_weights);
         } else {
-        // Default / ieppa
-        st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);
-        auto res = lbw::ieppa_solve(st);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
-        res_alg_used   = (int)RK_ALG_IEPPA;
-        res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
-        res_min_alpha             = res.min_alpha_seen;
-        res_final_alpha           = res.final_alpha;
-        res_n_bounds_violated     = res.n_bounds_violated;
-        res_n_bounds_clamped      = res.n_bounds_clamped;
-        res_homotopy_levels_used  = res.homotopy_levels_used;
-        res_homotopy_final_factor = res.homotopy_final_factor;
-        res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
-        res_eta_final             = res.eta_final;
-        pack_solver_result(res);
-        res_sor_min_omega    = res.sor_min_omega;
-        res_sor_n_damped     = res.sor_n_damped;
-        res_best_weights = std::move(res.best_weights);
+            // Default / ieppa
+            st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);
+            auto res = lbw::ieppa_solve(st);
+            res_status     = res.status;
+            res_iterations = res.iterations;
+            res_max_error  = res.max_error;
+            res_alg_used   = (int)RK_ALG_IEPPA;
+            res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+            res_min_alpha             = res.min_alpha_seen;
+            res_final_alpha           = res.final_alpha;
+            res_n_bounds_violated     = res.n_bounds_violated;
+            res_n_bounds_clamped      = res.n_bounds_clamped;
+            res_homotopy_levels_used  = res.homotopy_levels_used;
+            res_homotopy_final_factor = res.homotopy_final_factor;
+            res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
+            res_eta_final             = res.eta_final;
+            pack_solver_result(res);
+            res_sor_min_omega    = res.sor_min_omega;
+            res_sor_n_damped     = res.sor_n_damped;
+            res_best_weights = std::move(res.best_weights);
         }
     }
 
@@ -646,18 +647,18 @@ extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
     // Build return list: list(M_cell, cell_of, n_per_cell)
     SEXP ret = PROTECT(Rf_allocVector(VECSXP, 3));
     SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(ct.M_cell));
-    SEXP cell_of_sexp = Rf_allocVector(INTSXP, n);
+    SEXP cell_of_sexp = PROTECT(Rf_allocVector(INTSXP, n));
     std::memcpy(INTEGER(cell_of_sexp), ct.cell_of.data(), n * sizeof(int));
     SET_VECTOR_ELT(ret, 1, cell_of_sexp);
-    SEXP npc = Rf_allocVector(INTSXP, ct.M_cell);
+    SEXP npc = PROTECT(Rf_allocVector(INTSXP, ct.M_cell));
     std::memcpy(INTEGER(npc), ct.n_per_cell.data(), ct.M_cell * sizeof(int));
     SET_VECTOR_ELT(ret, 2, npc);
-    SEXP names = Rf_allocVector(STRSXP, 3);
+    SEXP names = PROTECT(Rf_allocVector(STRSXP, 3));
     SET_STRING_ELT(names, 0, Rf_mkChar("M_cell"));
     SET_STRING_ELT(names, 1, Rf_mkChar("cell_of"));
     SET_STRING_ELT(names, 2, Rf_mkChar("n_per_cell"));
     Rf_setAttrib(ret, R_NamesSymbol, names);
-    UNPROTECT(1);
+    UNPROTECT(4);  // ret + cell_of_sexp + npc + names
     return ret;
 }
 
