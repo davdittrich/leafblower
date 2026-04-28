@@ -588,7 +588,7 @@ RakingResult raking_solve(CalibState& st) {
 
     // Water-filling detects partial infeasibility (some categories can't reach targets
     // within bounds). With Dykstra this was silently masked by bound violations.
-    // For stalled iterations: return NOCONV (status=1) + best weights rather than
+    // For stalled iterations: return STALL (status=5) + best weights rather than
     // hard-erroring — caller can use the best achievable calibration.
 
     // Post-loop: normalize sum to n (water-filling already enforces bounds)
