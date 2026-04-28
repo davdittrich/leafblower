@@ -9,6 +9,7 @@ harvest(
   target,
   min_weight = 0,
   max_weight = 5,
+  capacity_penalty = NULL,
   method = "ieppa",
   verbose = 0,
   max_iterations = 500,
@@ -50,8 +51,21 @@ harvest(
 
 \item{max_weight}{Upper bound on weights. Default 5.}
 
+\item{capacity_penalty}{Numeric, controls how strongly capacity bounds are
+enforced during ALM optimization in \code{method="ieppa_soft"}. Use
+\code{NULL} (default) for auto-computed value (\code{M_cell / n}) which gives a
+balanced blend between unconstrained KL minimization and hard-clamp projection.
+Larger values force tighter constraint adherence; smaller values allow more
+temporary bound violation before the final projection enforces exact bounds.
+Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
+the adaptive schedule hit its ceiling — increase \code{capacity_penalty} by 10x.
+Ignored for methods other than \code{"ieppa_soft"}.}
+
 \item{method}{Calibration method. One of \code{"auto"} (default: iEPPA or
 raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
+\code{"ieppa_soft"} (iEPPA with augmented Lagrangian soft capacity enforcement;
+better than \code{"ieppa"} on tight-bounds problems where cells hit
+\code{max_weight}),
 \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
 (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
 \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
@@ -194,6 +208,10 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
           \code{"stall_wchange"} (SQUAREM weight-change plateau — at constrained optimum),
           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
+        \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{ieppa_soft}).
+        \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
+        \item \code{alm_max_dual_norm}: max absolute Lagrange dual at solver exit.
+        \item \code{alm_sum_drift}: \code{|sum(weights) - n|} after final projection (bounded by \code{1e-6 * n}).
       }
     }
     \item{\code{algorithm}}{Character name of the solver used.}
@@ -202,4 +220,12 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
 }
 \description{
 Generate calibrated weights (drop-in for autumn::harvest)
+}
+\details{
+\strong{When to use \code{ieppa_soft} vs \code{ieppa}}: Use
+\code{method="ieppa_soft"} when \code{ieppa} gives \code{max_error > 1e-3}
+and many observations are near \code{max_weight}. \code{ieppa_soft} is
+roughly 10-30\% slower than \code{ieppa} but finds a better constrained
+optimum by temporarily relaxing bounds during optimization, then projecting
+to exact feasibility at exit.
 }

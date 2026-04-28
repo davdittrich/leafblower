@@ -4,8 +4,20 @@
 #' @param target A named list of named numeric vectors (variable -> proportions).
 #' @param min_weight Lower bound on weights. Default 0 (no lower bound).
 #' @param max_weight Upper bound on weights. Default 5.
+#' @param capacity_penalty Numeric, controls how strongly capacity bounds are
+#'   enforced during ALM optimization in \code{method="ieppa_soft"}. Use
+#'   \code{NULL} (default) for auto-computed value (\code{M_cell / n}) which gives a
+#'   balanced blend between unconstrained KL minimization and hard-clamp projection.
+#'   Larger values force tighter constraint adherence; smaller values allow more
+#'   temporary bound violation before the final projection enforces exact bounds.
+#'   Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
+#'   the adaptive schedule hit its ceiling — increase \code{capacity_penalty} by 10x.
+#'   Ignored for methods other than \code{"ieppa_soft"}.
 #' @param method Calibration method. One of \code{"auto"} (default: iEPPA or
 #'   raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
+#'   \code{"ieppa_soft"} (iEPPA with augmented Lagrangian soft capacity enforcement;
+#'   better than \code{"ieppa"} on tight-bounds problems where cells hit
+#'   \code{max_weight}),
 #'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
 #'   (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
 #'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
@@ -117,17 +129,29 @@
 #'           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
 #'           \code{"stall_wchange"} (SQUAREM weight-change plateau — at constrained optimum),
 #'           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
+#'         \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{ieppa_soft}).
+#'         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
+#'         \item \code{alm_max_dual_norm}: max absolute Lagrange dual at solver exit.
+#'         \item \code{alm_sum_drift}: \code{|sum(weights) - n|} after final projection (bounded by \code{1e-6 * n}).
 #'       }
 #'     }
 #'     \item{\code{algorithm}}{Character name of the solver used.}
 #'     \item{\code{iterations}}{Convenience alias for \code{result$iterations}.}
 #'   }
+#' @details
+#' \strong{When to use \code{ieppa_soft} vs \code{ieppa}}: Use
+#' \code{method="ieppa_soft"} when \code{ieppa} gives \code{max_error > 1e-3}
+#' and many observations are near \code{max_weight}. \code{ieppa_soft} is
+#' roughly 10-30\% slower than \code{ieppa} but finds a better constrained
+#' optimum by temporarily relaxing bounds during optimization, then projecting
+#' to exact feasibility at exit.
 #' @export
 harvest <- function(
   data,
   target,
   min_weight       = 0,
   max_weight       = 5,
+  capacity_penalty = NULL,
   method           = "ieppa",
   verbose          = 0,
   max_iterations   = 500,
@@ -201,6 +225,23 @@ harvest <- function(
       is.null(convergence[["absolute"]])) {
     conv$metric <- "grake_norm"
   }
+  if (!is.null(capacity_penalty)) {
+    if (!is.numeric(capacity_penalty) || length(capacity_penalty) != 1L ||
+        !is.finite(capacity_penalty) || capacity_penalty <= 0) {
+      stop("capacity_penalty must be NULL (auto) or a positive finite scalar; got: ",
+           deparse(capacity_penalty), call. = FALSE)
+    }
+    if (capacity_penalty > 1e15) {
+      stop("capacity_penalty must be NULL (auto) or a positive finite scalar; got: ",
+           deparse(capacity_penalty), call. = FALSE)
+    }
+    if (capacity_penalty < 1e-15) {
+      warning("capacity_penalty=", capacity_penalty,
+              " is below recommended range; constraint enforcement may be ineffective",
+              call. = FALSE)
+    }
+  }
+
   sor_cfg <- parse_sor(sor)
   if (isTRUE(accelerate) && method != "raking")
     warning("accelerate=TRUE is only supported for method='raking'; ignoring for method='",
@@ -224,6 +265,11 @@ harvest <- function(
   eta_schedule <- match.arg(eta_schedule)
   # Greedy inside SQUAREM changes the fixed point each F-call, degrading CBB accuracy.
   if (accelerate_bool && scheduler == "greedy") scheduler <- "round_robin"
+
+  if (!is.null(capacity_penalty) && !grepl("ieppa_soft", method, fixed = TRUE)) {
+    warning("capacity_penalty is only used by method='ieppa_soft'; ignored for method='",
+            method, "'", call. = FALSE)
+  }
 
   # Ignored-param verbose notes
   # enforce_mean is always TRUE: normalization is unconditional (line ~86).
@@ -251,7 +297,7 @@ harvest <- function(
                as.integer(verbose),
                as.integer(max_iterations),
                sw_vec,
-               NULL, # 9: capacity_penalty (NULL=auto; full param added in Epic E T9)
+               if (is.null(capacity_penalty)) -1.0 else as.double(capacity_penalty),  # 9: capacity_penalty
                as.double(if (conv$absolute_tol > 0) conv$absolute_tol else 1e-6),  # slot 10: legacy tol_abs
                as.integer(bounds_mode_int),
                as.integer(homotopy_levels),
