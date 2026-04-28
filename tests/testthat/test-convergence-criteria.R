@@ -401,3 +401,18 @@ test_that("we1a: improvement+absolute without stop_when errors with actionable m
     regexp = "stop_when|ambiguous|combine"
   )
 })
+
+test_that("B17: PLATEAU rule does not fire when prev=0", {
+  # Indirect: run ieppa on an already-calibrated problem. First iter gives errRp≈0.
+  # Without fix: PLATEAU fires at iter=2 as "prev=0 → any curr >= 0" is true.
+  # With fix: PLATEAU requires prev>0 so it skips at iter=2, let RK_OK fire naturally.
+  result <- harvest(
+    data.frame(x = c("A","A","B","B","B"), w = rep(1,5)),
+    target = list(x = c(A=0.4, B=0.6)),
+    method = "ieppa",
+    convergence = list(rule="plateau", pct=0.01),
+    max_iterations = 50L
+  )
+  # Must converge (not a spurious plateau at wrong errRp).
+  expect_equal(attr(result,"result")$max_error, 0.0, tolerance=1e-8)
+})

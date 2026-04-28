@@ -89,8 +89,12 @@ inline bool apply_rule(
 
         case CalibRule::PLATEAU:
             // Converge when curr did NOT drop by at least tol fraction vs prev.
-            // Skip on first check (prev==inf); once prev is finite always evaluate.
-            if (std::isfinite(prev)) {
+            // Skip on first check (prev==inf).
+            // B17: when prev=0 and curr>0, !(curr < 0*(1-tol)) = !(curr < 0) fires
+            // spuriously — a non-zero metric after a zero baseline is a rebound,
+            // not a plateau. Only evaluate when prev>0 or when both prev=0 and
+            // curr=0 (metric genuinely flatlined at zero → legitimate plateau).
+            if (std::isfinite(prev) && (prev > 0.0 || curr <= 0.0)) {
                 converged = !(curr < prev * (1.0 - tol));
             }
             break;
