@@ -204,8 +204,11 @@ harvest <- function(
   accelerate_bool <- isTRUE(accelerate) && method == "raking"
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
-  if (!is.null(design_weights) && is.null(start_weights)) {
-    start_weights <- design_weights
+  if (!is.null(design_weights)) {
+    if (!is.null(start_weights))
+      warning("leafblower: both design_weights and start_weights supplied; design_weights ignored")
+    else
+      start_weights <- design_weights
   }
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
 
