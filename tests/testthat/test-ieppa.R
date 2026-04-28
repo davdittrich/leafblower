@@ -58,3 +58,41 @@ test_that("iEPPA output weights have mean=1 and respect bounds", {
   expect_true(max(res) <= 2.0 + 1e-8)
   expect_true(min(res) >= 0.2 - 1e-8)
 })
+
+test_that("B11: X_prev initialized from X_init not zeros on first homotopy level", {
+  # A nearly-converged problem: targets match empirical proportions.
+  # With bug: X_prev=zeros → pct_change huge on iter=1 → convergence check corrupted.
+  # With fix: X_prev=X_init → pct_change reflects real change from X_init.
+  result <- harvest(
+    data.frame(x = factor(c("A","A","B","B","B")), w=rep(1,5)),
+    target = list(x = c(A=0.4, B=0.6)),
+    method = "ieppa",
+    max_iterations = 5L,
+    convergence = list(rule="improvement", pct=0.5)
+  )
+  # With correct X_prev initialization, already-calibrated input converges at iter=1.
+  expect_lte(attr(result,"result")$iterations, 3L)
+})
+
+test_that("B12: ieppa greedy scheduler produces finite errRp (not 0 sentinel) on non-trivial input", {
+  # With bug: compute_margin_errRp_linear/log returned 0.0 when W_total<=0,
+  # signalling false perfect convergence to greedy scheduler.
+  # With fix: returns Inf, so greedy correctly selects max-error margin.
+  # Use n=100 with skewed marginals so the problem is non-trivial.
+  set.seed(42)
+  n <- 100L
+  df <- data.frame(
+    x = factor(sample(c("A","B"), n, replace=TRUE, prob=c(0.7,0.3))),
+    y = factor(sample(c("P","Q"), n, replace=TRUE, prob=c(0.6,0.4)))
+  )
+  result <- harvest(
+    df,
+    target = list(x=c(A=0.5,B=0.5), y=c(P=0.5,Q=0.5)),
+    method = "ieppa",
+    scheduler = "greedy",
+    max_iterations = 50L,
+    convergence = list(absolute = 1e-4)
+  )
+  # Greedy scheduler must converge to correct solution, not silently return 0.
+  expect_lt(attr(result,"result")$max_error, 1e-4)
+})

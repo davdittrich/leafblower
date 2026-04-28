@@ -398,7 +398,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // WU-B Fix 1: reset X_prev at the start of each homotopy level so that
         // pct_change measures iteration-to-iteration shift within a level, not
         // cross-level drift from the previous level's final X.
-        for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+        // B11: At lvl=0, X is still all-zeros (not yet populated); the X_prev
+        // initialization from X_init above is the correct baseline. Only reset
+        // for subsequent levels where X holds the warm-start from the prior level.
+        if (lvl > 0) {
+            for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+        }
         // WU-C: reset improvement/plateau baseline at each homotopy level.
         prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
@@ -586,7 +591,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             const int* gk = ct.g_per_cell[k].data();
             double W_total = 0.0;
             for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
-            if (W_total <= 0.0) return 0.0;
+            if (W_total <= 0.0) return std::numeric_limits<double>::infinity();
             for (int c = 0; c < ct.M_cell; c++) {
                 int j = gk[c];
                 if (j >= 0 && j < nj) S_lin[j] += X_cur[c];
@@ -603,7 +608,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             if (X_tilde.empty()) return std::numeric_limits<double>::infinity();
             double W_total = 0.0;
             for (int c = 0; c < ct.M_cell; c++) W_total += X_tilde[c];
-            if (W_total <= 0.0) return 0.0;
+            if (W_total <= 0.0) return std::numeric_limits<double>::infinity();
             double err = 0.0;
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
