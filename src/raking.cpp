@@ -92,6 +92,27 @@ RakingResult raking_solve(CalibState& st) {
         X[ct.cell_of[i]] += st.weights[i];
     std::vector<double> X_init(X);
 
+    // Per-(margin, category) cell index lists for water-filling.
+    // cells_per_cat[k][j] = cells where g_per_cell[k][c] == j.
+    // Built once: O(M_cell × K). Memory: ~M_cell × K ints.
+    std::vector<std::vector<std::vector<int>>> cells_per_cat(st.K);
+    for (int k = 0; k < st.K; k++) {
+        cells_per_cat[k].assign(st.cat_counts[k], {});
+        for (int c = 0; c < ct.M_cell; c++) {
+            int g = ct.g_per_cell[k][c];
+            if (g >= 0 && g < st.cat_counts[k])
+                cells_per_cat[k][g].push_back(c);
+        }
+    }
+
+    // Pre-allocated scratch for water-filling inner loop.
+    int wf_max_cat = 0;
+    for (int k = 0; k < st.K; k++)
+        for (int j = 0; j < st.cat_counts[k]; j++)
+            wf_max_cat = std::max(wf_max_cat, (int)cells_per_cat[k][j].size());
+    std::vector<double>  wf_x_orig(wf_max_cat);
+    std::vector<uint8_t> wf_status(wf_max_cat);
+
     // Cell bounds: L_c = lo * n_per_cell[c], U_c = hi * n_per_cell[c]
     const double lo = st.min_weight;
     const double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
