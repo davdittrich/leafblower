@@ -55,27 +55,37 @@ GregResult greg_solve(CalibState& st) {
     std::vector<double> bucket_b(max_cats);
     std::vector<double> D_eff(ct.M_cell);
     std::vector<double> N(static_cast<size_t>(n_cats_total) * static_cast<size_t>(n_cats_total));
+    std::vector<double> N_factored(N.size()); // cached factored normal-equations matrix
     std::vector<double> b(static_cast<size_t>(n_cats_total));
     const double n_total = static_cast<double>(st.n);
 
     static constexpr int kMaxNewtonIters = 50;
     static constexpr double kEps = 1e-10;
 
+    std::vector<bool> prev_fixed_lo(ct.M_cell, false), prev_fixed_hi(ct.M_cell, false);
+    bool need_refactor = true; // R1: refactor only when active set changes
+
     for (int newton_iter = 0; newton_iter < kMaxNewtonIters; newton_iter++) {
         res.iterations = newton_iter + 1;
 
-        std::fill(D_eff.begin(), D_eff.end(), 0.0);
-        for (int c = 0; c < ct.M_cell; c++)
-            if (!fixed_lo[c] && !fixed_hi[c] && X_init[c] > kEps)
-                D_eff[c] = X_init[c];
+        if (need_refactor) {
+            std::fill(D_eff.begin(), D_eff.end(), 0.0);
+            for (int c = 0; c < ct.M_cell; c++)
+                if (!fixed_lo[c] && !fixed_hi[c] && X_init[c] > kEps)
+                    D_eff[c] = X_init[c];
 
-        if (compute_normal_equations(ct, D_eff.data(), N.data(),
-                                     cat_offset.data(), st.K,
-                                     static_cast<size_t>(n_cats_total)) != RK_OK) {
-            res.status = RK_ERR_BADARG; return res;
+            if (compute_normal_equations(ct, D_eff.data(), N.data(),
+                                         cat_offset.data(), st.K,
+                                         static_cast<size_t>(n_cats_total)) != RK_OK) {
+                res.status = RK_ERR_BADARG; return res;
+            }
+            N_factored = N; // cache pre-factored N for potential future use
+            if (ldlt_factor_inplace(N_factored.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
+                res.status = RK_ERR_BADARG; return res;
+            }
         }
 
-        // b[k][j] = T_kj * n - sum_{c in (k,j)} X[c]  (marginal defect, fixed n)
+        // b[k][j] = T_kj * n - sum_{c in (k,j)} X[c]  (marginal defect; b changes with X every iter)
         for (int k = 0; k < st.K; k++) {
             std::fill(bucket_b.begin(), bucket_b.begin() + st.cat_counts[k], 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
@@ -87,11 +97,8 @@ GregResult greg_solve(CalibState& st) {
                     st.targets[k][j] * n_total - bucket_b[j];
         }
 
-        // LDLT solve: N * lambda = b
-        if (ldlt_factor_inplace(N.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
-            res.status = RK_ERR_BADARG; return res;
-        }
-        ldlt_solve(N.data(), static_cast<size_t>(n_cats_total), b.data());
+        // LDLT solve using cached factored matrix (recomputed only on active-set change)
+        ldlt_solve(N_factored.data(), static_cast<size_t>(n_cats_total), b.data());
         const std::vector<double>& lambda = b;
 
         // Newton update: X_new[c] = X_init[c] * (1 + sum_k lambda[k, g_k[c]])
@@ -115,6 +122,11 @@ GregResult greg_solve(CalibState& st) {
                 X[c] = std::clamp(X_new, L_cell[c], U_cell[c]);
             }
         }
+
+        // R1: invalidate factorization cache only when active set changed
+        need_refactor = (fixed_lo != prev_fixed_lo || fixed_hi != prev_fixed_hi);
+        prev_fixed_lo = fixed_lo;
+        prev_fixed_hi = fixed_hi;
 
         if (!any_clamped) {
             res.status = RK_OK;
