@@ -632,9 +632,7 @@ RakingResult raking_solve(CalibState& st) {
     // B9: Promote STALL/BUDGET to INFEAS when water_fill_cat detected structural
     // bound conflict. Never override RK_OK — transient infeasibility during a
     // converging run must not corrupt the OK status.
-    if (is_infeasible && res.status != RK_OK && res.status != RK_ERR_BADARG) {
-        res.status = RK_ERR_INFEAS;
-    }
+    if (is_infeasible && res.status != RK_OK && res.status != RK_ERR_BADARG) res.status = RK_ERR_INFEAS;
 
     // Post-loop: normalize sum to n (water-filling already enforces bounds)
     {
