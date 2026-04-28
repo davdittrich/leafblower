@@ -256,12 +256,20 @@ RakingResult raking_solve(CalibState& st) {
         if (st.inner_max_iter >= 3) {
             int f_eval_count = 0;
             while (f_eval_count + 3 <= st.inner_max_iter) {
+                // Save infeasibility state before intermediate probes.
+                // F_eval sets is_infeasible when a cell bucket empties during
+                // extrapolation — those intermediate iterates are discarded, so
+                // only the FINAL accepted F_eval(X_star) should contribute.
+                bool infeas_before = is_infeasible;
+
                 auto w1 = X; auto p1 = p; double qh1 = q_hyp;
                 double errRp_w1 = F_eval(w1, p1, qh1);  ++f_eval_count;
                 (void)errRp_w1;  // advance IPF side effects (errRp_k, sor_omega); value unused
+                is_infeasible = infeas_before;  // restore: w1 is intermediate
 
                 auto w2 = w1; auto p2 = p1; double qh2 = qh1;
                 double errRp_w2 = F_eval(w2, p2, qh2);  ++f_eval_count;
+                is_infeasible = infeas_before;  // restore: w2 is intermediate
 
                 res.iterations = f_eval_count;
 
@@ -300,6 +308,8 @@ RakingResult raking_solve(CalibState& st) {
                 double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
 
                 for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
+                    // Restore before each halving probe: the previous probe is discarded.
+                    is_infeasible = infeas_before;
                     alpha = (alpha - 1.0) / 2.0;
                     X_star = X_snap; p_star = p_snap; qh_star = q_snap;
                     for (int c = 0; c < ct.M_cell; c++) {
@@ -309,6 +319,8 @@ RakingResult raking_solve(CalibState& st) {
                     }
                     errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
                 }
+                // After halving loop: is_infeasible reflects the last accepted F_eval(X_star).
+                // Do NOT restore here — this is the committed result.
 
                 X = X_star; p = p_star; q_hyp = qh_star;
                 res.max_error  = errRp_new;
