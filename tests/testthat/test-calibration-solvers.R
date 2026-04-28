@@ -565,3 +565,42 @@ test_that("status-perfect: perfect calibration exits status=0 not status=5", {
   expect_equal(attr(r, "result")$status, 0L,
                label = "perfect calibration must return status=0, not status=5")
 })
+
+# ── SQUAREM geometry fix tests ───────────────────────────────────────────────
+
+test_that("squarem-geo-smoke: SQUAREM with geometry fix runs without error", {
+  # Smoke test — verifies the code compiles and runs.
+  # RED: compile error (v_sq_cell/r_sq_obs undefined before fix).
+  # GREEN: runs without error.
+  set.seed(42L)
+  df  <- data.frame(v1 = factor(c(rep("A", 100L), rep("B", 5L))),
+                    v2 = factor(sample(2L, 105L, TRUE)))
+  tgt <- list(v1 = c("A" = 0.9, "B" = 0.1), v2 = c("1" = 0.5, "2" = 0.5))
+
+  expect_no_error(
+    suppressWarnings(leafblower::harvest(df, tgt, method = "raking", accelerate = TRUE,
+      max_weight = 5, max_iterations = 50L, attach_weights = FALSE)),
+    message = "SQUAREM geometry fix must compile and run without error"
+  )
+})
+
+test_that("squarem-geo-ac1: stepstone SQUAREM reaches flat-loop quality", {
+  skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
+          "stepstone dataset not available (local-only benchmark)")
+  skip_if(!requireNamespace("arrow", quietly = TRUE), "arrow not installed")
+  skip_if(!requireNamespace("jsonlite", quietly = TRUE), "jsonlite not installed")
+
+  df  <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
+  df$uuid <- NULL
+  tgt <- lapply(jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json"),
+                function(t) { v <- unlist(t); v / sum(v) })
+  for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
+
+  r   <- suppressWarnings(leafblower::harvest(df, tgt, method = "raking", accelerate = TRUE,
+           max_weight = 5, min_weight = 0, max_iterations = 5000L,
+           attach_weights = FALSE, verbose = 0L))
+  res <- attr(r, "result")
+
+  expect_lte(res$max_error, 1.60e-3,
+             label = "SQUAREM+geo fix must reach flat-loop quality (max_err <= 1.60e-3)")
+})
