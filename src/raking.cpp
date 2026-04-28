@@ -62,7 +62,7 @@ RakingResult raking_solve(CalibState& st) {
     static constexpr int    kMaxNoImprove         = 5;
 
     RakingResult res;
-    res.status     = RK_ERR_NOCONV;
+    res.status     = RK_ERR_BUDGET;  // initial; overwritten by criterion/stall; remains if budget exhausted
     res.iterations = 0;
     res.max_error  = 1.0;
 
@@ -117,8 +117,8 @@ RakingResult raking_solve(CalibState& st) {
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
     std::vector<double> bucket(max_cats);
 
-    // Descent monitor
-    double min_errRp_window = std::numeric_limits<double>::infinity();
+    // Descent monitor — tracks solver loss function (weight KL for flat loop, errRp for SQUAREM).
+    double min_loss_window = std::numeric_limits<double>::infinity();
     int n_no_improve = 0;
 
     // pct/l1 tracking at cell level
@@ -444,17 +444,17 @@ RakingResult raking_solve(CalibState& st) {
                     st.log(msg);
                 }
 
-                if (!std::isfinite(min_errRp_window)) {
-                    min_errRp_window = errRp_new; n_no_improve = 0;
+                if (!std::isfinite(min_loss_window)) {
+                    min_loss_window = errRp_new; n_no_improve = 0;
                 } else {
-                    const double eps = std::max(0.01 * min_errRp_window, st.tol_abs);
-                    if (errRp_new < min_errRp_window - eps) {
-                        min_errRp_window = errRp_new; n_no_improve = 0;
+                    const double eps = std::max(0.01 * min_loss_window, st.tol_abs);
+                    if (errRp_new < min_loss_window - eps) {
+                        min_loss_window = errRp_new; n_no_improve = 0;
                     } else {
                         n_no_improve++;
                     }
                 }
-                if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_NOCONV; break; }
+                if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_STALL; break; }
             }
         }
     } else {
@@ -540,19 +540,6 @@ RakingResult raking_solve(CalibState& st) {
                 res.grake_norm       = grake_norm;
                 res.l1_weight_change = l1_weight;
 
-                // Descent monitor
-                if (!std::isfinite(min_errRp_window)) {
-                    min_errRp_window = errRp; n_no_improve = 0;
-                } else {
-                    const double rel_eps = 0.01 * min_errRp_window;
-                    const double eps = std::max(rel_eps, st.tol_abs);
-                    if (errRp < min_errRp_window - eps) {
-                        min_errRp_window = errRp; n_no_improve = 0;
-                    } else {
-                        n_no_improve++;
-                    }
-                }
-
                 if (st.verbose >= 1) {
                     char msg[256];
                     std::snprintf(msg, 256, "raking iter %d: errRp=%.2e", iter, errRp);
@@ -576,8 +563,23 @@ RakingResult raking_solve(CalibState& st) {
                     break;
                 }
 
+                // Weight KL stall: monotone for water-filling IPF (Csiszar-Tusnady).
+                // KL plateau ↔ constrained KL minimum — correct stall signal.
+                // Guard: wkl ≤ tol_abs means effectively at optimum → converged (not stalled).
+                const double wkl_flat = compute_weight_kl();
+                if (wkl_flat <= st.tol_abs) {
+                    res.status = RK_OK; res.convergence_iter = iter; break;
+                }
+                if (!std::isfinite(min_loss_window)) {
+                    min_loss_window = wkl_flat; n_no_improve = 0;
+                } else if (wkl_flat < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
+                    min_loss_window = wkl_flat; n_no_improve = 0;
+                } else {
+                    n_no_improve++;
+                }
+
                 if (n_no_improve >= kMaxNoImprove) {
-                    res.status = RK_ERR_NOCONV;
+                    res.status = RK_ERR_STALL;
                     break;
                 }
             }
