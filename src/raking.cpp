@@ -492,7 +492,9 @@ RakingResult raking_solve(CalibState& st) {
                 }
                 if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_STALL; break; }
 
-                if (!fell_back) X_prev_sq = X;
+                // Always update X_prev_sq to the current accepted iterate (plain step on
+                // fallback, super-step otherwise). The two-steps-stale snapshot corrupts wchange.
+                X_prev_sq = X;
             }
         }
     } else {

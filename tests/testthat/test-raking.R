@@ -112,3 +112,16 @@ test_that("B9: raking returns INFEAS when bounds make target structurally unreac
     info="expected infeasible hard-stop from harvest.R"
   )
 })
+
+test_that("B16: SQUAREM stall detection does not fire spuriously after fallback", {
+  result <- harvest(
+    data.frame(x = rep(c("A","B"), 50), w=1),
+    target = list(x = c(A=0.5, B=0.5)),
+    method = "raking",
+    convergence = list(rule="improvement", pct=1e-4),
+    accelerate = TRUE,
+    max_iterations = 200L
+  )
+  # A uniform problem with target=empirical proportion converges quickly.
+  expect_lt(attr(result,"result")$iterations, 20L)
+})
