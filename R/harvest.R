@@ -76,6 +76,8 @@
 #'   acceleration (Varadhan & Roland 2008) to the raking fixed-point iteration.
 #'   Only supported for \code{method="raking"}; a warning is emitted and the
 #'   parameter is ignored for all other methods. Default \code{FALSE}.
+#'   When \code{TRUE}, the \code{scheduler} is overridden to \code{"round_robin"}:
+#'   Greedy ordering changes the fixed point each F-call, degrading CBB accuracy.
 #' @param add_na_proportion Not supported in v1; raises error if TRUE.
 #' @param auto_collapse Not supported in v1; raises error if TRUE.
 #' @param collapse_vars Not supported in v1; raises error if TRUE.
@@ -204,6 +206,8 @@ harvest <- function(
   # Overlay arg resolution
   scheduler    <- match.arg(scheduler)
   eta_schedule <- match.arg(eta_schedule)
+  # Greedy inside SQUAREM changes the fixed point each F-call, degrading CBB accuracy.
+  if (accelerate_bool && scheduler == "greedy") scheduler <- "round_robin"
 
   # Ignored-param verbose notes
   # enforce_mean is always TRUE: normalization is unconditional (line ~86).
