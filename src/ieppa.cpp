@@ -1191,8 +1191,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Warning only — status unchanged for backward compatibility.
     {
         const auto& cfg = st.convergence_cfg;
-        if (cfg.pct_tol > 0.0 &&
-            cfg.metric != CalibMetric::L1_WEIGHT &&
+        if (res.status != RK_OK &&
+            (cfg.metric == CalibMetric::MAX_ERR || cfg.metric == CalibMetric::MEAN_ERR) &&
+            cfg.pct_tol > 0.0 &&
             res.max_error > 10.0 * cfg.pct_tol &&
             st.log_fn != nullptr) {
             char msg[256];
