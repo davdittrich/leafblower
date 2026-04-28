@@ -177,6 +177,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     if (Rf_isNull(start_weights_sexp)) {
         for (int i = 0; i < n; i++) weights[i] = 1.0;
     } else {
+        if (LENGTH(start_weights_sexp) != n)
+            Rf_error("leafblower: start_weights length %d != n=%d",
+                     (int)LENGTH(start_weights_sexp), n);
         const double* sw = REAL(start_weights_sexp);
         for (int i = 0; i < n; i++) weights[i] = sw[i];
     }
