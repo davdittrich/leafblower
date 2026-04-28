@@ -115,6 +115,12 @@ RakingResult raking_solve(CalibState& st) {
     // No Dykstra correction vectors: water-filling enforces bounds within F_eval.
 
     bool is_infeasible = false;
+
+    // Pre-computed reciprocals: n_per_cell is constant; avoids division per cell per super-step.
+    std::vector<double> inv_n_per_cell(ct.M_cell);
+    for (int c = 0; c < ct.M_cell; c++)
+        inv_n_per_cell[c] = 1.0 / static_cast<double>(ct.n_per_cell[c]);
+
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
     std::vector<double> bucket(max_cats);
 
@@ -233,6 +239,10 @@ RakingResult raking_solve(CalibState& st) {
         }
     };
 
+    // last_F_metrics: populated by F_eval via compute_cell_metrics; reused in SQUAREM convergence check.
+    // Declared here (outer scope) so the [&] lambda capture includes it.
+    lbw::CellMetrics last_F_metrics;
+
     // F_eval: one complete bounded IPF iteration using water-filling.
     // Water-filling enforces X[c] ∈ [L[c], U[c]] within each margin step.
     // No correction vectors — F is stateless: enables SQUAREM L2 halving.
@@ -314,7 +324,10 @@ RakingResult raking_solve(CalibState& st) {
             for (int c = 0; c < ct.M_cell; c++) Xv[c] *= sc_hp;
         }
 
-        return compute_errRp_ct(st, ct, Xv, bucket);
+        // compute_cell_metrics is a strict superset of compute_errRp_ct at same O(K×M_cell) cost.
+        // Stores all metrics in last_F_metrics — SQUAREM convergence check reuses them directly.
+        last_F_metrics = lbw::compute_cell_metrics(st, ct, Xv, static_cast<double>(st.n), bucket);
+        return last_F_metrics.errRp;
     };
 
     if (st.accelerate) {
@@ -353,7 +366,7 @@ RakingResult raking_solve(CalibState& st) {
                 double r_sq_obs = 0.0, v_sq_obs = 0.0, w2_sq_obs = 0.0;
                 double v_sq_cell = 0.0;
                 for (int c = 0; c < ct.M_cell; c++) {
-                    const double inv_nc = 1.0 / static_cast<double>(ct.n_per_cell[c]);
+                    const double inv_nc = inv_n_per_cell[c];
                     const double ri = sq_w1[c] - X[c],  vi = sq_w2[c] - sq_w1[c];
                     r_sq_obs  += ri * ri * inv_nc;
                     v_sq_obs  += vi * vi * inv_nc;
@@ -441,18 +454,15 @@ RakingResult raking_solve(CalibState& st) {
                 // Skip snapshot update on fell_back (prevents wchange=0 spurious stall).
                 double wchange = 0.0;
                 for (int c = 0; c < ct.M_cell; c++)
-                    wchange += std::fabs(X[c] - X_prev_sq[c]) / static_cast<double>(ct.n_per_cell[c]);
+                    wchange += std::fabs(X[c] - X_prev_sq[c]) * inv_n_per_cell[c];
                 wchange /= static_cast<double>(st.n);
 
-                // Convergence criterion: compute all metrics so non-MAX_ERR metrics work correctly.
-                // compute_cell_metrics fills errRp/mean_err/kl/chi2/grake_norm; override errRp
-                // with F_eval's result (computed post-hyperplane-normalization, slightly more
-                // accurate than re-computing from X). l1 = wchange (obs-level L1 Δw this step).
+                // Convergence criterion: reuse last_F_metrics from accepted F_eval call.
+                // F_eval now calls compute_cell_metrics internally (same O(K×M_cell) cost),
+                // so last_F_metrics has all metrics — no second aggregation pass needed.
                 {
-                    double W_sq = 0.0;
-                    for (int c = 0; c < ct.M_cell; c++) W_sq += X[c];
-                    lbw::CellMetrics m_conv = lbw::compute_cell_metrics(st, ct, X, W_sq, bucket);
-                    m_conv.errRp = errRp_new;
+                    lbw::CellMetrics m_conv = last_F_metrics;
+                    m_conv.errRp = errRp_new;  // F_eval's errRp is authoritative (post-hyperplane)
                     m_conv.l1    = wchange;
                     if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                                prev_metric_for_rule, st.tol_abs)) {
