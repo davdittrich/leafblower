@@ -317,8 +317,7 @@ RakingResult raking_solve(CalibState& st) {
     };
 
     if (st.accelerate) {
-        static constexpr double kAlphaMax    = -1.0;    // alpha is strictly ≤ 0; -1.0 = least-aggressive bound
-        static constexpr double kAlphaMin    = -1000.0;
+        static constexpr double kAlphaMin    = -1000.0;  // no upper cap: autumn allows α ∈ (-1000, 0)
         static constexpr double kVNormEps    = 1e-300;
         static constexpr double kVNormRel    = 1e-10;
         static constexpr double kHalvingSlack = 1.01;
@@ -327,20 +326,19 @@ RakingResult raking_solve(CalibState& st) {
         if (st.inner_max_iter >= 3) {
             int f_eval_count = 0;
             while (f_eval_count + 3 <= st.inner_max_iter) {
-                // Save infeasibility state before intermediate probes.
-                // F_eval sets is_infeasible when a cell bucket empties during
-                // extrapolation — those intermediate iterates are discarded, so
-                // only the FINAL accepted F_eval(X_star) should contribute.
+                // Save infeasibility state. Intermediate F_eval probes (w1, w2, halving)
+                // may false-flag infeasibility on extrapolated iterates.
+                // Only the final accepted F_eval contributes to infeasibility status.
                 bool infeas_before = is_infeasible;
 
                 auto w1 = X;
                 double errRp_w1 = F_eval(w1);  ++f_eval_count;
-                (void)errRp_w1;  // advance IPF side effects (errRp_k, sor_omega); value unused
-                is_infeasible = infeas_before;  // restore: w1 is intermediate
+                (void)errRp_w1;  // advances IPF side effects (errRp_k); value unused
+                is_infeasible = infeas_before;
 
                 auto w2 = w1;
                 double errRp_w2 = F_eval(w2);  ++f_eval_count;
-                is_infeasible = infeas_before;  // restore: w2 is intermediate
+                is_infeasible = infeas_before;
 
                 res.iterations = f_eval_count;
 
@@ -355,19 +353,23 @@ RakingResult raking_solve(CalibState& st) {
                 norm_v = std::sqrt(norm_v);
                 norm_w2 = std::sqrt(norm_w2);
 
+                // Fixed-point guard: ‖v‖/‖w2‖ < threshold → already converged
                 if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
                     X = w2;
                     res.max_error        = errRp_w2;
-                    res.status           = RK_OK;
+                    res.status           = is_infeasible ? RK_ERR_INFEAS : RK_OK;
                     res.convergence_iter = f_eval_count;
                     break;
                 }
 
-                double alpha = std::max(kAlphaMin,
-                               std::min(kAlphaMax, -norm_r / (norm_v + kVNormEps)));
+                // CBB step: α = -‖r‖/‖v‖, capped at kAlphaMin only (no upper cap).
+                // Autumn allows α ∈ (-1000, 0): sub-acceleration (α > -1) is valid.
+                double alpha = std::max(kAlphaMin, -norm_r / (norm_v + kVNormEps));
 
+                // Snapshot: state at w2, before extrapolation
                 auto X_snap = w2;
 
+                // Extrapolate X* = X_snap - 2α·r + α²·v; clamp to ≥ 0
                 auto X_star = X_snap;
                 for (int c = 0; c < ct.M_cell; c++) {
                     double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
@@ -375,30 +377,47 @@ RakingResult raking_solve(CalibState& st) {
                     if (X_star[c] < 0.0) X_star[c] = 0.0;
                 }
 
-                // errRp-based step-halving: accept X_new if its margin error is no
-                // worse than the plain step w2. Water-fill F is stateless so errRp
-                // directly measures outcome quality without correction-vector state.
+                // L2 step-halving: ‖F(X*)-X*‖² vs ‖v‖².
+                // Works with water-filling F: hyperplane step is near-no-op (sum ≈ n),
+                // so ‖F(X*)-X*‖ cleanly reflects IPF movement, not Dykstra explosion.
+                const double plain_resid = norm_v * norm_v;  // ‖v‖²
+                auto X_star_pre = X_star;
                 double errRp_new = F_eval(X_star);  ++f_eval_count;
+                double cand_resid = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double d = X_star[c] - X_star_pre[c];
+                    cand_resid += d * d;
+                }
 
-                for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
-                    // Restore before each halving probe: the previous probe is discarded.
-                    is_infeasible = infeas_before;
-                    alpha = (alpha - 1.0) / 2.0;
+                // Step-halving with boolean flag (not goto) to ensure convergence
+                // check runs for both accepted-extrapolation and fell-back-to-w2 paths.
+                bool fell_back = false;
+                for (int h = 0; h < kMaxHalvings && cand_resid > kHalvingSlack * plain_resid; h++) {
+                    is_infeasible = infeas_before;  // discard probe's infeasibility
+                    alpha = (alpha + (-1.0)) / 2.0;  // midpoint toward -1 (autumn formula)
+                    if (std::fabs(alpha - (-1.0)) < 1e-3) {
+                        // Fell back to plain step
+                        X = w2; errRp_new = errRp_w2; fell_back = true; break;
+                    }
                     X_star = X_snap;
                     for (int c = 0; c < ct.M_cell; c++) {
                         double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
                         X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
                         if (X_star[c] < 0.0) X_star[c] = 0.0;
                     }
+                    X_star_pre = X_star;
                     errRp_new = F_eval(X_star);  ++f_eval_count;
+                    cand_resid = 0.0;
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        double d = X_star[c] - X_star_pre[c];
+                        cand_resid += d * d;
+                    }
                 }
-                // After halving loop: is_infeasible reflects the last accepted F_eval(X_star).
-                // Do NOT restore here — this is the committed result.
-
-                X = X_star;
+                if (!fell_back) X = X_star;
                 res.max_error  = errRp_new;
                 res.iterations = f_eval_count;
 
+                // Best-iterate tracking
                 if (errRp_new < best_metric_seen) {
                     best_metric_seen    = errRp_new;
                     best_iter_val       = f_eval_count;
@@ -406,10 +425,11 @@ RakingResult raking_solve(CalibState& st) {
                     W_best              = X;
                 }
 
+                // Convergence criterion
                 lbw::CellMetrics m_conv; m_conv.errRp = errRp_new;
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
-                    res.status             = RK_OK;
+                    res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
                     res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
                     res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
                     res.convergence_tol    = st.convergence_cfg.pct_tol;
@@ -419,9 +439,8 @@ RakingResult raking_solve(CalibState& st) {
 
                 if (st.verbose >= 1) {
                     char msg[256];
-                    std::snprintf(msg, 256,
-                        "raking[sq] f_eval=%d errRp=%.2e alpha=%.4g",
-                        f_eval_count, errRp_new, alpha);
+                    std::snprintf(msg, 256, "raking[sq] f_eval=%d errRp=%.2e alpha=%.4g",
+                                  f_eval_count, errRp_new, alpha);
                     st.log(msg);
                 }
 
