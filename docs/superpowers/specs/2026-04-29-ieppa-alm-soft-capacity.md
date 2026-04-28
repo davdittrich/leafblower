@@ -768,7 +768,7 @@ test_that("capacity_penalty emits warning when passed to non-ieppa_soft method",
 
 3. **Adaptive growth ceiling at 1000×**: pathological inputs may hit cap and return BUDGET/STALL. T7 documents this case. User can manually pass higher `capacity_penalty` to compensate.
 
-4. **ALM diagnostics add 3 fields to rk_result_t**: ABI break for any external C consumer. `EXPECTED_RK_RESULT_BYTES` static_assert catches at compile time. Expected new size: 448 + 24 = 472 bytes.
+4. **ALM diagnostics add 4 fields to rk_result_t**: ABI break for any external C consumer. `EXPECTED_RK_RESULT_BYTES` static_assert catches at compile time. Expected new size: 448 + 32 = 480 bytes (28B fields + 4B padding for `alm_n_growth_events` int alignment).
 
 5. **Non-determinism risk**: ALM blend formula uses floating-point divisions with `1+ρ` denominator. Order of evaluation in compiler optimizations could introduce tiny variations. T6/T8 use epsilon tolerances to accommodate.
 
