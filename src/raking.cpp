@@ -15,6 +15,7 @@
 //     and Minimization Problems", Ann. Probab. 3, 146-158.
 
 #include "lbw_config.h"
+#include "lbw_math.hpp"
 #include "raking.hpp"
 #include "cell_table.hpp"
 #include "calib_dispatch.hpp"
@@ -140,6 +141,10 @@ RakingResult raking_solve(CalibState& st) {
     int    best_iter_val    = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
 
+    // Scratch buffers for compute_weight_kl vectorized log path.
+    std::vector<double> kl_ratio_scratch(ct.M_cell, 0.0);
+    std::vector<double> kl_weight_scratch(ct.M_cell, 0.0);
+
     // SOR: wire st.sor_cfg into raking's IPF step (same API as ieppa).
     // Apply only when bounds are active (oscillation risk).
     const bool sor_active  = st.sor_cfg.enabled &&
@@ -167,12 +172,19 @@ RakingResult raking_solve(CalibState& st) {
     // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
     // Distinct from m.kl (marginal KL) — this is what raking actually minimizes.
     auto compute_weight_kl = [&]() -> double {
-        double wkl = 0.0;
         const double inv_n = 1.0 / static_cast<double>(st.n);
+        int valid_count = 0;
         for (int c = 0; c < ct.M_cell; c++) {
-            if (X_init[c] > 0.0 && X[c] > 0.0)
-                wkl += X[c] * std::log(X[c] / X_init[c]) * inv_n;
+            if (X_init[c] > 0.0 && X[c] > 0.0) {
+                kl_ratio_scratch[valid_count] = X[c] / X_init[c];
+                kl_weight_scratch[valid_count] = X[c];
+                valid_count++;
+            }
         }
+        lbw::bulk_log(kl_ratio_scratch.data(), kl_ratio_scratch.data(), valid_count);
+        double wkl = 0.0;
+        for (int i = 0; i < valid_count; i++)
+            wkl += kl_weight_scratch[i] * kl_ratio_scratch[i] * inv_n;
         return std::isfinite(wkl) ? wkl : 0.0;
     };
 

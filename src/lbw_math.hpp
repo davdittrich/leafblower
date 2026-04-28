@@ -1,5 +1,6 @@
 #pragma once
 #include "lbw_config.h"
+#include <algorithm>
 #include <cmath>
 
 #if LBW_HAS_GLIBC_MVEC
