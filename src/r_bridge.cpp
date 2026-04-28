@@ -363,6 +363,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_best_iter                = res.best_iter;
     };
 
+    try {
     if (strcmp(method_str, "lbfgsb") == 0) {
         auto res = lbw::lbfgsb_solve(st);
         res_status     = res.status;
@@ -517,6 +518,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_sor_n_damped     = res.sor_n_damped;
             res_best_weights = std::move(res.best_weights);
         }
+    }
+    } catch (const std::exception& e) {
+        // N=0 PROTECTs before this try block — no UNPROTECT needed.
+        // Rf_error longjmps; must not be inside a try that owns RAII objects.
+        Rf_error("leafblower: internal solver error — %s", e.what());
     }
 
     const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)                    ? "L-BFGS-B"
