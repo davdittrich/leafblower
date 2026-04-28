@@ -622,10 +622,11 @@ test_that("squarem-c2: kl metric with accelerate=TRUE runs correct convergence",
                         attach_weights = FALSE))
   r <- attr(w, "result")
 
-  # RED: r$iterations <= 3 (kl=0 default causes instant convergence at first super-step)
-  # GREEN: r$iterations > 3 (real kl convergence runs multiple super-steps)
-  expect_gt(r$iterations, 3L,
-            label = "C2: SQUAREM kl-metric must run >3 F-evals (not fire on kl=0 default)")
+  # RED: r$iterations == 1 (kl=0 default → curr<=1e-15 → IMPROVEMENT fires on first check)
+  # GREEN: r$iterations > 1 (real kl populated → first check skipped (prev=inf), fires ≥ iter 2)
+  # Note: 1-variable raking legitimately converges in 2 F-evals with SQUAREM acceleration.
+  expect_gt(r$iterations, 1L,
+            label = "C2: SQUAREM kl-metric must run >1 F-evals (not fire on kl=0 default at iter 1)")
 })
 
 test_that("squarem-c1: feasible tight-bounds SQUAREM must not return status=INFEAS", {

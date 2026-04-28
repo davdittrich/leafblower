@@ -432,16 +432,33 @@ RakingResult raking_solve(CalibState& st) {
                     W_best              = X;
                 }
 
-                // Convergence criterion
-                lbw::CellMetrics m_conv; m_conv.errRp = errRp_new;
-                if (lbw::check_convergence(st.convergence_cfg, m_conv,
-                                           prev_metric_for_rule, st.tol_abs)) {
-                    res.status             = RK_OK;
-                    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-                    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-                    res.convergence_tol    = st.convergence_cfg.pct_tol;
-                    res.convergence_iter   = f_eval_count;
-                    break;
+                // Weight-change (obs-level L1): computed here so m_conv.l1 can use it
+                // for metric="l1_weight" convergence. Also used for stall detection below.
+                // Skip snapshot update on fell_back (prevents wchange=0 spurious stall).
+                double wchange = 0.0;
+                for (int c = 0; c < ct.M_cell; c++)
+                    wchange += std::fabs(X[c] - X_prev_sq[c]) / static_cast<double>(ct.n_per_cell[c]);
+                wchange /= static_cast<double>(st.n);
+
+                // Convergence criterion: compute all metrics so non-MAX_ERR metrics work correctly.
+                // compute_cell_metrics fills errRp/mean_err/kl/chi2/grake_norm; override errRp
+                // with F_eval's result (computed post-hyperplane-normalization, slightly more
+                // accurate than re-computing from X). l1 = wchange (obs-level L1 Δw this step).
+                {
+                    double W_sq = 0.0;
+                    for (int c = 0; c < ct.M_cell; c++) W_sq += X[c];
+                    lbw::CellMetrics m_conv = lbw::compute_cell_metrics(st, ct, X, W_sq, bucket);
+                    m_conv.errRp = errRp_new;
+                    m_conv.l1    = wchange;
+                    if (lbw::check_convergence(st.convergence_cfg, m_conv,
+                                               prev_metric_for_rule, st.tol_abs)) {
+                        res.status             = RK_OK;
+                        res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                        res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                        res.convergence_tol    = st.convergence_cfg.pct_tol;
+                        res.convergence_iter   = f_eval_count;
+                        break;
+                    }
                 }
 
                 if (st.verbose >= 1) {
@@ -451,17 +468,7 @@ RakingResult raking_solve(CalibState& st) {
                     st.log(msg);
                 }
 
-                // Weight-change stall: obs-level L1 Δw goes to zero at the fixed point.
-                // Tried KL stall after geometry fix — gives identical result (81 F-evals,
-                // same max_err), confirming accepted iterate KL is now approximately monotone.
-                // Weight-change kept: equivalent result, more robust (no log(0) risk).
-                // Skip snapshot update on fell_back: X=w2 → X_prev_sq=w2 → wchange=0
-                // next iter → spurious stall after 5 consecutive fell_back super-steps.
-                double wchange = 0.0;
-                for (int c = 0; c < ct.M_cell; c++)
-                    wchange += std::fabs(X[c] - X_prev_sq[c]) / static_cast<double>(ct.n_per_cell[c]);
-                wchange /= static_cast<double>(st.n);
-
+                // Weight-change stall: wchange computed above; reuse here.
                 if (!std::isfinite(min_loss_window)) {
                     min_loss_window = wchange; n_no_improve = 0;
                 } else if (wchange < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
