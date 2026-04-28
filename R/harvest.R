@@ -357,7 +357,7 @@ harvest <- function(
   # Threshold derivation: well-posed problems have errRp/pct_change ratio 1-5x;
   # infeasible stalls show 100x+; 10x cleanly separates the two regimes.
   if (calib_result$status == 0L &&
-      conv$metric %in% c("l1_weight", "pct") &&
+      conv$metric %in% c("max_err", "mean_err") &&
       !is.null(conv$pct_tol) && conv$pct_tol > 0 &&
       !is.null(calib_result$max_error) &&
       calib_result$max_error > 10 * conv$pct_tol) {

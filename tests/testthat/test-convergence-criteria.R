@@ -162,8 +162,11 @@ test_that("parse_sor rejects unknown keys", {
   )
 })
 
-test_that("hawe: iEPPA warns on PCT stall with large max_error", {
-  # Contradictory targets: var1 wants A=95% but var2 structure makes that impossible
+test_that("hawe: iEPPA does NOT warn PCT stall when metric=pct (l1_weight)", {
+  # Regression guard for S1: stall warning must NOT fire for pct/l1_weight metric.
+  # High max_error is EXPECTED when the user chose weight-change convergence —
+  # they don't care about error residuals, so firing is a false positive.
+  # Contradictory targets stress-test that the guard is correctly suppressed.
   n <- 400
   var1 <- factor(rep(c("A","B"), each = n/2))
   var2 <- factor(rep(c("2","1"), each = n/2))  # A maps to "2", B maps to "1"
@@ -172,12 +175,31 @@ test_that("hawe: iEPPA warns on PCT stall with large max_error", {
     var1 = c(A = 0.95, B = 0.05),
     var2 = c("1" = 0.95, "2" = 0.05)
   )
-  expect_warning(
+  result <- suppressWarnings(
     leafblower::harvest(data, target, max_weight = 1.5, method = "ieppa",
                         max_iterations = 300,
                         convergence = list(pct = 0.001),
-                        attach_weights = FALSE),
-    regexp = "PCT convergence stall"
+                        attach_weights = FALSE)
+  )
+  # Collect only the PCT stall warning specifically
+  w <- tryCatch(
+    withCallingHandlers(
+      leafblower::harvest(data, target, max_weight = 1.5, method = "ieppa",
+                          max_iterations = 300,
+                          convergence = list(pct = 0.001),
+                          attach_weights = FALSE),
+      warning = function(w) {
+        if (grepl("PCT convergence stall", conditionMessage(w))) {
+          stop(paste0("STALL_WARNING: ", conditionMessage(w)))
+        }
+        invokeRestart("muffleWarning")
+      }
+    ),
+    error = function(e) e
+  )
+  expect_false(
+    inherits(w, "error") && grepl("STALL_WARNING", conditionMessage(w)),
+    info = "PCT stall warning must NOT fire when metric=pct (l1_weight)"
   )
 })
 
