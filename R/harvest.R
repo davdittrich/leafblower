@@ -108,7 +108,7 @@
 #'           Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
 #'           \code{"budget"} (budget exhausted — increase max_iterations),
 #'           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
-#'           \code{"stall_errRp"} (SQUAREM errRp plateau — empirically near optimum),
+#'           \code{"stall_wchange"} (SQUAREM weight-change plateau — at constrained optimum),
 #'           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
 #'       }
 #'     }
@@ -303,7 +303,7 @@ harvest <- function(
       if      (is.null(s) || is.na(s))              NA_character_
       else if (s == 0L)                              "criterion"
       else if (s == 4L)                              "budget"
-      else if (s == 5L && isTRUE(accelerate_bool))  "stall_errRp"
+      else if (s == 5L && isTRUE(accelerate_bool))  "stall_wchange"
       else if (s == 5L)                              "stall_kl"
       else if (s == 2L)                              "infeasible"
       else if (s == 3L)                              "error"
@@ -341,8 +341,8 @@ harvest <- function(
     warning("leafblower: budget exhausted — weights reflect best iterate; ",
             "increase max_iterations if further improvement is needed")
   if (calib_result$status == 5L && isTRUE(accelerate_bool))
-    warning("leafblower: SQUAREM errRp plateau — weights are valid; ",
-            "try accelerate=FALSE for KL-stall (reaches constrained KL minimum)")
+    warning("leafblower: SQUAREM weight-change plateau — at constrained optimum; ",
+            "weights are valid; no further improvement is achievable")
   if (calib_result$status == 5L && !isTRUE(accelerate_bool))
     warning("leafblower: loss function plateau — at constrained optimum given bounds; ",
             "weights are valid; no further improvement is achievable")
