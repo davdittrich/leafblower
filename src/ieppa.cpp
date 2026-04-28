@@ -353,6 +353,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     int total_iters = 0;
     bool homotopy_break = false;
     bool absolute_tol_fired = false;  // set when absolute_tol triggers convergence
+    // R3: kEmptyBucketThreshold and ct.W_input are loop-invariant; hoist products once.
+    const double empty_threshold_abs  = kEmptyBucketThreshold * ct.W_input;
+    const double log_empty_threshold  = std::log(empty_threshold_abs);
 
     for (int lvl = 0; lvl < N_levels && !homotopy_break; lvl++) {
         const double frac   = (N_levels == 1) ? 0.0
@@ -443,7 +446,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 eff_omega = sor_omega[k];
             }
             for (int j = 0; j < nj; j++) {
-                if (!(S_lin[j] >= kEmptyBucketThreshold * ct.W_input) ||
+                if (!(S_lin[j] >= empty_threshold_abs) ||
                     !std::isfinite(S_lin[j])) {
                     record_empty(k, j);
                     rescale_lin[j] = 1.0;
@@ -555,8 +558,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     if (std::isfinite(lv[r])) sum += std::exp(lv[r] - lv_max);
                 }
                 double log_S_kj = lv_max + std::log(sum);
-                double log_threshold = std::log(kEmptyBucketThreshold * ct.W_input);
-                if (!std::isfinite(log_S_kj) || log_S_kj < log_threshold) {
+                if (!std::isfinite(log_S_kj) || log_S_kj < log_empty_threshold) {
                     record_empty(k, j);
                     continue;
                 }
