@@ -417,10 +417,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_sor_n_damped     = res.sor_n_damped;
             res_best_weights = std::move(res.best_weights);
         }
-        // Auto-fallback: if primary solver NOCONVs, retry with L-BFGS-B
-        if (res_status == RK_ERR_NOCONV) {
+        // Auto-fallback: if primary solver NOCONVs or exhausts budget (still
+        // improving), retry with L-BFGS-B.  STALL(5) is excluded: the solver
+        // is at the constrained optimum and fallback cannot improve it.
+        if (res_status == RK_ERR_NOCONV || res_status == RK_ERR_BUDGET) {
             if (st.verbose >= 1)
-                st.log("auto: primary solver NOCONV; retrying with L-BFGS-B");
+                st.log("auto: primary solver NOCONV/BUDGET; retrying with L-BFGS-B");
             // Restore original weights (only mutated field in CalibState)
             std::copy(weights_backup.begin(), weights_backup.end(), weights.begin());
             st.ieppa_auto_selected = false;
