@@ -792,3 +792,23 @@ test_that("B14: chebyshev convergence not broken by mu fix (regression)", {
   )
   expect_equal(attr(res,"result")$status, 0L)  # RK_OK
 })
+
+test_that("B15: chebyshev convergence maintained after alpha floor removal", {
+  set.seed(42)
+  n <- 500L
+  df <- data.frame(
+    age = factor(sample(c("18-34","35-54","55+"), n, replace=TRUE, prob=c(0.3,0.4,0.3))),
+    sex = factor(sample(c("M","F"), n, replace=TRUE))
+  )
+  res <- harvest(df,
+    target = list(
+      age = c("18-34"=0.25, "35-54"=0.45, "55+"=0.30),
+      sex = c(M=0.48, F=0.52)
+    ),
+    method = "chebyshev",
+    min_weight = 0.2,
+    max_weight = 5.0
+  )
+  expect_equal(attr(res,"result")$status, 0L)  # converged
+  expect_lt(attr(res,"result")$max_error, 1e-3)
+})

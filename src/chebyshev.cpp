@@ -417,9 +417,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         }
         if (d_delta < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_delta/d_delta);
         if (dY_delta < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_delta/dY_delta);
-        alpha_p = std::max(alpha_p, 1e-10);
-        alpha_d = std::max(alpha_d, 1e-10);
-
         // Update primal
         for (int c = 0; c < ct.M_cell; c++) X[c] += alpha_p*dX[c];
         delta += alpha_p*d_delta;
