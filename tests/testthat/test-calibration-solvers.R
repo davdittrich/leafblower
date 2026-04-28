@@ -757,3 +757,22 @@ test_that("B10: sinkhorn KL stable when box constraint transiently inactive", {
                  min_weight=0.5, max_weight=3.0)
   expect_lt(attr(res,"result")$max_error, 0.01)
 })
+
+test_that("B1: chebyshev with infeasible target (sum>1) returns infeasible status", {
+  n <- 50L
+  df <- data.frame(g = sample(1:2, n, replace=TRUE))
+  res <- tryCatch(
+    harvest(df,
+      target = list(g = c("1"=0.9, "2"=0.9)),  # sum > 1 — infeasible
+      method = "chebyshev",
+      max_iterations = 50L
+    ),
+    error = function(e) e
+  )
+  # Should either error (harvest.R stops on INFEAS) or return infeasible status.
+  # Either is acceptable — what must NOT happen is silent convergence.
+  ok <- inherits(res, "error") ||
+        isTRUE(grepl("infeasible|INFEAS", conditionMessage(res), ignore.case=TRUE)) ||
+        (!is.null(attr(res,"result")) && attr(res,"result")$status == 2L)
+  expect_true(ok, info=paste("unexpected result; class:", class(res)[1]))
+})

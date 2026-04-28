@@ -206,11 +206,9 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         // O(K*nct) pass — cheap vs LDLT O(nct³). Computes all 6 metrics from current S[].
         double W = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W += X[c];
-        CellMetrics cm;
-        if (W > 1e-300) {
-            cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
-            if (cm.errRp < best_errRp) { best_errRp = cm.errRp; res.best_iter = iter+1; X_best = X; }
-        }
+        if (W < 1e-300) { res.status = RK_ERR_INFEAS; return res; }
+        CellMetrics cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
+        if (cm.errRp < best_errRp) { best_errRp = cm.errRp; res.best_iter = iter+1; X_best = X; }
         double errRp = cm.errRp, mean_err = cm.mean_err;
         double kl_max = cm.kl, chi2_total = cm.chi2, grake_norm = cm.grake_norm;
         double l1_weight = 0.0;  // not tracked per IPM step (no prev weights)
@@ -261,8 +259,6 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         // D_marg[m] = effective margin weight after Schur complement
         for (int m = 0; m < nct; m++)
             D_marg[m] = 1.0 / (y_up[m]/s_up[m] + y_dn[m]/s_dn[m] + 1e-300);
-
-        if (W < 1e-300) { res.status = RK_ERR_INFEAS; return res; }
 
         // RHS WITH complementarity centering (correct formula):
         // rhs[m] = -(S[m] - T_flat[m]*W)  +  D_marg[m]*( rmu_up/s_up - rmu_dn/s_dn )
