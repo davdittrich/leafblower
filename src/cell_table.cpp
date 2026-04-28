@@ -143,7 +143,14 @@ int estimate_M_cell(int n, int K,
                     const int32_t* const* group_ids,
                     const int* cat_counts) {
     if (K <= 0 || n <= 0) return 0;
-    if (K > 8) return n;  // can't pack; assume incompressible
+    if (K > 8) {
+        int64_t prod = 1;
+        for (int k = 0; k < K; k++) {
+            prod *= static_cast<int64_t>(cat_counts[k]);
+            if (prod >= static_cast<int64_t>(n)) return n;
+        }
+        return static_cast<int>(prod);
+    }
     if (!pack_key_fits(K, cat_counts)) return n;
 
     std::vector<int> bit_widths(K);

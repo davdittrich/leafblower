@@ -157,3 +157,17 @@ test_that("B13: partial NA (some obs assigned) does not trigger INFEAS", {
     harvest(df, tgt, method = "raking", convergence = list(absolute = 1e-3))
   )
 })
+
+test_that("R4: K=9 with 2 cats each routes to iEPPA via AUTO (not raking)", {
+  set.seed(42)
+  n <- 10000L
+  cats <- paste0("m", 1:9)
+  df_list <- lapply(cats, function(nm) factor(sample(c("a","b"), n, replace=TRUE)))
+  names(df_list) <- cats
+  df  <- as.data.frame(df_list)
+  tgt <- setNames(lapply(cats, function(nm) c(a=0.5, b=0.5)), cats)
+  result <- harvest(df, tgt, method="auto", convergence=list(absolute=1e-3))
+  alg <- attr(result, "algorithm")
+  expect_true(grepl("ieppa", alg, ignore.case=TRUE),
+    info = paste("Expected ieppa but got", alg))
+})
