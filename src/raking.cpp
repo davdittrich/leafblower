@@ -51,13 +51,14 @@ static double compute_errRp_ct(const CalibState& st,
 }
 
 
-// Constrained raking solver: cyclic IPF for marginal projections + Dykstra box correction.
-// Marginal step: pure IPF (Bregman/multiplicative projection — Euclidean Dykstra corrections
-// diverge on multiplicative projections and are not used here).
-// Box step: Dykstra additive correction q[i] prevents cycling at the [lo,hi]^n boundary.
+// Constrained raking solver: cyclic IPF with per-category water-filling box projections.
+// Each margin step applies water_fill_cat() — KL projection onto
+// {Σ_c Xv[c]=T_kj, L_c≤Xv[c]≤U_c} (Csiszar-Tusnady 1984; autumn single_adjust).
+// No Dykstra correction vectors; stateless F enables SQUAREM L2 step-halving.
 // inner_max_iter is the single iteration budget; outer_max_iter is unused.
 RakingResult raking_solve(CalibState& st) {
-    static constexpr double kEmptyBucketThreshold = 1e-15;
+    static constexpr double kAbsoluteZeroThreshold = 1e-15;  // bucket_j / free_sum is genuinely zero
+    static constexpr double kRelativeZeroFraction  = 1e-15;  // bucket[j] < fraction * W_total
     static constexpr int    kErrCheckInterval     = 10;
     static constexpr int    kMaxNoImprove         = 5;
 
@@ -172,7 +173,7 @@ RakingResult raking_solve(CalibState& st) {
         const auto& cells = cells_per_cat[k][j];
         const int n = static_cast<int>(cells.size());
         if (n == 0) return;
-        if (bucket_j < kEmptyBucketThreshold) {
+        if (bucket_j < kAbsoluteZeroThreshold) {
             if (T_kj > 0.0) is_infeasible = true;
             return;
         }
@@ -187,7 +188,7 @@ RakingResult raking_solve(CalibState& st) {
         double free_sum    = bucket_j;  // Σ_{free} X_orig[c]
 
         for (int pass = 0; pass <= n; ++pass) {
-            if (free_sum < kEmptyBucketThreshold) { is_infeasible = true; break; }
+            if (free_sum < kAbsoluteZeroThreshold) { is_infeasible = true; break; }
             const double T_free = T_kj - clamped_sum;
             if (T_free <= 0.0) break;
             const double m = T_free / free_sum;
@@ -222,7 +223,7 @@ RakingResult raking_solve(CalibState& st) {
         }
         // All passes exhausted (infeasible category) — commit best-effort values
         const double T_final = T_kj - clamped_sum;
-        const double m_final = (free_sum > kEmptyBucketThreshold && T_final > 0.0)
+        const double m_final = (free_sum > kAbsoluteZeroThreshold && T_final > 0.0)
                                ? T_final / free_sum : 0.0;
         for (int ci = 0; ci < n; ci++) {
             const int c = cells[ci];
@@ -272,7 +273,7 @@ RakingResult raking_solve(CalibState& st) {
             // Apply water-filling per category
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 double Tkj = st.targets[k][j] * W_total;
-                if (bucket[j] < kEmptyBucketThreshold * W_total) {
+                if (bucket[j] < kRelativeZeroFraction * W_total) {
                     if (Tkj > 0.0) is_infeasible = true;
                     continue;
                 }
@@ -334,7 +335,7 @@ RakingResult raking_solve(CalibState& st) {
 
                 auto w1 = X;
                 double errRp_w1 = F_eval(w1);  ++f_eval_count;
-                (void)errRp_w1;  // advances IPF side effects (errRp_k); value unused
+                (void)errRp_w1;  // errRp_k updated inside F_eval but not consumed (use_greedy=false when accelerate=true)
                 is_infeasible = infeas_before;
 
                 auto w2 = w1;
