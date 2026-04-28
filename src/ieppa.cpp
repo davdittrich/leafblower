@@ -352,6 +352,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     const double alm_mu_base = st.alm_mu;
     int total_iters = 0;
     bool homotopy_break = false;
+    bool absolute_tol_fired = false;  // set when absolute_tol triggers convergence
 
     for (int lvl = 0; lvl < N_levels && !homotopy_break; lvl++) {
         const double frac   = (N_levels == 1) ? 0.0
@@ -1008,6 +1009,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                  metric == lbw::CalibMetric::CHI2        ||
                  metric == lbw::CalibMetric::GRAKE_NORM  ||
                  metric == lbw::CalibMetric::MARGINAL_KL ||
+                 metric == lbw::CalibMetric::L1_WEIGHT   ||
                  iter_in_lvl == budget_lvl);
             // Note: MARGINAL_KL is in need_extra_metrics to ensure grake_norm, kl, etc.
             // are populated in the result struct at convergence (marg_kl itself is already
@@ -1118,11 +1120,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         if (v < lf_min) lf_min = v;
                     }
                     // log10(exp(v)) = v / ln(10)
+                    static constexpr double kLn10 = 2.302585092994046;  // std::log(10.0)
                     std::snprintf(msg, sizeof(msg),
                                   "  margin=%d: log10(f) range [%.2f, %.2f]",
                                   k + 1,
-                                  lf_min / 2.302585,
-                                  lf_max / 2.302585);
+                                  lf_min / kLn10,
+                                  lf_max / kLn10);
                     st.log(msg);
                 }
             }
@@ -1158,6 +1161,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 } else {
                     converged = converged_primary;
                 }
+                if (converged && converged_abs) absolute_tol_fired = true;
 
                 // Intermediate homotopy levels: allow warm-jump when errRp is loose.
                 if (!converged && lvl < N_levels - 1) {
@@ -1220,7 +1224,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // WU-C: populate convergence diagnostics at solver exit.
     res.convergence_metric             = static_cast<int>(st.convergence_cfg.metric);
     res.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
-    res.convergence_tol                = st.convergence_cfg.pct_tol;
+    res.convergence_tol = absolute_tol_fired
+        ? st.convergence_cfg.absolute_tol : st.convergence_cfg.pct_tol;
     res.convergence_iter               = (res.status == RK_OK) ? res.iterations : -1;
     res.convergence_solver_objective   = best_objective_seen;
     res.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
