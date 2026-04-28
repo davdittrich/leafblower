@@ -238,8 +238,27 @@ Replace with:
 
 Note: SQUAREM keeps the errRp-based stall criterion (weight KL not monotone for extrapolation steps). Only the exit code changes.
 
-Also update the SQUAREM stall tracking variable references to use `min_loss_window` (currently references `min_errRp_window` — these are the same variable, just renamed in Step 1):
-- Lines ~447-456: `min_errRp_window` → `min_loss_window` (4 occurrences in SQUAREM stall block)
+Also update the SQUAREM stall tracking variable references from `min_errRp_window` → `min_loss_window` (5 occurrences in lines ~447-456):
+
+Find in the SQUAREM stall block:
+```cpp
+                if (!std::isfinite(min_errRp_window)) {
+                    min_errRp_window = errRp_new; n_no_improve = 0;
+                } else {
+                    const double eps = std::max(0.01 * min_errRp_window, st.tol_abs);
+                    if (errRp_new < min_errRp_window - eps) {
+                        min_errRp_window = errRp_new; n_no_improve = 0;
+```
+Replace with:
+```cpp
+                if (!std::isfinite(min_loss_window)) {
+                    min_loss_window = errRp_new; n_no_improve = 0;
+                } else {
+                    const double eps = std::max(0.01 * min_loss_window, st.tol_abs);
+                    if (errRp_new < min_loss_window - eps) {
+                        min_loss_window = errRp_new; n_no_improve = 0;
+```
+(5 occurrences — all 5 must change; use replace_all on this block)
 
 - [ ] **Step 5: Change budget exit code (post-loop)**
 
@@ -299,17 +318,16 @@ git commit -m "feat(status): replace errRp stall with weight KL stall; emit BUDG
 
 Three changes: (1) handle new status codes, (2) add `convergence_reason` to result, (3) update `@return` docs.
 
-- [ ] **Step 1: Add status 4/5 warnings after the existing status 2/3 stops**
+- [ ] **Step 1: Replace the existing status=1 warning AND add status 4/5 warnings**
 
-Find (around line 305):
+Find (around line 323) the EXISTING status=1 block:
 ```r
-  if (calib_result$status == 2L)
-    stop("leafblower: infeasible problem ...")
-  if (calib_result$status == 3L)
-    stop("leafblower: invalid arguments ...")
+  if (calib_result$status == 1L)
+    warning("leafblower: calibration did not converge (max_error=",
+            signif(calib_result$max_error, 3), "). Weights reflect last iterate.")
 ```
 
-After the status=3 stop, add:
+Replace it with (handles all soft-exit statuses in one place, no duplicates):
 ```r
   if (calib_result$status == 4L)
     warning("leafblower: budget exhausted — weights reflect best iterate; ",
@@ -435,9 +453,16 @@ Replace with:
   }
 ```
 
-- [ ] **Step 4: test-ieppa-persistent-infeas.R — comment only**
+- [ ] **Step 4: test-ieppa-persistent-infeas.R — comment update**
 
-Find the comment mentioning "RK_ERR_NOCONV" or "status=1" and update to reference the new codes. (Read the file, find the comment, update it — no behavior change.)
+Find (line 63):
+```r
+  # hits max_iter -> RK_ERR_NOCONV with high errRp. This test guards that
+```
+Replace with:
+```r
+  # hits max_iter -> RK_ERR_BUDGET (status=4) with high errRp. This test guards that
+```
 
 - [ ] **Step 5: Run full test suite**
 
@@ -473,17 +498,38 @@ Expected: `status-budget`, `status-stall`, `status-perfect` all PASS.
 
 ```bash
 Rscript -e "
-  df <- data.frame(v1=factor(c('1','2','1','2')))
-  tgt <- list(v1=c('1'=0.5,'2'=0.5))
-  for(st in c(0L,4L,5L)) {
-    mi <- if(st==4L) 1L else if(st==5L) 1000L else 500L
-    mw <- if(st==5L) 1.0001 else 5
-    r <- suppressWarnings(leafblower::harvest(df, tgt, method='raking',
-         max_weight=mw, max_iterations=mi, attach_weights=FALSE))
-    cr <- attr(r,'result')\$convergence_used\$convergence_reason
-    cat('status=', attr(r,'result')\$status, 'reason=', cr, '\n')
-    stopifnot(!is.na(cr))
-  }
+  # status=0 (criterion): normal converging problem
+  df0 <- data.frame(v1=factor(c('1','2','1','2')))
+  t0  <- list(v1=c('1'=0.5,'2'=0.5))
+  r0  <- suppressWarnings(leafblower::harvest(df0, t0, method='raking',
+           max_weight=5, max_iterations=500L, attach_weights=FALSE))
+  cat('status=0 path: status=', attr(r0,'result')\$status,
+      'reason=', attr(r0,'result')\$convergence_used\$convergence_reason, '\n')
+  stopifnot(!is.na(attr(r0,'result')\$convergence_used\$convergence_reason))
+
+  # status=4 (budget): far-from-converged, tiny budget
+  set.seed(99L)
+  df4 <- data.frame(v1=factor(sample(5L,2000L,TRUE)), v2=factor(sample(4L,2000L,TRUE)),
+                    v3=factor(sample(3L,2000L,TRUE)))
+  t4  <- list(v1=setNames(rep(0.2,5),as.character(1:5)),
+              v2=setNames(c(0.4,0.3,0.2,0.1),as.character(1:4)),
+              v3=setNames(c(0.5,0.3,0.2),as.character(1:3)))
+  r4  <- suppressWarnings(leafblower::harvest(df4, t4, method='raking',
+           max_weight=5, max_iterations=5L, attach_weights=FALSE))
+  cat('status=4 path: status=', attr(r4,'result')\$status,
+      'reason=', attr(r4,'result')\$convergence_used\$convergence_reason, '\n')
+  stopifnot(!is.na(attr(r4,'result')\$convergence_used\$convergence_reason))
+
+  # status=5 (stall): constrained problem, wkl plateau before budget
+  set.seed(7L)
+  df5 <- data.frame(v1=factor(sample(4L,300L,TRUE)), v2=factor(sample(3L,300L,TRUE)))
+  t5  <- list(v1=c('1'=0.4,'2'=0.3,'3'=0.2,'4'=0.1), v2=c('1'=0.5,'2'=0.3,'3'=0.2))
+  r5  <- suppressWarnings(leafblower::harvest(df5, t5, method='raking',
+           max_weight=2, max_iterations=1000L, attach_weights=FALSE))
+  cat('status=5 path: status=', attr(r5,'result')\$status,
+      'reason=', attr(r5,'result')\$convergence_used\$convergence_reason, '\n')
+  stopifnot(!is.na(attr(r5,'result')\$convergence_used\$convergence_reason))
+
   cat('AC7: PASS\n')
 "
 ```
