@@ -110,3 +110,50 @@ test_that("zero-sum input weights rejected", {
                        convergence = list(absolute = 1e-6)),
                regexp = "start_weights.*positive|sum.*zero", ignore.case = TRUE)
 })
+
+test_that("B3: target sum 1.0 + 5e-7 accepted after tolerance unification", {
+  set.seed(1)
+  n  <- 500L
+  df <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))
+  tgt <- list(x = c(a = 0.5 + 5e-7, b = 0.5))  # sum = 1.0000005
+  expect_no_error(
+    harvest(df, tgt, method = "raking", convergence = list(absolute = 1e-4))
+  )
+})
+test_that("B3: target sum 1.0 + 2e-6 still rejected", {
+  set.seed(1)
+  n  <- 500L
+  df <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))
+  tgt <- list(x = c(a = 0.5 + 2e-6, b = 0.5))  # sum = 1.000002
+  expect_error(
+    harvest(df, tgt, method = "raking", convergence = list(absolute = 1e-4)),
+    regexp = "does not sum to 1"
+  )
+})
+
+test_that("B13: NA-only category with positive target returns INFEAS error", {
+  n  <- 100L
+  df <- data.frame(
+    x = factor(c(rep(NA, 50L), rep("b", 50L)), levels = c("a", "b")),
+    y = factor(sample(c("p", "q"), n, replace = TRUE))
+  )
+  tgt <- list(
+    x = c(a = 0.3, b = 0.7),
+    y = c(p = 0.5, q = 0.5)
+  )
+  expect_error(
+    harvest(df, tgt, method = "raking", convergence = list(absolute = 1e-4)),
+    regexp = "infeasible|INFEAS",
+    ignore.case = TRUE
+  )
+})
+test_that("B13: partial NA (some obs assigned) does not trigger INFEAS", {
+  n  <- 100L
+  df <- data.frame(
+    x = factor(c(rep("a", 10L), rep(NA, 40L), rep("b", 50L)), levels = c("a", "b"))
+  )
+  tgt <- list(x = c(a = 0.3, b = 0.7))
+  expect_no_error(
+    harvest(df, tgt, method = "raking", convergence = list(absolute = 1e-3))
+  )
+})

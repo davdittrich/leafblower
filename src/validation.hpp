@@ -81,8 +81,8 @@ inline int validate_calibrate_inputs(int n, int K,
                 return err("targets[k][j] < 0");
             sum += targets[k][j];
         }
-        if (std::fabs(sum - 1.0) > 1e-8)
-            return err("targets[k] does not sum to 1 (within 1e-8)");
+        if (std::fabs(sum - 1.0) > 1e-6)
+            return err("targets[k] does not sum to 1 (within 1e-6)");
     }
 
     // group_ids range validation — full O(n*K) pass before any weight modification
@@ -94,6 +94,28 @@ inline int validate_calibrate_inputs(int n, int K,
                 return err("group_ids[k][i] < -1: only -1 (NA) is valid");
             if (g >= cat_counts[k])
                 return err("group_ids[k][i] >= cat_counts[k]");
+        }
+    }
+
+    // B13: NA-only category with positive target → structural INFEAS.
+    for (int k = 0; k < K; k++) {
+        for (int j = 0; j < cat_counts[k]; j++) {
+            if (targets[k][j] <= 0.0) continue;
+            int count = 0;
+            for (int i = 0; i < n; i++)
+                if (group_ids[k][i] == j) count++;
+            if (count == 0) {
+                char msg[256];
+                std::snprintf(msg, sizeof(msg),
+                    "margin %d, category %d: target=%.6g but 0 observations assigned "
+                    "(all NA or missing); structurally infeasible problem",
+                    k, j, targets[k][j]);
+                if (result) {
+                    result->status = RK_ERR_INFEAS;
+                    std::snprintf(result->message, 256, "%s", msg);
+                }
+                return RK_ERR_INFEAS;
+            }
         }
     }
 
