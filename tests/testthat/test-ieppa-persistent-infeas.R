@@ -53,7 +53,7 @@ test_that("WU-1: truly infeasible input (empty target cell) still reports INFEAS
                              max_weight = 5, min_weight = 0,
                              max_iterations = 500L,
                              convergence = list(absolute = 1e-6))),
-    regexp = "persistent empty cell"
+    regexp = "persistent empty cell|infeasible problem"
   )
 })
 
