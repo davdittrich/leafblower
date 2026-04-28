@@ -201,8 +201,8 @@ test_that("S1: sinkhorn handles tight bounds without overflow (a[c] clamp guard)
   r <- attr(w, "result")
   expect_false(r$status == 3L,
                info=sprintf("sinkhorn returned INFEAS (status=%d) — likely a[c] overflow", r$status))
-  expect_true(r$status %in% c(0L, 1L),
-              info=sprintf("expected 0 (OK) or 1 (NOCONV), got %d", r$status))
+  expect_true(r$status %in% c(0L, 4L, 5L),
+              info=sprintf("expected 0 (OK) or 4 (BUDGET) or 5 (STALL), got %d", r$status))
   expect_true(all(w >= 0.1 - 1e-10 & w <= 2.0 + 1e-10),
               info="bounds violated")
 })

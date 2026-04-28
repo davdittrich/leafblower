@@ -44,8 +44,8 @@ test_that("calib_linalg: LDLT handles near-singular (zero category) via regulari
   # Should not crash or return Inf/NaN
   expect_true(is.finite(r_greg$max_error),
               info = "no Inf/NaN from near-singular N")
-  expect_true(r_greg$status %in% c(0L, 1L),
-              info = "status 0 (converged) or 1 (no-converge), not crash")
+  expect_true(r_greg$status %in% c(0L, 4L, 5L),
+              info = "status 0 (converged) or 4 (BUDGET) or 5 (STALL), not crash")
 })
 
 test_that("calib_linalg: LDLT on 2-margin balanced problem", {

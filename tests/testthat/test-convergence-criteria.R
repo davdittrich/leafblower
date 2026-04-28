@@ -233,7 +233,7 @@ test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {
                            max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
   expect_lte(result$best_error, result$max_error)
-  if (result$status == 1L) {
+  if (result$status %in% c(4L, 5L)) {
     expect_lt(result$best_error, 0.9 * result$max_error)
   }
 })

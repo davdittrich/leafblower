@@ -60,7 +60,7 @@ test_that("WU-1: truly infeasible input (empty target cell) still reports INFEAS
 test_that("WU-1: oscillating streak (spec §4 edge case) returns NOCONV not INFEAS", {
   # Spec §4 documents: a bucket that oscillates empty <-> non-empty such that
   # streak resets before kInfeasPersistence=5 will NOT flag INFEAS; solver
-  # hits max_iter -> RK_ERR_NOCONV with high errRp. This test guards that
+  # hits max_iter -> RK_ERR_BUDGET (status=4) with high errRp. This test guards that
   # documented behaviour. Engineer oscillation via a 3-way near-degenerate
   # system where each outer sweep alternates which margin is pinched.
   set.seed(2024)
