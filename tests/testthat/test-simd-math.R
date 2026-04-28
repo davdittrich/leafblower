@@ -8,6 +8,18 @@ test_that("S1: raking KL value matches reference after bulk_log vectorization", 
   expect_lt(attr(res,"result")$max_error, 1e-3)
 })
 
+test_that("S4: sinkhorn produces same result after bisect_capacity_fast", {
+  set.seed(42)
+  n <- 200L
+  df <- data.frame(
+    age = sample(c("young","old"), n, replace=TRUE),
+    sex = sample(c("m","f"), n, replace=TRUE)
+  )
+  tgt <- list(age=c(young=0.6, old=0.4), sex=c(m=0.5, f=0.5))
+  res <- harvest(df, target=tgt, method="sinkhorn", min_weight=0.5, max_weight=3.0)
+  expect_lt(attr(res,"result")$max_error, 0.01)
+})
+
 test_that("bulk_log correctness: ieppa output matches task2_ieppa_ref within 1e-12", {
   # Verifies that log-vectorization does not change solver output.
   # Reference was generated with the synthetic DGP used in the iEPPA perf plan.

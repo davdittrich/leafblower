@@ -1,4 +1,5 @@
 #include "sinkhorn.hpp"
+#include "lbw_math.hpp"
 #include "calib_dispatch.hpp"
 #include "leafblower.h"
 #include <cmath>
@@ -46,6 +47,44 @@ static bool bisect_capacity(const std::vector<double>& X,
     return true;
 }
 
+// Fast variant: accepts pre-computed exp_a[c]=exp(a[c]) so bisection eval is
+// exp_a[c]*exp(mu) — one scalar exp per step instead of M_cell vector exps.
+static bool bisect_capacity_fast(
+    const std::vector<double>& X,
+    const double* exp_a_data,
+    const std::vector<double>& L,
+    const std::vector<double>& U,
+    int M_cell, double target_mass,
+    double& mu_out, std::vector<double>& X_proj)
+{
+    double sum_L = 0.0, sum_U = 0.0;
+    for (int c = 0; c < M_cell; c++) { sum_L += L[c]; sum_U += U[c]; }
+    if (sum_L > target_mass + 1e-9 || sum_U < target_mass - 1e-9) return false;
+
+    auto f = [&](double mu_val) -> double {
+        const double exp_mu = std::exp(mu_val);
+        double s = 0.0;
+        for (int c = 0; c < M_cell; c++)
+            s += std::clamp(X[c] * exp_a_data[c] * exp_mu, L[c], U[c]);
+        return s - target_mass;
+    };
+
+    double lo = -50.0, hi = 50.0;
+    while (lo > -500.0 && f(lo) > 0.0) lo *= 2.0;
+    while (hi < 500.0  && f(hi) < 0.0) hi *= 2.0;
+    if (f(lo) > 0.0 || f(hi) < 0.0) return false;
+    for (int i = 0; i < 80; i++) {
+        double mid = 0.5 * (lo + hi);
+        if (f(mid) < 0.0) lo = mid; else hi = mid;
+        if (hi - lo < 1e-12) break;
+    }
+    mu_out = 0.5 * (lo + hi);
+    const double exp_mu_out = std::exp(mu_out);
+    for (int c = 0; c < M_cell; c++)
+        X_proj[c] = std::clamp(X[c] * exp_a_data[c] * exp_mu_out, L[c], U[c]);
+    return true;
+}
+
 SinkhornResult sinkhorn_solve(CalibState& st) {
     static constexpr int    kErrCheckInterval = 10;
     static constexpr double kAmax             = 30.0;  // exp(30)≈1e13 >> max practical weight ratio
@@ -75,6 +114,8 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
     // log-domain Dykstra correction for capacity box
     std::vector<double> a(ct.M_cell, 0.0);
+    // exp_a[c] = exp(a[c]); a init=0 → exp=1. Updated via bulk_scaled_exp after each a[] write.
+    std::vector<double> exp_a(ct.M_cell, 1.0);
 
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
 
@@ -140,7 +181,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         }
         double mu = 0.0;
         if (needs_projection) {
-            if (!bisect_capacity(X, a, L_cell, U_cell, ct.M_cell, target_mass, mu, X_proj)) {
+            if (!bisect_capacity_fast(X, exp_a.data(), L_cell, U_cell, ct.M_cell, target_mass, mu, X_proj)) {
                 res.status = RK_ERR_INFEAS;
                 break;
             }
@@ -156,6 +197,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                     a[c] += std::log(X[c]) - std::log(X_proj[c]);
                 a[c] = std::clamp(a[c], -kAmax, kAmax);
             }
+            lbw::bulk_scaled_exp(1.0, a.data(), exp_a.data(), ct.M_cell);
         }
         for (int c = 0; c < ct.M_cell; c++) X[c] = X_proj[c];
 
