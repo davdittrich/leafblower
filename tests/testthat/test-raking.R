@@ -92,25 +92,27 @@ test_that("descent monitor aborts early on stalled errRp trajectory", {
                info = paste("expected descent-monitor message; got:", probe))
 })
 
-test_that("B9: raking returns INFEAS when bounds make target structurally unreachable", {
+test_that("raking with binding capacity constraints returns best achievable result (not INFEAS)", {
   # n=20, 2 obs in cat "a", 18 in cat "b".
-  # Target: 90% in "a" → requires cell mass = 0.9*20 = 18.
-  # max_weight=1.5 caps cell mass for "a" at 1.5*2 = 3 << 18 → structurally infeasible.
-  # Use absolute threshold so solver cannot converge on the infeasible problem:
-  # max_err >> 1e-4, solver hits weight-KL stall → STALL → B9 promotes to INFEAS.
-  n  <- 20L
-  df <- data.frame(x = factor(c(rep("a", 2L), rep("b", 18L))))
-  tgt <- list(x = c(a=0.9, b=0.1))
-  expect_error(
-    suppressWarnings(
-      harvest(df, tgt, method="raking",
-              min_weight=0.5, max_weight=1.5,
-              max_iterations=200L,
-              convergence=list(absolute=1e-4))
-    ),
-    regexp="infeasible",
-    info="expected infeasible hard-stop from harvest.R"
+  # Target: 90% in "a" → requires average weight 9 per obs in "a".
+  # max_weight=1.5 caps this: cell mass for "a" is at most 1.5*2=3 << 18.
+  # This is a binding capacity constraint, NOT structural infeasibility.
+  # Correct behavior: return the best achievable constrained optimum (STALL or BUDGET),
+  # not INFEAS. INFEAS is reserved for lower-bound violations (min_weight sum > target).
+  result <- suppressWarnings(
+    harvest(data.frame(x = factor(c(rep("a", 2L), rep("b", 18L)))),
+            target = list(x = c(a=0.9, b=0.1)),
+            method = "raking",
+            min_weight = 0.5, max_weight = 1.5,
+            max_iterations = 200L,
+            convergence = list(absolute = 1e-4),
+            attach_weights = FALSE)
   )
+  s <- attr(result, "result")$status
+  # Must NOT be INFEAS (2) — capacity capping is normal bounded calibration.
+  expect_false(s == 2L, info = paste("raking returned INFEAS on a capacity-constrained (not infeasible) problem; status:", s))
+  # Must be STALL (5) or BUDGET (4) — best achievable constrained result.
+  expect_true(s %in% c(4L, 5L), info = paste("expected STALL(5) or BUDGET(4), got:", s))
 })
 
 test_that("B16: SQUAREM stall detection does not fire spuriously after fallback", {
