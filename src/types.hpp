@@ -65,7 +65,7 @@ struct CalibSorCfg {
     double omega_init    = 1.0;
     double omega_min     = 0.3;
     double omega_fixed   = -1.0;  // sentinel: use auto
-    int    burnin        = 20;
+    int    burnin        = 20;  // iterations before SOR adaptation starts; iEPPA only (raking ignores)
 };
 
 struct CalibState {
