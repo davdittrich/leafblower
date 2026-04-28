@@ -176,6 +176,75 @@ RakingResult raking_solve(CalibState& st) {
         return std::isfinite(wkl) ? wkl : 0.0;
     };
 
+    // water_fill_cat: KL projection of category j (margin k) onto
+    // {Σ_{c∈j} Xv[c] = T_kj, L_cell[c] ≤ Xv[c] ≤ U_cell[c]}.
+    // Algorithm: autumn single_adjust() (rake.R:63-93) at cell level.
+    // wf_x_orig[] and wf_status[] are pre-allocated scratch (re-used every call).
+    auto water_fill_cat = [&](int k, int j, double T_kj, double bucket_j,
+                               std::vector<double>& Xv) {
+        const auto& cells = cells_per_cat[k][j];
+        const int n = static_cast<int>(cells.size());
+        if (n == 0) return;
+        if (bucket_j < kEmptyBucketThreshold) {
+            if (T_kj > 0.0) is_infeasible = true;
+            return;
+        }
+
+        // Save original weights and mark all cells free
+        for (int ci = 0; ci < n; ci++) {
+            wf_x_orig[ci] = Xv[cells[ci]];
+            wf_status[ci] = 0;
+        }
+
+        double clamped_sum = 0.0;
+        double free_sum    = bucket_j;  // Σ_{free} X_orig[c]
+
+        for (int pass = 0; pass <= n; ++pass) {
+            if (free_sum < kEmptyBucketThreshold) { is_infeasible = true; break; }
+            const double T_free = T_kj - clamped_sum;
+            if (T_free <= 0.0) break;
+            const double m = T_free / free_sum;
+
+            bool any_clamped = false;
+            for (int ci = 0; ci < n; ci++) {
+                if (wf_status[ci] != 0) continue;
+                const double proposed = wf_x_orig[ci] * m;
+                if (proposed > U_cell[cells[ci]]) {
+                    wf_status[ci] = 1;
+                    clamped_sum += U_cell[cells[ci]];
+                    free_sum    -= wf_x_orig[ci];
+                    any_clamped  = true;
+                } else if (proposed < L_cell[cells[ci]]) {
+                    wf_status[ci] = 2;
+                    clamped_sum += L_cell[cells[ci]];
+                    free_sum    -= wf_x_orig[ci];
+                    any_clamped  = true;
+                }
+            }
+
+            if (!any_clamped) {
+                // m applies cleanly — commit final values and return
+                for (int ci = 0; ci < n; ci++) {
+                    const int c = cells[ci];
+                    if      (wf_status[ci] == 0) Xv[c] = wf_x_orig[ci] * m;
+                    else if (wf_status[ci] == 1) Xv[c] = U_cell[c];
+                    else                          Xv[c] = L_cell[c];
+                }
+                return;
+            }
+        }
+        // All passes exhausted (infeasible category) — commit best-effort values
+        const double T_final = T_kj - clamped_sum;
+        const double m_final = (free_sum > kEmptyBucketThreshold && T_final > 0.0)
+                               ? T_final / free_sum : 0.0;
+        for (int ci = 0; ci < n; ci++) {
+            const int c = cells[ci];
+            if      (wf_status[ci] == 0) Xv[c] = wf_x_orig[ci] * m_final;
+            else if (wf_status[ci] == 1) Xv[c] = U_cell[c];
+            else                          Xv[c] = L_cell[c];
+        }
+    };
+
     // Dykstra hyperplane: projects X onto {sum(X) = n}.
     // M_cell cells each get +shift where shift = (n-s)/M_cell → total correction = (n-s).
     auto hyperplane_step = [&]() {
