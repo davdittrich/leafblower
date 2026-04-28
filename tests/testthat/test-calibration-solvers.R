@@ -511,3 +511,57 @@ test_that("wf-min-weight: water-filling respects min_weight > 0 (lower bound pat
   expect_true(all(w >= 0.5 - 1e-9), label="all weights >= min_weight after water-fill")
   expect_true(all(w <= 5 + 1e-9),   label="all weights <= max_weight after water-fill")
 })
+
+# ── Convergence status v2 tests ──────────────────────────────────────────────
+
+test_that("status-budget: budget exhausted emits status=4, not status=1", {
+  # Far-from-converged problem, tiny budget → budget exhausted (status=4).
+  # RED before implementation: raking_solve still emits status=1 (RK_ERR_NOCONV).
+  set.seed(99L)
+  df <- data.frame(
+    v1 = factor(sample(5L, 2000L, TRUE)),
+    v2 = factor(sample(4L, 2000L, TRUE)),
+    v3 = factor(sample(3L, 2000L, TRUE))
+  )
+  tgt <- list(
+    v1 = setNames(rep(0.2, 5), as.character(1:5)),
+    v2 = setNames(c(0.4, 0.3, 0.2, 0.1), as.character(1:4)),
+    v3 = setNames(c(0.5, 0.3, 0.2), as.character(1:3))
+  )
+  r <- leafblower::harvest(df, tgt, method = "raking", accelerate = FALSE,
+    max_weight = 5, max_iterations = 5L, attach_weights = FALSE)
+  expect_equal(attr(r, "result")$status, 4L,
+               label = "budget exhausted must return status=4 (RK_ERR_BUDGET)")
+})
+
+test_that("status-stall: wkl plateau emits status=5 with convergence_reason='stall_kl'", {
+  # Constrained problem — all cells at U_cell in some categories.
+  # KL plateau fires before budget (max_iterations=1000) → status=5.
+  # RED before implementation: raking_solve still emits status=1.
+  set.seed(7L)
+  df <- data.frame(
+    v1 = factor(sample(4L, 300L, TRUE)),
+    v2 = factor(sample(3L, 300L, TRUE))
+  )
+  tgt <- list(
+    v1 = c("1"=0.4,"2"=0.3,"3"=0.2,"4"=0.1),
+    v2 = c("1"=0.5,"2"=0.3,"3"=0.2)
+  )
+  r <- leafblower::harvest(df, tgt, method = "raking", accelerate = FALSE,
+    max_weight = 2, max_iterations = 1000L, attach_weights = FALSE)
+  res <- attr(r, "result")
+  expect_equal(res$status, 5L,
+               label = "KL plateau must return status=5 (RK_ERR_STALL)")
+  expect_equal(res$convergence_used$convergence_reason, "stall_kl",
+               label = "convergence_reason must be 'stall_kl' for flat loop KL stall")
+})
+
+test_that("status-perfect: perfect calibration exits status=0 not status=5", {
+  # 1-category 1-margin problem already calibrated: wkl=0 → RK_OK, not stall.
+  df  <- data.frame(v1 = factor(rep("1", 20L)))
+  tgt <- list(v1 = c("1" = 1.0))
+  r <- leafblower::harvest(df, tgt, method = "raking", accelerate = FALSE,
+    max_weight = 5, max_iterations = 500L, attach_weights = FALSE)
+  expect_equal(attr(r, "result")$status, 0L,
+               label = "perfect calibration must return status=0, not status=5")
+})
