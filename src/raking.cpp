@@ -325,6 +325,7 @@ RakingResult raking_solve(CalibState& st) {
 
         if (st.inner_max_iter >= 3) {
             int f_eval_count = 0;
+            auto X_prev_sq = X;  // snapshot for weight-change stall; updated each accepted super-step
             while (f_eval_count + 3 <= st.inner_max_iter) {
                 // Save infeasibility state. Intermediate F_eval probes (w1, w2, halving)
                 // may false-flag infeasibility on extrapolated iterates.
@@ -342,16 +343,22 @@ RakingResult raking_solve(CalibState& st) {
 
                 res.iterations = f_eval_count;
 
-                double norm_r = 0.0, norm_v = 0.0, norm_w2 = 0.0;
+                // Obs-level norms (1/n_c weighted) for α: geometrically correct for obs-level IPF.
+                // n_per_cell[c] >= 1 guaranteed by build_cell_table.
+                // Cell-level v_sq_cell kept for step-halving (cand_resid is also cell-level).
+                double r_sq_obs = 0.0, v_sq_obs = 0.0, w2_sq_obs = 0.0;
+                double v_sq_cell = 0.0;
                 for (int c = 0; c < ct.M_cell; c++) {
-                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
-                    norm_r  += ri * ri;
-                    norm_v  += vi * vi;
-                    norm_w2 += w2[c] * w2[c];
+                    const double inv_nc = 1.0 / static_cast<double>(ct.n_per_cell[c]);
+                    const double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                    r_sq_obs  += ri * ri * inv_nc;
+                    v_sq_obs  += vi * vi * inv_nc;
+                    w2_sq_obs += w2[c] * w2[c] * inv_nc;
+                    v_sq_cell += vi * vi;
                 }
-                norm_r = std::sqrt(norm_r);
-                norm_v = std::sqrt(norm_v);
-                norm_w2 = std::sqrt(norm_w2);
+                const double norm_r  = std::sqrt(r_sq_obs);
+                const double norm_v  = std::sqrt(v_sq_obs);
+                const double norm_w2 = std::sqrt(w2_sq_obs);
 
                 // Fixed-point guard: ‖v‖/‖w2‖ < threshold → already converged
                 if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
@@ -380,7 +387,7 @@ RakingResult raking_solve(CalibState& st) {
                 // L2 step-halving: ‖F(X*)-X*‖² vs ‖v‖².
                 // Works with water-filling F: hyperplane step is near-no-op (sum ≈ n),
                 // so ‖F(X*)-X*‖ cleanly reflects IPF movement, not Dykstra explosion.
-                const double plain_resid = norm_v * norm_v;  // ‖v‖²
+                const double plain_resid = v_sq_cell;  // cell-level ‖v‖² — matches cand_resid geometry
                 auto X_star_pre = X_star;
                 double errRp_new = F_eval(X_star);  ++f_eval_count;
                 double cand_resid = 0.0;
@@ -444,20 +451,25 @@ RakingResult raking_solve(CalibState& st) {
                     st.log(msg);
                 }
 
-                // errRp stall for SQUAREM: KL is non-monotone for CBB extrapolation steps —
-                // accepted iterate KL can increase even with step-halving, making KL stall
-                // fire spuriously. errRp of accepted iterates is approximately non-increasing.
+                // Weight-change stall: obs-level L1 Δw goes to zero at the fixed point
+                // regardless of errRp oscillation. Same sliding-window pattern as flat loop KL stall.
+                // Skip snapshot update on fell_back: X=w2 → X_prev_sq=w2 would give wchange=0
+                // next iteration, causing 5 consecutive fell_back to spuriously trigger stall.
+                double wchange = 0.0;
+                for (int c = 0; c < ct.M_cell; c++)
+                    wchange += std::fabs(X[c] - X_prev_sq[c]) / static_cast<double>(ct.n_per_cell[c]);
+                wchange /= static_cast<double>(st.n);
+
                 if (!std::isfinite(min_loss_window)) {
-                    min_loss_window = errRp_new; n_no_improve = 0;
+                    min_loss_window = wchange; n_no_improve = 0;
+                } else if (wchange < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
+                    min_loss_window = wchange; n_no_improve = 0;
                 } else {
-                    const double eps = std::max(0.01 * min_loss_window, st.tol_abs);
-                    if (errRp_new < min_loss_window - eps) {
-                        min_loss_window = errRp_new; n_no_improve = 0;
-                    } else {
-                        n_no_improve++;
-                    }
+                    n_no_improve++;
                 }
                 if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_STALL; break; }
+
+                if (!fell_back) X_prev_sq = X;  // only update on accepted (non-fallback) steps
             }
         }
     } else {
