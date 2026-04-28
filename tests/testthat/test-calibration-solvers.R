@@ -744,3 +744,16 @@ test_that("ieppa-c3: best_weights all-finite after any iEPPA run", {
                 label = "C3: best_weights must be non-negative")
   }
 })
+
+test_that("B10: sinkhorn KL stable when box constraint transiently inactive", {
+  set.seed(42)
+  n <- 200L
+  df <- data.frame(
+    age = sample(c("young","old"), n, replace=TRUE),
+    sex = sample(c("m","f"), n, replace=TRUE)
+  )
+  targets <- list(age=c(young=0.6, old=0.4), sex=c(m=0.5, f=0.5))
+  res <- harvest(df, target=targets, method="sinkhorn",
+                 min_weight=0.5, max_weight=3.0)
+  expect_lt(attr(res,"result")$max_error, 0.01)
+})

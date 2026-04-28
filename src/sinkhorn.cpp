@@ -146,6 +146,9 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             }
         } else {
             X_proj = X;
+            // B10: Dykstra invariant — do NOT zero a[] here. Accumulated correction from prior
+            // projected iterations is valid history; zeroing would corrupt subsequent bisect_capacity
+            // calls. The no-op on a[] is the correct standard Dykstra behavior for non-binding steps.
         }
         if (needs_projection) {
             for (int c = 0; c < ct.M_cell; c++) {
