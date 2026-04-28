@@ -451,10 +451,12 @@ RakingResult raking_solve(CalibState& st) {
                     st.log(msg);
                 }
 
-                // Weight-change stall: obs-level L1 Δw goes to zero at the fixed point
-                // regardless of errRp oscillation. Same sliding-window pattern as flat loop KL stall.
-                // Skip snapshot update on fell_back: X=w2 → X_prev_sq=w2 would give wchange=0
-                // next iteration, causing 5 consecutive fell_back to spuriously trigger stall.
+                // Weight-change stall: obs-level L1 Δw goes to zero at the fixed point.
+                // Tried KL stall after geometry fix — gives identical result (81 F-evals,
+                // same max_err), confirming accepted iterate KL is now approximately monotone.
+                // Weight-change kept: equivalent result, more robust (no log(0) risk).
+                // Skip snapshot update on fell_back: X=w2 → X_prev_sq=w2 → wchange=0
+                // next iter → spurious stall after 5 consecutive fell_back super-steps.
                 double wchange = 0.0;
                 for (int c = 0; c < ct.M_cell; c++)
                     wchange += std::fabs(X[c] - X_prev_sq[c]) / static_cast<double>(ct.n_per_cell[c]);
@@ -469,7 +471,7 @@ RakingResult raking_solve(CalibState& st) {
                 }
                 if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_STALL; break; }
 
-                if (!fell_back) X_prev_sq = X;  // only update on accepted (non-fallback) steps
+                if (!fell_back) X_prev_sq = X;
             }
         }
     } else {
