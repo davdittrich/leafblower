@@ -157,6 +157,12 @@ RakingResult raking_solve(CalibState& st) {
     std::vector<int> margin_order(st.K);
     std::iota(margin_order.begin(), margin_order.end(), 0);
     const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
+    // R8: greedy reordering breaks SQUAREM's fixed-point geometry; demote silently.
+    bool use_greedy_effective = use_greedy;
+    if (st.accelerate && use_greedy_effective) {
+        use_greedy_effective = false;
+        st.log("[raking] greedy scheduler disabled under SQUAREM acceleration; using round_robin");
+    }
 
     // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
     // Distinct from m.kl (marginal KL) — this is what raking actually minimizes.
@@ -252,12 +258,12 @@ RakingResult raking_solve(CalibState& st) {
         double W_total = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W_total += Xv[c];
 
-        if (use_greedy)
+        if (use_greedy_effective)
             std::sort(margin_order.begin(), margin_order.end(),
                       [&](int a, int b){ return errRp_k[a] > errRp_k[b]; });
 
         for (int ki = 0; ki < st.K; ki++) {
-            const int k = use_greedy ? margin_order[ki] : ki;
+            const int k = use_greedy_effective ? margin_order[ki] : ki;
 
             // Compute pre-water-fill bucket (needed for errRp_k and SOR)
             std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
@@ -532,35 +538,15 @@ RakingResult raking_solve(CalibState& st) {
                                          metric == lbw::CalibMetric::GRAKE_NORM ||
                                          iter == st.inner_max_iter);
                 if (need_extra) {
+                    // R2: was ~40-line duplicate of lbw::compute_cell_metrics.
                     double W_tot2 = 0.0;
                     for (int c = 0; c < ct.M_cell; c++) W_tot2 += X[c];
-                    constexpr double kMetricEps = 1e-10;
-                    constexpr double kChi2Floor = 1.0;
-                    double mean_sum = 0.0;
                     if (W_tot2 > 0.0) {
-                        for (int k = 0; k < st.K; k++) {
-                            const int nj = st.cat_counts[k];
-                            std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
-                            for (int c = 0; c < ct.M_cell; c++) {
-                                int g = ct.g_per_cell[k][c];
-                                if (g >= 0 && g < nj) bucket[g] += X[c];
-                            }
-                            double max_k = 0.0, kl_k = 0.0;
-                            for (int j = 0; j < nj; j++) {
-                                double S_p = bucket[j] / W_tot2, T = st.targets[k][j];
-                                double err = std::fabs(S_p - T);
-                                if (err > max_k) max_k = err;
-                                if (T > 0.0)
-                                    kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
-                                double obs = bucket[j], pop_kj = T * W_tot2;
-                                chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
-                                double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
-                                if (nm > grake_norm) grake_norm = nm;
-                            }
-                            mean_sum += max_k;
-                            if (kl_k > kl_max) kl_max = kl_k;
-                        }
-                        mean_err = (st.K > 0) ? mean_sum / static_cast<double>(st.K) : 0.0;
+                        const lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, X, W_tot2, bucket);
+                        mean_err   = m.mean_err;
+                        kl_max     = m.kl;
+                        chi2_total = m.chi2;
+                        grake_norm = m.grake_norm;
                         if (metric != lbw::CalibMetric::MAX_ERR) {
                             const double curr_best = lbw::select_metric(
                                 metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
