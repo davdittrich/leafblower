@@ -711,6 +711,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 iter_in_lvl = 0;
                 // WU-B Fix 2: reset X_prev after fallback — X semantics changed (log-path).
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+                // Reset best-iterate: pre-fallback W_best from degenerate linear-space
+                best_metric_seen = std::numeric_limits<double>::infinity();
+                W_best.assign(ct.M_cell, 0.0);
+                best_iter_val    = 0;
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 }

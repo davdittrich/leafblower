@@ -726,3 +726,21 @@ test_that("ieppa-c2-red: non-convergent iEPPA must return status 4 or 5 not 1", 
   expect_true(r$status %in% c(4L, 5L),
               label = "C2: iEPPA non-convergence must return budget(4) or stall(5), not legacy(1)")
 })
+
+test_that("ieppa-c3: best_weights all-finite after any iEPPA run", {
+  # C3 regression guard: if overflow fallback doesn't reset best-iterate tracking,
+  # best_weights can contain Inf/NaN from degenerate linear-space iterates.
+  set.seed(42L)
+  df  <- data.frame(v1 = factor(c(rep("A", 100L), rep("B", 100L))))
+  tgt <- list(v1 = c("A" = 0.5, "B" = 0.5))
+  w <- suppressWarnings(
+    leafblower::harvest(df, tgt, method = "ieppa", max_iterations = 200L,
+                        attach_weights = FALSE))
+  r <- attr(w, "result")
+  if (is.finite(r$best_error)) {
+    expect_true(all(is.finite(r$best_weights)),
+                label = "C3: best_weights must be all-finite (no Inf/NaN from overflow)")
+    expect_true(all(r$best_weights >= 0),
+                label = "C3: best_weights must be non-negative")
+  }
+})
