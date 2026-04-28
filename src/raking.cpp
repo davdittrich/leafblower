@@ -257,13 +257,12 @@ RakingResult raking_solve(CalibState& st) {
         q_hyp = (scale_hp > 0.0) ? 1.0 / scale_hp : 1.0;
     };
 
-    // F_eval: one complete IPF inner iteration on explicit (Xv, pv, q_hyp_v).
-    // Does NOT touch the outer X, p, q_hyp — no swap tricks, no aliasing.
-    // Intentional shared side effects: errRp_k[], sor_omega[], sor_prev_errRp[], is_infeasible.
-    // Returns errRp of the resulting state.
-    auto F_eval = [&](std::vector<double>& Xv,
-                      std::vector<double>& pv,
-                      double& q_hyp_v) -> double {
+    // F_eval: one complete bounded IPF iteration using water-filling.
+    // Water-filling enforces X[c] ∈ [L[c], U[c]] within each margin step.
+    // No correction vectors — F is stateless: enables SQUAREM L2 halving.
+    // Mathematical basis: cyclic KL projections onto bounded margin constraints
+    // converge to the bounded KL minimum (Csiszar-Tusnady 1984).
+    auto F_eval = [&](std::vector<double>& Xv) -> double {
         double W_total = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W_total += Xv[c];
 
@@ -273,29 +272,50 @@ RakingResult raking_solve(CalibState& st) {
 
         for (int ki = 0; ki < st.K; ki++) {
             const int k = use_greedy ? margin_order[ki] : ki;
+
+            // Compute pre-water-fill bucket (needed for errRp_k and SOR)
             std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
                 int g = ct.g_per_cell[k][c];
                 if (g >= 0 && g < st.cat_counts[k]) bucket[g] += Xv[c];
             }
-            std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
+
+            // errRp_k for Greedy: pre-water-fill residual (how bad margin is NOW).
+            // Must be computed BEFORE water-fill — post-fill residual is always near zero.
+            if (W_total > 0.0) {
+                double ek = 0.0;
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
+                    if (e > ek) ek = e;
+                }
+                errRp_k[k] = ek;
+            }
+
+            // SOR effective omega (under-relaxation toward current bucket)
+            const double eff_omega = sor_active ? sor_omega[k] : 1.0;
+
+            // Apply water-filling per category
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 double Tkj = st.targets[k][j] * W_total;
                 if (bucket[j] < kEmptyBucketThreshold * W_total) {
                     if (Tkj > 0.0) is_infeasible = true;
-                } else {
-                    scale[j] = Tkj / bucket[j];
+                    continue;
                 }
-            }
-            const double eff_omega = sor_active ? sor_omega[k] : 1.0;
-            for (int c = 0; c < ct.M_cell; c++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) {
-                    const double s_g = scale[g];
-                    Xv[c] *= (eff_omega == 1.0) ? s_g : std::pow(std::max(s_g, 0.0), eff_omega);
+                if (eff_omega != 1.0) {
+                    // SOR: under-relax target — equivalent to pow(scale, omega) at cell level
+                    const double s0 = Tkj / bucket[j];
+                    Tkj = bucket[j] * std::pow(s0, eff_omega);
                 }
+                water_fill_cat(k, j, Tkj, bucket[j], Xv);
             }
+
+            // SOR adaptation: post-water-fill residual for omega adjustment
             if (sor_active && sor_auto && W_total > 0.0) {
+                std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k]) bucket[g] += Xv[c];
+                }
                 double ek = 0.0;
                 for (int j = 0; j < st.cat_counts[k]; j++) {
                     double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
@@ -307,30 +327,16 @@ RakingResult raking_solve(CalibState& st) {
                     sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
                 sor_prev_errRp[k] = ek;
             }
-            if (W_total > 0.0) {
-                double ek = 0.0;
-                for (int j = 0; j < st.cat_counts[k]; j++) {
-                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
-                    if (e > ek) ek = e;
-                }
-                errRp_k[k] = ek;
-            }
         }
 
-        // Bregman box correction (pv, not outer p)
-        for (int c = 0; c < ct.M_cell; c++) {
-            double yc = Xv[c] * pv[c];
-            double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
-            pv[c] = (Xc > 0.0) ? yc / Xc : 1.0;
-            Xv[c] = Xc;
-        }
-
-        // KL Dykstra hyperplane: inline (avoids aliasing the outer hyperplane_step lambda)
+        // Hyperplane: normalize sum to n (no correction vector needed;
+        // water-fill preserves category sums, so this is near-no-op for feasible problems)
         double s_hp = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) { Xv[c] *= q_hyp_v; s_hp += Xv[c]; }
-        const double sc_hp = static_cast<double>(st.n) / s_hp;
-        for (int c = 0; c < ct.M_cell; c++) Xv[c] *= sc_hp;
-        q_hyp_v = (sc_hp > 0.0) ? 1.0 / sc_hp : 1.0;
+        for (int c = 0; c < ct.M_cell; c++) s_hp += Xv[c];
+        if (s_hp > 0.0) {
+            const double sc_hp = static_cast<double>(st.n) / s_hp;
+            for (int c = 0; c < ct.M_cell; c++) Xv[c] *= sc_hp;
+        }
 
         return compute_errRp_ct(st, ct, Xv, bucket);
     };
@@ -352,13 +358,13 @@ RakingResult raking_solve(CalibState& st) {
                 // only the FINAL accepted F_eval(X_star) should contribute.
                 bool infeas_before = is_infeasible;
 
-                auto w1 = X; auto p1 = p; double qh1 = q_hyp;
-                double errRp_w1 = F_eval(w1, p1, qh1);  ++f_eval_count;
+                auto w1 = X;
+                double errRp_w1 = F_eval(w1);  ++f_eval_count;
                 (void)errRp_w1;  // advance IPF side effects (errRp_k, sor_omega); value unused
                 is_infeasible = infeas_before;  // restore: w1 is intermediate
 
-                auto w2 = w1; auto p2 = p1; double qh2 = qh1;
-                double errRp_w2 = F_eval(w2, p2, qh2);  ++f_eval_count;
+                auto w2 = w1;
+                double errRp_w2 = F_eval(w2);  ++f_eval_count;
                 is_infeasible = infeas_before;  // restore: w2 is intermediate
 
                 res.iterations = f_eval_count;
@@ -375,7 +381,7 @@ RakingResult raking_solve(CalibState& st) {
                 norm_w2 = std::sqrt(norm_w2);
 
                 if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
-                    X = w2; p = p2; q_hyp = qh2;
+                    X = w2;
                     res.max_error        = errRp_w2;
                     res.status           = RK_OK;
                     res.convergence_iter = f_eval_count;
@@ -385,7 +391,7 @@ RakingResult raking_solve(CalibState& st) {
                 double alpha = std::max(kAlphaMin,
                                std::min(kAlphaMax, -norm_r / (norm_v + kVNormEps)));
 
-                auto X_snap = w2; auto p_snap = p2; double q_snap = qh2;
+                auto X_snap = w2;
 
                 auto X_star = X_snap;
                 for (int c = 0; c < ct.M_cell; c++) {
@@ -395,29 +401,26 @@ RakingResult raking_solve(CalibState& st) {
                 }
 
                 // errRp-based step-halving: accept X_new if its margin error is no
-                // worse than the plain step w2. Autumn uses L2 norms but that requires
-                // a clean fixed-point operator; leafblower's F carries Dykstra corrections
-                // that corrupt ‖F(X*)-X*‖ as a quality proxy. errRp measures outcome
-                // quality directly and is unaffected by correction-vector state.
-                auto p_star = p_snap; double qh_star = q_snap;
-                double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
+                // worse than the plain step w2. Water-fill F is stateless so errRp
+                // directly measures outcome quality without correction-vector state.
+                double errRp_new = F_eval(X_star);  ++f_eval_count;
 
                 for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
                     // Restore before each halving probe: the previous probe is discarded.
                     is_infeasible = infeas_before;
                     alpha = (alpha - 1.0) / 2.0;
-                    X_star = X_snap; p_star = p_snap; qh_star = q_snap;
+                    X_star = X_snap;
                     for (int c = 0; c < ct.M_cell; c++) {
                         double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
                         X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
                         if (X_star[c] < 0.0) X_star[c] = 0.0;
                     }
-                    errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
+                    errRp_new = F_eval(X_star);  ++f_eval_count;
                 }
                 // After halving loop: is_infeasible reflects the last accepted F_eval(X_star).
                 // Do NOT restore here — this is the committed result.
 
-                X = X_star; p = p_star; q_hyp = qh_star;
+                X = X_star;
                 res.max_error  = errRp_new;
                 res.iterations = f_eval_count;
 
