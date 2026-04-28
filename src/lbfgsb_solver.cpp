@@ -164,7 +164,7 @@ static void lbfgs_direction(const std::deque<std::vector<double>>& svec,
 static LBFGSResult compute_final_weights_and_error(
         CalibState& st, const LinkFn& fn,
         const std::vector<double>& d, const std::vector<int>& off,
-        std::vector<double>& u, int iterations) {
+        std::vector<double>& u, int iterations, int max_iter) {
     LBFGSResult res;
     res.iterations = iterations;
 
@@ -302,11 +302,25 @@ static LBFGSResult compute_final_weights_and_error(
         } else if (have_abs) {
             converged = converged_abs;
         }
-        res.status             = converged ? RK_OK : RK_ERR_NOCONV;
+        if (converged) {
+            res.status = RK_OK;
+        } else if (iterations >= max_iter) {
+            res.status = RK_ERR_BUDGET;
+        } else {
+            res.status = RK_ERR_STALL;
+        }
         res.convergence_metric = static_cast<int>(cfg.metric);
-        // lbfgsb is a batch solver: single optimization pass regardless of rule requested.
-        // Report THRESHOLD as the applied rule for accurate diagnostic output.
-        res.convergence_rule   = static_cast<int>(lbw::CalibRule::THRESHOLD);
+        // lbfgsb is a batch solver: all rules reduce to a threshold check internally.
+        // Report cfg.rule as-requested for diagnostics; log when non-THRESHOLD.
+        if (cfg.rule != lbw::CalibRule::THRESHOLD) {
+            char msg[128];
+            std::snprintf(msg, sizeof(msg),
+                "[lbfgsb] rule=%d applied as threshold (batch solver); "
+                "reporting rule as-requested for diagnostics",
+                static_cast<int>(cfg.rule));
+            st.log(msg);
+        }
+        res.convergence_rule   = static_cast<int>(cfg.rule);
         res.convergence_tol    = cfg.pct_tol;
         res.convergence_iter               = converged ? res.iterations : -1;
         res.convergence_solver_objective   = res.max_error;
@@ -658,7 +672,7 @@ static LBFGSResult lbfgsb_solve_inner(CalibState& st,
         phi_curr = phi_new;
     }
 
-    return compute_final_weights_and_error(st, fn, d, off, u, final_iter);
+    return compute_final_weights_and_error(st, fn, d, off, u, final_iter, max_iter);
 }
 
 LBFGSResult lbfgsb_solve(CalibState& st) {

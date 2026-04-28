@@ -87,3 +87,42 @@ test_that("L-BFGS-B sum=n at solver exit, loose bounds", {
                               convergence = list(absolute = 1e-6))
   expect_equal(sum(res$weights), as.double(n), tolerance = 1e-6)
 })
+
+test_that("B2: lbfgsb emits BUDGET(4) when max_iterations exhausted", {
+  set.seed(42)
+  n  <- 5000L
+  df <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE, prob=c(0.9,0.1))))
+  tgt <- list(x = c(a=0.5, b=0.5))
+  result <- suppressWarnings(
+    harvest(df, tgt, method="lbfgsb", max_iterations=3L, max_weight=10,
+            convergence=list(pct=1e-4))
+  )
+  s <- attr(result, "result")$status
+  expect_equal(s, 4L, info=paste("expected BUDGET=4, got:", s))
+})
+
+test_that("B2: lbfgsb never emits NOCONV(1)", {
+  set.seed(7)
+  n   <- 3000L
+  df  <- data.frame(x = factor(sample(c("a","b","c"), n, replace=TRUE)))
+  tgt <- list(x = c(a=1/3, b=1/3, c=1/3))
+  result <- suppressWarnings(
+    harvest(df, tgt, method="lbfgsb", max_iterations=5L)
+  )
+  s <- attr(result, "result")$status
+  expect_false(s == 1L, info=paste("got NOCONV(1), expected BUDGET(4) or OK(0)"))
+})
+
+test_that("R5: lbfgsb convergence_used$rule reflects requested rule", {
+  set.seed(42)
+  n   <- 5000L
+  df  <- data.frame(x = factor(sample(c("a","b","c"), n, replace=TRUE)))
+  tgt <- list(x = c(a=1/3, b=1/3, c=1/3))
+  result <- suppressWarnings(
+    harvest(df, tgt, method="lbfgsb", max_weight=5,
+            convergence=list(rule="improvement", pct=1e-4))
+  )
+  cu <- attr(result, "result")$convergence_used
+  expect_equal(cu$rule, "improvement",
+               info=paste("expected 'improvement', got:", cu$rule))
+})
