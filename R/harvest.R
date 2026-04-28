@@ -251,7 +251,8 @@ harvest <- function(
                as.integer(verbose),
                as.integer(max_iterations),
                sw_vec,
-               as.double(if (conv$absolute_tol > 0) conv$absolute_tol else 1e-6),  # slot 9: legacy tol_abs
+               NULL, # 9: capacity_penalty (NULL=auto; full param added in Epic E T9)
+               as.double(if (conv$absolute_tol > 0) conv$absolute_tol else 1e-6),  # slot 10: legacy tol_abs
                as.integer(bounds_mode_int),
                as.integer(homotopy_levels),
                as.double(homotopy_start_factor),

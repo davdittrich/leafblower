@@ -24,7 +24,7 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP);
+                    SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -40,7 +40,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       31},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       32},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -90,6 +90,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP min_weight_sexp, SEXP max_weight_sexp,
                     SEXP method_sexp, SEXP verbose_sexp,
                     SEXP inner_max_iter_sexp, SEXP start_weights_sexp,
+                    SEXP capacity_penalty_sexp,
                     SEXP tol_abs_sexp, SEXP bounds_mode_sexp,
                     SEXP homotopy_levels_sexp, SEXP homotopy_start_factor_sexp,
                     SEXP homotopy_end_factor_sexp, SEXP homotopy_budget_p_sexp,
@@ -317,6 +318,30 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     st.alm_mu     = 0.0;
     st.accelerate = (INTEGER(accelerate_sexp)[0] != 0);
 
+    // Resolve capacity_mu for ieppa_soft: build cell table to obtain auto value.
+    // Done here (not inside solver) so r_bridge.cpp controls the resolution contract.
+    // capacity_penalty <= 0.0 (or NULL) selects auto (M_cell/n from cell_table);
+    // positive value is used directly. ALM block is gated by st.use_admm_capacity,
+    // so st.capacity_mu is harmless for non-ieppa_soft callers.
+    {
+        lbw::CellTable ct_tmp;
+        int ct_rc = lbw::build_cell_table(n, K,
+            const_cast<const int32_t**>(group_ids.data()),
+            cat_counts.data(),
+            weights.data(),
+            ct_tmp);
+        if (ct_rc != 0) {
+            // build_cell_table failure is non-fatal here — capacity_mu falls back to 1.0.
+            // Infeasibility (empty cell with positive target) is caught by validate_inputs above.
+            st.capacity_mu = 1.0;
+        } else {
+            const double cp_val = Rf_isNull(capacity_penalty_sexp)
+                ? -1.0
+                : (LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
+            st.capacity_mu = (cp_val <= 0.0) ? ct_tmp.capacity_mu_auto : cp_val;
+        }
+    }
+
     // Scalar fields mirrored from rk_result_t for compatibility with downstream assembly.
     int    res_status     = RK_ERR_NOCONV;
     int    res_iterations = 0;
@@ -347,6 +372,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     int    res_sor_n_damped  = 0;
     double res_conv_objective          = 0.0;
     int    res_conv_minimized_metric   = 0;
+    /* ALM diagnostics (populated only in ieppa_soft dispatch; zero elsewhere) */
+    double res_alm_capacity_mu_final   = 0.0;
+    int    res_alm_n_growth_events     = 0;
+    double res_alm_max_dual_norm       = 0.0;
+    double res_alm_sum_drift           = 0.0;
     std::vector<double> res_best_weights;  // obs-level, length n
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
@@ -545,8 +575,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  30));  // 14 prior + 8 scalars + best_weights + 7 convergence fields
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  30));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  34));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  34));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -618,6 +648,15 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_STRING_ELT(res_names, 29, Rf_mkChar("convergence_minimized_metric"));
     SET_VECTOR_ELT(res_list,  28, Rf_ScalarReal(res_conv_objective));
     SET_VECTOR_ELT(res_list,  29, Rf_ScalarInteger(res_conv_minimized_metric));
+    /* Elements 30-33: ALM diagnostics (non-zero only for ieppa_soft) */
+    SET_STRING_ELT(res_names, 30, Rf_mkChar("alm_capacity_mu_final"));
+    SET_STRING_ELT(res_names, 31, Rf_mkChar("alm_n_growth_events"));
+    SET_STRING_ELT(res_names, 32, Rf_mkChar("alm_max_dual_norm"));
+    SET_STRING_ELT(res_names, 33, Rf_mkChar("alm_sum_drift"));
+    SET_VECTOR_ELT(res_list,  30, Rf_ScalarReal(res_alm_capacity_mu_final));
+    SET_VECTOR_ELT(res_list,  31, Rf_ScalarInteger(res_alm_n_growth_events));
+    SET_VECTOR_ELT(res_list,  32, Rf_ScalarReal(res_alm_max_dual_norm));
+    SET_VECTOR_ELT(res_list,  33, Rf_ScalarReal(res_alm_sum_drift));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));
