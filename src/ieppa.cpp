@@ -1185,6 +1185,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
     }  // end homotopy level loop
 
+    // Classify RK_ERR_NOCONV → BUDGET or STALL.
+    // RK_ERR_BUDGET (4): metric improved at some point → increase max_iterations.
+    // RK_ERR_STALL  (5): metric never improved from initial → at constrained optimum.
+    if (res.status == RK_ERR_NOCONV) {
+        res.status = std::isfinite(best_metric_seen) ? RK_ERR_BUDGET : RK_ERR_STALL;
+    }
+
     // PCT stall detection: pct_change < pct_tol (PCT converged) but max_error >> pct_tol
     // signals infeasible problem. Threshold 10x: well-posed problems have
     // errRp/pct_change ratio 1-5x; infeasible stalls show 100x+; 10x separates them.
