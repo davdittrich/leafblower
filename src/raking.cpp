@@ -1,29 +1,18 @@
-// raking.cpp — classical bounded raking via cyclic IPF + Dykstra projections.
+// raking.cpp — bounded raking via cyclic IPF with water-filling box projections.
 //
-// Algorithm composition (no published proof for the hybrid; convergence is
-// empirical, verified by the test suite):
-//   1. Cyclic IPF marginal update (Deming & Stephan 1940; Csiszar 1975
-//      proves I-projection convergence onto the intersection of margin-
-//      constraint hyperplanes for feasible problems).
-//   2. Additive Dykstra box projection onto [min_weight, max_weight]^n
-//      (Boyle & Dykstra 1986). Euclidean corrections accumulate in q[i].
-//   3. Additive Dykstra hyperplane projection onto {w : sum(w) = n}.
-//      Euclidean corrections accumulate in q_hyp[i].
+// Algorithm: F_eval performs one complete IPF sweep with per-category water-filling
+// (autumn single_adjust) that enforces X[c] ∈ [L_c, U_c] within each margin step.
+// No Dykstra correction vectors; bounds are enforced inline by water_fill_cat.
 //
-// The composition of multiplicative (IPF) and Euclidean (Dykstra)
-// projections is not covered by Boyle-Dykstra's single-metric theorem. The
-// inline comment below is explicit: Euclidean Dykstra corrections are NOT
-// applied to the IPF step — they diverge against multiplicative updates.
-// Convergence is therefore empirical-only for this hybrid.
+// Both the flat loop and SQUAREM-accelerated path call F_eval directly.
+// Water-filling convergence: cyclic KL projections onto bounded margin constraints
+// converge to the bounded KL minimum (Csiszar-Tusnady 1984).
 //
 // References (classical IPF family):
 //   Deming W. E. & Stephan F. F. (1940), "On a Least Squares Adjustment of
 //     a Sampled Frequency Table", Ann. Math. Stat. 11, 427-444.
 //   Csiszar I. (1975), "I-Divergence Geometry of Probability Distributions
 //     and Minimization Problems", Ann. Probab. 3, 146-158.
-//   Boyle J. P. & Dykstra R. L. (1986), "A Method for Finding Projections
-//     onto the Intersection of Convex Sets in Hilbert Spaces", Advances in
-//     Order Restricted Statistical Inference, Springer.
 
 #include "lbw_config.h"
 #include "raking.hpp"
@@ -122,13 +111,11 @@ RakingResult raking_solve(CalibState& st) {
         U_cell[c] = hi * static_cast<double>(ct.n_per_cell[c]);
     }
 
-    // Dykstra corrections: p[c] box, q_hyp scalar hyperplane.
-    std::vector<double> p(ct.M_cell, 1.0);   // Bregman: multiplicative identity
-    double q_hyp = 1.0;                        // Bregman: multiplicative identity
+    // No Dykstra correction vectors: water-filling enforces bounds within F_eval.
 
     bool is_infeasible = false;
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
-    std::vector<double> bucket(max_cats), scale(max_cats);
+    std::vector<double> bucket(max_cats);
 
     // Descent monitor
     double min_errRp_window = std::numeric_limits<double>::infinity();
@@ -243,18 +230,6 @@ RakingResult raking_solve(CalibState& st) {
             else if (wf_status[ci] == 1) Xv[c] = U_cell[c];
             else                          Xv[c] = L_cell[c];
         }
-    };
-
-    // Dykstra hyperplane: projects X onto {sum(X) = n}.
-    // M_cell cells each get +shift where shift = (n-s)/M_cell → total correction = (n-s).
-    auto hyperplane_step = [&]() {
-        // Bregman/KL Dykstra hyperplane: multiplicative scale instead of additive shift.
-        // KL projection onto {sum(X)=n}: scale all cells uniformly.
-        double s = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) { X[c] *= q_hyp; s += X[c]; }
-        const double scale_hp = static_cast<double>(st.n) / s;
-        for (int c = 0; c < ct.M_cell; c++) X[c] *= scale_hp;
-        q_hyp = (scale_hp > 0.0) ? 1.0 / scale_hp : 1.0;
     };
 
     // F_eval: one complete bounded IPF iteration using water-filling.
@@ -464,252 +439,140 @@ RakingResult raking_solve(CalibState& st) {
             }
         }
     } else {
-    for (int iter = 1; iter <= st.inner_max_iter; iter++) {
-        res.iterations = iter;
+        for (int iter = 1; iter <= st.inner_max_iter; iter++) {
+            res.iterations = iter;
 
-        // Cell-level cyclic IPF
-        double W_total = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
+            double errRp = F_eval(X);
 
-        // Greedy: sort margins descending by per-margin errRp from previous iter.
-        if (use_greedy)
-            std::sort(margin_order.begin(), margin_order.end(),
-                      [&](int a, int b){ return errRp_k[a] > errRp_k[b]; });
+            if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+                res.max_error = errRp;
 
-        for (int ki = 0; ki < st.K; ki++) {
-            const int k = use_greedy ? margin_order[ki] : ki;
-            std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-            for (int c = 0; c < ct.M_cell; c++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) bucket[g] += X[c];
-            }
-            std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
-            for (int j = 0; j < st.cat_counts[k]; j++) {
-                double Tkj = st.targets[k][j] * W_total;
-                if (bucket[j] < kEmptyBucketThreshold * W_total) {
-                    if (Tkj > 0.0) is_infeasible = true;
-                } else {
-                    scale[j] = Tkj / bucket[j];
-                }
-            }
-            // Apply IPF scaling with optional SOR damping.
-            // IMPORTANT: do NOT guard on s_g > 0. When target=0: scale[g]=0,
-            // X[c] must be zeroed (pow(0, omega)=0 correctly; plain *= 0 also correct).
-            // Guarding on s_g>0 would leave non-zero weights in zero-target categories.
-            const double eff_omega = sor_active ? sor_omega[k] : 1.0;
-            for (int c = 0; c < ct.M_cell; c++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) {
-                    const double s_g = scale[g];
-                    // pow(max(s_g,0), eff_omega): handles s_g=0 (zero target) correctly.
-                    X[c] *= (eff_omega == 1.0)
-                        ? s_g
-                        : std::pow(std::max(s_g, 0.0), eff_omega);
-                }
-            }
-
-            // SOR auto-adaptation: sign flip in per-margin ABSOLUTE errRp → damp omega.
-            // Use fabs(bucket[j]/W_total - targets[k][j]) — same formula as errRp_k
-            // computation for Greedy. Do NOT use scale[j]-1.0 (relative residual —
-            // inconsistent magnitude for skewed categories).
-            if (sor_active && sor_auto && W_total > 0.0) {
-                double ek = 0.0;
-                for (int j = 0; j < st.cat_counts[k]; j++) {
-                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
-                    if (e > ek) ek = e;
-                }
-                if (sor_prev_errRp[k] < ek) {
-                    sor_omega[k] = std::max(omega_min, sor_omega[k] * 0.7);
-                } else {
-                    sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
-                }
-                sor_prev_errRp[k] = ek;
-            }
-
-            // Track per-margin residual for next iter's Greedy sort.
-            // Uses bucket[] and W_total in scope from this margin's sweep.
-            // bucket[j] holds pre-scale sums — correct for Greedy (residual BEFORE update).
-            if (W_total > 0.0) {
-                double ek = 0.0;
-                for (int j = 0; j < st.cat_counts[k]; j++) {
-                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
-                    if (e > ek) ek = e;
-                }
-                errRp_k[k] = ek;
-            }
-        }
-
-        // Bregman/KL Dykstra box: multiplicative correction p[c] (init=1.0).
-        // Guard: if Xc=0 (min_weight=0 and structural zero cell), p[c]=1.0 (no correction).
-        for (int c = 0; c < ct.M_cell; c++) {
-            double yc = X[c] * p[c];
-            double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
-            p[c] = (Xc > 0.0) ? yc / Xc : 1.0;
-            X[c] = Xc;
-        }
-
-        // Dykstra hyperplane: sum(X) = n.
-        hyperplane_step();
-
-        // Convergence check
-        if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
-            double errRp = compute_errRp_ct(st, ct, X, bucket);
-            res.max_error = errRp;
-
-            // BLOCK 1: MAX_ERR best-iterate
-            if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
-                if (errRp < best_metric_seen) {
-                    // === BEST-ITER UPDATE ===
-                    best_metric_seen    = errRp;
-                    best_iter_val       = iter;
-                    best_objective_seen = compute_weight_kl();
-                    W_best              = X;
-                    // === END BEST-ITER UPDATE ===
-                }
-            }
-
-            // pct_change + l1_weight (cell-level approximation: Σ|ΔX[c]|/n)
-            double pct_change = 0.0, l1_weight_sum = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) {
-                double diff = std::fabs(X[c] - X_prev[c]);
-                double rel  = diff / std::max(X_prev[c], 1e-12);
-                if (rel > pct_change) pct_change = rel;
-                l1_weight_sum += diff;
-            }
-            double l1_weight = l1_weight_sum / static_cast<double>(st.n);
-
-            // Extra metrics (gated, same as obs-level)
-            const lbw::CalibMetric metric = st.convergence_cfg.metric;
-            const auto& cfg_m = st.convergence_cfg;
-            const bool need_extra_metrics =
-                (metric == lbw::CalibMetric::MEAN_ERR   ||
-                 metric == lbw::CalibMetric::KL         ||
-                 metric == lbw::CalibMetric::CHI2       ||
-                 metric == lbw::CalibMetric::GRAKE_NORM ||
-                 iter == st.inner_max_iter);
-
-            double W_tot2 = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) W_tot2 += X[c];
-            constexpr double kMetricEps = 1e-10;
-            constexpr double kChi2Floor = 1.0;
-            double mean_err_sum = 0.0, kl_max = 0.0, chi2_total = 0.0, grake_norm = 0.0;
-            if (need_extra_metrics && W_tot2 > 0.0) {
-                for (int k = 0; k < st.K; k++) {
-                    const int nj = st.cat_counts[k];
-                    std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        int g = ct.g_per_cell[k][c];
-                        if (g >= 0 && g < nj) bucket[g] += X[c];
-                    }
-                    double max_k = 0.0, kl_k = 0.0;
-                    for (int j = 0; j < nj; j++) {
-                        double S_p   = bucket[j] / W_tot2;
-                        double T     = st.targets[k][j];
-                        double err   = std::fabs(S_p - T);
-                        if (err > max_k) max_k = err;
-                        if (T > 0.0)
-                            kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
-                        double obs    = bucket[j];
-                        double pop_kj = T * W_tot2;
-                        chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
-                        double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
-                        if (nm > grake_norm) grake_norm = nm;
-                    }
-                    mean_err_sum += max_k;
-                    if (kl_k > kl_max) kl_max = kl_k;
-                }
-                // BLOCK 2: best-iterate for non-MAX_ERR
-                if (st.convergence_cfg.metric != lbw::CalibMetric::MAX_ERR) {
-                    const double mean_err_blk2 = (st.K > 0)
-                        ? mean_err_sum / static_cast<double>(st.K) : 0.0;
-                    const double curr_best = lbw::select_metric(
-                        st.convergence_cfg.metric,
-                        errRp, mean_err_blk2, kl_max, chi2_total, grake_norm, l1_weight);
-                    if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
-                        // === BEST-ITER UPDATE ===
-                        best_metric_seen    = curr_best;
+                // Best-iterate tracking (MAX_ERR metric)
+                if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
+                    if (errRp < best_metric_seen) {
+                        best_metric_seen    = errRp;
                         best_iter_val       = iter;
                         best_objective_seen = compute_weight_kl();
                         W_best              = X;
-                        // === END BEST-ITER UPDATE ===
                     }
                 }
-            }
-            double mean_err = (st.K > 0) ? mean_err_sum / static_cast<double>(st.K) : 0.0;
 
-            res.l1_weight_change = l1_weight;
-            res.mean_error       = mean_err;
-            res.kl               = kl_max;
-            res.chi2             = chi2_total;
-            res.grake_norm       = grake_norm;
-            for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+                // L1 weight change from previous check
+                double l1_weight = 0.0;
+                for (int c = 0; c < ct.M_cell; c++)
+                    l1_weight += std::fabs(X[c] - X_prev[c]);
+                l1_weight /= static_cast<double>(st.n);
+                for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
 
-            // Descent monitor
-            if (!std::isfinite(min_errRp_window)) {
-                min_errRp_window = errRp; n_no_improve = 0;
-            } else {
-                const double rel_eps = 0.01 * min_errRp_window;
-                const double eps = std::max(rel_eps, st.tol_abs);
-                if (errRp < min_errRp_window - eps) {
+                // Extra metrics for non-MAX_ERR convergence
+                const lbw::CalibMetric metric = st.convergence_cfg.metric;
+                double mean_err = 0.0, kl_max = 0.0, chi2_total = 0.0, grake_norm = 0.0;
+                const bool need_extra = (metric == lbw::CalibMetric::MEAN_ERR ||
+                                         metric == lbw::CalibMetric::KL ||
+                                         metric == lbw::CalibMetric::CHI2 ||
+                                         metric == lbw::CalibMetric::GRAKE_NORM ||
+                                         iter == st.inner_max_iter);
+                if (need_extra) {
+                    double W_tot2 = 0.0;
+                    for (int c = 0; c < ct.M_cell; c++) W_tot2 += X[c];
+                    constexpr double kMetricEps = 1e-10;
+                    constexpr double kChi2Floor = 1.0;
+                    double mean_sum = 0.0;
+                    if (W_tot2 > 0.0) {
+                        for (int k = 0; k < st.K; k++) {
+                            const int nj = st.cat_counts[k];
+                            std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
+                            for (int c = 0; c < ct.M_cell; c++) {
+                                int g = ct.g_per_cell[k][c];
+                                if (g >= 0 && g < nj) bucket[g] += X[c];
+                            }
+                            double max_k = 0.0, kl_k = 0.0;
+                            for (int j = 0; j < nj; j++) {
+                                double S_p = bucket[j] / W_tot2, T = st.targets[k][j];
+                                double err = std::fabs(S_p - T);
+                                if (err > max_k) max_k = err;
+                                if (T > 0.0)
+                                    kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
+                                double obs = bucket[j], pop_kj = T * W_tot2;
+                                chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
+                                double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
+                                if (nm > grake_norm) grake_norm = nm;
+                            }
+                            mean_sum += max_k;
+                            if (kl_k > kl_max) kl_max = kl_k;
+                        }
+                        mean_err = (st.K > 0) ? mean_sum / static_cast<double>(st.K) : 0.0;
+                        if (metric != lbw::CalibMetric::MAX_ERR) {
+                            const double curr_best = lbw::select_metric(
+                                metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
+                            if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
+                                best_metric_seen    = curr_best;
+                                best_iter_val       = iter;
+                                best_objective_seen = compute_weight_kl();
+                                W_best              = X;
+                            }
+                        }
+                    }
+                }
+
+                res.mean_error       = mean_err;
+                res.kl               = kl_max;
+                res.chi2             = chi2_total;
+                res.grake_norm       = grake_norm;
+                res.l1_weight_change = l1_weight;
+
+                // Descent monitor
+                if (!std::isfinite(min_errRp_window)) {
                     min_errRp_window = errRp; n_no_improve = 0;
                 } else {
-                    n_no_improve++;
+                    const double rel_eps = 0.01 * min_errRp_window;
+                    const double eps = std::max(rel_eps, st.tol_abs);
+                    if (errRp < min_errRp_window - eps) {
+                        min_errRp_window = errRp; n_no_improve = 0;
+                    } else {
+                        n_no_improve++;
+                    }
                 }
-            }
 
-            if (st.verbose >= 1) {
-                char msg[256];
-                std::snprintf(msg, 256, "raking iter %d: errRp=%.2e", iter, errRp);
-                st.log(msg);
-            }
-
-            lbw::CellMetrics m_conv;
-            m_conv.errRp      = errRp;
-            m_conv.mean_err   = mean_err;
-            m_conv.kl         = kl_max;
-            m_conv.chi2       = chi2_total;
-            m_conv.grake_norm = grake_norm;
-            m_conv.l1         = l1_weight;
-            if (lbw::check_convergence(st.convergence_cfg, m_conv,
-                                       prev_metric_for_rule, st.tol_abs)) {
-                res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
-                res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-                res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-                res.convergence_tol    = st.convergence_cfg.pct_tol;
-                res.convergence_iter   = iter;
-                break;
-            }
-
-            if (n_no_improve >= kMaxNoImprove) {
-                res.status = RK_ERR_NOCONV;
                 if (st.verbose >= 1) {
                     char msg[256];
-                    std::snprintf(msg, 256,
-                        "raking: errRp stalled for %d consecutive checks (last=%.2e, window_min=%.2e); likely near-infeasible bounds. "
-                        "aborting at iter %d.", n_no_improve, errRp, min_errRp_window, iter);
+                    std::snprintf(msg, 256, "raking iter %d: errRp=%.2e", iter, errRp);
                     st.log(msg);
                 }
-                break;
+
+                lbw::CellMetrics m_conv;
+                m_conv.errRp = errRp; m_conv.mean_err = mean_err;
+                m_conv.kl = kl_max; m_conv.chi2 = chi2_total;
+                m_conv.grake_norm = grake_norm; m_conv.l1 = l1_weight;
+                if (lbw::check_convergence(st.convergence_cfg, m_conv,
+                                           prev_metric_for_rule, st.tol_abs)) {
+                    res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                    res.convergence_tol    = st.convergence_cfg.pct_tol;
+                    res.convergence_iter   = iter;
+                    break;
+                }
+
+                if (n_no_improve >= kMaxNoImprove) {
+                    res.status = RK_ERR_NOCONV;
+                    break;
+                }
             }
         }
-    }
-    } // end else (flat loop)
+    }  // end else flat loop
 
     if (is_infeasible && res.status == RK_ERR_NOCONV)
         res.status = RK_ERR_INFEAS;
 
-    // Post-loop Bregman/KL Dykstra finalizer (multiplicative pattern).
-    for (int fixup = 0; fixup < 200; fixup++) {
-        bool box_ok = true;
-        for (int c = 0; c < ct.M_cell; c++) {
-            double yc = X[c] * p[c];
-            double Xc = std::clamp(yc, L_cell[c], U_cell[c]);
-            p[c] = (Xc > 0.0) ? yc / Xc : 1.0;
-            if (yc != Xc) box_ok = false;
-            X[c] = Xc;
+    // Post-loop: normalize sum to n (water-filling already enforces bounds)
+    {
+        double s_post = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) s_post += X[c];
+        if (s_post > 0.0) {
+            const double sc_post = static_cast<double>(st.n) / s_post;
+            for (int c = 0; c < ct.M_cell; c++) X[c] *= sc_post;
         }
-        hyperplane_step();
-        if (box_ok) break;
     }
 
     // Best-iterate: normalize cell snapshot, then expand to obs.
