@@ -104,6 +104,12 @@
 #'           \code{best_error} is \code{Inf} (solver exited before the first convergence
 #'           check), \code{best_weights} is all-zero. Guard:
 #'           \code{if (is.finite(attr(r, "result")$best_error))} before use.
+#'         \item \code{convergence_used$convergence_reason}: Character.
+#'           Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
+#'           \code{"budget"} (budget exhausted — increase max_iterations),
+#'           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
+#'           \code{"stall_errRp"} (SQUAREM errRp plateau — empirically near optimum),
+#'           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
 #'       }
 #'     }
 #'     \item{\code{algorithm}}{Character name of the solver used.}
@@ -291,7 +297,18 @@ harvest <- function(
     tol              = calib_result$convergence_tol,
     fired_at_iter    = calib_result$convergence_iter,
     solver_objective = calib_result$solver_objective,   # Task 2: solver mathematical objective
-    minimized_metric = .safe_lookup(.metric_names, calib_result$convergence_minimized_metric)
+    minimized_metric = .safe_lookup(.metric_names, calib_result$convergence_minimized_metric),
+    convergence_reason = {
+      s <- calib_result$status
+      if      (is.null(s) || is.na(s))              NA_character_
+      else if (s == 0L)                              "criterion"
+      else if (s == 4L)                              "budget"
+      else if (s == 5L && isTRUE(accelerate_bool))  "stall_errRp"
+      else if (s == 5L)                              "stall_kl"
+      else if (s == 2L)                              "infeasible"
+      else if (s == 3L)                              "error"
+      else                                           "legacy"
+    }
   )
   calib_result$convergence_metric           <- NULL
   calib_result$convergence_rule             <- NULL
@@ -320,9 +337,17 @@ harvest <- function(
   # is the invariant that preserves calibration. See
   # tests/testthat/test-ieppa-nonuniform-d.R.
 
+  if (calib_result$status == 4L)
+    warning("leafblower: budget exhausted — weights reflect best iterate; ",
+            "increase max_iterations if further improvement is needed")
+  if (calib_result$status == 5L && isTRUE(accelerate_bool))
+    warning("leafblower: SQUAREM errRp plateau — weights are valid; ",
+            "try accelerate=FALSE for guaranteed KL-minimum stall detection")
+  if (calib_result$status == 5L && !isTRUE(accelerate_bool))
+    warning("leafblower: loss function plateau — at constrained optimum given bounds; ",
+            "weights are valid; no further improvement is achievable")
   if (calib_result$status == 1L)
-    warning("leafblower: calibration did not converge (max_error=",
-            signif(calib_result$max_error, 3), "). Weights reflect last iterate.")
+    warning("leafblower: did not converge (legacy status code from solver not yet updated)")
 
   # Stall detection: PCT converged (status=0) but max_error >> pct_tol
   # signals infeasible problem. Threshold: 10x pct_tol.
