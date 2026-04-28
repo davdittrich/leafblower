@@ -287,6 +287,15 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             return r.status;
         } else if (alg == RK_ALG_IEPPA_SOFT) {
             st.use_admm_capacity = true;
+            /* capacity_penalty for ieppa_soft: direct C API callers bypass R-layer validation.
+               Contract: p.capacity_penalty <= 0.0 selects auto (M_cell/n from estimate_M_cell);
+               positive value is used directly. Callers must validate range externally. */
+            if (p->capacity_penalty > 0.0) {
+                st.capacity_mu = p->capacity_penalty;
+            } else {
+                int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
+                st.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
+            }
             auto res = lbw::ieppa_solve(st);
             status = res.status;
             iterations = res.iterations;
