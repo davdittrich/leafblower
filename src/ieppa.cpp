@@ -154,6 +154,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::vector<double> u;  // allocated only for ieppa_soft (ADMM)
     if (st.use_admm_capacity) u.assign(ct.M_cell, 0.0);
 
+    // ALM persistent state (ieppa_soft only). N_levels-dependent vars set below.
+    const bool alm_active = st.use_admm_capacity && st.capacity_mu > 0.0;
+    const double capacity_mu_base    = st.capacity_mu;
+    double capacity_mu_adaptive      = capacity_mu_base;
+    double eta_i_current             = 1.0;
+    int    alm_violation_streak      = 0;
+    std::vector<double> lambda_cell;
+    if (alm_active) lambda_cell.assign(ct.M_cell, 0.0);
+
     // Scratch for margin sweep.
     std::vector<std::vector<int>> cells_by_margin_cat(total_cats);
     for (int k = 0; k < st.K; k++) {
@@ -345,6 +354,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // if callers query enabled independently, e.g. eta_schedule N>1 branch).
     const int    N_levels = (st.homotopy.n_levels > 1)
                             ? st.homotopy.n_levels : 1;
+    const bool tang_active = (st.eta_schedule.mode == EtaScheduleMode::TANG_DYNAMIC && N_levels > 1);
     const double k_start  = st.homotopy.start_factor;
     const double k_end    = st.homotopy.end_factor;
     const double p_budget = st.homotopy.budget_split_p;
@@ -388,6 +398,22 @@ IEPPAResult ieppa_solve(CalibState& st) {
             } else {
                 beta = 0.5 * eta_i;
             }
+        }
+
+        // ALM (ieppa_soft) per-level state: scale capacity_mu, reset duals.
+        if (alm_active) {
+            if (tang_active) {
+                const double scaled_frac = std::pow(frac, st.eta_schedule.schedule_power);
+                eta_i_current = st.eta_schedule.eta_start *
+                    std::pow(st.eta_schedule.eta_end / st.eta_schedule.eta_start, scaled_frac);
+                res.eta_final = eta_i_current;
+                st.capacity_mu = eta_i_current * capacity_mu_adaptive;
+            } else {
+                eta_i_current = 1.0;
+                st.capacity_mu = capacity_mu_adaptive;
+            }
+            alm_violation_streak = 0;
+            std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
         }
 
         // Recompute U_cell for this level's current_max_weight.
@@ -690,6 +716,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // avoiding spurious re-trigger when true max is exactly at threshold.
                 cell_lf_hwm = std::numeric_limits<double>::lowest();
                 if (st.use_admm_capacity) std::fill(u.begin(), u.end(), 0.0);
+                if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
                 if (st.verbose >= 2) {
                     char msg[128];
                     std::snprintf(msg, sizeof(msg), "iEPPA T1.B renorm shift=%.2e", shift);
@@ -706,6 +733,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
                 cell_lf_hwm = std::numeric_limits<double>::lowest();
                 if (st.use_admm_capacity) std::fill(u.begin(), u.end(), 0.0);
+                if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
                 std::fill(f_lin.begin(), f_lin.end(), 1.0);
                 std::fill(X_cur.begin(), X_cur.end(), 0.0);
                 std::fill(W.begin(), W.end(), 1.0);
@@ -801,13 +829,19 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     W[c] = 1.0;
                     continue;
                 }
-                if (st.use_admm_capacity) {
-                    // ADMM: z-update projects adjusted X_tilde onto capacity box.
-                    // u[c] accumulates violations across iterations; converges to 0.
-                    double z = std::clamp(X_tilde_c + u[c], L_cell[c], U_cell[c]);
-                    u[c] += X_tilde_c - z;
-                    X[c] = z; W[c] = z / X_tilde_c; X_cur[c] = z;
+                if (alm_active && X_tilde_c > 0.0) {
+                    // ALM: linearized Newton step, rho = mu*X_tilde balances KL Hessian.
+                    // X = X_tilde * (1 - lambda + mu*z) / (1 + rho); lambda += mu*(X-z).
+                    const double z   = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
+                    const double rho = st.capacity_mu * X_tilde_c;
+                    double X_alm = X_tilde_c * (1.0 - lambda_cell[c] + st.capacity_mu * z) / (1.0 + rho);
+                    if (!std::isfinite(X_alm) || X_alm <= 0.0) X_alm = z;  // NaN guard
+                    X[c] = X_alm; W[c] = X_alm / X_tilde_c; X_cur[c] = X_alm;
+                    const double lambda_cap = 10.0 * capacity_mu_base * st.max_weight;
+                    lambda_cell[c] += st.capacity_mu * (X_alm - z);
+                    lambda_cell[c]  = std::clamp(lambda_cell[c], -lambda_cap, lambda_cap);
                 } else {
+                    // Hard clamp (ieppa default or X_tilde_c <= 0).
                     double xc = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
                     X[c] = xc; W[c] = xc / X_tilde_c; X_cur[c] = xc;
                 }
@@ -827,6 +861,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 cell_lf_hwm = std::numeric_limits<double>::lowest();
                 std::fill(f_lin.begin(),   f_lin.end(),   1.0);
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
+                if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
                 res.n_xcur_writes_per_iter_linear = 0;
                 use_linear = false;
                 linear_fallback_used = true;
@@ -871,18 +906,64 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // Capacity block: X[c] = clamp(X_tilde[c], L_c, U_c); W[c] updated for next iter.
             int n_cap = 0;
             for (int c = 0; c < ct.M_cell; c++) {
-                double xc = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
-                X[c] = xc;
-                if (X_tilde[c] > 0.0) {
-                    W[c] = xc / X_tilde[c];
+                if (alm_active && X_tilde[c] > 0.0) {
+                    const double z   = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
+                    const double rho = st.capacity_mu * X_tilde[c];
+                    double X_alm = X_tilde[c] * (1.0 - lambda_cell[c] + st.capacity_mu * z) / (1.0 + rho);
+                    if (!std::isfinite(X_alm) || X_alm <= 0.0) X_alm = z;
+                    X[c] = X_alm;
+                    W[c] = X_alm / X_tilde[c];
+                    const double lambda_cap = 10.0 * capacity_mu_base * st.max_weight;
+                    lambda_cell[c] += st.capacity_mu * (X_alm - z);
+                    lambda_cell[c]  = std::clamp(lambda_cell[c], -lambda_cap, lambda_cap);
                 } else {
-                    W[c] = 1.0;
+                    double xc = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
+                    X[c] = xc;
+                    if (X_tilde[c] > 0.0) {
+                        W[c] = xc / X_tilde[c];
+                    } else {
+                        W[c] = 1.0;
+                    }
                 }
                 if (W[c] != 1.0) n_cap++;
             }
             res.n_cap_active = n_cap;
             // S2: precompute log_W for next iteration's apply_single_margin_log calls.
             lbw::bulk_log(W.data(), log_W.data(), ct.M_cell);
+        }
+
+        // ALM adaptive mu growth: if max bound violation persists above tolerance,
+        // grow mu geometrically (capped). Triggered after kAlmPersistenceThreshold
+        // consecutive iterations with violation > tol_primal.
+        if (alm_active) {
+            constexpr int    kAlmPersistenceThreshold = 5;
+            constexpr double kAlmGrowthFactor         = 2.0;
+            constexpr double kAlmMaxScale             = 1000.0;
+            const double mean_n_per_cell = static_cast<double>(st.n) / std::max(1, ct.M_cell);
+            const double tol_primal      = 0.01 * st.max_weight * mean_n_per_cell;
+
+            double max_violation = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                const double v = std::max(X[c] - U_cell[c], L_cell[c] - X[c]);
+                if (std::isfinite(v)) max_violation = std::max(max_violation, v);
+            }
+
+            if (max_violation > tol_primal) {
+                if (++alm_violation_streak >= kAlmPersistenceThreshold &&
+                    capacity_mu_adaptive < capacity_mu_base * kAlmMaxScale) {
+                    capacity_mu_adaptive *= kAlmGrowthFactor;
+                    st.capacity_mu = eta_i_current * capacity_mu_adaptive;
+                    res.alm_n_growth_events++;
+                    alm_violation_streak = 0;
+                    if (st.verbose >= 2) {
+                        char msg[128];
+                        std::snprintf(msg, sizeof(msg), "[ieppa_soft] mu growth: %.4e", capacity_mu_adaptive);
+                        st.log(msg);
+                    }
+                }
+            } else {
+                alm_violation_streak = 0;
+            }
         }
 
         // Convergence check.
@@ -1208,6 +1289,39 @@ IEPPAResult ieppa_solve(CalibState& st) {
             homotopy_break = true;
         }
     }  // end homotopy level loop
+
+    // ALM final projection: hard-clamp X[c] into [L_cell, U_cell], then a small
+    // bounded rescale loop to recover sum(X)=n while staying within bounds.
+    if (alm_active) {
+        constexpr int    kMaxRescaleIters = 3;
+        constexpr double kRescaleTol      = 1e-12;
+        for (int c = 0; c < ct.M_cell; c++) X[c] = std::clamp(X[c], L_cell[c], U_cell[c]);
+        double prev_total = 0.0;
+        for (int iter = 0; iter < kMaxRescaleIters; iter++) {
+            double total = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) total += X[c];
+            if (std::abs(total - prev_total) < kRescaleTol * st.n || total <= 0.0) break;
+            prev_total = total;
+            const double rescale = static_cast<double>(st.n) / total;
+            for (int c = 0; c < ct.M_cell; c++) X[c] = std::clamp(X[c] * rescale, L_cell[c], U_cell[c]);
+        }
+        double final_total = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) final_total += X[c];
+        res.alm_sum_drift = std::abs(final_total - static_cast<double>(st.n));
+        if (res.alm_sum_drift > 1e-6 * st.n && st.verbose >= 1) {
+            char msg[256];
+            std::snprintf(msg, sizeof(msg), "[ieppa_soft] final projection sum drift = %.2e", res.alm_sum_drift);
+            st.log(msg);
+        }
+
+        // Populate ALM diagnostics.
+        res.alm_capacity_mu_final = capacity_mu_adaptive;
+        double max_dual = 0.0;
+        for (int c = 0; c < ct.M_cell; c++)
+            max_dual = std::max(max_dual, std::abs(lambda_cell[c]));
+        res.alm_max_dual_norm = max_dual;
+        // alm_n_growth_events populated incrementally above.
+    }
 
     // Classify RK_ERR_NOCONV → BUDGET or STALL.
     // RK_ERR_BUDGET (4): metric improved at some point → increase max_iterations.

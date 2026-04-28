@@ -41,6 +41,11 @@ struct IEPPAResult {
     double convergence_solver_objective = 0.0;   // exposed: solver's mathematical objective
     int    convergence_minimized_metric = 0;     // CalibMetric: which metric was minimized
     double marginal_kl_at_iter            = 0.0;   // marginal KL at current outer iteration
+    // ── ALM diagnostics (ieppa_soft only; zero elsewhere) ──
+    double alm_capacity_mu_final = 0.0;
+    int    alm_n_growth_events   = 0;
+    double alm_max_dual_norm     = 0.0;
+    double alm_sum_drift         = 0.0;
     // ── End extended quality metrics ──
 };
 

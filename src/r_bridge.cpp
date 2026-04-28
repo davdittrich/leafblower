@@ -528,6 +528,10 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             pack_solver_result(res);
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
+            res_alm_capacity_mu_final = res.alm_capacity_mu_final;
+            res_alm_n_growth_events   = res.alm_n_growth_events;
+            res_alm_max_dual_norm     = res.alm_max_dual_norm;
+            res_alm_sum_drift         = res.alm_sum_drift;
             res_best_weights = std::move(res.best_weights);
         } else {
             // Default / ieppa
