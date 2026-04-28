@@ -1,4 +1,5 @@
 #include "lbw_config.h"
+#include "lbw_math.hpp"
 #include "ieppa.hpp"
 #include "calib_dispatch.hpp"
 #include "cell_table.hpp"
@@ -136,6 +137,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     // Per-cell capacity multiplier (linear-space).
     std::vector<double> W(ct.M_cell, 1.0);
+    std::vector<double> log_W(ct.M_cell, 0.0);  // log_W[c] = log(W[c]); W init=1 → log=0
     std::vector<double> X_tilde;  // deferred: allocated at first log-path/fallback use
     std::vector<double> X(ct.M_cell);
     // T1.B: per-cell log-product shadow. cell_lf[c] = Σ_k lf[k][g_k(c)].
@@ -543,7 +545,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 for (size_t r = 0; r < cells.size(); r++) {
                     int c = cells[r];
                     if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
-                    double s = log_X_init[c] + std::log(W[c]);
+                    double s = log_X_init[c] + log_W[c];
                     for (int m = 0; m < st.K; m++) {
                         if (m == k) continue;
                         int gm = ct.g_per_cell[m][c];
@@ -708,6 +710,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::fill(f_lin.begin(), f_lin.end(), 1.0);
                 std::fill(X_cur.begin(), X_cur.end(), 0.0);
                 std::fill(W.begin(), W.end(), 1.0);
+                std::fill(log_W.begin(), log_W.end(), 0.0);
                 if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
                 for (int c = 0; c < ct.M_cell; c++) {
                     X_tilde[c] = X_init[c];
@@ -820,6 +823,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // Full state reset on mid-loop break; partial writes to W/X/X_cur undone.
                 std::fill(X_cur.begin(),   X_cur.end(),   0.0);
                 std::fill(W.begin(),       W.end(),       1.0);
+                std::fill(log_W.begin(),   log_W.end(),   0.0);
                 std::fill(X.begin(),       X.end(),       0.0);
                 std::fill(X_tilde.begin(), X_tilde.end(), 0.0);
                 std::fill(lf.begin(),      lf.end(),      0.0);
@@ -877,6 +881,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (W[c] != 1.0) n_cap++;
             }
             res.n_cap_active = n_cap;
+            // S2: precompute log_W for next iteration's apply_single_margin_log calls.
+            lbw::bulk_log(W.data(), log_W.data(), ct.M_cell);
         }
 
         // Convergence check.
