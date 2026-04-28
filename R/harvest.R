@@ -91,7 +91,11 @@
 #'   \describe{
 #'     \item{\code{result}}{Named list of solver diagnostics. Key fields:
 #'       \itemize{
-#'         \item \code{status}: 0=converged, 1=max_iter hit, 2=infeasible, 3=bad args.
+#'         \item \code{status}: integer status code. 0=converged (RK_OK);
+#'           1=did not converge (RK_ERR_NOCONV); 2=infeasible (RK_ERR_INFEAS);
+#'           3=bad argument (RK_ERR_BADARG); 4=budget exhausted — loss still
+#'           decreasing, increase \code{max_iterations} (RK_ERR_BUDGET);
+#'           5=loss plateau at constrained optimum, weights are valid (RK_ERR_STALL).
 #'         \item \code{iterations}: number of outer iterations completed.
 #'         \item \code{max_error}: maximum marginal error at the returned weights.
 #'         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.

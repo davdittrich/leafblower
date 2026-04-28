@@ -52,7 +52,7 @@ harvest(
 
 \item{method}{Calibration method. One of \code{"auto"} (default: iEPPA or
 raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
-\code{"raking"} (IPF + Dykstra box projection), \code{"lbfgsb"}
+\code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
 (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
 \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
 (L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM).}
@@ -71,7 +71,7 @@ raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
   \itemize{
     \item \code{metric}: quality metric to monitor. One of \code{"max_err"}
       (default), \code{"mean_err"}, \code{"kl"}, \code{"chi2"},
-      \code{"grake_norm"}, \code{"l1_weight"}.
+      \code{"grake_norm"}, \code{"l1_weight"}, \code{"marginal_kl"}.
     \item \code{rule}: stopping rule. One of \code{"improvement"} (default) —
       stop when metric improves by less than \code{tol} relative; \code{"threshold"} —
       stop when metric falls below \code{tol} absolutely; \code{"plateau"} —
@@ -90,15 +90,15 @@ raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
   }
   Shorthands and explicit keys may be combined; explicit keys override shorthand
   defaults. \code{convergence = list()} uses the default (max_err + improvement +
-  tol = 0.001). For \code{method="ieppa"}, the default metric is \code{kl}
-  (Sinkhorn-type algorithm minimizing KL divergence). For other methods: \code{max_err}.
+  tol = 0.001). For \code{method="ieppa"}, the default metric is \code{marginal_kl}
+  (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)). For other methods: \code{max_err}.
 
   \strong{chi2 cross-solver note:} chi2 is not directly comparable
   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
   raking and lbfgsb use \code{n}. Use chi2 as a convergence criterion
   within one method; do not compare values across methods.}
 
-\item{sor}{Named list for SOR adaptive under-relaxation (iEPPA only).
+\item{sor}{Named list for SOR adaptive under-relaxation (iEPPA and raking).
 \code{NULL} disables SOR. Keys:
 \itemize{
   \item \code{auto}: logical, default \code{TRUE}.
@@ -141,7 +141,12 @@ across n levels.}
 
 \item{enforce_mean}{Ignored (retained for compatibility).}
 
-\item{accelerate}{Ignored.}
+\item{accelerate}{Logical. If \code{TRUE}, applies SQUAREM SqS3 outer-loop
+acceleration (Varadhan & Roland 2008) to the raking fixed-point iteration.
+Only supported for \code{method="raking"}; a warning is emitted and the
+parameter is ignored for all other methods. Default \code{FALSE}.
+When \code{TRUE}, the \code{scheduler} is overridden to \code{"round_robin"}:
+Greedy ordering changes the fixed point each F-call, degrading CBB accuracy.}
 
 \item{add_na_proportion}{Not supported in v1; raises error if TRUE.}
 
@@ -151,6 +156,10 @@ across n levels.}
 
 \item{target_map}{Passed through for data-frame target format handling.}
 
+\item{design_weights}{Optional design weights vector. When non-NULL and
+\code{start_weights} is NULL, used as starting weights (normalized to
+mean=1). Length must equal \code{nrow(data)}.}
+
 \item{...}{Additional arguments ignored.}
 }
 \value{
@@ -159,7 +168,11 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
   \describe{
     \item{\code{result}}{Named list of solver diagnostics. Key fields:
       \itemize{
-        \item \code{status}: 0=converged, 1=max_iter hit, 2=infeasible, 3=bad args.
+        \item \code{status}: integer status code. 0=converged (RK_OK);
+          1=did not converge (RK_ERR_NOCONV); 2=infeasible (RK_ERR_INFEAS);
+          3=bad argument (RK_ERR_BADARG); 4=budget exhausted — loss still
+          decreasing, increase \code{max_iterations} (RK_ERR_BUDGET);
+          5=loss plateau at constrained optimum, weights are valid (RK_ERR_STALL).
         \item \code{iterations}: number of outer iterations completed.
         \item \code{max_error}: maximum marginal error at the returned weights.
         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
@@ -175,6 +188,12 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
           \code{best_error} is \code{Inf} (solver exited before the first convergence
           check), \code{best_weights} is all-zero. Guard:
           \code{if (is.finite(attr(r, "result")$best_error))} before use.
+        \item \code{convergence_used$convergence_reason}: Character.
+          Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
+          \code{"budget"} (budget exhausted — increase max_iterations),
+          \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
+          \code{"stall_wchange"} (SQUAREM weight-change plateau — at constrained optimum),
+          \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
       }
     }
     \item{\code{algorithm}}{Character name of the solver used.}
