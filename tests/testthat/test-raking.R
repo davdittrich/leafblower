@@ -72,11 +72,14 @@ test_that("descent monitor aborts early on stalled errRp trajectory", {
   # to stdout, not R's message sink. Use capture.output(type = "output").
   t0 <- Sys.time()
   msgs <- capture.output(
-    res <- suppressWarnings(harvest(df, tgt, method = "raking",
-                                     max_weight = 1.2,
-                                     max_iterations = 500,
-                                     verbose = 1L,
-                                     convergence = list(absolute = 1e-6))),
+    tryCatch(
+      suppressWarnings(harvest(df, tgt, method = "raking",
+                                max_weight = 1.2,
+                                max_iterations = 500,
+                                verbose = 1L,
+                                convergence = list(absolute = 1e-6))),
+      error = function(e) NULL  # B9: infeasible error expected; msgs still captured
+    ),
     type = "output"
   )
   elapsed <- as.numeric(Sys.time() - t0, units = "secs")
@@ -87,4 +90,25 @@ test_that("descent monitor aborts early on stalled errRp trajectory", {
   probe <- paste(msgs, collapse = "\n")
   expect_match(probe, "errRp stalled for [0-9]+ consecutive checks",
                info = paste("expected descent-monitor message; got:", probe))
+})
+
+test_that("B9: raking returns INFEAS when bounds make target structurally unreachable", {
+  # n=20, 2 obs in cat "a", 18 in cat "b".
+  # Target: 90% in "a" → requires cell mass = 0.9*20 = 18.
+  # max_weight=1.5 caps cell mass for "a" at 1.5*2 = 3 << 18 → structurally infeasible.
+  # Use absolute threshold so solver cannot converge on the infeasible problem:
+  # max_err >> 1e-4, solver hits weight-KL stall → STALL → B9 promotes to INFEAS.
+  n  <- 20L
+  df <- data.frame(x = factor(c(rep("a", 2L), rep("b", 18L))))
+  tgt <- list(x = c(a=0.9, b=0.1))
+  expect_error(
+    suppressWarnings(
+      harvest(df, tgt, method="raking",
+              min_weight=0.5, max_weight=1.5,
+              max_iterations=200L,
+              convergence=list(absolute=1e-4))
+    ),
+    regexp="infeasible",
+    info="expected infeasible hard-stop from harvest.R"
+  )
 })
