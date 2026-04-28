@@ -662,10 +662,10 @@ extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
     SEXP ret = PROTECT(Rf_allocVector(VECSXP, 3));
     SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(ct.M_cell));
     SEXP cell_of_sexp = PROTECT(Rf_allocVector(INTSXP, n));
-    std::memcpy(INTEGER(cell_of_sexp), ct.cell_of.data(), n * sizeof(int));
+    std::memcpy(INTEGER(cell_of_sexp), ct.cell_of.data(), (size_t)n * sizeof(int));
     SET_VECTOR_ELT(ret, 1, cell_of_sexp);
     SEXP npc = PROTECT(Rf_allocVector(INTSXP, ct.M_cell));
-    std::memcpy(INTEGER(npc), ct.n_per_cell.data(), ct.M_cell * sizeof(int));
+    std::memcpy(INTEGER(npc), ct.n_per_cell.data(), (size_t)ct.M_cell * sizeof(int));
     SET_VECTOR_ELT(ret, 2, npc);
     SEXP names = PROTECT(Rf_allocVector(STRSXP, 3));
     SET_STRING_ELT(names, 0, Rf_mkChar("M_cell"));

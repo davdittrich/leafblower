@@ -128,7 +128,7 @@ PYBIND11_MODULE(_leafblower, m) {
             // Return (status, weights_out_copy, result_dict)
             // weights_out is a NEW ndarray — never a view into input
             py::array_t<double> weights_out(n);
-            std::memcpy(weights_out.mutable_data(), weights_copy.data(), n * sizeof(double));
+            std::memcpy(weights_out.mutable_data(), weights_copy.data(), (size_t)n * sizeof(double));
 
             py::dict result_dict;
             result_dict["status"]           = result.status;
