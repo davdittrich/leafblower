@@ -96,7 +96,7 @@ inline bool apply_rule(
             break;
     }
 
-    prev = curr;   // always update so next call has a valid baseline
+    prev = curr;   // always update — sliding-window baseline for next call (intentional side effect)
     return converged;
 }
 

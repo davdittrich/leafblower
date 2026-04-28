@@ -201,7 +201,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     res.best_error = best_metric_seen;
     res.best_iter  = best_iter_val;
 
-    if (std::isfinite(best_metric_seen) && !W_best.empty()) {
+    if (std::isfinite(best_metric_seen)) {
         double s = 0.0;
         for (int c = 0; c < ct.M_cell; c++) s += W_best[c];
         if (s > 0.0) {
