@@ -479,9 +479,12 @@ The flat loop (inside `else { for (int iter ...) }`) currently uses `p[]`, `q_hy
             // For now: compute cell metrics inline when needed
             const lbw::CalibMetric metric = st.convergence_cfg.metric;
             double mean_err = 0.0, kl_max = 0.0, chi2_total = 0.0, grake_norm = 0.0;
+            // L1_WEIGHT: compute from X_prev (retained from previous check interval).
             double l1_weight = 0.0;
-            // pct_change: approximate via errRp delta (not exact but sufficient)
-            double pct_change = std::fabs(errRp - res.max_error) / std::max(res.max_error, 1e-15);
+            for (int c = 0; c < ct.M_cell; c++)
+                l1_weight += std::fabs(X[c] - X_prev[c]);
+            l1_weight /= static_cast<double>(st.n);
+            for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];  // update for next check
             if (metric != lbw::CalibMetric::MAX_ERR || iter == st.inner_max_iter) {
                 // Full metric computation (reuse existing BLOCK from old loop)
                 double W_tot2 = 0.0;
@@ -762,15 +765,70 @@ Rscript -e "
 "
 ```
 
-- [ ] **Step 3: Run full test suite**
+- [ ] **Step 3: Verify raking-bregman test (unconstrained raking = ieppa KL)**
+
+This test must still pass — with no bounds, water-fill never clamps (L=0, U=∞), so F degenerates to pure multiplicative IPF = same fixed point as ieppa.
+
+```bash
+Rscript -e "testthat::test_file('tests/testthat/test-calibration-solvers.R')" 2>&1 | grep -E "raking.bregman|PASS|FAIL" | head -5
+```
+Expected: `raking-bregman` PASSES.
+
+- [ ] **Step 4: Add min_weight > 0 test (lower-bound water-filling path)**
+
+Append to `tests/testthat/test-calibration-solvers.R`:
+
+```r
+test_that("wf-min-weight: water-filling respects min_weight > 0 (lower bound path)", {
+  # min_weight=0.5 activates L_cell[c] = 0.5 * n_per_cell[c].
+  # All returned weights must be >= min_weight.
+  set.seed(11L); n <- 400L
+  df  <- data.frame(v1=factor(sample(3L,n,TRUE)), v2=factor(sample(2L,n,TRUE)))
+  tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
+  r <- leafblower::harvest(df, tgt, method="raking",
+         min_weight=0.5, max_weight=5, max_iterations=500L, attach_weights=FALSE)
+  w <- as.numeric(r)
+  expect_true(all(w >= 0.5 - 1e-9),
+              label="all weights >= min_weight after water-fill")
+  expect_true(all(w <= 5 + 1e-9),
+              label="all weights <= max_weight after water-fill")
+})
+```
 
 ```bash
 Rscript -e "devtools::test()" 2>&1 | tail -5
 ```
 
-Expected: FAIL ≤ 3 (pre-existing: test-ieppa-nonuniform-d.R ×2; possibly squarem-ac3 if it needs fixture — regenerate again if so).
+Expected: FAIL ≤ 3 (pre-existing: test-ieppa-nonuniform-d.R ×2; possibly squarem-ac3 if it needs fixture).
 
 If `squarem-ac3` fails: the fixture was generated from the OLD algorithm. The test compares `accelerate=FALSE` to the fixture — both should be water-fill now and match.
+
+- [ ] **Step 5: Regenerate raking_obs_reference_stepstone.rds**
+
+**Prerequisite**: confirm raking max_err < 5.44e-3 on stepstone first (water-fill should beat this). Then:
+
+```bash
+OMP_NUM_THREADS=1 Rscript data-raw/gen_raking_obs_ref.R
+```
+
+Verify the generated fixture's `max_error` field ≤ 5.44e-3.
+
+```bash
+Rscript -e "
+  ref <- readRDS('tests/testthat/fixtures/raking_obs_reference_stepstone.rds')
+  cat('raking_obs max_error:', ref\$max_error, '\n')
+  stopifnot(ref\$max_error < 5.44e-3)
+  cat('PASS: fixture valid\n')
+"
+```
+
+- [ ] **Step 6: Run full test suite**
+
+```bash
+Rscript -e "devtools::test()" 2>&1 | tail -5
+```
+
+Expected: FAIL ≤ 3 (pre-existing).
 
 - [ ] **Step 4: Verify AC5 (‖v‖ guard — no NaN)**
 
@@ -844,7 +902,10 @@ If DEFF > 2.50 or max_err > 1.77e-3: water-filling not improving. Check:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/raking.cpp tests/testthat/fixtures/raking_squarem_baseline.rds
+git add src/raking.cpp \
+        tests/testthat/test-calibration-solvers.R \
+        tests/testthat/fixtures/raking_squarem_baseline.rds \
+        tests/testthat/fixtures/raking_obs_reference_stepstone.rds
 git commit -m "feat(raking): replace Dykstra box correction with water-filling bounded IPF (autumn-style); enables L2 SQUAREM halving and sub-acceleration"
 ```
 
