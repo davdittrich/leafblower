@@ -58,7 +58,7 @@ GregResult greg_solve(CalibState& st) {
     std::vector<double> b(static_cast<size_t>(n_cats_total));
     const double n_total = static_cast<double>(st.n);
 
-    static constexpr int kMaxNewtonIters = 10;
+    static constexpr int kMaxNewtonIters = 50;
     static constexpr double kEps = 1e-10;
 
     for (int newton_iter = 0; newton_iter < kMaxNewtonIters; newton_iter++) {
@@ -121,6 +121,12 @@ GregResult greg_solve(CalibState& st) {
             res.convergence_iter = newton_iter + 1;
             break;
         }
+    }
+
+    if (res.status == RK_ERR_NOCONV) {
+        std::snprintf(res.message, sizeof(res.message),
+                      "greg: no convergence after %d Newton steps; active set still cycling",
+                      kMaxNewtonIters);
     }
 
     // Compute 6 metrics at exit
