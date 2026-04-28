@@ -10,6 +10,7 @@ struct CellTable {
     std::vector<int> n_per_cell;                 // size M_cell: count per cell
     std::vector<std::vector<int>> g_per_cell;    // [K][M_cell]: margin-k cat per cell
     double W_input;                              // sum of input weights
+    double capacity_mu_auto = 0.0;  // auto-computed ALM default: M_cell/n (set by build_cell_table)
 };
 
 // Build cell table from group_ids. Returns 0 on success, -1 if K > 64.

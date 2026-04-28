@@ -136,6 +136,9 @@ int build_cell_table(int n, int K,
 
     out.W_input = 0.0;
     for (int i = 0; i < n; i++) out.W_input += weights[i];
+    out.capacity_mu_auto = (n > 0 && out.M_cell > 0)
+        ? static_cast<double>(out.M_cell) / static_cast<double>(n)
+        : 1.0;
     return 0;
 }
 
