@@ -607,13 +607,20 @@ test_that("squarem-geo-ac1: stepstone SQUAREM reaches flat-loop quality", {
 
 # ── Critical review fix tests ─────────────────────────────────────────────────
 
-test_that("squarem-c2: kl metric with accelerate=TRUE runs correct convergence", {
-  # C2 RED: m_conv only sets errRp; kl=0.0 (default) → check_convergence fires on
-  # iter 1-3 via IMPROVEMENT rule (`curr <= 1e-15` → trivially converged).
-  # C2 GREEN: compute_cell_metrics populates kl correctly → proper kl convergence.
-  set.seed(42L)
-  df <- data.frame(v1 = factor(c(rep("A", 80L), rep("B", 20L))))
-  tgt <- list(v1 = c("A" = 0.5, "B" = 0.5))  # imbalanced input → kl > 0 at start
+test_that("squarem-c2: kl metric with accelerate=TRUE converges to proper solution", {
+  # C2: With kl metric, SQUAREM must run until actual kl convergence.
+  # Bug (RED): m_conv only had errRp set; kl=0 → IMPROVEMENT fires trivially at 2nd
+  #            super-step → problem not actually calibrated → max_error still high.
+  # Fix (GREEN): compute_cell_metrics populates kl → runs until real kl convergence.
+  # 2-margin conflicting problem ensures check_convergence is the exit path.
+  # 2-margin problem: v1 80A/20B, v2 randomly split, targets nudge toward majority A.
+  # Targets are achievable within max_weight=5 → SQUAREM must run to real kl convergence.
+  set.seed(99L)
+  df <- data.frame(
+    v1 = factor(c(rep("A", 80L), rep("B", 20L))),
+    v2 = factor(sample(c("x", "y"), 100L, TRUE))
+  )
+  tgt <- list(v1 = c("A" = 0.7, "B" = 0.3), v2 = c("x" = 0.5, "y" = 0.5))
 
   w <- suppressWarnings(
     leafblower::harvest(df, tgt, method = "raking", accelerate = TRUE,
@@ -622,11 +629,10 @@ test_that("squarem-c2: kl metric with accelerate=TRUE runs correct convergence",
                         attach_weights = FALSE))
   r <- attr(w, "result")
 
-  # RED: r$iterations == 1 (kl=0 default → curr<=1e-15 → IMPROVEMENT fires on first check)
-  # GREEN: r$iterations > 1 (real kl populated → first check skipped (prev=inf), fires ≥ iter 2)
-  # Note: 1-variable raking legitimately converges in 2 F-evals with SQUAREM acceleration.
-  expect_gt(r$iterations, 1L,
-            label = "C2: SQUAREM kl-metric must run >1 F-evals (not fire on kl=0 default at iter 1)")
+  # RED (pre-fix): kl=0 fires at 2nd super-step, problem not calibrated → max_error high
+  # GREEN (post-fix): proper kl convergence → max_error small
+  expect_lt(r$max_error, 0.05,
+            label = "C2: kl-metric SQUAREM must converge to low max_error, not exit on kl=0 default")
 })
 
 test_that("squarem-c1: feasible tight-bounds SQUAREM must not return status=INFEAS", {
