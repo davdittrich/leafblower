@@ -585,6 +585,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
         // Per-margin residual errRp_k = max_j |S_lin[j]/W_total - targets[k][j]|.
         // Uses the current X_cur (linear path) or rebuilt S via cells_by_margin_cat (log).
+        // B12: return infinity when W_total<=0 so greedy scheduler treats this margin
+        // as highest priority rather than silently signalling false perfect convergence.
         auto compute_margin_errRp_linear = [&](int k) -> double {
             const int nj = st.cat_counts[k];
             std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
@@ -604,6 +606,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             return err;
         };
 
+        // B12: same sentinel contract as compute_margin_errRp_linear above.
         auto compute_margin_errRp_log = [&](int k) -> double {
             if (X_tilde.empty()) return std::numeric_limits<double>::infinity();
             double W_total = 0.0;
