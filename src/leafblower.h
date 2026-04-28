@@ -88,6 +88,7 @@ typedef struct {
     double sor_omega_min;
     double sor_omega_fixed;  /* -1.0 = use auto */
     int    sor_burnin;
+    double          capacity_penalty;   /* ieppa_soft ALM penalty; <=0.0 = use auto (M_cell/n) */
     /* ── End convergence/SOR config ── */
 } rk_params_t;
 
@@ -125,6 +126,10 @@ typedef struct {
     int    sor_n_damped;     /* iEPPA only; non-iEPPA = 0 */
     double convergence_solver_objective;  /* solver's mathematical objective at best_iter */
     int    convergence_minimized_metric; /* CalibMetric: which metric was minimized */
+    double          alm_capacity_mu_final;  /* final capacity_mu after adaptive scaling; 0 if not ieppa_soft */
+    int             alm_n_growth_events;    /* adaptive growth fire count; 0 if not ieppa_soft */
+    double          alm_max_dual_norm;      /* max |lambda_cell[c]| at solver exit */
+    double          alm_sum_drift;          /* |sum(X) - n| after final projection */
     /* ── End extended quality metrics ── */
 } rk_result_t;
 
@@ -167,14 +172,10 @@ int rk_calibrate(
  * update this value after auditing ABI consumers. */
 #ifdef __cplusplus
 static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
-/* rk_result_t tripwire. Linux x86_64, verified 2026-04-24: 448 bytes. */
-#define EXPECTED_RK_RESULT_BYTES 448
+/* rk_result_t tripwire. Linux x86_64, verified 2026-04-29: 480 bytes. */
+#define EXPECTED_RK_RESULT_BYTES 480
 static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
     "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");
-/* Compute sizeof(rk_params_t) on the target platform at implementation time
- * and hard-code it here. Record the value in a comment. Example:
- *   Linux x86_64 GCC 13, verified 2026-04-24: 72 bytes.
- * After measuring, replace the placeholder below with the actual value. */
 /* ABI layout (2026-04-24): added overlay fields after bounds_mode.
  *   rk_homotopy_cfg_t (n_levels int + 4B pad + 3 doubles + enabled int + 4B pad = 40B)
  *   rk_scheduler_t (int, 4B) + rk_eta_mode_t (int, 4B)
@@ -185,8 +186,9 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  *   sor_enabled (int, 4B) + sor_auto (int, 4B)
  *   sor_omega_init (double, 8B) + sor_omega_min (double, 8B) + sor_omega_fixed (double, 8B)
  *   sor_burnin (int, 4B) + 4B pad
- * Total: 224B. Verified 2026-04-25 Linux x86_64. */
-#define EXPECTED_RK_PARAMS_BYTES 224
+ * T4 (2026-04-29): capacity_penalty (double, 8B) after sor_burnin;
+ *   total: 232B. Verified 2026-04-29 Linux x86_64. */
+#define EXPECTED_RK_PARAMS_BYTES 232
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif
