@@ -629,10 +629,11 @@ RakingResult raking_solve(CalibState& st) {
     // For stalled iterations: return STALL (status=5) + best weights rather than
     // hard-erroring — caller can use the best achievable calibration.
 
-    // B9: Promote STALL/BUDGET to INFEAS when water_fill_cat detected structural
-    // bound conflict. Never override RK_OK — transient infeasibility during a
-    // converging run must not corrupt the OK status.
-    if (is_infeasible && res.status != RK_OK && res.status != RK_ERR_BADARG) res.status = RK_ERR_INFEAS;
+    // Note: is_infeasible (water_fill_cat capacity exhaustion) is intentionally
+    // NOT promoted to RK_ERR_INFEAS here. Upper-bound capacity capping is normal
+    // bounded calibration — the solver returns the best achievable constrained
+    // optimum with binding capacity constraints, not an infeasibility error.
+    // True structural INFEAS (lower bounds exceed target) is caught at validation.
 
     // Post-loop: normalize sum to n (water-filling already enforces bounds)
     {
