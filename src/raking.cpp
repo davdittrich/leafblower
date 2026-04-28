@@ -304,6 +304,11 @@ RakingResult raking_solve(CalibState& st) {
                     if (X_star[c] < 0.0) X_star[c] = 0.0;
                 }
 
+                // errRp-based step-halving: accept X_new if its margin error is no
+                // worse than the plain step w2. Autumn uses L2 norms but that requires
+                // a clean fixed-point operator; leafblower's F carries Dykstra corrections
+                // that corrupt ‖F(X*)-X*‖ as a quality proxy. errRp measures outcome
+                // quality directly and is unaffected by correction-vector state.
                 auto p_star = p_snap; double qh_star = q_snap;
                 double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
 
