@@ -36,9 +36,10 @@ test_that("convergence$absolute is forwarded to solver", {
     sex = c(M=0.49, F=0.51)
   )
   # 2 iterations with default tol (1e-6): competing margins cannot converge -> warning
+  # BUDGET(4) is emitted when iterations exhaust but metric improved at some point.
   expect_warning(
     harvest(df, tgt, method="ieppa", max_iterations=2, convergence = list(absolute = 1e-6)),
-    regexp="did not converge"
+    regexp="budget exhausted"
   )
   # 2 iterations with loose tol (0.3): error after 2 iters < 0.3 -> no warning
   # Before fix: tol_abs ignored, tol=1e-6 used, warning fires -> test fails

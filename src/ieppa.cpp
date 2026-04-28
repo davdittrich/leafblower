@@ -1362,7 +1362,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
         res.n_bounds_clamped = total_clamped;
     }
 
-    if (!structural_infeas_pairs.empty() && res.status == RK_ERR_NOCONV) {
+    if (!structural_infeas_pairs.empty() &&
+        (res.status == RK_ERR_NOCONV || res.status == RK_ERR_BUDGET || res.status == RK_ERR_STALL)) {
         res.status = RK_ERR_INFEAS;
     }
 
