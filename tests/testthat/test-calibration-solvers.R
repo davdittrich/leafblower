@@ -604,3 +604,26 @@ test_that("squarem-geo-ac1: stepstone SQUAREM reaches flat-loop quality", {
   expect_lte(res$max_error, 1.60e-3,
              label = "SQUAREM+geo fix must reach flat-loop quality (max_err <= 1.60e-3)")
 })
+
+# ── Critical review fix tests ─────────────────────────────────────────────────
+
+test_that("squarem-c2: kl metric with accelerate=TRUE runs correct convergence", {
+  # C2 RED: m_conv only sets errRp; kl=0.0 (default) → check_convergence fires on
+  # iter 1-3 via IMPROVEMENT rule (`curr <= 1e-15` → trivially converged).
+  # C2 GREEN: compute_cell_metrics populates kl correctly → proper kl convergence.
+  set.seed(42L)
+  df <- data.frame(v1 = factor(c(rep("A", 80L), rep("B", 20L))))
+  tgt <- list(v1 = c("A" = 0.5, "B" = 0.5))  # imbalanced input → kl > 0 at start
+
+  w <- suppressWarnings(
+    leafblower::harvest(df, tgt, method = "raking", accelerate = TRUE,
+                        max_weight = 5, max_iterations = 200L,
+                        convergence = list(metric = "kl", rule = "improvement", tol = 0.001),
+                        attach_weights = FALSE))
+  r <- attr(w, "result")
+
+  # RED: r$iterations <= 3 (kl=0 default causes instant convergence at first super-step)
+  # GREEN: r$iterations > 3 (real kl convergence runs multiple super-steps)
+  expect_gt(r$iterations, 3L,
+            label = "C2: SQUAREM kl-metric must run >3 F-evals (not fire on kl=0 default)")
+})
