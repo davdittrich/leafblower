@@ -1,12 +1,13 @@
-# iEPPA Soft: ALM Capacity Enforcement — Design Spec (rev 2)
+# iEPPA Soft: ALM Capacity Enforcement — Design Spec (rev 3)
 
 **Date**: 2026-04-29
-**Status**: Pending design review
+**Status**: Pending design review (rev 3 addresses all 5-agent gate findings from rev 2)
 **Tickets**: leafblower-scii (T3 bug), leafblower-bgx6 (alm_mu decision)
-**Files**: `src/ieppa.cpp`, `src/ieppa.hpp`, `src/types.hpp`, `src/cell_table.cpp`,
-          `src/cell_table.hpp`, `src/r_bridge.cpp`, `src/c_api.cpp`,
-          `R/harvest.R`, `man/harvest.Rd` (auto-regenerated),
-          `tests/testthat/test-calibration-solvers.R`
+**Files**: `src/ieppa.cpp`, `src/ieppa.hpp`, `src/types.hpp`, `src/leafblower.h`,
+          `src/cell_table.cpp`, `src/cell_table.hpp`, `src/r_bridge.cpp`,
+          `src/c_api.cpp`, `R/harvest.R`, `man/harvest.Rd` (auto-regenerated),
+          `tests/testthat/test-calibration-solvers.R`,
+          `tests/testthat/fixtures/ieppa_pre_alm_ref.rds` (Step 0 prerequisite)
 
 ---
 
@@ -49,13 +50,40 @@ weights identical: TRUE
 
 `alm_lambda` and `alm_mu` in `CalibState` are **actively used by lbfgsb_solver.cpp** (lines 74-87, 378-392, 510-524) for the sum-to-n ALM. They must NOT be reused for ieppa's capacity ALM.
 
-**New CalibState fields** (in `src/types.hpp`):
+**New CalibState field** (in `src/types.hpp`):
 ```cpp
 double capacity_mu       = 0.0;  // ieppa_soft ALM penalty coefficient (0 = inactive)
 // (per-cell dual `lambda_cell[c]` lives in solver-local std::vector, not CalibState)
 ```
 
-The existing `use_admm_capacity` field is kept and still gates the ALM block (renamed semantically — see Implementation §2).
+**New rk_params_t field** (in `src/leafblower.h`, ABI break):
+```cpp
+double capacity_penalty;  /* ieppa_soft ALM penalty; 0.0 or negative → use cell_table auto */
+```
+
+The existing `use_admm_capacity` field on CalibState is kept and gates the ALM block — kept as `use_admm_capacity` for stability (no rename despite changed semantic; rename is out of scope to avoid churn).
+
+**Plumbing chain** (data flow trace — every link must be implemented):
+
+```
+R user → harvest(capacity_penalty=NULL|scalar)
+       → harvest.R validates, passes to .Call("C_rk_calibrate", ..., capacity_penalty_sexp, ...)
+       → r_bridge.cpp C_rk_calibrate reads SEXP slot
+       → r_bridge.cpp populates rk_params_t.capacity_penalty
+       → r_bridge.cpp calls build_cell_table → CellTable.capacity_mu_auto = M_cell/n
+       → r_bridge.cpp resolves p.capacity_penalty:
+           if (capacity_penalty <= 0)  st.capacity_mu = ct.capacity_mu_auto
+           else                         st.capacity_mu = capacity_penalty
+       → r_bridge.cpp dispatch sets st.use_admm_capacity = true (for IEPPA_SOFT)
+       → ieppa.cpp ieppa_solve reads st.capacity_mu and st.use_admm_capacity
+       → ieppa.cpp capacity block uses st.capacity_mu in ALM formula
+       → ieppa.cpp populates res fields (alm_capacity_mu_final, alm_n_growth_events, alm_max_dual_norm)
+       → r_bridge.cpp packs result fields into rk_result_t
+       → r_bridge.cpp exposes via attr(r, "result")$alm_*
+       → R user reads attr(r, "result")$alm_capacity_mu_final
+```
+
+**Same chain for c_api.cpp direct C callers** — except they bypass R-layer validation (documented constraint).
 
 ### Algorithm
 
@@ -82,12 +110,18 @@ X_cur[c] = X_alm;
 
 // Dual ascent (raw, standard ALM):
 lambda_cell[c] += st.capacity_mu * (X_alm - z);
-// Bound dual to prevent runaway (10× max weight is plenty of dual range):
-const double lambda_cap = 10.0 * st.max_weight;
+// Bound dual to prevent runaway. λ has units mass⁻¹ (matches X̃⁻¹ = M_cell/n scale).
+// Cap = 10·capacity_mu_base·max_weight matches the auto scale: when |λ|≈cap and
+// |X − z|≈max_weight, the dual update Δλ = μ·(X − z) ≈ μ·max_weight cannot exceed cap
+// in a single step. Prevents one-iteration runaway while leaving multi-iteration headroom.
+const double lambda_cap = 10.0 * capacity_mu_base * st.max_weight;
 lambda_cell[c] = std::clamp(lambda_cell[c], -lambda_cap, lambda_cap);
 ```
 
-**Mathematical derivation** (replaces fuzzy reference in rev 1):
+**Mathematical derivation** (linearized Newton step from s=1, NOT exact minimizer):
+
+The exact ALM minimizer requires solving a transcendental equation (KL gradient is `log(s)`, penalty gradient is linear in s). The closed-form below is a single Newton step from s=1, which is exact when X[c] = X̃[c] and a good approximation when |X − X̃| / X̃ is small. Multiple Newton iterations per outer step are out of scope — single step has worked empirically for similar Bregman proximal solvers (Boyd 2011 §3.4).
+
 
 Per-cell objective: `f(X) = KL(X | X̃) + λ·(X − z) + (μ/2)·(X − z)²`
 
@@ -159,30 +193,33 @@ for (int iter = 0; iter < kMaxRescaleIters; iter++) {
 
 ### Dynamic μ Schedule (composed correctly)
 
-Persistent state across homotopy levels:
+Persistent state across homotopy levels (declared at solver entry, before homotopy loop):
 ```cpp
-double capacity_mu_base = st.capacity_mu;       // user-supplied (or auto from cell_table)
-double capacity_mu_adaptive = capacity_mu_base; // adaptive scale, persists across levels
-int    alm_violation_streak = 0;                // resets on level transition AND on decay
+const double capacity_mu_base = st.capacity_mu;       // user-supplied (or auto from cell_table)
+double capacity_mu_adaptive   = capacity_mu_base;     // adaptive scale, persists across levels
+int    alm_violation_streak   = 0;                    // resets on level transition
+double eta_i_current          = 1.0;                  // current Tang-η factor; persists for adaptive use
+const bool tang_active = (st.eta_schedule.mode == EtaScheduleMode::TANG_DYNAMIC && N_levels > 1);
 ```
 
-At each homotopy level entry (line 386-391, replace existing alm_mu logic):
+At each homotopy level entry (replace existing alm_mu logic at ieppa.cpp:381-391):
 ```cpp
-if (st.eta_schedule.mode == EtaScheduleMode::TANG_DYNAMIC && N_levels > 1) {
+if (tang_active) {
     const double scaled_frac = std::pow(frac, st.eta_schedule.schedule_power);
-    const double eta_i = st.eta_schedule.eta_start *
+    eta_i_current = st.eta_schedule.eta_start *
         std::pow(st.eta_schedule.eta_end / st.eta_schedule.eta_start, scaled_frac);
-    res.eta_final = eta_i;
-    st.capacity_mu = eta_i * capacity_mu_adaptive;  // Tang-η × adaptive (compose, don't overwrite)
+    res.eta_final = eta_i_current;
+    st.capacity_mu = eta_i_current * capacity_mu_adaptive;  // compose: Tang-η × adaptive
 } else {
-    st.capacity_mu = capacity_mu_adaptive;          // No Tang-η: pure adaptive
+    eta_i_current = 1.0;
+    st.capacity_mu = capacity_mu_adaptive;                   // no Tang-η: pure adaptive
 }
-alm_violation_streak = 0;  // Reset streak on level transition
-// Reset per-cell dual on level transition (was decision 5b, unchanged):
+alm_violation_streak = 0;  // reset streak on level transition
+// Reset per-cell dual on level transition AND on linear→log fallback (rev 2 decision 5b'):
 if (st.use_admm_capacity) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
 ```
 
-Per-iteration adaptive growth (after capacity block):
+Per-iteration adaptive growth (after capacity block, eta_i_current already declared above):
 ```cpp
 constexpr int    kAlmPersistenceThreshold = 5;
 constexpr double kAlmGrowthFactor         = 2.0;
@@ -204,7 +241,8 @@ if (max_violation > tol_primal) {
     if (alm_violation_streak >= kAlmPersistenceThreshold &&
         capacity_mu_adaptive < capacity_mu_base * kAlmMaxScale) {
         capacity_mu_adaptive *= kAlmGrowthFactor;
-        st.capacity_mu = (Tang_active ? eta_i_current : 1.0) * capacity_mu_adaptive;
+        st.capacity_mu = eta_i_current * capacity_mu_adaptive;  // immediate effect, eta_i tracked
+        res.alm_n_growth_events++;
         alm_violation_streak = 0;
         if (st.verbose >= 2) {
             char msg[128];
@@ -272,6 +310,17 @@ if (Rf_isNull(capacity_penalty_sexp) || LENGTH(capacity_penalty_sexp) == 0) {
 
 ### R API
 
+**`@param method` update** — must include `ieppa_soft` in the enumeration:
+```r
+#' @param method Calibration algorithm to use. One of: \code{"auto"} (default,
+#'   selects based on data shape), \code{"ieppa"} (iterative entropic proximity
+#'   projection with hard capacity clamp), \code{"ieppa_soft"} (iEPPA with
+#'   augmented Lagrangian soft capacity enforcement; better than \code{"ieppa"}
+#'   on tight-bounds problems where many cells hit \code{max_weight}),
+#'   \code{"raking"} (cyclic IPF with water-filling), \code{"lbfgsb"}, etc.
+```
+
+**`@param capacity_penalty`** — new param with concrete user guidance:
 ```r
 #' @param capacity_penalty Numeric, controls how strongly capacity bounds are
 #'   enforced during ALM optimization in \code{method="ieppa_soft"}. Use
@@ -280,11 +329,60 @@ if (Rf_isNull(capacity_penalty_sexp) || LENGTH(capacity_penalty_sexp) == 0) {
 #'   projection. Larger values force tighter constraint adherence at the cost
 #'   of slower margin convergence; smaller values allow more constraint
 #'   violation during optimization but are pulled back to the feasible set by
-#'   the final projection. Ignored for methods other than \code{"ieppa_soft"}.
+#'   the final projection.
+#'
+#'   \strong{Tuning guidance}: After running \code{ieppa_soft}, inspect
+#'   \code{attr(result, "result")$alm_capacity_mu_final}. If
+#'   \code{alm_capacity_mu_final / capacity_penalty_input >= 1000}, the adaptive
+#'   schedule hit its growth ceiling — supply a manual \code{capacity_penalty}
+#'   that is \code{10x} larger and re-run. If \code{alm_n_growth_events == 0}
+#'   and \code{max_error} is acceptable, the auto value worked.
+#'
+#'   Ignored for methods other than \code{"ieppa_soft"}; passing it with another
+#'   method emits a warning.
+```
+
+**`@details`** addition for method selection guidance:
+```r
+#' @details
+#' \strong{Choosing between \code{ieppa} and \code{ieppa_soft}}: Use
+#' \code{method="ieppa"} (default for AUTO routing on tight-bounds inputs)
+#' when capacity bounds are slack — most cells will not hit \code{max_weight}.
+#' Switch to \code{method="ieppa_soft"} when:
+#' \itemize{
+#'   \item \code{ieppa} returns with \code{max_error > 1e-3} on a feasible problem
+#'   \item Many observations cluster near \code{max_weight} (visible in result
+#'         diagnostics: \code{n_bounds_clamped > 0.05 * n})
+#'   \item You need the calibration to find the best constrained optimum rather
+#'         than getting stuck at the boundary
+#' }
+#' \code{ieppa_soft} is roughly 10-30\% slower than \code{ieppa} due to ALM
+#' bookkeeping; final weights respect bounds exactly (hard projection), but
+#' \code{sum(weights)} may differ from \code{n} by up to \code{1e-6 * n} on
+#' adversarial inputs (reported in \code{alm_sum_drift}).
+```
+
+**`@return` itemize update** — add 4 ALM diagnostic fields:
+```r
+#' \item \code{alm_capacity_mu_final}: final value of the ALM penalty after
+#'   adaptive scaling (\code{method="ieppa_soft"} only; \code{0} otherwise).
+#' \item \code{alm_n_growth_events}: count of adaptive penalty growth events
+#'   during solving. \code{0} = auto value sufficed; high values suggest
+#'   manually increasing \code{capacity_penalty}.
+#' \item \code{alm_max_dual_norm}: maximum absolute Lagrange dual at exit.
+#'   Near the cap (\code{10 * capacity_mu_base * max_weight}) suggests very
+#'   binding constraints or infeasibility.
+#' \item \code{alm_sum_drift}: \code{|sum(weights) - n|} after final projection.
+#'   Bounded by \code{1e-6 * n} on well-conditioned inputs.
+```
+
+**Function signature** (insertion point after `max_weight`, before `...`):
+```r
 harvest <- function(data, target,
                     method = "auto",
                     max_weight = 5,
-                    capacity_penalty = NULL,
+                    min_weight = 0,
+                    capacity_penalty = NULL,    # NEW (rev 3)
                     ...)
 ```
 
@@ -300,46 +398,122 @@ if (!is.null(capacity_penalty)) {
 ```
 
 `.Call` argument insertion: `capacity_penalty` added as new positional argument
-after `start_weights` (slot 8 → all subsequent slots shift by 1). The C bridge
-unpacks via:
-```c
-SEXP capacity_penalty_sexp = CADR(...);  // exact slot determined by .Call signature
-```
-**Implementation note**: this requires updating ALL `.Call("C_rk_calibrate", ...)`
-call sites — currently at `R/harvest.R:241-276` and any test or benchmark that
-calls `.Call` directly. Grep verifies: `grep -rn 'C_rk_calibrate' R/ tests/ benchmarks/`.
+after `start_weights` (slot 8). All subsequent slots shift by 1.
+
+**Complete slot table after insertion (32 args total)**:
+
+| Slot | Name | Type | Source |
+|------|------|------|--------|
+| 1 | data | data.frame | df |
+| 2 | target | list | targets |
+| 3 | min_weight | double | param |
+| 4 | max_weight | double | param |
+| 5 | method | character | param |
+| 6 | verbose | integer | param |
+| 7 | max_iterations | integer | param |
+| 8 | start_weights | double or NULL | param |
+| **9** | **capacity_penalty** | **double or NULL** | **NEW (rev 3)** |
+| 10 | tol_abs (legacy) | double | hardcoded |
+| 11 | bounds_mode_int | integer | param |
+| 12 | homotopy_levels | integer | param |
+| 13 | homotopy_start_factor | double | param |
+| 14 | homotopy_end_factor | double | param |
+| 15 | homotopy_budget_p | double | param |
+| 16 | scheduler | character | param |
+| 17 | eta_schedule | character | param |
+| 18 | eta_start | double | param |
+| 19 | eta_end | double | param |
+| 20 | eta_schedule_power | double | param |
+| 21 | conv_pct_tol | double | parsed conv |
+| 22 | conv_absolute_tol | double | parsed conv |
+| 23 | conv_metric_int | integer | parsed conv |
+| 24 | conv_rule_int | integer | parsed conv |
+| 25 | conv_stop_when_int | integer | parsed conv |
+| 26 | sor_enabled | integer | param |
+| 27 | sor_auto | integer | param |
+| 28 | sor_omega_init | double | param |
+| 29 | sor_omega_min | double | param |
+| 30 | sor_omega_fixed | double | param |
+| 31 | sor_burnin | integer | param |
+| 32 | accelerate_bool | integer | param |
+
+**Mandatory grep audit** (acceptance criterion 10): `grep -rn 'C_rk_calibrate' R/ tests/ benchmarks/ python/ src/r_bridge.cpp` must show ALL call sites updated. Current sites: `R/harvest.R` (one .Call), `tests/testthat/test-safety.R` (B7 test), `src/r_bridge.cpp` registration table. Any positional caller (none found in benchmarks, but grep is mandatory before merge) must insert NULL or value at slot 9.
+
+**Registration update**: `src/r_bridge.cpp` `R_CallMethodDef` for `C_rk_calibrate` must change arity from 31 to 32. The static_assert tripwire: if R sees a 31-arg call to a 32-arg registration, R errors with "Incorrect number of arguments to .Call". This catches any missed call site at runtime in test execution.
 
 ### ALM Diagnostics Exposed
 
-Add to `rk_result_t`:
+Add to `rk_result_t` (in `src/leafblower.h`):
 ```c
 double alm_capacity_mu_final;   /* final capacity_mu after adaptive scaling; 0 if not ieppa_soft */
 int    alm_n_growth_events;     /* count of adaptive growth fires; 0 if not ieppa_soft */
 double alm_max_dual_norm;       /* max |lambda_cell[c]| at solver exit; for monitoring */
+double alm_sum_drift;           /* |sum(X) - n| after final projection; user-visible bound check */
 ```
 
-Exposed in `attr(r, "result")` so users can monitor:
-- `alm_capacity_mu_final / capacity_penalty_input ≈ 1.0` → adaptive growth not needed
-- `alm_capacity_mu_final / capacity_penalty_input ≥ 1000` → hit cap, increase capacity_penalty manually
-- `alm_max_dual_norm` near `lambda_cap` → constraint very binding, may indicate infeasibility
+**ABI update**: 4 new fields × {8, 4, 8, 8} bytes = 28B + 4B padding = 32B.
+- Old `EXPECTED_RK_RESULT_BYTES = 448`
+- New `EXPECTED_RK_RESULT_BYTES = 480` (update in `src/leafblower.h:171` along with comment line 170)
 
-### Files to Modify (with implementation order)
+**ABI update for rk_params_t**: 1 new field (8B) + 0 padding = 8B.
+- Old `EXPECTED_RK_PARAMS_BYTES = 224`
+- New `EXPECTED_RK_PARAMS_BYTES = 232` (update in `src/leafblower.h:189`)
+
+Exposed in `attr(r, "result")` (4 new R-level fields):
+- `alm_capacity_mu_final / capacity_penalty_input ≈ 1.0` → adaptive growth not needed
+- `alm_capacity_mu_final / capacity_penalty_input ≥ 1000` → hit cap, increase `capacity_penalty` manually by 10×
+- `alm_max_dual_norm` near `lambda_cap = 10·capacity_mu_base·max_weight` → constraint very binding, may indicate infeasibility
+- `alm_sum_drift` should be < 1e-9·n on well-conditioned inputs; > 1e-6·n indicates infeasible bounds
+
+### Cross-method behavior: capacity_penalty ignored for non-ieppa_soft
+
+If user passes `capacity_penalty` with `method != "ieppa_soft"`, harvest.R emits a warning:
+```r
+if (!is.null(capacity_penalty) && method != "ieppa_soft") {
+  warning("leafblower: capacity_penalty is only used by method='ieppa_soft'; ignored for method='", method, "'",
+          call. = FALSE)
+}
+```
+
+This matches the existing pattern for `accelerate` (harvest.R:206) and gives users explicit feedback rather than silent param drop.
+
+### Files to Modify (with implementation order — Step 0 prerequisite)
 
 | Order | File | Change |
 |-------|------|--------|
+| **0** | **`tests/testthat/fixtures/ieppa_pre_alm_ref.rds`** | **PREREQUISITE: capture pre-merge ieppa weights via `data-raw/gen_ieppa_pre_alm_ref.R`. Must commit fixture BEFORE step 1.** |
 | 1 | `src/types.hpp` | Add `double capacity_mu = 0.0;` to CalibState |
 | 2 | `src/cell_table.hpp` | Add `double capacity_mu_auto = 0.0;` to CellTable struct |
-| 3 | `src/cell_table.cpp` | `build_cell_table`: compute `capacity_mu_auto = M_cell/n` (with n>0 guard) |
-| 4 | `src/leafblower.h` | Add 3 `alm_*` fields to `rk_result_t`; bump `EXPECTED_RK_RESULT_BYTES`; update tripwire |
-| 5 | `src/r_bridge.cpp` | Read `capacity_penalty` SEXP with proper Rf_isNull/LENGTH guards; expose 3 ALM diagnostics in result |
-| 6 | `src/c_api.cpp` | Same routing; document validation contract for direct C callers (R-layer guards do not apply) |
-| 7 | `src/ieppa.cpp` | Replace P1.1 capacity block with ALM update; add lambda_cell vector; add adaptive growth; update u[] reset policy; add final projection |
-| 8 | `src/ieppa.hpp` | (no changes needed — IEPPAResult fields covered by rk_result_t additions) |
-| 9 | `R/harvest.R` | Add `capacity_penalty = NULL` param + validation; pass through `.Call`; update `@param` Roxygen |
-| 10 | `man/harvest.Rd` | Auto-regenerated by `devtools::document()` from harvest.R |
-| 11 | `tests/testthat/test-calibration-solvers.R` | T3 strengthened; T4–T8 new |
+| 3 | `src/cell_table.cpp` | `build_cell_table`: compute `capacity_mu_auto = M_cell/n` (with `n>0 && M_cell>0` guard) |
+| 4 | `src/leafblower.h` | Add 4 `alm_*` fields to `rk_result_t`; add `capacity_penalty` to `rk_params_t`; bump `EXPECTED_RK_RESULT_BYTES` (448→480) and `EXPECTED_RK_PARAMS_BYTES` (224→232); update tripwire comments |
+| 5 | `src/r_bridge.cpp` | Read `capacity_penalty` SEXP with `Rf_isNull`/`LENGTH` guards; populate `p.capacity_penalty`; resolve auto vs manual; update `R_CallMethodDef` arity 31→32; pack 4 ALM diagnostic fields into result |
+| 6 | `src/c_api.cpp` | Same routing; add comment block documenting validation contract for direct C callers (R-layer guards do not apply; callers must validate) |
+| 7 | `src/ieppa.cpp` | Replace P1.1 capacity block (lines 800-816) with ALM update; declare persistent `capacity_mu_adaptive` / `eta_i_current` / `alm_violation_streak`; add lambda_cell vector (size M_cell); update u[] reset policy (level transitions + linear→log fallback); add adaptive growth; add final clamp+rescale projection; populate 4 result fields |
+| 8 | `src/ieppa.hpp` | (no changes — diagnostics carried via `rk_result_t`) |
+| 9 | `R/harvest.R` | Add `capacity_penalty = NULL` param at signature position 6; validation block; pass to `.Call` slot 9; warn when used with non-ieppa_soft method; update `@param method` (add ieppa_soft); add `@param capacity_penalty`; add `@details` method-selection guidance; add 4 ALM fields to `@return` itemize |
+| 10 | `man/harvest.Rd` | Auto-regenerated by `devtools::document()` |
+| 11 | `tests/testthat/test-calibration-solvers.R` | T3 strengthened; T4-T7 new; T9 (backward compat reading Step 0 fixture); T10 (warning) |
+| 12 | `tests/testthat/test-safety.R` | Update existing `.Call` test (B7) to pass NULL at slot 9 (capacity_penalty) |
+| 13 | `data-raw/gen_ieppa_pre_alm_ref.R` | Script that produced Step 0 fixture (committed alongside fixture for reproducibility) |
 
-**Compile order matters**: 1→2→3→4 must compile clean before 5/6 (downstream consumers). Then 7 before 8/9. Then 11 last.
+**Compile order**: 1→2→3 must compile clean before 4 (cell_table.hpp included by leafblower.h consumers? actually no — types.hpp and cell_table.hpp are independent of leafblower.h). 1, 2, 3, 4 are independent — pick any order, then 5/6 (which depend on 4 + cell_table). Then 7 (depends on 1, 2). Then 9 (depends on R-side ABI being stable in 4). Then 10 auto. Then 11/12 last.
+
+**Step 0 procedure** (must complete before any code change):
+```bash
+# In a clean checkout of the pre-merge state:
+Rscript data-raw/gen_ieppa_pre_alm_ref.R
+# Script content:
+#   1. Set seed; generate canonical 5000-row 5-category test problem
+#   2. Run harvest(df, tgt, method="ieppa", max_weight=1.8, ...)
+#   3. saveRDS(list(df=df, tgt=tgt, max_weight=1.8, min_weight=0,
+#                    max_iterations=500, convergence=list(...),
+#                    weights=as.numeric(r),
+#                    result=attr(r,"result")),
+#               "tests/testthat/fixtures/ieppa_pre_alm_ref.rds")
+git add tests/testthat/fixtures/ieppa_pre_alm_ref.rds data-raw/gen_ieppa_pre_alm_ref.R
+git commit -m "test(ieppa): capture pre-ALM reference fixture for backward compat regression"
+# Only THEN start steps 1-13.
+```
 
 ---
 
@@ -485,25 +659,83 @@ test_that("ieppa_soft: adaptive growth scales capacity_mu when primal violation 
 })
 ```
 
-### T8 — Wall-time budget (regression guard)
+### T8 — Wall-time budget (regression guard, interleaved)
 
 ```r
-test_that("ieppa_soft wall-time within 1.3x of ieppa on stepstone", {
+test_that("ieppa_soft wall-time within 1.5x of ieppa on stepstone (interleaved)", {
   skip_on_cran()
+  skip_if_not_installed("bench")
   if (!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet")) skip("no fixture")
   df <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet"); df$uuid <- NULL
   tgt <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
   tgt <- lapply(tgt, function(t) { t <- unlist(t); t / sum(t) })
   for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
 
-  t_hard <- system.time(
-    harvest(df, tgt, method="ieppa", max_iterations=300, attach_weights=FALSE)
-  )["elapsed"]
-  t_soft <- system.time(
-    harvest(df, tgt, method="ieppa_soft", max_iterations=300, attach_weights=FALSE)
-  )["elapsed"]
-  expect_lt(t_soft, 1.3 * t_hard,
-    label = sprintf("ieppa_soft (%.2fs) must be within 1.3x of ieppa (%.2fs)", t_soft, t_hard))
+  # Interleaved comparison via bench::mark — eliminates GC/scheduler variance
+  # that would dominate sequential system.time() measurements.
+  res <- bench::mark(
+    ieppa      = harvest(df, tgt, method="ieppa",      max_iterations=300, attach_weights=FALSE),
+    ieppa_soft = harvest(df, tgt, method="ieppa_soft", max_iterations=300, attach_weights=FALSE),
+    iterations    = 3,
+    check         = FALSE,           # weights differ by design (T3)
+    min_iterations = 3,
+    filter_gc      = FALSE
+  )
+  t_hard <- as.numeric(res$median[res$expression == "ieppa"])
+  t_soft <- as.numeric(res$median[res$expression == "ieppa_soft"])
+  expect_lt(t_soft, 1.5 * t_hard,
+    label = sprintf("ieppa_soft median (%.2fs) must be within 1.5x of ieppa median (%.2fs)",
+                    t_soft, t_hard))
+})
+```
+
+### T9 — Backward compatibility for `method="ieppa"` (regression guard)
+
+```r
+test_that("method='ieppa' produces bit-identical weights vs pre-ALM reference fixture", {
+  # Fixture captured pre-merge as Step 0 (see Implementation Order below).
+  # Hash-locked: any change to ieppa hard-clamp behavior fails this test.
+  fixture_path <- testthat::test_path("fixtures/ieppa_pre_alm_ref.rds")
+  if (!file.exists(fixture_path)) {
+    skip("Step 0 fixture not captured — run data-raw/gen_ieppa_pre_alm_ref.R first")
+  }
+  ref <- readRDS(fixture_path)
+
+  # Reference inputs encoded in the fixture for self-containment:
+  df  <- ref$df
+  tgt <- ref$tgt
+
+  r <- harvest(df, tgt, method="ieppa",
+               max_weight=ref$max_weight, min_weight=ref$min_weight,
+               max_iterations=ref$max_iterations,
+               convergence=ref$convergence, attach_weights=FALSE)
+  w_post <- as.numeric(r)
+  expect_equal(w_post, ref$weights, tolerance=1e-12,
+               label="method='ieppa' must produce bit-identical weights pre/post ALM merge")
+  # Result attribute fields also unchanged (excluding new ALM fields, which
+  # should be 0/NA for non-ieppa_soft):
+  res_post <- attr(r, "result")
+  expect_equal(res_post$status,     ref$result$status)
+  expect_equal(res_post$iterations, ref$result$iterations)
+  expect_equal(res_post$max_error,  ref$result$max_error, tolerance=1e-12)
+})
+```
+
+### T10 — `capacity_penalty` warns when used with non-ieppa_soft method
+
+```r
+test_that("capacity_penalty emits warning when passed to non-ieppa_soft method", {
+  set.seed(10); n <- 100L
+  df <- data.frame(v=factor(sample(c("a","b"), n, TRUE)))
+  tgt <- list(v=c(a=0.5, b=0.5))
+  expect_warning(
+    harvest(df, tgt, method="ieppa", capacity_penalty=0.5, attach_weights=FALSE),
+    regexp = "capacity_penalty.*ieppa_soft.*ignored"
+  )
+  expect_warning(
+    harvest(df, tgt, method="raking", capacity_penalty=0.5, attach_weights=FALSE),
+    regexp = "capacity_penalty.*ieppa_soft.*ignored"
+  )
 })
 ```
 
@@ -512,19 +744,19 @@ test_that("ieppa_soft wall-time within 1.3x of ieppa on stepstone", {
 ## Acceptance Criteria
 
 1. **T3 GREEN**: `me_soft < me_hard - 1e-6` on tight-bounds problem (strict improvement, not noise).
-2. **T4 GREEN**: `capacity_penalty=NULL` routes to auto; validation rejects all invalid inputs with descriptive message.
-3. **T5 GREEN**: Final weights satisfy bounds exactly; sum drift < 1e-6 of n; ieppa_soft weights provably differ from ieppa.
-4. **T6 GREEN**: On stepstone, `me_soft ≤ me_hard + 1e-9`.
-5. **T7 GREEN**: Adaptive growth fires and is observable via `alm_n_growth_events > 0` and `alm_capacity_mu_final > capacity_penalty * 1.5`.
-6. **T8 GREEN**: Wall time within 1.3× ieppa on stepstone.
-7. **Backward compat**: `method="ieppa"` produces bit-identical results before/after this change. Test:
-   ```r
-   r_pre  <- readRDS("tests/testthat/fixtures/ieppa_pre_alm_ref.rds")  # captured pre-merge
-   r_post <- harvest(df_ref, tgt_ref, method="ieppa", ...)
-   expect_equal(as.numeric(r_post), r_pre$weights, tolerance=1e-12)
-   ```
-8. **No regressions**: `devtools::test()` FAIL count ≤ 3 (current baseline).
-9. **harvest.Rd contains `capacity_penalty`**: `grep -c "capacity_penalty" man/harvest.Rd` returns ≥ 2 (param block + details).
+2. **T4 GREEN**: `capacity_penalty=NULL` routes to auto; validation rejects all invalid inputs (NaN, Inf, 0, negative, vector, string) with descriptive message.
+3. **T5 GREEN**: Final weights satisfy bounds exactly via IEEE comparison; sum drift < 1e-6·n on adversarial asymmetric bounds; ieppa_soft weights provably differ from ieppa hard-clamp result on the same input.
+4. **T6 GREEN**: On stepstone fulldata fixture, `me_soft ≤ me_hard + 1e-9`. Skip on CRAN. Manual verification required if fixture absent.
+5. **T7 GREEN**: Adaptive growth fires on adversarial start (`capacity_penalty=1e-6`, target=99%/1%): `alm_n_growth_events > 0` AND `alm_capacity_mu_final > capacity_penalty_input * 1.5`.
+6. **T8 GREEN**: `bench::mark(min_iterations=3)` median wall time of ieppa_soft within 1.5× of ieppa on stepstone.
+7. **T9 GREEN (backward compat)**: `method="ieppa"` produces bit-identical weights to pre-ALM reference fixture (Step 0). Tolerance 1e-12.
+8. **T10 GREEN (warning)**: `capacity_penalty` passed with `method != "ieppa_soft"` emits warning matching `capacity_penalty.*ieppa_soft.*ignored`.
+9. **No regressions**: `devtools::test()` FAIL count exactly equal to pre-merge baseline (currently 3, locked at PR open time, not "≤3").
+10. **`.Call` arity audit**: `grep -rn 'C_rk_calibrate' R/ tests/ benchmarks/ python/ src/r_bridge.cpp` shows ALL call sites updated to 32 args; CI run confirms no "incorrect number of arguments" errors.
+11. **harvest.Rd content**: `grep -c "capacity_penalty" man/harvest.Rd` returns ≥ 3 (param block + details + return block); `grep -c "ieppa_soft" man/harvest.Rd` returns ≥ 4 (method param + details + each instance in the fix description).
+12. **Diagnostics observable**: `attr(r, "result")` exposes `alm_capacity_mu_final`, `alm_n_growth_events`, `alm_max_dual_norm`, `alm_sum_drift` for `method="ieppa_soft"`. Type checked: numeric scalars, finite (or 0/NA for non-ieppa_soft).
+13. **ABI tripwires fire correctly**: `EXPECTED_RK_RESULT_BYTES = 480` and `EXPECTED_RK_PARAMS_BYTES = 232` static_asserts compile clean (= correct field count).
+14. **Step 0 fixture committed first**: `git log --oneline tests/testthat/fixtures/ieppa_pre_alm_ref.rds` shows commit BEFORE any commit touching `src/ieppa.cpp` ALM code.
 
 ---
 
