@@ -364,7 +364,7 @@ RakingResult raking_solve(CalibState& st) {
                 if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
                     X = w2;
                     res.max_error        = errRp_w2;
-                    res.status           = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    res.status           = RK_OK;
                     res.convergence_iter = f_eval_count;
                     break;
                 }
@@ -436,7 +436,7 @@ RakingResult raking_solve(CalibState& st) {
                 lbw::CellMetrics m_conv; m_conv.errRp = errRp_new;
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
-                    res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    res.status             = RK_OK;
                     res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
                     res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
                     res.convergence_tol    = st.convergence_cfg.pct_tol;

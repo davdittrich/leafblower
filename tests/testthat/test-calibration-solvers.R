@@ -627,3 +627,30 @@ test_that("squarem-c2: kl metric with accelerate=TRUE runs correct convergence",
   expect_gt(r$iterations, 3L,
             label = "C2: SQUAREM kl-metric must run >3 F-evals (not fire on kl=0 default)")
 })
+
+test_that("squarem-c1: feasible tight-bounds SQUAREM must not return status=INFEAS", {
+  # Regression guard for C1 fix: SQUAREM convergence exits use unconditional RK_OK.
+  # Water-fill may transiently set is_infeasible=true on extrapolated iterates;
+  # this must never override convergence status on a genuinely feasible problem.
+  set.seed(99L)
+  df <- data.frame(
+    v1 = factor(c(rep("A", 80L), rep("B", 20L))),
+    v2 = factor(sample(c("x", "y"), 100L, TRUE))
+  )
+  tgt <- list(v1 = c("A" = 0.3, "B" = 0.7), v2 = c("x" = 0.5, "y" = 0.5))
+
+  w_flat <- suppressWarnings(
+    leafblower::harvest(df, tgt, method = "raking", accelerate = FALSE,
+                        max_weight = 4, max_iterations = 500L, attach_weights = FALSE))
+  skip_if(attr(w_flat, "result")$status == 2L,
+          "flat raking reports INFEAS — problem is genuinely infeasible; choose different seed")
+
+  expect_no_error(
+    w_sq <- suppressWarnings(
+      leafblower::harvest(df, tgt, method = "raking", accelerate = TRUE,
+                          max_weight = 4, max_iterations = 500L, attach_weights = FALSE)),
+    message = "C1: SQUAREM must not crash on a feasible tight-bounds problem"
+  )
+  expect_false(attr(w_sq, "result")$status == 2L,
+               label = "C1: SQUAREM status must not be INFEAS=2 for a feasible problem")
+})
