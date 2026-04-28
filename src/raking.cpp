@@ -327,19 +327,22 @@ RakingResult raking_solve(CalibState& st) {
         if (st.inner_max_iter >= 3) {
             int f_eval_count = 0;
             auto X_prev_sq = X;  // snapshot for weight-change stall; updated each accepted super-step
+            // Pre-allocate SQUAREM scratch — avoids 5 × O(M_cell) malloc/free per super-step.
+            std::vector<double> sq_w1(ct.M_cell), sq_w2(ct.M_cell);
+            std::vector<double> sq_X_snap(ct.M_cell), sq_X_star(ct.M_cell), sq_X_star_pre(ct.M_cell);
             while (f_eval_count + 3 <= st.inner_max_iter) {
                 // Save infeasibility state. Intermediate F_eval probes (w1, w2, halving)
                 // may false-flag infeasibility on extrapolated iterates.
                 // Only the final accepted F_eval contributes to infeasibility status.
                 bool infeas_before = is_infeasible;
 
-                auto w1 = X;
-                double errRp_w1 = F_eval(w1);  ++f_eval_count;
+                sq_w1 = X;
+                double errRp_w1 = F_eval(sq_w1);  ++f_eval_count;
                 (void)errRp_w1;  // errRp_k updated inside F_eval but not consumed (use_greedy=false when accelerate=true)
                 is_infeasible = infeas_before;
 
-                auto w2 = w1;
-                double errRp_w2 = F_eval(w2);  ++f_eval_count;
+                sq_w2 = sq_w1;
+                double errRp_w2 = F_eval(sq_w2);  ++f_eval_count;
                 is_infeasible = infeas_before;
 
                 res.iterations = f_eval_count;
@@ -351,10 +354,10 @@ RakingResult raking_solve(CalibState& st) {
                 double v_sq_cell = 0.0;
                 for (int c = 0; c < ct.M_cell; c++) {
                     const double inv_nc = 1.0 / static_cast<double>(ct.n_per_cell[c]);
-                    const double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                    const double ri = sq_w1[c] - X[c],  vi = sq_w2[c] - sq_w1[c];
                     r_sq_obs  += ri * ri * inv_nc;
                     v_sq_obs  += vi * vi * inv_nc;
-                    w2_sq_obs += w2[c] * w2[c] * inv_nc;
+                    w2_sq_obs += sq_w2[c] * sq_w2[c] * inv_nc;
                     v_sq_cell += vi * vi;
                 }
                 const double norm_r  = std::sqrt(r_sq_obs);
@@ -363,7 +366,7 @@ RakingResult raking_solve(CalibState& st) {
 
                 // Fixed-point guard: ‖v‖/‖w2‖ < threshold → already converged
                 if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
-                    X = w2;
+                    X = sq_w2;
                     res.max_error        = errRp_w2;
                     res.status           = RK_OK;
                     res.convergence_iter = f_eval_count;
@@ -375,25 +378,25 @@ RakingResult raking_solve(CalibState& st) {
                 double alpha = std::max(kAlphaMin, -norm_r / (norm_v + kVNormEps));
 
                 // Snapshot: state at w2, before extrapolation
-                auto X_snap = w2;
+                sq_X_snap = sq_w2;
 
                 // Extrapolate X* = X_snap - 2α·r + α²·v; clamp to ≥ 0
-                auto X_star = X_snap;
+                // No initial copy — the loop below fills every sq_X_star[c] unconditionally.
                 for (int c = 0; c < ct.M_cell; c++) {
-                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
-                    X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                    if (X_star[c] < 0.0) X_star[c] = 0.0;
+                    double ri = sq_w1[c] - X[c],  vi = sq_w2[c] - sq_w1[c];
+                    sq_X_star[c] = sq_X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
+                    if (sq_X_star[c] < 0.0) sq_X_star[c] = 0.0;
                 }
 
                 // L2 step-halving: ‖F(X*)-X*‖² vs ‖v‖².
                 // Works with water-filling F: hyperplane step is near-no-op (sum ≈ n),
                 // so ‖F(X*)-X*‖ cleanly reflects IPF movement, not Dykstra explosion.
                 const double plain_resid = v_sq_cell;  // cell-level ‖v‖² — matches cand_resid geometry
-                auto X_star_pre = X_star;
-                double errRp_new = F_eval(X_star);  ++f_eval_count;
+                sq_X_star_pre = sq_X_star;
+                double errRp_new = F_eval(sq_X_star);  ++f_eval_count;
                 double cand_resid = 0.0;
                 for (int c = 0; c < ct.M_cell; c++) {
-                    double d = X_star[c] - X_star_pre[c];
+                    double d = sq_X_star[c] - sq_X_star_pre[c];
                     cand_resid += d * d;
                 }
 
@@ -402,26 +405,26 @@ RakingResult raking_solve(CalibState& st) {
                 bool fell_back = false;
                 for (int h = 0; h < kMaxHalvings && cand_resid > kHalvingSlack * plain_resid; h++) {
                     is_infeasible = infeas_before;  // discard probe's infeasibility
-                    alpha = (alpha + (-1.0)) / 2.0;  // midpoint toward -1 (autumn formula)
+                    alpha = (alpha - 1.0) / 2.0;  // midpoint toward -1 (autumn formula)
                     if (std::fabs(alpha - (-1.0)) < 1e-3) {
                         // Fell back to plain step
-                        X = w2; errRp_new = errRp_w2; fell_back = true; break;
+                        X = sq_w2; errRp_new = errRp_w2; fell_back = true; break;
                     }
-                    X_star = X_snap;
+                    // No copy of sq_X_snap needed — loop fills every sq_X_star[c] unconditionally.
                     for (int c = 0; c < ct.M_cell; c++) {
-                        double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
-                        X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                        if (X_star[c] < 0.0) X_star[c] = 0.0;
+                        double ri = sq_w1[c] - X[c],  vi = sq_w2[c] - sq_w1[c];
+                        sq_X_star[c] = sq_X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
+                        if (sq_X_star[c] < 0.0) sq_X_star[c] = 0.0;
                     }
-                    X_star_pre = X_star;
-                    errRp_new = F_eval(X_star);  ++f_eval_count;
+                    sq_X_star_pre = sq_X_star;
+                    errRp_new = F_eval(sq_X_star);  ++f_eval_count;
                     cand_resid = 0.0;
                     for (int c = 0; c < ct.M_cell; c++) {
-                        double d = X_star[c] - X_star_pre[c];
+                        double d = sq_X_star[c] - sq_X_star_pre[c];
                         cand_resid += d * d;
                     }
                 }
-                if (!fell_back) X = X_star;
+                if (!fell_back) X = sq_X_star;
                 res.max_error  = errRp_new;
                 res.iterations = f_eval_count;
 
