@@ -500,3 +500,14 @@ test_that("squarem-ac5: accelerate=TRUE with non-raking method warns and runs", 
     label="accelerate=TRUE with ieppa must warn"
   )
 })
+
+test_that("wf-min-weight: water-filling respects min_weight > 0 (lower bound path)", {
+  set.seed(11L); n <- 400L
+  df  <- data.frame(v1=factor(sample(3L,n,TRUE)), v2=factor(sample(2L,n,TRUE)))
+  tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
+  r <- leafblower::harvest(df, tgt, method="raking",
+         min_weight=0.5, max_weight=5, max_iterations=500L, attach_weights=FALSE)
+  w <- as.numeric(r)
+  expect_true(all(w >= 0.5 - 1e-9), label="all weights >= min_weight after water-fill")
+  expect_true(all(w <= 5 + 1e-9),   label="all weights <= max_weight after water-fill")
+})
