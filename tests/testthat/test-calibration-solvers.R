@@ -678,3 +678,51 @@ test_that("r6: algorithm attribute present for both attach_weights=TRUE and FALS
   expect_equal(attr(w_detach, "algorithm"), attr(w_attach, "algorithm"),
                label = "R6: algorithm attr must be identical regardless of attach_weights")
 })
+
+# === RED TESTS: C1 & C2 Bug Fixes ===
+
+test_that("ieppa-c1-red: PCT stall Rprintf must not appear for metric=kl (not max_err/mean_err)", {
+  # C1: pre-fix guard checks metric != L1_WEIGHT. metric=kl passes → Rprintf fires.
+  # C1 GREEN: post-fix guard checks metric in {max_err, mean_err}. kl blocked.
+  # max_iterations=3L guarantees max_error >> 10*pct_tol (pct_tol=0.001 from tol=0.001).
+  set.seed(42L)
+  df <- data.frame(
+    v1 = factor(c(rep("A", 80L), rep("B", 20L))),
+    v2 = factor(c(rep("X", 40L), rep("Y", 60L)))
+  )
+  tgt <- list(v1 = c("A" = 0.5, "B" = 0.5), v2 = c("X" = 0.5, "Y" = 0.5))
+
+  out <- capture.output(
+    suppressWarnings(leafblower::harvest(
+      df, tgt, method = "ieppa", verbose = 1,
+      convergence = list(metric = "kl", rule = "improvement", tol = 0.001),
+      max_iterations = 3L,
+      attach_weights = FALSE)),
+    type = "output"
+  )
+
+  pct_stall_in_output <- any(grepl("PCT convergence stall", out, fixed = TRUE))
+  # RED: TRUE (pre-fix: metric=kl != L1_WEIGHT, max_error >> 0.01 → fires)
+  # GREEN: FALSE (post-fix: metric=kl not in {max_err, mean_err} → blocked)
+  expect_false(pct_stall_in_output,
+               label = "C1: PCT stall Rprintf must not appear for metric=kl")
+})
+
+test_that("ieppa-c2-red: non-convergent iEPPA must return status 4 or 5 not 1", {
+  # C2 RED: ieppa.cpp exits with RK_ERR_NOCONV=1 on budget exhaustion.
+  # C2 GREEN: status=4 (budget) or status=5 (stall) returned.
+  set.seed(99L)
+  df <- data.frame(
+    v1 = factor(c(rep("A", 80L), rep("B", 20L))),
+    v2 = factor(c(rep("X", 60L), rep("Y", 40L)))
+  )
+  tgt <- list(v1 = c("A" = 0.2, "B" = 0.8), v2 = c("X" = 0.3, "Y" = 0.7))
+  w <- suppressWarnings(
+    leafblower::harvest(df, tgt, method = "ieppa", max_iterations = 2L,
+                        attach_weights = FALSE))
+  r <- attr(w, "result")
+  # RED: r$status == 1L
+  # GREEN: r$status %in% c(4L, 5L)
+  expect_true(r$status %in% c(4L, 5L),
+              label = "C2: iEPPA non-convergence must return budget(4) or stall(5), not legacy(1)")
+})
