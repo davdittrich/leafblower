@@ -29,10 +29,12 @@ typedef struct {
 /* ── End overlay enums ── */
 
 /* ── Return codes ── */
-#define RK_OK         0  /* Success */
-#define RK_ERR_NOCONV 1  /* Did not converge within outer_max_iter */
-#define RK_ERR_INFEAS 2  /* Infeasible: empty cell with positive target */
-#define RK_ERR_BADARG 3  /* Invalid argument */
+#define RK_OK           0  /* Converged: improvement criterion satisfied */
+#define RK_ERR_NOCONV   1  /* Legacy alias — no longer emitted by new solvers */
+#define RK_ERR_INFEAS   2  /* Infeasible: empty cell with positive target */
+#define RK_ERR_BADARG   3  /* Invalid argument */
+#define RK_ERR_BUDGET   4  /* Budget exhausted while loss still decreasing; increase max_iterations */
+#define RK_ERR_STALL    5  /* Loss function plateau — at constrained optimum; weights are valid */
 
 /* ── Algorithm selector ── */
 typedef enum {
