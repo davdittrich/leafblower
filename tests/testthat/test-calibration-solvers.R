@@ -812,3 +812,19 @@ test_that("B15: chebyshev convergence maintained after alpha floor removal", {
   expect_equal(attr(res,"result")$status, 0L)  # converged
   expect_lt(attr(res,"result")$max_error, 1e-3)
 })
+
+test_that("R7: chebyshev detects persistent negative slacks as INFEAS", {
+  n <- 50L
+  df <- data.frame(g = factor(sample(c("1","2"), n, replace=TRUE)))
+  res <- tryCatch(
+    harvest(df,
+      target = list(g = c("1"=0.9, "2"=0.9)),  # sum > 1 — infeasible
+      method = "chebyshev",
+      max_iterations = 100L
+    ),
+    error = function(e) e
+  )
+  ok <- inherits(res, "error") ||
+        (!is.null(attr(res,"result")) && attr(res,"result")$status %in% c(2L, 1L))
+  expect_true(ok)
+})

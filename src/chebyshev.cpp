@@ -19,6 +19,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     static constexpr double kEps       = 1e-14;  // strict interior buffer
     static constexpr double kEpsLdlt   = 1e-10;  // LDLT perturbation
     static constexpr double kStepScale = 0.99;   // line search safety factor
+    static constexpr int    kInfeasPersistence = 5;  // consecutive negative-slack iters before INFEAS
     ChebyshevResult res;
     res.status = RK_ERR_NOCONV;
 
@@ -188,6 +189,7 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
     std::vector<double> X_best(X);
     // Convergence rule state — uses CalibState cfg (not hardcoded tol)
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
+    int slack_violations = 0;  // consecutive iterations with negative s_up or s_dn
 
     const int max_ipm = std::min(kMaxIpm, st.inner_max_iter);
     for (int iter = 0; iter < max_ipm; iter++) {
@@ -436,9 +438,25 @@ ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
         {
             double W_upd = 0.0;
             for (int c = 0; c < ct.M_cell; c++) W_upd += X[c];
+            int viol_this_iter = 0;
             for (int m = 0; m < nct; m++) {
-                s_up[m] = std::max(T_flat[m]*W_upd + w_kj[m]*delta - S[m], kEps);
-                s_dn[m] = std::max(S[m] - T_flat[m]*W_upd + w_kj[m]*delta, kEps);
+                double raw_sup = T_flat[m]*W_upd + w_kj[m]*delta - S[m];
+                double raw_sdn = S[m] - T_flat[m]*W_upd + w_kj[m]*delta;
+                if (raw_sup < 0.0 || raw_sdn < 0.0) viol_this_iter++;
+                s_up[m] = std::max(raw_sup, kEps);
+                s_dn[m] = std::max(raw_sdn, kEps);
+            }
+            if (viol_this_iter > 0) {
+                slack_violations++;
+                if (slack_violations > kInfeasPersistence) {
+                    std::snprintf(res.message, sizeof(res.message),
+                                  "chebyshev: %d consecutive iters with negative slacks — INFEAS",
+                                  slack_violations);
+                    res.status = RK_ERR_INFEAS;
+                    break;
+                }
+            } else {
+                slack_violations = 0;
             }
         }
 
