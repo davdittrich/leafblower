@@ -138,6 +138,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Per-cell capacity multiplier (linear-space).
     std::vector<double> W(ct.M_cell, 1.0);
     std::vector<double> log_W(ct.M_cell, 0.0);  // log_W[c] = log(W[c]); W init=1 → log=0
+    std::vector<double> s_buf(ct.M_cell, 0.0);   // staging for bulk_exp_clipped
     std::vector<double> X_tilde;  // deferred: allocated at first log-path/fallback use
     std::vector<double> X(ct.M_cell);
     // T1.B: per-cell log-product shadow. cell_lf[c] = Σ_k lf[k][g_k(c)].
@@ -676,12 +677,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // j <= cat_counts[k]: include NA bucket (cat_offset has +1 per margin).
                 // Without NA shift, cells NA for a margin would have cell_lf decremented
                 // by full shift but lf[k][NA] unchanged — invariant violated.
-                for (int k = 0; k < st.K; k++) {
-                    for (int j = 0; j <= st.cat_counts[k]; j++) {
+                for (int k = 0; k < st.K; k++)
+                    for (int j = 0; j <= st.cat_counts[k]; j++)
                         lf[cat_offset[k] + j] += lf_correction;
-                        f_lin[cat_offset[k] + j] = std::exp(lf[cat_offset[k] + j]);
-                    }
-                }
+                lbw::bulk_scaled_exp(1.0, lf.data(), f_lin.data(), total_cats);
                 // X_cur *= exp(-shift): maintains X_cur = X_init × W × Π f_lin.
                 for (int c = 0; c < ct.M_cell; c++) {
                     cell_lf[c] -= shift;
@@ -740,13 +739,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
             if (use_greedy) {
                 // Rebuild X_tilde from current lf for residual scoring.
                 if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
-                for (int c = 0; c < ct.M_cell; c++) {
-                    if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-                    // T2.A: single-stream exp via cell_lf (was K=20 DRAM streams)
-                    double s = log_X_init[c] + cell_lf[c];
-                    double s_clip = (s > kLogClip) ? kLogClip : s;
-                    X_tilde[c] = std::exp(s_clip);
-                }
+                // S3 Site A: vectorized X_tilde rebuild via bulk_exp_clipped.
+                for (int c = 0; c < ct.M_cell; c++)
+                    s_buf[c] = (X_init[c] <= 0.0) ? -kLogClip : log_X_init[c] + cell_lf[c];
+                lbw::bulk_exp_clipped(s_buf.data(), X_tilde.data(), ct.M_cell, kLogClip);
+                for (int c = 0; c < ct.M_cell; c++)
+                    if (X_init[c] <= 0.0) X_tilde[c] = 0.0;
                 std::vector<double> per_margin_err(st.K);
                 for (int k = 0; k < st.K; k++)
                     per_margin_err[k] = compute_margin_errRp_log(k);
@@ -762,14 +760,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     }
                     (void) apply_single_margin_log(k_star);
                     res.greedy_sweeps_taken++;
-                    // Refresh X_tilde for the touched margin's effect; cheap:
-                    // T2.A: lf delta is captured in cell_lf[c], single-stream exp
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
-                        double s = log_X_init[c] + cell_lf[c];
-                        double s_clip = (s > kLogClip) ? kLogClip : s;
-                        X_tilde[c] = std::exp(s_clip);
-                    }
+                    // S3 Site B: vectorized X_tilde refresh via bulk_exp_clipped.
+                    for (int c = 0; c < ct.M_cell; c++)
+                        s_buf[c] = (X_init[c] <= 0.0) ? -kLogClip : log_X_init[c] + cell_lf[c];
+                    lbw::bulk_exp_clipped(s_buf.data(), X_tilde.data(), ct.M_cell, kLogClip);
+                    for (int c = 0; c < ct.M_cell; c++)
+                        if (X_init[c] <= 0.0) X_tilde[c] = 0.0;
                     per_margin_err[k_star] = compute_margin_errRp_log(k_star);
                     double total_err = 0.0;
                     for (int k = 0; k < st.K; k++) total_err += per_margin_err[k];
@@ -844,17 +840,21 @@ IEPPAResult ieppa_solve(CalibState& st) {
             bool overflow_detected = false;
             double max_log_X_tilde = -std::numeric_limits<double>::infinity();
             if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
+            // S3 Site C: Pass 1 — scalar, fill s_buf, track overflow/max.
             for (int c = 0; c < ct.M_cell; c++) {
-                if (X_init[c] <= 0.0) { X_tilde[c] = 0.0; continue; }
+                if (X_init[c] <= 0.0) { s_buf[c] = -kLogClip; continue; }
                 // T2.A: single-stream exp via cell_lf (was K=20 DRAM streams)
                 double s = log_X_init[c] + cell_lf[c];
                 if (s > max_log_X_tilde) max_log_X_tilde = s;
-                double s_clip = (s > kLogClip) ? kLogClip : s;
                 if (s > kLogClip && U_cell[c] >= 1e299) {
                     overflow_detected = true;
                 }
-                X_tilde[c] = std::exp(s_clip);
+                s_buf[c] = s;
             }
+            // Pass 2: vectorized exp with clipping.
+            lbw::bulk_exp_clipped(s_buf.data(), X_tilde.data(), ct.M_cell, kLogClip);
+            for (int c = 0; c < ct.M_cell; c++)
+                if (X_init[c] <= 0.0) X_tilde[c] = 0.0;
             if (overflow_detected) {
                 res.status = RK_ERR_NOCONV;
                 res.max_error = std::numeric_limits<double>::infinity();
