@@ -1,3 +1,0 @@
-PKG_CXXFLAGS = -std=c++17 -O3  -fopenmp-simd -mavx2 -I. -DSTRICT_R_HEADERS
-PKG_LIBS = -lm -lmvec
-PKG_SOURCES = c_api.cpp logit.cpp lbfgsb_solver.cpp ieppa.cpp cell_table.cpp r_bridge.cpp calib_validate.cpp sinkhorn.cpp calib_linalg.cpp greg.cpp chebyshev.cpp grake.cpp
