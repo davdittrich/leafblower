@@ -1192,6 +1192,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     {
         const auto& cfg = st.convergence_cfg;
         if (cfg.pct_tol > 0.0 &&
+            cfg.metric != CalibMetric::L1_WEIGHT &&
             res.max_error > 10.0 * cfg.pct_tol &&
             st.log_fn != nullptr) {
             char msg[256];
