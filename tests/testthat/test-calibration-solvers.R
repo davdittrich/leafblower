@@ -776,3 +776,19 @@ test_that("B1: chebyshev with infeasible target (sum>1) returns infeasible statu
         (!is.null(attr(res,"result")) && attr(res,"result")$status == 2L)
   expect_true(ok, info=paste("unexpected result; class:", class(res)[1]))
 })
+
+test_that("B14: chebyshev convergence not broken by mu fix (regression)", {
+  set.seed(42)
+  n <- 400L
+  df <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace=TRUE)),
+    b = factor(sample(c("1","2"), n, replace=TRUE))
+  )
+  res <- harvest(df,
+    target = list(a = c("1"=0.4, "2"=0.4, "3"=0.2), b = c("1"=0.6, "2"=0.4)),
+    method = "chebyshev",
+    min_weight = 0.2,
+    max_weight = 5.0
+  )
+  expect_equal(attr(res,"result")$status, 0L)  # RK_OK
+})
