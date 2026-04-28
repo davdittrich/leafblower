@@ -397,8 +397,9 @@ test_that("T3: ieppa_soft max_err strictly < ieppa max_err on tight bounds", {
     max_weight=1.8, min_weight=0, max_iterations=500L, attach_weights=FALSE)
   me_hard <- attr(r_hard, "result")$max_error
   me_soft <- attr(r_soft, "result")$max_error
-  expect_true(me_soft <= me_hard + 1e-9,
-              label="ieppa_soft max_err not worse than ieppa (no regression)")
+  expect_lt(me_soft, me_hard - 1e-6,
+    label = sprintf("ieppa_soft must beat ieppa by >=1e-6: hard=%.6e, soft=%.6e",
+                    me_hard, me_soft))
 })
 
 # ── Raking Bregman Dykstra RED test ─────────────────────────────────────────
@@ -827,4 +828,132 @@ test_that("R7: chebyshev detects persistent negative slacks as INFEAS", {
   ok <- inherits(res, "error") ||
         (!is.null(attr(res,"result")) && attr(res,"result")$status %in% c(2L, 1L))
   expect_true(ok)
+})
+
+# ── T4: capacity_penalty parameter routing ────────────────────────────────────
+
+test_that("T4: capacity_penalty=NULL routes to auto; rejects invalid input", {
+  set.seed(4); n <- 1000L
+  df  <- data.frame(v=factor(sample(letters[1:3], n, TRUE)))
+  tgt <- list(v=c(a=0.4, b=0.4, c=0.2))
+  r1 <- harvest(df, tgt, method="ieppa_soft", capacity_penalty=NULL, attach_weights=FALSE)
+  r2 <- harvest(df, tgt, method="ieppa_soft", attach_weights=FALSE)
+  expect_equal(as.numeric(r1), as.numeric(r2), tolerance=1e-12)
+  cm <- attr(r1, "result")$alm_capacity_mu_final
+  expect_true(is.finite(cm) && cm > 0)
+  # Rejection cases
+  df0 <- data.frame(v=factor(c("a","a","b")))
+  t0  <- list(v=c(a=0.5, b=0.5))
+  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=-1),    "positive finite scalar")
+  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=0),     "positive finite scalar")
+  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=Inf),   "positive finite scalar")
+  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=NaN),   "positive finite scalar")
+  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=c(1,2)),"positive finite scalar")
+})
+
+# ── T5: Final bounds adherence ────────────────────────────────────────────────
+
+test_that("T5: ieppa_soft final weights respect bounds exactly", {
+  set.seed(5); n <- 5000L
+  df  <- data.frame(v1=factor(sample(5, n, TRUE)))
+  tgt <- list(v1=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
+  r <- harvest(df, tgt, method="ieppa_soft",
+               max_weight=1.8, min_weight=0.1,
+               max_iterations=300, attach_weights=FALSE)
+  w <- as.numeric(r)
+  expect_true(max(w) <= 1.8)
+  expect_true(min(w) >= 0.1)
+  # Discriminating: must differ from ieppa hard-clamp
+  r_hard <- harvest(df, tgt, method="ieppa",
+                    max_weight=1.8, min_weight=0.1,
+                    max_iterations=300, attach_weights=FALSE)
+  expect_false(isTRUE(all.equal(as.numeric(r), as.numeric(r_hard), tolerance=1e-10)),
+    label="ieppa_soft weights must differ from ieppa hard-clamp on this tight problem")
+})
+
+test_that("T5b: degenerate asymmetric bounds — final projection bounded sum drift", {
+  set.seed(15); n <- 2000L
+  df  <- data.frame(v=factor(sample(c("a","b"), n, TRUE, prob=c(.95,.05))))
+  tgt <- list(v=c(a=0.3, b=0.7))
+  r <- harvest(df, tgt, method="ieppa_soft",
+               max_weight=8.0, min_weight=0.01,
+               max_iterations=200, attach_weights=FALSE)
+  w <- as.numeric(r)
+  expect_true(max(w) <= 8.0)
+  expect_true(min(w) >= 0.01)
+  expect_lt(abs(sum(w) - n), 1e-3 * n)  # loose: sum drift < 0.1% of n
+})
+
+# ── T6: Stepstone benchmark ───────────────────────────────────────────────────
+
+test_that("T6: ieppa_soft max_err <= ieppa on stepstone (skips if no fixture)", {
+  skip_on_cran()
+  pq <- "benchmarks/stepstone_fulldata_bench_data.parquet"
+  if (!file.exists(pq)) skip("stepstone fixture not available")
+  skip_if_not_installed("arrow")
+  skip_if_not_installed("jsonlite")
+  df  <- arrow::read_parquet(pq); df$uuid <- NULL
+  tgt <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
+  tgt <- lapply(tgt, function(t) { t <- unlist(t); t / sum(t) })
+  for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
+  r_hard <- harvest(df, tgt, method="ieppa",      max_weight=5, max_iterations=500, attach_weights=FALSE)
+  r_soft <- harvest(df, tgt, method="ieppa_soft", max_weight=5, max_iterations=500, attach_weights=FALSE)
+  me_hard <- attr(r_hard, "result")$max_error
+  me_soft <- attr(r_soft, "result")$max_error
+  expect_lte(me_soft, me_hard + 1e-9)
+})
+
+# ── T7: Adaptive growth observable ───────────────────────────────────────────
+
+test_that("T7: adaptive growth fires on adversarial small capacity_penalty", {
+  set.seed(7); n <- 2000L
+  df  <- data.frame(v=factor(sample(c("X","Y"), n, TRUE, prob=c(.3,.7))))
+  tgt <- list(v=c(X=0.99, Y=0.01))
+  r <- suppressWarnings(
+    harvest(df, tgt, method="ieppa_soft",
+            capacity_penalty=1e-6,
+            max_weight=10, max_iterations=300, attach_weights=FALSE)
+  )
+  res <- attr(r, "result")
+  expect_true(res$status %in% c(0L, 4L, 5L))
+  expect_gt(res$alm_n_growth_events, 0L,
+    label="adaptive growth must fire at least once from capacity_penalty=1e-6")
+  expect_gt(res$alm_capacity_mu_final, 1e-6 * 1.5,
+    label="capacity_mu must have grown beyond initial 1e-6")
+  w <- as.numeric(r)
+  expect_true(max(w) <= 10)
+})
+
+# ── T9: Backward compat — ieppa unchanged ────────────────────────────────────
+
+test_that("T9: method='ieppa' produces bit-identical weights vs pre-ALM fixture", {
+  fixture_path <- testthat::test_path("fixtures/ieppa_pre_alm_ref.rds")
+  if (!file.exists(fixture_path)) skip("Step 0 fixture not present")
+  ref <- readRDS(fixture_path)
+  r <- harvest(ref$df, ref$tgt, method="ieppa",
+               max_weight=ref$max_weight, min_weight=ref$min_weight,
+               max_iterations=ref$max_iterations,
+               convergence=ref$convergence, attach_weights=FALSE)
+  w_post <- as.numeric(r)
+  expect_equal(w_post, ref$weights, tolerance=1e-12,
+    label="method='ieppa' must produce bit-identical weights pre/post ALM merge")
+  res_post <- attr(r, "result")
+  expect_equal(res_post$status, ref$result$status)
+  expect_equal(res_post$max_error, ref$result$max_error, tolerance=1e-12)
+})
+
+# ── T10: capacity_penalty warning for non-ieppa_soft ─────────────────────────
+
+test_that("T10: capacity_penalty warns when passed to non-ieppa_soft method", {
+  set.seed(10); n <- 100L
+  df  <- data.frame(v=factor(sample(c("a","b"), n, TRUE)))
+  tgt <- list(v=c(a=0.5, b=0.5))
+  expect_warning(
+    harvest(df, tgt, method="ieppa",   capacity_penalty=0.5, attach_weights=FALSE),
+    regexp="capacity_penalty.*ignored"
+  )
+  expect_warning(
+    harvest(df, tgt, method="raking",  capacity_penalty=0.5, attach_weights=FALSE),
+    regexp="capacity_penalty.*ignored"
+  )
 })
