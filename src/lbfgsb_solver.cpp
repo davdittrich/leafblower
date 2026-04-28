@@ -347,6 +347,9 @@ static double wolfe_zoom(
     constexpr double kC1 = 1e-4;
     constexpr double kC2 = 0.9;
     const int total = (int)lam.size();
+    // S6: scratch buffer for pre-computed log(denom/UmL) values used in the
+    // logit SIMD loops below. Allocated once; reused for both loop sites.
+    std::vector<double> log_denom_scratch(fn.exponential ? 0 : st.n);
 
     // Precompute T*dir and T*lam (both constant across all bisection trials)
     double Tdir = 0.0;
@@ -406,6 +409,10 @@ static double wolfe_zoom(
                 const double P = (U - 1.0),     Q = (1.0 - L);
                 const double R = (U - L) / ls;
                 const double UmL = U - L;
+                // S6: pre-compute denom/UmL ratios, then vectorize log via bulk_log
+                for (int i = 0; i < st.n; i++)
+                    log_denom_scratch[i] = (P + Q * e_vec[i]) / UmL;
+                lbw::bulk_log(log_denom_scratch.data(), log_denom_scratch.data(), st.n);
 #if LBW_HAS_OMP_SIMD
 #pragma omp simd reduction(+:phi_acc) reduction(+:slope_acc)
 #endif
@@ -413,7 +420,7 @@ static double wolfe_zoom(
                     double ei = e_vec[i];
                     double denom = P + Q * ei;
                     double Fi = (A + B * ei) / denom;
-                    double Hi = L * u_work[i] + R * std::log(denom / UmL);
+                    double Hi = L * u_work[i] + R * log_denom_scratch[i];
                     phi_acc   += d[i] * Hi;
                     slope_acc += d[i] * Fi * du[i];
                 }
@@ -470,6 +477,8 @@ static double wolfe_line_search(
     constexpr double kC1 = 1e-4;
     constexpr double kC2 = 0.9;
     const int total = (int)lam.size();
+    // S6: scratch buffer for pre-computed log(denom/UmL) used in logit SIMD loop.
+    std::vector<double> log_denom_scratch(fn.exponential ? 0 : st.n);
 
     // Precompute T*dir and T*lam (both constant per Wolfe search)
     double Tdir = 0.0;
@@ -531,6 +540,10 @@ static double wolfe_line_search(
                 const double P = (U - 1.0),     Q = (1.0 - L);
                 const double R = (U - L) / ls;
                 const double UmL = U - L;
+                // S6: pre-compute denom/UmL ratios, then vectorize log via bulk_log
+                for (int j = 0; j < st.n; j++)
+                    log_denom_scratch[j] = (P + Q * e_vec[j]) / UmL;
+                lbw::bulk_log(log_denom_scratch.data(), log_denom_scratch.data(), st.n);
 #if LBW_HAS_OMP_SIMD
 #pragma omp simd reduction(+:phi_acc) reduction(+:slope_acc)
 #endif
@@ -538,7 +551,7 @@ static double wolfe_line_search(
                     double ej = e_vec[j];
                     double denom = P + Q * ej;
                     double Fj = (A + B * ej) / denom;
-                    double Hj = L * u_work[j] + R * std::log(denom / UmL);
+                    double Hj = L * u_work[j] + R * log_denom_scratch[j];
                     phi_acc   += d[j] * Hj;
                     slope_acc += d[j] * Fj * du[j];
                 }
