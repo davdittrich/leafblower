@@ -565,7 +565,10 @@ RakingResult raking_solve(CalibState& st) {
                 m_conv.grake_norm = grake_norm; m_conv.l1 = l1_weight;
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
-                    res.status             = is_infeasible ? RK_ERR_INFEAS : RK_OK;
+                    // Converged — do NOT override with INFEAS here. water_fill_cat may
+                    // transiently set is_infeasible when cells temporarily hit U_cell during
+                    // convergence. INFEAS only overrides on stall (post-loop check below).
+                    res.status             = RK_OK;
                     res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
                     res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
                     res.convergence_tol    = st.convergence_cfg.pct_tol;
