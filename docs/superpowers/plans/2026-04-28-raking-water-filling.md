@@ -281,8 +281,19 @@ Find the F_eval lambda (line 170 to ~245). Replace it with:
                 if (g >= 0 && g < st.cat_counts[k]) bucket[g] += Xv[c];
             }
 
-            // SOR: compute effective scale for each category before water-fill
-            // (water-fill handles bounds; SOR under-relaxes the scale direction).
+            // errRp_k for Greedy: compute from PRE-water-fill bucket (pre-update residual).
+            // Greedy must sort by how bad margins are NOW, not after we fix them.
+            // bucket[j] = Xv sums computed above, before any water-fill for this margin.
+            if (W_total > 0.0) {
+                double ek = 0.0;
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
+                    if (e > ek) ek = e;
+                }
+                errRp_k[k] = ek;
+            }
+
+            // SOR: compute effective scale for each category before water-fill.
             const double eff_omega = sor_active ? sor_omega[k] : 1.0;
 
             for (int j = 0; j < st.cat_counts[k]; j++) {
@@ -292,16 +303,16 @@ Find the F_eval lambda (line 170 to ~245). Replace it with:
                     continue;
                 }
                 if (eff_omega != 1.0) {
-                    // SOR: scale target toward current bucket (under-relaxation)
+                    // SOR: under-relax target — equivalent to pow(scale, omega) at cell level
                     const double s0 = Tkj / bucket[j];
                     Tkj = bucket[j] * std::pow(s0, eff_omega);
                 }
                 water_fill_cat(k, j, Tkj, bucket[j], Xv);
             }
 
-            // SOR adaptation: per-margin absolute errRp
+            // SOR adaptation: uses post-water-fill residual for omega adjustment.
+            // Recompute bucket after water-fill (one extra O(M_cell) pass per margin).
             if (sor_active && sor_auto && W_total > 0.0) {
-                // Re-compute bucket after water-fill to get post-step residuals
                 std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
                 for (int c = 0; c < ct.M_cell; c++) {
                     int g = ct.g_per_cell[k][c];
@@ -317,24 +328,6 @@ Find the F_eval lambda (line 170 to ~245). Replace it with:
                 else
                     sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
                 sor_prev_errRp[k] = ek;
-            }
-
-            // Update per-margin errRp for Greedy sort (use post-water-fill bucket)
-            if (W_total > 0.0) {
-                // If SOR not active, bucket was not recomputed above; recompute for errRp_k
-                if (!sor_active || !sor_auto) {
-                    std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        int g = ct.g_per_cell[k][c];
-                        if (g >= 0 && g < st.cat_counts[k]) bucket[g] += Xv[c];
-                    }
-                }
-                double ek = 0.0;
-                for (int j = 0; j < st.cat_counts[k]; j++) {
-                    double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
-                    if (e > ek) ek = e;
-                }
-                errRp_k[k] = ek;
             }
         }
 
@@ -518,9 +511,9 @@ The flat loop (inside `else { for (int iter ...) }`) currently uses `p[]`, `q_hy
                     mean_err = (st.K > 0) ? mean_err_sum / static_cast<double>(st.K) : 0.0;
                     // BLOCK 2: best-iterate for non-MAX_ERR metrics
                     if (metric != lbw::CalibMetric::MAX_ERR) {
-                        double l1_weight_blk2 = 0.0;  // not tracked in simplified loop
+                        // l1_weight computed above from X_prev — use it here too
                         const double curr_best = lbw::select_metric(
-                            metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight_blk2);
+                            metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
                         if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
                             best_metric_seen    = curr_best;
                             best_iter_val       = iter;
@@ -651,32 +644,58 @@ Replace:
                 double alpha = std::max(kAlphaMin, -norm_r / (norm_v + kVNormEps));
 ```
 
-- [ ] **Step 2: Switch to L2 halving with ‖v‖² reference and add |α+1|<1e-3 guard**
+- [ ] **Step 2: Switch to L2 halving with ‖v‖² reference, add |α+1|<1e-3 guard, restore is_infeasible**
 
-Find the F_eval call + halving loop in SQUAREM:
+Find the block starting from the w1/w2 F_eval calls (after the snapshot `X_snap = w2` line). Replace the entire section from w1 through the end of `X = X_star` with:
+
 ```cpp
-                auto p_star = p_snap; double qh_star = q_snap;
-                double errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
+                // is_infeasible save/restore: extrapolated X_star may have near-zero cells
+                // that false-flag infeasibility. Only the FINAL accepted F_eval counts.
+                bool infeas_before = is_infeasible;
 
-                for (int h = 0; h < kMaxHalvings && errRp_new > kHalvingSlack * errRp_w2; h++) {
-                    is_infeasible = infeas_before;
-                    alpha = (alpha - 1.0) / 2.0;
-                    X_star = X_snap; p_star = p_snap; qh_star = q_snap;
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
-                        X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                        if (X_star[c] < 0.0) X_star[c] = 0.0;
-                    }
-                    errRp_new = F_eval(X_star, p_star, qh_star);  ++f_eval_count;
+                auto w1 = X;
+                double errRp_w1 = F_eval(w1);  ++f_eval_count;
+                (void)errRp_w1;  // advance IPF side effects; value unused
+                is_infeasible = infeas_before;  // restore: w1 is intermediate
+
+                auto w2 = w1;
+                double errRp_w2 = F_eval(w2);  ++f_eval_count;
+                is_infeasible = infeas_before;  // restore: w2 is intermediate
+
+                res.iterations = f_eval_count;
+
+                double norm_r = 0.0, norm_v = 0.0, norm_w2 = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                    norm_r  += ri * ri;
+                    norm_v  += vi * vi;
+                    norm_w2 += w2[c] * w2[c];
                 }
-                X = X_star; p = p_star; q_hyp = qh_star;
-```
+                norm_r = std::sqrt(norm_r);
+                norm_v = std::sqrt(norm_v);
+                norm_w2 = std::sqrt(norm_w2);
 
-Replace with (L2 halving + |α+1| guard):
-```cpp
-                // L2 step-halving: ‖F(X*)-X*‖² vs ‖v‖² (autumn convention).
-                // Works now that F is stateless (no Dykstra explosion on zeroed cells).
-                const double plain_resid = norm_v * norm_v;  // ‖v‖²
+                if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
+                    X = w2;
+                    res.max_error = errRp_w2; res.status = RK_OK;
+                    res.convergence_iter = f_eval_count;
+                    break;
+                }
+
+                double alpha = std::max(kAlphaMin, -norm_r / (norm_v + kVNormEps));
+
+                auto X_snap = w2;
+
+                auto X_star = X_snap;
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double ri = w1[c] - X[c],  vi = w2[c] - w1[c];
+                    X_star[c] = X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
+                    if (X_star[c] < 0.0) X_star[c] = 0.0;
+                }
+
+                // L2 step-halving: ‖F(X*)-X*‖² vs ‖v‖².
+                // Works because F is now stateless (no Dykstra explosion on zeroed cells).
+                const double plain_resid = norm_v * norm_v;
                 auto X_star_pre = X_star;
                 double errRp_new = F_eval(X_star);  ++f_eval_count;
                 double cand_resid = 0.0;
@@ -685,14 +704,14 @@ Replace with (L2 halving + |α+1| guard):
                     cand_resid += d * d;
                 }
 
+                // Boolean flag replaces goto: avoids skipping convergence check.
+                bool fell_back = false;
                 for (int h = 0; h < kMaxHalvings && cand_resid > kHalvingSlack * plain_resid; h++) {
                     is_infeasible = infeas_before;
                     alpha = (alpha + (-1.0)) / 2.0;  // midpoint toward -1 (autumn formula)
                     if (std::fabs(alpha - (-1.0)) < 1e-3) {
-                        // Fell back to plain step — accept w2
-                        X = w2;
-                        res.max_error = errRp_w2; res.iterations = f_eval_count;
-                        goto squarem_next_iter;  // skip X_star assignment below
+                        // Fell back to plain step: accept w2
+                        X = w2; errRp_new = errRp_w2; fell_back = true; break;
                     }
                     X_star = X_snap;
                     for (int c = 0; c < ct.M_cell; c++) {
@@ -708,11 +727,15 @@ Replace with (L2 halving + |α+1| guard):
                         cand_resid += d * d;
                     }
                 }
-                X = X_star;
-                squarem_next_iter:;
+                // After halving: is_infeasible reflects the last accepted F_eval.
+                if (!fell_back) X = X_star;
+                res.max_error  = errRp_new;
+                res.iterations = f_eval_count;
 ```
 
-**Note on goto**: the `goto squarem_next_iter` jumps past the `X = X_star` assignment when we fell back to w2. The label is placed after the assignment. No variable initializations are jumped over (label is at end of loop body). This is the same pattern used in the existing code and is safe C++17.
+**Why flag not goto**: The goto skipped convergence/best-iterate tracking when falling back to w2. With the flag, `X = w2` and `errRp_new = errRp_w2` are set before the flag breaks the loop, so convergence check runs correctly with the right X and errRp.
+
+**Why is_infeasible save/restore**: Water-filling within F_eval may flag infeasibility on extreme extrapolated X_star (near-zero cells). These intermediate iterates are discarded by step-halving; only the final accepted iterate should determine infeasibility status.
 
 - [ ] **Step 3: Compile gate**
 
@@ -929,6 +952,6 @@ git commit -m "feat(raking): replace Dykstra box correction with water-filling b
 **No placeholders**: all code blocks are complete. ✓
 
 **Known risks**:
-- The `goto squarem_next_iter` in Task 5 — tested in compile gate; no variable initializations between goto and label. Clean C++17.
+- Boolean flag (`fell_back`) replaces goto in Task 5 — ensures convergence check runs for both accepted-extrapolation and fell-back-to-w2 paths. Cleaner than goto.
 - SOR with water-filling: sor target is modified before water-fill. If SOR is disabled (default for SQUAREM since accelerate=TRUE forces round_robin and SOR is not default), the eff_omega=1.0 branch skips the target modification entirely.
 - Bucket recomputation after water-fill (for SOR/errRp_k): adds O(M_cell) per margin per F-eval. For K=9, M_cell=29k: 261k extra ops per F-eval — ~0.5% overhead.
