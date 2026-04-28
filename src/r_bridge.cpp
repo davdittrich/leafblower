@@ -523,6 +523,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         // N=0 PROTECTs before this try block — no UNPROTECT needed.
         // Rf_error longjmps; must not be inside a try that owns RAII objects.
         Rf_error("leafblower: internal solver error — %s", e.what());
+    } catch (...) {
+        // Catch non-std::exception throws (raw types, third-party exceptions).
+        Rf_error("leafblower: internal solver error — unknown exception type");
     }
 
     const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)                    ? "L-BFGS-B"
