@@ -444,6 +444,9 @@ RakingResult raking_solve(CalibState& st) {
                     st.log(msg);
                 }
 
+                // errRp stall for SQUAREM: KL is non-monotone for CBB extrapolation steps —
+                // accepted iterate KL can increase even with step-halving, making KL stall
+                // fire spuriously. errRp of accepted iterates is approximately non-increasing.
                 if (!std::isfinite(min_loss_window)) {
                     min_loss_window = errRp_new; n_no_improve = 0;
                 } else {

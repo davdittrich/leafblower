@@ -342,7 +342,7 @@ harvest <- function(
             "increase max_iterations if further improvement is needed")
   if (calib_result$status == 5L && isTRUE(accelerate_bool))
     warning("leafblower: SQUAREM errRp plateau — weights are valid; ",
-            "try accelerate=FALSE for guaranteed KL-minimum stall detection")
+            "try accelerate=FALSE for KL-stall (reaches constrained KL minimum)")
   if (calib_result$status == 5L && !isTRUE(accelerate_bool))
     warning("leafblower: loss function plateau — at constrained optimum given bounds; ",
             "weights are valid; no further improvement is achievable")
