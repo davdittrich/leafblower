@@ -6,7 +6,7 @@
 #' @param max_weight Upper bound on weights. Default 5.
 #' @param method Calibration method. One of \code{"auto"} (default: iEPPA or
 #'   raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
-#'   \code{"raking"} (IPF + Dykstra box projection), \code{"lbfgsb"}
+#'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
 #'   (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
 #'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
 #'   (L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM).
@@ -82,6 +82,9 @@
 #' @param auto_collapse Not supported in v1; raises error if TRUE.
 #' @param collapse_vars Not supported in v1; raises error if TRUE.
 #' @param target_map Passed through for data-frame target format handling.
+#' @param design_weights Optional design weights vector. When non-NULL and
+#'   \code{start_weights} is NULL, used as starting weights (normalized to
+#'   mean=1). Length must equal \code{nrow(data)}.
 #' @param ... Additional arguments ignored.
 #' @return data frame with weights column if \code{attach_weights=TRUE}, else a numeric
 #'   vector of length \code{n}. In both cases the object carries attributes:
@@ -354,6 +357,7 @@ harvest <- function(
   # Threshold derivation: well-posed problems have errRp/pct_change ratio 1-5x;
   # infeasible stalls show 100x+; 10x cleanly separates the two regimes.
   if (calib_result$status == 0L &&
+      conv$metric %in% c("max_err", "mean_err") &&
       !is.null(conv$pct_tol) && conv$pct_tol > 0 &&
       !is.null(calib_result$max_error) &&
       calib_result$max_error > 10 * conv$pct_tol) {
@@ -380,7 +384,8 @@ harvest <- function(
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
 
   if (!attach_weights) {
-    attr(weights, "result") <- calib_result
+    attr(weights, "result")     <- calib_result
+    attr(weights, "algorithm")  <- alg_used
     attr(weights, "iterations") <- calib_result$iterations
     return(weights)
   }

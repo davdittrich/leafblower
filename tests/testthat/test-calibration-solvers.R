@@ -661,3 +661,20 @@ test_that("squarem-c1: feasible tight-bounds SQUAREM must not return status=INFE
   expect_false(attr(w_sq, "result")$status == 2L,
                label = "C1: SQUAREM status must not be INFEAS=2 for a feasible problem")
 })
+
+test_that("r6: algorithm attribute present for both attach_weights=TRUE and FALSE", {
+  # R6: before fix, attr(r,"algorithm") was NULL when attach_weights=FALSE.
+  # GREEN: both modes return a non-NULL, non-empty algorithm string.
+  df  <- data.frame(v1 = factor(c("A", "B", "A")))
+  tgt <- list(v1 = c("A" = 0.5, "B" = 0.5))
+
+  w_detach <- leafblower::harvest(df, tgt, attach_weights = FALSE)
+  w_attach  <- leafblower::harvest(df, tgt, attach_weights = TRUE)
+
+  expect_false(is.null(attr(w_detach, "algorithm")),
+               label = "R6: algorithm attr must be non-NULL when attach_weights=FALSE")
+  expect_false(is.null(attr(w_attach,  "algorithm")),
+               label = "algorithm attr must be non-NULL when attach_weights=TRUE")
+  expect_equal(attr(w_detach, "algorithm"), attr(w_attach, "algorithm"),
+               label = "R6: algorithm attr must be identical regardless of attach_weights")
+})
