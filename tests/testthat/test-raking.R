@@ -125,3 +125,18 @@ test_that("B16: SQUAREM stall detection does not fire spuriously after fallback"
   # A uniform problem with target=empirical proportion converges quickly.
   expect_lt(attr(result,"result")$iterations, 20L)
 })
+
+test_that("R8: accelerate=TRUE with greedy scheduler runs without error", {
+  expect_no_error({
+    result <- harvest(
+      data.frame(x = rep(c("A","B"), 25)),
+      target = list(x = c(A=0.5, B=0.5)),
+      method = "raking",
+      convergence = list(rule="improvement", pct=1e-4),
+      accelerate = TRUE,
+      scheduler  = "greedy",
+      max_iterations = 50L
+    )
+    expect_gt(attr(result,"result")$iterations, 0L)
+  })
+})
