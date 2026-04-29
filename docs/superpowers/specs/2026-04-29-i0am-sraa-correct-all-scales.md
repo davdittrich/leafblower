@@ -54,11 +54,25 @@ cost of reduced large-K acceleration.
 
 ## Track 2: Adaptive-Sort F_eval
 
+### Pre-implementation baseline (REQUIRED before touching code)
+
+Run and record baseline values:
+```bash
+OMP_NUM_THREADS=1 Rscript benchmarks/stepstone_all_methods.R 2>&1 | grep -E "greenkhorn|raking"
+```
+Record `max_err` for greenkhorn+squarem and raking+squarem. These are the pre-fix baselines
+that AC3/AC4 must beat. Without this baseline, a passing AC3 could be coincidental.
+
 ### What changes
 
-**`src/greenkhorn.cpp`** — `f_eval_sraa` lambda, 5-line replacement:
+**`src/greenkhorn.cpp`** — `f_eval_sraa` lambda, replace fixed-sort with adaptive-sort
+AND remove the now-dead `order_sraa` vector:
 
 ```cpp
+// REMOVE these declarations (order_sraa no longer needed):
+// std::vector<int> order_sraa;
+// if (st.accelerate && K > 0) { ... order_sraa.assign(K, 0); }
+
 // BEFORE (fixed sort: sort once at round entry):
 std::iota(order_sraa.begin(), order_sraa.end(), 0);
 std::stable_sort(order_sraa.begin(), order_sraa.end(),
@@ -104,29 +118,40 @@ Track 1 is also implemented (belt-and-suspenders).
 
 ### Architecture
 
-**New `SRAAState` field:**
+**New `SRAAState` field + methods:**
 ```cpp
-bool allow_aa = false;  // set externally by outer solver loop; prevents AA when false
+bool aa_unlocked = false;  // lifecycle gate: set by enable_aa(), cleared by disable_aa()
+                           // clear() does NOT reset this — outer loop owns the lifecycle
+
+void enable_aa()  { aa_unlocked = true;  }
+void disable_aa() { aa_unlocked = false; }
 ```
+
+The field and methods are in SRAAState so that (a) naming communicates lifecycle intent,
+not a feature flag, and (b) clear() semantics are explicit: history resets, gate does not.
 
 **New constants in `sraa.hpp`:**
 ```cpp
 static constexpr double kSRAAPlateauEps       = 1e-3;  // 0.1%/iter improvement → plateau
 static constexpr int    kSRAAPlateauWindow     = 4;    // 4 consecutive plateau iters → AA enabled
 static constexpr double kSRAAOuterSlack        = 0.10; // 10% above best_errRp → regression
-static constexpr int    kSRAAOuterStallWindow  = 3;    // 3 regressed outer iters → revert
+static constexpr int    kSRAAOuterStallWindow  = 5;    // 5 consecutive regressed outer iters → revert
 ```
+
+Note: `kSRAAOuterStallWindow = 5` (not 3). Near convergence (where plateau fires), a 3-step
+window is too aggressive — normal AA warm-up transients can briefly elevate quality by 5-10%.
+5 steps require sustained regression before triggering revert, reducing false positives.
 
 **`sraa_step` change** (one additional condition in step 5):
 ```cpp
-// Not enough history OR outer loop has not enabled AA → plain step
-if (state.count < kSRAAMinCount || !state.allow_aa) {
+// Not enough history OR outer loop has not unlocked AA → plain step
+if (state.count < kSRAAMinCount || !state.aa_unlocked) {
     std::swap(X, state.F_cur);
     return {false, 1, err_plain};
 }
 ```
 History still accumulates during plateau-detection phase (steps 3-4 run). AA fires only
-when the outer loop sets `allow_aa = true`.
+when the outer loop calls `grk_sraa.enable_aa()`.
 
 **Outer loop additions in `greenkhorn.cpp`** (after errRp recompute, within accelerate path):
 
@@ -142,16 +167,16 @@ if (st.accelerate && K > 0) {
     if (std::isfinite(prev_outer_quality)) {
         double impr = (prev_outer_quality - curr_max) / std::max(prev_outer_quality, 1e-15);
         plateau_count = (impr < kSRAAPlateauEps) ? plateau_count + 1 : 0;
-        if (plateau_count >= kSRAAPlateauWindow) grk_sraa.allow_aa = true;
+        if (plateau_count >= kSRAAPlateauWindow) grk_sraa.enable_aa();
     }
     prev_outer_quality = curr_max;
 
     // Outer revert: when AA escapes correct basin
-    if (grk_sraa.allow_aa && curr_max > best_errRp * (1.0 + kSRAAOuterSlack)) {
+    if (grk_sraa.aa_unlocked && curr_max > best_errRp * (1.0 + kSRAAOuterSlack)) {
         if (++outer_stall_count >= kSRAAOuterStallWindow) {
             X = X_best;                   // revert to outer-quality best
-            grk_sraa.clear();             // restart AA history
-            grk_sraa.allow_aa = false;    // re-require plateau before AA fires
+            grk_sraa.clear();             // restart AA history; clear() does NOT reset aa_unlocked
+            grk_sraa.disable_aa();        // re-require plateau before AA fires
             plateau_count = 0; outer_stall_count = 0;
             // Rebuild W, S_flat, errRp from reverted X
             W = 0.0; std::fill(S_flat.begin(), S_flat.end(), 0.0);
@@ -171,8 +196,14 @@ if (st.accelerate && K > 0) {
 }
 ```
 
-**Applies identically to `raking.cpp`** (same block, same variables, complements existing
-`best_metric_seen`/`W_best` infrastructure).
+**Applies to `raking.cpp`** with one naming difference: raking uses `best_metric_seen`
+(not `best_errRp`) and `W_best` (not `X_best`). The revert block substitutes these:
+`X = W_best` → `X = grk_sraa_equiv.X_best` does not apply; for raking, `W_best` is the
+iterate, so: `X = W_best; rk_sraa.clear(); rk_sraa.disable_aa()`. Do NOT introduce
+a parallel X_best in raking — reuse W_best which already tracks the same quantity.
+
+The plateau detection and outer_stall_count variables are local to the SRAA accelerate
+block (not stored in SRAAState), so no naming conflict with existing raking infrastructure.
 
 ### Why plateau-gating guarantees correctness
 
@@ -203,7 +234,7 @@ as a "polishing" step — limited benefit but quality ≤ plain. This is a corre
 | `kSRAAPlateauEps` | 1e-3 | For K=9 stepstone (1030 outer iters to converge 1.57e-3), improvement near convergence: Δq/q ≈ (1.65-1.57)/1.57/50 ≈ 1e-3/iter. Plateau when improvement < 0.1%. |
 | `kSRAAPlateauWindow` | 4 | 4 consecutive iters below threshold filters transient quality oscillations (overlapping margins cause ≤2-5% per-step fluctuations). |
 | `kSRAAOuterSlack` | 0.10 | K=9 AA escape = 35% regression. 10% slack catches escape without false positives from normal transients. |
-| `kSRAAOuterStallWindow` | 3 | 3 consecutive regressed outer iters = minimal wasted budget before revert. |
+| `kSRAAOuterStallWindow` | 5 | 5 consecutive regressed outer iters before revert. AA fires near convergence where normal transients can briefly elevate quality 5-10%; 5 steps require sustained (not transient) regression. |
 
 ---
 
@@ -259,6 +290,60 @@ test_that("T_sraa_raking_K9: raking+AA K=9 max_err <= plain (stepstone)", {
 })
 ```
 
+### T_sraa_plateau_gate (Track 1 only — verify AA is disabled before plateau)
+
+```r
+test_that("T_sraa_plateau_gate: greenkhorn+AA early iters use plain-only steps before plateau", {
+  # With kSRAAPlateauWindow=4, AA must not fire in first 4 outer iterations.
+  # Proxy: with max_iterations=4 outer iters × K, iters_aa must equal iters_plain
+  # (all plain steps: K*1 each, no AA which gives K*2).
+  set.seed(99); n <- 2000L
+  df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),
+                    y=factor(sample(c("M","F"),n,TRUE)))
+  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
+  K_exp <- 2L
+  r_aa    <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=TRUE,
+                                       max_iterations=4L,attach_weights=FALSE))
+  r_plain <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=FALSE,
+                                       max_iterations=4L,attach_weights=FALSE))
+  # Before plateau: AA disabled → same iter count as plain (K*1 per outer iter, not K*2)
+  expect_equal(attr(r_aa,"result")$iterations, attr(r_plain,"result")$iterations,
+    label="Before plateau, AA must not fire — iterations must match plain")
+})
+```
+
+### T_sraa_outer_revert (Track 1 only — verify revert recovers quality)
+
+```r
+test_that("T_sraa_outer_revert: greenkhorn+AA K=4 quality recovers to <= plain after potential escape", {
+  # Same K=4 problem from T_sraa_global. With plateau-gating + outer revert,
+  # SRAA must not regress below plain even if AA escapes to a wrong basin.
+  set.seed(42); n <- 8000L
+  df <- data.frame(gender=factor(sample(c("M","F"),n,TRUE)),
+                   time=factor(sample(1:3,n,TRUE)),
+                   age=factor(sample(1:4,n,TRUE)))
+  df$gt <- factor(paste0(df$gender,df$time))
+  df$ga <- factor(paste0(df$gender,df$age))
+  df$ta <- factor(paste0(df$time,df$age))
+  gt_t <- table(df$gt)/n; ga_t <- table(df$ga)/n; ta_t <- table(df$ta)/n
+  tgt <- list(
+    gender=c(M=0.48,F=0.52), time=setNames(c(0.4,0.35,0.25),1:3),
+    age=setNames(c(0.3,0.25,0.25,0.2),1:4),
+    gt={t<-setNames(as.numeric(gt_t)*c(0.95,1.02,0.98,1.03,0.97,1.05),names(gt_t));t/sum(t)},
+    ga={t<-setNames(as.numeric(ga_t),names(ga_t));t/sum(t)},
+    ta={t<-setNames(as.numeric(ta_t),names(ta_t));t/sum(t)})
+  tgt <- lapply(tgt, function(t) t/sum(t))
+  r_aa    <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=TRUE,
+                                       max_iterations=200L,attach_weights=FALSE))
+  r_plain <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=FALSE,
+                                       max_iterations=200L,attach_weights=FALSE))
+  me_aa    <- attr(r_aa,   "result")$max_error
+  me_plain <- attr(r_plain,"result")$max_error
+  expect_lte(me_aa, me_plain * 1.001 + 1e-10,
+    label=sprintf("K=6 revert: AA (%.2e) must not exceed plain (%.2e)", me_aa, me_plain))
+})
+```
+
 ### Existing tests must remain GREEN
 T_sraa_grk (K=2 greenkhorn+AA faster and at least as good as plain)
 T_sraa_rk (K=2 raking+AA)
@@ -271,12 +356,14 @@ T_sraa_ldlt_fallback, T_sraa_restart, T5-T8, T_logit_*
 
 | # | Criterion | Verify |
 |---|-----------|--------|
-| AC1 | T_sraa_grk GREEN (K=2, quality + speed) | `devtools::test(filter="calibration-solvers")` |
-| AC2 | T_sraa_rk GREEN (K=2 raking) | Same |
-| AC3 | T_sraa_adaptive_K9 GREEN (K=9 greenkhorn) | Same (skip if parquet absent) |
-| AC4 | T_sraa_raking_K9 GREEN (K=9 raking) | Same |
-| AC5 | FAIL count = 3 | `devtools::test()` |
-| AC6 (benchmark) | greenkhorn+AA iters < plain iters on K=9 | `Rscript benchmarks/stepstone_all_methods.R` |
+| AC1 | T_sraa_grk GREEN (K=2, quality ≤ plain AND iters_aa < iters_plain) | `devtools::test(filter="calibration-solvers")` |
+| AC2 | T_sraa_rk GREEN (K=2 raking quality ≤ plain) | Same |
+| AC3 | T_sraa_adaptive_K9 GREEN (K=9 greenkhorn+AA ≤ plain) | Same (skip if parquet absent in CI) |
+| AC4 | T_sraa_raking_K9 GREEN (K=9 raking+AA ≤ plain) | Same (skip if parquet absent) |
+| AC5 | FAIL count = 3 (pre-existing: test-ieppa-nonuniform-d.R:28, :29, test-sor.R:18) | `devtools::test()` |
+| AC6 (Track 1 only) | T_sraa_plateau_gate GREEN | `devtools::test(filter="calibration-solvers")` |
+| AC7 (Track 1 only) | T_sraa_outer_revert GREEN | Same |
+| AC8 (benchmark) | greenkhorn+AA iters < plain iters on K=9 | `Rscript benchmarks/stepstone_all_methods.R` |
 
 ---
 
