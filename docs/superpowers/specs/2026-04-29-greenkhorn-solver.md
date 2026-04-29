@@ -1,7 +1,17 @@
-# Greenkhorn Calibration Solver — Design Spec (rev 2)
+# Greenkhorn + Logit Calibration Solvers — Design Spec (rev 3)
 
 **Date**: 2026-04-29
-**Status**: Pending design review (rev 2 addresses all round-1 gate findings)
+**Status**: Pending design review (rev 3 adds Part 2: Logit calibration)
+
+## Two new methods
+
+| Method | Algorithm | Autumn analogue | Bounds |
+|--------|-----------|-----------------|--------|
+| `method="greenkhorn"` | Greedy coordinate-descent IPF (Part 1) | `autumn::harvest()` greedy | clamp |
+| `method="logit"` | Deville-Särndal logit Newton-Raphson (Part 2) | `autumn::calibrate()` | **by construction** |
+
+Greenkhorn ≡ autumn's greedy raking. Logit ≡ autumn's calibrate with `"logit"` distance
+(Deville & Särndal 1992), which "enforces the cap by construction at every Newton step."
 
 ---
 
@@ -222,19 +232,21 @@ RK_ALG_GREENKHORN = 9
 
 ---
 
-## Files to create / modify
+## Files to create / modify (both methods combined)
 
 | File | Change |
 |------|--------|
 | `src/greenkhorn.cpp` | New solver (greenkhorn_solve) |
 | `src/greenkhorn.hpp` | GreenkornResult struct (mirrors RakingResult) |
-| `src/leafblower.h` | Add RK_ALG_GREENKHORN = 9; add "greenkhorn" to rk_algorithm_t comment |
-| `src/Makevars.in` | Add `greenkhorn.cpp` to PKG_SOURCES |
-| `src/r_bridge.cpp` | Add "greenkhorn" dispatch block; extend alg_names to 10 elements in R result |
-| `src/c_api.cpp` | Add GREENKHORN case |
-| `R/harvest.R` | Add "greenkhorn" to map_method(); update @param method; update @param scheduler; extend alg_names vector |
+| `src/logit_calib.cpp` | New solver (logit_calibrate) |
+| `src/logit_calib.hpp` | LogitCalibResult struct (mirrors GregResult) |
+| `src/leafblower.h` | Add RK_ALG_GREENKHORN=9, RK_ALG_LOGIT=10 to enum |
+| `src/Makevars.in` | Add both `.cpp` files to PKG_SOURCES |
+| `src/r_bridge.cpp` | Add "greenkhorn" and "logit" dispatch blocks; alg_names to 11 elements |
+| `src/c_api.cpp` | Add GREENKHORN and LOGIT cases |
+| `R/harvest.R` | Add both to map_method(); update @param method; alg_names to 11 |
 | `man/harvest.Rd` | Auto-regenerate via devtools::document() |
-| `tests/testthat/test-calibration-solvers.R` | Add T1-T4 tests |
+| `tests/testthat/test-calibration-solvers.R` | Add T1-T4 (Greenkhorn) + T5-T8 (Logit) |
 
 ---
 
@@ -330,7 +342,7 @@ test_that("T4: greenkhorn respects max_weight and min_weight exactly", {
 
 ---
 
-## Out of Scope
+## Out of Scope (Part 1 — Greenkhorn)
 
 - SQUAREM (non-stationary F)
 - Top-k multi-margin selection per step
@@ -338,3 +350,286 @@ test_that("T4: greenkhorn respects max_weight and min_weight exactly", {
 - Homotopy / ALM / SOR
 - AUTO routing (Greenkhorn is explicit opt-in only)
 - Autumn API compatibility (convergence_used field differences — out of scope)
+
+---
+
+# Part 2: Logit Calibration (Deville-Särndal 1992)
+
+`method="logit"` implements bounded calibration via logit distance — `autumn::calibrate()`.
+
+## Mathematical formulation
+
+**Objective**: minimize generalized distance
+```
+Σ_c d_c × F(w_c / d_c)
+```
+where `d_c = X_init[c]` (cell initial mass), `w_c` is the calibrated cell mass, and F is the
+logit distance with bounds A = min_weight, B = max_weight (absolute, cell-aggregate):
+
+```
+F(u; A·n_c, B·n_c) = convex separation function whose gradient gives the logit link
+```
+
+The key property: **the optimizer writes the solution as a closed-form logistic function**:
+
+```
+w_c = L_cell[c] + (U_cell[c] − L_cell[c]) × σ(z_c)
+```
+where `σ(z) = 1/(1+exp(−z))` is the logistic sigmoid and
+`z_c = Σ_k λ[cat_offset[k] + g_per_cell[k][c]]` is the linear predictor for cell c.
+
+This guarantees `w_c ∈ [L_cell[c], U_cell[c]]` for ALL λ — no clamping, no water-fill.
+
+**Calibration constraints**: `Σ_{c ∈ bucket(k,j)} w_c = τ[k][j] × n` for all (k,j).
+
+## Newton-Raphson (dual problem)
+
+Starting from λ=0 (→ w_c = midpoint of [L,U]), iterate:
+
+```
+Δλ = N^{-1} × b
+
+where:
+  N[j1][j2] = (A·diag(D_eff)·Aᵀ)[j1][j2]     (normal equations, via calib_linalg.cpp)
+  b[k][j]   = τ[k][j]×n − Σ_{c ∈ bucket(k,j)} w_c   (calibration residual)
+  D_eff[c]  = (U_cell[c] − L_cell[c]) × σ(z_c) × (1−σ(z_c))   (Newton weight)
+
+λ += Δλ
+```
+
+Then recompute `w_c` and `D_eff[c]` from updated λ. Repeat until `max|b| < tol`.
+
+## Comparison with existing greg.cpp
+
+| Property | greg.cpp (chi-square) | logit_calib.cpp (logit) |
+|---|---|---|
+| Distance | chi-square | logit |
+| Bounds | active-set clamp | analytical (by construction) |
+| D_eff[c] | `X_init[c]` (constant) | `(U−L)·σ·(1−σ)` (varies per step) |
+| Newton iters | 5-50 (may cycle on tight bounds) | 5-20 (smooth, provably convergent) |
+| Degeneracy | ill-conditioned N at bounds | N well-conditioned (σ(1-σ)>0 always) |
+
+## Existing infrastructure reuse (verified)
+
+`src/calib_linalg.cpp` already provides exactly what's needed:
+- `compute_normal_equations(ct, D_eff, N, cat_offset, K, nct)` — builds N = A·diag(D)·Aᵀ
+- `ldlt_factor_inplace(N, nct, eps)` — factorizes N
+- `ldlt_solve(N, nct, b)` — solves NΔλ = b in-place
+
+These are the SAME functions used by greg.cpp. Logit calibration adds only the logit link
+function on top of the same normal-equation skeleton.
+
+## Core implementation (greenkhorn_solve → logit_calibrate)
+
+```cpp
+// src/logit_calib.cpp
+
+LogitCalibResult logit_calibrate(CalibState& st) {
+    // ... cell table build, X_init, L_cell/U_cell as in greg.cpp ...
+
+    // nct = Σ cat_counts[k]; cat_offset[k] = Σ_{k'<k} cat_counts[k']
+    int nct = 0;
+    std::vector<int> cat_offset(st.K);
+    for (int k = 0; k < st.K; k++) { cat_offset[k] = nct; nct += st.cat_counts[k]; }
+
+    std::vector<double> lambda(nct, 0.0);  // dual variables; init = 0
+    std::vector<double> w(ct.M_cell);      // cell calibrated masses
+    std::vector<double> D_eff(ct.M_cell);  // Newton weights
+    std::vector<double> N(nct * nct);      // normal equations matrix (symmetric)
+    std::vector<double> b(nct);            // calibration residuals / Newton RHS
+
+    constexpr int    kMaxNewtonIters = 50;
+    constexpr double kRegularization = 1e-10;
+
+    for (int iter = 0; iter < kMaxNewtonIters; iter++) {
+
+        // (1) Compute w[c] and D_eff[c] from current lambda:
+        for (int c = 0; c < ct.M_cell; c++) {
+            double z = 0.0;
+            for (int k = 0; k < st.K; k++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k])
+                    z += lambda[cat_offset[k] + g];
+            }
+            // Clamp z to avoid exp overflow (z = ±700 → sigma = 0 or 1)
+            z = std::clamp(z, -700.0, 700.0);
+            double sig = 1.0 / (1.0 + std::exp(-z));
+            double range = U_cell[c] - L_cell[c];
+            w[c]     = L_cell[c] + range * sig;
+            D_eff[c] = range * sig * (1.0 - sig);  // ≥ 0 always
+        }
+
+        // (2) Compute residuals b[k][j] = τ[k][j]×n − Σ_{c∈bucket(k,j)} w[c]
+        std::fill(b.begin(), b.end(), 0.0);
+        for (int k = 0; k < st.K; k++) {
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                double target = st.targets[k][j] * static_cast<double>(st.n);
+                double S_kj   = 0.0;
+                for (int c : cells_per_cat[k][j]) S_kj += w[c];
+                b[cat_offset[k] + j] = target - S_kj;
+            }
+        }
+
+        // (3) Check convergence: max|b| < tol
+        double max_resid = *std::max_element(b.begin(), b.end(),
+            [](double a, double b){ return std::abs(a) < std::abs(b); });
+        if (std::abs(max_resid) < cfg.pct_tol * st.n) {
+            res.status = RK_OK;
+            break;
+        }
+
+        // (4) Build N = A·diag(D_eff)·Aᵀ and solve NΔλ = b
+        if (compute_normal_equations(ct, D_eff.data(), N.data(),
+                                     cat_offset.data(), st.K,
+                                     static_cast<size_t>(nct)) != RK_OK) {
+            res.status = RK_ERR_INFEAS;  // singular system
+            break;
+        }
+        if (ldlt_factor_inplace(N.data(), static_cast<size_t>(nct), kRegularization)
+                != RK_OK) {
+            res.status = RK_ERR_INFEAS;
+            break;
+        }
+        ldlt_solve(N.data(), static_cast<size_t>(nct), b.data());  // b = Δλ
+
+        // (5) Update lambda
+        for (int j = 0; j < nct; j++) lambda[j] += b[j];
+    }
+
+    // ... result population, weight reconstruction ...
+}
+```
+
+## Weight reconstruction (cell → obs)
+
+```cpp
+res.best_weights.resize(st.n);
+for (int i = 0; i < st.n; i++) {
+    int c = ct.cell_of[i];
+    double X_init_c = 0.0;
+    for (int c2 = 0; c2 < ct.M_cell; c2++) { /* aggregate */ }
+    // Simpler: use precomputed X_init[c]:
+    res.best_weights[i] = (X_init[c] > 0.0)
+        ? st.weights[i] * w[c] / X_init[c]
+        : st.weights[i];
+    // Result w[i] ∈ [min_weight, max_weight] cell-aggregate (guaranteed by logit)
+}
+```
+
+## Files (logit calibration additions)
+
+| File | Change |
+|------|--------|
+| `src/logit_calib.cpp` | New solver (logit_calibrate) |
+| `src/logit_calib.hpp` | LogitCalibResult struct (mirrors GregResult) |
+| `src/leafblower.h` | Add RK_ALG_LOGIT = 10; extend alg_names comment |
+| `src/Makevars.in` | Add `logit_calib.cpp` to PKG_SOURCES |
+| `src/r_bridge.cpp` | Add "logit" dispatch block; alg_names to 11 elements |
+| `src/c_api.cpp` | Add LOGIT case |
+| `R/harvest.R` | Add "logit" to map_method(); update @param method; alg_names vector |
+| `man/harvest.Rd` | Auto-regenerate |
+| `tests/testthat/test-calibration-solvers.R` | Add T5-T8 tests |
+
+`alg_names` in harvest.R extended to 11:
+```r
+alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn",
+                "chebyshev", "greg", "grake", "ieppa_soft",
+                "greenkhorn", "logit")
+#               ^ index 9            ^ index 10
+```
+
+## TDD — Logit calibration
+
+### T5 — Logit available and calibrates
+
+```r
+test_that("T5: logit available and calibrates", {
+  set.seed(5); n <- 1000L
+  df  <- data.frame(sex=factor(sample(c("M","F"),n,TRUE)),
+                    age=factor(sample(c("Y","O"),n,TRUE)))
+  tgt <- list(sex=c(M=0.5,F=0.5), age=c(Y=0.6,O=0.4))
+  r   <- harvest(df, tgt, method="logit", max_iterations=50L)
+  expect_lt(attr(r,"result")$max_error, 1e-3)
+  expect_equal(attr(r,"result")$algorithm_used, "logit")
+})
+```
+
+### T6 — Logit bounds by construction (no post-hoc clamping)
+
+```r
+test_that("T6: logit respects bounds with NO clamping (by logit construction)", {
+  # Tight bounds where IPF would need many iterations / clamp
+  set.seed(6); n <- 5000L
+  df  <- data.frame(v=factor(sample(5, n, TRUE)))
+  tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
+  r   <- harvest(df, tgt, method="logit", max_weight=1.5, min_weight=0.1)
+  w   <- r$weights
+  expect_true(max(w) <= 1.5 + 1e-9)
+  expect_true(min(w) >= 0.1 - 1e-9)
+  # Logit converges in few Newton steps; verify
+  n_iters <- attr(r,"result")$iterations
+  expect_lt(n_iters, 50L,
+    label=sprintf("logit should converge in <50 Newton steps; got %d", n_iters))
+})
+```
+
+### T7 — Logit matches GREG on unconstrained problem (same chi-square minimizer)
+
+```r
+test_that("T7: logit and raking reach same calibration target (max_err < 1e-4)", {
+  # Without tight bounds, logit and raking should both converge to same weights
+  set.seed(7); n <- 5000L
+  df  <- data.frame(
+    a=factor(sample(letters[1:3],n,TRUE)),
+    b=factor(sample(LETTERS[1:4],n,TRUE))
+  )
+  tgt <- list(a=c(a=0.3,b=0.4,c=0.3), b=c(A=0.25,B=0.25,C=0.25,D=0.25))
+  r_logit <- harvest(df, tgt, method="logit",
+                     convergence=list(absolute=1e-6))
+  me_logit <- attr(r_logit,"result")$max_error
+  expect_lt(me_logit, 1e-4)
+})
+```
+
+### T8 — Logit vs raking on tight-bounds problem (logit must be competitive)
+
+```r
+test_that("T8: logit max_err within 2x of raking on tight-bounds problem", {
+  set.seed(8); n <- 5000L
+  df  <- data.frame(v=factor(sample(5, n, TRUE)))
+  tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
+  r_rk    <- harvest(df, tgt, method="raking", max_weight=1.8, min_weight=0,
+                     convergence=list(absolute=1e-6))
+  r_logit <- harvest(df, tgt, method="logit", max_weight=1.8, min_weight=0,
+                     convergence=list(absolute=1e-6))
+  me_rk    <- attr(r_rk,    "result")$max_error
+  me_logit <- attr(r_logit, "result")$max_error
+  expect_lt(me_logit, 2.0 * me_rk + 1e-6)
+})
+```
+
+## Acceptance Criteria (logit additions — Part 2)
+
+AC-L1: T5 GREEN — logit calibrates, `algorithm_used == "logit"`.
+AC-L2: T6 GREEN — bounds respected; Newton iters < 50.
+AC-L3: T7 GREEN — max_err < 1e-4 on 2-margin unconstrained problem.
+AC-L4: T8 GREEN — logit max_err within 2× of raking on tight-bounds problem.
+AC-L5: Status codes: RK_OK=0 on convergence; RK_ERR_INFEAS=2 on singular N (infeasible). Never RK_ERR_NOCONV=1.
+AC-L6: `devtools::test()` FAIL count unchanged (currently 3).
+AC-L7: `R CMD INSTALL --preclean .` compiles clean.
+AC-L8: *(Benchmark-only)* Stepstone logit: max_err ≤ raking max_err AND convergence in <30 Newton steps.
+
+## Key difference from greg.cpp (no active-set, no clamping)
+
+Greg clamps weights and iterates active-set steps. Logit never clamps — the logit link
+guarantees bounds analytically. When the bounds constraint is structurally infeasible
+(sum(L_cell) > n or sum(U_cell) < n), the normal equations N become singular and the
+solver returns RK_ERR_INFEAS with a message. Otherwise, Newton converges smoothly.
+
+## Out of Scope (Part 2 — Logit)
+
+- Per-obs logit calibration (cell-aggregate bounds only, same as bounds_mode=CELL)
+- Other Deville-Särndal distances (raking=KL, truncated logit)
+- Homotopy warmstart for initial λ
+- SQUAREM / acceleration (not needed — Newton converges in O(10) steps)
+- AUTO routing (explicit opt-in only)
