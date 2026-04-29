@@ -17,7 +17,7 @@ ChebyshevResult chebyshev_ipm(
     const std::vector<double>& w_warm_obs,
     double      delta_warm)
 {
-    static constexpr int    kMaxIpm    = 500;   // hard cap; user controls via max_iterations
+    static constexpr int    kMaxIpm    = 500;   // hard cap; K=9 needs more fundamental work
     static constexpr double kSigma     = 0.1;    // centering parameter
     static constexpr double kTolMu     = 1e-6;   // complementarity gap convergence threshold
     static constexpr double kEps       = 1e-14;  // strict interior buffer
