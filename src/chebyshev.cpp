@@ -17,7 +17,6 @@ ChebyshevResult chebyshev_ipm(
     const std::vector<double>& w_warm_obs,
     double      delta_warm)
 {
-    // w_warm_obs / delta_warm: warm-start from ieppa obs-level weights (T4).
     static constexpr int    kMaxIpm    = 500;   // hard cap; user controls via max_iterations
     static constexpr double kSigma     = 0.1;    // centering parameter
     static constexpr double kTolMu     = 1e-6;   // complementarity gap convergence threshold
@@ -84,29 +83,21 @@ ChebyshevResult chebyshev_ipm(
 
     // Reference category elimination: drop last category per multi-cat margin
     // to break the normalization degeneracy (schur_nu=0 for sum-to-1 targets).
-    // Single-category margins (cat_counts[k] < 2) are not eliminated.
+    // Used only for the verbose schur_nu diagnostic at verbose >= 2, iter == 0.
     int nct_red_count = 0;
     for (int k = 0; k < st.K; k++)
         if (st.cat_counts[k] >= 2) nct_red_count++;
     const int nct_red = nct - nct_red_count;
 
-    std::vector<bool> is_ref(nct, false);
-    std::vector<int>  full_to_red(nct, -1);
-    std::vector<int>  red_to_full(nct_red);
+    std::vector<int> full_to_red(nct, -1);
     {
         int nr = 0;
-        for (int k = 0; k < st.K; k++) {
+        for (int k = 0; k < st.K; k++)
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 int m = cat_offset[k] + j;
-                if (st.cat_counts[k] >= 2 && j == st.cat_counts[k] - 1) {
-                    is_ref[m] = true;
-                } else {
-                    full_to_red[m] = nr;
-                    red_to_full[nr++] = m;
-                }
+                if (!(st.cat_counts[k] >= 2 && j == st.cat_counts[k]-1))
+                    full_to_red[m] = nr++;
             }
-        }
-        // Invariant: nr == nct_red
     }
 
     // Initial cell masses — cold start from current obs weights
@@ -115,7 +106,6 @@ ChebyshevResult chebyshev_ipm(
 
     // Warm-start override: aggregate ieppa obs-level weights → cell masses,
     // then apply mass-preserving clamp (clamp → rescale → reclamp).
-    // Warm-start override: aggregate ieppa obs-level weights → cell masses.
     // GRAKE variant is excluded in r_bridge.cpp (GRAKE's w_kj weighting causes
     // LP slack degeneration with near-perfect warm-start; CHEBYSHEV is safe).
     if (!w_warm_obs.empty() && static_cast<int>(w_warm_obs.size()) == st.n) {
@@ -135,6 +125,9 @@ ChebyshevResult chebyshev_ipm(
         }
         X_warm.swap(X_init);  // O(1) — X_init now holds warm-start masses
     }
+    // delta_warm is reserved for future use; do NOT apply directly as LP delta
+    // (units differ from max_m |S[m]/W - T[m]| / w_kj[m]).
+    (void)delta_warm;
 
     // Marginal sum helper
     auto compute_S = [&](const std::vector<double>& Xv, std::vector<double>& Sv) {
@@ -169,11 +162,6 @@ ChebyshevResult chebyshev_ipm(
     for (int m = 0; m < nct; m++)
         delta = std::max(delta, std::fabs(S[m]-T_flat[m]*W_init_pre) / w_kj[m]);
     delta = 1.1*delta + 1e-8;
-    // delta_warm (ieppa's calibration error, reserved for T5 Mehrotra predictor-corrector).
-    // Do NOT apply it here: ieppa's max_error has different units from the LP delta
-    // (which is max_m |S[m]/W - T[m]| / w_kj[m]). Using ieppa's max_error directly
-    // collapses s_up/s_dn to kEps and causes immediate INFEAS.
-    (void)delta_warm;
 
     // Primal slacks
     std::vector<double> s_lo(ct.M_cell), s_hi(ct.M_cell);
@@ -203,17 +191,19 @@ ChebyshevResult chebyshev_ipm(
     std::vector<double> D_eff(ct.M_cell), D_marg(nct);
     // Full nct system (for δ Sherman-Morrison — must use full space to preserve E1/E2)
     std::vector<double> N0((size_t)nct * (size_t)nct);
-    std::vector<double> u_vec(nct), v_vec(nct), rhs_v(nct), w_sol(nct);
+    std::vector<double> u_vec(nct), v_vec(nct);
     std::vector<double> dlambda(nct);
-    // Reduced nct_red system (for ν second SM only)
-    std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
-    std::vector<double> e_red(nct_red), w_e_red(nct_red);
-    std::vector<double> dlambda_red(nct_red);  // ν SM internals
     std::vector<double> dX(ct.M_cell);
     std::vector<double> dS_up(nct), dS_dn(nct);
     std::vector<double> dY_lo(ct.M_cell), dY_hi(ct.M_cell), dY_up(nct), dY_dn(nct);
     std::vector<double> delta_S(nct);   // full nct — reference margins included
     std::vector<double> bucket_tmp(max_cats);
+    // Mehrotra predictor-corrector workspace
+    std::vector<double> D_jac(nct);                       // Jacobi scaling diagonal
+    std::vector<double> rhs_A(nct), rhs_B(nct);          // Phase A / Phase B RHS
+    std::vector<double> dlambda_A(nct), dlambda_B(nct);  // Phase A / Phase B solutions
+    std::vector<double> dX_A(ct.M_cell), dX_B(ct.M_cell);
+    std::vector<double> dS_up_A(nct), dS_dn_A(nct);      // Phase A slack steps
     double best_delta = delta;
     // Track best X by actual calibration error (errRp) rather than LP delta.
     // LP delta can hit the floor (kEps) due to numerical degeneration while the
@@ -263,7 +253,10 @@ ChebyshevResult chebyshev_ipm(
             // CalibRule (improvement/plateau) is designed for iterative projection methods;
             // for IPM it fires prematurely while the algorithm is still making progress.
             // Primary: μ < kTolMu. Secondary: user absolute_tol if set.
-            bool converged = (mu < kTolMu);
+            // Tertiary: best_errRp < 1e-8 — Mehrotra drives primal to machine precision while
+            // μ stays large (degenerate complementarity); accept when best calibration is perfect.
+            // Guard iter>0: warm-start may already have perfect errRp on iter 0; require a step.
+            bool converged = (mu < kTolMu) || (iter > 0 && best_errRp < 1e-8);
             if (have_abs) converged = converged || converged_abs;
 
             if (converged) {
@@ -275,8 +268,6 @@ ChebyshevResult chebyshev_ipm(
                 break;
             }
         }
-
-        const double sigma_mu = kSigma * mu;
 
         // D_eff: 1/D_eff[c] = sum of all barrier weights for cell c
         for (int c = 0; c < ct.M_cell; c++) {
@@ -295,29 +286,11 @@ ChebyshevResult chebyshev_ipm(
         for (int m = 0; m < nct; m++)
             D_marg[m] = 1.0 / (y_up[m]/s_up[m] + y_dn[m]/s_dn[m] + 1e-300);
 
-        // RHS WITH complementarity centering (correct formula):
-        // rhs[m] = -(S[m] - T_flat[m]*W)  +  D_marg[m]*( rmu_up/s_up - rmu_dn/s_dn )
-        // Using T_flat[m]*W (= T[m]*W) as the dynamic target so the Newton step
-        // drives S[m]/W → T[m] directly rather than S[m] → T[m]*n_d.
-        // where rmu_up = sigma*mu - s_up*y_up  (centering residual)
-        for (int m = 0; m < nct; m++) {
-            double rmu_up = sigma_mu - s_up[m]*y_up[m];
-            double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
-            rhs_v[m] = -(S[m] - T_flat[m]*W)
-                       + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
-        }
-
-        // δ stationarity: r_δ = 1 - Σ_m w_m*(y_up+y_dn) - y_delta
-        // Margin centering contribution to Δδ: Σ_m w_m*(rmu_up/s_up + rmu_dn/s_dn)
-        double rmu_delta = sigma_mu - s_delta*y_delta;
-        double r_delta_stat = 1.0, margin_delta_center = 0.0;
+        // δ stationarity residual (centering-independent part)
+        double r_delta_stat = 1.0;
         r_delta_stat -= y_delta;
-        for (int m = 0; m < nct; m++) {
+        for (int m = 0; m < nct; m++)
             r_delta_stat -= w_kj[m]*(y_up[m]+y_dn[m]);
-            double rmu_up_m = sigma_mu - s_up[m]*y_up[m];
-            double rmu_dn_m = sigma_mu - s_dn[m]*y_dn[m];
-            margin_delta_center += w_kj[m]*(rmu_up_m/s_up[m] + rmu_dn_m/s_dn[m]);
-        }
 
         // Sherman-Morrison: u[m]=w_kj[m], Theta = second derivative of barrier w.r.t. δ
         double Theta = y_delta / s_delta;
@@ -326,47 +299,39 @@ ChebyshevResult chebyshev_ipm(
         double alpha_sm = (Theta > 1e-300) ? 1.0/Theta : 0.0;
         for (int m = 0; m < nct; m++) u_vec[m] = w_kj[m];
 
-        // N_0 = A * D_eff * A^T (full nct×nct, for δ SM — preserves E1/E2 correctness)
+        // N_0 = A * D_eff * A^T (full nct×nct) — rebuilt fresh each iteration
         if (lbw::compute_normal_equations(ct, D_eff.data(), N0.data(),
                                           cat_offset.data(), st.K,
                                           static_cast<size_t>(nct)) != RK_OK) {
             res.status = RK_ERR_BADARG; return res;
         }
 
-        // LDLT factor N_0 (full nct × nct)
+        // Jacobi diagonal preconditioning: D_jac[j] = 1/sqrt(max(N[j*nct+j], 1e-12))
+        // Scale N in-place: N_scaled[i][j] = D_jac[i]*N[i][j]*D_jac[j]
+        for (int j = 0; j < nct; j++)
+            D_jac[j] = 1.0 / std::sqrt(std::max(N0[(size_t)j*nct+j], 1e-12));
+        for (int i = 0; i < nct; i++)
+            for (int j = 0; j < nct; j++)
+                N0[(size_t)i*nct+j] *= D_jac[i] * D_jac[j];
+
+        // LDLT factor scaled N_0 once per iteration
         if (ldlt_factor_inplace(N0.data(), static_cast<size_t>(nct), kEpsLdlt) != RK_OK) {
             res.status = RK_ERR_BADARG; return res;
         }
+        res.n_factorizations++;
 
-        // Back-solve 1: w_sol = N_0^{-1} · rhs_v
-        std::copy(rhs_v.begin(), rhs_v.end(), w_sol.begin());
-        ldlt_solve(N0.data(), static_cast<size_t>(nct), w_sol.data());
-
-        // Back-solve 2: v_vec = N_0^{-1} · u_vec  (first SM: δ correction)
-        std::copy(u_vec.begin(), u_vec.end(), v_vec.begin());
-        ldlt_solve(N0.data(), static_cast<size_t>(nct), v_vec.data());
-
-        double utv = 0.0, utw = 0.0;
-        for (int m = 0; m < nct; m++) { utv += u_vec[m]*v_vec[m]; utw += u_vec[m]*w_sol[m]; }
-        double sm_denom = 1.0 + alpha_sm*utv;
-        double sm_coeff = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw/sm_denom) : 0.0;
-        for (int m = 0; m < nct; m++) dlambda[m] = w_sol[m] - sm_coeff*v_vec[m];
-
-        // ν diagnostic: compute schur_nu via N_red (reference elimination guarantees > 0).
-        // The ν dual correction (dnu) is NOT applied: the normalization W = n_d is
-        // maintained implicitly by the LP slack structure (s_up, s_dn). Applying dnu
-        // explicitly destabilizes convergence. The schur_nu value is logged at verbose >= 2.
-        const double dnu = 0.0;
-        if (st.verbose >= 2 && iter == 0) {
-            // N_red = A_red * D_eff * A_red^T
+        // ν diagnostic at verbose >= 2, first iteration only.
+        // Uses reduced N (reference categories eliminated) to avoid degenerate near-zero schur_nu.
+        // schur_nu = D_nu - e_red^T * N_red^{-1} * e_red.
+        if (st.verbose >= 2 && iter == 0 && nct_red > 0) {
+            std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
+            std::vector<double> e_red(nct_red, 0.0), w_e_red(nct_red);
             if (lbw::compute_normal_equations_reduced(ct, D_eff.data(), N_red.data(),
                                                       cat_offset.data(), st.K,
                                                       static_cast<size_t>(nct_red),
                                                       full_to_red.data()) == RK_OK &&
                 ldlt_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsLdlt) == RK_OK) {
-                // e_red[nr] = Σ_{c∈margin red_to_full[nr]} D_eff[c]
-                std::fill(e_red.begin(), e_red.end(), 0.0);
-                for (int c = 0; c < ct.M_cell; c++) {
+                for (int c = 0; c < ct.M_cell; c++)
                     for (int k = 0; k < st.K; k++) {
                         int g = ct.g_per_cell[k][c];
                         if (g < 0 || g >= st.cat_counts[k]) continue;
@@ -374,7 +339,6 @@ ChebyshevResult chebyshev_ipm(
                         int nr = full_to_red[m];
                         if (nr >= 0) e_red[nr] += D_eff[c];
                     }
-                }
                 std::copy(e_red.begin(), e_red.end(), w_e_red.begin());
                 ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), w_e_red.data());
                 double D_nu = 0.0;
@@ -388,143 +352,439 @@ ChebyshevResult chebyshev_ipm(
             }
         }
 
-        // ΔX[c] = D_eff[c] * (Σ_k dlambda[cat_offset[k]+g_k(c)] + dnu)
-        std::fill(dX.begin(), dX.end(), 0.0);
-        for (int k = 0; k < st.K; k++)
-            for (int c = 0; c < ct.M_cell; c++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k])
-                    dX[c] += dlambda[cat_offset[k]+g];
-            }
-        for (int c = 0; c < ct.M_cell; c++) dX[c] = D_eff[c] * (dX[c] + dnu);
-
-        // Δδ: full formula including δ-stationarity residual and margin centering
-        double w_dot_dlambda = 0.0;
-        for (int m = 0; m < nct; m++) w_dot_dlambda += w_kj[m]*dlambda[m];
-        double d_delta = alpha_sm * (
-            rmu_delta/s_delta           // δ complementarity centering
-          + margin_delta_center         // margin complementarity contribution to Δδ
-          - r_delta_stat                // δ stationarity residual
-          - (y_delta/s_delta)*w_dot_dlambda  // Schur coupling
-        );
-
-        // Compute ΔS from ΔX in O(K*M_cell)
-        std::fill(delta_S.begin(), delta_S.end(), 0.0);
-        for (int k = 0; k < st.K; k++)
-            for (int c = 0; c < ct.M_cell; c++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k])
-                    delta_S[cat_offset[k]+g] += dX[c];
-            }
-        for (int m = 0; m < nct; m++) {
-            dS_up[m] = w_kj[m]*d_delta - delta_S[m];   // Δs_up = w·Δδ − ΔS
-            dS_dn[m] = delta_S[m] + w_kj[m]*d_delta;   // Δs_dn = ΔS + w·Δδ
-        }
-
-        // Dual Newton steps (correct, not reset!)
-        for (int m = 0; m < nct; m++) {
-            double rmu_up = sigma_mu - s_up[m]*y_up[m];
-            double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
-            dY_up[m] = (rmu_up - y_up[m]*dS_up[m]) / s_up[m];
-            dY_dn[m] = (rmu_dn - y_dn[m]*dS_dn[m]) / s_dn[m];
-        }
-        for (int c = 0; c < ct.M_cell; c++) {
-            double rmu_lo = sigma_mu - s_lo[c]*y_lo[c];
-            double rmu_hi = sigma_mu - s_hi[c]*y_hi[c];
-            dY_lo[c] = (rmu_lo - y_lo[c]*dX[c]) / s_lo[c];
-            dY_hi[c] = (rmu_hi + y_hi[c]*dX[c]) / s_hi[c];   // Δs_hi = -ΔX
-        }
-        double dY_delta = (rmu_delta - y_delta*d_delta) / s_delta;
-
-        // Separate primal and dual line searches
-        double alpha_p = 1.0, alpha_d = 1.0;
-        for (int c = 0; c < ct.M_cell; c++) {
-            if (dX[c] > 0.0)  alpha_p = std::min(alpha_p, kStepScale*s_hi[c]/dX[c]);
-            if (dX[c] < 0.0)  alpha_p = std::min(alpha_p, -kStepScale*s_lo[c]/dX[c]);
-            if (dY_lo[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_lo[c]/dY_lo[c]);
-            if (dY_hi[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_hi[c]/dY_hi[c]);
-        }
-        for (int m = 0; m < nct; m++) {
-            if (dS_up[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_up[m]/dS_up[m]);
-            if (dS_dn[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_dn[m]/dS_dn[m]);
-            if (dY_up[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_up[m]/dY_up[m]);
-            if (dY_dn[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_dn[m]/dY_dn[m]);
-        }
-        if (d_delta < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_delta/d_delta);
-        if (dY_delta < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_delta/dY_delta);
-        // Update primal
-        for (int c = 0; c < ct.M_cell; c++) X[c] += alpha_p*dX[c];
-        delta += alpha_p*d_delta;
-        if (delta < kEps) delta = kEps;
-        s_delta = delta;
-
-
-        for (int c = 0; c < ct.M_cell; c++) {
-            s_lo[c] = std::max(X[c]-L_cell[c], kEps);
-            s_hi[c] = std::max(U_cell[c]-X[c], kEps);
-        }
-        compute_S(X, S);
-        // Use T_flat[m]*W_current as the dynamic target so that the LP tracks
-        // the actual calibration objective max_m |S[m]/W - T[m]| rather than
-        // max_m |S[m]/n_d - T[m]|. W drifts when bounds are asymmetric; fixing
-        // the target to T[m]*n_d causes slacks to diverge when W != n_d.
-        {
-            double W_upd = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) W_upd += X[c];
-            int viol_this_iter = 0;
+        // Mehrotra predictor-corrector for CHEBYSHEV; original fixed-sigma for GRAKE.
+        // Jacobi preconditioning (applied above) benefits both variants.
+        // n_comp = 2*ct.M_cell + 2*nct + 1 > 0 always.
+        double sigma_mu;
+        if (variant != LpVariant::CHEBYSHEV || n_comp == 0) {
+            // GRAKE or degenerate: Jacobi-preconditioned single-step with fixed σ
+            sigma_mu = kSigma * mu;
+            const double rmu_delta_f = sigma_mu - s_delta*y_delta;
+            double margin_delta_center_f = 0.0;
             for (int m = 0; m < nct; m++) {
-                double raw_sup = T_flat[m]*W_upd + w_kj[m]*delta - S[m];
-                double raw_sdn = S[m] - T_flat[m]*W_upd + w_kj[m]*delta;
-                if (raw_sup < 0.0 || raw_sdn < 0.0) viol_this_iter++;
-                s_up[m] = std::max(raw_sup, kEps);
-                s_dn[m] = std::max(raw_sdn, kEps);
+                double rmu_up = sigma_mu - s_up[m]*y_up[m];
+                double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
+                rhs_A[m] = -(S[m] - T_flat[m]*W)
+                           + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
+                margin_delta_center_f += w_kj[m]*(rmu_up/s_up[m] + rmu_dn/s_dn[m]);
             }
-            if (viol_this_iter > 0) {
-                slack_violations++;
-                if (slack_violations > kInfeasPersistence) {
-                    std::snprintf(res.message, sizeof(res.message),
-                                  "chebyshev: %d consecutive iters with negative slacks — INFEAS",
-                                  slack_violations);
-                    res.status = RK_ERR_INFEAS;
-                    break;
+            // Scale, solve, unscale (using Jacobi-preconditioned N0)
+            for (int m = 0; m < nct; m++) rhs_A[m] *= D_jac[m];
+            ldlt_solve(N0.data(), static_cast<size_t>(nct), rhs_A.data());
+            for (int m = 0; m < nct; m++) dlambda_A[m] = D_jac[m] * rhs_A[m];
+            // SM correction
+            for (int m = 0; m < nct; m++) v_vec[m] = D_jac[m] * u_vec[m];
+            ldlt_solve(N0.data(), static_cast<size_t>(nct), v_vec.data());
+            for (int m = 0; m < nct; m++) v_vec[m] *= D_jac[m];
+            double utv_f = 0.0, utw_f = 0.0;
+            for (int m = 0; m < nct; m++) { utv_f += u_vec[m]*v_vec[m]; utw_f += u_vec[m]*dlambda_A[m]; }
+            double sm_denom_f = 1.0 + alpha_sm*utv_f;
+            double sm_coeff_f = (std::fabs(sm_denom_f) > 1e-300) ? (alpha_sm*utw_f/sm_denom_f) : 0.0;
+            for (int m = 0; m < nct; m++) dlambda[m] = dlambda_A[m] - sm_coeff_f * v_vec[m];
+            // dX from dlambda
+            std::fill(dX.begin(), dX.end(), 0.0);
+            for (int k = 0; k < st.K; k++)
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k])
+                        dX[c] += dlambda[cat_offset[k]+g];
                 }
-            } else {
-                slack_violations = 0;
+            for (int c = 0; c < ct.M_cell; c++) dX[c] = D_eff[c] * dX[c];
+            double w_dot_dlambda_f = 0.0;
+            for (int m = 0; m < nct; m++) w_dot_dlambda_f += w_kj[m]*dlambda[m];
+            double d_delta_f = alpha_sm * (
+                rmu_delta_f/s_delta
+              + margin_delta_center_f
+              - r_delta_stat
+              - (y_delta/s_delta)*w_dot_dlambda_f
+            );
+            std::fill(delta_S.begin(), delta_S.end(), 0.0);
+            for (int k = 0; k < st.K; k++)
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k])
+                        delta_S[cat_offset[k]+g] += dX[c];
+                }
+            for (int m = 0; m < nct; m++) {
+                dS_up[m] = w_kj[m]*d_delta_f - delta_S[m];
+                dS_dn[m] = delta_S[m] + w_kj[m]*d_delta_f;
             }
-        }
-
-        // Update dual (Newton step, not reset!)
-        y_delta += alpha_d*dY_delta;
-        if (y_delta < kEps) y_delta = kEps;
-        for (int c = 0; c < ct.M_cell; c++) {
-            y_lo[c] += alpha_d*dY_lo[c]; if (y_lo[c] < kEps) y_lo[c] = kEps;
-            y_hi[c] += alpha_d*dY_hi[c]; if (y_hi[c] < kEps) y_hi[c] = kEps;
-        }
-        for (int m = 0; m < nct; m++) {
-            y_up[m] += alpha_d*dY_up[m]; if (y_up[m] < kEps) y_up[m] = kEps;
-            y_dn[m] += alpha_d*dY_dn[m]; if (y_dn[m] < kEps) y_dn[m] = kEps;
-        }
-
-        // Guard: cap complementarity products s*y to prevent dual explosion.
-        // When duals blow up (mu increases by >100x), reset them to maintain
-        // the central path mu_target = current_complementarity / n_comp.
-        // This prevents runaway dual variables while preserving primal progress.
-        {
-            double comp_new = y_delta*s_delta;
-            for (int c = 0; c < ct.M_cell; c++) comp_new += y_lo[c]*s_lo[c] + y_hi[c]*s_hi[c];
-            for (int m = 0; m < nct; m++) comp_new += y_up[m]*s_up[m] + y_dn[m]*s_dn[m];
-            double mu_new = comp_new / n_comp;
-            if (mu_new > 100.0 * mu) {
-                // Dual explosion: re-center at mu_new clamped to mu (post-step, but bounded).
-                // mu_new > 100*mu here, so reset target is mu to avoid re-centering at
-                // an exploded value that would push duals even higher than before the step.
-                // Using mu (pre-step) keeps duals on the known-valid central path.
-                y_delta = mu / s_delta;
-                for (int c = 0; c < ct.M_cell; c++) { y_lo[c] = mu/s_lo[c]; y_hi[c] = mu/s_hi[c]; }
-                for (int m = 0; m < nct; m++) { y_up[m] = mu/s_up[m]; y_dn[m] = mu/s_dn[m]; }
+            for (int m = 0; m < nct; m++) {
+                double rmu_up = sigma_mu - s_up[m]*y_up[m];
+                double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
+                dY_up[m] = (rmu_up - y_up[m]*dS_up[m]) / s_up[m];
+                dY_dn[m] = (rmu_dn - y_dn[m]*dS_dn[m]) / s_dn[m];
             }
+            for (int c = 0; c < ct.M_cell; c++) {
+                double rmu_lo = sigma_mu - s_lo[c]*y_lo[c];
+                double rmu_hi = sigma_mu - s_hi[c]*y_hi[c];
+                dY_lo[c] = (rmu_lo - y_lo[c]*dX[c]) / s_lo[c];
+                dY_hi[c] = (rmu_hi + y_hi[c]*dX[c]) / s_hi[c];
+            }
+            double dY_delta_f = (rmu_delta_f - y_delta*d_delta_f) / s_delta;
+            // Line search and update
+            double alpha_p = 1.0, alpha_d = 1.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (dX[c] > 0.0)  alpha_p = std::min(alpha_p, kStepScale*s_hi[c]/dX[c]);
+                if (dX[c] < 0.0)  alpha_p = std::min(alpha_p, -kStepScale*s_lo[c]/dX[c]);
+                if (dY_lo[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_lo[c]/dY_lo[c]);
+                if (dY_hi[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_hi[c]/dY_hi[c]);
+            }
+            for (int m = 0; m < nct; m++) {
+                if (dS_up[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_up[m]/dS_up[m]);
+                if (dS_dn[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_dn[m]/dS_dn[m]);
+                if (dY_up[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_up[m]/dY_up[m]);
+                if (dY_dn[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_dn[m]/dY_dn[m]);
+            }
+            if (d_delta_f < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_delta/d_delta_f);
+            if (dY_delta_f < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_delta/dY_delta_f);
+            for (int c = 0; c < ct.M_cell; c++) X[c] += alpha_p*dX[c];
+            delta += alpha_p*d_delta_f;
+            if (delta < kEps) delta = kEps;
+            s_delta = delta;
+            for (int c = 0; c < ct.M_cell; c++) {
+                s_lo[c] = std::max(X[c]-L_cell[c], kEps);
+                s_hi[c] = std::max(U_cell[c]-X[c], kEps);
+            }
+            compute_S(X, S);
+            {
+                double W_upd = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) W_upd += X[c];
+                int viol_this_iter = 0;
+                for (int m = 0; m < nct; m++) {
+                    double raw_sup = T_flat[m]*W_upd + w_kj[m]*delta - S[m];
+                    double raw_sdn = S[m] - T_flat[m]*W_upd + w_kj[m]*delta;
+                    if (raw_sup < 0.0 || raw_sdn < 0.0) viol_this_iter++;
+                    s_up[m] = std::max(raw_sup, kEps);
+                    s_dn[m] = std::max(raw_sdn, kEps);
+                }
+                if (viol_this_iter > 0) {
+                    slack_violations++;
+                    if (slack_violations > kInfeasPersistence) {
+                        std::snprintf(res.message, sizeof(res.message),
+                                      "chebyshev: %d consecutive iters with negative slacks — INFEAS",
+                                      slack_violations);
+                        res.status = RK_ERR_INFEAS;
+                        break;
+                    }
+                } else { slack_violations = 0; }
+            }
+            y_delta += alpha_d*dY_delta_f; if (y_delta < kEps) y_delta = kEps;
+            for (int c = 0; c < ct.M_cell; c++) {
+                y_lo[c] += alpha_d*dY_lo[c]; if (y_lo[c] < kEps) y_lo[c] = kEps;
+                y_hi[c] += alpha_d*dY_hi[c]; if (y_hi[c] < kEps) y_hi[c] = kEps;
+            }
+            for (int m = 0; m < nct; m++) {
+                y_up[m] += alpha_d*dY_up[m]; if (y_up[m] < kEps) y_up[m] = kEps;
+                y_dn[m] += alpha_d*dY_dn[m]; if (y_dn[m] < kEps) y_dn[m] = kEps;
+            }
+            {
+                double comp_new = y_delta*s_delta;
+                for (int c = 0; c < ct.M_cell; c++) comp_new += y_lo[c]*s_lo[c] + y_hi[c]*s_hi[c];
+                for (int m = 0; m < nct; m++) comp_new += y_up[m]*s_up[m] + y_dn[m]*s_dn[m];
+                double mu_new = comp_new / n_comp;
+                if (mu_new > 100.0 * mu) {
+                    y_delta = mu / s_delta;
+                    for (int c = 0; c < ct.M_cell; c++) { y_lo[c] = mu/s_lo[c]; y_hi[c] = mu/s_hi[c]; }
+                    for (int m = 0; m < nct; m++) { y_up[m] = mu/s_up[m]; y_dn[m] = mu/s_dn[m]; }
+                }
+            }
+            if (delta < best_delta) { best_delta = delta; }
+            continue;
+        } else {
+            // ── Phase A: affine predictor (σ = 0, no centering) ──────────────────
+            // RHS_A[m] = -(S[m] - T_flat[m]*W) + D_marg[m]*(-s_up*y_up/s_up + s_dn*y_dn/s_dn)
+            //          = -(S[m] - T_flat[m]*W) - D_marg[m]*(y_up - y_dn)
+            // (rmu_up = 0 - s_up*y_up with σ=0; contribution = -y_up; similarly for dn)
+            for (int m = 0; m < nct; m++)
+                rhs_A[m] = -(S[m] - T_flat[m]*W)
+                           + D_marg[m] * (-y_up[m] + y_dn[m]);
+
+            // δ centering contribution to δ step (σ=0 → rmu_delta = -s_delta*y_delta)
+            // margin_delta_center = Σ w[m]*(rmu_up/s_up + rmu_dn/s_dn); with σ=0: -y_up-y_dn
+            double margin_delta_center_A = 0.0;
+            for (int m = 0; m < nct; m++)
+                margin_delta_center_A += w_kj[m]*(-y_up[m] - y_dn[m]);
+            double rmu_delta_A = -s_delta*y_delta;
+
+            // Scale RHS_A: rhs_A_scaled[j] = D_jac[j] * rhs_A[j]
+            for (int m = 0; m < nct; m++) rhs_A[m] *= D_jac[m];
+            // Solve Phase A (scaled)
+            ldlt_solve(N0.data(), static_cast<size_t>(nct), rhs_A.data());
+            // Unscale: dlambda_A[j] = D_jac[j] * rhs_A_scaled_solved[j]
+            for (int m = 0; m < nct; m++) dlambda_A[m] = D_jac[m] * rhs_A[m];
+
+            // SM correction for Phase A (δ direction)
+            // v_vec = N_0^{-1} · (D_jac * u_vec)
+            for (int m = 0; m < nct; m++) v_vec[m] = D_jac[m] * u_vec[m];
+            ldlt_solve(N0.data(), static_cast<size_t>(nct), v_vec.data());
+            for (int m = 0; m < nct; m++) v_vec[m] *= D_jac[m];
+
+            double utv = 0.0, utw_A = 0.0;
+            for (int m = 0; m < nct; m++) { utv += u_vec[m]*v_vec[m]; utw_A += u_vec[m]*dlambda_A[m]; }
+            double sm_denom = 1.0 + alpha_sm*utv;
+            double sm_coeff_A = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw_A/sm_denom) : 0.0;
+            for (int m = 0; m < nct; m++) dlambda_A[m] -= sm_coeff_A * v_vec[m];
+
+            // dx_A, d_delta_A from dlambda_A
+            std::fill(dX_A.begin(), dX_A.end(), 0.0);
+            for (int k = 0; k < st.K; k++)
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k])
+                        dX_A[c] += dlambda_A[cat_offset[k]+g];
+                }
+            for (int c = 0; c < ct.M_cell; c++) dX_A[c] = D_eff[c] * dX_A[c];
+
+            double w_dot_dlambda_A = 0.0;
+            for (int m = 0; m < nct; m++) w_dot_dlambda_A += w_kj[m]*dlambda_A[m];
+            double d_delta_A = alpha_sm * (
+                rmu_delta_A/s_delta
+              + margin_delta_center_A
+              - r_delta_stat
+              - (y_delta/s_delta)*w_dot_dlambda_A
+            );
+
+            // delta_S_A[m] = Σ_c A[m,c]*dX_A[c]
+            std::fill(delta_S.begin(), delta_S.end(), 0.0);
+            for (int k = 0; k < st.K; k++)
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k])
+                        delta_S[cat_offset[k]+g] += dX_A[c];
+                }
+            for (int m = 0; m < nct; m++) {
+                dS_up_A[m] = w_kj[m]*d_delta_A - delta_S[m];
+                dS_dn_A[m] = delta_S[m] + w_kj[m]*d_delta_A;
+            }
+
+            // α_aff: max α s.t. (x+α·dx_A ≥ 0) AND (s+α·ds_A ≥ 0) with 0.99 damping
+            double alpha_aff = 1.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (dX_A[c] > 0.0)  alpha_aff = std::min(alpha_aff, kStepScale*s_hi[c]/dX_A[c]);
+                if (dX_A[c] < 0.0)  alpha_aff = std::min(alpha_aff, -kStepScale*s_lo[c]/dX_A[c]);
+            }
+            for (int m = 0; m < nct; m++) {
+                if (dS_up_A[m] < 0.0) alpha_aff = std::min(alpha_aff, -kStepScale*s_up[m]/dS_up_A[m]);
+                if (dS_dn_A[m] < 0.0) alpha_aff = std::min(alpha_aff, -kStepScale*s_dn[m]/dS_dn_A[m]);
+            }
+            if (d_delta_A < 0.0) alpha_aff = std::min(alpha_aff, -kStepScale*s_delta/d_delta_A);
+
+            // μ_aff = clamp(dot(x+α_aff·dx_A, s+α_aff·ds_A) / n_comp, 0, μ*100)
+            double comp_aff = y_delta*(s_delta + alpha_aff*d_delta_A);
+            for (int c = 0; c < ct.M_cell; c++) {
+                comp_aff += y_lo[c]*(s_lo[c] + alpha_aff*dX_A[c])
+                          + y_hi[c]*(s_hi[c] - alpha_aff*dX_A[c]);
+            }
+            for (int m = 0; m < nct; m++) {
+                comp_aff += y_up[m]*(s_up[m] + alpha_aff*dS_up_A[m])
+                          + y_dn[m]*(s_dn[m] + alpha_aff*dS_dn_A[m]);
+            }
+            double mu_aff = std::clamp(comp_aff / (double)n_comp, 0.0, mu * 100.0);
+
+            // σ = clamp((μ_aff/μ)³, 1e-8, 1.0); cap at kSigma when predictor stalls
+            // (alpha_aff → 0 when primal is near-optimal → sigma → 1 → stall)
+            double ratio = (mu > 1e-300) ? (mu_aff / mu) : 1.0;
+            double sigma = std::clamp(ratio*ratio*ratio, 1e-8, 1.0);
+            if (alpha_aff < 1e-4) sigma = std::min(sigma, kSigma);  // predictor stall guard
+            sigma_mu = sigma * mu;
+
+            // ── Phase B: corrector (centering + second-order) ─────────────────────
+            // rhs_B[m] = rhs_A_original[m] + σμ/s_up - σμ/s_dn
+            //          + D_marg[m]*( σμ/s_up - σμ/s_dn - dx_A·ds_up_A/s_up + dx_A·ds_dn_A/s_dn )
+            // Combining: second-order correction = -dS_up_A[m]*y_up_affine_step/s_up
+            // Full Mehrotra corrector for rhs_B:
+            // rhs_B[m] = -(S-TW) + D_marg*(σμ - s_up*y_up - dS_up_A*dY_up_A)/s_up
+            //                     - D_marg*(σμ - s_dn*y_dn - dS_dn_A*dY_dn_A)/s_dn
+            // where dY_up_A[m] = (-s_up[m]*y_up[m] - y_up[m]*dS_up_A[m]) / s_up[m]
+            //                   = (-y_up[m]*(s_up[m]+dS_up_A[m])) / s_up[m]  (σ=0 affine)
+            // So dS_up_A * dY_up_A = dS_up_A * (-y_up*(s_up+dS_up_A))/s_up
+            // Simplified: Mehrotra second-order term = -dS_up_A[m]*dY_up_A_unscaled
+            // where dY_up_A_unscaled = (0 - y_up*dS_up_A)/s_up  (σ=0)
+            // => second_order_up[m] = -dS_up_A[m] * (-y_up[m]*dS_up_A[m]/s_up[m])
+            //                       = dS_up_A[m]^2 * y_up[m] / s_up[m]
+            // Full corrector rhs:
+            // rhs_B[m] = -(S-TW) + D_marg*(σμ - s_up*y_up + dS_up_A^2*y_up/s_up - (-σμ + s_dn*y_dn - dS_dn_A^2*y_dn/s_dn)) / ...
+            // Compact form matching the spec's "rhs_B = rhs_A + σ*μ*e - dx_A·ds_A":
+            // The "dx_A·ds_A" term in the Schur-complement reduced system is:
+            // Δ_m = D_marg[m] * (dS_up_A[m]*(y_up[m]*dS_up_A[m]/s_up[m])
+            //                  - dS_dn_A[m]*(y_dn[m]*dS_dn_A[m]/s_dn[m]))
+            // Mehrotra second-order correction: -Δs_A*Δy_A for each complementarity pair.
+            // With σ=0 affine: Δy_up_A = (-s_up*y_up - y_up*Δs_up_A)/s_up
+            //   → -Δs_up_A*Δy_up_A = y_up*Δs_up_A + y_up*Δs_up_A²/s_up
+            for (int m = 0; m < nct; m++) {
+                double corr_up = y_up[m]*dS_up_A[m] + y_up[m]*dS_up_A[m]*dS_up_A[m]/s_up[m];
+                double corr_dn = y_dn[m]*dS_dn_A[m] + y_dn[m]*dS_dn_A[m]*dS_dn_A[m]/s_dn[m];
+                double rmu_up_B = sigma_mu - s_up[m]*y_up[m] + corr_up;
+                double rmu_dn_B = sigma_mu - s_dn[m]*y_dn[m] + corr_dn;
+                rhs_B[m] = -(S[m] - T_flat[m]*W)
+                           + D_marg[m] * (rmu_up_B/s_up[m] - rmu_dn_B/s_dn[m]);
+            }
+
+            // δ Phase B centering with second-order correction
+            // Δy_delta_A = (-s_delta*y_delta - y_delta*d_delta_A)/s_delta
+            // -d_delta_A*Δy_delta_A = y_delta*d_delta_A + y_delta*d_delta_A²/s_delta
+            double corr_delta = y_delta*d_delta_A + y_delta*d_delta_A*d_delta_A/s_delta;
+            double rmu_delta_B = sigma_mu - s_delta*y_delta + corr_delta;
+            double margin_delta_center_B = 0.0;
+            for (int m = 0; m < nct; m++) {
+                double corr_up = y_up[m]*dS_up_A[m] + y_up[m]*dS_up_A[m]*dS_up_A[m]/s_up[m];
+                double corr_dn = y_dn[m]*dS_dn_A[m] + y_dn[m]*dS_dn_A[m]*dS_dn_A[m]/s_dn[m];
+                double rmu_up_B = sigma_mu - s_up[m]*y_up[m] + corr_up;
+                double rmu_dn_B = sigma_mu - s_dn[m]*y_dn[m] + corr_dn;
+                margin_delta_center_B += w_kj[m]*(rmu_up_B/s_up[m] + rmu_dn_B/s_dn[m]);
+            }
+
+            // Scale and solve Phase B — REUSE same factored N0 (no refactor)
+            for (int m = 0; m < nct; m++) rhs_B[m] *= D_jac[m];
+            ldlt_solve(N0.data(), static_cast<size_t>(nct), rhs_B.data());
+            for (int m = 0; m < nct; m++) dlambda_B[m] = D_jac[m] * rhs_B[m];
+
+            // SM correction for Phase B (same v_vec from Phase A)
+            double utw_B = 0.0;
+            for (int m = 0; m < nct; m++) utw_B += u_vec[m]*dlambda_B[m];
+            double sm_coeff_B = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw_B/sm_denom) : 0.0;
+            for (int m = 0; m < nct; m++) dlambda_B[m] -= sm_coeff_B * v_vec[m];
+
+            // dx_B from dlambda_B
+            std::fill(dX_B.begin(), dX_B.end(), 0.0);
+            for (int k = 0; k < st.K; k++)
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k])
+                        dX_B[c] += dlambda_B[cat_offset[k]+g];
+                }
+            for (int c = 0; c < ct.M_cell; c++) dX_B[c] = D_eff[c] * dX_B[c];
+
+            double w_dot_dlambda_B = 0.0;
+            for (int m = 0; m < nct; m++) w_dot_dlambda_B += w_kj[m]*dlambda_B[m];
+            double d_delta_B = alpha_sm * (
+                rmu_delta_B/s_delta
+              + margin_delta_center_B
+              - r_delta_stat
+              - (y_delta/s_delta)*w_dot_dlambda_B
+            );
+
+            // Alias Phase B result to the standard dlambda/dX/d_delta variables
+            for (int m = 0; m < nct; m++) dlambda[m] = dlambda_B[m];
+            for (int c = 0; c < ct.M_cell; c++) dX[c] = dX_B[c];
+
+            // Compute delta_S from dX_B
+            std::fill(delta_S.begin(), delta_S.end(), 0.0);
+            for (int k = 0; k < st.K; k++)
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k])
+                        delta_S[cat_offset[k]+g] += dX_B[c];
+                }
+            for (int m = 0; m < nct; m++) {
+                dS_up[m] = w_kj[m]*d_delta_B - delta_S[m];
+                dS_dn[m] = delta_S[m] + w_kj[m]*d_delta_B;
+            }
+
+            // Dual Newton steps using Phase B centering residuals (same second-order correction)
+            for (int m = 0; m < nct; m++) {
+                double corr_up = y_up[m]*dS_up_A[m] + y_up[m]*dS_up_A[m]*dS_up_A[m]/s_up[m];
+                double corr_dn = y_dn[m]*dS_dn_A[m] + y_dn[m]*dS_dn_A[m]*dS_dn_A[m]/s_dn[m];
+                double rmu_up_B = sigma_mu - s_up[m]*y_up[m] + corr_up;
+                double rmu_dn_B = sigma_mu - s_dn[m]*y_dn[m] + corr_dn;
+                dY_up[m] = (rmu_up_B - y_up[m]*dS_up[m]) / s_up[m];
+                dY_dn[m] = (rmu_dn_B - y_dn[m]*dS_dn[m]) / s_dn[m];
+            }
+            for (int c = 0; c < ct.M_cell; c++) {
+                double corr_lo = y_lo[c]*dX_A[c] + y_lo[c]*dX_A[c]*dX_A[c]/s_lo[c];
+                double corr_hi = y_hi[c]*dX_A[c] + y_hi[c]*dX_A[c]*dX_A[c]/s_hi[c];
+                // Δs_lo = +ΔX (primal slack increases with X), Δs_hi = -ΔX
+                double rmu_lo_B = sigma_mu - s_lo[c]*y_lo[c] + corr_lo;
+                double rmu_hi_B = sigma_mu - s_hi[c]*y_hi[c] + corr_hi;
+                dY_lo[c] = (rmu_lo_B - y_lo[c]*dX[c]) / s_lo[c];
+                dY_hi[c] = (rmu_hi_B + y_hi[c]*dX[c]) / s_hi[c];
+            }
+            double dY_delta = (rmu_delta_B - y_delta*d_delta_B) / s_delta;
+
+            // Step lengths (0.99 damping)
+            double alpha_p = 1.0, alpha_d = 1.0;
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (dX[c] > 0.0)  alpha_p = std::min(alpha_p, kStepScale*s_hi[c]/dX[c]);
+                if (dX[c] < 0.0)  alpha_p = std::min(alpha_p, -kStepScale*s_lo[c]/dX[c]);
+                if (dY_lo[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_lo[c]/dY_lo[c]);
+                if (dY_hi[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_hi[c]/dY_hi[c]);
+            }
+            for (int m = 0; m < nct; m++) {
+                if (dS_up[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_up[m]/dS_up[m]);
+                if (dS_dn[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_dn[m]/dS_dn[m]);
+                if (dY_up[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_up[m]/dY_up[m]);
+                if (dY_dn[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_dn[m]/dY_dn[m]);
+            }
+            if (d_delta_B < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_delta/d_delta_B);
+            if (dY_delta  < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_delta/dY_delta);
+
+            // Update primal
+            for (int c = 0; c < ct.M_cell; c++) X[c] += alpha_p*dX[c];
+            delta += alpha_p*d_delta_B;
+            if (delta < kEps) delta = kEps;
+            s_delta = delta;
+
+            for (int c = 0; c < ct.M_cell; c++) {
+                s_lo[c] = std::max(X[c]-L_cell[c], kEps);
+                s_hi[c] = std::max(U_cell[c]-X[c], kEps);
+            }
+            compute_S(X, S);
+            {
+                double W_upd = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) W_upd += X[c];
+                int viol_this_iter = 0;
+                for (int m = 0; m < nct; m++) {
+                    double raw_sup = T_flat[m]*W_upd + w_kj[m]*delta - S[m];
+                    double raw_sdn = S[m] - T_flat[m]*W_upd + w_kj[m]*delta;
+                    if (raw_sup < 0.0 || raw_sdn < 0.0) viol_this_iter++;
+                    s_up[m] = std::max(raw_sup, kEps);
+                    s_dn[m] = std::max(raw_sdn, kEps);
+                }
+                if (viol_this_iter > 0) {
+                    slack_violations++;
+                    if (slack_violations > kInfeasPersistence) {
+                        std::snprintf(res.message, sizeof(res.message),
+                                      "chebyshev: %d consecutive iters with negative slacks — INFEAS",
+                                      slack_violations);
+                        res.status = RK_ERR_INFEAS;
+                        break;
+                    }
+                } else {
+                    slack_violations = 0;
+                }
+            }
+
+            // Update dual
+            y_delta += alpha_d*dY_delta;
+            if (y_delta < kEps) y_delta = kEps;
+            for (int c = 0; c < ct.M_cell; c++) {
+                y_lo[c] += alpha_d*dY_lo[c]; if (y_lo[c] < kEps) y_lo[c] = kEps;
+                y_hi[c] += alpha_d*dY_hi[c]; if (y_hi[c] < kEps) y_hi[c] = kEps;
+            }
+            for (int m = 0; m < nct; m++) {
+                y_up[m] += alpha_d*dY_up[m]; if (y_up[m] < kEps) y_up[m] = kEps;
+                y_dn[m] += alpha_d*dY_dn[m]; if (y_dn[m] < kEps) y_dn[m] = kEps;
+            }
+
+            // Dual explosion guard
+            {
+                double comp_new = y_delta*s_delta;
+                for (int c = 0; c < ct.M_cell; c++) comp_new += y_lo[c]*s_lo[c] + y_hi[c]*s_hi[c];
+                for (int m = 0; m < nct; m++) comp_new += y_up[m]*s_up[m] + y_dn[m]*s_dn[m];
+                double mu_new = comp_new / n_comp;
+                if (mu_new > 100.0 * mu) {
+                    y_delta = mu / s_delta;
+                    for (int c = 0; c < ct.M_cell; c++) { y_lo[c] = mu/s_lo[c]; y_hi[c] = mu/s_hi[c]; }
+                    for (int m = 0; m < nct; m++) { y_up[m] = mu/s_up[m]; y_dn[m] = mu/s_dn[m]; }
+                }
+            }
+
+            if (delta < best_delta) { best_delta = delta; }
+            continue;  // skip the old single-step code below (never reached)
         }
 
+        // n_comp > 0 always; the continue above is always taken. Unreachable.
         if (delta < best_delta) { best_delta = delta; }
     }
 
