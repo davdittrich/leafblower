@@ -16,6 +16,8 @@
 #include "greg.hpp"
 #include "chebyshev.hpp"
 #include "lbfgsb_solver.hpp"
+#include "greenkhorn.hpp"
+#include "logit_calib.hpp"
 
 extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
@@ -242,6 +244,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     else if (strcmp(method_str, "grake")     == 0) p.algorithm = RK_ALG_GRAKE;
     else if (strcmp(method_str, "sinkhorn")  == 0) p.algorithm = RK_ALG_SINKHORN;
     else if (strcmp(method_str, "auto")      == 0) p.algorithm = RK_ALG_AUTO;
+    else if (strcmp(method_str, "greenkhorn") == 0) p.algorithm = RK_ALG_GREENKHORN;
+    else if (strcmp(method_str, "logit")      == 0) p.algorithm = RK_ALG_LOGIT;
     else                                            p.algorithm = RK_ALG_IEPPA;
 
     // Full input validation — shared with c_api.cpp path via validation.hpp.
@@ -257,6 +261,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             (strcmp(method_str, "greg")       == 0) ? RK_ALG_GREG :
             (strcmp(method_str, "chebyshev")  == 0) ? RK_ALG_CHEBYSHEV :
             (strcmp(method_str, "grake")      == 0) ? RK_ALG_GRAKE :
+            (strcmp(method_str, "greenkhorn") == 0) ? RK_ALG_GREENKHORN :
+            (strcmp(method_str, "logit")      == 0) ? RK_ALG_LOGIT :
                                                        RK_ALG_RAKING;
         int vrc = lbw::validate_calibrate_inputs(
             n, K,
@@ -490,6 +496,31 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_best_weights = std::move(res.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
+    } else if (strcmp(method_str, "greenkhorn") == 0) {
+        // validate: min_weight < max_weight
+        if (st.min_weight >= st.max_weight && st.max_weight > 0.0)
+            Rf_error("leafblower: greenkhorn requires min_weight < max_weight");
+        auto res = lbw::greenkhorn_solve(st);
+        pack_solver_result(res);
+        res_status     = res.status;
+        res_iterations = res.iterations;
+        res_max_error  = res.max_error;
+        res_alg_used   = (int)RK_ALG_GREENKHORN;
+        if (!res.best_weights.empty())
+            res_best_weights = std::move(res.best_weights);
+        else
+            res_best_weights.assign(st.n, 0.0);
+    } else if (strcmp(method_str, "logit") == 0) {
+        auto res = lbw::logit_calibrate(st);
+        pack_solver_result(res);
+        res_status     = res.status;
+        res_iterations = res.iterations;
+        res_max_error  = res.max_error;
+        res_alg_used   = (int)RK_ALG_LOGIT;
+        if (!res.best_weights.empty())
+            res_best_weights = std::move(res.best_weights);
+        else
+            res_best_weights.assign(st.n, 0.0);
     } else {
         // Dispatch for chebyshev, grake (shared solver), ieppa_soft, and default ieppa.
         auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
@@ -565,12 +596,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         Rf_error("leafblower: internal solver error — unknown exception type");
     }
 
-    const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)                    ? "L-BFGS-B"
-                         : (res_alg_used == (int)RK_ALG_RAKING)                    ? "raking"
-                         : (res_alg_used == static_cast<int>(RK_ALG_SINKHORN))     ? "sinkhorn"
-                         : (res_alg_used == static_cast<int>(RK_ALG_GREG))         ? "greg"
-                         : (res_alg_used == static_cast<int>(RK_ALG_CHEBYSHEV))    ? "chebyshev"
-                         : (res_alg_used == static_cast<int>(RK_ALG_GRAKE))        ? "grake"
+    const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)                       ? "L-BFGS-B"
+                         : (res_alg_used == (int)RK_ALG_RAKING)                       ? "raking"
+                         : (res_alg_used == static_cast<int>(RK_ALG_SINKHORN))        ? "sinkhorn"
+                         : (res_alg_used == static_cast<int>(RK_ALG_GREG))            ? "greg"
+                         : (res_alg_used == static_cast<int>(RK_ALG_CHEBYSHEV))       ? "chebyshev"
+                         : (res_alg_used == static_cast<int>(RK_ALG_GRAKE))           ? "grake"
+                         : (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN))      ? "greenkhorn"
+                         : (res_alg_used == static_cast<int>(RK_ALG_LOGIT))           ? "logit"
                          : "iEPPA";
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
                   alg_name, res_iterations, res_max_error);
