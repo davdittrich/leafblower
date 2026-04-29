@@ -71,7 +71,8 @@ if (strcmp(method_str, "chebyshev") == 0 || strcmp(method_str, "grake") == 0) {
     st_warm.weights = weights_copy.data();          // redirect to copy
     st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
     auto ieppa_res = lbw::ieppa_solve(st_warm);
-    // weights_copy goes out of scope after this block; st.weights is unchanged
+    // weights_copy goes out of scope here — st_warm MUST NOT escape this block (dangling pointer risk)
+    // st.weights is unchanged
     if (!ieppa_res.best_weights.empty() &&
         (int)ieppa_res.best_weights.size() == st.n) {
         w_warm_obs = std::move(ieppa_res.best_weights);  // obs-level, size n
@@ -204,7 +205,7 @@ This costs 2×O(nct²) extra per iteration but reduces condition number dramatic
 | File | Change |
 |---|---|
 | `R/harvest.R` | Add greg quality-check warning (3 lines) |
-| `src/chebyshev.hpp` | Add X_warm + delta_warm parameters to chebyshev_ipm |
+| `src/chebyshev.hpp` | Add w_warm_obs (obs-level) + delta_warm parameters to chebyshev_ipm |
 | `src/chebyshev.cpp` | (1) Warm-start initialization; (2) Mehrotra loop; (3) Jacobi preconditioning |
 | `src/r_bridge.cpp` | For chebyshev/grake: run ieppa pre-solve, extract X_warm, pass to chebyshev_ipm |
 | `tests/testthat/test-chebyshev.R` | New test file with T_greg_warn, T_cheby_warm, T_cheby_convergence |
