@@ -148,6 +148,9 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             [&](int a, int b){ return errRp[a] > errRp[b]; });
         for (int ki = 0; ki < K; ki++) greenkhorn_step(order_sraa[ki]);
         std::swap(X, Xv); std::swap(S_flat, Sv_sraa); std::swap(W, Wv);
+        // Wv now holds W_after_K_steps. If zero (all cells at lower bound = 0),
+        // the AA input was degenerate; return +inf so the NaN guard in sraa_step rejects it.
+        if (Wv <= 0.0) return std::numeric_limits<double>::infinity();
         return *std::max_element(errRp.begin(), errRp.end());
     };
 
