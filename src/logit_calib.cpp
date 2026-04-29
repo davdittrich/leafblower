@@ -122,9 +122,14 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                                      cat_offset.data(), K, (size_t)nct) == RK_OK &&
             ldlt_factor_inplace(N_init.data(), (size_t)nct, 1e-10) == RK_OK) {
             ldlt_solve(N_init.data(), (size_t)nct, b_init.data());
-            lambda = std::move(b_init);  // replace zero-init with LS solution
+            // Sanity: ill-conditioned AA^T (redundant margins) can produce huge lambda_0
+            // which saturates all cells and makes the main Newton step degenerate.
+            // Reject if any component exceeds 10 (z_c shifts >10*K would saturate sigma).
+            double max_lambda_init = 0.0;
+            for (double lj : b_init) max_lambda_init = std::max(max_lambda_init, std::abs(lj));
+            if (max_lambda_init <= 10.0) lambda = std::move(b_init);
         }
-        // if factor fails: lambda stays zero (silent fallback)
+        // if factor fails or lambda_0 is ill-conditioned: lambda stays zero (Armijo handles it)
     }
 
     // Armijo scratch buffers (pre-allocated to avoid per-halving allocation)
@@ -172,7 +177,8 @@ LogitCalibResult logit_calibrate(CalibState& st) {
 
         // Capture ||b_current||² before ldlt_solve overwrites b with delta_lambda
         double resid_sq_0 = 0.0;
-        for (double bj : b) resid_sq_0 += bj * bj;
+        double max_b_mag  = 0.0;
+        for (double bj : b) { resid_sq_0 += bj * bj; max_b_mag = std::max(max_b_mag, std::abs(bj)); }
 
         // (3) Build N = A*diag(D_eff)*A^T and solve N*delta_lambda = b
         std::fill(N.begin(), N.end(), 0.0);
@@ -184,7 +190,12 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 "logit: singular normal equations (degenerate bounds - L=U cells)");
             break;
         }
-        if (ldlt_factor_inplace(N.data(), static_cast<size_t>(nct), 1e-10) != RK_OK) {
+        // Adaptive eps: bound null-space amplification from rank-deficient AA^T*D
+        // (overlapping margins can make N nearly singular even with D_eff > 0).
+        // Choosing eps = max_b / kMaxDeltaZ ensures null-space components of delta_lambda
+        // remain O(kMaxDeltaZ), keeping alpha_max bounded away from zero.
+        double eps_ldlt = std::max(1e-10, max_b_mag / kMaxDeltaZ);
+        if (ldlt_factor_inplace(N.data(), static_cast<size_t>(nct), eps_ldlt) != RK_OK) {
             res.status = RK_ERR_INFEAS;
             std::snprintf(res.message, sizeof(res.message),
                 "logit: LDLT factorization failed (degenerate bounds)");
