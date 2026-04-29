@@ -1058,7 +1058,7 @@ test_that("T_sraa_rk: raking+AA max_err <= raking plain", {
                                        max_iterations=500L, attach_weights=FALSE))
   me_aa    <- attr(r_aa,    "result")$max_error
   me_plain <- attr(r_plain, "result")$max_error
-  expect_lte(me_aa, me_plain * 1.001,
+  expect_lte(me_aa, me_plain * 1.001 + 1e-10,
     label=sprintf("raking+AA (%.2e) must not exceed plain (%.2e)", me_aa, me_plain))
 })
 

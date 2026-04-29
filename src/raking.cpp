@@ -19,6 +19,7 @@
 #include "raking.hpp"
 #include "cell_table.hpp"
 #include "calib_dispatch.hpp"
+#include "sraa.hpp"
 #include "leafblower.h"
 #include <cmath>
 #include <cstdio>
@@ -348,171 +349,50 @@ RakingResult raking_solve(CalibState& st) {
         return last_F_metrics.errRp;
     };
 
+    // SRAA-m state (replaces SQUAREM step-halving while-loop)
+    lbw::SRAAState rk_sraa;
+    if (st.accelerate) rk_sraa.init(ct.M_cell, lbw::kSRAAm);
+
     if (st.accelerate) {
-        static constexpr double kAlphaMin    = -1000.0;  // no upper cap: autumn allows α ∈ (-1000, 0)
-        static constexpr double kVNormEps    = 1e-300;
-        static constexpr double kVNormRel    = 1e-10;
-        static constexpr double kHalvingSlack = 1.01;
-        static constexpr int    kMaxHalvings  = 16;
+        // SQUAREM replaced by SRAA-m. X_prev_sq (stall detection) removed — SQUAREM-specific.
+        // Loop mirrors greenkhorn: sraa_step called once per outer iteration until budget exhausted.
+        int f_eval_budget = st.inner_max_iter;
+        int f_evals_used = 0;
+        while (f_evals_used + 1 <= f_eval_budget) {
+            rk_sraa.F_cur = X;  // seed F_cur with current X before each sraa_step call
+            auto r = lbw::sraa_step(F_eval, X, L_cell, U_cell, rk_sraa);
+            f_evals_used += r.f_evals;
+            res.max_error  = r.err_result;
+            res.iterations = f_evals_used;
 
-        if (st.inner_max_iter >= 3) {
-            int f_eval_count = 0;
-            auto X_prev_sq = X;  // snapshot for weight-change stall; updated each accepted super-step
-            // Pre-allocate SQUAREM scratch — avoids 5 × O(M_cell) malloc/free per super-step.
-            std::vector<double> sq_w1(ct.M_cell), sq_w2(ct.M_cell);
-            std::vector<double> sq_X_snap(ct.M_cell), sq_X_star(ct.M_cell), sq_X_star_pre(ct.M_cell);
-            while (f_eval_count + 3 <= st.inner_max_iter) {
-                // Save infeasibility state. Intermediate F_eval probes (w1, w2, halving)
-                // may false-flag infeasibility on extrapolated iterates.
-                // Only the final accepted F_eval contributes to infeasibility status.
-                bool infeas_before = is_infeasible;
+            // Best-iterate tracking
+            if (r.err_result < best_metric_seen) {
+                best_metric_seen    = r.err_result;
+                best_iter_val       = f_evals_used;
+                best_objective_seen = compute_weight_kl();
+                W_best              = X;
+            }
 
-                sq_w1 = X;
-                double errRp_w1 = F_eval(sq_w1);  ++f_eval_count;
-                (void)errRp_w1;  // errRp_k updated inside F_eval but not consumed (use_greedy=false when accelerate=true)
-                is_infeasible = infeas_before;
-
-                sq_w2 = sq_w1;
-                double errRp_w2 = F_eval(sq_w2);  ++f_eval_count;
-                is_infeasible = infeas_before;
-
-                res.iterations = f_eval_count;
-
-                // Obs-level norms (1/n_c weighted) for α: geometrically correct for obs-level IPF.
-                // n_per_cell[c] >= 1 guaranteed by build_cell_table.
-                // Cell-level v_sq_cell kept for step-halving (cand_resid is also cell-level).
-                double r_sq_obs = 0.0, v_sq_obs = 0.0, w2_sq_obs = 0.0;
-                double v_sq_cell = 0.0;
-                for (int c = 0; c < ct.M_cell; c++) {
-                    const double inv_nc = inv_n_per_cell[c];
-                    const double ri = sq_w1[c] - X[c],  vi = sq_w2[c] - sq_w1[c];
-                    r_sq_obs  += ri * ri * inv_nc;
-                    v_sq_obs  += vi * vi * inv_nc;
-                    w2_sq_obs += sq_w2[c] * sq_w2[c] * inv_nc;
-                    v_sq_cell += vi * vi;
-                }
-                const double norm_r  = std::sqrt(r_sq_obs);
-                const double norm_v  = std::sqrt(v_sq_obs);
-                const double norm_w2 = std::sqrt(w2_sq_obs);
-
-                // Fixed-point guard: ‖v‖/‖w2‖ < threshold → already converged
-                if (norm_v / (norm_w2 + kVNormEps) < kVNormRel) {
-                    X = sq_w2;
-                    res.max_error        = errRp_w2;
-                    res.status           = RK_OK;
-                    res.convergence_iter = f_eval_count;
+            // Convergence check
+            {
+                lbw::CellMetrics m_conv = last_F_metrics;
+                m_conv.errRp = r.err_result;
+                if (lbw::check_convergence(st.convergence_cfg, m_conv,
+                                           prev_metric_for_rule, st.tol_abs)) {
+                    res.status             = RK_OK;
+                    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                    res.convergence_tol    = st.convergence_cfg.pct_tol;
+                    res.convergence_iter   = f_evals_used;
                     break;
                 }
+            }
 
-                // CBB step: α = -‖r‖/‖v‖, capped at kAlphaMin only (no upper cap).
-                // Autumn allows α ∈ (-1000, 0): sub-acceleration (α > -1) is valid.
-                double alpha = std::max(kAlphaMin, -norm_r / (norm_v + kVNormEps));
-
-                // Snapshot: state at w2, before extrapolation
-                sq_X_snap = sq_w2;
-
-                // Extrapolate X* = X_snap - 2α·r + α²·v; clamp to ≥ 0
-                // No initial copy — the loop below fills every sq_X_star[c] unconditionally.
-                for (int c = 0; c < ct.M_cell; c++) {
-                    double ri = sq_w1[c] - X[c],  vi = sq_w2[c] - sq_w1[c];
-                    sq_X_star[c] = sq_X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                    if (sq_X_star[c] < 0.0) sq_X_star[c] = 0.0;
-                }
-
-                // L2 step-halving: ‖F(X*)-X*‖² vs ‖v‖².
-                // Works with water-filling F: hyperplane step is near-no-op (sum ≈ n),
-                // so ‖F(X*)-X*‖ cleanly reflects IPF movement, not Dykstra explosion.
-                const double plain_resid = v_sq_cell;  // cell-level ‖v‖² — matches cand_resid geometry
-                sq_X_star_pre = sq_X_star;
-                double errRp_new = F_eval(sq_X_star);  ++f_eval_count;
-                double cand_resid = 0.0;
-                for (int c = 0; c < ct.M_cell; c++) {
-                    double d = sq_X_star[c] - sq_X_star_pre[c];
-                    cand_resid += d * d;
-                }
-
-                // Step-halving with boolean flag (not goto) to ensure convergence
-                // check runs for both accepted-extrapolation and fell-back-to-w2 paths.
-                bool fell_back = false;
-                for (int h = 0; h < kMaxHalvings && cand_resid > kHalvingSlack * plain_resid; h++) {
-                    is_infeasible = infeas_before;  // discard probe's infeasibility
-                    alpha = (alpha - 1.0) / 2.0;  // midpoint toward -1 (autumn formula)
-                    if (std::fabs(alpha - (-1.0)) < 1e-3) {
-                        // Fell back to plain step
-                        X = sq_w2; errRp_new = errRp_w2; fell_back = true; break;
-                    }
-                    // No copy of sq_X_snap needed — loop fills every sq_X_star[c] unconditionally.
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        double ri = sq_w1[c] - X[c],  vi = sq_w2[c] - sq_w1[c];
-                        sq_X_star[c] = sq_X_snap[c] - 2.0 * alpha * ri + alpha * alpha * vi;
-                        if (sq_X_star[c] < 0.0) sq_X_star[c] = 0.0;
-                    }
-                    sq_X_star_pre = sq_X_star;
-                    errRp_new = F_eval(sq_X_star);  ++f_eval_count;
-                    cand_resid = 0.0;
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        double d = sq_X_star[c] - sq_X_star_pre[c];
-                        cand_resid += d * d;
-                    }
-                }
-                if (!fell_back) X = sq_X_star;
-                res.max_error  = errRp_new;
-                res.iterations = f_eval_count;
-
-                // Best-iterate tracking
-                if (errRp_new < best_metric_seen) {
-                    best_metric_seen    = errRp_new;
-                    best_iter_val       = f_eval_count;
-                    best_objective_seen = compute_weight_kl();
-                    W_best              = X;
-                }
-
-                // Weight-change (obs-level L1): computed here so m_conv.l1 can use it
-                // for metric="l1_weight" convergence. Also used for stall detection below.
-                // Skip snapshot update on fell_back (prevents wchange=0 spurious stall).
-                double wchange = 0.0;
-                for (int c = 0; c < ct.M_cell; c++)
-                    wchange += std::fabs(X[c] - X_prev_sq[c]) * inv_n_per_cell[c];
-                wchange /= static_cast<double>(st.n);
-
-                // Convergence criterion: reuse last_F_metrics from accepted F_eval call.
-                // F_eval now calls compute_cell_metrics internally (same O(K×M_cell) cost),
-                // so last_F_metrics has all metrics — no second aggregation pass needed.
-                {
-                    lbw::CellMetrics m_conv = last_F_metrics;
-                    m_conv.errRp = errRp_new;  // F_eval's errRp is authoritative (post-hyperplane)
-                    m_conv.l1    = wchange;
-                    if (lbw::check_convergence(st.convergence_cfg, m_conv,
-                                               prev_metric_for_rule, st.tol_abs)) {
-                        res.status             = RK_OK;
-                        res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-                        res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-                        res.convergence_tol    = st.convergence_cfg.pct_tol;
-                        res.convergence_iter   = f_eval_count;
-                        break;
-                    }
-                }
-
-                if (st.verbose >= 1) {
-                    char msg[256];
-                    std::snprintf(msg, 256, "raking[sq] f_eval=%d errRp=%.2e alpha=%.4g",
-                                  f_eval_count, errRp_new, alpha);
-                    st.log(msg);
-                }
-
-                // Weight-change stall: wchange computed above; reuse here.
-                if (!std::isfinite(min_loss_window)) {
-                    min_loss_window = wchange; n_no_improve = 0;
-                } else if (wchange < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
-                    min_loss_window = wchange; n_no_improve = 0;
-                } else {
-                    n_no_improve++;
-                }
-                if (n_no_improve >= kMaxNoImprove) { res.status = RK_ERR_STALL; break; }
-
-                // Always update X_prev_sq to the current accepted iterate (plain step on
-                // fallback, super-step otherwise). The two-steps-stale snapshot corrupts wchange.
-                X_prev_sq = X;
+            if (st.verbose >= 1) {
+                char msg[256];
+                std::snprintf(msg, 256, "raking[sraa] f_evals=%d errRp=%.2e aa=%d",
+                              f_evals_used, r.err_result, (int)r.aa_accepted);
+                st.log(msg);
             }
         }
     } else {
