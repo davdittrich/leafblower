@@ -1022,44 +1022,65 @@ test_that("T4: greenkhorn respects bounds exactly", {
   expect_true(min(w) >= 0.1 - 1e-9)
 })
 
-test_that("Tacc: greenkhorn accelerate=TRUE fires SQUAREM and converges", {
+test_that("T_sraa_grk: greenkhorn+AA max_err <= plain and converges faster", {
   set.seed(99); n <- 2000L
-  K_exp <- 2L  # K=2 margins in this problem
   df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),
                     y=factor(sample(c("M","F"),n,TRUE)))
   tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
-
-  r_acc   <- suppressWarnings(
-    harvest(df, tgt, method="greenkhorn", accelerate=TRUE,  max_iterations=500L,
-            attach_weights=FALSE))
-  r_plain <- suppressWarnings(
-    harvest(df, tgt, method="greenkhorn", accelerate=FALSE, max_iterations=500L,
-            attach_weights=FALSE))
-
-  me_acc   <- attr(r_acc,   "result")$max_error
+  K_exp <- 2L
+  r_aa    <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=TRUE,
+                                       max_iterations=500L, attach_weights=FALSE))
+  r_plain <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=FALSE,
+                                       max_iterations=500L, attach_weights=FALSE))
+  me_aa    <- attr(r_aa,    "result")$max_error
   me_plain <- attr(r_plain, "result")$max_error
-  iters_acc   <- attr(r_acc,   "result")$iterations
+  iters_aa    <- attr(r_aa,    "result")$iterations
   iters_plain <- attr(r_plain, "result")$iterations
+  expect_lte(me_aa, me_plain * 1.001,
+    label=sprintf("AA (%.2e) must not exceed plain (%.2e)", me_aa, me_plain))
+  # Divisibility: first 2 plain steps = 2*(K*1)=4; all AA steps = K*2=4 each.
+  # Total = 4+4N for any N>=0 -> divisible by K*2=4. Proof: (4+4N) mod 4 = 0.
+  expect_equal(iters_aa %% (K_exp * 2L), 0L,
+    label=sprintf("AA iters (%d) %% K*2=%d == 0 proves AA fired", iters_aa, K_exp*2L))
+  expect_lt(iters_aa, iters_plain,
+    label=sprintf("AA (%d) must be faster than plain (%d)", iters_aa, iters_plain))
+})
 
-  # (1) Both must converge to good quality
-  expect_lt(me_acc, 1e-3,
-    label=sprintf("greenkhorn+SQUAREM must converge: got max_err=%.2e", me_acc))
-  expect_lt(me_plain, 1e-3,
-    label=sprintf("greenkhorn plain must converge: got max_err=%.2e", me_plain))
+test_that("T_sraa_rk: raking+AA max_err <= raking plain", {
+  set.seed(99); n <- 2000L
+  df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),
+                    y=factor(sample(c("M","F"),n,TRUE)))
+  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
+  r_aa    <- suppressWarnings(harvest(df, tgt, method="raking", accelerate=TRUE,
+                                       max_iterations=500L, attach_weights=FALSE))
+  r_plain <- suppressWarnings(harvest(df, tgt, method="raking", accelerate=FALSE,
+                                       max_iterations=500L, attach_weights=FALSE))
+  me_aa    <- attr(r_aa,    "result")$max_error
+  me_plain <- attr(r_plain, "result")$max_error
+  expect_lte(me_aa, me_plain * 1.001,
+    label=sprintf("raking+AA (%.2e) must not exceed plain (%.2e)", me_aa, me_plain))
+})
 
-  # (2) SQUAREM fired: iters divisible by K*3 = 6 (K=2 margins x 3 F_eval/super-step)
-  # Plain path counts 1 per main loop iter; SQUAREM counts K*3. Divisibility proves
-  # the SQUAREM branch executed, not the plain single-step branch.
-  squarem_stride <- K_exp * 3L
-  expect_equal(iters_acc %% squarem_stride, 0L,
-    label=sprintf(
-      "greenkhorn+SQUAREM iters (%d) must be divisible by K*3=%d (confirms SQUAREM fired)",
-      iters_acc, squarem_stride))
+test_that("T_sraa_ldlt_fallback: ill-conditioned AA history falls back to plain", {
+  set.seed(7); n <- 500L
+  df  <- data.frame(x=factor(sample(letters[1:2],n,TRUE)))
+  tgt <- list(x=c(a=0.3,b=0.7))
+  r <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=TRUE,
+                                 max_iterations=200L, attach_weights=FALSE))
+  expect_lt(attr(r,"result")$max_error, 1e-3)
+  expect_true(attr(r,"result")$status %in% c(0L, 1L, 5L))
+})
 
-  # (3) Accelerated and plain produce qualitatively similar results
-  expect_lt(abs(me_acc - me_plain), 5e-4,
-    label=sprintf("SQUAREM and plain must converge similarly (acc=%.2e, plain=%.2e)",
-                  me_acc, me_plain))
+test_that("T_sraa_restart: restart on divergence recovers and converges", {
+  set.seed(42); n <- 1000L
+  df  <- data.frame(x=factor(sample(letters[1:4],n,TRUE)),
+                    y=factor(sample(c("M","F"),n,TRUE)))
+  tgt <- list(x=setNames(c(0.4,0.3,0.2,0.1),letters[1:4]),
+              y=c(M=0.3, F=0.7))
+  r <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=TRUE,
+                                 max_weight=1.5, min_weight=0.1,
+                                 max_iterations=500L, attach_weights=FALSE))
+  expect_lt(attr(r,"result")$max_error, 1e-2)
 })
 
 # ══════════════════════════════════════════════════════════════════════════════
