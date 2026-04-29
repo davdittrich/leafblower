@@ -436,29 +436,65 @@ Run only if Epic A's A4 verification fails. Strict TDD.
 
 ---
 
-### Task B3 — Same pattern in raking.cpp (W_best / best_metric_seen / rk_sraa)
+### Task B3 — Plateau-gate + outer revert in raking.cpp (W_best pattern)
 
-- [ ] **Goal:** Mirror B2 in `src/raking.cpp` using raking's existing names.
+**CRITICAL STRUCTURAL NOTE:** Raking's SRAA path does NOT use `*std::max_element(errRp_vector)`.
+It uses the scalar `r.err_result` from `sraa_step` as the quality signal. There is NO
+`double curr_max = *std::max_element(errRp...)` line in raking.cpp. The B2 "MERGE with
+existing curr_max block" pattern does NOT apply here. Raking also needs NO errRp rebuild
+on revert — F_eval inside sraa_step recomputes everything from X.
+
+- [ ] **Goal:** Add plateau-gated AA + outer revert to the SRAA block in raking.cpp, using `r.err_result` as the quality signal and `W_best` as the best iterate.
 - [ ] **Files touched:** `src/raking.cpp`.
 - [ ] **Bead:** `bd create -t task -T "B3: raking outer plateau gate + revert"` body
-  `Task outer-revert-raking ! diverge-from-greenkhorn. Same pattern as B2 with W_best, best_metric_seen, rk_sraa. Revert: X = W_best, rebuild W/S_flat/errRp from X.`
+  `Task outer-revert-raking ! duplicate-S-flat-rebuild. raking uses r.err_result not errRp vector. Revert: X=W_best only (no rebuild). plateau uses r.err_result as curr_quality.`
 - [ ] **Pre-edit verification:**
-  - `grep -n "W_best\|best_metric_seen\|rk_sraa\|std::max_element(errRp" src/raking.cpp` — confirm exact landmark lines.
-  - Read the analogous outer block; identify the single existing curr_max/best update.
-- [ ] **Edits — apply the same pattern as B2 with substitutions:**
+  ```bash
+  grep -n "W_best\|best_metric_seen\|rk_sraa\|r.err_result" src/raking.cpp | head -20
+  ```
+  Expected: `W_best` at multiple lines; `best_metric_seen` as scalar; `rk_sraa` at sraa_step call; `r.err_result` used for quality comparison.
 
-  - `X_best`         -> `W_best`
-  - `best_errRp`     -> `best_metric_seen`
-  - `grk_sraa`       -> `rk_sraa`
-  - Revert assignment is `X = W_best;` (raking's iterate name).
-  - Rebuild `W`, `S_flat`, `errRp` from the (now-restored) `X = W_best` using the same per-cell loop pattern raking already uses elsewhere — confirm by reading the existing init block once and matching it byte-for-byte (no reformatting).
-  - Insert the same three locals (`prev_outer_quality`, `plateau_count`, `outer_stall_count`) immediately above raking's outer `for`.
-  - MERGE with the existing single curr_max/best_metric_seen block — do NOT duplicate.
+- [ ] **Add three locals** at the start of the `if (st.accelerate)` SRAA block (after `lbw::SRAAState rk_sraa; rk_sraa.init(...)` or equivalent):
+  ```cpp
+  double prev_outer_quality_rk = std::numeric_limits<double>::infinity();
+  int rk_plateau_count = 0, rk_outer_stall_count = 0;
+  ```
+
+- [ ] **Insert plateau + revert block** AFTER the existing `if (r.err_result < best_metric_seen) { ... W_best = X; }` block (which already exists — do NOT modify it):
+  ```cpp
+  // Plateau detection + outer revert (Track 1 safety net)
+  {
+      double curr_quality_rk = r.err_result;
+      if (std::isfinite(prev_outer_quality_rk)) {
+          double impr = (prev_outer_quality_rk - curr_quality_rk) /
+                        std::max(prev_outer_quality_rk, 1e-15);
+          rk_plateau_count = (impr < kSRAAPlateauEps) ? rk_plateau_count + 1 : 0;
+          if (rk_plateau_count >= kSRAAPlateauWindow) rk_sraa.enable_aa();
+      }
+      prev_outer_quality_rk = curr_quality_rk;
+      if (rk_sraa.aa_unlocked &&
+          curr_quality_rk > best_metric_seen * (1.0 + kSRAAOuterSlack)) {
+          if (++rk_outer_stall_count >= kSRAAOuterStallWindow) {
+              X = W_best;               // revert; no S_flat/errRp rebuild — F_eval handles it
+              rk_sraa.clear();          // clear() does NOT reset aa_unlocked
+              rk_sraa.disable_aa();
+              rk_plateau_count = 0; rk_outer_stall_count = 0;
+              prev_outer_quality_rk = best_metric_seen;
+          }
+      } else { rk_outer_stall_count = 0; }
+  }
+  ```
 
 - [ ] **Post-edit verification:**
-  - `grep -nc "double curr_max = \*std::max_element(errRp" src/raking.cpp` -> `1`.
-  - `grep -n "rk_sraa.enable_aa\|rk_sraa.disable_aa\|rk_sraa.aa_unlocked" src/raking.cpp` -> three matches.
-  - `grep -n "W_best" src/raking.cpp` -> existing references plus the one new `X = W_best;` line.
+  ```bash
+  grep -n "rk_plateau_count\|rk_sraa.enable_aa\|prev_outer_quality_rk" src/raking.cpp
+  ```
+  Must return ≥3 matches. No `X_best` or `best_errRp` in raking.cpp.
+
+  ```bash
+  grep -c "X = W_best" src/raking.cpp
+  ```
+  Must return exactly `1` (the new revert line).
 - [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
 - [ ] **Test gate:** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> FAIL count not greater than post-B2.
 - [ ] **Self-review checklist:**
@@ -573,4 +609,8 @@ test_that("T_sraa_outer_revert: greenkhorn+AA K=6 quality recovers to <= plain w
 
 - If A3's adaptive sort change does not bring K=9 ratio to <= 1.001 AND the K=9 raking test still fails after Epic B: emit `SPEC_FAILURE`. Do NOT pivot to constant tuning, do NOT relax tolerances, do NOT change SRAA acceptance criteria.
 - If `clear()` is found to reset `aa_unlocked` (contract violation): emit `SPEC_FAILURE`.
-- If a duplicate `curr_max` computation appears in either greenkhorn.cpp or raking.cpp after B2/B3: emit `SPEC_FAILURE`.
+- If a duplicate `curr_max` computation appears in greenkhorn.cpp after B2: emit `SPEC_FAILURE`.
+- NOTE: greenkhorn.cpp has a second `X_best = X;` at line ~206 inside the convergence check
+  (`if (converged) { ... X_best = X; break; }`). This is NOT a duplicate quality block — it is
+  the convergence-triggered snapshot. Do NOT modify line 206. After B2's revert sets `X=X_best`,
+  if convergence fires, `X_best = X` is a no-op (both already equal). Correct behavior.
