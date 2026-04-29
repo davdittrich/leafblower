@@ -13,6 +13,14 @@
 
 **File:** `src/r_bridge.cpp`
 
+**CRITICAL — TWO separate chains must both be extended (plan-review-gate finding):**
+
+**Chain 1** (~lines 236-245): `p.algorithm = ...` if/else-if cascade — sets the algorithm for `validate_calibrate_inputs`. Currently falls through to `RK_ALG_IEPPA` for unknown methods — this silently routes greenkhorn/logit to IEPPA if missed.
+
+**Chain 2** (~lines 252-260): `alg_for_validation` ternary — second dispatch for validation. Falls through to `RK_ALG_RAKING`.
+
+Both chains must include GREENKHORN and LOGIT entries. See Step 1b below.
+
 ### Step 1 — Read and locate structure
 
 Read lines 1–30 to see the `#include` block. Current includes:
@@ -76,7 +84,30 @@ with:
 #include "logit_calib.hpp"
 ```
 
-### Step 3 — Extend `alg_for_validation` chain
+### Step 1b — Extend `p.algorithm` assignment chain (Chain 1, lines ~236-245)
+
+**This step is mandatory and was added by plan-review-gate.** Without it, `method="greenkhorn"` silently routes to IEPPA.
+
+Find the if/else-if cascade ending in `else p.algorithm = RK_ALG_IEPPA;`. Add two new entries before the final `else`:
+
+```cpp
+    else if (strcmp(method_str, "greenkhorn") == 0) p.algorithm = RK_ALG_GREENKHORN;
+    else if (strcmp(method_str, "logit")      == 0) p.algorithm = RK_ALG_LOGIT;
+    else                                             p.algorithm = RK_ALG_IEPPA;
+```
+
+Exact location (lines 236-245 in current file):
+```
+if      (strcmp(method_str, "ieppa")      == 0) p.algorithm = RK_ALG_IEPPA;
+else if (strcmp(method_str, "ieppa_soft") == 0) p.algorithm = RK_ALG_IEPPA_SOFT;
+...
+else if (strcmp(method_str, "auto")       == 0) p.algorithm = RK_ALG_AUTO;
++else if (strcmp(method_str, "greenkhorn")== 0) p.algorithm = RK_ALG_GREENKHORN;   // ADD
++else if (strcmp(method_str, "logit")     == 0) p.algorithm = RK_ALG_LOGIT;        // ADD
+else                                             p.algorithm = RK_ALG_IEPPA;
+```
+
+### Step 3 — Extend `alg_for_validation` chain (Chain 2)
 
 Read lines 251–261 to find the `alg_for_validation` ternary chain:
 ```cpp
