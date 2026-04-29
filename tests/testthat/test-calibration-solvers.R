@@ -89,7 +89,7 @@ test_that("T-routing: AUTO uses raking when incompressible (M_cell/n > 0.9)", {
                label = "AUTO must converge even with incompressible data")
   expect_lt(r$max_error, 0.1)
   # Routing check: RK_ALG_RAKING == 3
-  expect_equal(r$algorithm_used, 3L,
+  expect_equal(r$algorithm_used, "raking",
                label = "AUTO must select raking when M_cell/n > 0.9")
 })
 
@@ -170,7 +170,7 @@ test_that("T-overflow: AUTO routing + algorithm_used populated", {
   expect_equal(r$status, 0L)
   expect_lt(r$max_error, 0.01)
   # algorithm_used: AUTO with M_cell << n should route to ieppa (algorithm=1)
-  expect_equal(r$algorithm_used, 1L,
+  expect_equal(r$algorithm_used, "ieppa",
                info="AUTO must select ieppa when M_cell/n << 0.9")
 })
 

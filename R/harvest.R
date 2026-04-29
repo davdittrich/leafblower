@@ -437,6 +437,8 @@ harvest <- function(
   # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7, IEPPA_SOFT=8
   alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake", "ieppa_soft", "greenkhorn", "logit")
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
+  # Make algorithm_used human-readable string (attr(r,"result")$algorithm_used == "greenkhorn")
+  calib_result$algorithm_used <- alg_used
 
   if (!attach_weights) {
     attr(weights, "result")     <- calib_result
