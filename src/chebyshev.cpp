@@ -115,6 +115,9 @@ ChebyshevResult chebyshev_ipm(
 
     // Warm-start override: aggregate ieppa obs-level weights → cell masses,
     // then apply mass-preserving clamp (clamp → rescale → reclamp).
+    // Warm-start override: aggregate ieppa obs-level weights → cell masses.
+    // GRAKE variant is excluded in r_bridge.cpp (GRAKE's w_kj weighting causes
+    // LP slack degeneration with near-perfect warm-start; CHEBYSHEV is safe).
     if (!w_warm_obs.empty() && static_cast<int>(w_warm_obs.size()) == st.n) {
         std::vector<double> X_warm(ct.M_cell, 0.0);
         for (int i = 0; i < st.n; i++)

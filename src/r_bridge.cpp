@@ -544,7 +544,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         }
 
         auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
-            auto res = lbw::chebyshev_ipm(st, variant, w_warm_obs, delta_warm);
+            // Warm-start only for CHEBYSHEV: GRAKE's target-proportional w_kj
+            // weighting causes LP slack degeneration with near-perfect X_warm.
+            const std::vector<double>& warm_ref =
+                (variant == lbw::LpVariant::CHEBYSHEV) ? w_warm_obs
+                                                        : std::vector<double>{};
+            const double d_warm =
+                (variant == lbw::LpVariant::CHEBYSHEV) ? delta_warm : -1.0;
+            auto res = lbw::chebyshev_ipm(st, variant, warm_ref, d_warm);
             pack_solver_result(res);
             res_status     = res.status;
             res_iterations = res.iterations;
