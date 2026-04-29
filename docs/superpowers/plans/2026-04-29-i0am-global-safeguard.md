@@ -36,17 +36,19 @@
 
 ### Steps
 
-- [ ] **1.1 Locate the existing test file or create a new one**
+- [ ] **1.1 Create the new test file**
+
+  Create `/home/dd/Gemini/leafblower/tests/testthat/test-sraa-global.R` unconditionally.
+  T_sraa_global is an SRAA-specific global-safeguard regression test — it belongs in its
+  own file, not appended to generic harvest or calibration tests.
 
   ```bash
-  ls /home/dd/Gemini/leafblower/tests/testthat/ | grep -E "sraa|accelerat|harvest" || true
+  ls /home/dd/Gemini/leafblower/tests/testthat/test-sraa-global.R 2>/dev/null && echo "EXISTS" || echo "CREATING"
   ```
-
-  Expected: identifies the most appropriate existing file (e.g. `test-sraa.R`, `test-harvest-accelerate.R`) or confirms a new file is needed. If none exist, create `/home/dd/Gemini/leafblower/tests/testthat/test-sraa-global.R`.
 
 - [ ] **1.2 Add the T_sraa_global test case**
 
-  Append (or create) the following testthat block in the chosen file. Place it AFTER any existing `library()` / `local_edition(3)` setup if creating a new file:
+  Create the file with the following content:
 
   ```r
   test_that("T_sraa_global: greenkhorn+SRAA max_err <= plain on K=4 overlapping-margin problem", {
