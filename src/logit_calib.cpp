@@ -90,7 +90,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     const CalibConvergenceCfg& cfg = st.convergence_cfg;
 
     const int kMaxNewtonIters = std::min(50, st.inner_max_iter);
-    constexpr double kDeffEps = 1e-6;
+    constexpr double kDeffFloor = 1e-6;  // floor prevents D_eff→0 when sig saturates
 
     for (int iter = 0; iter < kMaxNewtonIters; iter++) {
         res.iterations = iter + 1;
@@ -106,7 +106,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             double sig   = 1.0 / (1.0 + std::exp(-z));
             double range = U_cell[c] - L_cell[c];
             w[c]     = L_cell[c] + range * sig;        // bounds by construction, no clamp
-            D_eff[c] = std::max(kDeffEps * range, range * sig * (1.0 - sig));
+            D_eff[c] = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
         }
 
         // (2) Residuals b[cat_offset[k]+j] = tau*n - sum_{c in bucket} w[c]
