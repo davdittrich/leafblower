@@ -83,14 +83,32 @@ test_that("T_sraa_restart: restart on divergence recovers and converges", {
 })
 ```
 
-### Step 1.2 — Verify RED state
+### Step 1.2 — Remove the existing Tacc test (SQUAREM-specific; invalid after SRAA)
+
+The existing `Tacc` test asserts `iters_acc %% (K*3) == 0` — a SQUAREM K×3 stride check.
+After SRAA integration, SRAA emits K×2 or K×1; this will unconditionally fail.
+`T_sraa_grk` (appended in Step 1.1) is its direct replacement.
+
+- [ ] In `tests/testthat/test-calibration-solvers.R`, locate and DELETE the entire block:
+
+```r
+test_that("Tacc: greenkhorn accelerate=TRUE fires SQUAREM and converges", {
+  ...
+})
+```
+
+Run to find it: `grep -n "Tacc:\|squarem_stride\|K_exp \* 3L" tests/testthat/test-calibration-solvers.R`
+
+- [ ] After deletion, verify it is gone: `grep -c "squarem_stride\|K_exp \* 3L" tests/testthat/test-calibration-solvers.R` must return `0`.
+
+### Step 1.3 — Verify RED state
 
 - [ ] Run: `cd /home/dd/Gemini/leafblower && Rscript -e "devtools::test(filter='calibration-solvers')" 2>&1 | tail -30`
 - [ ] Expected: at least `T_sraa_grk` fails on `me_aa <= me_plain * 1.001` (current SQUAREM is 35% worse). At least one expect_lte / expect_lt MUST fail. If all four pass, halt — tests are not exercising SRAA path.
 
-### Step 1.3 — Commit
+### Step 1.4 — Commit
 
-- [ ] `cd /home/dd/Gemini/leafblower && git add tests/testthat/test-calibration-solvers.R && git commit -m "test(sraa): RED tests for SRAA-m greenkhorn+raking acceleration quality"`
+- [ ] `cd /home/dd/Gemini/leafblower && git add tests/testthat/test-calibration-solvers.R && git commit -m "test(sraa): RED tests for SRAA-m + remove SQUAREM-specific Tacc"`
 
 ---
 
@@ -417,50 +435,57 @@ Make sure the `else` branch (plain greenkhorn step) is preserved unchanged.
 #include "sraa.hpp"
 ```
 
-### Step 4.2 — Allocate SRAA state above the outer iteration loop
+### Step 4.2 — Verify raking.cpp structure before editing
 
-- [ ] Find where `auto X_prev_sq = X;` is declared (approx line 355, just before the SQUAREM block). Immediately AFTER `auto X_prev_sq = X;`, add:
+- [ ] Run: `grep -n "auto F_eval\|if (st.accelerate\|inner_max_iter >= 3\|X_prev_sq\|sq_w1" /home/dd/Gemini/leafblower/src/raking.cpp | head -20`
+
+Expected output confirms:
+- `auto F_eval = [&](std::vector<double>& Xv) -> double {` at ~line 269 — **this is the F_eval to reuse directly**
+- `if (st.accelerate) {` at ~line 351 — outer SQUAREM guard
+- `if (st.inner_max_iter >= 3) {` at ~line 358 — inner guard (nested inside accelerate block)
+- `auto X_prev_sq = X;` at ~line 360 — inside the inner block (SQUAREM stall detection; deleted with the block)
+
+**Key insight**: raking's `F_eval` at line 269 already has signature `(std::vector<double>&) -> double` — exactly what `sraa_step` needs. No extraction needed. Pass it directly.
+
+### Step 4.3 — Allocate SRAA state before the accelerate block
+
+- [ ] Immediately BEFORE the `if (st.accelerate) {` line (~line 351), add:
 
 ```cpp
+// SRAA-m state: replaces SQUAREM while-loop inside if(st.accelerate)
 lbw::SRAAState rk_sraa;
 if (st.accelerate) rk_sraa.init(ct.M_cell, lbw::kSRAAm);
-auto f_eval_rk = [&](std::vector<double>& Xv) -> double {
-    // Run one inner raking F-step on Xv (recomputes margins, applies multiplicative update, clamps).
-    return raking_inner_step(Xv, ct, st, L_cell, U_cell);  // returns max_errRp
-};
 ```
 
-Note: if no helper named `raking_inner_step` exists, the existing inline F-step body (the section that the old SQUAREM `F_eval` lambda invoked — typically: compute margins, multiplicative update, clamp, return max_errRp) MUST be lifted into a free function `raking_inner_step` in the same file. Do this lift in a single edit before adding the lambda; do not change its semantics.
+### Step 4.4 — Replace the inner SQUAREM block
 
-### Step 4.3 — Replace the SQUAREM while-loop with a single SRAA call
-
-- [ ] Locate the block:
-
+- [ ] Locate the nested structure:
 ```cpp
-if (st.inner_max_iter >= 3) {
-    int f_eval_count = 0;
+if (st.accelerate) {
     // ...
-    std::vector<double> sq_w1(ct.M_cell), sq_w2(ct.M_cell);
-    std::vector<double> sq_X_snap(ct.M_cell), sq_X_star(ct.M_cell), sq_X_star_pre(ct.M_cell);
-    while (f_eval_count + 3 <= st.inner_max_iter) {
-        // ... CBB + step-halving + F_eval ...
+    if (st.inner_max_iter >= 3) {
+        auto X_prev_sq = X;  // SQUAREM stall detection — deleted with block
+        // sq_w1, sq_w2, sq_X_snap, sq_X_star, sq_X_star_pre allocations
+        while (f_eval_count + 3 <= st.inner_max_iter) {
+            // ... CBB + step-halving + F_eval calls ...
+        }
     }
-}
+    // plain path: for (int iter = 1; ...) { F_eval(X); ... }
 ```
 
-Replace the entire `if (st.inner_max_iter >= 3) { ... }` body with:
+Replace the ENTIRE `if (st.inner_max_iter >= 3) { ... }` block with a single sraa_step call. The `if (st.accelerate)` outer guard and the plain path below it remain:
 
 ```cpp
 if (st.accelerate) {
-    auto r = lbw::sraa_step(f_eval_rk, X, L_cell, U_cell, rk_sraa);
+    // SQUAREM replaced by SRAA-m. X_prev_sq stall detection removed (SQUAREM-specific).
+    auto r = lbw::sraa_step(F_eval, X, L_cell, U_cell, rk_sraa);
+    res.max_error  = r.err_result;
     res.iterations += (r.aa_accepted ? 2 : 1);
 } else {
-    (void)f_eval_rk(X);  // single plain F-step
-    res.iterations += 1;
-}
+    // plain path below (unchanged)
 ```
 
-The surrounding `auto X_prev_sq = X;` and the post-loop `wchange` stall detection MUST remain unchanged.
+Note: `X_prev_sq` was stall-detection internal to the SQUAREM while-loop — it is deleted along with the block. The outer loop's convergence check (errRp threshold, budget, stall) is unaffected.
 
 ### Step 4.4 — Compile gate
 
