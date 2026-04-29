@@ -4,7 +4,7 @@
 // (autumn single_adjust) that enforces X[c] ∈ [L_c, U_c] within each margin step.
 // No Dykstra correction vectors; bounds are enforced inline by water_fill_cat.
 //
-// Both the flat loop and SQUAREM-accelerated path call F_eval directly.
+// Both the flat loop and SRAA-m-accelerated path call F_eval directly.
 // Water-filling convergence: cyclic KL projections onto bounded margin constraints
 // converge to the bounded KL minimum (Csiszar-Tusnady 1984).
 //
@@ -56,7 +56,7 @@ static double compute_errRp_ct(const CalibState& st,
 // Constrained raking solver: cyclic IPF with per-category water-filling box projections.
 // Each margin step applies water_fill_cat() — KL projection onto
 // {Σ_c Xv[c]=T_kj, L_c≤Xv[c]≤U_c} (Csiszar-Tusnady 1984; autumn single_adjust).
-// No Dykstra correction vectors; stateless F enables SQUAREM L2 step-halving.
+// No Dykstra correction vectors; stateless F enables SRAA-m Anderson Acceleration.
 // inner_max_iter is the single iteration budget; outer_max_iter is unused.
 RakingResult raking_solve(CalibState& st) {
     static constexpr double kAbsoluteZeroThreshold = 1e-15;  // bucket_j / free_sum is genuinely zero
@@ -126,7 +126,7 @@ RakingResult raking_solve(CalibState& st) {
     int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
     std::vector<double> bucket(max_cats);
 
-    // Descent monitor — tracks solver loss function (weight KL for flat loop, errRp for SQUAREM).
+    // Descent monitor — tracks solver loss function (weight KL for flat loop, errRp for SRAA-m).
     double min_loss_window = std::numeric_limits<double>::infinity();
     int n_no_improve = 0;
 
@@ -163,11 +163,11 @@ RakingResult raking_solve(CalibState& st) {
     std::vector<int> margin_order(st.K);
     std::iota(margin_order.begin(), margin_order.end(), 0);
     const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
-    // R8: greedy reordering breaks SQUAREM's fixed-point geometry; demote silently.
+    // R8: greedy reordering breaks SRAA-m's fixed-point geometry; demote silently.
     bool use_greedy_effective = use_greedy;
     if (st.accelerate && use_greedy_effective) {
         use_greedy_effective = false;
-        st.log("[raking] greedy scheduler disabled under SQUAREM acceleration; using round_robin");
+        st.log("[raking] greedy scheduler disabled under SRAA-m acceleration; using round_robin");
     }
 
     // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
@@ -258,13 +258,13 @@ RakingResult raking_solve(CalibState& st) {
         }
     };
 
-    // last_F_metrics: populated by F_eval via compute_cell_metrics; reused in SQUAREM convergence check.
+    // last_F_metrics: populated by F_eval via compute_cell_metrics; reused in SRAA-m convergence check.
     // Declared here (outer scope) so the [&] lambda capture includes it.
     lbw::CellMetrics last_F_metrics;
 
     // F_eval: one complete bounded IPF iteration using water-filling.
     // Water-filling enforces X[c] ∈ [L[c], U[c]] within each margin step.
-    // No correction vectors — F is stateless: enables SQUAREM L2 halving.
+    // No correction vectors — F is stateless: enables SRAA-m L2 halving.
     // Mathematical basis: cyclic KL projections onto bounded margin constraints
     // converge to the bounded KL minimum (Csiszar-Tusnady 1984).
     auto F_eval = [&](std::vector<double>& Xv) -> double {
@@ -344,17 +344,17 @@ RakingResult raking_solve(CalibState& st) {
         }
 
         // compute_cell_metrics is a strict superset of compute_errRp_ct at same O(K×M_cell) cost.
-        // Stores all metrics in last_F_metrics — SQUAREM convergence check reuses them directly.
+        // Stores all metrics in last_F_metrics — SRAA-m convergence check reuses them directly.
         last_F_metrics = lbw::compute_cell_metrics(st, ct, Xv, static_cast<double>(st.n), bucket);
         return last_F_metrics.errRp;
     };
 
-    // SRAA-m state (replaces SQUAREM step-halving while-loop)
+    // SRAA-m state (replaces SRAA-m step-halving while-loop)
     lbw::SRAAState rk_sraa;
     if (st.accelerate) rk_sraa.init(ct.M_cell, lbw::kSRAAm);
 
     if (st.accelerate) {
-        // SQUAREM replaced by SRAA-m. X_prev_sq (stall detection) removed — SQUAREM-specific.
+        // SRAA-m replaced by SRAA-m. X_prev_sq (stall detection) removed — SRAA-m-specific.
         // Loop mirrors greenkhorn: sraa_step called once per outer iteration until budget exhausted.
         int f_eval_budget = st.inner_max_iter;
         int f_evals_used = 0;
