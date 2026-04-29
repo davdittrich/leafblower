@@ -1,3 +1,24 @@
+# leafblower (development version)
+
+## Breaking changes
+
+* `harvest(method="greenkhorn", accelerate=TRUE)` and `harvest(method="raking", accelerate=TRUE)`:
+  calibrated weights will differ from previous versions. The prior SQUAREM/CBB
+  acceleration overshot the bounded optimum (greenkhorn: 35% worse quality than plain).
+  Replaced by Safeguarded Regularized Anderson Acceleration (SRAA-m, m=5), which
+  guarantees quality >= plain per super-step. Reproducible pipelines using
+  `set.seed() + accelerate=TRUE` will produce different (more accurate) results.
+
+## Acceleration
+
+* Replaced SQUAREM/CBB with SRAA-m (Type II Anderson Acceleration, window m=5) for
+  `method="greenkhorn"` and `method="raking"`. SRAA-m fixes the 35%/9% quality
+  regression on bounded calibration problems. Uses 2 F-evals/accepted step vs
+  SQUAREM's 3. Automatic restart on residual divergence (||R_k||^2 > 4*||R_{k-1}||^2)
+  and Tikhonov regularization on the m*m Gram system.
+
+---
+
 # leafblower (development)
 
 ## Breaking changes

@@ -162,12 +162,12 @@ across n levels.}
 
 \item{enforce_mean}{Ignored (retained for compatibility).}
 
-\item{accelerate}{Logical. If \code{TRUE}, applies SQUAREM SqS3 outer-loop
-acceleration (Varadhan & Roland 2008) to the raking fixed-point iteration.
-Only supported for \code{method="raking"}; a warning is emitted and the
-parameter is ignored for all other methods. Default \code{FALSE}.
-When \code{TRUE}, the \code{scheduler} is overridden to \code{"round_robin"}:
-Greedy ordering changes the fixed point each F-call, degrading CBB accuracy.}
+\item{accelerate}{Logical. Enable Safeguarded Regularized Anderson Acceleration
+(SRAA-m, window m=5) for \code{method="greenkhorn"} and \code{method="raking"}.
+SRAA-m guarantees \code{max_error_accelerated <= max_error_plain} per super-step
+via an explicit safeguard, using 2 F-evals per accepted step (vs. SQUAREM's 3).
+Replaces prior SQUAREM/CBB scheme which overshot the bounded optimum.
+Default \code{FALSE}.}
 
 \item{add_na_proportion}{Not supported in v1; raises error if TRUE.}
 
@@ -213,7 +213,7 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
           Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
           \code{"budget"} (budget exhausted — increase max_iterations),
           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
-          \code{"stall_wchange"} (SQUAREM weight-change plateau — at constrained optimum),
+          \code{"stall_wchange"} (SRAA-m weight-change plateau — at constrained optimum),
           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
         \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{ieppa_soft}).
         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
@@ -241,7 +241,7 @@ Altschuler-Weed-Rigollet (2017) greedy coordinate-descent Sinkhorn variant.
 At each step \code{greenkhorn} selects the single margin with the largest
 violation and updates only that row/column — unlike standard raking which
 sweeps all K margins every round. Pass \code{accelerate=TRUE} to enable
-SQUAREM SqS3 outer-loop acceleration on top of greenkhorn.
+SRAA-m outer-loop acceleration on top of greenkhorn.
 
 \strong{Logit calibration}: \code{method="logit"} implements Deville-Sarndal
 (1992) logit-distance Newton calibration. Bounds are enforced analytically
