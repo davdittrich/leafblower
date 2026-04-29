@@ -118,8 +118,9 @@ struct SRAAState {
         clear();
     }
 
-    // clear(): reset history. prev_resid_norm intentionally NOT reset — safe because
-    // restart check is guarded by has_prev (false after clear). See algorithm step 4.
+    // clear(): reset history. prev_resid_norm reset to 0 as a safe sentinel —
+    // it is never read when has_prev=false (see restart guard at algorithm step 2).
+    // aa_accepted_count is NOT reset by clear() — it is a cumulative run total.
     void clear() { head = 0; count = 0; has_prev = false; prev_resid_norm = 0.0; }
 };
 ```
@@ -448,10 +449,11 @@ with T_sraa_grk above. The K*3 divisibility check is SQUAREM-specific and invali
 | AC4 | T_sraa_rk GREEN | Same |
 | AC5 | T_sraa_ldlt_fallback GREEN | Same |
 | AC6 | T_sraa_restart GREEN | Same |
-| AC7 | FAIL count unchanged (3) | `devtools::test()` |
-| AC8 | harvest.R docs updated (no SQUAREM/CBB references in accelerate path) | `grep -n "SqS3\|CBB\|SQUAREM" R/harvest.R` |
-| AC9 (benchmark) | stepstone greenkhorn+AA max_err ≤ 1.57e-3 | `Rscript benchmarks/stepstone_all_methods.R` |
-| AC10 (benchmark) | stepstone raking+AA max_err ≤ 1.60e-3 | Same |
+| AC7 | FAIL count unchanged (3 pre-existing) | `devtools::test()` |
+| AC8 | harvest.R docs updated (no SQUAREM/CBB/SqS3 in accelerate path) | `grep -n "SqS3\|CBB\|SQUAREM" R/harvest.R` |
+| AC9 | NEWS.md contains breaking-change entry for accelerate=TRUE output change | `grep -i "break\|accelerate\|SRAA\|Anderson" NEWS.md` |
+| AC10 (benchmark) | stepstone greenkhorn+AA max_err ≤ 1.57e-3 | `Rscript benchmarks/stepstone_all_methods.R` |
+| AC11 (benchmark) | stepstone raking+AA max_err ≤ 1.60e-3 | Same |
 
 ---
 
