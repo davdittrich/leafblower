@@ -965,3 +965,138 @@ test_that("T10: capacity_penalty warns when passed to non-ieppa_soft method", {
     regexp="capacity_penalty.*ignored"
   )
 })
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Greenkhorn tests (T1–T4) + T_acc
+# ══════════════════════════════════════════════════════════════════════════════
+
+test_that("T1: greenkhorn available and calibrates", {
+  set.seed(1); n <- 1000L
+  df  <- data.frame(sex=factor(sample(c("M","F"),n,TRUE)),
+                    age=factor(sample(c("Y","O"),n,TRUE)))
+  tgt <- list(sex=c(M=0.5,F=0.5), age=c(Y=0.6,O=0.4))
+  r   <- harvest(df, tgt, method="greenkhorn", max_iterations=500L)
+  expect_lt(attr(r,"result")$max_error, 1e-3)
+  expect_equal(attr(r,"result")$algorithm_used, "greenkhorn",
+    label="algorithm_used must be 'greenkhorn'")
+})
+
+test_that("T2: greenkhorn reaches near-machine precision on 1-margin 2-cat", {
+  set.seed(2); n <- 5000L
+  df  <- data.frame(g=factor(sample(c("A","B"), n, TRUE, prob=c(0.3,0.7))))
+  tgt <- list(g=c(A=0.5, B=0.5))
+  r   <- harvest(df, tgt, method="greenkhorn",
+                 max_iterations=100L,
+                 convergence=list(absolute=1e-12))
+  me  <- attr(r,"result")$max_error
+  expect_lt(me, 1e-10,
+    label=sprintf("greenkhorn should reach machine precision on 1-margin (got %.2e)", me))
+})
+
+test_that("T3: greenkhorn max_err within 2x of raking", {
+  set.seed(42); n <- 10000L
+  df <- data.frame(
+    a=factor(sample(letters[1:3],n,TRUE)),
+    b=factor(sample(LETTERS[1:4],n,TRUE)),
+    c=factor(sample(c("x","y"),n,TRUE))
+  )
+  tgt <- list(a=c(a=0.3,b=0.4,c=0.3),
+              b=c(A=0.25,B=0.25,C=0.25,D=0.25),
+              c=c(x=0.6,y=0.4))
+  r_rk  <- harvest(df, tgt, method="raking",
+                   convergence=list(absolute=1e-6))
+  r_grk <- harvest(df, tgt, method="greenkhorn",
+                   convergence=list(absolute=1e-6))
+  me_rk  <- attr(r_rk,  "result")$max_error
+  me_grk <- attr(r_grk, "result")$max_error
+  expect_lt(me_grk, 2.0 * me_rk + 1e-6)
+})
+
+test_that("T4: greenkhorn respects bounds exactly", {
+  set.seed(5); n <- 2000L
+  df  <- data.frame(v=factor(sample(5, n, TRUE)))
+  tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
+  r   <- harvest(df, tgt, method="greenkhorn", max_weight=2.0, min_weight=0.1)
+  w   <- r$weights
+  expect_true(max(w) <= 2.0 + 1e-9)
+  expect_true(min(w) >= 0.1 - 1e-9)
+})
+
+test_that("Tacc: greenkhorn with accelerate=TRUE runs without error and converges", {
+  set.seed(99); n <- 2000L
+  df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),
+                    y=factor(sample(c("M","F"),n,TRUE)))
+  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
+  r_acc   <- harvest(df, tgt, method="greenkhorn", accelerate=TRUE,  max_iterations=500L)
+  r_plain <- harvest(df, tgt, method="greenkhorn", accelerate=FALSE, max_iterations=500L)
+  me_acc   <- attr(r_acc,   "result")$max_error
+  me_plain <- attr(r_plain, "result")$max_error
+  expect_lt(me_acc, 1e-3)
+  iters_acc   <- attr(r_acc,   "result")$iterations
+  iters_plain <- attr(r_plain, "result")$iterations
+  expect_lt(iters_acc, iters_plain * 2L,
+    label=sprintf("accelerate=TRUE used %d rounds vs plain %d; must not be >2x worse",
+                  iters_acc, iters_plain))
+})
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Logit tests (T5–T8)
+# ══════════════════════════════════════════════════════════════════════════════
+
+test_that("T5: logit available and calibrates", {
+  set.seed(5); n <- 1000L
+  df  <- data.frame(sex=factor(sample(c("M","F"),n,TRUE)),
+                    age=factor(sample(c("Y","O"),n,TRUE)))
+  tgt <- list(sex=c(M=0.5,F=0.5), age=c(Y=0.6,O=0.4))
+  r   <- harvest(df, tgt, method="logit", max_iterations=50L)
+  expect_lt(attr(r,"result")$max_error, 1e-3)
+  expect_equal(attr(r,"result")$algorithm_used, "logit")
+})
+
+test_that("T6: logit bounds by construction (Newton steps < raking rounds on K=2 tight problem)", {
+  set.seed(6); n <- 5000L
+  df  <- data.frame(
+    v=factor(sample(5, n, TRUE)),
+    g=factor(sample(c("M","F"), n, TRUE))
+  )
+  tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05),as.character(1:5)),
+              g=c(M=0.55, F=0.45))
+  r   <- harvest(df, tgt, method="logit", max_weight=1.5, min_weight=0.1)
+  w   <- r$weights
+  expect_true(max(w) <= 1.5 + 1e-9)
+  expect_true(min(w) >= 0.1 - 1e-9)
+  n_iters <- attr(r,"result")$iterations
+  expect_lt(n_iters, 50L)
+  r_rk <- harvest(df, tgt, method="raking", max_weight=1.5, min_weight=0.1,
+                  convergence=list(absolute=1e-6))
+  n_rk <- attr(r_rk,"result")$iterations
+  expect_lt(n_iters, n_rk,
+    label=sprintf("logit Newton (%d steps) < raking (%d rounds) on K=2 tight problem",
+                  n_iters, n_rk))
+})
+
+test_that("T7: logit max_err < 1e-4 on 2-margin unconstrained problem", {
+  set.seed(7); n <- 5000L
+  df  <- data.frame(
+    a=factor(sample(letters[1:3],n,TRUE)),
+    b=factor(sample(LETTERS[1:4],n,TRUE))
+  )
+  tgt <- list(a=c(a=0.3,b=0.4,c=0.3), b=c(A=0.25,B=0.25,C=0.25,D=0.25))
+  r_logit <- harvest(df, tgt, method="logit",
+                     convergence=list(absolute=1e-6))
+  me_logit <- attr(r_logit,"result")$max_error
+  expect_lt(me_logit, 1e-4)
+})
+
+test_that("T8: logit max_err within 2x of raking on tight-bounds problem", {
+  set.seed(8); n <- 5000L
+  df  <- data.frame(v=factor(sample(5, n, TRUE)))
+  tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
+  r_rk    <- harvest(df, tgt, method="raking", max_weight=1.8, min_weight=0,
+                     convergence=list(absolute=1e-6))
+  r_logit <- harvest(df, tgt, method="logit", max_weight=1.8, min_weight=0,
+                     convergence=list(absolute=1e-6))
+  me_rk    <- attr(r_rk,    "result")$max_error
+  me_logit <- attr(r_logit, "result")$max_error
+  expect_lt(me_logit, 2.0 * me_rk + 1e-6)
+})
