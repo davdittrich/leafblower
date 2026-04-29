@@ -509,9 +509,9 @@ on revert — F_eval inside sraa_step recomputes everything from X.
   feat(sraa): plateau-gated AA + outer revert in raking outer loop
 
   Mirror the greenkhorn Track-1 changes using raking's existing names
-  (W_best, best_metric_seen, rk_sraa). Single merged curr_max block; revert
-  snaps X back to W_best and rebuilds W/S_flat/errRp before re-locking
-  aa_unlocked.
+  (W_best, best_metric_seen, rk_sraa). Uses r.err_result as quality signal.
+  Revert snaps X=W_best only — no S_flat/errRp rebuild needed because
+  F_eval recomputes everything from X on the next sraa_step call.
   EOF
   )"
   ```
