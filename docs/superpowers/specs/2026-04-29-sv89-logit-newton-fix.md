@@ -121,6 +121,7 @@ saturated are genuinely at bounds and contribute nothing to calibration.
 Even at α=2⁻¹⁰, a huge Newton step (large ||Δλ||) can produce a damaging update. Add a max-z-shift cap computed from the delta-z effect on each cell:
 
 ```cpp
+// ORDERING: this block executes AFTER ldlt_solve (b[] now holds delta_lambda, not residuals)
 // Cap alpha_max so no cell's z_c shifts by more than kMaxDeltaZ = 2.0 in one step
 // delta_z[c] = sum_k delta_lambda[cat_offset[k] + g_per_cell[k][c]]
 double max_delta_z = 0.0;
