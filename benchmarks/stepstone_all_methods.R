@@ -37,8 +37,8 @@ fit_metrics <- function(w, df, tgt, res = NULL) {
        wmin=min(w), wmed=median(w), wmax=max(w))
 }
 
-run <- function(method, ...) {
-  cat(sprintf("%-12s ...", method)); flush.console()
+run <- function(method, label=method, ...) {
+  cat(sprintf("%-16s ...", label)); flush.console()
   t0 <- proc.time()["elapsed"]
   r  <- suppressWarnings(
     if (method == "autumn")
@@ -67,53 +67,42 @@ run <- function(method, ...) {
 
 ITERS <- 5000L
 cat("=== leafblower methods ===\n")
-r_ieppa    <- run("ieppa",    max_iterations=ITERS)
-r_raking   <- run("raking",   max_iterations=ITERS)
-r_sinkhorn <- run("sinkhorn", max_iterations=ITERS)
-r_grake    <- run("grake",    max_iterations=ITERS)
-r_greg     <- run("greg",     max_iterations=ITERS)
-r_cheby    <- run("chebyshev",max_iterations=ITERS)
+r_ieppa      <- run("ieppa",       max_iterations=ITERS)
+r_raking     <- run("raking",      max_iterations=ITERS)
+r_raking_sq  <- run("raking",      label="raking+squarem",    max_iterations=ITERS, accelerate=TRUE)
+r_ieppa_soft <- run("ieppa_soft",  max_iterations=ITERS)
+r_sinkhorn   <- run("sinkhorn",    max_iterations=ITERS)
+r_grake      <- run("grake",       max_iterations=ITERS)
+r_greg       <- run("greg",        max_iterations=ITERS)
+r_cheby      <- run("chebyshev",   max_iterations=ITERS)
+r_grk        <- run("greenkhorn",  max_iterations=ITERS)
+r_grk_sq     <- run("greenkhorn",  label="greenkhorn+squarem", max_iterations=ITERS, accelerate=TRUE)
+r_logit      <- run("logit",       max_iterations=ITERS)
 
-cat("\n=== autumn (reference) ===\n")
-r_autumn   <- run("autumn")
+cat("\n=== autumn (reference — cached) ===\n")
+{
+  ac <- readRDS("tests/testthat/fixtures/stepstone_reference_autumn_only.rds")
+  r_autumn <- list(w = ac$autumn_weights, wall = ac$autumn_wall_s,
+                   m = fit_metrics(ac$autumn_weights, df, tgt))
+  m <- r_autumn$m
+  cat(sprintf("%-16s    wall=%6.1fs  iters=  —  status=0  max_err=%.4e  L1=%.4e  chi2=%.3e  marg_kl=%.3e  wt_kl=       —  DEFF=%.4f  ESS=%s  w[min/med/max]=%.3f/%.3f/%.3f\n",
+    "autumn(cached)", ac$autumn_wall_s,
+    m$max_err, m$L1, m$chi2, m$marg_kl,
+    m$DEFF, format(round(m$ESS), big.mark=","),
+    m$wmin, m$wmed, m$wmax))
+}
 
-cat("\n=== ieppa overlay combinations ===\n")
-
-# P-B: greedy margin scheduler (max-residual priority)
-run("ieppa",
+cat("\n=== ieppa+greedy ===\n")
+r_ieppa_greedy <- run("ieppa", label="ieppa+greedy",
     scheduler = "greedy",
-    max_iterations = ITERS)
-
-# P-A: progressive bound tightening (3 levels, k=5)
-run("ieppa",
-    homotopy_levels = 3L,
-    homotopy_start_factor = 5.0,
-    homotopy_end_factor = 1.0,
-    max_iterations = ITERS)
-
-# P-A + Tang-eta: combined dynamic schedule
-run("ieppa",
-    homotopy_levels = 3L,
-    homotopy_start_factor = 5.0,
-    homotopy_end_factor = 1.0,
-    eta_schedule = "tang_dynamic",
-    eta_schedule_power = 0.5,
-    max_iterations = ITERS)
-
-# P-A + P-B + Tang-eta: all combined
-run("ieppa",
-    scheduler = "greedy",
-    homotopy_levels = 3L,
-    homotopy_start_factor = 5.0,
-    homotopy_end_factor = 1.0,
-    eta_schedule = "tang_dynamic",
-    eta_schedule_power = 0.5,
     max_iterations = ITERS)
 
 cat("\n=== Pearson r vs iEPPA ===\n")
-for (nm in c("raking","sinkhorn","grake","greg","cheby","autumn")) {
+for (nm in c("raking","raking_sq","ieppa_soft","grk","grk_sq","logit","ieppa_greedy","sinkhorn","grake","greg","cheby","autumn")) {
   rv <- get(paste0("r_", nm))
-  cat(sprintf("  ieppa ↔ %-10s  r=%.6f\n", nm, cor(r_ieppa$w, rv$w)))
+  lbl <- switch(nm, raking_sq="raking+squarem", grk="greenkhorn", grk_sq="greenkhorn+squarem",
+                ieppa_greedy="ieppa+greedy", nm)
+  cat(sprintf("  ieppa ↔ %-20s  r=%.6f\n", lbl, cor(r_ieppa$w, rv$w)))
 }
 
 cat("\n=== Python IPF implementations ===\n")
