@@ -1166,8 +1166,8 @@ test_that("T_logit_init: logit converges in few Newton steps from design-weight 
   w <- as.numeric(r)
   expect_lt(me, 1e-8,
     label=sprintf("logit design-weight init must hit tol: got max_err=%.2e", me))
-  # Good initialization -> should converge in < 20 Newton steps even with tight tol
-  expect_lt(n_iters, 20L,
+  # Good initialization -> should converge in < 10 Newton steps even with tight tol
+  expect_lt(n_iters, 10L,
     label=sprintf("design-weight init should converge fast: got %d steps", n_iters))
   expect_true(max(w) <= 3.0 + 1e-9)
   expect_true(min(w) >= 0.1 - 1e-9)

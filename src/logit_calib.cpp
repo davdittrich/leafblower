@@ -244,6 +244,18 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         }
         for (int j = 0; j < nct; j++) lambda[j] += alpha * b[j];
 
+        // Recompute w from updated lambda so convergence check sees post-step weights
+        for (int c = 0; c < M; c++) {
+            double z = 0.0;
+            for (int k = 0; k < K; k++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k]) z += lambda[cat_offset[k] + g];
+            }
+            z = std::clamp(z, -700.0, 700.0);
+            double sig = 1.0 / (1.0 + std::exp(-z));
+            w[c] = L_cell[c] + (U_cell[c] - L_cell[c]) * sig;
+        }
+
         // (5) Convergence check via shared infrastructure
         double W_total = 0.0;
         for (int c = 0; c < M; c++) W_total += w[c];
