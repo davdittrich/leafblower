@@ -199,7 +199,7 @@ if (st.accelerate && K > 0) {
 **Applies to `raking.cpp`** with one naming difference: raking uses `best_metric_seen`
 (not `best_errRp`) and `W_best` (not `X_best`). The revert block substitutes these:
 `X = W_best` → `X = grk_sraa_equiv.X_best` does not apply; for raking, `W_best` is the
-iterate, so: `X = W_best; rk_sraa.clear(); rk_sraa.disable_aa()`. Do NOT introduce
+iterate, so: `W = W_best; rk_sraa.clear(); rk_sraa.disable_aa()`. Do NOT introduce
 a parallel X_best in raking — reuse W_best which already tracks the same quantity.
 
 The plateau detection and outer_stall_count variables are local to the SRAA accelerate
@@ -212,7 +212,7 @@ is near the correct fixed point (max_err-optimal). At that point:
 
 - `best_errRp` ≈ correct fixed point quality (e.g., 1.57e-3 for K=9 stepstone)
 - If AA escapes to wrong basin (2.12e-3): curr_max = 2.12e-3 > 1.57e-3 × 1.10 = 1.73e-3
-  → outer_stall_count increments → after 3 steps → revert to X_best
+  → outer_stall_count increments → after kSRAAOuterStallWindow=5 steps → revert to X_best
 
 ### Expected performance
 
