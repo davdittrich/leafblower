@@ -523,8 +523,28 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_best_weights.assign(st.n, 0.0);
     } else {
         // Dispatch for chebyshev, grake (shared solver), ieppa_soft, and default ieppa.
+
+        // Run ieppa warm-start BEFORE dispatch (once for both chebyshev and grake).
+        std::vector<double> w_warm_obs;
+        double delta_warm = -1.0;
+        if (strcmp(method_str, "chebyshev") == 0 || strcmp(method_str, "grake") == 0) {
+            // SAFETY: weights_copy protects st.weights from ieppa_solve mutation.
+            std::vector<double> weights_copy(st.weights, st.weights + st.n);
+            lbw::CalibState st_warm = st;
+            st_warm.weights = weights_copy.data();
+            st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
+            auto ieppa_res = lbw::ieppa_solve(st_warm);
+            // st_warm must NOT escape this block (dangling pointer after weights_copy destroyed).
+            if (!ieppa_res.best_weights.empty() &&
+                static_cast<int>(ieppa_res.best_weights.size()) == st.n &&
+                std::isfinite(ieppa_res.max_error)) {
+                w_warm_obs = std::move(ieppa_res.best_weights);
+                delta_warm = ieppa_res.max_error * 1.5;
+            }
+        }
+
         auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
-            auto res = lbw::chebyshev_ipm(st, variant);
+            auto res = lbw::chebyshev_ipm(st, variant, w_warm_obs, delta_warm);
             pack_solver_result(res);
             res_status     = res.status;
             res_iterations = res.iterations;

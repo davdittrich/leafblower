@@ -11,8 +11,15 @@
 
 namespace lbw {
 
-ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant)
+ChebyshevResult chebyshev_ipm(
+    CalibState& st,
+    LpVariant   variant,
+    const std::vector<double>& w_warm_obs,
+    double      delta_warm)
 {
+    // w_warm_obs and delta_warm: warm-start params wired in T3; initialization used in T4.
+    (void)w_warm_obs;
+    (void)delta_warm;
     static constexpr int    kMaxIpm    = 500;   // hard cap; user controls via max_iterations
     static constexpr double kSigma     = 0.1;    // centering parameter
     static constexpr double kTolMu     = 1e-6;   // complementarity gap convergence threshold

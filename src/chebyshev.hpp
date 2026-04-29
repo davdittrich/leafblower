@@ -27,11 +27,17 @@ struct ChebyshevResult {
     double best_error   = std::numeric_limits<double>::infinity();
     int    best_iter    = 1;
     std::vector<double> best_weights;
+    int    n_factorizations = 0;  // Mehrotra audit counter (populated in T5)
     int    M_cell       = 0;
     char   message[256] = {};
 };
 
-ChebyshevResult chebyshev_ipm(CalibState& st, LpVariant variant);
+ChebyshevResult chebyshev_ipm(
+    CalibState& st,
+    LpVariant   variant,
+    const std::vector<double>& w_warm_obs = {},  // obs-level warm weights; empty=cold start
+    double      delta_warm = -1.0                // ieppa_max_err*1.5; -1=use default 1.0
+);
 
 inline ChebyshevResult chebyshev_solve(CalibState& st) {
     return chebyshev_ipm(st, LpVariant::CHEBYSHEV);
