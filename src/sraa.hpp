@@ -17,6 +17,8 @@ static constexpr int    kSRAAm            = 5;     // default window: ~176 MB at
 static constexpr int    kSRAAMinCount     = 2;     // min DX/DR pairs before AA fires
 static constexpr double kSRAAdeltaReg     = 1e-10; // relative Tikhonov on Gram matrix
 static constexpr double kSRAARestartGamma = 2.0;   // restart when ||R_k||^2 > 4 x prev_norm
+static constexpr double kSRAAOuterSlack       = 0.10; // 10% above best_errRp → stall
+static constexpr int    kSRAAOuterStallWindow = 5;    // 5 stall iters → revert+restart
 
 struct SRAAStepResult {
     bool   aa_accepted;

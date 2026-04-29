@@ -124,11 +124,9 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // SRAA-m state (replaces SQUAREM)
     lbw::SRAAState grk_sraa;
     std::vector<double> Sv_sraa;
-    std::vector<int>    order_sraa;
     if (st.accelerate && K > 0) {
         grk_sraa.init(M, lbw::kSRAAm);
         Sv_sraa.assign((size_t)K * S_stride, 0.0);
-        order_sraa.assign(K, 0);
     }
     auto f_eval_sraa = [&](std::vector<double>& Xv) -> double {
         // Xv must be grk_sraa.F_cur or grk_sraa.scratch — NEVER the outer X
@@ -143,10 +141,11 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             }
         }
         std::swap(X, Xv); std::swap(S_flat, Sv_sraa); std::swap(W, Wv);
-        std::iota(order_sraa.begin(), order_sraa.end(), 0);
-        std::stable_sort(order_sraa.begin(), order_sraa.end(),
-            [&](int a, int b){ return errRp[a] > errRp[b]; });
-        for (int ki = 0; ki < K; ki++) greenkhorn_step(order_sraa[ki]);
+        // Adaptive sort: re-sort errRp after each step (identical to plain greenkhorn)
+        for (int ki = 0; ki < K; ki++) {
+            int k_star = (int)(std::max_element(errRp.begin(), errRp.end()) - errRp.begin());
+            greenkhorn_step(k_star);
+        }
         std::swap(X, Xv); std::swap(S_flat, Sv_sraa); std::swap(W, Wv);
         // Wv now holds W_after_K_steps. If zero (all cells at lower bound = 0),
         // the AA input was degenerate; return +inf so the NaN guard in sraa_step rejects it.
@@ -155,6 +154,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     };
 
     // Main loop
+    int outer_stall_count = 0;
     for (int iter = 0; iter < st.inner_max_iter; iter++) {
         // W<=0 guard
         if (W <= 0.0) {
@@ -194,7 +194,26 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             res.best_error = best_errRp;
             res.best_iter  = res.iterations;
             X_best = X;
-        }
+        } else if (st.accelerate && K > 0 &&
+                   curr_max > best_errRp * (1.0 + lbw::kSRAAOuterSlack)) {
+            if (++outer_stall_count >= lbw::kSRAAOuterStallWindow) {
+                X = X_best;                   // revert to outer-quality best
+                grk_sraa.clear();             // restart AA history
+                outer_stall_count = 0;
+                // Rebuild W, S_flat, errRp from reverted X
+                W = 0.0; std::fill(S_flat.begin(), S_flat.end(), 0.0);
+                for (int c = 0; c < M; c++) {
+                    W += X[c];
+                    for (int k = 0; k < K; k++) {
+                        int g = ct.g_per_cell[k][c];
+                        if (g >= 0 && g < st.cat_counts[k])
+                            S_flat[k * S_stride + g] += X[c];
+                    }
+                }
+                for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
+                best_errRp = *std::max_element(errRp.begin(), errRp.end());
+            }
+        } else { outer_stall_count = 0; }
 
         // Convergence check every kErrCheckInterval iters
         if ((iter + 1) % kErrCheckInterval == 0 || iter == st.inner_max_iter - 1) {
