@@ -1,4 +1,4 @@
-# Greenkhorn + Logit Calibration Solvers — Design Spec (rev 3)
+# Greenkhorn + Logit Calibration Solvers — Design Spec (rev 5 — gate approved)
 
 **Date**: 2026-04-29
 **Status**: Pending design review (rev 3 adds Part 2: Logit calibration)
