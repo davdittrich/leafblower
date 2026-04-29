@@ -110,8 +110,73 @@ saturated are genuinely at bounds and contribute nothing to calibration.
 |---|---|---|
 | `c_armijo` | 0.01 | Standard Armijo constant; small → accepts many steps, large → forces improvement |
 | `kMaxHalvings` | 10 | α_min = 2⁻¹⁰ ≈ 1e-3; below this, accept the step regardless (prevents infinite loop) |
+| `kMaxDeltaZ` | 2.0 | Max z_c shift per Newton step; limits α_max before Armijo loop; logit(z+2) from 0.5 → 0.88 (safe range) |
 | `kDeffEps` | 1e-6 | Bias < 1e-6 × (max_weight - min_weight) per cell — below double precision noise |
 | `kInitSigmaEps` | 1e-4 | Clips σ_target away from 0/1; logit(1e-4) ≈ -9.2 (bounded z_target) |
+
+## Fixes for design-review-gate findings
+
+### Security Fix 1 — Step-norm guard before Armijo (prevents catastrophic fallthrough)
+
+Even at α=2⁻¹⁰, a huge Newton step (large ||Δλ||) can produce a damaging update. Add a max-z-shift cap computed from the delta-z effect on each cell:
+
+```cpp
+// Cap alpha_max so no cell's z_c shifts by more than kMaxDeltaZ = 2.0 in one step
+// delta_z[c] = sum_k delta_lambda[cat_offset[k] + g_per_cell[k][c]]
+double max_delta_z = 0.0;
+for (int c = 0; c < M; c++) {
+    double dz = 0.0;
+    for (int k = 0; k < K; k++) {
+        int g = ct.g_per_cell[k][c];
+        if (g >= 0 && g < st.cat_counts[k]) dz += std::abs(b[cat_offset[k]+g]);
+    }
+    max_delta_z = std::max(max_delta_z, dz);
+}
+double alpha_max = (max_delta_z > 0.0) ? std::min(1.0, kMaxDeltaZ / max_delta_z) : 1.0;
+// Armijo searches in [0, alpha_max] instead of [0, 1]
+double alpha = alpha_max;  // start from alpha_max
+for (int halv = 0; halv < kMaxHalvings; halv++) { ... }
+```
+
+### Security Fix 2 — Pre-allocate Armijo scratch buffers
+
+`w_trial` (size M_cell) and `b_trial` (size nct) must be allocated ONCE before the Newton loop, not per-halving. At M_cell=1.58M: per-halving alloc = 12MB × 10 halvings × 9 Newton steps = 1.08GB transient allocation. Pre-allocation cost: 12MB once.
+
+```cpp
+// Before Newton loop:
+std::vector<double> w_trial(ct.M_cell, 0.0);   // Armijo trial weights
+std::vector<double> b_trial(nct, 0.0);           // Armijo trial residuals
+std::vector<double> lambda_trial(nct, 0.0);      // Trial lambda for Armijo eval
+```
+
+### Designer Fix 1 — Warning when Armijo stalls (all halvings exhausted)
+
+When all 10 halvings fail (no sufficient decrease found), accept α (still makes a step) but populate the solver message:
+
+```cpp
+// After Armijo loop, if no improvement was found:
+bool armijo_improved = (best_resid_sq < resid_sq_0);
+if (!armijo_improved && st.verbose >= 1) {
+    char msg[128];
+    std::snprintf(msg, sizeof(msg),
+        "[logit] Newton step: Armijo exhausted (alpha=%.2e), accepting best available",
+        alpha);
+    st.log(msg);
+}
+```
+
+On STALL/BUDGET exit, the solver message includes this diagnostic.
+
+### Designer Fix 2 — Convergence criterion is alpha-independent (clarification)
+
+`check_convergence` from calib_dispatch.hpp evaluates `CellMetrics` (errRp, kl, chi2 etc.) computed from the CURRENT w[c] — not from ||Δw||. These calibration-quality metrics are alpha-independent: they measure how well margins are satisfied, regardless of step size. So:
+
+- THRESHOLD rule: converges when max_err < tol. If alpha=2^-10 gave a tiny step but max_err is still 1.0, threshold doesn't fire. Correct.
+- IMPROVEMENT rule: converges when metric barely improved. Small alpha → small improvement → fires. This IS correct behavior: IMPROVEMENT convergence on a tiny step means further Newton iterations won't help (solver has stalled). Status will be RK_ERR_STALL.
+
+**No code change needed.** The convergence logic is alpha-independent by design. This finding is resolved by documentation, not code.
+
+Note: The `prev_metric` update must happen AFTER the alpha-scaled step (current code already does this). If alpha=2^-10 gave a tiny improvement, the IMPROVEMENT rule correctly identifies a stall.
 
 ---
 
