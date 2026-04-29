@@ -415,3 +415,161 @@ If any of the following occur, output `SPEC_FAILURE` and stop:
 - `compute_cell_metrics` or `check_convergence` does not exist in `src/calib_dispatch.hpp` (the spec assumed they do).
 - `RakingResult` field set materially diverges from what is copied into `GreenkornResult` (e.g., new fields added between spec authoring and execution).
 - `build_cell_table` returns a status code other than `RK_OK` on the project's existing test inputs (would indicate environmental breakage unrelated to this epic).
+
+---
+
+## Amendment: SQUAREM Acceleration (in scope per user confirmation)
+
+**Background**: autumn's greedy rake uses SQUAREM with greedy scheduling. This is valid because autumn sorts margins **once at round entry** — F_eval runs K steps in that fixed order, making F_eval stationary. Contrast with leafblower's R8 fix (greedy disabled under raking SQUAREM) where greedy re-sorted inside F_eval per call.
+
+**When `st.accelerate == true`**: implement SQUAREM where **F_eval = K greedy Greenkhorn steps, margins sorted once at F_eval entry**.
+
+### B2 Amendment — SQUAREM F_eval
+
+Define F_eval as a lambda inside greenkhorn_solve:
+
+```cpp
+auto F_eval = [&](const std::vector<double>& X_in,
+                  std::vector<double>& S_in,
+                  double& W_in) {
+    // Sort margins by errRp ONCE at round entry (stationary F_eval guarantee)
+    std::vector<int> order(K);
+    std::iota(order.begin(), order.end(), 0);
+    std::stable_sort(order.begin(), order.end(),
+        [&](int a, int b) { return errRp[a] > errRp[b]; });
+
+    // K greedy steps in this fixed order
+    for (int ki = 0; ki < K; ki++) {
+        int k_step = order[ki];
+        if (W_in <= 0.0) break;  // W<=0 guard
+        for (int j = 0; j < st.cat_counts[k_step]; j++) {
+            double S_kj = S_in[k_step * S_stride + j];
+            if (S_kj < kEmptyBucketThreshold * W_in) continue;
+            double f = st.targets[k_step][j] * W_in / S_kj;
+            for (int c : cells_per_cat[k_step][j]) {
+                double X_old = X_in[c];
+                double X_new = std::clamp(X_in[c] * f, L_cell[c], U_cell[c]);
+                double delta = X_new - X_old;
+                const_cast<std::vector<double>&>(X_in)[c] = X_new;
+                W_in += delta;
+                if (std::abs(delta) < 1e-300) continue;
+                for (int k2 = 0; k2 < K; k2++) {
+                    if (k2 == k_step) continue;
+                    int g2 = ct.g_per_cell[k2][c];
+                    if (g2 >= 0 && g2 < st.cat_counts[k2]) S_in[k2*S_stride+g2] += delta;
+                }
+            }
+            S_in[k_step*S_stride+j] = 0.0;
+            for (int c : cells_per_cat[k_step][j]) S_in[k_step*S_stride+j] += X_in[c];
+        }
+        for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k_from(X_in, S_in, W_in, k);
+    }
+};
+```
+
+**Note**: F_eval modifies X, S, W in-place via copies in the SQUAREM super-step. Pre-allocate scratch buffers before the main loop:
+
+```cpp
+std::vector<double> sq_w1, sq_w2, sq_X_snap;
+std::vector<double> sq_S1(K*S_stride), sq_S2(K*S_stride), sq_Ssnap(K*S_stride);
+double sq_W1, sq_W2, sq_Wsnap;
+if (st.accelerate) {
+    sq_w1.assign(M, 0.0); sq_w2.assign(M, 0.0); sq_X_snap.assign(M, 0.0);
+}
+```
+
+### B2 Amendment — SQUAREM super-step (mirrors raking.cpp lines 351-480)
+
+Inside the main loop, after every K basic Greenkhorn steps (one "round"), when `st.accelerate == true`:
+
+```cpp
+if (st.accelerate && (iter % K == K-1)) {  // End of each K-step round
+    // w1 = F_eval(X)
+    sq_X_snap = X; sq_Ssnap = S_flat; sq_Wsnap = W;
+    sq_w1 = X; sq_S1 = S_flat; sq_W1 = W;
+    F_eval(sq_w1, sq_S1, sq_W1);
+
+    // w2 = F_eval(w1)
+    sq_w2 = sq_w1; sq_S2 = sq_S1; sq_W2 = sq_W1;
+    F_eval(sq_w2, sq_S2, sq_W2);
+
+    // CBB alpha = -||r||_obs / ||v||_obs (obs-level norms)
+    double r_sq = 0.0, v_sq = 0.0;
+    for (int c = 0; c < M; c++) {
+        double inv_nc = 1.0 / ct.n_per_cell[c];
+        double r_c = sq_w1[c] - sq_X_snap[c];
+        double v_c = sq_w2[c] - 2.0*sq_w1[c] + sq_X_snap[c];
+        r_sq += r_c * r_c * inv_nc;
+        v_sq += v_c * v_c * inv_nc;
+    }
+    double alpha = (v_sq > 0.0) ? -std::sqrt(r_sq / v_sq) : -1.0;
+    alpha = std::max(alpha, -4.0);  // cap
+
+    // Extrapolate: X_star = X_snap - 2*alpha*r + alpha^2*v
+    std::vector<double> sq_X_star = sq_X_snap;
+    for (int c = 0; c < M; c++) {
+        double r_c = sq_w1[c] - sq_X_snap[c];
+        double v_c = sq_w2[c] - 2.0*sq_w1[c] + sq_X_snap[c];
+        sq_X_star[c] = std::clamp(sq_X_snap[c] - 2.0*alpha*r_c + alpha*alpha*v_c,
+                                   L_cell[c], U_cell[c]);
+    }
+    // Recompute W and S_flat for X_star
+    std::vector<double> sq_Sstar(K*S_stride, 0.0);
+    double sq_Wstar = 0.0;
+    for (int c = 0; c < M; c++) sq_Wstar += sq_X_star[c];
+    // rebuild S_star from scratch (accept the O(M*K) cost at super-step)
+    for (int k = 0; k < K; k++)
+        for (int j = 0; j < st.cat_counts[k]; j++)
+            for (int c : cells_per_cat[k][j]) sq_Sstar[k*S_stride+j] += sq_X_star[c];
+
+    // Stabilization: X_star = F_eval(X_star)
+    F_eval(sq_X_star, sq_Sstar, sq_Wstar);
+
+    // Halving: if X_star is worse than w2, fall back
+    double err_star = 0.0;
+    for (int k = 0; k < K; k++) {
+        for (int j = 0; j < st.cat_counts[k]; j++) {
+            double ach = (sq_Wstar > 0.0) ? sq_Sstar[k*S_stride+j] / sq_Wstar : 0.0;
+            err_star = std::max(err_star, std::abs(ach - st.targets[k][j]));
+        }
+    }
+    double err_w2 = *std::max_element(errRp.begin(), errRp.end());
+    bool accept_star = (err_star <= err_w2 * 1.01);  // 1% slack for numerical noise
+
+    if (accept_star) {
+        X = sq_X_star; S_flat = sq_Sstar; W = sq_Wstar;
+    } else {
+        X = sq_w2; S_flat = sq_S2; W = sq_W2;  // fall back to w2
+    }
+    // Update errRp from accepted state
+    for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
+}
+```
+
+### Implementation order
+
+B2 base (pure Greenkhorn, accelerate=false) first → compile gate → then add SQUAREM block → compile gate → commit single file. Do NOT split into two commits for this amendment.
+
+### Test addition (amend E2 ticket)
+
+Add T_acc to E2: verify `accelerate=TRUE` with greenkhorn works without error and produces reasonable output:
+
+```r
+test_that("Tacc: greenkhorn with accelerate=TRUE runs without error", {
+  set.seed(99); n <- 2000L
+  df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),
+                    y=factor(sample(c("M","F"),n,TRUE)))
+  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
+  r_acc <- harvest(df, tgt, method="greenkhorn", accelerate=TRUE, max_iterations=500L)
+  r_plain <- harvest(df, tgt, method="greenkhorn", accelerate=FALSE, max_iterations=500L)
+  # Both must converge to similar quality
+  me_acc   <- attr(r_acc,   "result")$max_error
+  me_plain <- attr(r_plain, "result")$max_error
+  expect_lt(me_acc, 1e-3)
+  # Accelerated should use fewer rounds (or same)
+  iters_acc   <- attr(r_acc,   "result")$iterations
+  iters_plain <- attr(r_plain, "result")$iterations
+  # Not strict (problem-dependent) but shouldn't massively regress
+  expect_lt(iters_acc, iters_plain * 2L)
+})
+```

@@ -769,3 +769,20 @@ For future warm-starting from a prior solution: out of scope.
 - Homotopy warmstart for initial λ
 - SQUAREM / acceleration (not needed — Newton converges in O(10-20) steps)
 - AUTO routing (explicit opt-in only)
+
+---
+
+## Amendment: SQUAREM acceleration for Greenkhorn (added 2026-04-29)
+
+`method="greenkhorn"` with `accelerate=TRUE` adds SQUAREM at the **round level**:
+
+- One round = K greedy Greenkhorn steps, margins sorted **once at round entry** (stationary F_eval)
+- SQUAREM CBB step accelerates the sequence of rounds
+- This is autumn's `harvest(accelerate=TRUE, scheduler="greedy")` equivalent
+- Valid SQUAREM usage: F_eval is stationary because sort order is fixed at entry, not re-computed per step
+
+Differs from leafblower's R8 fix (greedy disabled under raking SQUAREM) because:
+- R8 issue: greedy re-sorts inside F_eval → different calls get different orders → non-stationary
+- Greenkhorn fix: sort once at F_eval entry → same input → same sort → same K updates → stationary
+
+Default: `accelerate=FALSE` (pure Greenkhorn, one margin per step). When `accelerate=TRUE`: round-level SQUAREM with greedy-sorted F_eval.
