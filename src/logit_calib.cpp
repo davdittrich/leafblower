@@ -92,6 +92,9 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     const int kMaxNewtonIters = std::min(50, st.inner_max_iter);
     constexpr double kDeffFloor = 1e-6;  // floor prevents D_eff→0 when sig saturates
     constexpr double kInitSigmaEps = 1e-4;  // clips sigma_target to [eps, 1-eps] bounding z_target
+    constexpr int    kMaxHalvings = 10;   // max Armijo halvings; alpha_min = 2^-10 ≈ 1e-3
+    constexpr double kArmijoC     = 0.01; // Armijo sufficient-decrease constant
+    constexpr double kMaxDeltaZ   = 2.0;  // max z-shift per Newton step (norm guard)
 
     // Layer 2: design-weight initialization — place lambda_0 in convergence basin
     // Solve (AA^T)lambda_0 = Az_target where z_target[c] = logit(sigma_target[c])
@@ -122,6 +125,11 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         }
         // if factor fails: lambda stays zero (silent fallback)
     }
+
+    // Armijo scratch buffers (pre-allocated to avoid per-halving allocation)
+    std::vector<double> w_trial(M, 0.0);        // trial weights for Armijo
+    std::vector<double> b_trial(nct, 0.0);      // trial residuals for Armijo
+    std::vector<double> lambda_trial(nct, 0.0); // trial lambda for Armijo
 
     for (int iter = 0; iter < kMaxNewtonIters; iter++) {
         res.iterations = iter + 1;
@@ -161,6 +169,10 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             res.best_iter = iter + 1;
         }
 
+        // Capture ||b_current||² before ldlt_solve overwrites b with delta_lambda
+        double resid_sq_0 = 0.0;
+        for (double bj : b) resid_sq_0 += bj * bj;
+
         // (3) Build N = A*diag(D_eff)*A^T and solve N*delta_lambda = b
         std::fill(N.begin(), N.end(), 0.0);
         if (compute_normal_equations(ct, D_eff.data(), N.data(),
@@ -179,8 +191,60 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         }
         ldlt_solve(N.data(), static_cast<size_t>(nct), b.data());  // b = delta_lambda
 
-        // (4) Update lambda
-        for (int j = 0; j < nct; j++) lambda[j] += b[j];
+        // (4) Armijo line search with step-norm guard
+        // Norm guard: cap alpha so no cell z-coord shifts more than kMaxDeltaZ
+        // (b = delta_lambda after ldlt_solve)
+        double max_delta_z = 0.0;
+        for (int c = 0; c < M; c++) {
+            double dz = 0.0;
+            for (int k = 0; k < K; k++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k]) dz += std::abs(b[cat_offset[k] + g]);
+            }
+            max_delta_z = std::max(max_delta_z, dz);
+        }
+        double alpha = (max_delta_z > 0.0) ? std::min(1.0, kMaxDeltaZ / max_delta_z) : 1.0;
+
+        bool armijo_improved = false;
+        for (int halv = 0; halv < kMaxHalvings; halv++) {
+            for (int j = 0; j < nct; j++) lambda_trial[j] = lambda[j] + alpha * b[j];
+            // Recompute w_trial from lambda_trial (logit link)
+            for (int c = 0; c < M; c++) {
+                double z = 0.0;
+                for (int k = 0; k < K; k++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k]) z += lambda_trial[cat_offset[k] + g];
+                }
+                z = std::clamp(z, -700.0, 700.0);
+                double sig = 1.0 / (1.0 + std::exp(-z));
+                double range = U_cell[c] - L_cell[c];
+                w_trial[c] = L_cell[c] + range * sig;
+            }
+            // Compute b_trial residuals from w_trial
+            std::fill(b_trial.begin(), b_trial.end(), 0.0);
+            for (int k = 0; k < K; k++)
+                for (int j = 0; j < st.cat_counts[k]; j++) {
+                    double target = st.targets[k][j] * static_cast<double>(st.n);
+                    double S_kj = 0.0;
+                    for (int c : cells_per_cat[k][j]) S_kj += w_trial[c];
+                    b_trial[cat_offset[k] + j] = target - S_kj;
+                }
+            double resid_sq_trial = 0.0;
+            for (double bj : b_trial) resid_sq_trial += bj * bj;
+            if (resid_sq_trial < resid_sq_0 * (1.0 - kArmijoC * alpha)) {
+                armijo_improved = true;
+                break;
+            }
+            alpha *= 0.5;
+        }
+        if (!armijo_improved && st.verbose >= 1) {
+            char msg[128];
+            std::snprintf(msg, sizeof(msg),
+                "[logit] Newton step: Armijo exhausted (alpha=%.2e), accepting best available",
+                alpha);
+            Rprintf("%s\n", msg);
+        }
+        for (int j = 0; j < nct; j++) lambda[j] += alpha * b[j];
 
         // (5) Convergence check via shared infrastructure
         double W_total = 0.0;
