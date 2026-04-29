@@ -355,7 +355,7 @@ harvest <- function(
                as.double(sor_cfg$omega_min),
                as.double(sor_cfg$omega_fixed),
                as.integer(sor_cfg$burnin),
-               ## SQUAREM
+               ## SRAA-m accelerate flag
                as.integer(accelerate_bool),
                PACKAGE = "leafblower")
 
