@@ -1038,8 +1038,9 @@ test_that("T_sraa_grk: greenkhorn+AA max_err <= plain and converges faster", {
   iters_plain <- attr(r_plain, "result")$iterations
   expect_lte(me_aa, me_plain * 1.001,
     label=sprintf("AA (%.2e) must not exceed plain (%.2e)", me_aa, me_plain))
-  # Divisibility: first 2 plain steps = 2*(K*1)=4; all AA steps = K*2=4 each.
-  # Total = 4+4N for any N>=0 -> divisible by K*2=4. Proof: (4+4N) mod 4 = 0.
+  # Divisibility: first kSRAAMinCount=2 steps are plain (count < 2) → K*1 each = 2*K iters.
+  # Subsequent AA-accepted steps → K*2 iters each. With K=2:
+  #   total = 2*K + N*(K*2) = 2*2 + N*4 = 4+4N. (4+4N) mod (K*2=4) = 0 for any N>=0.
   expect_equal(iters_aa %% (K_exp * 2L), 0L,
     label=sprintf("AA iters (%d) %% K*2=%d == 0 proves AA fired", iters_aa, K_exp*2L))
   expect_lt(iters_aa, iters_plain,
