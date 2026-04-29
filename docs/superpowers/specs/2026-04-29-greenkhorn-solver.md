@@ -56,7 +56,16 @@ Initialize:
 Repeat until max_k errRp[k] < tol OR iter = max_iter:
   (1) k* = argmax_k errRp[k]
 
-  (2) For each j ∈ {0…cat_counts[k*]−1}:
+  (2) Guard against W ≤ 0 (all cells clamped to zero — structurally infeasible):
+        if (W <= 0.0) {
+            // All cells clamped to zero — structurally infeasible
+            res.status = RK_ERR_INFEAS;
+            std::snprintf(res.message, sizeof(res.message),
+                "greenkhorn: total mass W<=0 (all cells at zero bound)");
+            break;
+        }
+
+      For each j ∈ {0…cat_counts[k*]−1}:
         if S[k*][j] < ε·W: continue          (structural empty)
         f = (W × τ[k*][j]) / S[k*][j]       (scale factor)
 
@@ -74,9 +83,16 @@ Repeat until max_k errRp[k] < tol OR iter = max_iter:
         S[k*][j] recomputed: Σ_{c∈cells_per_cat[k*][j]} X[c]
 
   (3) errRp[k] = max_j |S[k][j]/W − τ[k][j]|  for all k  (O(Σ cat_counts))
-  (4) iter++
+  (4) Best-iterate tracking (guards against returning worse-than-best on budget exhaustion):
+        double curr_max_errRp = max_k errRp[k]
+        if curr_max_errRp < best_errRp:
+            best_errRp = curr_max_errRp
+            X_best = X  // snapshot
+            res.best_iter = iter
+  (5) iter++
 
-Return best-iterate weights (per-obs reconstruction from X_best)
+Return X_best (not X) as final weights — X_best is the iterate with lowest max errRp seen,
+protecting against regression when the budget runs out mid-oscillation.
 ```
 
 ---
@@ -229,6 +245,25 @@ RK_ALG_GREENKHORN = 9
 
 `EXPECTED_RK_PARAMS_BYTES` and `EXPECTED_RK_RESULT_BYTES` are NOT affected
 (no new fields in `rk_params_t` or `rk_result_t`).
+
+---
+
+## R/harvest.R critical changes
+
+Three changes are required in `R/harvest.R` — without them ALL tests fail:
+
+1. **`map_method()` must include both `"greenkhorn"` and `"logit"`** — if either is missing, `harvest()` rejects the method string before dispatch reaches C++ and every T1/T5 test fails with a wrong-method error.
+
+2. **`alg_names` must extend to 11 elements (indices 0–10)**, adding `"greenkhorn"` at index 9 and `"logit"` at index 10:
+   ```r
+   alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn",
+                   "chebyshev", "greg", "grake", "ieppa_soft",
+                   "greenkhorn", "logit")
+   #               ^ 9           ^ 10
+   ```
+   Without this, `algorithm_used` returns `""` and T1/T5 `algorithm_used` assertions fail.
+
+3. **`harvest.R` `stop()` for `status==2` must use `res$message`** (the C++ solver's actual message) instead of a hardcoded empty-cell string. The logit solver returns `RK_ERR_INFEAS` with a specific message (e.g., "logit: singular normal equations") — a hardcoded override discards that diagnostic and confuses T5/T8 failures.
 
 ---
 
@@ -393,6 +428,9 @@ where:
   N[j1][j2] = (A·diag(D_eff)·Aᵀ)[j1][j2]     (normal equations, via calib_linalg.cpp)
   b[k][j]   = τ[k][j]×n − Σ_{c ∈ bucket(k,j)} w_c   (calibration residual)
   D_eff[c]  = (U_cell[c] − L_cell[c]) × σ(z_c) × (1−σ(z_c))   (Newton weight)
+              // D_eff[c] = ∂w_c/∂z_c = (U-L)·σ(z)·(1-σ(z)) — this IS the correct Newton
+              // weight because w_c = L+(U-L)·σ(z_c) and ∂²/∂z² of the logit distance equals
+              // ∂w/∂z (Deville-Särndal 1992 eq. 8).
 
 λ += Δλ
 ```
@@ -441,6 +479,10 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     constexpr int    kMaxNewtonIters = 50;
     constexpr double kRegularization = 1e-10;
 
+    // Track initial and best residuals for post-loop status classification:
+    double initial_resid = std::numeric_limits<double>::infinity();
+    double best_resid    = std::numeric_limits<double>::infinity();
+
     for (int iter = 0; iter < kMaxNewtonIters; iter++) {
 
         // (1) Compute w[c] and D_eff[c] from current lambda:
@@ -470,10 +512,15 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             }
         }
 
-        // (3) Check convergence: max|b| < tol
-        double max_resid = *std::max_element(b.begin(), b.end(),
-            [](double a, double b){ return std::abs(a) < std::abs(b); });
-        if (std::abs(max_resid) < cfg.pct_tol * st.n) {
+        // (3) Check convergence via shared infrastructure:
+        std::fill(bucket_scratch.begin(), bucket_scratch.end(), 0.0);
+        lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, w_cell, W, bucket_scratch);
+        bool converged = lbw::check_convergence(st.convergence_cfg, m, prev_metric, st.tol_abs);
+        // NOTE: This correctly handles absolute, pct, and improvement rules —
+        // including convergence=list(absolute=1e-12) used in T2/T3.
+        // Do NOT hand-roll `if (max_resid < pct_tol * n)` — that only implements
+        // one convergence rule and silently ignores the others.
+        if (converged) {
             res.status = RK_OK;
             break;
         }
@@ -495,6 +542,18 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         // (5) Update lambda
         for (int j = 0; j < nct; j++) lambda[j] += b[j];
     }
+
+    // After Newton loop exits without convergence:
+    // Classify: if residual improved vs initial → BUDGET; if plateau → STALL
+    if (res.status == RK_ERR_NOCONV) {
+        res.status = (best_resid < initial_resid * 0.999) ? RK_ERR_BUDGET : RK_ERR_STALL;
+        std::snprintf(res.message, sizeof(res.message),
+            "logit: %s after %d Newton steps; best max_err=%.4e",
+            res.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",
+            kMaxNewtonIters, res.best_error);
+    }
+    // NOTE: Status RK_ERR_NOCONV=1 is NEVER returned; caller sees either
+    // RK_OK=0, RK_ERR_INFEAS=2, RK_ERR_BUDGET=4, or RK_ERR_STALL=5.
 
     // ... result population, weight reconstruction ...
 }
@@ -611,35 +670,29 @@ test_that("T5: logit available and calibrates", {
 })
 ```
 
-### T6 — Logit bounds by construction (no std::clamp — mechanism test)
+### T6 — Logit bounds by construction (Newton steps < raking rounds on K=2 tight problem)
 
 ```r
-test_that("T6: logit respects bounds by construction (few Newton steps, tight problem)", {
-  # Tight bounds where IPF/raking stalls. Logit enforces bounds analytically.
-  # "By construction" means: even with max lambda, sigma(z) stays in (0,1),
-  # so w_c stays in (L, U). We verify:
-  # (a) bounds respected exactly, AND
-  # (b) solver converges in few Newton steps (not requiring 500+ IPF steps)
-  # (b) is the diagnostic that distinguishes logit (Newton, O(20) steps) from
-  # raking+clamping (IPF, O(50) rounds × K margin sweeps).
+test_that("T6: logit bounds by construction (Newton steps < raking rounds on K=2 tight problem)", {
   set.seed(6); n <- 5000L
-  df  <- data.frame(v=factor(sample(5, n, TRUE)))
-  tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
+  df  <- data.frame(
+    v=factor(sample(5, n, TRUE)),
+    g=factor(sample(c("M","F"), n, TRUE))  # second margin
+  )
+  tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05),as.character(1:5)),
+              g=c(M=0.55, F=0.45))
   r   <- harvest(df, tgt, method="logit", max_weight=1.5, min_weight=0.1)
   w   <- r$weights
   expect_true(max(w) <= 1.5 + 1e-9)
   expect_true(min(w) >= 0.1 - 1e-9)
-  # Newton convergence in <50 steps (mechanism test: clamped IPF would need many more):
   n_iters <- attr(r,"result")$iterations
-  expect_lt(n_iters, 50L,
-    label=sprintf("logit should converge in <50 Newton steps; got %d (raking needs 50×K)", n_iters))
-  # Cross-check: raking+clamping on same problem needs more total sweeps:
+  expect_lt(n_iters, 50L)
+  # K=2 means raking needs ≥2 rounds/sweeps; logit Newton should converge faster:
   r_rk <- harvest(df, tgt, method="raking", max_weight=1.5, min_weight=0.1,
                   convergence=list(absolute=1e-6))
   n_rk <- attr(r_rk,"result")$iterations
-  # Logit total work (Newton steps) << raking (rounds × K margins)
   expect_lt(n_iters, n_rk,
-    label=sprintf("logit Newton steps (%d) < raking rounds (%d)", n_iters, n_rk))
+    label=sprintf("logit Newton (%d steps) < raking (%d rounds) on K=2 tight problem", n_iters, n_rk))
 })
 ```
 
