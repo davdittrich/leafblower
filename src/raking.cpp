@@ -358,6 +358,7 @@ RakingResult raking_solve(CalibState& st) {
         // Loop mirrors greenkhorn: sraa_step called once per outer iteration until budget exhausted.
         int f_eval_budget = st.inner_max_iter;
         int f_evals_used = 0;
+        int rk_outer_stall_count = 0;
         while (f_evals_used + 1 <= f_eval_budget) {
             rk_sraa.F_cur = X;  // seed F_cur with current X before each sraa_step call
             auto r = lbw::sraa_step(F_eval, X, L_cell, U_cell, rk_sraa);
@@ -371,6 +372,18 @@ RakingResult raking_solve(CalibState& st) {
                 best_iter_val       = f_evals_used;
                 best_objective_seen = compute_weight_kl();
                 W_best              = X;
+            }
+
+            // Outer revert: if quality has degraded significantly, revert to best
+            {
+                double curr_quality_rk = r.err_result;
+                if (curr_quality_rk > best_metric_seen * (1.0 + lbw::kSRAAOuterSlack)) {
+                    if (++rk_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
+                        X = W_best;               // revert; no S_flat rebuild — F_eval handles it
+                        rk_sraa.clear();
+                        rk_outer_stall_count = 0;
+                    }
+                } else { rk_outer_stall_count = 0; }
             }
 
             // Convergence check
