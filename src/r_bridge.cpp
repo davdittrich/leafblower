@@ -608,6 +608,15 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
                   alg_name, res_iterations, res_max_error);
 
+    // greenkhorn and logit do not modify st.weights in-place; copy calibrated
+    // weights into the weights vector so raw$weights in harvest.R is correct.
+    // (raking/ieppa/lbfgsb already write to st.weights in-place — don't copy.)
+    if (!res_best_weights.empty() && (int)res_best_weights.size() == n &&
+        (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN) ||
+         res_alg_used == static_cast<int>(RK_ALG_LOGIT))) {
+        std::copy(res_best_weights.begin(), res_best_weights.end(), weights.begin());
+    }
+
     // Build return list: list(weights=numeric[n], result=list(23 fields))
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
