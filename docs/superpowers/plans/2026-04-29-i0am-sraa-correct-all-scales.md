@@ -18,7 +18,7 @@
 
 **Forbidden:** No C++ edits in this task. No skipping the baseline capture. No `expect_true(TRUE)` placeholders. Do not gate on parquet absence with `skip()` silently — emit `skip_if_not(file.exists(...))` with explicit reason.
 
-**Audit:** Tests must directly drive `leafblower::lba()` (or the SRAA-m–exposing R wrapper) on the stepstone parquet fixture; assertions must compare per-K final `max(errRp)` against numerically explicit thresholds derived from the spec, not against placeholder constants.
+**Audit:** Tests must directly drive `leafblower::harvest()` (or the SRAA-m–exposing R wrapper) on the stepstone parquet fixture; assertions must compare per-K final `max(errRp)` against numerically explicit thresholds derived from the spec, not against placeholder constants.
 
 **Beads ticket:** `bd create --title "SRAA-m T1: pre-baseline + RED tests" --description "Task [stepstone baseline + 3 RED tests in test-sraa-global.R] ! [skipping baseline; expect_true(TRUE); silent skip]"` — capture the issued ID into `${T1_BEAD_ID}` for the close at the end of the task.
 
@@ -33,29 +33,29 @@
 
 - [ ] **1.2 Capture pre-fix baseline**
   - [ ] From repo root: `R CMD INSTALL --preclean .`. Compile must succeed on master before measuring baseline.
-  - [ ] Run the stepstone benchmark exactly as the spec prescribes; redirect stdout+stderr to `bench/sraa-m-baseline-pre.log`:
+  - [ ] Run the stepstone benchmark exactly as the spec prescribes; redirect stdout+stderr to `benchmarks/sraa-m-baseline-pre.log`:
     ```bash
-    Rscript bench/sraa-stepstone-bench.R 2>&1 | tee bench/sraa-m-baseline-pre.log
+    Rscript benchmarks/stepstone_all_methods.R 2>&1 | tee benchmarks/sraa-m-baseline-pre.log
     ```
-    If `bench/sraa-stepstone-bench.R` does not exist, halt and grep `bench/` and `benchmarks/` for the script name actually referenced by the spec; do not invent one.
-  - [ ] Extract per-K final `max(errRp)` for SRAA-m at K ∈ {3, 5, 9} and the corresponding plain-greenkhorn / raking baselines. Persist to `bench/sraa-m-baseline-pre.csv` with columns `method,K,max_errRp,iters,wallclock_s`. Use `Rscript -e` writing via `data.table::fwrite()`; do not hand-craft CSV.
-  - [ ] `git add bench/sraa-m-baseline-pre.{log,csv}` (do not commit yet — the RED-test commit owns these alongside the tests).
+    If `benchmarks/stepstone_all_methods.R` does not exist, halt and grep `bench/` and `benchmarks/` for the script name actually referenced by the spec; do not invent one.
+  - [ ] Extract per-K final `max(errRp)` for SRAA-m at K ∈ {3, 5, 9} and the corresponding plain-greenkhorn / raking baselines. Persist to `benchmarks/sraa-m-baseline-pre.csv` with columns `method,K,max_errRp,iters,wallclock_s`. Use `Rscript -e` writing via `data.table::fwrite()`; do not hand-craft CSV.
+  - [ ] `git add benchmarks/sraa-m-baseline-pre.{log,csv}` (do not commit yet — the RED-test commit owns these alongside the tests).
 
 - [ ] **1.3 Append RED tests**
   - [ ] Append to `tests/testthat/test-sraa-global.R`:
-    - `test_that("T_sraa_adaptive_K9: SRAA-m matches plain greenkhorn within 2% on K=9 overlapping-margin stepstone", { ... })` — drives `lba()` with SRAA-m and with plain greenkhorn on the K=9 stepstone fixture; asserts `expect_lt(max_errRp_sraa_m, max_errRp_greenkhorn * 1.02)`.
+    - `test_that("T_sraa_adaptive_K9: SRAA-m matches plain greenkhorn within 2% on K=9 overlapping-margin stepstone", { ... })` — drives `harvest()` with SRAA-m and with plain greenkhorn on the K=9 stepstone fixture; asserts `expect_lt(max_errRp_sraa_m, max_errRp_greenkhorn * 1.02)`.
     - `test_that("T_sraa_raking_K9: SRAA-raking matches plain raking within 2% on K=9 fixture", { ... })` — analogous, comparing SRAA-accelerated raking vs plain raking.
-    - `test_that("T_sraa_outer_revert: outer quality never exceeds best-seen by more than 10% for 5 consecutive iters", { ... })` — runs SRAA-m with per-iter trace enabled, computes `curr_max / best_errRp_so_far` per outer iter, asserts the run length of `> 1.10` excursions is `<= 4` (i.e., revert fires before 5).
+    - `test_that("T_sraa_outer_revert: outer quality never exceeds best-seen by more than 10% for 5 consecutive iters", { ... })` — uses K=6 cross-margin DGP (set.seed(42), n=8000); asserts me_aa <= me_plain * 1.001 + 1e-10. harvest() has no per-iteration trace — use final attr(r,"result")$max_error.
   - [ ] Each test must `skip_if_not(file.exists(stepstone_parquet_path()), "stepstone parquet fixture not present")` with `stepstone_parquet_path()` defined once at the top of the file (or already present — reuse it).
-  - [ ] No `expect_true(TRUE)` filler. Every assertion must reference a real numeric output of `lba()`.
+  - [ ] No `expect_true(TRUE)` filler. Every assertion must reference a real numeric output of `harvest()`.
 
 - [ ] **1.4 Verify RED locally**
   - [ ] `R CMD INSTALL --preclean .` (already current; cheap reinstall to prove the build still works).
-  - [ ] `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-global.R", reporter = "summary")' 2>&1 | tee bench/sraa-m-red-evidence.log`.
+  - [ ] `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-global.R", reporter = "summary")' 2>&1 | tee benchmarks/sraa-m-red-evidence.log`.
   - [ ] Confirm the three new tests are present and **FAIL** (or `skip` only if parquet truly absent — record which in the log). All three must be RED on master, not skipped, when the parquet exists. If any of them passes accidentally, the assertion threshold is wrong — tighten before proceeding.
 
 - [ ] **1.5 Commit RED state**
-  - [ ] Files staged: `tests/testthat/test-sraa-global.R`, `bench/sraa-m-baseline-pre.log`, `bench/sraa-m-baseline-pre.csv`, `bench/sraa-m-red-evidence.log`.
+  - [ ] Files staged: `tests/testthat/test-sraa-global.R`, `benchmarks/sraa-m-baseline-pre.log`, `benchmarks/sraa-m-baseline-pre.csv`, `benchmarks/sraa-m-red-evidence.log`.
   - [ ] Commit:
     ```bash
     git commit -m "$(cat <<'EOF'
@@ -64,7 +64,7 @@
     Adds T_sraa_adaptive_K9, T_sraa_raking_K9, T_sraa_outer_revert to
     tests/testthat/test-sraa-global.R. Captures pre-fix per-K max(errRp)
     on stepstone K∈{3,5,9} for SRAA-m vs plain greenkhorn/raking
-    (bench/sraa-m-baseline-pre.{log,csv}). Tests fail on master,
+    (benchmarks/sraa-m-baseline-pre.{log,csv}). Tests fail on master,
     establishing the RED baseline for the combined fix in T2/T3.
     EOF
     )"
@@ -162,12 +162,12 @@
   - [ ] `R CMD INSTALL --preclean .` from repo root. Must succeed with zero warnings introduced by this change. If a warning fires (e.g., unused-variable on a leftover `order_sraa`-related symbol), halt and re-audit the removals — do not paper over with `(void)`.
 
 - [ ] **2.6 Run targeted tests**
-  - [ ] `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-global.R", reporter = "summary")' 2>&1 | tee bench/sraa-m-t2-tests.log`.
+  - [ ] `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-global.R", reporter = "summary")' 2>&1 | tee benchmarks/sraa-m-t2-tests.log`.
   - [ ] Expectation: `T_sraa_adaptive_K9` and `T_sraa_outer_revert` now PASS. `T_sraa_raking_K9` may still fail (it depends on Task 3). If `T_sraa_adaptive_K9` or `T_sraa_outer_revert` still fail, **do not pivot**: halt, output `SPEC_FAILURE`, log root cause to `.wolf/buglog.json`, and stop.
-  - [ ] Run the full package suite: `Rscript -e 'devtools::test()' 2>&1 | tee bench/sraa-m-t2-fulltest.log`. Zero new failures outside the still-RED `T_sraa_raking_K9`.
+  - [ ] Run the full package suite: `Rscript -e 'devtools::test()' 2>&1 | tee benchmarks/sraa-m-t2-fulltest.log`. Zero new failures outside the still-RED `T_sraa_raking_K9`.
 
 - [ ] **2.7 Commit**
-  - [ ] Stage exactly: `src/sraa.hpp`, `src/greenkhorn.cpp`, `bench/sraa-m-t2-tests.log`, `bench/sraa-m-t2-fulltest.log`.
+  - [ ] Stage exactly: `src/sraa.hpp`, `src/greenkhorn.cpp`, `benchmarks/sraa-m-t2-tests.log`, `benchmarks/sraa-m-t2-fulltest.log`.
   - [ ] Commit:
     ```bash
     git commit -m "$(cat <<'EOF'
@@ -204,7 +204,7 @@
 
 **Forbidden:** No `S_flat` rebuild in raking (raking's `F_eval` reconstructs derived state on the next call — adding a manual rebuild duplicates work and risks divergence). No introduction of vector `errRp` semantics into raking. No changes to `greenkhorn.cpp` or `sraa.hpp` in this task. No skipping the full benchmark re-run.
 
-**Audit:** `T_sraa_raking_K9` directly observes the post-condition (raking SRAA matches plain raking within 2% on K=9). The benchmark CSV diff (`bench/sraa-m-baseline-pre.csv` vs `bench/sraa-m-baseline-post.csv`) audits across all K.
+**Audit:** `T_sraa_raking_K9` directly observes the post-condition (raking SRAA matches plain raking within 2% on K=9). The benchmark CSV diff (`benchmarks/sraa-m-baseline-pre.csv` vs `benchmarks/sraa-m-baseline-post.csv`) audits across all K.
 
 **Beads ticket:** `bd create --title "SRAA-m T3: outer revert in raking.cpp + verify" --description "Task [scalar-metric outer revert in raking SRAA path; full suite + post-fix benchmark] ! [S_flat rebuild in raking; touching greenkhorn/sraa.hpp; skipping benchmark]"` — capture as `${T3_BEAD_ID}`.
 
@@ -241,15 +241,15 @@
   - [ ] `R CMD INSTALL --preclean .`. Zero new warnings.
 
 - [ ] **3.4 Full test suite**
-  - [ ] `Rscript -e 'devtools::test()' 2>&1 | tee bench/sraa-m-t3-fulltest.log`.
+  - [ ] `Rscript -e 'devtools::test()' 2>&1 | tee benchmarks/sraa-m-t3-fulltest.log`.
   - [ ] All three SRAA tests must be GREEN. No regression elsewhere. If `T_sraa_raking_K9` still fails, halt with `SPEC_FAILURE`, log to `.wolf/buglog.json`, do **not** pivot.
 
 - [ ] **3.5 Post-fix benchmark + comparison**
-  - [ ] `Rscript bench/sraa-stepstone-bench.R 2>&1 | tee bench/sraa-m-baseline-post.log` (same script used in T1).
-  - [ ] Persist post-fix per-K results to `bench/sraa-m-baseline-post.csv` with the same schema as `bench/sraa-m-baseline-pre.csv`.
-  - [ ] Generate `bench/sraa-m-baseline-diff.md` via:
+  - [ ] `Rscript benchmarks/stepstone_all_methods.R 2>&1 | tee benchmarks/sraa-m-baseline-post.log` (same script used in T1).
+  - [ ] Persist post-fix per-K results to `benchmarks/sraa-m-baseline-post.csv` with the same schema as `benchmarks/sraa-m-baseline-pre.csv`.
+  - [ ] Generate `benchmarks/sraa-m-baseline-diff.md` via:
     ```bash
-    Rscript -e 'pre <- data.table::fread("bench/sraa-m-baseline-pre.csv"); post <- data.table::fread("bench/sraa-m-baseline-post.csv"); m <- merge(pre, post, by = c("method","K"), suffixes = c("_pre","_post")); m[, delta_pct := 100 * (max_errRp_post - max_errRp_pre) / max_errRp_pre]; data.table::fwrite(m, "bench/sraa-m-baseline-diff.csv"); cat("# SRAA-m baseline diff\n\n", file = "bench/sraa-m-baseline-diff.md"); knitr::kable(m) |> as.character() |> cat(sep = "\n", file = "bench/sraa-m-baseline-diff.md", append = TRUE)'
+    Rscript -e 'pre <- data.table::fread("benchmarks/sraa-m-baseline-pre.csv"); post <- data.table::fread("benchmarks/sraa-m-baseline-post.csv"); m <- merge(pre, post, by = c("method","K"), suffixes = c("_pre","_post")); m[, delta_pct := 100 * (max_errRp_post - max_errRp_pre) / max_errRp_pre]; data.table::fwrite(m, "benchmarks/sraa-m-baseline-diff.csv"); cat("# SRAA-m baseline diff\n\n", file = "benchmarks/sraa-m-baseline-diff.md"); knitr::kable(m) |> as.character() |> cat(sep = "\n", file = "benchmarks/sraa-m-baseline-diff.md", append = TRUE)'
     ```
   - [ ] Inspect the diff. Required outcomes (else `SPEC_FAILURE`, do not pivot):
     - SRAA-m at K=9: `max_errRp_post` within 2% of plain greenkhorn at K=9.
@@ -259,7 +259,7 @@
   - [ ] Trace every code path of the diff in writing in the commit body: outer-improve branch (counter resets), small-stall branch (counter increments but no revert), revert-fires branch, raking scalar-metric branch. Explicitly state outcomes for unoptimized (already-converged) paths.
 
 - [ ] **3.6 Commit**
-  - [ ] Stage exactly: `src/raking.cpp`, `bench/sraa-m-t3-fulltest.log`, `bench/sraa-m-baseline-post.log`, `bench/sraa-m-baseline-post.csv`, `bench/sraa-m-baseline-diff.csv`, `bench/sraa-m-baseline-diff.md`.
+  - [ ] Stage exactly: `src/raking.cpp`, `benchmarks/sraa-m-t3-fulltest.log`, `benchmarks/sraa-m-baseline-post.log`, `benchmarks/sraa-m-baseline-post.csv`, `benchmarks/sraa-m-baseline-diff.csv`, `benchmarks/sraa-m-baseline-diff.md`.
   - [ ] Commit:
     ```bash
     git commit -m "$(cat <<'EOF'
@@ -269,7 +269,7 @@
     scalar r.err_result metric. No S_flat rebuild — F_eval reconstructs
     derived state on the next call. Closes T_sraa_raking_K9.
 
-    Post-fix stepstone benchmark (bench/sraa-m-baseline-{post,diff}.{csv,md})
+    Post-fix stepstone benchmark (benchmarks/sraa-m-baseline-{post,diff}.{csv,md})
     confirms SRAA-m and SRAA-raking at K=9 land within 2% of their plain
     counterparts, eliminating the 35% K>=3 regression.
 
@@ -291,7 +291,7 @@
 
 ### Benchmark gate
 
-`bench/sraa-m-baseline-diff.md` shows: SRAA-m K=9 within 2% of plain greenkhorn K=9; SRAA-raking K=9 within 2% of plain raking K=9; no K regresses beyond spec tolerance; wallclock not >2x plain.
+`benchmarks/sraa-m-baseline-diff.md` shows: SRAA-m K=9 within 2% of plain greenkhorn K=9; SRAA-raking K=9 within 2% of plain raking K=9; no K regresses beyond spec tolerance; wallclock not >2x plain.
 
 ---
 
