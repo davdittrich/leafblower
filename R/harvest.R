@@ -21,7 +21,14 @@
 #'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
 #'   (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
 #'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
-#'   (L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM).
+#'   (L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM),
+#'   \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
+#'   picks the single hardest margin per step; supports \code{accelerate=TRUE} for
+#'   SQUAREM round-level acceleration. Distinct from \code{scheduler="greedy"} on raking,
+#'   which sorts all K margins but still sweeps all per round),
+#'   \code{"logit"} (Deville-Sarndal 1992 logit-distance Newton calibration; bounds
+#'   enforced analytically — no clamping; typically converges in 10-20 Newton steps;
+#'   equivalent to \code{autumn::calibrate()}).
 #' @param verbose Integer verbosity: 0=silent, 1=progress, 2=debug.
 #' @param max_iterations Maximum inner BCD iterations per outer step. Default 500.
 #' @param start_weights Starting weights vector or NULL (uniform).
@@ -145,6 +152,30 @@
 #' roughly 10-30\% slower than \code{ieppa} but finds a better constrained
 #' optimum by temporarily relaxing bounds during optimization, then projecting
 #' to exact feasibility at exit.
+#'
+#' \strong{Greenkhorn}: \code{method="greenkhorn"} implements the
+#' Altschuler-Weed-Rigollet (2017) greedy coordinate-descent Sinkhorn variant.
+#' At each step \code{greenkhorn} selects the single margin with the largest
+#' violation and updates only that row/column — unlike standard raking which
+#' sweeps all K margins every round. Pass \code{accelerate=TRUE} to enable
+#' SQUAREM SqS3 outer-loop acceleration on top of greenkhorn.
+#'
+#' \strong{Logit calibration}: \code{method="logit"} implements Deville-Sarndal
+#' (1992) logit-distance Newton calibration. Bounds are enforced analytically
+#' through the logit link — no post-hoc weight clamping is required. The logit
+#' method typically converges in 10–20 Newton steps and is equivalent to
+#' \code{autumn::calibrate()} with a logit distance function.
+#' @examples
+#' \dontrun{
+#' df  <- data.frame(sex = factor(sample(c("M","F"), 500, TRUE)))
+#' tgt <- list(sex = c(M = 0.5, F = 0.5))
+#'
+#' # Greenkhorn (greedy coordinate-descent IPF)
+#' r_grk <- harvest(df, tgt, method = "greenkhorn")
+#'
+#' # Logit-distance Newton calibration (Deville-Sarndal 1992)
+#' r_logit <- harvest(df, tgt, method = "logit")
+#' }
 #' @export
 harvest <- function(
   data,
