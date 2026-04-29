@@ -2,6 +2,7 @@
 #include "greenkhorn.hpp"
 #include "calib_dispatch.hpp"
 #include "cell_table.hpp"
+#include "sraa.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -120,30 +121,35 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
     };
 
-    // F_eval: K greedy steps, sorted ONCE at entry (stationary for SQUAREM)
-    auto F_eval = [&](std::vector<double>& X_in,
-                      std::vector<double>& S_in,
-                      double& W_in) {
-        // Swap global state to X_in/S_in/W_in temporarily
-        std::swap(X, X_in); std::swap(S_flat, S_in); std::swap(W, W_in);
-        // Sort margins by errRp at round entry (fixed order for this F_eval call)
-        std::vector<int> order(K);
-        std::iota(order.begin(), order.end(), 0);
-        std::stable_sort(order.begin(), order.end(),
-            [&](int a, int b) { return errRp[a] > errRp[b]; });
-        for (int ki = 0; ki < K; ki++) greenkhorn_step(order[ki]);
-        // Swap back
-        std::swap(X, X_in); std::swap(S_flat, S_in); std::swap(W, W_in);
-    };
-
-    // SQUAREM scratch buffers
-    std::vector<double> sq_w1, sq_w2, sq_X_snap, sq_S1, sq_S2, sq_Ssnap;
-    double sq_W1 = 0.0, sq_W2 = 0.0, sq_Wsnap = 0.0;
-    if (st.accelerate) {
-        sq_w1.assign(M, 0.0); sq_w2.assign(M, 0.0); sq_X_snap.assign(M, 0.0);
-        sq_S1.assign(K*S_stride, 0.0); sq_S2.assign(K*S_stride, 0.0);
-        sq_Ssnap.assign(K*S_stride, 0.0);
+    // SRAA-m state (replaces SQUAREM)
+    lbw::SRAAState grk_sraa;
+    std::vector<double> Sv_sraa;
+    std::vector<int>    order_sraa;
+    if (st.accelerate && K > 0) {
+        grk_sraa.init(M, lbw::kSRAAm);
+        Sv_sraa.assign((size_t)K * S_stride, 0.0);
+        order_sraa.assign(K, 0);
     }
+    auto f_eval_sraa = [&](std::vector<double>& Xv) -> double {
+        // Xv must be grk_sraa.F_cur or grk_sraa.scratch — NEVER the outer X
+        double Wv = 0.0;
+        std::fill(Sv_sraa.begin(), Sv_sraa.end(), 0.0);
+        for (int c = 0; c < M; c++) {
+            Wv += Xv[c];
+            for (int k = 0; k < K; k++) {
+                int g = ct.g_per_cell[k][c];
+                if (g >= 0 && g < st.cat_counts[k])
+                    Sv_sraa[k * S_stride + g] += Xv[c];
+            }
+        }
+        std::swap(X, Xv); std::swap(S_flat, Sv_sraa); std::swap(W, Wv);
+        std::iota(order_sraa.begin(), order_sraa.end(), 0);
+        std::stable_sort(order_sraa.begin(), order_sraa.end(),
+            [&](int a, int b){ return errRp[a] > errRp[b]; });
+        for (int ki = 0; ki < K; ki++) greenkhorn_step(order_sraa[ki]);
+        std::swap(X, Xv); std::swap(S_flat, Sv_sraa); std::swap(W, Wv);
+        return *std::max_element(errRp.begin(), errRp.end());
+    };
 
     // Main loop
     for (int iter = 0; iter < st.inner_max_iter; iter++) {
@@ -156,58 +162,21 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         }
 
         if (st.accelerate && K > 0) {
-            // SQUAREM: one super-step = two F_eval calls + extrapolation
-            sq_X_snap = X; sq_Ssnap = S_flat; sq_Wsnap = W;
-            sq_w1 = X;  sq_S1 = S_flat; sq_W1 = W;
-            F_eval(sq_w1, sq_S1, sq_W1);
-            sq_w2 = sq_w1; sq_S2 = sq_S1; sq_W2 = sq_W1;
-            F_eval(sq_w2, sq_S2, sq_W2);
-
-            // CBB alpha (obs-level norms)
-            double r_sq = 0.0, v_sq = 0.0;
+            grk_sraa.F_cur = X;  // seed F_cur with current X before each sraa_step call
+            auto r = lbw::sraa_step(f_eval_sraa, X, L_cell, U_cell, grk_sraa);
+            // Rebuild W and S_flat from the accepted X (f_eval_sraa swaps back on exit)
+            W = 0.0;
+            std::fill(S_flat.begin(), S_flat.end(), 0.0);
             for (int c = 0; c < M; c++) {
-                double inv_nc = (ct.n_per_cell[c] > 0) ? 1.0/ct.n_per_cell[c] : 0.0;
-                double r_c = sq_w1[c] - sq_X_snap[c];
-                double v_c = sq_w2[c] - 2.0*sq_w1[c] + sq_X_snap[c];
-                r_sq += r_c * r_c * inv_nc;
-                v_sq += v_c * v_c * inv_nc;
-            }
-            double alpha = (v_sq > 0.0) ? -std::sqrt(r_sq / v_sq) : -1.0;
-            alpha = std::max(alpha, -4.0);
-
-            // Extrapolate X_star and clamp
-            std::vector<double> sq_X_star(M);
-            for (int c = 0; c < M; c++) {
-                double r_c = sq_w1[c] - sq_X_snap[c];
-                double v_c = sq_w2[c] - 2.0*sq_w1[c] + sq_X_snap[c];
-                sq_X_star[c] = std::clamp(sq_X_snap[c] - 2.0*alpha*r_c + alpha*alpha*v_c,
-                                           L_cell[c], U_cell[c]);
-            }
-            // Rebuild S_star
-            std::vector<double> sq_Sstar(K*S_stride, 0.0);
-            double sq_Wstar = 0.0;
-            for (int c = 0; c < M; c++) sq_Wstar += sq_X_star[c];
-            for (int k = 0; k < K; k++)
-                for (int j = 0; j < st.cat_counts[k]; j++)
-                    for (int c : cells_per_cat[k][j]) sq_Sstar[k*S_stride+j] += sq_X_star[c];
-            // Stabilization step
-            F_eval(sq_X_star, sq_Sstar, sq_Wstar);
-
-            // Compare: accept X_star or fall back to w2
-            double err_star = 0.0;
-            for (int k = 0; k < K; k++)
-                for (int j = 0; j < st.cat_counts[k]; j++) {
-                    double ach = (sq_Wstar > 0.0) ? sq_Sstar[k*S_stride+j]/sq_Wstar : 0.0;
-                    err_star = std::max(err_star, std::abs(ach - st.targets[k][j]));
+                W += X[c];
+                for (int k = 0; k < K; k++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k])
+                        S_flat[k * S_stride + g] += X[c];
                 }
-            double err_w2 = *std::max_element(errRp.begin(), errRp.end());
-            if (err_star <= err_w2 * 1.01) {
-                X = sq_X_star; S_flat = sq_Sstar; W = sq_Wstar;
-            } else {
-                X = sq_w2; S_flat = sq_S2; W = sq_W2;
             }
             for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
-            res.iterations += K * 3;  // 3 F_eval calls per super-step
+            res.iterations += K * (r.aa_accepted ? 2 : 1);
         } else {
             // Pure Greenkhorn: single margin per step
             int k_star = (int)(std::max_element(errRp.begin(), errRp.end()) - errRp.begin());

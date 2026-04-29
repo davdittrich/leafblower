@@ -40,7 +40,7 @@ int compute_normal_equations_reduced(const CellTable& ct,
                                       const int* cat_offset,
                                       int K,
                                       size_t nct_red,
-                                      const int* full_to_red)
+                                      const int* full_to_red) noexcept
 {
     std::fill(N, N + nct_red * nct_red, 0.0);
     for (int c = 0; c < ct.M_cell; c++) {
