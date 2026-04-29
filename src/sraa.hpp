@@ -12,13 +12,11 @@
 
 namespace lbw {
 
-static constexpr int    kSRAAMaxM       = 10;    // stack array bound; init() enforces window <= this
-static constexpr int    kSRAAm          = 5;     // default window: 176 MB at stepstone scale
-static constexpr int    kSRAAMinCount   = 2;     // min DX/DR pairs before AA fires
-static constexpr double kSRAAdeltaReg   = 1e-10; // relative Tikhonov on Gram matrix
-static constexpr double kSRAARestartGamma = 2.0; // restart when ||R_k||^2 > 4 x prev_norm
-static constexpr double kSRAAGlobalEps   = 1e-3;  // 0.1% slack on global safeguard
-static constexpr int    kSRAAStallWindow = 15;    // stall steps before revert+restart
+static constexpr int    kSRAAMaxM         = 10;    // stack array bound; init() enforces window <= this
+static constexpr int    kSRAAm            = 5;     // default window: ~176 MB at stepstone scale
+static constexpr int    kSRAAMinCount     = 2;     // min DX/DR pairs before AA fires
+static constexpr double kSRAAdeltaReg     = 1e-10; // relative Tikhonov on Gram matrix
+static constexpr double kSRAARestartGamma = 2.0;   // restart when ||R_k||^2 > 4 x prev_norm
 
 struct SRAAStepResult {
     bool   aa_accepted;
@@ -31,14 +29,9 @@ struct SRAAState {
     bool has_prev = false;
     int aa_accepted_count = 0; // cumulative; NOT reset by clear()
 
-    // Global quality floor — NOT reset by clear() — only improves across entire solver run
-    double best_err_seen = std::numeric_limits<double>::infinity();
-    std::vector<double> X_best;  // iterate at best_err_seen; pre-allocated in init()
-    int stall_count = 0;          // reset by clear()
-
     // Slot-contiguous: buf[slot*M + cell]. Each slot is contiguous M doubles -> SIMD dot products.
-    std::vector<double> dX_buf;   // m x M
-    std::vector<double> dR_buf;   // m x M
+    std::vector<double> dX_buf;   // m x M: ΔX differences
+    std::vector<double> dR_buf;   // m x M: ΔR differences
     std::vector<double> R_prev;   // M
     std::vector<double> X_prev;   // M
     std::vector<double> F_cur;    // M: F(X_k)
@@ -59,24 +52,16 @@ struct SRAAState {
             dR_buf.assign((size_t)m * M, 0.0);
             R_prev.assign(M, 0.0); X_prev.assign(M, 0.0);
             F_cur.assign(M, 0.0);  scratch.assign(M, 0.0);
-            X_best.assign(M, 0.0);
         } catch (std::bad_alloc&) {
             Rf_error("SRAA: out of memory allocating %.0f MB (m=%d, M=%d)",
                      (2.0*m + 4.0) * M * 8.0 / 1e6, m, M);
         }
-        best_err_seen = std::numeric_limits<double>::infinity();
-        stall_count   = 0;
         clear();
     }
 
     // Resets history. aa_accepted_count NOT reset (cumulative).
-    // best_err_seen and X_best NOT reset — quality floor persists across restarts.
-    // prev_resid_norm reset to 0 (safe sentinel — never read when has_prev=false).
-    void clear() {
-        head = 0; count = 0; has_prev = false; prev_resid_norm = 0.0;
-        stall_count = 0;
-        // best_err_seen and X_best NOT reset — quality floor persists across restarts
-    }
+    // prev_resid_norm reset to 0 (safe sentinel; never read when has_prev=false).
+    void clear() { head = 0; count = 0; has_prev = false; prev_resid_norm = 0.0; }
 };
 
 // sraa_step: one AA super-step.
@@ -94,23 +79,6 @@ SRAAStepResult sraa_step(
 {
     const int M = state.M;
 
-    // track_best: call before every return, AFTER X is set to the accepted iterate.
-    // Uses copy (not swap) for X_best so it stays valid across multiple reverts.
-    auto track_best = [&](double accepted_err) {
-        if (accepted_err < state.best_err_seen) {
-            state.best_err_seen = accepted_err;
-            state.X_best        = X;   // O(M) copy — X_best stays valid for future reverts
-            state.stall_count   = 0;
-        } else {
-            state.stall_count++;
-        }
-        if (state.stall_count >= kSRAAStallWindow &&
-            state.best_err_seen < std::numeric_limits<double>::infinity()) {
-            X = state.X_best;   // O(M) copy — X_best unchanged, safe for future reverts
-            state.clear();      // reset history + stall_count; preserves best_err_seen + X_best
-        }
-    };
-
     // --- Step 1: F(X_k) -> F_cur; compute R_k into scratch; compute norm ---
     double err_plain = f_eval(state.F_cur);
     double norm_k = 0.0;
@@ -125,7 +93,6 @@ SRAAStepResult sraa_step(
         norm_k > kSRAARestartGamma * kSRAARestartGamma * state.prev_resid_norm) {
         state.clear();
         std::swap(X, state.F_cur);
-        track_best(err_plain);
         return {false, 1, err_plain};
     }
 
@@ -152,7 +119,6 @@ SRAAStepResult sraa_step(
     // --- Step 5: Not enough history -> plain ---
     if (state.count < kSRAAMinCount) {
         std::swap(X, state.F_cur);
-        track_best(err_plain);
         return {false, 1, err_plain};
     }
 
@@ -178,17 +144,15 @@ SRAAStepResult sraa_step(
 
     // --- Step 7: Regularize + LDLT solve (n x n submatrix) ---
     double eps = kSRAAdeltaReg * (max_diag > 0.0 ? max_diag : 1.0);
-    // Copy n x n submatrix into contiguous buffer for ldlt (gram is kSRAAMaxM x kSRAAMaxM)
     double G[kSRAAMaxM * kSRAAMaxM];
     for (int i = 0; i < n; i++)
         for (int j = 0; j < n; j++)
             G[i * n + j] = state.gram[i * kSRAAMaxM + j];
-    for (int i = 0; i < n; i++) G[i * n + i] += eps;  // Tikhonov diagonal
+    for (int i = 0; i < n; i++) G[i * n + i] += eps;
 
     if (lbw::ldlt_factor_inplace(G, (size_t)n, 0.0) != RK_OK) {
         state.clear();
         std::swap(X, state.F_cur);
-        track_best(err_plain);
         return {false, 1, err_plain};
     }
     for (int i = 0; i < n; i++) state.gamma_[i] = state.rhs[i];
@@ -207,27 +171,27 @@ SRAAStepResult sraa_step(
     // --- Step 9: F(X_AA); scratch -> F(X_AA) ---
     double err_AA = f_eval(state.scratch);
 
-    // NaN guard: explicit isfinite check; NaN comparisons are UB in C++ for safety
+    // NaN/inf guard (includes Wv=0 case from degenerate AA input — see greenkhorn.cpp)
     if (!std::isfinite(err_AA)) {
         state.clear();
         std::swap(X, state.F_cur);
-        track_best(err_plain);
         return {false, 1, err_plain};
     }
 
     // --- Step 10: Safeguard ---
-    if (err_AA <= state.best_err_seen * (1.0 + kSRAAGlobalEps)) {
+    // Accept AA if it matches or beats the plain F-step quality.
+    // Note: both err_AA and err_plain are from f_eval (fixed K-step sort).
+    // On K>=3 overlapping-margin problems, SRAA may still converge to a
+    // KL-optimal (vs max_err-optimal) fixed point — this is a known limitation.
+    // Full fix requires outer quality tracking from the adaptive-sort greenkhorn loop.
+    if (err_AA <= err_plain) {
         std::swap(X, state.scratch);    // O(1); X = F(X_AA)
         state.aa_accepted_count++;
-        track_best(err_AA);
         return {true, 2, err_AA};
     } else {
         state.clear();                  // bad step; reset history
-        // Safeguard-rejection also skips step 4 update (via clear); safe because
-        // has_prev=false after clear() blocks next restart comparison.
         std::swap(X, state.F_cur);     // X = F(X_k)
-        track_best(err_plain);
-        return {false, 2, err_plain};  // 2 F_evals spent even on rejection
+        return {false, 2, err_plain};
     }
 }
 
