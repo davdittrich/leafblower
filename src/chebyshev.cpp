@@ -17,7 +17,9 @@ ChebyshevResult chebyshev_ipm(
     const std::vector<double>& w_warm_obs,
     double      delta_warm)
 {
-    static constexpr int    kMaxIpm    = 500;   // hard cap; K=9 needs more fundamental work
+    static constexpr int    kMaxIpm    = 500;   // hard cap; K=9 overlapping margins don't converge
+                                                // regardless of budget — Mehrotra needs LP stability
+                                                // improvements for ill-conditioned systems (follow-on)
     static constexpr double kSigma     = 0.1;    // centering parameter
     static constexpr double kTolMu     = 1e-6;   // complementarity gap convergence threshold
     static constexpr double kEps       = 1e-14;  // strict interior buffer
@@ -233,7 +235,16 @@ ChebyshevResult chebyshev_ipm(
         for (int c = 0; c < ct.M_cell; c++) W += X[c];
         if (W < 1e-300) { res.status = RK_ERR_INFEAS; return res; }
         CellMetrics cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
-        if (cm.errRp < best_errRp) { best_errRp = cm.errRp; res.best_iter = iter+1; X_best = X; }
+        // Only save X_best when X is fully finite — Mehrotra on ill-conditioned K>=9 systems
+        // can produce NaN X values; saving NaN as best would corrupt the final result.
+        if (cm.errRp < best_errRp && std::isfinite(cm.errRp)) {
+            bool x_ok = true;
+            for (int c = 0; c < ct.M_cell && x_ok; c++) x_ok = std::isfinite(X[c]);
+            if (x_ok) { best_errRp = cm.errRp; res.best_iter = iter+1; X_best = X; }
+        }
+        // If X has gone NaN (numerical drift in ill-conditioned system), stop iterating.
+        // Use whatever X_best was saved before NaN propagated.
+        if (!std::isfinite(cm.errRp)) break;
         double errRp = cm.errRp, mean_err = cm.mean_err;
         double kl_max = cm.kl, chi2_total = cm.chi2, grake_norm = cm.grake_norm;
         double l1_weight = 0.0;  // not tracked per IPM step (no prev weights)
@@ -255,6 +266,10 @@ ChebyshevResult chebyshev_ipm(
             // Primary: μ < kTolMu. Secondary: user absolute_tol if set.
             // Tertiary: best_errRp < 1e-8 — Mehrotra drives primal to machine precision while
             // μ stays large (degenerate complementarity); accept when best calibration is perfect.
+            // Guard iter>0: warm-start may already have perfect errRp on iter 0; require a step.
+            // Primary: complementarity gap. Tertiary: best_errRp < 1e-8 fires when warm-start
+            // brings errRp to machine precision while μ stays large (degenerate complementarity).
+            // The X_best NaN guard above ensures best_errRp < 1e-8 only fires on valid solutions.
             // Guard iter>0: warm-start may already have perfect errRp on iter 0; require a step.
             bool converged = (mu < kTolMu) || (iter > 0 && best_errRp < 1e-8);
             if (have_abs) converged = converged || converged_abs;
