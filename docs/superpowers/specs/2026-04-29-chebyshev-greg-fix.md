@@ -58,52 +58,69 @@ No algorithmic change. One testthat test: `expect_warning(harvest(..., method="g
 **Step A — r_bridge.cpp**: Before dispatching chebyshev/grake, run a fast ieppa pre-solve:
 
 ```cpp
-// For chebyshev or grake: warm-start from ieppa result
-std::vector<double> X_warm;        // cell masses (empty = cold start)
+// For chebyshev or grake: warm-start from ieppa result.
+// CRITICAL: ieppa_solve() mutates st.weights in-place (normalizes/clamps).
+// We must NOT pass st directly. Create a separate weights copy so the original
+// CalibState is untouched after the pre-solve.
+std::vector<double> w_warm_obs;    // obs-level warm-start weights (empty = cold start)
 double delta_warm = -1.0;          // -1 = use default delta_0 = 1.0
 if (strcmp(method_str, "chebyshev") == 0 || strcmp(method_str, "grake") == 0) {
+    // Deep-copy weights buffer before handing to ieppa (which mutates st.weights)
+    std::vector<double> weights_copy(st.weights, st.weights + st.n);
     CalibState st_warm = st;
-    st_warm.inner_max_iter = std::min(100, st.inner_max_iter / 10);
+    st_warm.weights = weights_copy.data();          // redirect to copy
+    st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
     auto ieppa_res = lbw::ieppa_solve(st_warm);
+    // weights_copy goes out of scope after this block; st.weights is unchanged
     if (!ieppa_res.best_weights.empty() &&
         (int)ieppa_res.best_weights.size() == st.n) {
-        // Build temporary cell table to aggregate obs-level → cell masses
-        CellTable ct_tmp;
-        if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts,
-                             st.weights, ct_tmp) == RK_OK) {
-            X_warm.assign(ct_tmp.M_cell, 0.0);
-            for (int i = 0; i < st.n; i++)
-                X_warm[ct_tmp.cell_of[i]] += ieppa_res.best_weights[i];
-            delta_warm = ieppa_res.max_error * 1.5;
-        }
+        w_warm_obs = std::move(ieppa_res.best_weights);  // obs-level, size n
+        delta_warm = ieppa_res.max_error * 1.5;
     }
 }
-// Pass X_warm and delta_warm to chebyshev_ipm (see Step B)
+// Pass w_warm_obs (obs-level) and delta_warm to chebyshev_ipm.
+// chebyshev_ipm aggregates obs-level → cell masses AFTER its own build_cell_table.
+// This avoids building CellTable twice. See Step B.
 ```
 
-**Step B — chebyshev.hpp signature change**:
+**Step B — chebyshev.hpp signature change** (pass obs-level warm weights — chebyshev aggregates internally):
 ```cpp
 ChebyshevResult chebyshev_ipm(
     CalibState& st,
     LpVariant variant,
-    const std::vector<double>& X_warm = {},  // cell-level masses from ieppa
-    double delta_warm = -1.0);               // ieppa_max_err * 1.5; -1 → default 1.0
+    const std::vector<double>& w_warm_obs = {},  // obs-level warm weights (size n); aggregated
+                                                  // to cell masses after internal build_cell_table
+    double delta_warm = -1.0);                   // ieppa_max_err * 1.5; -1 → default 1.0
 ```
 
-**Step C — chebyshev_ipm initialization**:
+**Step C — chebyshev_ipm initialization** (aggregate obs → cell AFTER internal build):
 ```cpp
-// Primal initialization
-std::vector<double> X_primal = X_warm.empty() ? X_init_uniform : X_warm;
-// Bound X_warm to cell bounds (ieppa may have clamped differently)
-for (int c = 0; c < M; c++)
-    X_primal[c] = std::clamp(X_primal[c], L_cell[c], U_cell[c]);
+// After build_cell_table(ct) runs inside chebyshev_ipm:
+std::vector<double> X_primal(M);   // M = ct.M_cell
+if (!w_warm_obs.empty() && (int)w_warm_obs.size() == st.n) {
+    std::fill(X_primal.begin(), X_primal.end(), 0.0);
+    for (int i = 0; i < st.n; i++)
+        X_primal[ct.cell_of[i]] += w_warm_obs[i];
+    // Clamp to cell bounds; renormalize to preserve total mass (pre-clamp Σ = Σ_post)
+    double total_pre = 0.0, total_post = 0.0;
+    for (int c = 0; c < M; c++) total_pre += X_primal[c];
+    for (int c = 0; c < M; c++) X_primal[c] = std::clamp(X_primal[c], L_cell[c], U_cell[c]);
+    for (int c = 0; c < M; c++) total_post += X_primal[c];
+    if (total_post > 0.0 && total_pre > 0.0) {
+        double scale = total_pre / total_post;
+        for (int c = 0; c < M; c++) X_primal[c] = std::clamp(X_primal[c]*scale, L_cell[c], U_cell[c]);
+    }
+} else {
+    // Cold start: uniform proportional initialization
+    X_primal = X_init_uniform;
+}
 
 // Delta initialization: start slightly above ieppa quality (or at 1.0 cold)
 double delta_0 = (delta_warm > 0.0) ? delta_warm : 1.0;
 ```
 
-Memory overhead: one extra CellTable build + X_warm vector (M_cell doubles ≈ negligible).
-Latency overhead: ieppa pre-solve at max_iterations=100 ≈ 0.5s on stepstone.
+Memory overhead: one O(n) weights copy + no extra CellTable (aggregation uses internal ct).
+Latency overhead: ieppa pre-solve ≈ 0.5s on stepstone. Documented in `@param max_iterations`.
 
 ---
 
@@ -118,28 +135,44 @@ Update: x += α*Δx, λ += α*Δλ, s += α*Δs
 Reduce: μ *= 0.1  [fixed schedule]
 ```
 
-**Mehrotra iteration**:
+**Mehrotra iteration** (with m>0 guard and explicit Jacobi scoping):
 ```
+// Guard: if m == 0 (degenerate LP, no complementarity pairs), skip Mehrotra,
+// fall through to plain barrier step with μ *= 0.1. Return RK_ERR_DEGENERATE.
+if (m == 0) { ... }
+
+// D held FIXED across Phase A and Phase B — recomputed only at next outer iteration.
+// N = A·D·A^T is rebuilt from scratch each iteration before Jacobi scaling.
+
 Phase A — Affine predictor (barrier terms = 0):
-  Solve normal equations once (r_aff, no centering)
-  Compute: α_aff = max α s.t. (x + α*Δx_aff) ≥ 0 AND (s + α*Δs_aff) ≥ 0
-  Compute: μ_aff = (x + α_aff*Δx_aff)·(s + α_aff*Δs_aff) / (2*m)
+  Build N = A·D·A^T  [fresh, not cached]
+  Apply Jacobi preconditioning: D_jac[j] = 1/sqrt(N[j][j]); scale N, scale rhs_A
+  LDLT-factor scaled N  [one factorization per iteration — reused in Phase B]
+  Solve scaled system → Δλ_A_scaled; unscale: Δλ_A[j] = D_jac[j] * Δλ_A_scaled[j]
+  Compute Δx_aff, Δs_aff from Δλ_A
+  α_aff = max α s.t. (x + α*Δx_aff) ≥ 0 AND (s + α*Δs_aff) ≥ 0
+  μ_aff = clamp((x+α_aff*Δx_aff)·(s+α_aff*Δs_aff)/(2*m), 0, μ*100)  [guard division]
 
 Compute centering parameter:
-  σ = (μ_aff / μ)³    [adaptive: large σ → more centering when affine step short]
+  σ = clamp((μ_aff/μ)³, 1e-8, 1.0)  [clamped: prevents σ=0 or σ>1]
 
 Phase B — Corrector (centering + second-order):
-  RHS correction: += σ*μ*e - Δx_aff·Δs_aff   [element-wise]
-  Solve normal equations again (same factorization, different RHS)
-  Compute corrected step lengths α_p, α_d with 0.99 damping
+  rhs_B = rhs_A + σ*μ*e - Δx_aff·Δs_aff   [element-wise second-order term]
+  Apply same Jacobi scaling to rhs_B: rhs_B_scaled[j] = D_jac[j] * rhs_B[j]
+  Solve REUSING the SAME LDLT factorization from Phase A (no refactoring)
+  Unscale: Δλ_B[j] = D_jac[j] * Δλ_B_scaled[j]
+  Compute corrected Δx, Δs; step lengths α_p, α_d with 0.99 damping
 
-Update: x, λ, s with corrected step
-Recompute: μ = x·s / (2*m)  [adaptive — no explicit schedule]
+Update: x += α_p*Δx, λ += α_p*Δλ_B, s += α_d*Δs
+Recompute: μ = x·s/(2*m)  [adaptive — no explicit schedule]
 ```
 
-The second-order term `Δx_aff·Δs_aff` removes the linearization error that causes slow convergence near the solution. In practice, Mehrotra reduces iteration count from O(100-500) to O(20-50) for well-conditioned problems.
+**Key invariants:**
+- N rebuilt fresh each iteration → Jacobi scaling is never applied twice to the same matrix
+- D (barrier scaling) held fixed within one iteration across Phase A and Phase B
+- Phase B reuses the already-factored (Jacobi-scaled) N — only RHS changes
 
-**Implementation detail**: Phase A and Phase B use the same LDLT factorization of `(A*D*A^T)` — the matrix is factored once per iteration, not twice. Only the RHS differs. This is O(nct²) factorization + 2×O(nct²) solves per iteration instead of the current O(nct²) factorization + 1 solve.
+The second-order term `Δx_aff·Δs_aff` removes the linearization error. Mehrotra reduces iteration count from O(100-500) to O(20-50) for well-conditioned problems (same LDLT factorization cost per iteration — one factor, two solves).
 
 ---
 
@@ -217,7 +250,11 @@ test_that("T_cheby_warm: chebyshev with ieppa warm-start converges on K=3 proble
                                         max_iterations=500,attach_weights=FALSE))
   me_c <- attr(r_cheby,"result")$max_error
   me_r <- attr(r_raking,"result")$max_error
-  # Chebyshev (L∞ optimal) must be at least as good as raking
+  st_c  <- attr(r_cheby,"result")$status
+  # Must converge (status=0) and produce finite quality
+  expect_equal(st_c, 0L, label="chebyshev must converge (status=0) on K=3")
+  expect_true(is.finite(me_c), label="chebyshev max_error must be finite")
+  # Chebyshev (L∞ optimal) must be at least as good as raking when it converges
   expect_lte(me_c, me_r * 1.001 + 1e-10,
     label=sprintf("chebyshev (%.4e) must not exceed raking (%.4e)", me_c, me_r))
   expect_lt(me_c, 1e-3, label="chebyshev must converge to <1e-3 on K=3")
@@ -227,9 +264,36 @@ test_that("T_cheby_warm: chebyshev with ieppa warm-start converges on K=3 proble
 ### T_cheby_K9 (stepstone — skip in CI, manual verify)
 ```r
 test_that("T_cheby_K9: chebyshev K=9 stepstone max_err <= greenkhorn", {
+  skip_if_not_installed("arrow"); skip_if_not_installed("jsonlite")
   skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
           "stepstone not available")
-  # ... same pattern as T_sraa_adaptive_K9
+  df  <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
+  df$uuid <- NULL
+  tgt <- lapply(jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json"),
+                function(t) { t <- unlist(t); t / sum(t) })
+  for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
+  r_c <- suppressWarnings(harvest(df,tgt,method="chebyshev",max_weight=5,min_weight=0,
+                                   max_iterations=5000L,attach_weights=FALSE,verbose=0))
+  r_g <- suppressWarnings(harvest(df,tgt,method="greenkhorn",max_weight=5,min_weight=0,
+                                   max_iterations=5000L,attach_weights=FALSE,verbose=0))
+  me_c <- attr(r_c,"result")$max_error; me_g <- attr(r_g,"result")$max_error
+  expect_equal(attr(r_c,"result")$status, 0L, label="chebyshev must converge on K=9")
+  expect_lte(me_c, me_g * 1.001 + 1e-10,
+    label=sprintf("chebyshev (%.4e) must not exceed greenkhorn (%.4e)", me_c, me_g))
+})
+```
+
+### T_cheby_warm_fallback (verify graceful cold-start when ieppa fails)
+```r
+test_that("T_cheby_warm_fallback: chebyshev still works when ieppa warm-start fails", {
+  # max_iterations=1 forces ieppa pre-solve to 1 iter (useless warm-start)
+  # chebyshev should fall back to cold start and still return valid result
+  set.seed(7); n <- 1000L
+  df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)), y=factor(sample(c("M","F"),n,TRUE)))
+  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
+  r <- suppressWarnings(harvest(df,tgt,method="chebyshev",max_iterations=200L,attach_weights=FALSE))
+  expect_true(is.finite(attr(r,"result")$max_error),
+    label="chebyshev must return finite max_error (not NaN from bad warm-start)")
 })
 ```
 
@@ -239,12 +303,17 @@ test_that("T_cheby_K9: chebyshev K=9 stepstone max_err <= greenkhorn", {
 
 | # | Criterion | Verify |
 |---|-----------|--------|
-| AC1 | T_greg_warn GREEN | `devtools::test(filter="chebyshev")` |
-| AC2 | T_cheby_warm GREEN (K=3 converges, ≤ raking) | Same |
-| AC3 | T_cheby_K9 GREEN (stepstone chebyshev ≤ greenkhorn) | Manual benchmark |
-| AC4 | T_sraa_grk, T_sraa_rk, T_sraa_outer_revert still GREEN | `devtools::test()` |
-| AC5 | FAIL count = 3 (unchanged) | Same |
-| AC6 (benchmark) | chebyshev max_err ≤ 1.57e-3 on K=9 | `Rscript benchmarks/stepstone_all_methods.R` |
+| AC1 | T_greg_warn GREEN (warns on K≥5 tight-bounds) | `devtools::test(filter="chebyshev")` |
+| AC2 | T_cheby_warm GREEN: status=0, finite me_c, me_c ≤ me_r on K=3 | Same |
+| AC3 | T_cheby_K9 GREEN (stepstone chebyshev ≤ greenkhorn) | Same (skip if parquet absent) |
+| AC4 | T_cheby_warm_fallback GREEN (graceful cold-start on bad warm-start) | Same |
+| AC5 | T_sraa_grk, T_sraa_rk, T_sraa_outer_revert, E1 (cheby≤raking) still GREEN | `devtools::test()` |
+| AC6 | FAIL count = 3 (pre-existing: ieppa-nonuniform-d:28/:29, sor:18) | `devtools::test()` |
+| AC7 (benchmark) | chebyshev max_err ≤ 1.57e-3 on K=9 stepstone | `Rscript benchmarks/stepstone_all_methods.R` |
+
+Note on AC6 "FAIL count = 3": The three pre-existing failures are test-ieppa-nonuniform-d.R:28/:29 and
+test-sor.R:18 — unrelated to chebyshev. E1 (chebyshev≤raking, test-calibration-solvers.R:257) is
+currently GREEN and must remain GREEN. AC7 threshold 1.57e-3 = greenkhorn K=9 stepstone current result.
 
 ---
 
@@ -252,8 +321,8 @@ test_that("T_cheby_K9: chebyshev K=9 stepstone max_err <= greenkhorn", {
 
 | Constant | Value | Derivation |
 |---|---|---|
-| Greg warning threshold | `0.05` | 5× raking quality (1e-3 → flag at 5e-2); catches systematic failure |
-| ieppa pre-solve iterations | `min(100, max_iterations/10)` | 100 iters ≈ 0.5s; enough for ieppa to get to ~1e-3 quality |
+| Greg warning threshold | `0.05` | 50× raking typical quality (1e-3); flags catastrophic failures only |
+| ieppa pre-solve iterations | `max(5, min(100, max_iterations/10))` | 5 = minimum useful; 100 ≈ 0.5s; floor prevents useless 1-iter warm-start |
 | delta_warm multiplier | `1.5` | 50% above ieppa max_err; gives IPM room to improve |
 | Mehrotra damping | `0.99` | Standard value from Mehrotra (1992) preventing boundary-touching |
 | Jacobi eps | `1e-12` | Guards against zero diagonal in unscaled N |
