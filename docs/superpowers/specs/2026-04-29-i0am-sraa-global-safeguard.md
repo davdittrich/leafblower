@@ -99,6 +99,20 @@ if (err_AA <= state.best_err_seen * (1.0 + kSRAAGlobalEps))
 the best quality seen across the entire solver run (with 0.1% slack). Plain steps always
 execute unconditionally and update `best_err_seen`.
 
+Note: on the very first call, `best_err_seen = +∞`, so `err_AA ≤ +∞` is always true. This
+is benign: Step 5 (kSRAAMinCount gate) fires BEFORE Step 10 and exits to ACCEPT_PLAIN
+when `count < 2`, so AA never reaches the safeguard until at least 2 plain steps have
+established a valid `best_err_seen`. Control-flow order: Step 5 runs before Step 10.
+
+`err_plain` is still computed (used in NaN guard and ACCEPT_PLAIN fallback value). It is
+no longer used in the acceptance comparison. After this change, `err_plain` appears only
+in: (a) `r.err_result` for ACCEPT_PLAIN paths, (b) the isfinite NaN guard fallback.
+
+The NaN guard path (`!std::isfinite(err_AA)`) short-circuits to ACCEPT_PLAIN before
+reaching the best-tracking block. This is intentional — a NaN result from f_eval is
+already tracked by the prior plain step (which ran before f_eval(scratch)) and the
+best-tracking block executes on the ACCEPT_PLAIN exit path used by the NaN guard.
+
 Note: `err_plain` is still computed (needed for NaN guard and ACCEPT_PLAIN path) but
 removed from the safeguard comparison.
 
@@ -120,10 +134,12 @@ if (accepted_err < state.best_err_seen) {
 
 // Revert-to-best when stalled: no improvement for kSRAAStallWindow steps.
 // X_best is the best iterate seen across the entire run.
+// Use copy (not swap) so X_best remains valid across multiple revert events.
+// If swap were used, a second revert would restore the pre-revert stale X.
 if (state.stall_count >= kSRAAStallWindow &&
     state.best_err_seen < std::numeric_limits<double>::infinity()) {
-    std::swap(X, state.X_best);  // O(1): X = best position, X_best = stale old X
-    state.clear();               // reset AA history + stall_count; preserves best_err_seen
+    X = state.X_best;   // O(M) copy — X_best stays valid for future reverts
+    state.clear();      // reset AA history + stall_count; preserves best_err_seen + X_best
 }
 ```
 
