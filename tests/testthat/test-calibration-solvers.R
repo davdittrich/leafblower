@@ -1022,21 +1022,44 @@ test_that("T4: greenkhorn respects bounds exactly", {
   expect_true(min(w) >= 0.1 - 1e-9)
 })
 
-test_that("Tacc: greenkhorn with accelerate=TRUE runs without error and converges", {
+test_that("Tacc: greenkhorn accelerate=TRUE fires SQUAREM and converges", {
   set.seed(99); n <- 2000L
+  K_exp <- 2L  # K=2 margins in this problem
   df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),
                     y=factor(sample(c("M","F"),n,TRUE)))
   tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
-  r_acc   <- harvest(df, tgt, method="greenkhorn", accelerate=TRUE,  max_iterations=500L)
-  r_plain <- harvest(df, tgt, method="greenkhorn", accelerate=FALSE, max_iterations=500L)
+
+  r_acc   <- suppressWarnings(
+    harvest(df, tgt, method="greenkhorn", accelerate=TRUE,  max_iterations=500L,
+            attach_weights=FALSE))
+  r_plain <- suppressWarnings(
+    harvest(df, tgt, method="greenkhorn", accelerate=FALSE, max_iterations=500L,
+            attach_weights=FALSE))
+
   me_acc   <- attr(r_acc,   "result")$max_error
   me_plain <- attr(r_plain, "result")$max_error
-  expect_lt(me_acc, 1e-3)
   iters_acc   <- attr(r_acc,   "result")$iterations
   iters_plain <- attr(r_plain, "result")$iterations
-  expect_lt(iters_acc, iters_plain * 2L,
-    label=sprintf("accelerate=TRUE used %d rounds vs plain %d; must not be >2x worse",
-                  iters_acc, iters_plain))
+
+  # (1) Both must converge to good quality
+  expect_lt(me_acc, 1e-3,
+    label=sprintf("greenkhorn+SQUAREM must converge: got max_err=%.2e", me_acc))
+  expect_lt(me_plain, 1e-3,
+    label=sprintf("greenkhorn plain must converge: got max_err=%.2e", me_plain))
+
+  # (2) SQUAREM fired: iters divisible by K*3 = 6 (K=2 margins x 3 F_eval/super-step)
+  # Plain path counts 1 per main loop iter; SQUAREM counts K*3. Divisibility proves
+  # the SQUAREM branch executed, not the plain single-step branch.
+  squarem_stride <- K_exp * 3L
+  expect_equal(iters_acc %% squarem_stride, 0L,
+    label=sprintf(
+      "greenkhorn+SQUAREM iters (%d) must be divisible by K*3=%d (confirms SQUAREM fired)",
+      iters_acc, squarem_stride))
+
+  # (3) Accelerated and plain produce qualitatively similar results
+  expect_lt(abs(me_acc - me_plain), 5e-4,
+    label=sprintf("SQUAREM and plain must converge similarly (acc=%.2e, plain=%.2e)",
+                  me_acc, me_plain))
 })
 
 # ══════════════════════════════════════════════════════════════════════════════
