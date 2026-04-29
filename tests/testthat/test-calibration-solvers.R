@@ -1123,3 +1123,48 @@ test_that("T8: logit max_err within 2x of raking on tight-bounds problem", {
   me_logit <- attr(r_logit, "result")$max_error
   expect_lt(me_logit, 2.0 * me_rk + 1e-6)
 })
+
+test_that("T_logit_armijo: logit converges on K=5 tight-bound problem", {
+  # Problem designed to stress Newton: 5 margins, many conflicting constraints
+  set.seed(42); n <- 20000L
+  df <- data.frame(
+    a = factor(sample(letters[1:4], n, TRUE)),
+    b = factor(sample(LETTERS[1:5], n, TRUE)),
+    c = factor(sample(c("x","y","z"), n, TRUE)),
+    d = factor(sample(c("M","F"), n, TRUE)),
+    e = factor(sample(c("Y","O"), n, TRUE))
+  )
+  tgt <- list(
+    a = setNames(c(0.3,0.2,0.3,0.2), letters[1:4]),
+    b = setNames(rep(0.2,5), LETTERS[1:5]),
+    c = c(x=0.4,y=0.35,z=0.25),
+    d = c(M=0.48,F=0.52),
+    e = c(Y=0.55,O=0.45)
+  )
+  r <- suppressWarnings(harvest(df, tgt, method="logit", max_weight=4.0, min_weight=0.1,
+                                attach_weights=FALSE))
+  me <- attr(r,"result")$max_error
+  expect_lt(me, 1e-3, label=sprintf("logit K=5 must converge: got max_err=%.2e", me))
+  # DEFF must be in reasonable range (not 527k like pre-fix)
+  w <- as.numeric(r)
+  expect_true(max(w) <= 4.0 + 1e-9)
+  expect_true(min(w) >= 0.1 - 1e-9)
+})
+
+test_that("T_logit_init: logit converges in few Newton steps from design-weight init", {
+  set.seed(7); n <- 5000L
+  df <- data.frame(
+    x = factor(sample(letters[1:3],n,TRUE)),
+    y = factor(sample(c("M","F"),n,TRUE))
+  )
+  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
+  r <- suppressWarnings(
+    harvest(df, tgt, method="logit", max_weight=3.0, min_weight=0.1,
+            convergence=list(absolute=1e-8), attach_weights=FALSE))
+  n_iters <- attr(r,"result")$iterations
+  me <- attr(r,"result")$max_error
+  expect_lt(me, 1e-8)
+  # Good initialization -> should converge in < 20 Newton steps even with tight tol
+  expect_lt(n_iters, 20L,
+    label=sprintf("design-weight init should converge fast: got %d steps", n_iters))
+})
