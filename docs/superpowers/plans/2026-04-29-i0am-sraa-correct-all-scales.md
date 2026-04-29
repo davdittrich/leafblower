@@ -1,616 +1,306 @@
-# SRAA-m Correct Acceleration for All K Scales
+# SRAA-m Correct Acceleration for All K Scales — Combined Fix
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix SRAA-m giving 35% worse quality than plain on K>=3 overlapping-margin problems by making f_eval_sraa's sort order adaptive (Track 2), with a plateau-gated outer revert as a safety net (Track 1) if needed.
+**Goal:** Fix SRAA-m 35% quality regression on K>=3 overlapping-margin problems by combining adaptive-sort f_eval (eliminates basin multiplicity) with an outer-loop revert mechanism (catches transient AA overshoots).
 
-**Architecture:** Two tracks. Track 2: 5-line change in greenkhorn.cpp f_eval_sraa making it use adaptive sort (same as plain greenkhorn) — gives AA a unique max_err-optimal fixed point. Track 1: plateau-gated AA activation + outer revert in both greenkhorn.cpp and raking.cpp outer loops, with aa_unlocked lifecycle gate in SRAAState.
+**Architecture:** Two changes applied simultaneously: (1) f_eval_sraa in greenkhorn.cpp switches from fixed sort (K margins sorted once at round entry) to adaptive sort (re-sort errRp after each greedy step = plain greenkhorn). (2) Both greenkhorn.cpp and raking.cpp add a 15-line outer revert: if outer quality regresses >10% above best_errRp for 5 consecutive outer iterations, X reverts to X_best and AA history clears. No plateau gating, no aa_unlocked field — plateau gating was needed only to protect best_errRp from wrong-basin contamination, which adaptive sort eliminates.
 
-**Tech Stack:** C++17 (greenkhorn.cpp, raking.cpp, sraa.hpp), R testthat3.
+**Tech Stack:** C++17 (sraa.hpp, greenkhorn.cpp, raking.cpp), R testthat3, stepstone benchmark fixture.
 
----
-
-## Spec Reference
-
-`docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md`
-
-## Mechanism / Forbidden / Audit
-
-- **Mechanism:** Adaptive max_err-greedy step ordering inside `f_eval_sraa` (Track 2); plateau-gated `aa_unlocked` lifecycle + outer revert to `X_best`/`W_best` (Track 1).
-- **Forbidden:** Surface patches to AA acceptance criteria (kSRAARelaxFactor tweaks); changing the global SRAA descent monitor; shrinking K-step inner loop; introducing new heuristics outside the spec; tuning constants to make tests pass.
-- **Audit:** RED tests first; benchmark `max_error` on the StepStone K=9 fixture as ground truth; iteration-count proxy for the plateau gate; `bench::mark` with interleaved before/after for any timing claim.
+**Spec:** `docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md`
 
 ---
 
-## Epic A — Track 2: Adaptive Sort (implement first)
+## Task 1: Pre-baseline + RED Tests
 
-Estimated effort: ~30 minutes. Strict TDD.
+**Mechanism:** Capture pre-fix quality baseline on stepstone fixture, then add 3 failing testthat3 tests that encode the combined-fix acceptance criteria. Tests must FAIL on `master` (RED) before any C++ changes land in Task 2.
 
-### Task A1 — Pre-implementation baseline
+**Forbidden:** No C++ edits in this task. No skipping the baseline capture. No `expect_true(TRUE)` placeholders. Do not gate on parquet absence with `skip()` silently — emit `skip_if_not(file.exists(...))` with explicit reason.
 
-- [ ] **Goal:** Capture the current pre-fix `max_error` numbers so the regression and the fix are both falsifiable. No code change.
-- [ ] **Files touched:** none (read-only).
-- [ ] **Bead:** `bd create -t task -T "A1: SRAA Track 2 baseline"` with body
-  `Task adaptive-sort-baseline ! tuning-constants. Capture greenkhorn+plain vs greenkhorn+SRAA max_err on stepstone K=9 prior to fix.`
-- [ ] **Commands & expected outputs:**
-  - Build current state once:
-    `R CMD INSTALL --preclean . 2>&1 | tail -3` -> last line `* DONE (leafblower)`.
-  - Capture baseline:
+**Audit:** Tests must directly drive `leafblower::lba()` (or the SRAA-m–exposing R wrapper) on the stepstone parquet fixture; assertions must compare per-K final `max(errRp)` against numerically explicit thresholds derived from the spec, not against placeholder constants.
+
+**Beads ticket:** `bd create --title "SRAA-m T1: pre-baseline + RED tests" --description "Task [stepstone baseline + 3 RED tests in test-sraa-global.R] ! [skipping baseline; expect_true(TRUE); silent skip]"` — capture the issued ID into `${T1_BEAD_ID}` for the close at the end of the task.
+
+### Steps
+
+- [ ] **1.1 Read inputs (no edits)**
+  - [ ] Read `docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md` end-to-end. Extract: (a) per-K acceptance thresholds for `T_sraa_adaptive_K9`, `T_sraa_raking_K9`, `T_sraa_outer_revert`; (b) stepstone fixture path; (c) which R entry point exposes SRAA-m (`lba(..., method = "...")` vs internal helper).
+  - [ ] Read `tests/testthat/test-sraa-global.R` fully (current header, helpers, existing test names) to align style and avoid name collisions.
+  - [ ] Read `src/greenkhorn.cpp` lines 1–230 to confirm the line-number anchors used by Task 2 (`order_sraa` decl ~127, init ~131, iota+sort ~146–149, best_errRp block ~192–196, secondary `X_best=X` ~206). If anchors drift, record actual line numbers in `.wolf/memory.md` and proceed — Task 2 patches are described by surrounding code, not line numbers alone.
+  - [ ] Read `src/raking.cpp` SRAA path to locate the `if (r.err_result < best_metric_seen) { ... W_best = X; }` block referenced by Task 3.
+  - [ ] Read `src/sraa.hpp` to locate `kSRAARestartGamma` (insertion anchor for the two new constants).
+
+- [ ] **1.2 Capture pre-fix baseline**
+  - [ ] From repo root: `R CMD INSTALL --preclean .`. Compile must succeed on master before measuring baseline.
+  - [ ] Run the stepstone benchmark exactly as the spec prescribes; redirect stdout+stderr to `bench/sraa-m-baseline-pre.log`:
     ```bash
-    Rscript -e '
-    suppressWarnings(suppressMessages({library(arrow); library(jsonlite); library(leafblower)}))
-    df  <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet"); df$uuid <- NULL
-    tgt <- lapply(jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json"),
-                  function(t){t<-unlist(t); t/sum(t)})
-    for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
-    r_aa    <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=TRUE,
-                  max_weight=5,min_weight=0,max_iterations=5000L,attach_weights=FALSE,verbose=0))
-    r_plain <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=FALSE,
-                  max_weight=5,min_weight=0,max_iterations=5000L,attach_weights=FALSE,verbose=0))
-    cat(sprintf("BASELINE me_aa=%.4e me_plain=%.4e ratio=%.3f\n",
-        attr(r_aa,"result")$max_error, attr(r_plain,"result")$max_error,
-        attr(r_aa,"result")$max_error / attr(r_plain,"result")$max_error))
-    ' 2>&1 | tail -1
+    Rscript bench/sraa-stepstone-bench.R 2>&1 | tee bench/sraa-m-baseline-pre.log
     ```
-    Expected: line beginning `BASELINE me_aa=` with `ratio` >> 1.0 (~1.30 confirming the regression). Any ratio <= 1.001 means the bug is not reproducible — HALT and re-confirm spec.
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate (no new tests yet):** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> existing FAIL count recorded.
-- [ ] **Self-review checklist:**
-  - [ ] Baseline numbers logged into the bead comment.
-  - [ ] No edits to source.
-- [ ] **Commit:** none — baseline is read-only. Append baseline to the bead via `bd comment <id> "BASELINE me_aa=... me_plain=... ratio=..."`.
+    If `bench/sraa-stepstone-bench.R` does not exist, halt and grep `bench/` and `benchmarks/` for the script name actually referenced by the spec; do not invent one.
+  - [ ] Extract per-K final `max(errRp)` for SRAA-m at K ∈ {3, 5, 9} and the corresponding plain-greenkhorn / raking baselines. Persist to `bench/sraa-m-baseline-pre.csv` with columns `method,K,max_errRp,iters,wallclock_s`. Use `Rscript -e` writing via `data.table::fwrite()`; do not hand-craft CSV.
+  - [ ] `git add bench/sraa-m-baseline-pre.{log,csv}` (do not commit yet — the RED-test commit owns these alongside the tests).
 
----
+- [ ] **1.3 Append RED tests**
+  - [ ] Append to `tests/testthat/test-sraa-global.R`:
+    - `test_that("T_sraa_adaptive_K9: SRAA-m matches plain greenkhorn within 2% on K=9 overlapping-margin stepstone", { ... })` — drives `lba()` with SRAA-m and with plain greenkhorn on the K=9 stepstone fixture; asserts `expect_lt(max_errRp_sraa_m, max_errRp_greenkhorn * 1.02)`.
+    - `test_that("T_sraa_raking_K9: SRAA-raking matches plain raking within 2% on K=9 fixture", { ... })` — analogous, comparing SRAA-accelerated raking vs plain raking.
+    - `test_that("T_sraa_outer_revert: outer quality never exceeds best-seen by more than 10% for 5 consecutive iters", { ... })` — runs SRAA-m with per-iter trace enabled, computes `curr_max / best_errRp_so_far` per outer iter, asserts the run length of `> 1.10` excursions is `<= 4` (i.e., revert fires before 5).
+  - [ ] Each test must `skip_if_not(file.exists(stepstone_parquet_path()), "stepstone parquet fixture not present")` with `stepstone_parquet_path()` defined once at the top of the file (or already present — reuse it).
+  - [ ] No `expect_true(TRUE)` filler. Every assertion must reference a real numeric output of `lba()`.
 
-### Task A2 — RED tests
+- [ ] **1.4 Verify RED locally**
+  - [ ] `R CMD INSTALL --preclean .` (already current; cheap reinstall to prove the build still works).
+  - [ ] `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-global.R", reporter = "summary")' 2>&1 | tee bench/sraa-m-red-evidence.log`.
+  - [ ] Confirm the three new tests are present and **FAIL** (or `skip` only if parquet truly absent — record which in the log). All three must be RED on master, not skipped, when the parquet exists. If any of them passes accidentally, the assertion threshold is wrong — tighten before proceeding.
 
-- [ ] **Goal:** Write two failing tests that pin down the K=9 quality regression for greenkhorn+SRAA and raking+SRAA on the StepStone fixture.
-- [ ] **Files touched:** `tests/testthat/test-sraa-correct-all-scales.R` (new).
-- [ ] **Bead:** `bd create -t task -T "A2: SRAA Track 2 RED tests"` body
-  `Task RED-tests ! tuning-tolerance. Two stepstone K=9 tests assert AA<=plain*1.001+1e-10.`
-- [ ] **Exact file contents** (`tests/testthat/test-sraa-correct-all-scales.R`):
+- [ ] **1.5 Commit RED state**
+  - [ ] Files staged: `tests/testthat/test-sraa-global.R`, `bench/sraa-m-baseline-pre.log`, `bench/sraa-m-baseline-pre.csv`, `bench/sraa-m-red-evidence.log`.
+  - [ ] Commit:
+    ```bash
+    git commit -m "$(cat <<'EOF'
+    test(sraa): T1 — RED tests + pre-fix stepstone baseline
 
-```r
-test_that("T_sraa_adaptive_K9: greenkhorn+AA K=9 max_err <= plain (stepstone)", {
-  skip_if_not_installed("arrow"); skip_if_not_installed("jsonlite")
-  skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
-          "stepstone benchmark data not available")
-  df  <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
-  df$uuid <- NULL
-  tgt <- lapply(jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json"),
-                function(t) { t <- unlist(t); t / sum(t) })
-  for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
-  r_aa    <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=TRUE,
-                                       max_weight=5, min_weight=0, max_iterations=5000L,
-                                       attach_weights=FALSE, verbose=0))
-  r_plain <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=FALSE,
-                                       max_weight=5, min_weight=0, max_iterations=5000L,
-                                       attach_weights=FALSE, verbose=0))
-  me_aa    <- attr(r_aa,    "result")$max_error
-  me_plain <- attr(r_plain, "result")$max_error
-  expect_lte(me_aa, me_plain * 1.001 + 1e-10,
-    label=sprintf("K=9 SRAA (%.4e) must not exceed plain (%.4e)", me_aa, me_plain))
-})
-
-test_that("T_sraa_raking_K9: raking+AA K=9 max_err <= plain (stepstone)", {
-  skip_if_not_installed("arrow"); skip_if_not_installed("jsonlite")
-  skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
-          "stepstone benchmark data not available")
-  df  <- arrow::read_parquet("benchmarks/stepstone_fulldata_bench_data.parquet")
-  df$uuid <- NULL
-  tgt <- lapply(jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json"),
-                function(t) { t <- unlist(t); t / sum(t) })
-  for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
-  r_aa    <- suppressWarnings(harvest(df, tgt, method="raking", accelerate=TRUE,
-                                       max_weight=5, min_weight=0, max_iterations=5000L,
-                                       attach_weights=FALSE, verbose=0))
-  r_plain <- suppressWarnings(harvest(df, tgt, method="raking", accelerate=FALSE,
-                                       max_weight=5, min_weight=0, max_iterations=5000L,
-                                       attach_weights=FALSE, verbose=0))
-  me_aa    <- attr(r_aa,    "result")$max_error
-  me_plain <- attr(r_plain, "result")$max_error
-  expect_lte(me_aa, me_plain * 1.001 + 1e-10,
-    label=sprintf("K=9 raking+AA (%.4e) must not exceed plain (%.4e)", me_aa, me_plain))
-})
-```
-
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate:** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> `[ FAIL 3 | ...]` (the two new tests RED + any prior failure).
-  - If FAIL is fewer than 2 from these new tests, HALT — the bug is not exercised.
-- [ ] **Self-review checklist:**
-  - [ ] Test names match: `T_sraa_adaptive_K9`, `T_sraa_raking_K9`.
-  - [ ] Tolerance is exactly `* 1.001 + 1e-10` (no inflation).
-  - [ ] No skip on stepstone fixture aside from existence guard.
-- [ ] **Commit:**
-  ```bash
-  git add tests/testthat/test-sraa-correct-all-scales.R
-  git commit -m "$(cat <<'EOF'
-  test(sraa): RED tests for K=9 SRAA correctness on stepstone
-
-  Pin down greenkhorn+SRAA and raking+SRAA max_err regression vs plain at K=9
-  on the StepStone full-data fixture. Tests assert AA <= plain * 1.001 + 1e-10.
-  Currently RED — Track 2 adaptive-sort fix in A3 makes them GREEN.
-  EOF
-  )"
-  ```
-
----
-
-### Task A3 — Implement adaptive sort in f_eval_sraa
-
-- [ ] **Goal:** Replace the fixed K-step pre-sort in `f_eval_sraa` with the same adaptive `max_element` greedy step used by plain greenkhorn, so SRAA's fixed point coincides with plain's max_err-optimal fixed point.
-- [ ] **Files touched:** `src/greenkhorn.cpp`.
-- [ ] **Bead:** `bd create -t task -T "A3: SRAA Track 2 adaptive sort in f_eval_sraa"` body
-  `Task adaptive-sort ! pre-sort-by-errRp. Remove order_sraa; loop K times calling argmax(errRp) -> greenkhorn_step. Identical step semantics to plain greenkhorn outer loop.`
-- [ ] **Pre-edit verification:**
-  - Read `src/greenkhorn.cpp` lines 95–195 to confirm landmarks (greenkhorn_step lambda at 98, order_sraa decl at 127, init at 131, sort at 146–148, plain step at 186).
-  - Confirm `<algorithm>` is already included for `std::max_element`.
-- [ ] **Edits (use Edit tool, not Write):**
-
-  **Edit 1 — remove `order_sraa` declaration (around line 127):**
-  Delete the line:
-  ```cpp
-      std::vector<int>    order_sraa;
-  ```
-
-  **Edit 2 — remove `order_sraa.assign(K, 0);` initialization (around line 131):**
-  Delete the line:
-  ```cpp
-          order_sraa.assign(K, 0);
-  ```
-
-  **Edit 3 — replace iota+stable_sort+ki-loop body (lines ~146–149) with adaptive loop:**
-  Replace:
-  ```cpp
-          std::iota(order_sraa.begin(), order_sraa.end(), 0);
-          std::stable_sort(order_sraa.begin(), order_sraa.end(),
-              [&](int a, int b){ return errRp[a] > errRp[b]; });
-          for (int ki = 0; ki < K; ki++) greenkhorn_step(order_sraa[ki]);
-  ```
-  With:
-  ```cpp
-          for (int ki = 0; ki < K; ki++) {
-              int k_star = static_cast<int>(
-                  std::max_element(errRp.begin(), errRp.end()) - errRp.begin());
-              greenkhorn_step(k_star);
-          }
-  ```
-
-- [ ] **Post-edit verification:**
-  - `grep -n "order_sraa\|stable_sort" src/greenkhorn.cpp` -> no matches.
-  - `grep -n "std::max_element(errRp" src/greenkhorn.cpp` -> exactly two hits (existing plain-loop call + new f_eval_sraa call).
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate:** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> `[ FAIL 0 | ...]` (or pre-existing unrelated failures only — count must not increase).
-  - Specifically the two new tests must pass:
-    `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-correct-all-scales.R")' 2>&1 | tail -5` -> 2 PASS, 0 FAIL.
-- [ ] **Self-review checklist:**
-  - [ ] No lingering `order_sraa` references.
-  - [ ] greenkhorn_step semantics unchanged.
-  - [ ] No iota / stable_sort residue.
-  - [ ] errRp updates inside greenkhorn_step still drive the next argmax (verify by inspecting the greenkhorn_step lambda body for the in-place errRp[k_step] write).
-  - [ ] No K-related allocations leak from removed `order_sraa.assign`.
-- [ ] **Commit:**
-  ```bash
-  git add src/greenkhorn.cpp
-  git commit -m "$(cat <<'EOF'
-  fix(sraa): adaptive max_err-greedy step ordering in f_eval_sraa
-
-  Replace fixed K-step pre-sort with the same adaptive argmax(errRp) loop used by
-  plain greenkhorn. f_eval_sraa's fixed point now coincides with plain's
-  max_err-optimal fixed point, restoring AA quality on K>=3 overlapping-margin
-  problems (StepStone K=9). RED tests T_sraa_adaptive_K9 / T_sraa_raking_K9 GREEN.
-  EOF
-  )"
-  ```
-
----
-
-### Task A4 — Verify Track 2 and decide on Track 1
-
-- [ ] **Goal:** Re-run StepStone K=9 measurement and full test suite; decide whether Epic B is needed.
-- [ ] **Files touched:** none.
-- [ ] **Bead:** `bd create -t task -T "A4: SRAA Track 2 verification"` body
-  `Task verification ! pivot-without-data. Re-measure K=9 ratio. Decide Epic B necessity.`
-- [ ] **Commands & expected outputs:**
-  - Re-run the A1 baseline snippet (same script) -> `BASELINE me_aa=... me_plain=... ratio=R`.
-  - Pass criterion: `R <= 1.001`.
-  - Full suite:
-    `Rscript -e "devtools::test()" 2>&1 | tail -3` -> FAIL count not greater than the A1-recorded baseline (excluding the 2 new tests, which are now PASS).
-- [ ] **Decision:**
-  - If `ratio <= 1.001` AND no other regressions: STOP. Epic B is not needed — close A4 and skip Epic B.
-  - If `ratio > 1.001` OR a different SRAA test fails: HALT, log finding, proceed to Epic B (do NOT pivot to ad-hoc constant tuning).
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate:** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> FAIL=0 (or only pre-existing unrelated failures).
-- [ ] **Self-review checklist:**
-  - [ ] Decision recorded in bead comment with both ratios.
-  - [ ] No silent constant tuning.
-- [ ] **Commit:** none (read-only verification). Use `bd comment` to log the decision.
-
----
-
-## Epic B — Track 1: Plateau-Gated AA + Outer Revert
-
-Run only if Epic A's A4 verification fails. Strict TDD.
-
-### Task B1 — Add `aa_unlocked` lifecycle gate + constants to sraa.hpp
-
-- [ ] **Goal:** Introduce a lifecycle bit on `SRAAState` so the outer loops can defer AA activation until plateau is detected, and centralize the four Track-1 constants.
-- [ ] **Files touched:** `src/sraa.hpp`.
-- [ ] **Bead:** `bd create -t task -T "B1: aa_unlocked + plateau/revert constants"` body
-  `Task aa-unlocked-gate ! reset-on-clear. clear() must NOT touch aa_unlocked; outer loop owns lifecycle via enable_aa()/disable_aa().`
-- [ ] **Pre-edit verification:**
-  - `grep -n "aa_accepted_count\|kSRAARestartGamma\|sraa_step\|kSRAAMinCount" src/sraa.hpp` -> note exact line numbers for each landmark.
-  - Read the SRAAState struct, the constants block, and the `sraa_step` "Step 5" guard.
-- [ ] **Edits:**
-
-  **Edit 1 — add `aa_unlocked` field + enable/disable methods (insert immediately after `aa_accepted_count`):**
-
-  ```cpp
-  // Lifecycle gate owned by the outer loop. NOT reset by clear() — see
-  // enable_aa()/disable_aa() below. Outer loop sets it true after a plateau
-  // is detected and false after an outer revert, so AA cannot fire on the
-  // initial transient or after the iterate is restored to a known basin.
-  bool aa_unlocked = false;
-  void enable_aa()  { aa_unlocked = true;  }
-  void disable_aa() { aa_unlocked = false; }
-  ```
-
-  **Edit 2 — add four constants immediately after `kSRAARestartGamma`:**
-
-  ```cpp
-  // Track 1: plateau-gated AA + outer revert.
-  static constexpr double kSRAAPlateauEps      = 1e-3;  // 0.1%/iter improvement => plateau
-  static constexpr int    kSRAAPlateauWindow   = 4;     // 4 consecutive plateau iters => AA enabled
-  static constexpr double kSRAAOuterSlack      = 0.10;  // 10% above best_errRp => regression
-  static constexpr int    kSRAAOuterStallWindow = 5;    // 5 regressed outer iters => revert
-  ```
-
-  **Edit 3 — extend Step 5 guard in `sraa_step` to also short-circuit when `!state.aa_unlocked`:**
-  Replace:
-  ```cpp
-      if (state.count < kSRAAMinCount) {
-          std::swap(X, state.F_cur);
-          return {false, 1, err_plain};
-      }
-  ```
-  With:
-  ```cpp
-      // Not enough history OR outer loop has not unlocked AA -> plain step
-      if (state.count < kSRAAMinCount || !state.aa_unlocked) {
-          std::swap(X, state.F_cur);
-          return {false, 1, err_plain};
-      }
-  ```
-
-  **Edit 4 — confirm `clear()` does NOT touch `aa_unlocked`:**
-  - Read the existing `clear()` body. If it touches `aa_unlocked`, HALT — that is the spec contract.
-  - Add a comment immediately above `clear()`:
-    ```cpp
-    // Resets AA history (count, F/G/E buffers, accepted/rejected counters).
-    // Does NOT reset aa_unlocked — lifecycle is owned by the outer loop.
+    Adds T_sraa_adaptive_K9, T_sraa_raking_K9, T_sraa_outer_revert to
+    tests/testthat/test-sraa-global.R. Captures pre-fix per-K max(errRp)
+    on stepstone K∈{3,5,9} for SRAA-m vs plain greenkhorn/raking
+    (bench/sraa-m-baseline-pre.{log,csv}). Tests fail on master,
+    establishing the RED baseline for the combined fix in T2/T3.
+    EOF
+    )"
     ```
+  - [ ] `bd update ${T1_BEAD_ID} --status closed --comment "RED tests appended; baseline captured; failing as expected."`
 
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate (no behaviour change yet because nobody calls enable_aa):**
-  - With Track 2 already merged, all stepstone K=9 tests still PASS (B1 is purely adding dormant infrastructure).
-  - `Rscript -e "devtools::test()" 2>&1 | tail -3` -> FAIL not greater than post-A4.
-- [ ] **Self-review checklist:**
-  - [ ] `aa_unlocked` default = `false`.
-  - [ ] No outer-loop call to `enable_aa()` yet (callers come in B2/B3).
-  - [ ] Constants in the same `static constexpr` block as `kSRAARestartGamma`.
-  - [ ] Step 5 guard uses logical OR with `!state.aa_unlocked`.
-  - [ ] No edits to other AA acceptance criteria.
-- [ ] **Commit:**
-  ```bash
-  git add src/sraa.hpp
-  git commit -m "$(cat <<'EOF'
-  feat(sraa): aa_unlocked lifecycle gate + plateau/revert constants
+### Compile gate
 
-  Add an outer-loop-owned aa_unlocked bit on SRAAState plus four Track-1
-  constants (kSRAAPlateauEps, kSRAAPlateauWindow, kSRAAOuterSlack,
-  kSRAAOuterStallWindow). sraa_step now short-circuits to a plain step when
-  the outer loop has not yet unlocked AA. clear() deliberately does NOT
-  touch aa_unlocked — outer loop owns lifecycle.
-  EOF
-  )"
-  ```
+`R CMD INSTALL --preclean .` succeeds.
+
+### Test gate
+
+`Rscript -e 'testthat::test_file("tests/testthat/test-sraa-global.R", reporter = "summary")'` shows all three new tests FAIL (parquet present) or SKIP with explicit reason (parquet absent). No new test passes.
 
 ---
 
-### Task B2 — Plateau detection + outer revert in greenkhorn.cpp
+## Task 2: Combined Fix in greenkhorn.cpp + sraa.hpp
 
-- [ ] **Goal:** Wire the outer loop to detect plateau and trigger AA, and to revert to `X_best` when AA escapes the basin. **MUST MERGE** with the existing `curr_max` / `best_errRp` block in greenkhorn.cpp (~lines 192–196), not duplicate it.
-- [ ] **Files touched:** `src/greenkhorn.cpp`.
-- [ ] **Bead:** `bd create -t task -T "B2: greenkhorn outer plateau gate + revert"` body
-  `Task outer-revert-greenkhorn ! duplicate-curr_max. MERGE plateau/revert into existing best_errRp update at lines ~192-196. Use kSRAA* constants from sraa.hpp.`
-- [ ] **Pre-edit verification:**
-  - Read `src/greenkhorn.cpp` lines 60–210 — locate the existing block:
+**Mechanism:** Apply (A) two new constants in `sraa.hpp`, (B) adaptive-sort replacement in `greenkhorn.cpp::f_eval_sraa`, and (C) outer-loop revert merged into the existing best-tracking block. All three sub-changes ship in one commit because they are interdependent: the revert depends on the constants, and removing the fixed sort without the revert leaves no fallback for AA overshoots.
+
+**Forbidden:** No plateau gating. No `aa_unlocked` field. No new helper functions. No reformatting of unrelated lines. Do not modify the secondary `X_best = X` assignment at ~line 206 inside the convergence check. No tweaking of `kSRAARestartGamma` or any other existing constant. No partial commits — A, B, C land together.
+
+**Audit:** A unit-level spy is impractical for inline C++ logic; instead, T1's `T_sraa_adaptive_K9` and `T_sraa_outer_revert` tests directly observe the post-conditions (per-step argmax dispatch via the quality match; revert via the run-length assertion). The compile gate plus the full testthat suite is the authoritative audit.
+
+**Beads ticket:** `bd create --title "SRAA-m T2: adaptive-sort + outer revert in greenkhorn.cpp/sraa.hpp" --description "Task [adaptive argmax f_eval + 15-line outer revert merged with best-tracking; 2 constants in sraa.hpp] ! [plateau gating; aa_unlocked field; new helpers; partial commits; touching X_best=X at ~line 206]"` — capture as `${T2_BEAD_ID}`.
+
+### Steps
+
+- [ ] **2.1 Re-read anchors**
+  - [ ] Re-read `src/sraa.hpp` around `kSRAARestartGamma` to confirm exact insertion site and surrounding `static constexpr` style (semicolons, comment style, indentation).
+  - [ ] Re-read `src/greenkhorn.cpp` around: `f_eval_sraa` (lines ~120–155 for the order_sraa removal); the outer for-loop and the existing `if (curr_max < best_errRp) { ... }` block (~lines 188–200); and the secondary `X_best = X` at ~line 206 (verify it is inside the convergence/return path and confirm the "harmless no-op after revert" claim in the spec by tracing control flow).
+  - [ ] Confirm `S_stride`, `S_flat`, `W`, `ct.g_per_cell`, `st.cat_counts`, `compute_errRp_k`, and `errRp` are all in scope where the revert block lands. If any name differs (e.g., `S_stride` is locally `K_stride` or computed inline), record the actual identifier in `.wolf/memory.md` and use the actual name in the patch — do not invent.
+
+- [ ] **2.2 sraa.hpp — add 2 constants**
+  - [ ] Edit `src/sraa.hpp`. Immediately after the line declaring `kSRAARestartGamma`, insert:
     ```cpp
-    double curr_max = *std::max_element(errRp.begin(), errRp.end());
+    static constexpr double kSRAAOuterSlack = 0.10;
+    static constexpr int    kSRAAOuterStallWindow = 5;
+    ```
+  - [ ] Match surrounding indentation exactly. No new include. No comment unless the file's local style demands one — then mirror the form used near `kSRAARestartGamma`.
+
+- [ ] **2.3 greenkhorn.cpp — adaptive sort in f_eval_sraa**
+  - [ ] In `src/greenkhorn.cpp::f_eval_sraa`:
+    - [ ] **REMOVE** the declaration `std::vector<int> order_sraa;` (~line 127).
+    - [ ] **REMOVE** the init line `order_sraa.assign(K, 0);` (~line 131).
+    - [ ] **REMOVE** the fixed-sort block (~lines 146–149): the `std::iota(order_sraa.begin(), order_sraa.end(), 0);` followed by `std::stable_sort(order_sraa.begin(), order_sraa.end(), [&](int a, int b){ return errRp[a] > errRp[b]; });` and the dependent `for (int idx = 0; idx < K; ++idx) { int k = order_sraa[idx]; greenkhorn_step(k); }`.
+    - [ ] **ADD** in place of the removed loop:
+      ```cpp
+      for (int ki = 0; ki < K; ki++) {
+          int k_star = (int)(std::max_element(errRp.begin(), errRp.end()) - errRp.begin());
+          greenkhorn_step(k_star);
+      }
+      ```
+  - [ ] Confirm `<algorithm>` is already included (it is required for `std::max_element`); if not, add it once at the top of `greenkhorn.cpp`. Do not add `<numeric>` — `std::iota` is no longer needed in this function but may be used elsewhere; leave the include alone.
+
+- [ ] **2.4 greenkhorn.cpp — outer revert merged with best-tracking**
+  - [ ] Immediately before the outer `for` loop that bumps the SRAA outer iteration counter, insert: `int outer_stall_count = 0;`.
+  - [ ] Locate the existing block (~lines 192–196):
+    ```cpp
     if (curr_max < best_errRp) {
-        best_errRp = curr_max; res.best_error = best_errRp;
-        res.best_iter = res.iterations; X_best = X;
+        best_errRp = curr_max;
+        X_best = X;
     }
     ```
-  - Locate where outer-loop locals are declared (`best_errRp`, `X_best`, `S_flat`, `W`, `S_stride`, `M`, `K`, `errRp`, `compute_errRp_k`, `ct.g_per_cell`, `st.cat_counts`, `st.accelerate`, `grk_sraa`).
-  - Confirm `<limits>` is included (for `std::numeric_limits<double>::infinity()`).
-- [ ] **Edits:**
+  - [ ] Extend it in place to read exactly:
+    ```cpp
+    if (curr_max < best_errRp) {
+        best_errRp = curr_max;
+        X_best = X;
+        outer_stall_count = 0;
+    } else if (curr_max > best_errRp * (1.0 + kSRAAOuterSlack)) {
+        if (++outer_stall_count >= kSRAAOuterStallWindow) {
+            X = X_best;
+            grk_sraa.clear();
+            outer_stall_count = 0;
+            W = 0.0;
+            std::fill(S_flat.begin(), S_flat.end(), 0.0);
+            for (int c = 0; c < M; c++) {
+                W += X[c];
+                for (int k = 0; k < K; k++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k]) S_flat[k * S_stride + g] += X[c];
+                }
+            }
+            for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
+            best_errRp = *std::max_element(errRp.begin(), errRp.end());
+        }
+    } else {
+        outer_stall_count = 0;
+    }
+    ```
+  - [ ] Do **not** modify the secondary `X_best = X;` at ~line 206. The spec confirms it is a harmless no-op after revert (X already equals X_best at that point in the convergence path).
 
-  **Edit 1 — add three locals immediately above the outer `for` loop:**
+- [ ] **2.5 Compile gate**
+  - [ ] `R CMD INSTALL --preclean .` from repo root. Must succeed with zero warnings introduced by this change. If a warning fires (e.g., unused-variable on a leftover `order_sraa`-related symbol), halt and re-audit the removals — do not paper over with `(void)`.
 
-  ```cpp
-  double prev_outer_quality = std::numeric_limits<double>::infinity();
-  int    plateau_count      = 0;
-  int    outer_stall_count  = 0;
-  ```
+- [ ] **2.6 Run targeted tests**
+  - [ ] `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-global.R", reporter = "summary")' 2>&1 | tee bench/sraa-m-t2-tests.log`.
+  - [ ] Expectation: `T_sraa_adaptive_K9` and `T_sraa_outer_revert` now PASS. `T_sraa_raking_K9` may still fail (it depends on Task 3). If `T_sraa_adaptive_K9` or `T_sraa_outer_revert` still fail, **do not pivot**: halt, output `SPEC_FAILURE`, log root cause to `.wolf/buglog.json`, and stop.
+  - [ ] Run the full package suite: `Rscript -e 'devtools::test()' 2>&1 | tee bench/sraa-m-t2-fulltest.log`. Zero new failures outside the still-RED `T_sraa_raking_K9`.
 
-  **Edit 2 — REPLACE the existing curr_max/best_errRp block (lines ~192–196) with the merged plateau-gate + revert block:**
+- [ ] **2.7 Commit**
+  - [ ] Stage exactly: `src/sraa.hpp`, `src/greenkhorn.cpp`, `bench/sraa-m-t2-tests.log`, `bench/sraa-m-t2-fulltest.log`.
+  - [ ] Commit:
+    ```bash
+    git commit -m "$(cat <<'EOF'
+    fix(sraa): T2 — adaptive-sort f_eval + outer revert in greenkhorn
 
-  Old (delete exactly):
-  ```cpp
-          double curr_max = *std::max_element(errRp.begin(), errRp.end());
-          if (curr_max < best_errRp) {
-              best_errRp = curr_max; res.best_error = best_errRp;
-              res.best_iter = res.iterations; X_best = X;
-          }
-  ```
+    Replaces fixed K-margin sort in f_eval_sraa with per-step argmax
+    dispatch (eliminates basin multiplicity that drove the K>=3 quality
+    regression). Adds a 15-line outer-loop revert merged with the
+    existing best_errRp tracking block: if curr_max exceeds best_errRp
+    by >10% for 5 consecutive outer iters, X reverts to X_best, AA
+    history clears, and S_flat/W/errRp are rebuilt from scratch. Adds
+    kSRAAOuterSlack and kSRAAOuterStallWindow to sraa.hpp.
 
-  New (insert in its place):
-  ```cpp
-          // Track outer quality (single curr_max — do not duplicate above).
-          double curr_max = *std::max_element(errRp.begin(), errRp.end());
-          if (curr_max < best_errRp) {
-              best_errRp     = curr_max;
-              res.best_error = best_errRp;
-              res.best_iter  = res.iterations;
-              X_best         = X;
-          }
+    Greens T_sraa_adaptive_K9 and T_sraa_outer_revert; T_sraa_raking_K9
+    remains red until T3.
+    EOF
+    )"
+    ```
+  - [ ] `bd update ${T2_BEAD_ID} --status closed --comment "Adaptive sort + outer revert landed; 2/3 SRAA tests green."`
 
-          if (st.accelerate && K > 0) {
-              // Plateau detection: enable AA when outer-quality improvement saturates.
-              if (std::isfinite(prev_outer_quality)) {
-                  double impr = (prev_outer_quality - curr_max)
-                              / std::max(prev_outer_quality, 1e-15);
-                  plateau_count = (impr < kSRAAPlateauEps) ? plateau_count + 1 : 0;
-                  if (plateau_count >= kSRAAPlateauWindow) grk_sraa.enable_aa();
-              }
-              prev_outer_quality = curr_max;
+### Compile gate
 
-              // Outer revert: AA escaped the correct basin -> snap back to X_best.
-              if (grk_sraa.aa_unlocked
-                  && curr_max > best_errRp * (1.0 + kSRAAOuterSlack)) {
-                  if (++outer_stall_count >= kSRAAOuterStallWindow) {
-                      X = X_best;
-                      grk_sraa.clear();        // history reset; aa_unlocked untouched
-                      grk_sraa.disable_aa();   // re-require plateau before AA fires again
-                      plateau_count     = 0;
-                      outer_stall_count = 0;
+`R CMD INSTALL --preclean .` succeeds, no new warnings.
 
-                      // Rebuild W, S_flat, errRp from X = X_best.
-                      W = 0.0;
-                      std::fill(S_flat.begin(), S_flat.end(), 0.0);
-                      for (int c = 0; c < M; c++) {
-                          W += X[c];
-                          for (int k = 0; k < K; k++) {
-                              int g = ct.g_per_cell[k][c];
-                              if (g >= 0 && g < st.cat_counts[k])
-                                  S_flat[k * S_stride + g] += X[c];
-                          }
-                      }
-                      for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
-                      best_errRp         = *std::max_element(errRp.begin(), errRp.end());
-                      prev_outer_quality = best_errRp;
-                  }
-              } else {
-                  outer_stall_count = 0;
-              }
-          }
-  ```
+### Test gate
 
-- [ ] **Post-edit verification:**
-  - `grep -nc "double curr_max = \*std::max_element(errRp" src/greenkhorn.cpp` -> `1` (no duplicate).
-  - `grep -n "grk_sraa.enable_aa\|grk_sraa.disable_aa\|grk_sraa.aa_unlocked" src/greenkhorn.cpp` -> three matches.
-  - `grep -n "kSRAAPlateauEps\|kSRAAPlateauWindow\|kSRAAOuterSlack\|kSRAAOuterStallWindow" src/greenkhorn.cpp` -> four matches.
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate:** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> FAIL count <= post-A4 (no regression introduced; B4 will add the dedicated B-track tests).
-- [ ] **Self-review checklist:**
-  - [ ] Exactly one `curr_max` computation per outer iteration.
-  - [ ] `clear()` is called before `disable_aa()` to keep aa_unlocked semantics explicit.
-  - [ ] Revert rebuilds W, S_flat, errRp from `X = X_best` and reseeds `best_errRp`/`prev_outer_quality`.
-  - [ ] No edits outside the outer loop.
-  - [ ] No silent constant tweaks.
-- [ ] **Commit:**
-  ```bash
-  git add src/greenkhorn.cpp
-  git commit -m "$(cat <<'EOF'
-  feat(sraa): plateau-gated AA + outer revert in greenkhorn outer loop
-
-  Merge plateau detection and X_best revert into the existing curr_max /
-  best_errRp block. Defer AA activation until outer-quality improvement
-  saturates (kSRAAPlateauEps over kSRAAPlateauWindow iters). On a sustained
-  regression > kSRAAOuterSlack for kSRAAOuterStallWindow iters, snap back to
-  X_best, rebuild W/S_flat/errRp, clear AA history and re-lock aa_unlocked.
-  EOF
-  )"
-  ```
+`T_sraa_adaptive_K9` PASS; `T_sraa_outer_revert` PASS; full suite shows no regressions outside `T_sraa_raking_K9` (expected red until T3).
 
 ---
 
-### Task B3 — Plateau-gate + outer revert in raking.cpp (W_best pattern)
+## Task 3: Outer Revert in raking.cpp + Verify
 
-**CRITICAL STRUCTURAL NOTE:** Raking's SRAA path does NOT use `*std::max_element(errRp_vector)`.
-It uses the scalar `r.err_result` from `sraa_step` as the quality signal. There is NO
-`double curr_max = *std::max_element(errRp...)` line in raking.cpp. The B2 "MERGE with
-existing curr_max block" pattern does NOT apply here. Raking also needs NO errRp rebuild
-on revert — F_eval inside sraa_step recomputes everything from X.
+**Mechanism:** Mirror the outer-revert pattern in `raking.cpp`'s SRAA path. Raking's quality metric is the scalar `r.err_result`, not a vector argmax — so no `S_flat` rebuild is needed (the next `F_eval` recomputes derived state). Then run the full quality-gate stack: compile, full test suite, and the post-fix benchmark to compare against the T1 baseline.
 
-- [ ] **Goal:** Add plateau-gated AA + outer revert to the SRAA block in raking.cpp, using `r.err_result` as the quality signal and `W_best` as the best iterate.
-- [ ] **Files touched:** `src/raking.cpp`.
-- [ ] **Bead:** `bd create -t task -T "B3: raking outer plateau gate + revert"` body
-  `Task outer-revert-raking ! duplicate-S-flat-rebuild. raking uses r.err_result not errRp vector. Revert: X=W_best only (no rebuild). plateau uses r.err_result as curr_quality.`
-- [ ] **Pre-edit verification:**
-  ```bash
-  grep -n "W_best\|best_metric_seen\|rk_sraa\|r.err_result" src/raking.cpp | head -20
-  ```
-  Expected: `W_best` at multiple lines; `best_metric_seen` as scalar; `rk_sraa` at sraa_step call; `r.err_result` used for quality comparison.
+**Forbidden:** No `S_flat` rebuild in raking (raking's `F_eval` reconstructs derived state on the next call — adding a manual rebuild duplicates work and risks divergence). No introduction of vector `errRp` semantics into raking. No changes to `greenkhorn.cpp` or `sraa.hpp` in this task. No skipping the full benchmark re-run.
 
-- [ ] **Add three locals** at the start of the `if (st.accelerate)` SRAA block (after `lbw::SRAAState rk_sraa; rk_sraa.init(...)` or equivalent):
-  ```cpp
-  double prev_outer_quality_rk = std::numeric_limits<double>::infinity();
-  int rk_plateau_count = 0, rk_outer_stall_count = 0;
-  ```
+**Audit:** `T_sraa_raking_K9` directly observes the post-condition (raking SRAA matches plain raking within 2% on K=9). The benchmark CSV diff (`bench/sraa-m-baseline-pre.csv` vs `bench/sraa-m-baseline-post.csv`) audits across all K.
 
-- [ ] **Insert plateau + revert block** AFTER the existing `if (r.err_result < best_metric_seen) { ... W_best = X; }` block (which already exists — do NOT modify it):
-  ```cpp
-  // Plateau detection + outer revert (Track 1 safety net)
-  {
-      double curr_quality_rk = r.err_result;
-      if (std::isfinite(prev_outer_quality_rk)) {
-          double impr = (prev_outer_quality_rk - curr_quality_rk) /
-                        std::max(prev_outer_quality_rk, 1e-15);
-          rk_plateau_count = (impr < kSRAAPlateauEps) ? rk_plateau_count + 1 : 0;
-          if (rk_plateau_count >= kSRAAPlateauWindow) rk_sraa.enable_aa();
-      }
-      prev_outer_quality_rk = curr_quality_rk;
-      if (rk_sraa.aa_unlocked &&
-          curr_quality_rk > best_metric_seen * (1.0 + kSRAAOuterSlack)) {
-          if (++rk_outer_stall_count >= kSRAAOuterStallWindow) {
-              X = W_best;               // revert; no S_flat/errRp rebuild — F_eval handles it
-              rk_sraa.clear();          // clear() does NOT reset aa_unlocked
-              rk_sraa.disable_aa();
-              rk_plateau_count = 0; rk_outer_stall_count = 0;
-              prev_outer_quality_rk = best_metric_seen;
-          }
-      } else { rk_outer_stall_count = 0; }
-  }
-  ```
+**Beads ticket:** `bd create --title "SRAA-m T3: outer revert in raking.cpp + verify" --description "Task [scalar-metric outer revert in raking SRAA path; full suite + post-fix benchmark] ! [S_flat rebuild in raking; touching greenkhorn/sraa.hpp; skipping benchmark]"` — capture as `${T3_BEAD_ID}`.
 
-- [ ] **Post-edit verification:**
-  ```bash
-  grep -n "rk_plateau_count\|rk_sraa.enable_aa\|prev_outer_quality_rk" src/raking.cpp
-  ```
-  Must return ≥3 matches. No `X_best` or `best_errRp` in raking.cpp.
+### Steps
 
-  ```bash
-  grep -c "X = W_best" src/raking.cpp
-  ```
-  Must return exactly `1` (the new revert line).
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate:** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> FAIL count not greater than post-B2.
-- [ ] **Self-review checklist:**
-  - [ ] Names substituted consistently (no stray `X_best`/`grk_sraa`/`best_errRp` in raking.cpp).
-  - [ ] Single curr_max in raking.cpp.
-  - [ ] Rebuild block matches raking's existing init style.
-  - [ ] No edits outside the raking outer loop.
-- [ ] **Commit:**
-  ```bash
-  git add src/raking.cpp
-  git commit -m "$(cat <<'EOF'
-  feat(sraa): plateau-gated AA + outer revert in raking outer loop
+- [ ] **3.1 Re-read anchor**
+  - [ ] Re-read `src/raking.cpp` SRAA block. Locate:
+    - the `int rk_outer` (or equivalent) loop entry,
+    - the `if (r.err_result < best_metric_seen) { ... W_best = X; }` block (this is the insertion target),
+    - the `rk_sraa` history container (used for `.clear()`).
+    Record actual identifier names in `.wolf/memory.md` if any differ from the spec's shorthand; use actual names in the patch.
 
-  Mirror the greenkhorn Track-1 changes using raking's existing names
-  (W_best, best_metric_seen, rk_sraa). Uses r.err_result as quality signal.
-  Revert snaps X=W_best only — no S_flat/errRp rebuild needed because
-  F_eval recomputes everything from X on the next sraa_step call.
-  EOF
-  )"
-  ```
+- [ ] **3.2 raking.cpp — scalar outer revert**
+  - [ ] At SRAA block entry (just before the outer SRAA loop), add: `int rk_outer_stall_count = 0;`.
+  - [ ] Immediately after the existing `if (r.err_result < best_metric_seen) { ... W_best = X; }` block, append:
+    ```cpp
+    {
+        double curr_quality_rk = r.err_result;
+        if (curr_quality_rk > best_metric_seen * (1.0 + kSRAAOuterSlack)) {
+            if (++rk_outer_stall_count >= kSRAAOuterStallWindow) {
+                X = W_best;          // F_eval rebuilds derived state on next call
+                rk_sraa.clear();
+                rk_outer_stall_count = 0;
+            }
+        } else {
+            rk_outer_stall_count = 0;
+        }
+    }
+    ```
+  - [ ] Also reset `rk_outer_stall_count = 0;` inside the existing improvement branch (to mirror the greenkhorn semantics: a successful improvement clears the stall counter). If the existing block is `if (r.err_result < best_metric_seen) { best_metric_seen = r.err_result; W_best = X; }`, extend it to `{ best_metric_seen = r.err_result; W_best = X; rk_outer_stall_count = 0; }`.
+  - [ ] Confirm `kSRAAOuterSlack` and `kSRAAOuterStallWindow` are visible via the existing `sraa.hpp` include. If `raking.cpp` does not already include `sraa.hpp`, add `#include "sraa.hpp"` at the top in alphabetical order with the other project includes.
 
----
+- [ ] **3.3 Compile gate**
+  - [ ] `R CMD INSTALL --preclean .`. Zero new warnings.
 
-### Task B4 — Plateau-gate + outer-revert tests + verify
+- [ ] **3.4 Full test suite**
+  - [ ] `Rscript -e 'devtools::test()' 2>&1 | tee bench/sraa-m-t3-fulltest.log`.
+  - [ ] All three SRAA tests must be GREEN. No regression elsewhere. If `T_sraa_raking_K9` still fails, halt with `SPEC_FAILURE`, log to `.wolf/buglog.json`, do **not** pivot.
 
-- [ ] **Goal:** Add two RED tests that pin the plateau gate (proxy: iteration count) and the K=6 outer-revert quality, then confirm all four SRAA correctness tests are GREEN.
-- [ ] **Files touched:** `tests/testthat/test-sraa-correct-all-scales.R` (append), no other code edits.
-- [ ] **Bead:** `bd create -t task -T "B4: plateau-gate + outer-revert tests"` body
-  `Task track1-tests ! tighter-tolerance. Iteration-count proxy for plateau gate; K=6 stepstone-style synthetic for outer revert.`
-- [ ] **Append exactly** to `tests/testthat/test-sraa-correct-all-scales.R`:
+- [ ] **3.5 Post-fix benchmark + comparison**
+  - [ ] `Rscript bench/sraa-stepstone-bench.R 2>&1 | tee bench/sraa-m-baseline-post.log` (same script used in T1).
+  - [ ] Persist post-fix per-K results to `bench/sraa-m-baseline-post.csv` with the same schema as `bench/sraa-m-baseline-pre.csv`.
+  - [ ] Generate `bench/sraa-m-baseline-diff.md` via:
+    ```bash
+    Rscript -e 'pre <- data.table::fread("bench/sraa-m-baseline-pre.csv"); post <- data.table::fread("bench/sraa-m-baseline-post.csv"); m <- merge(pre, post, by = c("method","K"), suffixes = c("_pre","_post")); m[, delta_pct := 100 * (max_errRp_post - max_errRp_pre) / max_errRp_pre]; data.table::fwrite(m, "bench/sraa-m-baseline-diff.csv"); cat("# SRAA-m baseline diff\n\n", file = "bench/sraa-m-baseline-diff.md"); knitr::kable(m) |> as.character() |> cat(sep = "\n", file = "bench/sraa-m-baseline-diff.md", append = TRUE)'
+    ```
+  - [ ] Inspect the diff. Required outcomes (else `SPEC_FAILURE`, do not pivot):
+    - SRAA-m at K=9: `max_errRp_post` within 2% of plain greenkhorn at K=9.
+    - SRAA-raking at K=9: `max_errRp_post` within 2% of plain raking at K=9.
+    - No K (3, 5, 9) regresses by more than the spec-stated tolerance vs the pre-fix value of plain greenkhorn / raking.
+    - Wallclock for SRAA-m at K=9 is not >2x plain greenkhorn (sanity guardrail; the revert should be rare).
+  - [ ] Trace every code path of the diff in writing in the commit body: outer-improve branch (counter resets), small-stall branch (counter increments but no revert), revert-fires branch, raking scalar-metric branch. Explicitly state outcomes for unoptimized (already-converged) paths.
 
-```r
-test_that("T_sraa_plateau_gate: greenkhorn+AA early iters run plain-only before plateau", {
-  # With kSRAAPlateauWindow=4, AA cannot fire in first 4 outer iterations.
-  # Proxy: max_iterations=4 means 4 outer iters; iters_aa must equal iters_plain
-  # (all plain: K*1 each, not K*2 for AA accepted steps).
-  set.seed(99); n <- 2000L
-  df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)), y=factor(sample(c("M","F"),n,TRUE)))
-  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
-  r_aa    <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=TRUE,
-                                       max_iterations=4L,attach_weights=FALSE))
-  r_plain <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=FALSE,
-                                       max_iterations=4L,attach_weights=FALSE))
-  expect_equal(attr(r_aa,"result")$iterations, attr(r_plain,"result")$iterations,
-    label="Before plateau, AA must not fire — iterations must match plain (K*1 per outer iter)")
-})
+- [ ] **3.6 Commit**
+  - [ ] Stage exactly: `src/raking.cpp`, `bench/sraa-m-t3-fulltest.log`, `bench/sraa-m-baseline-post.log`, `bench/sraa-m-baseline-post.csv`, `bench/sraa-m-baseline-diff.csv`, `bench/sraa-m-baseline-diff.md`.
+  - [ ] Commit:
+    ```bash
+    git commit -m "$(cat <<'EOF'
+    fix(sraa): T3 — outer revert in raking SRAA path + verify
 
-test_that("T_sraa_outer_revert: greenkhorn+AA K=6 quality recovers to <= plain with Track 1", {
-  set.seed(42); n <- 8000L
-  df <- data.frame(gender=factor(sample(c("M","F"),n,TRUE)),
-                   time=factor(sample(1:3,n,TRUE)), age=factor(sample(1:4,n,TRUE)))
-  df$gt <- factor(paste0(df$gender,df$time))
-  df$ga <- factor(paste0(df$gender,df$age))
-  df$ta <- factor(paste0(df$time,df$age))
-  gt_t <- table(df$gt)/n; ga_t <- table(df$ga)/n; ta_t <- table(df$ta)/n
-  tgt <- list(gender=c(M=0.48,F=0.52), time=setNames(c(0.4,0.35,0.25),1:3),
-    age=setNames(c(0.3,0.25,0.25,0.2),1:4),
-    gt={t<-setNames(as.numeric(gt_t)*c(0.95,1.02,0.98,1.03,0.97,1.05),names(gt_t));t/sum(t)},
-    ga={t<-setNames(as.numeric(ga_t),names(ga_t));t/sum(t)},
-    ta={t<-setNames(as.numeric(ta_t),names(ta_t));t/sum(t)})
-  tgt <- lapply(tgt, function(t) t/sum(t))
-  r_aa    <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=TRUE,
-                                       max_iterations=200L,attach_weights=FALSE))
-  r_plain <- suppressWarnings(harvest(df,tgt,method="greenkhorn",accelerate=FALSE,
-                                       max_iterations=200L,attach_weights=FALSE))
-  me_aa    <- attr(r_aa,   "result")$max_error
-  me_plain <- attr(r_plain,"result")$max_error
-  expect_lte(me_aa, me_plain * 1.001 + 1e-10,
-    label=sprintf("K=6 Track1: AA (%.2e) must not exceed plain (%.2e)", me_aa, me_plain))
-})
-```
+    Mirrors the greenkhorn outer-revert pattern in raking.cpp using the
+    scalar r.err_result metric. No S_flat rebuild — F_eval reconstructs
+    derived state on the next call. Closes T_sraa_raking_K9.
 
-- [ ] **Compile gate:** `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] **Test gate:** `Rscript -e "devtools::test()" 2>&1 | tail -3` -> `[ FAIL 0 | ...]` (or only pre-existing unrelated failures).
-  - Targeted: `Rscript -e 'testthat::test_file("tests/testthat/test-sraa-correct-all-scales.R")' 2>&1 | tail -5` -> 4 PASS, 0 FAIL.
-- [ ] **Self-review checklist:**
-  - [ ] All four tests live in one file.
-  - [ ] Plateau-gate test asserts equality of iteration counts (no fragile timing).
-  - [ ] K=6 test seed-deterministic.
-  - [ ] No constant tuning to make tests pass — if a test fails, fix the algorithm or HALT.
-  - [ ] All four SRAA correctness tests still PASS together (Track-2 tests must not regress).
-- [ ] **Commit:**
-  ```bash
-  git add tests/testthat/test-sraa-correct-all-scales.R
-  git commit -m "$(cat <<'EOF'
-  test(sraa): plateau-gate iteration proxy + K=6 outer-revert correctness
+    Post-fix stepstone benchmark (bench/sraa-m-baseline-{post,diff}.{csv,md})
+    confirms SRAA-m and SRAA-raking at K=9 land within 2% of their plain
+    counterparts, eliminating the 35% K>=3 regression.
 
-  Add T_sraa_plateau_gate (asserts AA cannot fire before kSRAAPlateauWindow,
-  via iteration-count equality with plain) and T_sraa_outer_revert (K=6
-  overlapping-margin synthetic where Track 1 must keep AA<=plain*1.001).
-  Together with T_sraa_adaptive_K9 / T_sraa_raking_K9 the suite pins
-  correct-all-scales behaviour.
-  EOF
-  )"
-  ```
+    Trace per branch: improve resets counter; small stall increments
+    only; revert fires after 5 consecutive >10% excursions and clears
+    AA history; raking scalar path uses W_best (F_eval rebuilds state).
+    EOF
+    )"
+    ```
+  - [ ] `bd update ${T3_BEAD_ID} --status closed --comment "raking outer revert landed; full suite green; baseline diff verifies K∈{3,5,9}."`
+
+### Compile gate
+
+`R CMD INSTALL --preclean .` succeeds, zero new warnings.
+
+### Test gate
+
+`devtools::test()` fully green; all three new SRAA tests pass; no regression elsewhere.
+
+### Benchmark gate
+
+`bench/sraa-m-baseline-diff.md` shows: SRAA-m K=9 within 2% of plain greenkhorn K=9; SRAA-raking K=9 within 2% of plain raking K=9; no K regresses beyond spec tolerance; wallclock not >2x plain.
 
 ---
 
-## Done Definition (entire effort)
+## Session Close (after Task 3)
 
-- [ ] Track 2 (Epic A) merged. Stepstone K=9 ratio AA/plain <= 1.001 on both greenkhorn and raking.
-- [ ] If A4 fails, Track 1 (Epic B) merged. All four tests in `tests/testthat/test-sraa-correct-all-scales.R` GREEN.
-- [ ] No SRAA constants tuned to "make tests pass" — every constant traces to spec.
-- [ ] No surface patches to AA acceptance criteria.
-- [ ] `R CMD INSTALL --preclean . 2>&1 | tail -3` -> `* DONE (leafblower)`.
-- [ ] `Rscript -e "devtools::test()" 2>&1 | tail -3` shows no new FAIL beyond pre-existing unrelated failures.
-- [ ] Each commit message follows Conventional Commits and explains "why", not "what".
-- [ ] No `--no-verify`, no `--amend`, no `git push --force`.
-- [ ] After all commits, push: `git pull --rebase && git push`.
+- [ ] `git pull --rebase`
+- [ ] `bd dolt push`
+- [ ] `git push`
+- [ ] `git status` — must show `up to date with origin`.
+- [ ] If push fails, resolve and retry. Do not stop with work stranded locally.
 
-## Halt Rules (`SPEC_FAILURE`)
-
-- If A3's adaptive sort change does not bring K=9 ratio to <= 1.001 AND the K=9 raking test still fails after Epic B: emit `SPEC_FAILURE`. Do NOT pivot to constant tuning, do NOT relax tolerances, do NOT change SRAA acceptance criteria.
-- If `clear()` is found to reset `aa_unlocked` (contract violation): emit `SPEC_FAILURE`.
-- If a duplicate `curr_max` computation appears in greenkhorn.cpp after B2: emit `SPEC_FAILURE`.
-- NOTE: greenkhorn.cpp has a second `X_best = X;` at line ~206 inside the convergence check
-  (`if (converged) { ... X_best = X; break; }`). This is NOT a duplicate quality block — it is
-  the convergence-triggered snapshot. Do NOT modify line 206. After B2's revert sets `X=X_best`,
-  if convergence fires, `X_best = X` is a no-op (both already equal). Correct behavior.
+PLAN_COMPLETE
