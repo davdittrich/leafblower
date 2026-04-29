@@ -118,7 +118,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                                      cat_offset.data(), K, (size_t)nct) == RK_OK &&
             ldlt_factor_inplace(N_init.data(), (size_t)nct, 1e-10) == RK_OK) {
             ldlt_solve(N_init.data(), (size_t)nct, b_init.data());
-            lambda = b_init;  // replace zero-init with LS solution
+            lambda = std::move(b_init);  // replace zero-init with LS solution
         }
         // if factor fails: lambda stays zero (silent fallback)
     }
