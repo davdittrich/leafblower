@@ -473,6 +473,19 @@ harvest <- function(
   # Make algorithm_used human-readable string (attr(r,"result")$algorithm_used == "greenkhorn")
   calib_result$algorithm_used <- alg_used
 
+  # Quality-check warning: greg may be unreliable when max_err > 5%
+  if (alg_used == "greg" &&
+      !is.null(calib_result$max_error) &&
+      is.finite(calib_result$max_error) &&
+      calib_result$max_error > 0.05) {
+    warning(sprintf(
+      paste0("greg converged but max_err=%.4g (>5%%). ",
+             "greg may be unreliable for K=%d margins or tight bounds ",
+             "(max_weight=%.4g). Consider method='raking' or 'ieppa'."),
+      calib_result$max_error, length(target), max_weight),
+      call. = FALSE)
+  }
+
   if (!attach_weights) {
     attr(weights, "result")     <- calib_result
     attr(weights, "algorithm")  <- alg_used
