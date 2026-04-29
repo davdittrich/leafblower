@@ -1,0 +1,8 @@
+raking           ...  wall=   2.4s  iters=  50  status=5  max_err=1.6015e-03  L1=7.8897e-02  chi2=1.270e+04  marg_kl=5.252e-03  weight_kl=3.527e-01  DEFF=1.9579  ESS=808,370  wmin=0.000  wmax=5.000
+raking+squarem   ...  wall=   2.4s  iters=  36  status=0  max_err=2.9360e-03  L1=1.1548e-01  chi2=1.451e+04  marg_kl=5.854e-03  weight_kl=3.523e-01  DEFF=1.9554  ESS=809,408  wmin=0.000  wmax=5.000
+greenkhorn       ...  wall=   3.3s  iters=1030  status=0  max_err=1.5714e-03  L1=1.4499e-01  chi2=2.151e+04  marg_kl=8.868e-03  weight_kl=0.000e+00  DEFF=1.9625  ESS=806,492  wmin=0.000  wmax=5.000
+greenkhorn+squarem ...  wall=   3.2s  iters= 576  status=0  max_err=2.1188e-03  L1=3.4445e-02  chi2=6.975e+02  marg_kl=5.933e-04  weight_kl=0.000e+00  DEFF=2.0743  ESS=763,013  wmin=0.000  wmax=5.000
+  ieppa ↔ raking                r=0.996967
+  ieppa ↔ raking+squarem        r=0.996870
+  ieppa ↔ greenkhorn            r=0.979707
+  ieppa ↔ greenkhorn+squarem    r=0.959205
