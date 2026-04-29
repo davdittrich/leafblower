@@ -232,6 +232,27 @@ test_that("T8: logit max_err within 2x of raking on tight-bounds problem", {
   me_logit <- attr(r_logit, "result")$max_error
   expect_lt(me_logit, 2.0 * me_rk + 1e-6)
 })
+
+# ── T_acc: Greenkhorn with accelerate=TRUE (SQUAREM round-level acceleration) ─
+
+test_that("Tacc: greenkhorn with accelerate=TRUE runs without error and converges", {
+  set.seed(99); n <- 2000L
+  df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),
+                    y=factor(sample(c("M","F"),n,TRUE)))
+  tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
+  r_acc   <- harvest(df, tgt, method="greenkhorn", accelerate=TRUE,  max_iterations=500L)
+  r_plain <- harvest(df, tgt, method="greenkhorn", accelerate=FALSE, max_iterations=500L)
+  me_acc   <- attr(r_acc,   "result")$max_error
+  me_plain <- attr(r_plain, "result")$max_error
+  # Both must converge to good quality
+  expect_lt(me_acc, 1e-3)
+  # Accelerated must not massively regress in iterations vs plain
+  iters_acc   <- attr(r_acc,   "result")$iterations
+  iters_plain <- attr(r_plain, "result")$iterations
+  expect_lt(iters_acc, iters_plain * 2L,
+    label=sprintf("accelerate=TRUE used %d rounds vs plain %d; must not be >2x worse",
+                  iters_acc, iters_plain))
+})
 ```
 
 ### Step 3: Verify tests RED (before implementation)
@@ -256,6 +277,7 @@ Rscript -e "devtools::test(filter='calibration-solvers')" 2>&1 | tail -20
 # T6 PASS: bounds respected; n_iters < 50 AND < n_rk
 # T7 PASS: logit max_err < 1e-4
 # T8 PASS: logit max_err < 2 * raking max_err + 1e-6
+# Tacc PASS: greenkhorn accelerate=TRUE max_err < 1e-3; iters < 2 * plain iters
 ```
 
 ### Step 5: Verify FAIL count invariant
@@ -292,4 +314,5 @@ test: add T1-T8 Greenkhorn and Logit calibration tests from spec
 | AC-E1c | `devtools::test()` FAIL == 3 | E1 commit |
 | AC-E2a | T1–T4 PASS (greenkhorn) | Post A–D build |
 | AC-E2b | T5–T8 PASS (logit) | Post A–D build |
-| AC-E2c | `devtools::test()` FAIL == 3 | Post A–D build |
+| AC-E2c | T_acc PASS (greenkhorn accelerate=TRUE) | Post A–D build |
+| AC-E2d | `devtools::test()` FAIL == 3 | Post A–D build |
