@@ -17,9 +17,7 @@ ChebyshevResult chebyshev_ipm(
     const std::vector<double>& w_warm_obs,
     double      delta_warm)
 {
-    // w_warm_obs and delta_warm: warm-start params wired in T3; initialization used in T4.
-    (void)w_warm_obs;
-    (void)delta_warm;
+    // w_warm_obs / delta_warm: warm-start from ieppa obs-level weights (T4).
     static constexpr int    kMaxIpm    = 500;   // hard cap; user controls via max_iterations
     static constexpr double kSigma     = 0.1;    // centering parameter
     static constexpr double kTolMu     = 1e-6;   // complementarity gap convergence threshold
@@ -111,9 +109,29 @@ ChebyshevResult chebyshev_ipm(
         // Invariant: nr == nct_red
     }
 
-    // Initial cell masses
+    // Initial cell masses — cold start from current obs weights
     std::vector<double> X_init(ct.M_cell, 0.0);
     for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
+
+    // Warm-start override: aggregate ieppa obs-level weights → cell masses,
+    // then apply mass-preserving clamp (clamp → rescale → reclamp).
+    if (!w_warm_obs.empty() && static_cast<int>(w_warm_obs.size()) == st.n) {
+        std::vector<double> X_warm(ct.M_cell, 0.0);
+        for (int i = 0; i < st.n; i++)
+            X_warm[ct.cell_of[i]] += w_warm_obs[i];
+
+        double total_pre = 0.0, total_post = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) total_pre  += X_warm[c];
+        for (int c = 0; c < ct.M_cell; c++)
+            X_warm[c] = std::clamp(X_warm[c], L_cell[c], U_cell[c]);
+        for (int c = 0; c < ct.M_cell; c++) total_post += X_warm[c];
+        if (total_post > 0.0 && total_pre > 0.0) {
+            double scale = total_pre / total_post;
+            for (int c = 0; c < ct.M_cell; c++)
+                X_warm[c] = std::clamp(X_warm[c] * scale, L_cell[c], U_cell[c]);
+        }
+        X_warm.swap(X_init);  // O(1) — X_init now holds warm-start masses
+    }
 
     // Marginal sum helper
     auto compute_S = [&](const std::vector<double>& Xv, std::vector<double>& Sv) {
@@ -148,6 +166,11 @@ ChebyshevResult chebyshev_ipm(
     for (int m = 0; m < nct; m++)
         delta = std::max(delta, std::fabs(S[m]-T_flat[m]*W_init_pre) / w_kj[m]);
     delta = 1.1*delta + 1e-8;
+    // delta_warm (ieppa's calibration error, reserved for T5 Mehrotra predictor-corrector).
+    // Do NOT apply it here: ieppa's max_error has different units from the LP delta
+    // (which is max_m |S[m]/W - T[m]| / w_kj[m]). Using ieppa's max_error directly
+    // collapses s_up/s_dn to kEps and causes immediate INFEAS.
+    (void)delta_warm;
 
     // Primal slacks
     std::vector<double> s_lo(ct.M_cell), s_hi(ct.M_cell);
