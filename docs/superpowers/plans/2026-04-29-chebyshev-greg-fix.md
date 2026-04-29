@@ -270,7 +270,7 @@ struct ChebyshevResult {
     double max_error;
     int    n_factorizations;   // Mehrotra audit counter (one LDLT per outer iter)
     char   message[256];
-    std::vector<double> weights;   // obs-level
+    std::vector<double> best_weights;   // obs-level (matches existing ChebyshevResult field name)
 };
 
 ChebyshevResult chebyshev_ipm(
@@ -326,7 +326,18 @@ ChebyshevResult chebyshev_ipm(
 
 Add `#include "ieppa.hpp"` only if not already present (it is NOT needed in chebyshev.cpp itself — pre-solve happens in r_bridge.cpp).
 
-- [ ] 3.5 Update `src/r_bridge.cpp` chebyshev/grake dispatch (replace existing call sites near line 488). Locate the `else if (strcmp(method_str, "chebyshev") == 0)` and `else if (strcmp(method_str, "grake") == 0)` branches and rewrite as a single shared block:
+- [ ] 3.5 Update `src/r_bridge.cpp` chebyshev/grake dispatch. **CRITICAL**: The actual code does NOT use bare `else if (strcmp...)` branches. It uses a `dispatch_cheb` lambda at ~line 526:
+  ```cpp
+  auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
+      auto res = lbw::chebyshev_ipm(st, variant);   // line 527 — this is what to replace
+      ...
+  };
+  if (strcmp(method_str, "chebyshev") == 0)      dispatch_cheb(LpVariant::CHEBYSHEV, ...);
+  else if (strcmp(method_str, "grake") == 0)     dispatch_cheb(LpVariant::GRAKE, ...);
+  ```
+  Verify with: `grep -n "dispatch_cheb\|LpVariant::CHEBYSHEV\|LpVariant::GRAKE" src/r_bridge.cpp | head -10`
+  
+  Modify `dispatch_cheb` to accept `w_warm_obs` and `delta_warm`, or replace it with an inline block. The warm-start pre-solve runs BEFORE both chebyshev and grake dispatch (both use the same ieppa pre-solve). Restructure as:
 
 ```cpp
 } else if (strcmp(method_str, "chebyshev") == 0 ||
@@ -810,8 +821,10 @@ for (int iter = 0; iter < max_ipm; iter++) {
 ```
 
 Notes:
-- `recover_directions(sigma, dlam_full, ...)` is a refactor of the existing per-pair recovery code in lines ~390-401 of chebyshev.cpp. Lift it into a lambda or static helper at the top of `chebyshev_ipm` so Phase A (sigma=0) and Phase B (sigma>0) share the formula.
-- `build_N_red` and `ldlt_factor`/`ldlt_solve` likely already exist as inline blocks; lift them to lambdas/helpers if not. Keep them strictly within `chebyshev_ipm`'s translation unit (no new public symbols).
+- `recover_directions(sigma, dlam_full, ...)`: **does NOT exist as a named function** — it must be WRITTEN AS A NEW LAMBDA inside `chebyshev_ipm`, extracting the per-pair recovery logic from lines ~390-401 of chebyshev.cpp. Read those lines first, then write the lambda so Phase A (sigma=0) and Phase B (sigma>0) share the formula.
+- `build_N_red`: **also does NOT exist as a named helper** — `N_red` is built inline at lines ~175-178. Extract this into a lambda if the Mehrotra loop needs to call it twice; otherwise, build it once and reuse the factored form across Phase A and Phase B. The key: LDLT-factor N once per outer iteration, solve twice (Phase A RHS, Phase B RHS). Do NOT refactor N between phases.
+- `ldlt_factor`/`ldlt_solve` USE the existing `lbw::ldlt_factor_inplace` and `lbw::ldlt_solve` from `calib_linalg.hpp` — these DO exist. No new helpers needed for these.
+- Before writing ANY Phase A/B code, read `src/chebyshev.cpp` lines 83-420 fully to understand the existing IPM structure. The reviewer confirmed `N_red` exists (lines ~175-178) but `build_N_red` as a callable does not.
 - The schur_nu diagnostic at lines 322-356 still runs once at iter 0 against the RAW (pre-Jacobi) N — preserve it before step 3 of the new loop.
 
 - [ ] 5.4 Set `res.n_factorizations = iter_count` at return so the audit counter is exposed in the C++ result. Pass through to R via `r_bridge.cpp` if a return-list field already aggregates diagnostics; otherwise add `n_factorizations` to the SEXP list returned (named "n_factorizations").
