@@ -342,7 +342,22 @@ SRAAStepResult sraa_step(
 #include "sraa.hpp"
 ```
 
-### Step 3.2 — Remove SQUAREM scratch declarations
+### Step 3.2 — Remove old F_eval lambda (dead code after SRAA)
+
+The existing `auto F_eval` at line ~124 is a 3-parameter lambda used only by the SQUAREM block.
+After SRAA replaces the block, it becomes dead code.
+
+- [ ] Locate and DELETE the block starting with:
+```cpp
+    auto F_eval = [&](std::vector<double>& X_in,
+                      std::vector<double>& S_in,
+                      double& W_in) {
+```
+Run to find it: `grep -n "auto F_eval" src/greenkhorn.cpp`
+
+Delete through the closing `};` of the lambda.
+
+### Step 3.3 — Remove SQUAREM scratch declarations
 
 - [ ] Find the block beginning with the comment `// SQUAREM scratch buffers` (approx lines 139-148). Delete the entire block:
 
@@ -391,7 +406,7 @@ auto f_eval_sraa = [&](std::vector<double>& Xv) -> double {
 };
 ```
 
-### Step 3.3 — Replace the SQUAREM CBB block inside the main loop
+### Step 3.4 — Replace the SQUAREM CBB block inside the main loop
 
 - [ ] Locate the block guarded by `if (st.accelerate && K > 0) { ... CBB + extrapolation + accept/reject ... res.iterations += K * 3; }` (the SQUAREM body, approx lines 165-205). Replace the entire body with:
 
@@ -405,17 +420,17 @@ if (st.accelerate && K > 0) {
 
 Make sure the `else` branch (plain greenkhorn step) is preserved unchanged.
 
-### Step 3.4 — Compile gate
+### Step 3.5 — Compile gate
 
 - [ ] Run: `cd /home/dd/Gemini/leafblower && R CMD INSTALL --preclean . 2>&1 | tail -3`
 - [ ] Expected: ends with `* DONE (leafblower)`. If link error mentions `ldlt_factor_inplace`, confirm `calib_linalg.hpp` exposes it in the `lbw` namespace.
 
-### Step 3.5 — Greenkhorn test gate
+### Step 3.6 — Greenkhorn test gate
 
 - [ ] Run: `cd /home/dd/Gemini/leafblower && Rscript -e "devtools::test(filter='calibration-solvers')" 2>&1 | tail -10`
 - [ ] Expected: `T_sraa_grk`, `T_sraa_ldlt_fallback`, `T_sraa_restart` PASS. `T_sraa_rk` may still fail (raking not migrated yet).
 
-### Step 3.6 — Commit
+### Step 3.7 — Commit
 
 - [ ] `cd /home/dd/Gemini/leafblower && git add src/greenkhorn.cpp && git commit -m "feat(sraa): integrate SRAA-m into greenkhorn, remove SQUAREM CBB"`
 
@@ -424,7 +439,7 @@ Make sure the `else` branch (plain greenkhorn step) is preserved unchanged.
 ## Task 4 — Integrate SRAA into raking.cpp (remove SQUAREM)
 
 **Mechanism:** Replace inner SQUAREM while-loop with single `lbw::sraa_step` call per outer iteration. Preserve `X_prev_sq` and `is_infeasible` outer-loop state.
-**Forbidden:** removing wchange stall detection; removing `auto X_prev_sq = X` initialization; touching outer loop control flow.
+**Forbidden:** removing outer convergence checks (errRp threshold / budget / wchange); touching outer loop control flow outside the `if (st.inner_max_iter >= 3)` block.
 **Audit:** raking quality test `T_sraa_rk` must pass after this task.
 
 ### Step 4.1 — Add include at top of raking.cpp
