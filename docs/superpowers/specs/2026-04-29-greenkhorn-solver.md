@@ -516,12 +516,69 @@ for (int i = 0; i < st.n; i++) {
 }
 ```
 
+## LogitCalibResult struct (logit_calib.hpp)
+
+`LogitCalibResult` has IDENTICAL fields to `GregResult` (src/greg.hpp) — copy the struct
+verbatim and rename. No logit-specific extra fields are added. λ (dual variables) is an
+internal solver quantity — NOT exposed in the result (consistent with leafblower's
+existing solvers that also discard duals). This is explicitly out of scope.
+
+```cpp
+// logit_calib.hpp
+struct LogitCalibResult {
+    int    status           = RK_ERR_NOCONV;
+    int    iterations       = 0;
+    double max_error        = 1.0;
+    double best_error       = 1.0;
+    int    best_iter        = 0;
+    char   message[256]     = {};
+    double mean_error       = 0.0;
+    double kl               = 0.0;
+    double chi2             = 0.0;
+    double l1_weight_change = 0.0;
+    double grake_norm       = 0.0;
+    int    convergence_metric = 0;
+    int    convergence_rule   = 0;
+    double convergence_tol    = 0.0;
+    int    convergence_iter   = -1;
+    double convergence_solver_objective = 0.0;
+    int    convergence_minimized_metric = 0;
+    double sor_min_omega    = 1.0;
+    int    sor_n_damped     = 0;
+    int    n_bounds_violated = 0;
+    int    n_bounds_clamped  = 0;
+    int    n_xcur_writes_per_iter_linear = 0;
+    double min_alpha_seen   = 1.0;
+    double final_alpha      = 1.0;
+    double alm_capacity_mu_final  = 0.0;
+    int    alm_n_growth_events    = 0;
+    double alm_max_dual_norm      = 0.0;
+    double alm_sum_drift          = 0.0;
+    std::vector<double> best_weights;
+};
+```
+
+## Degenerate cell handling (L_cell[c] = U_cell[c])
+
+When `min_weight × n_per_cell[c] = max_weight × n_per_cell[c]` (i.e., min=max, or
+n_per_cell[c]=0), `D_eff[c] = (U-L)·σ·(1-σ) = 0`. The cell contributes **zero** to
+the normal equations matrix N. If ALL cells in a particular bucket have D_eff=0, that
+column of A·diag(D_eff)·Aᵀ is zero — N is singular.
+
+**Handling**: `ldlt_factor_inplace` uses Tikhonov regularization (`kRegularization=1e-10`)
+which handles near-singular N gracefully. After factorization, verify the solution quality:
+if `max|b| > tol` after the solve (meaning the "zero" constraint could not be matched),
+return `RK_ERR_INFEAS` with message "logit: singular normal equations (degenerate bounds)".
+
+Additionally, if `n_per_cell[c] == 0` for any cell: skip (contributes nothing to any
+margin, D_eff=0 naturally).
+
 ## Files (logit calibration additions)
 
 | File | Change |
 |------|--------|
 | `src/logit_calib.cpp` | New solver (logit_calibrate) |
-| `src/logit_calib.hpp` | LogitCalibResult struct (mirrors GregResult) |
+| `src/logit_calib.hpp` | LogitCalibResult struct (full field list above) |
 | `src/leafblower.h` | Add RK_ALG_LOGIT = 10; extend alg_names comment |
 | `src/Makevars.in` | Add `logit_calib.cpp` to PKG_SOURCES |
 | `src/r_bridge.cpp` | Add "logit" dispatch block; alg_names to 11 elements |
@@ -554,11 +611,17 @@ test_that("T5: logit available and calibrates", {
 })
 ```
 
-### T6 — Logit bounds by construction (no post-hoc clamping)
+### T6 — Logit bounds by construction (no std::clamp — mechanism test)
 
 ```r
-test_that("T6: logit respects bounds with NO clamping (by logit construction)", {
-  # Tight bounds where IPF would need many iterations / clamp
+test_that("T6: logit respects bounds by construction (few Newton steps, tight problem)", {
+  # Tight bounds where IPF/raking stalls. Logit enforces bounds analytically.
+  # "By construction" means: even with max lambda, sigma(z) stays in (0,1),
+  # so w_c stays in (L, U). We verify:
+  # (a) bounds respected exactly, AND
+  # (b) solver converges in few Newton steps (not requiring 500+ IPF steps)
+  # (b) is the diagnostic that distinguishes logit (Newton, O(20) steps) from
+  # raking+clamping (IPF, O(50) rounds × K margin sweeps).
   set.seed(6); n <- 5000L
   df  <- data.frame(v=factor(sample(5, n, TRUE)))
   tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
@@ -566,10 +629,17 @@ test_that("T6: logit respects bounds with NO clamping (by logit construction)", 
   w   <- r$weights
   expect_true(max(w) <= 1.5 + 1e-9)
   expect_true(min(w) >= 0.1 - 1e-9)
-  # Logit converges in few Newton steps; verify
+  # Newton convergence in <50 steps (mechanism test: clamped IPF would need many more):
   n_iters <- attr(r,"result")$iterations
   expect_lt(n_iters, 50L,
-    label=sprintf("logit should converge in <50 Newton steps; got %d", n_iters))
+    label=sprintf("logit should converge in <50 Newton steps; got %d (raking needs 50×K)", n_iters))
+  # Cross-check: raking+clamping on same problem needs more total sweeps:
+  r_rk <- harvest(df, tgt, method="raking", max_weight=1.5, min_weight=0.1,
+                  convergence=list(absolute=1e-6))
+  n_rk <- attr(r_rk,"result")$iterations
+  # Logit total work (Newton steps) << raking (rounds × K margins)
+  expect_lt(n_iters, n_rk,
+    label=sprintf("logit Newton steps (%d) < raking rounds (%d)", n_iters, n_rk))
 })
 ```
 
@@ -626,10 +696,23 @@ guarantees bounds analytically. When the bounds constraint is structurally infea
 (sum(L_cell) > n or sum(U_cell) < n), the normal equations N become singular and the
 solver returns RK_ERR_INFEAS with a message. Otherwise, Newton converges smoothly.
 
+## λ warm-start note
+
+`λ=0` initializes `w_c = L_cell[c] + (U_cell[c]-L_cell[c]) × 0.5` — the midpoint of
+[L, U]. When `min_weight=0` (common), midpoint = `max_weight × n_per_cell[c] / 2`.
+This is a valid interior point for Newton to start from. Large `max_weight` means the
+initial weights are far from the constrained optimum — Newton still converges quickly
+(typically 10-20 steps) because the logit Hessian is well-conditioned at the midpoint.
+
+For future warm-starting from a prior solution: out of scope.
+
 ## Out of Scope (Part 2 — Logit)
 
+- **λ (dual variables) returned to R**: internal solver quantity, not exposed in result.
+  Leafblower's existing solvers (greg, ieppa, raking) also discard their duals.
+  Users needing λ can use the `survey` package's `calib()` function.
 - Per-obs logit calibration (cell-aggregate bounds only, same as bounds_mode=CELL)
 - Other Deville-Särndal distances (raking=KL, truncated logit)
 - Homotopy warmstart for initial λ
-- SQUAREM / acceleration (not needed — Newton converges in O(10) steps)
+- SQUAREM / acceleration (not needed — Newton converges in O(10-20) steps)
 - AUTO routing (explicit opt-in only)
