@@ -95,6 +95,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     constexpr int    kMaxHalvings = 10;   // max Armijo halvings; alpha_min = 2^-10 ≈ 1e-3
     constexpr double kArmijoC     = 0.01; // Armijo sufficient-decrease constant
     constexpr double kMaxDeltaZ   = 2.0;  // max z-shift per Newton step (norm guard)
+    constexpr double kArmijoHalving = 0.5;
 
     // Layer 2: design-weight initialization — place lambda_0 in convergence basin
     // Solve (AA^T)lambda_0 = Az_target where z_target[c] = logit(sigma_target[c])
@@ -235,14 +236,11 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 armijo_improved = true;
                 break;
             }
-            alpha *= 0.5;
+            alpha *= kArmijoHalving;
         }
         if (!armijo_improved && st.verbose >= 1) {
-            char msg[128];
-            std::snprintf(msg, sizeof(msg),
-                "[logit] Newton step: Armijo exhausted (alpha=%.2e), accepting best available",
+            Rprintf("[logit] Newton step: Armijo exhausted (alpha=%.2e), accepting best available\n",
                 alpha);
-            Rprintf("%s\n", msg);
         }
         for (int j = 0; j < nct; j++) lambda[j] += alpha * b[j];
 
