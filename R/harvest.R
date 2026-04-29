@@ -377,7 +377,8 @@ harvest <- function(
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
   if (calib_result$status == 2L)
-    stop("leafblower: infeasible problem \u2014 persistent empty cell with positive target (detected after 5 consecutive outer iterations).")
+    stop("leafblower: ", if (nchar(calib_result$message) > 0) calib_result$message
+         else "infeasible problem")
   if (calib_result$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 
@@ -434,7 +435,7 @@ harvest <- function(
   }
 
   # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7, IEPPA_SOFT=8
-  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake", "ieppa_soft")
+  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake", "ieppa_soft", "greenkhorn", "logit")
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
 
   if (!attach_weights) {
@@ -491,7 +492,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake"))
+  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake", "greenkhorn", "logit"))
 }
 
 parse_convergence <- function(convergence) {
