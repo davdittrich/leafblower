@@ -76,7 +76,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     }
 
     // Newton state
-    std::vector<double> lambda(nct, 0.0);   // dual variables; init=0 (midpoint warm-start)
+    std::vector<double> lambda(nct, 0.0);   // dual variables; initialized below from design-weight logit-inverse
     std::vector<double> w(M, 0.0);          // calibrated cell masses
     std::vector<double> D_eff(M, 0.0);      // Newton weights = (U-L)*sigma*(1-sigma)
     std::vector<double> N(nct * nct, 0.0);  // normal equations matrix
@@ -91,6 +91,37 @@ LogitCalibResult logit_calibrate(CalibState& st) {
 
     const int kMaxNewtonIters = std::min(50, st.inner_max_iter);
     constexpr double kDeffFloor = 1e-6;  // floor prevents D_eff→0 when sig saturates
+    constexpr double kInitSigmaEps = 1e-4;  // clips sigma_target to [eps, 1-eps] bounding z_target
+
+    // Layer 2: design-weight initialization — place lambda_0 in convergence basin
+    // Solve (AA^T)lambda_0 = Az_target where z_target[c] = logit(sigma_target[c])
+    // and sigma_target[c] = clip((X_init[c]-L[c])/(U[c]-L[c]), eps, 1-eps)
+    {
+        std::vector<double> z_target(M, 0.0);
+        for (int c = 0; c < M; c++) {
+            double range = U_cell[c] - L_cell[c];
+            if (range < 1e-12) { z_target[c] = 0.0; continue; }  // degenerate: L==U
+            double sig0 = (X_init[c] - L_cell[c]) / range;
+            sig0 = std::clamp(sig0, kInitSigmaEps, 1.0 - kInitSigmaEps);
+            z_target[c] = std::log(sig0 / (1.0 - sig0));
+        }
+        // b_init[cat_offset[k]+j] = sum of z_target over bucket (k,j)
+        std::vector<double> b_init(nct, 0.0);
+        for (int k = 0; k < K; k++)
+            for (int j = 0; j < st.cat_counts[k]; j++)
+                for (int c : cells_per_cat[k][j])
+                    b_init[cat_offset[k] + j] += z_target[c];
+        // Normal equations with D_eff=1 (uniform: purely geometric initialization)
+        std::vector<double> D_ones(M, 1.0);
+        std::vector<double> N_init(nct * nct, 0.0);
+        if (compute_normal_equations(ct, D_ones.data(), N_init.data(),
+                                     cat_offset.data(), K, (size_t)nct) == RK_OK &&
+            ldlt_factor_inplace(N_init.data(), (size_t)nct, 1e-10) == RK_OK) {
+            ldlt_solve(N_init.data(), (size_t)nct, b_init.data());
+            lambda = b_init;  // replace zero-init with LS solution
+        }
+        // if factor fails: lambda stays zero (silent fallback)
+    }
 
     for (int iter = 0; iter < kMaxNewtonIters; iter++) {
         res.iterations = iter + 1;
