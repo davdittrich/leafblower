@@ -8,6 +8,8 @@
 #include "greg.hpp"       // Newton QP chi2 (GREG, Deville-Sarnal 1992)
 #include "chebyshev.hpp"  // Chebyshev/GRAKE LP-based solvers
 #include "cell_table.hpp" // estimate_M_cell for AUTO routing
+#include "greenkhorn.hpp"
+#include "logit_calib.hpp"
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -164,8 +166,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_IEPPA_SOFT: alg = RK_ALG_IEPPA_SOFT; break;
             case RK_ALG_SINKHORN:   alg = RK_ALG_SINKHORN;   break;
             case RK_ALG_GREG:    alg = RK_ALG_GREG; break;
-            case RK_ALG_CHEBYSHEV: alg = RK_ALG_CHEBYSHEV; break;
-            case RK_ALG_GRAKE:    alg = RK_ALG_GRAKE; break;
+            case RK_ALG_CHEBYSHEV:   alg = RK_ALG_CHEBYSHEV;   break;
+            case RK_ALG_GRAKE:       alg = RK_ALG_GRAKE;       break;
+            case RK_ALG_GREENKHORN:  alg = RK_ALG_GREENKHORN;  break;
+            case RK_ALG_LOGIT:       alg = RK_ALG_LOGIT;       break;
             case RK_ALG_AUTO:
             default: {
                 // Route to raking when cell table is nearly incompressible (M_cell/n > 0.9).
@@ -276,6 +280,24 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         auto gres = lbw::greg_solve(st);
         pack_solver_result(result, gres, alg);
         return gres.status;
+    } else if (alg == RK_ALG_GREENKHORN) {
+        /* Direct C API callers bypass R-layer validation.
+           Caller must ensure min_weight < max_weight. */
+        auto res = lbw::greenkhorn_solve(st);
+        pack_solver_result(result, res, alg);
+        used = RK_ALG_GREENKHORN;
+        status = res.status;
+        iterations = res.iterations;
+        max_error = res.max_error;
+    } else if (alg == RK_ALG_LOGIT) {
+        /* Direct C API callers bypass R-layer validation.
+           Caller must ensure max_weight is finite and > min_weight. */
+        auto res = lbw::logit_calibrate(st);
+        pack_solver_result(result, res, alg);
+        used = RK_ALG_LOGIT;
+        status = res.status;
+        iterations = res.iterations;
+        max_error = res.max_error;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
             auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
@@ -384,9 +406,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         result->max_error = max_error;
         result->algorithm_used = used;
         if (result->message[0] == '\0') {
-            const char* name = (used == RK_ALG_LBFGSB)     ? "L-BFGS-B"
-                             : (used == RK_ALG_RAKING)     ? "raking"
-                             : (used == RK_ALG_IEPPA_SOFT) ? "iEPPA-soft"
+            const char* name = (used == RK_ALG_LBFGSB)      ? "L-BFGS-B"
+                             : (used == RK_ALG_RAKING)      ? "raking"
+                             : (used == RK_ALG_IEPPA_SOFT)  ? "iEPPA-soft"
+                             : (used == RK_ALG_GREENKHORN)  ? "greenkhorn"
+                             : (used == RK_ALG_LOGIT)        ? "logit"
                              : "iEPPA";
             snprintf(result->message, 256, "%s: %d iters, max_error=%.2e",
                      name, iterations, max_error);
