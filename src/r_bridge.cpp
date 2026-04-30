@@ -324,7 +324,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     // Done here (not inside solver) so r_bridge.cpp controls the resolution contract.
     // capacity_penalty <= 0.0 (or NULL) selects auto (M_cell/n from cell_table);
     // positive value is used directly. ALM block is gated by st.use_admm_capacity,
-    // so st.capacity_mu is harmless for non-ieppa_soft callers.
+    // so st.alm.capacity_mu is harmless for non-ieppa_soft callers.
     {
         lbw::CellTable ct_tmp;
         int ct_rc = lbw::build_cell_table(n, K,
