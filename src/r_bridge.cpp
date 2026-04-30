@@ -5,6 +5,7 @@
 #include <R_ext/Rdynload.h>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 #include "logit.hpp"
@@ -18,6 +19,21 @@
 #include "lbfgsb_solver.hpp"
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
+
+namespace {
+static const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
+    {"ieppa",      RK_ALG_IEPPA},
+    {"ieppa_soft", RK_ALG_IEPPA_SOFT},
+    {"lbfgsb",     RK_ALG_LBFGSB},
+    {"raking",     RK_ALG_RAKING},
+    {"greg",       RK_ALG_GREG},
+    {"chebyshev",  RK_ALG_CHEBYSHEV},
+    {"sinkhorn",   RK_ALG_SINKHORN},
+    {"auto",       RK_ALG_AUTO},
+    {"greenkhorn", RK_ALG_GREENKHORN},
+    {"logit",      RK_ALG_LOGIT},
+};
+} // anonymous namespace
 
 extern "C" {
 SEXP C_logit_F_at_zero(SEXP, SEXP);
@@ -234,33 +250,17 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     if (LENGTH(method_sexp) != 1)
         Rf_error("method must be a length-1 character string");
     const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
-    if      (strcmp(method_str, "ieppa")      == 0) p.algorithm = RK_ALG_IEPPA;
-    else if (strcmp(method_str, "ieppa_soft") == 0) p.algorithm = RK_ALG_IEPPA_SOFT;
-    else if (strcmp(method_str, "lbfgsb")    == 0) p.algorithm = RK_ALG_LBFGSB;
-    else if (strcmp(method_str, "raking")    == 0) p.algorithm = RK_ALG_RAKING;
-    else if (strcmp(method_str, "greg")      == 0) p.algorithm = RK_ALG_GREG;
-    else if (strcmp(method_str, "chebyshev") == 0) p.algorithm = RK_ALG_CHEBYSHEV;
-    else if (strcmp(method_str, "sinkhorn")  == 0) p.algorithm = RK_ALG_SINKHORN;
-    else if (strcmp(method_str, "auto")      == 0) p.algorithm = RK_ALG_AUTO;
-    else if (strcmp(method_str, "greenkhorn") == 0) p.algorithm = RK_ALG_GREENKHORN;
-    else if (strcmp(method_str, "logit")      == 0) p.algorithm = RK_ALG_LOGIT;
-    else                                            p.algorithm = RK_ALG_IEPPA;
+    {
+        auto it = kAlgMap.find(method_str);
+        p.algorithm = (it != kAlgMap.end()) ? it->second : RK_ALG_IEPPA;
+    }
 
     // Full input validation — shared with c_api.cpp path via validation.hpp.
     {
         rk_result_t validation_result;
         rk_result_init(&validation_result);
-        rk_algorithm_t alg_for_validation =
-            (strcmp(method_str, "ieppa")      == 0) ? RK_ALG_IEPPA :
-            (strcmp(method_str, "ieppa_soft") == 0) ? RK_ALG_IEPPA_SOFT :
-            (strcmp(method_str, "lbfgsb")     == 0) ? RK_ALG_LBFGSB :
-            (strcmp(method_str, "auto")       == 0) ? RK_ALG_AUTO :
-            (strcmp(method_str, "sinkhorn")   == 0) ? RK_ALG_SINKHORN :
-            (strcmp(method_str, "greg")       == 0) ? RK_ALG_GREG :
-            (strcmp(method_str, "chebyshev")  == 0) ? RK_ALG_CHEBYSHEV :
-            (strcmp(method_str, "greenkhorn") == 0) ? RK_ALG_GREENKHORN :
-            (strcmp(method_str, "logit")      == 0) ? RK_ALG_LOGIT :
-                                                       RK_ALG_RAKING;
+        auto it2 = kAlgMap.find(method_str);
+        rk_algorithm_t alg_for_validation = (it2 != kAlgMap.end()) ? it2->second : RK_ALG_RAKING;
         int vrc = lbw::validate_calibrate_inputs(
             n, K,
             weights.data(),
