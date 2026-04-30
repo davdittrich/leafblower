@@ -231,8 +231,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
 
             const double curr_best = lbw::select_metric(
-                st.convergence_cfg.metric,
-                m.errRp, m.mean_err, m.kl, m.chi2, m.grake_norm, m.l1);
+                st.convergence_cfg.metric, m);
             if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
                 // === BEST-ITER UPDATE ===
                 best_metric_seen    = curr_best;

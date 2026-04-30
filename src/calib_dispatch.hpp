@@ -113,6 +113,14 @@ struct CellMetrics {
     double l1         = 0.0;
 };
 
+/// Convenience overload: select the convergence metric value from a CellMetrics struct.
+/// marginal_kl defaults to 0.0 (not tracked in CellMetrics).
+inline double select_metric(CalibMetric metric, const CellMetrics& m) noexcept {
+    return select_metric(metric, m.errRp, m.mean_err, m.kl, m.chi2,
+                         m.grake_norm, m.l1);
+    // marginal_kl omitted — defaults to 0.0 in the 7-arg overload
+}
+
 // Mathematical objective for NON-KL solvers only.
 // KL-minimizing solvers (ieppa, sinkhorn, raking) use compute_weight_kl inline.
 inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
@@ -131,7 +139,7 @@ inline bool check_convergence(
     double& prev_metric,
     double tol_abs_fallback) noexcept
 {
-    const double curr = select_metric(cfg.metric, m.errRp, m.mean_err, m.kl, m.chi2, m.grake_norm, m.l1);
+    const double curr = select_metric(cfg.metric, m);
     const bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
     const bool c_abs = have_abs && (curr < cfg.absolute_tol);
     const bool c_pct = have_pct && apply_rule(cfg.rule, curr, prev_metric, cfg.pct_tol);
