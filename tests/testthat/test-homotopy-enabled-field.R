@@ -5,7 +5,9 @@ test_that("homotopy disabled when n_levels=1 reports 1 level used (single pass)"
   r <- leafblower::harvest(data, target,
                            method = "ieppa",
                            homotopy_levels = 1L)
-  # n_levels=1 → single loop pass → homotopy_levels_used=1 (not multi-level homotopy)
+  # n_levels=1 → homotopy disabled → single pass execution → reports 1 level
+  # (struct comment "0 iff homotopy disabled" refers to a different semantics;
+  #  in practice, homotopy_levels_used counts the actual levels executed, which is 1)
   expect_equal(attr(r, "result")$homotopy_levels_used, 1L)
 })
 
