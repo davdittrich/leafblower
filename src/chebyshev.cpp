@@ -262,11 +262,7 @@ ChebyshevResult chebyshev_ipm(
             if (have_abs) converged = converged || converged_abs;
 
             if (converged) {
-                res.base.status             = RK_OK;
-                res.base.convergence_metric = static_cast<int>(cfg.metric);
-                res.base.convergence_rule   = static_cast<int>(cfg.rule);
-                res.base.convergence_tol    = cfg.pct_tol;
-                res.base.convergence_iter   = iter+1;
+                lbw::mark_converged(res, cfg, iter+1);
                 break;
             }
         }

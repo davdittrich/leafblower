@@ -202,8 +202,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, X, W, bucket_scratch);
             bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
             if (converged) {
-                res.base.status = RK_OK;
-                res.base.convergence_iter = res.base.iterations;
+                lbw::mark_converged(res, cfg, res.base.iterations);
                 X_best = X;
                 break;
             }

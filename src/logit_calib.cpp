@@ -255,8 +255,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, w, W_total, bucket_scratch);
         bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
         if (converged) {
-            res.base.status = RK_OK;
-            res.base.convergence_iter = iter + 1;
+            lbw::mark_converged(res, cfg, iter + 1);
             w_best = w;
             break;
         }

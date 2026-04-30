@@ -154,6 +154,22 @@ inline bool check_convergence(
     return (m.errRp < tol_abs_fallback);
 }
 
+/// Aggregate cell masses X[] into margin k bucket[0..nj).
+/// bucket must be pre-allocated to at least nj elements.
+/// Zeroes bucket[0..nj) before accumulating.
+inline void aggregate_to_margin(
+    const CellTable& ct,
+    const std::vector<double>& X,
+    int k, int nj,
+    double* bucket) noexcept
+{
+    std::fill(bucket, bucket + nj, 0.0);
+    for (int c = 0; c < ct.M_cell; c++) {
+        int g = ct.g_per_cell[k][c];
+        if (g >= 0 && g < nj) bucket[g] += X[c];
+    }
+}
+
 // Compute 5 calibration metrics over all K margins from cell-level weight vector X.
 // W = sum(X) — passed in to avoid recomputation.
 // bucket: pre-allocated scratch of size >= max(st.cat_counts[k]).
@@ -169,11 +185,7 @@ inline CellMetrics compute_cell_metrics(
     for (int k = 0; k < st.K; k++) {
         const int nj = st.cat_counts[k];
         assert(static_cast<int>(bucket.size()) >= nj);
-        std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
-        for (int c = 0; c < ct.M_cell; c++) {
-            int g = ct.g_per_cell[k][c];
-            if (g >= 0 && g < nj) bucket[g] += X[c];
-        }
+        aggregate_to_margin(ct, X, k, nj, bucket.data());
         double max_k = 0.0, kl_k = 0.0;
         for (int j = 0; j < nj; j++) {
             double S_p = bucket[j] / W, T = st.targets[k][j];
@@ -245,6 +257,19 @@ inline int build_cat_offset(int K, const int* cat_counts,
 inline int max_cats_count(int K, const int* cat_counts) noexcept {
     if (K == 0) return 0;
     return *std::max_element(cat_counts, cat_counts + K);
+}
+
+/// Populate standard convergence metadata on a result struct.
+/// ResT must have: .base.status (int), .base.convergence_metric (int),
+///                 .base.convergence_rule (int), .base.convergence_tol (double),
+///                 .base.convergence_iter (int).
+template <typename ResT>
+inline void mark_converged(ResT& res, const CalibConvergenceCfg& cfg, int iter) noexcept {
+    res.base.status             = RK_OK;
+    res.base.convergence_metric = static_cast<int>(cfg.metric);
+    res.base.convergence_rule   = static_cast<int>(cfg.rule);
+    res.base.convergence_tol    = cfg.pct_tol;
+    res.base.convergence_iter   = iter;
 }
 
 // Full cell-table setup: build_cell_table + X_init + bounds + cat_offset + validate.

@@ -139,11 +139,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         for (int c = 0; c < ct.M_cell; c++) W_total += X[c];
 
         for (int k = 0; k < st.K; k++) {
-            std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
-            for (int c = 0; c < ct.M_cell; c++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) bucket[g] += X[c];
-            }
+            lbw::aggregate_to_margin(ct, X, k, st.cat_counts[k], bucket.data());
             std::fill(scale.begin(), scale.begin() + st.cat_counts[k], 1.0);
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 if (bucket[j] < 1e-300) continue;
@@ -220,11 +216,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             }
 
             if (lbw::check_convergence(st.convergence_cfg, m, prev_metric_for_rule, st.tol_abs)) {
-                res.base.status             = RK_OK;
-                res.base.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-                res.base.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-                res.base.convergence_tol    = st.convergence_cfg.pct_tol;
-                res.base.convergence_iter   = iter;
+                lbw::mark_converged(res, st.convergence_cfg, iter);
                 break;
             }
         }

@@ -3,6 +3,8 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+| 12:36 | fcbo.6: extract aggregate_to_margin() helper into calib_dispatch.hpp; replaced 5 exact bucket-fill loop sites | src/calib_dispatch.hpp, src/sinkhorn.cpp, src/raking.cpp, src/greg.cpp | 95de586: sinkhorn (1), raking (2), greg (1), compute_cell_metrics (1); 535 pass, 2 pre-existing failures | ~2500 |
+
 | 12:27 | fcbo.1: extracted solver_setup_ct/solver_setup_ct_base into calib_dispatch.hpp; migrated 6 solvers | src/calib_dispatch.hpp, src/greg.cpp, src/sinkhorn.cpp, src/chebyshev.cpp, src/greenkhorn.cpp, src/logit_calib.cpp, src/raking.cpp | DONE — 535 pass, 2 pre-existing ieppa fails | ~4000 |
 
 | 12:11 | fcbo.2: extract resolve_hi() + compute_cell_bounds() into calib_dispatch.hpp | src/calib_dispatch.hpp, src/chebyshev.cpp, src/sinkhorn.cpp, src/greg.cpp, src/raking.cpp | 5 sites each for hi_obs pattern; 7 sites for cell bounds loop; R CMD INSTALL OK; all tests PASS except 2 pre-existing failures in test-ieppa-nonuniform-d.R | ~4k |

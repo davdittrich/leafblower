@@ -76,11 +76,7 @@ GregResult greg_solve(CalibState& st) {
 
         // b[k][j] = T_kj * n - sum_{c in (k,j)} X[c]  (marginal defect; b changes with X every iter)
         for (int k = 0; k < st.K; k++) {
-            std::fill(bucket_b.begin(), bucket_b.begin() + st.cat_counts[k], 0.0);
-            for (int c = 0; c < ct.M_cell; c++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) bucket_b[g] += X[c];
-            }
+            lbw::aggregate_to_margin(ct, X, k, st.cat_counts[k], bucket_b.data());
             for (int j = 0; j < st.cat_counts[k]; j++)
                 b[static_cast<size_t>(cat_offset[k]) + static_cast<size_t>(j)] =
                     st.targets[k][j] * n_total - bucket_b[j];

@@ -154,7 +154,7 @@
       "source_file": "conftest.py",
       "source_location": "L1",
       "id": "conftest_py",
-      "community": 20,
+      "community": 21,
       "norm_label": "conftest.py"
     },
     {
@@ -162,7 +162,7 @@
       "file_type": "rationale",
       "source_file": "python/conftest.py",
       "source_location": "L1",
-      "community": 20,
+      "community": 21,
       "norm_label": "ensure the installed wheel's leafblower package is found, not the local source t",
       "id": "conftest_rationale_1"
     },
@@ -172,7 +172,7 @@
       "source_file": "patch_wolfe.py",
       "source_location": "L1",
       "id": "patch_wolfe_py",
-      "community": 17,
+      "community": 18,
       "norm_label": "patch_wolfe.py"
     },
     {
@@ -181,7 +181,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
       "source_location": "L7",
       "id": "patch_wolfe_patch_wolfe",
-      "community": 17,
+      "community": 18,
       "norm_label": "patch_wolfe()"
     },
     {
@@ -190,7 +190,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
       "source_location": "L40",
       "id": "patch_wolfe_patch_wolfe_line_search",
-      "community": 17,
+      "community": 18,
       "norm_label": "patch_wolfe_line_search()"
     },
     {
@@ -199,7 +199,7 @@
       "source_file": "patch_raking.py",
       "source_location": "L1",
       "id": "patch_raking_py",
-      "community": 23,
+      "community": 24,
       "norm_label": "patch_raking.py"
     },
     {
@@ -208,7 +208,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L1",
       "id": "cell_table_92c4f45_cpp",
-      "community": 16,
+      "community": 17,
       "norm_label": "cell_table_92c4f45.cpp"
     },
     {
@@ -217,7 +217,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L11",
       "id": "leafblower_cell_table_92c4f45_bits_needed",
-      "community": 16,
+      "community": 17,
       "norm_label": "bits_needed()"
     },
     {
@@ -226,7 +226,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L22",
       "id": "leafblower_cell_table_92c4f45_pack_key_fits",
-      "community": 16,
+      "community": 17,
       "norm_label": "pack_key_fits()"
     },
     {
@@ -235,7 +235,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L32",
       "id": "leafblower_cell_table_92c4f45_pack_key_compute",
-      "community": 16,
+      "community": 17,
       "norm_label": "pack_key_compute()"
     },
     {
@@ -244,7 +244,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L47",
       "id": "leafblower_cell_table_92c4f45_build_cell_table",
-      "community": 16,
+      "community": 17,
       "norm_label": "build_cell_table()"
     },
     {
@@ -253,7 +253,7 @@
       "source_file": "cell_table_92c4f45.hpp",
       "source_location": "L1",
       "id": "cell_table_92c4f45_hpp",
-      "community": 24,
+      "community": 25,
       "norm_label": "cell_table_92c4f45.hpp"
     },
     {
@@ -262,7 +262,7 @@
       "source_file": "ieppa_92c4f45.cpp",
       "source_location": "L1",
       "id": "ieppa_92c4f45_cpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "ieppa_92c4f45.cpp"
     },
     {
@@ -271,7 +271,7 @@
       "source_file": "ieppa_92c4f45.cpp",
       "source_location": "L22",
       "id": "leafblower_ieppa_92c4f45_ieppa_solve",
-      "community": 8,
+      "community": 7,
       "norm_label": "ieppa_solve()"
     },
     {
@@ -280,7 +280,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/master.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_master_m",
-      "community": 25,
+      "community": 26,
       "norm_label": "master.m"
     },
     {
@@ -289,7 +289,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/main/Gprocedure.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_main_gprocedure_m",
-      "community": 26,
+      "community": 27,
       "norm_label": "gprocedure.m"
     },
     {
@@ -298,7 +298,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/main/EPPA.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_main_eppa_m",
-      "community": 27,
+      "community": 28,
       "norm_label": "eppa.m"
     },
     {
@@ -307,7 +307,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/psnr2.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_psnr2_m",
-      "community": 28,
+      "community": 29,
       "norm_label": "psnr2.m"
     },
     {
@@ -316,7 +316,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/tableplot.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_tableplot_m",
-      "community": 29,
+      "community": 30,
       "norm_label": "tableplot.m"
     },
     {
@@ -325,7 +325,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/genCollectionA.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_gencollectiona_m",
-      "community": 30,
+      "community": 31,
       "norm_label": "gencollectiona.m"
     },
     {
@@ -334,7 +334,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/genData2D.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_gendata2d_m",
-      "community": 31,
+      "community": 32,
       "norm_label": "gendata2d.m"
     },
     {
@@ -343,7 +343,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/cellOnes1D.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_cellones1d_m",
-      "community": 32,
+      "community": 33,
       "norm_label": "cellones1d.m"
     },
     {
@@ -352,7 +352,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/sumcell.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_sumcell_m",
-      "community": 33,
+      "community": 34,
       "norm_label": "sumcell.m"
     },
     {
@@ -361,7 +361,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/run_cot_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_run_cot_2d_m",
-      "community": 34,
+      "community": 35,
       "norm_label": "run_cot_2d.m"
     },
     {
@@ -370,7 +370,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/run_cot_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_run_cot_3d_m",
-      "community": 35,
+      "community": 36,
       "norm_label": "run_cot_3d.m"
     },
     {
@@ -379,7 +379,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/stabilized_dykstra.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_stabilized_dykstra_m",
-      "community": 36,
+      "community": 37,
       "norm_label": "stabilized_dykstra.m"
     },
     {
@@ -388,7 +388,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ot_rounding_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ot_rounding_3d_m",
-      "community": 37,
+      "community": 38,
       "norm_label": "ot_rounding_3d.m"
     },
     {
@@ -397,7 +397,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/dykstra.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_dykstra_m",
-      "community": 38,
+      "community": 39,
       "norm_label": "dykstra.m"
     },
     {
@@ -406,7 +406,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ieppa_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ieppa_2d_m",
-      "community": 39,
+      "community": 40,
       "norm_label": "ieppa_2d.m"
     },
     {
@@ -415,7 +415,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ieppa_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ieppa_3d_m",
-      "community": 40,
+      "community": 41,
       "norm_label": "ieppa_3d.m"
     },
     {
@@ -424,7 +424,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ot_rounding_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ot_rounding_2d_m",
-      "community": 41,
+      "community": 42,
       "norm_label": "ot_rounding_2d.m"
     },
     {
@@ -433,7 +433,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bcd_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bcd_2d_m",
-      "community": 42,
+      "community": 43,
       "norm_label": "bcd_2d.m"
     },
     {
@@ -442,7 +442,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bregdist_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bregdist_2d_m",
-      "community": 43,
+      "community": 44,
       "norm_label": "bregdist_2d.m"
     },
     {
@@ -451,7 +451,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bregdist_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bregdist_3d_m",
-      "community": 44,
+      "community": 45,
       "norm_label": "bregdist_3d.m"
     },
     {
@@ -460,7 +460,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bcd_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bcd_3d_m",
-      "community": 45,
+      "community": 46,
       "norm_label": "bcd_3d.m"
     },
     {
@@ -541,7 +541,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L1",
       "id": "benchmarks_python_ipf_benchmark_py",
-      "community": 14,
+      "community": 15,
       "norm_label": "python_ipf_benchmark.py"
     },
     {
@@ -550,7 +550,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L14",
       "id": "python_ipf_benchmark_load_data",
-      "community": 14,
+      "community": 15,
       "norm_label": "load_data()"
     },
     {
@@ -559,7 +559,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L31",
       "id": "python_ipf_benchmark_compute_metrics",
-      "community": 14,
+      "community": 15,
       "norm_label": "compute_metrics()"
     },
     {
@@ -568,7 +568,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L61",
       "id": "python_ipf_benchmark_run_ipfn",
-      "community": 14,
+      "community": 15,
       "norm_label": "run_ipfn()"
     },
     {
@@ -577,7 +577,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L122",
       "id": "python_ipf_benchmark_main",
-      "community": 14,
+      "community": 15,
       "norm_label": "main()"
     },
     {
@@ -585,7 +585,7 @@
       "file_type": "rationale",
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L62",
-      "community": 14,
+      "community": 15,
       "norm_label": "ipfn.ipfn in dataframe mode on compressed cell table (28,905 cells).",
       "id": "python_ipf_benchmark_rationale_62"
     },
@@ -649,7 +649,7 @@
       "source_file": "python/conftest.py",
       "source_location": "L1",
       "id": "python_conftest_py",
-      "community": 20,
+      "community": 21,
       "norm_label": "conftest.py"
     },
     {
@@ -901,7 +901,7 @@
       "source_file": "python/leafblower/_bindings.cpp",
       "source_location": "L1",
       "id": "python_leafblower_bindings_cpp",
-      "community": 7,
+      "community": 6,
       "norm_label": "_bindings.cpp"
     },
     {
@@ -910,7 +910,7 @@
       "source_file": "python/leafblower/_bindings.cpp",
       "source_location": "L13",
       "id": "leafblower_bindings_py_log_trampoline",
-      "community": 7,
+      "community": 6,
       "norm_label": "py_log_trampoline()"
     },
     {
@@ -919,7 +919,7 @@
       "source_file": "python/leafblower/_bindings.cpp",
       "source_location": "L27",
       "id": "leafblower_bindings_pybind11_module",
-      "community": 7,
+      "community": 6,
       "norm_label": "pybind11_module()"
     },
     {
@@ -928,7 +928,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
-      "community": 17,
+      "community": 18,
       "norm_label": "patch_wolfe.py"
     },
     {
@@ -937,7 +937,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/c_api.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_c_api_cpp",
-      "community": 7,
+      "community": 6,
       "norm_label": "c_api.cpp"
     },
     {
@@ -946,7 +946,7 @@
       "source_file": "src/c_api.cpp",
       "source_location": "L70",
       "id": "src_c_api_rk_params_init",
-      "community": 7,
+      "community": 6,
       "norm_label": "rk_params_init()"
     },
     {
@@ -955,7 +955,7 @@
       "source_file": "src/c_api.cpp",
       "source_location": "L119",
       "id": "src_c_api_validate_inputs",
-      "community": 7,
+      "community": 6,
       "norm_label": "validate_inputs()"
     },
     {
@@ -964,7 +964,7 @@
       "source_file": "src/c_api.cpp",
       "source_location": "L140",
       "id": "src_c_api_rk_calibrate",
-      "community": 7,
+      "community": 6,
       "norm_label": "rk_calibrate()"
     },
     {
@@ -973,7 +973,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_lbfgsb_solver_cpp",
-      "community": 6,
+      "community": 8,
       "norm_label": "lbfgsb_solver.cpp"
     },
     {
@@ -982,7 +982,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L16",
       "id": "src_lbfgsb_solver_compute_targets_abs",
-      "community": 6,
+      "community": 8,
       "norm_label": "compute_targets_abs()"
     },
     {
@@ -991,7 +991,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L31",
       "id": "src_lbfgsb_solver_build_offsets",
-      "community": 6,
+      "community": 8,
       "norm_label": "build_offsets()"
     },
     {
@@ -1000,7 +1000,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L38",
       "id": "src_lbfgsb_solver_compute_u",
-      "community": 6,
+      "community": 8,
       "norm_label": "compute_u()"
     },
     {
@@ -1009,7 +1009,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L51",
       "id": "src_lbfgsb_solver_phi_from_u",
-      "community": 6,
+      "community": 8,
       "norm_label": "phi_from_u()"
     },
     {
@@ -1018,7 +1018,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L96",
       "id": "src_lbfgsb_solver_phi_and_grad",
-      "community": 6,
+      "community": 8,
       "norm_label": "phi_and_grad()"
     },
     {
@@ -1027,7 +1027,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L110",
       "id": "src_lbfgsb_solver_compute_du",
-      "community": 6,
+      "community": 8,
       "norm_label": "compute_du()"
     },
     {
@@ -1036,7 +1036,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L123",
       "id": "src_lbfgsb_solver_maxabs",
-      "community": 6,
+      "community": 8,
       "norm_label": "maxabs()"
     },
     {
@@ -1045,7 +1045,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L129",
       "id": "src_lbfgsb_solver_dot",
-      "community": 6,
+      "community": 8,
       "norm_label": "dot()"
     },
     {
@@ -1054,7 +1054,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L137",
       "id": "src_lbfgsb_solver_lbfgs_direction",
-      "community": 6,
+      "community": 8,
       "norm_label": "lbfgs_direction()"
     },
     {
@@ -1063,7 +1063,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L164",
       "id": "src_lbfgsb_solver_compute_final_weights_and_error",
-      "community": 6,
+      "community": 8,
       "norm_label": "compute_final_weights_and_error()"
     },
     {
@@ -1072,7 +1072,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L335",
       "id": "src_lbfgsb_solver_wolfe_zoom",
-      "community": 6,
+      "community": 8,
       "norm_label": "wolfe_zoom()"
     },
     {
@@ -1081,7 +1081,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L466",
       "id": "src_lbfgsb_solver_wolfe_line_search",
-      "community": 6,
+      "community": 8,
       "norm_label": "wolfe_line_search()"
     },
     {
@@ -1090,7 +1090,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L604",
       "id": "src_lbfgsb_solver_lbfgsb_solve_inner",
-      "community": 6,
+      "community": 8,
       "norm_label": "lbfgsb_solve_inner()"
     },
     {
@@ -1099,7 +1099,7 @@
       "source_file": "src/lbfgsb_solver.cpp",
       "source_location": "L691",
       "id": "src_lbfgsb_solver_lbfgsb_solve",
-      "community": 6,
+      "community": 8,
       "norm_label": "lbfgsb_solve()"
     },
     {
@@ -1108,7 +1108,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_lbfgsb_solver_hpp",
-      "community": 46,
+      "community": 47,
       "norm_label": "lbfgsb_solver.hpp"
     },
     {
@@ -1117,7 +1117,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbw_config.h",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_lbw_config_h",
-      "community": 47,
+      "community": 48,
       "norm_label": "lbw_config.h"
     },
     {
@@ -1126,7 +1126,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/logit.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_logit_hpp",
-      "community": 6,
+      "community": 3,
       "norm_label": "logit.hpp"
     },
     {
@@ -1135,7 +1135,7 @@
       "source_file": "src/logit.hpp",
       "source_location": "L15",
       "id": "src_logit_linkfn",
-      "community": 6,
+      "community": 3,
       "norm_label": "linkfn()"
     },
     {
@@ -1144,7 +1144,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/leafblower.h",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_leafblower_h",
-      "community": 48,
+      "community": 49,
       "norm_label": "leafblower.h"
     },
     {
@@ -1153,7 +1153,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/r_bridge.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_r_bridge_cpp",
-      "community": 7,
+      "community": 6,
       "norm_label": "r_bridge.cpp"
     },
     {
@@ -1162,7 +1162,7 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L50",
       "id": "src_r_bridge_r_log_trampoline",
-      "community": 7,
+      "community": 6,
       "norm_label": "r_log_trampoline()"
     },
     {
@@ -1171,7 +1171,7 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L56",
       "id": "src_r_bridge_r_init_leafblower",
-      "community": 7,
+      "community": 6,
       "norm_label": "r_init_leafblower()"
     },
     {
@@ -1180,7 +1180,7 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L70",
       "id": "src_r_bridge_c_logit_f_at_zero",
-      "community": 7,
+      "community": 6,
       "norm_label": "c_logit_f_at_zero()"
     },
     {
@@ -1189,7 +1189,7 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L78",
       "id": "src_r_bridge_c_logit_range_check",
-      "community": 7,
+      "community": 6,
       "norm_label": "c_logit_range_check()"
     },
     {
@@ -1198,7 +1198,7 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L92",
       "id": "src_r_bridge_c_logit_hprime_check",
-      "community": 7,
+      "community": 6,
       "norm_label": "c_logit_hprime_check()"
     },
     {
@@ -1207,7 +1207,7 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L107",
       "id": "src_r_bridge_c_rk_calibrate",
-      "community": 7,
+      "community": 6,
       "norm_label": "c_rk_calibrate()"
     },
     {
@@ -1216,7 +1216,7 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L732",
       "id": "src_r_bridge_c_leafblower_cell_table_probe",
-      "community": 7,
+      "community": 6,
       "norm_label": "c_leafblower_cell_table_probe()"
     },
     {
@@ -1225,7 +1225,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbw_math.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_lbw_math_hpp",
-      "community": 15,
+      "community": 16,
       "norm_label": "lbw_math.hpp"
     },
     {
@@ -1234,7 +1234,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L17",
       "id": "src_lbw_math_bulk_scaled_exp",
-      "community": 15,
+      "community": 16,
       "norm_label": "bulk_scaled_exp()"
     },
     {
@@ -1243,7 +1243,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/types.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_types_hpp",
-      "community": 49,
+      "community": 50,
       "norm_label": "types.hpp"
     },
     {
@@ -1252,7 +1252,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/logit.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_logit_cpp",
-      "community": 50,
+      "community": 51,
       "norm_label": "logit.cpp"
     },
     {
@@ -1261,7 +1261,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/raking.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_raking_hpp",
-      "community": 51,
+      "community": 52,
       "norm_label": "raking.hpp"
     },
     {
@@ -1270,7 +1270,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/raking.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_raking_cpp",
-      "community": 3,
+      "community": 12,
       "norm_label": "raking.cpp"
     },
     {
@@ -1279,7 +1279,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/raking.cpp",
       "source_location": "L14",
       "id": "src_raking_sum_weights_ilp",
-      "community": 3,
+      "community": 12,
       "norm_label": "sum_weights_ilp()"
     },
     {
@@ -1288,16 +1288,16 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/raking.cpp",
       "source_location": "L29",
       "id": "src_raking_compute_errrp",
-      "community": 3,
+      "community": 12,
       "norm_label": "compute_errrp()"
     },
     {
       "label": "raking_solve()",
       "file_type": "code",
       "source_file": "src/raking.cpp",
-      "source_location": "L61",
+      "source_location": "L57",
       "id": "src_raking_raking_solve",
-      "community": 3,
+      "community": 12,
       "norm_label": "raking_solve()"
     },
     {
@@ -1306,7 +1306,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/ieppa.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_ieppa_hpp",
-      "community": 52,
+      "community": 53,
       "norm_label": "ieppa.hpp"
     },
     {
@@ -1315,7 +1315,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/cell_table.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_cell_table_hpp",
-      "community": 53,
+      "community": 54,
       "norm_label": "cell_table.hpp"
     },
     {
@@ -1324,7 +1324,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/cell_table.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_cell_table_cpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "cell_table.cpp"
     },
     {
@@ -1333,7 +1333,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L20",
       "id": "src_cell_table_pack_key_fits",
-      "community": 8,
+      "community": 7,
       "norm_label": "pack_key_fits()"
     },
     {
@@ -1342,7 +1342,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L30",
       "id": "src_cell_table_pack_key_compute",
-      "community": 8,
+      "community": 7,
       "norm_label": "pack_key_compute()"
     },
     {
@@ -1351,7 +1351,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L45",
       "id": "src_cell_table_build_cell_table",
-      "community": 8,
+      "community": 7,
       "norm_label": "build_cell_table()"
     },
     {
@@ -1360,7 +1360,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/ieppa.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_ieppa_cpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "ieppa.cpp"
     },
     {
@@ -1378,7 +1378,7 @@
       "source_file": "src/greg.hpp",
       "source_location": "L1",
       "id": "src_greg_hpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "greg.hpp"
     },
     {
@@ -1390,7 +1390,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "src/c_api.cpp \u2014 c api + algorithm selection",
       "id": "src_c_api_cpp"
     },
@@ -1400,7 +1400,7 @@
       "source_file": "src/c_api.cpp",
       "source_location": "L28",
       "id": "src_c_api_pack_solver_result",
-      "community": 7,
+      "community": 6,
       "norm_label": "pack_solver_result()"
     },
     {
@@ -1409,7 +1409,7 @@
       "source_file": "src/c_api.cpp",
       "source_location": "L50",
       "id": "src_c_api_pack_lbfgsb_result",
-      "community": 7,
+      "community": 6,
       "norm_label": "pack_lbfgsb_result()"
     },
     {
@@ -1418,7 +1418,7 @@
       "source_file": "src/c_api.cpp",
       "source_location": "L107",
       "id": "src_c_api_rk_result_init",
-      "community": 7,
+      "community": 6,
       "norm_label": "rk_result_init()"
     },
     {
@@ -1430,7 +1430,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "src/lbfgsb_solver.cpp",
       "id": "src_lbfgsb_solver_cpp"
     },
@@ -1489,7 +1489,7 @@
       "source_file": "src/validation.hpp",
       "source_location": "L1",
       "id": "src_validation_hpp",
-      "community": 21,
+      "community": 22,
       "norm_label": "validation.hpp"
     },
     {
@@ -1498,7 +1498,7 @@
       "source_file": "src/validation.hpp",
       "source_location": "L15",
       "id": "src_validation_validate_calibrate_inputs",
-      "community": 21,
+      "community": 22,
       "norm_label": "validate_calibrate_inputs()"
     },
     {
@@ -1507,7 +1507,7 @@
       "source_file": "src/lbfgsb_solver.hpp",
       "source_location": "L1",
       "id": "src_lbfgsb_solver_hpp",
-      "community": 54,
+      "community": 55,
       "norm_label": "lbfgsb_solver.hpp"
     },
     {
@@ -1516,7 +1516,7 @@
       "source_file": "src/lbw_config.h",
       "source_location": "L1",
       "id": "src_lbw_config_h",
-      "community": 55,
+      "community": 56,
       "norm_label": "lbw_config.h"
     },
     {
@@ -1565,7 +1565,7 @@
       "source_file": "src/greenkhorn.cpp",
       "source_location": "L1",
       "id": "src_greenkhorn_cpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "greenkhorn.cpp"
     },
     {
@@ -1574,7 +1574,7 @@
       "source_file": "src/greenkhorn.cpp",
       "source_location": "L16",
       "id": "src_greenkhorn_greenkhorn_solve",
-      "community": 8,
+      "community": 7,
       "norm_label": "greenkhorn_solve()"
     },
     {
@@ -1586,7 +1586,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 3,
       "norm_label": "src/logit.hpp (linkfn with f, df, fh)",
       "id": "src_logit_hpp"
     },
@@ -1599,7 +1599,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 56,
+      "community": 57,
       "norm_label": "src/leafblower.h \u2014 public c header + enum definitions",
       "id": "src_leafblower_h"
     },
@@ -1612,7 +1612,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "src/r_bridge.cpp",
       "id": "src_r_bridge_cpp"
     },
@@ -1622,7 +1622,7 @@
       "source_file": "src/greenkhorn.hpp",
       "source_location": "L1",
       "id": "src_greenkhorn_hpp",
-      "community": 57,
+      "community": 58,
       "norm_label": "greenkhorn.hpp"
     },
     {
@@ -1631,7 +1631,7 @@
       "source_file": "src/logit_calib.hpp",
       "source_location": "L1",
       "id": "src_logit_calib_hpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "logit_calib.hpp"
     },
     {
@@ -1640,7 +1640,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L1",
       "id": "src_lbw_math_hpp",
-      "community": 15,
+      "community": 16,
       "norm_label": "lbw_math.hpp"
     },
     {
@@ -1649,7 +1649,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L36",
       "id": "src_lbw_math_bulk_log",
-      "community": 15,
+      "community": 16,
       "norm_label": "bulk_log()"
     },
     {
@@ -1658,7 +1658,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L53",
       "id": "src_lbw_math_bulk_scaled_log",
-      "community": 15,
+      "community": 16,
       "norm_label": "bulk_scaled_log()"
     },
     {
@@ -1667,7 +1667,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L72",
       "id": "src_lbw_math_bulk_exp_clipped",
-      "community": 15,
+      "community": 16,
       "norm_label": "bulk_exp_clipped()"
     },
     {
@@ -1679,7 +1679,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "src/types.hpp (calibstate, calibmetric, calibrule enums)",
       "id": "src_types_hpp"
     },
@@ -1689,7 +1689,7 @@
       "source_file": "src/logit.cpp",
       "source_location": "L1",
       "id": "src_logit_cpp",
-      "community": 58,
+      "community": 59,
       "norm_label": "logit.cpp"
     },
     {
@@ -1698,7 +1698,7 @@
       "source_file": "src/raking.hpp",
       "source_location": "L1",
       "id": "src_raking_hpp",
-      "community": 59,
+      "community": 60,
       "norm_label": "raking.hpp"
     },
     {
@@ -1729,7 +1729,7 @@
       "source_file": "src/ieppa.hpp",
       "source_location": "L1",
       "id": "src_ieppa_hpp",
-      "community": 60,
+      "community": 61,
       "norm_label": "ieppa.hpp"
     },
     {
@@ -1741,7 +1741,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 12,
       "norm_label": "src/sinkhorn.cpp",
       "id": "src_sinkhorn_cpp"
     },
@@ -1751,7 +1751,7 @@
       "source_file": "src/sinkhorn.cpp",
       "source_location": "L16",
       "id": "src_sinkhorn_bisect_capacity",
-      "community": 4,
+      "community": 12,
       "norm_label": "bisect_capacity()"
     },
     {
@@ -1760,7 +1760,7 @@
       "source_file": "src/sinkhorn.cpp",
       "source_location": "L53",
       "id": "src_sinkhorn_bisect_capacity_fast",
-      "community": 4,
+      "community": 12,
       "norm_label": "bisect_capacity_fast()"
     },
     {
@@ -1769,7 +1769,7 @@
       "source_file": "src/sinkhorn.cpp",
       "source_location": "L89",
       "id": "src_sinkhorn_sinkhorn_solve",
-      "community": 4,
+      "community": 12,
       "norm_label": "sinkhorn_solve()"
     },
     {
@@ -1796,7 +1796,7 @@
       "source_file": "src/calib_validate.hpp",
       "source_location": "L1",
       "id": "src_calib_validate_hpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "calib_validate.hpp"
     },
     {
@@ -1805,7 +1805,7 @@
       "source_file": "src/chebyshev.hpp",
       "source_location": "L1",
       "id": "src_chebyshev_hpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "chebyshev.hpp"
     },
     {
@@ -1814,7 +1814,7 @@
       "source_file": "src/chebyshev.hpp",
       "source_location": "L30",
       "id": "src_chebyshev_chebyshev_solve",
-      "community": 8,
+      "community": 7,
       "norm_label": "chebyshev_solve()"
     },
     {
@@ -1841,7 +1841,7 @@
       "source_file": "src/cell_table.hpp",
       "source_location": "L1",
       "id": "src_cell_table_hpp",
-      "community": 22,
+      "community": 23,
       "norm_label": "cell_table.hpp"
     },
     {
@@ -1850,7 +1850,7 @@
       "source_file": "src/cell_table.hpp",
       "source_location": "L37",
       "id": "src_cell_table_build_cells_per_cat",
-      "community": 22,
+      "community": 23,
       "norm_label": "build_cells_per_cat()"
     },
     {
@@ -1859,7 +1859,7 @@
       "source_file": "src/sinkhorn.hpp",
       "source_location": "L1",
       "id": "src_sinkhorn_hpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "sinkhorn.hpp"
     },
     {
@@ -1908,10 +1908,19 @@
       "norm_label": "check_convergence()"
     },
     {
-      "label": "compute_cell_metrics()",
+      "label": "aggregate_to_margin()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
       "source_location": "L160",
+      "id": "src_calib_dispatch_aggregate_to_margin",
+      "community": 10,
+      "norm_label": "aggregate_to_margin()"
+    },
+    {
+      "label": "compute_cell_metrics()",
+      "file_type": "code",
+      "source_file": "src/calib_dispatch.hpp",
+      "source_location": "L176",
       "id": "src_calib_dispatch_compute_cell_metrics",
       "community": 10,
       "norm_label": "compute_cell_metrics()"
@@ -1920,16 +1929,16 @@
       "label": "apply_obs_expansion()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L200",
+      "source_location": "L212",
       "id": "src_calib_dispatch_apply_obs_expansion",
-      "community": 4,
+      "community": 12,
       "norm_label": "apply_obs_expansion()"
     },
     {
       "label": "resolve_hi()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L215",
+      "source_location": "L227",
       "id": "src_calib_dispatch_resolve_hi",
       "community": 10,
       "norm_label": "resolve_hi()"
@@ -1938,7 +1947,7 @@
       "label": "compute_cell_bounds()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L220",
+      "source_location": "L232",
       "id": "src_calib_dispatch_compute_cell_bounds",
       "community": 10,
       "norm_label": "compute_cell_bounds()"
@@ -1947,7 +1956,7 @@
       "label": "build_cat_offset()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L235",
+      "source_location": "L247",
       "id": "src_calib_dispatch_build_cat_offset",
       "community": 10,
       "norm_label": "build_cat_offset()"
@@ -1956,7 +1965,7 @@
       "label": "max_cats_count()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L245",
+      "source_location": "L257",
       "id": "src_calib_dispatch_max_cats_count",
       "community": 10,
       "norm_label": "max_cats_count()"
@@ -1965,7 +1974,7 @@
       "label": "solver_setup_ct()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L254",
+      "source_location": "L266",
       "id": "src_calib_dispatch_solver_setup_ct",
       "community": 10,
       "norm_label": "solver_setup_ct()"
@@ -1974,7 +1983,7 @@
       "label": "solver_setup_ct_base()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L288",
+      "source_location": "L300",
       "id": "src_calib_dispatch_solver_setup_ct_base",
       "community": 10,
       "norm_label": "solver_setup_ct_base()"
@@ -1983,7 +1992,7 @@
       "label": "compute_weight_kl()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L311",
+      "source_location": "L323",
       "id": "src_calib_dispatch_compute_weight_kl",
       "community": 10,
       "norm_label": "compute_weight_kl()"
@@ -1994,7 +2003,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L1",
       "id": "src_cell_table_cpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "cell_table.cpp"
     },
     {
@@ -2003,7 +2012,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L9",
       "id": "src_cell_table_bits_needed",
-      "community": 8,
+      "community": 7,
       "norm_label": "bits_needed()"
     },
     {
@@ -2012,7 +2021,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L145",
       "id": "src_cell_table_estimate_m_cell",
-      "community": 8,
+      "community": 7,
       "norm_label": "estimate_m_cell()"
     },
     {
@@ -2021,7 +2030,7 @@
       "source_file": "src/calib_linalg.hpp",
       "source_location": "L1",
       "id": "src_calib_linalg_hpp",
-      "community": 8,
+      "community": 7,
       "norm_label": "calib_linalg.hpp"
     },
     {
@@ -2082,7 +2091,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L337",
-      "community": 61,
+      "community": 62,
       "norm_label": "diagnose calibration quality (python equivalent of r diagnose_weights()).      p",
       "id": "harvest_rationale_337"
     },
@@ -2091,7 +2100,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L305",
-      "community": 62,
+      "community": 63,
       "norm_label": "# note: no post-normalization clamp to [min_weight, max_weight]. clamping",
       "id": "harvest_rationale_305"
     },
@@ -2104,7 +2113,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 18,
+      "community": 19,
       "norm_label": "leafblower r/python package",
       "id": "leafblower_package"
     },
@@ -2117,7 +2126,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 18,
+      "community": 19,
       "norm_label": "openwolf context management system",
       "id": "openwolf_system"
     },
@@ -2130,7 +2139,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 18,
+      "community": 19,
       "norm_label": "bd (beads) issue tracker",
       "id": "beads_tracker"
     },
@@ -2143,7 +2152,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 18,
+      "community": 19,
       "norm_label": "graphify knowledge graph tool",
       "id": "graphify_tool"
     },
@@ -2299,7 +2308,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "convergence metric: grake_norm (survey::calibrate-compatible)",
       "id": "convergence_metric_grake_norm"
     },
@@ -2546,7 +2555,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 14,
       "norm_label": "raking bounds documentation: hybrid ipf+dykstra analysis",
       "id": "raking_bounds_doc"
     },
@@ -2559,7 +2568,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 14,
       "norm_label": "dykstra's alternating projections algorithm",
       "id": "dykstra_algorithm"
     },
@@ -2572,7 +2581,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 14,
       "norm_label": "bregman dykstra (multiplicative kl-space dykstra)",
       "id": "bregman_dykstra"
     },
@@ -2793,7 +2802,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 7,
       "norm_label": "celltable data structure (sort-based cell deduplication)",
       "id": "cell_table"
     },
@@ -2819,7 +2828,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 14,
       "norm_label": "bounded convergence fix design (2026-04-18)",
       "id": "bounded_convergence_fix"
     },
@@ -2832,7 +2841,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 14,
       "norm_label": "bug: bcd_sweep clamps during ipf violating sinkhorn invariant",
       "id": "bcd_sweep_bug"
     },
@@ -2845,7 +2854,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 14,
       "norm_label": "bug: l-bfgs-b uses exp link when max_weight finite (should use logit)",
       "id": "lbfgsb_link_bug"
     },
@@ -2975,7 +2984,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 14,
       "norm_label": "method='sinkhorn' \u2014 kl bregman dykstra solver",
       "id": "method_sinkhorn"
     },
@@ -3092,7 +3101,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "clean code fixes round 1 plan (2026-04-18)",
       "id": "clean_code_fixes_1"
     },
@@ -3157,7 +3166,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 7,
       "norm_label": "src/cell_table.hpp + cell_table.cpp",
       "id": "src_cell_table"
     },
@@ -3391,7 +3400,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 6,
       "norm_label": "critical review fixes (raking bounds, int overflow, kl-for-auto)",
       "id": "plan_critical_review_fixes"
     },
@@ -3443,7 +3452,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 19,
+      "community": 20,
       "norm_label": "improvement-based convergence criterion",
       "id": "plan_improvement_criterion"
     },
@@ -3482,7 +3491,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "convergence criteria redesign (metric+rule orthogonal abi)",
       "id": "plan_convergence_redesign"
     },
@@ -3495,7 +3504,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "plan a review fixes (c_api field aliasing, inf init)",
       "id": "plan_a_review_fixes"
     },
@@ -3573,7 +3582,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 3,
       "norm_label": "post-p3 code review fixes (2026-04-22)",
       "id": "plan_review_fixes_2026_04_22"
     },
@@ -3586,7 +3595,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 3,
       "norm_label": "leafblower c performance optimization (simd, libmvec)",
       "id": "plan_c_perf_optimization"
     },
@@ -3599,7 +3608,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 12,
       "norm_label": "sinkhorn correctness fixes (dykstra overflow, bisection)",
       "id": "plan_sinkhorn_correctness_fixes"
     },
@@ -3820,7 +3829,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 19,
+      "community": 20,
       "norm_label": "convergence criterion: improvement (relative errrp decrease)",
       "id": "convergence_criterion_improvement"
     },
@@ -3833,7 +3842,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 19,
+      "community": 20,
       "norm_label": "convergence criterion: pct (weight-change stopping)",
       "id": "convergence_criterion_pct"
     },
@@ -3872,7 +3881,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 6,
       "norm_label": "bug: raking post-clamp normalization violates bounds",
       "id": "bug_raking_bounds_normalization"
     },
@@ -3885,7 +3894,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 6,
       "norm_label": "bug: int overflow in m_cell*10 > n*9 routing",
       "id": "bug_int_overflow_routing"
     },
@@ -3911,7 +3920,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 12,
       "norm_label": "bug: sinkhorn dykstra correction a[c] unbounded accumulation causing exp overflow",
       "id": "bug_sinkhorn_dykstra_overflow"
     },
@@ -4015,7 +4024,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 19,
+      "community": 20,
       "norm_label": "rationale: improvement criterion measures actual calibration progress; pct (weight change) can misfire when weights stall but error remains high",
       "id": "rationale_improvement_criterion"
     },
@@ -4067,7 +4076,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 63,
+      "community": 64,
       "norm_label": "parameter: method (ieppa/raking/lbfgsb/sinkhorn/greg/chebyshev/grake)",
       "id": "param_method"
     },
@@ -4132,7 +4141,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "l-bfgs-b solver",
       "id": "lbfgsb_solver"
     },
@@ -4366,7 +4375,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "fix: eliminate per-iteration vector copies in l-bfgs-b (std::swap)",
       "id": "fix_lbfgsb_per_iter_copies"
     },
@@ -4470,7 +4479,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "plan: l-bfgs-b audit fixes (rev3, wu-1 to wu-3)",
       "id": "lbfgsb_audit_fixes_plan"
     },
@@ -4483,7 +4492,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "plan: l-bfgs-b phase 2",
       "id": "lbfgsb_phase2_plan"
     },
@@ -4834,7 +4843,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "discrete 2d tomography application: image reconstruction from n projections using ieppa+bcd",
       "id": "discrete_tomography_application"
     },
@@ -4847,7 +4856,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "psnr (peak signal-to-noise ratio): reconstruction quality metric for tomography experiments",
       "id": "psnr_metric"
     },
@@ -4860,7 +4869,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "hcap1: linear operator a^(i)(x) for direction (1,0) \u2014 row-sum projection of matrix x onto marginal vector",
       "id": "hcap1_figure"
     },
@@ -4873,7 +4882,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "hcap2: linear operator a^(i)(x) for direction (2,1) \u2014 diagonal-sum projection of matrix x onto marginal vector",
       "id": "hcap2_figure"
     },
@@ -4912,7 +4921,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "figure 4: psnr vs n projections (n=10..90) for 5 ground-truth images; psnr increases monotonically with n for all images",
       "id": "psnr_figure"
     },
@@ -4925,7 +4934,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "figure 5: tomography reconstructions for flower/tree/animals/brain/lung at n=20,50,80 vs ground-truth",
       "id": "tomography_figure"
     },
@@ -4938,7 +4947,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "ground-truth image: flower (rose with stem and leaves, 256x256), used in ieppa tomography demo",
       "id": "ground_truth_flower"
     },
@@ -4951,7 +4960,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 13,
       "norm_label": "ground-truth image: tree (pine/fir silhouette, 256x256), used in ieppa tomography demo",
       "id": "ground_truth_tree"
     },
@@ -7290,7 +7299,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/raking.cpp",
-      "source_location": "L61",
+      "source_location": "L57",
       "weight": 1.0,
       "_src": "src_raking_cpp",
       "_tgt": "src_raking_raking_solve",
@@ -8442,7 +8451,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/sinkhorn.cpp",
-      "source_location": "L174",
+      "source_location": "L170",
       "weight": 1.0,
       "_src": "src_sinkhorn_sinkhorn_solve",
       "_tgt": "src_sinkhorn_bisect_capacity_fast",
@@ -8649,6 +8658,18 @@
       "source_location": "L160",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
+      "_tgt": "src_calib_dispatch_aggregate_to_margin",
+      "source": "src_calib_dispatch_hpp",
+      "target": "src_calib_dispatch_aggregate_to_margin",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/calib_dispatch.hpp",
+      "source_location": "L176",
+      "weight": 1.0,
+      "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_compute_cell_metrics",
       "source": "src_calib_dispatch_hpp",
       "target": "src_calib_dispatch_compute_cell_metrics",
@@ -8658,7 +8679,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L200",
+      "source_location": "L212",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_apply_obs_expansion",
@@ -8670,7 +8691,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L215",
+      "source_location": "L227",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_resolve_hi",
@@ -8682,7 +8703,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L220",
+      "source_location": "L232",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_compute_cell_bounds",
@@ -8694,7 +8715,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L235",
+      "source_location": "L247",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_build_cat_offset",
@@ -8706,7 +8727,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L245",
+      "source_location": "L257",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_max_cats_count",
@@ -8718,7 +8739,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L254",
+      "source_location": "L266",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_solver_setup_ct",
@@ -8730,7 +8751,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L288",
+      "source_location": "L300",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_solver_setup_ct_base",
@@ -8742,7 +8763,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L311",
+      "source_location": "L323",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_compute_weight_kl",
@@ -8776,6 +8797,18 @@
     },
     {
       "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/calib_dispatch.hpp",
+      "source_location": "L188",
+      "weight": 1.0,
+      "_src": "src_calib_dispatch_compute_cell_metrics",
+      "_tgt": "src_calib_dispatch_aggregate_to_margin",
+      "source": "src_calib_dispatch_aggregate_to_margin",
+      "target": "src_calib_dispatch_compute_cell_metrics",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/greg.cpp",
@@ -8790,7 +8823,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L272",
+      "source_location": "L284",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct",
       "_tgt": "src_calib_dispatch_resolve_hi",
@@ -8802,7 +8835,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L303",
+      "source_location": "L315",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct_base",
       "_tgt": "src_calib_dispatch_resolve_hi",
@@ -8814,7 +8847,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L273",
+      "source_location": "L285",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct",
       "_tgt": "src_calib_dispatch_compute_cell_bounds",
@@ -8826,7 +8859,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L304",
+      "source_location": "L316",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct_base",
       "_tgt": "src_calib_dispatch_compute_cell_bounds",
@@ -8838,7 +8871,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L274",
+      "source_location": "L286",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct",
       "_tgt": "src_calib_dispatch_build_cat_offset",
