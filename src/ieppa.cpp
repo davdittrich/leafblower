@@ -964,6 +964,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
         }
 
+        // 773f.7: per-margin errRp captured during linear-path convergence sweep; reused by SOR.
+        std::vector<double> per_k_errRp_cache(st.K, 0.0);
+        bool per_k_errRp_valid = false;
+
         // Convergence check.
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter_in_lvl == budget_lvl) {
             double W_total = 0.0;
@@ -982,10 +986,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         int j = gk[c];
                         if (j >= 0 && j < nj) S_lin[j] += X[c];
                     }
+                    double errRp_k = 0.0;                          // 773f.7
                     for (int j = 0; j < nj; j++) {
                         double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
                         if (e > errRp) errRp = e;
+                        if (e > errRp_k) errRp_k = e;             // 773f.7: capture per-margin
                     }
+                    per_k_errRp_cache[k] = errRp_k;               // 773f.7
                     // Marginal KL: Σ_k Σ_j t_kj log(t_kj / achieved_kj)
                     for (int j = 0; j < nj; j++) {
                         double tkj = st.targets[k][j];
@@ -1010,6 +1017,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     }
                 }
             }
+            per_k_errRp_valid = (use_linear && W_total > 0.0);    // 773f.7
             res.marginal_kl_at_iter = marg_kl;
             res.base.max_error = errRp;
 
@@ -1046,18 +1054,23 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (W_total > 0.0) {
                     for (int k = 0; k < st.K; k++) {
                         const int nj_k = st.cat_counts[k];
-                        // Compute per-margin errRp_k using X[c] (post-capacity, available
-                        // in both paths). Reuse S_lin scratch (sized to max_cat >= nj_k).
-                        std::fill(S_lin.begin(), S_lin.begin() + nj_k, 0.0);
-                        const int* gk_s = ct.g_per_cell[k].data();
-                        for (int c = 0; c < ct.M_cell; c++) {
-                            int j = gk_s[c];
-                            if (j >= 0 && j < nj_k) S_lin[j] += X[c];
-                        }
-                        double errRp_k = 0.0;
-                        for (int j = 0; j < nj_k; j++) {
-                            double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
-                            if (e > errRp_k) errRp_k = e;
+                        double errRp_k;
+                        if (per_k_errRp_valid) {
+                            // 773f.7: reuse per-margin errRp captured during convergence sweep.
+                            errRp_k = per_k_errRp_cache[k];
+                        } else {
+                            // Log path: re-accumulate (unchanged behavior).
+                            std::fill(S_lin.begin(), S_lin.begin() + nj_k, 0.0);
+                            const int* gk_s = ct.g_per_cell[k].data();
+                            for (int c = 0; c < ct.M_cell; c++) {
+                                int j = gk_s[c];
+                                if (j >= 0 && j < nj_k) S_lin[j] += X[c];
+                            }
+                            errRp_k = 0.0;
+                            for (int j = 0; j < nj_k; j++) {
+                                double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
+                                if (e > errRp_k) errRp_k = e;
+                            }
                         }
                         bool decreasing = (errRp_k < sor_prev_errRp[k]);
                         bool sign_flip  = !decreasing && sor_prev_decreasing[k];
