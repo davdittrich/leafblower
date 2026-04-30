@@ -376,6 +376,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     int    res_alm_n_growth_events     = 0;
     double res_alm_max_dual_norm       = 0.0;
     double res_alm_sum_drift           = 0.0;
+    /* Acceleration (SRAA) diagnostic (ieppa/ieppa_soft only; zero elsewhere) */
+    int    res_aa_accepted_count       = 0;
     std::vector<double> res_best_weights;  // obs-level, length n
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
@@ -448,6 +450,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             pack_solver_result(res);
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
+            res_aa_accepted_count     = res.aa_accepted_count;
             res_best_weights = std::move(res.base.best_weights);
         }
         // Auto-fallback: if primary solver NOCONVs or exhausts budget (still
@@ -576,6 +579,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_alm_n_growth_events   = res.alm_n_growth_events;
             res_alm_max_dual_norm     = res.alm_max_dual_norm;
             res_alm_sum_drift         = res.alm_sum_drift;
+            res_aa_accepted_count     = res.aa_accepted_count;
             res_best_weights = std::move(res.base.best_weights);
         } else {
             // Default / ieppa
@@ -597,6 +601,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             pack_solver_result(res);
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
+            res_aa_accepted_count     = res.aa_accepted_count;
             res_best_weights = std::move(res.base.best_weights);
         }
     }
@@ -633,8 +638,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  34));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  34));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  35));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  35));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -715,6 +720,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list,  31, Rf_ScalarInteger(res_alm_n_growth_events));
     SET_VECTOR_ELT(res_list,  32, Rf_ScalarReal(res_alm_max_dual_norm));
     SET_VECTOR_ELT(res_list,  33, Rf_ScalarReal(res_alm_sum_drift));
+    /* Element 34: SRAA acceleration diagnostic (ieppa/ieppa_soft only; zero elsewhere) */
+    SET_STRING_ELT(res_names, 34, Rf_mkChar("aa_accepted_count"));
+    SET_VECTOR_ELT(res_list,  34, Rf_ScalarInteger(res_aa_accepted_count));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));
