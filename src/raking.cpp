@@ -453,8 +453,7 @@ RakingResult raking_solve(CalibState& st) {
                         chi2_total = m.chi2;
                         grake_norm = m.grake_norm;
                         if (metric != lbw::CalibMetric::MAX_ERR) {
-                            const double curr_best = lbw::select_metric(
-                                metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
+                            const double curr_best = lbw::select_metric(metric, m);
                             if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
                                 best_metric_seen    = curr_best;
                                 best_iter_val       = iter;

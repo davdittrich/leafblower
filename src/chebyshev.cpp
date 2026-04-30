@@ -263,8 +263,7 @@ ChebyshevResult chebyshev_ipm(
         // apply_rule updates prev_metric_for_rule in-place (tracks improvement across iterations).
         {
             const auto& cfg = st.convergence_cfg;
-            const double curr_metric = lbw::select_metric(
-                cfg.metric, errRp, mean_err, kl_max, chi2_total, grake_norm, l1_weight);
+            const double curr_metric = lbw::select_metric(cfg.metric, cm);
             bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
             const bool converged_pct = lbw::apply_rule(
                 cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
