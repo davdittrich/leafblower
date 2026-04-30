@@ -1110,40 +1110,25 @@ IEPPAResult ieppa_solve(CalibState& st) {
             // pass is needed to populate the other result fields for diagnostics).
             double grake_norm = 0.0;
 
-            constexpr double kMetricEps = 1e-10;
-            constexpr double kChi2Floor = 1.0;
             double mean_err_sum = 0.0;
             double kl_max       = 0.0;
             double chi2_total   = 0.0;
             if (need_extra_metrics && W_total > 0.0) {
-                for (int k = 0; k < st.K; k++) {
-                    const int nj = st.cat_counts[k];
-                    std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
-                    const int* gk = ct.g_per_cell[k].data();
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        int j = gk[c];
-                        if (j >= 0 && j < nj) S_lin[j] += X[c];
-                    }
-                    double max_k = 0.0;
-                    double kl_k  = 0.0;
-                    for (int j = 0; j < nj; j++) {
-                        double S_p = S_lin[j] / W_total;
-                        double T   = st.targets[k][j];
-                        double err = std::fabs(S_p - T);
-                        if (err > max_k) max_k = err;
-                        if (T > 0.0) {
-                            kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
-                        }
-                        double obs = S_lin[j];
-                        double exp_val = T * W_total;
-                        chi2_total += (obs - exp_val) * (obs - exp_val) / (exp_val + kChi2Floor);
-                        // grake_norm computed here (reuses S_lin, no extra O(K*M_cell) pass)
-                        double nm = std::fabs(obs - exp_val) / (1.0 + std::fabs(exp_val));
-                        if (nm > grake_norm) grake_norm = nm;
-                    }
-                    mean_err_sum += max_k;
-                    if (kl_k > kl_max) kl_max = kl_k;
-                }
+                // 773f.4: fuse extra-metrics sweep into single compute_cell_metrics call.
+                // S_lin is sized to max_cat — satisfies bucket >= max(cat_counts[k]) requirement.
+                // X is the post-capacity cell mass vector (valid for both linear and log paths).
+                // Field mapping (verified against manual loop above):
+                //   cm.mean_err  = mean_sum / K  ↔ mean_err_sum / K  (same formula)
+                //   cm.kl        = max_k kl_k     ↔ kl_max            (same)
+                //   cm.chi2      = sum chi2        ↔ chi2_total        (same)
+                //   cm.grake_norm= max nm           ↔ grake_norm        (same)
+                // errRp already set from first pass above; cm.errRp is identical — discard.
+                // marg_kl is NOT in CellMetrics — retained from the first pass unchanged.
+                const lbw::CellMetrics cm = lbw::compute_cell_metrics(st, ct, X, W_total, S_lin);
+                mean_err_sum = cm.mean_err * static_cast<double>(st.K);
+                kl_max       = cm.kl;
+                chi2_total   = cm.chi2;
+                grake_norm   = cm.grake_norm;
                 // WU-E / g4oj: BLOCK 2 — best-iterate for non-MAX_ERR, non-MARGINAL_KL metrics.
                 // All metric values (mean_err_sum, kl_max, chi2_total) are valid here.
                 // MARGINAL_KL is handled by BLOCK 1b (marg_kl already computed in errRp loop).
