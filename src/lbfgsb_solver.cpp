@@ -348,14 +348,12 @@ static double wolfe_zoom(
         const std::vector<double>& dir,
         std::vector<double>& u_work,
         std::vector<double>& e_vec,
+        std::vector<double>& log_denom_scratch,
         std::vector<double>& lam_new, std::vector<double>& grad_new,
         double& phi_new) {
     constexpr double kC1 = 1e-4;
     constexpr double kC2 = 0.9;
     const int total = (int)lam.size();
-    // S6: scratch buffer for pre-computed log(denom/UmL) values used in the
-    // logit SIMD loops below. Allocated once; reused for both loop sites.
-    std::vector<double> log_denom_scratch(fn.exponential ? 0 : st.n);
 
     // Precompute T*dir and T*lam (both constant across all bisection trials)
     double Tdir = 0.0;
@@ -478,13 +476,12 @@ static double wolfe_line_search(
         std::vector<double>& u_work,
         std::vector<double>& e_vec,
         const std::vector<double>& dir,
+        std::vector<double>& log_denom_scratch,
         std::vector<double>& lam_new, std::vector<double>& grad_new,
         double& phi_new) {
     constexpr double kC1 = 1e-4;
     constexpr double kC2 = 0.9;
     const int total = (int)lam.size();
-    // S6: scratch buffer for pre-computed log(denom/UmL) used in logit SIMD loop.
-    std::vector<double> log_denom_scratch(fn.exponential ? 0 : st.n);
 
     // Precompute T*dir and T*lam (both constant per Wolfe search)
     double Tdir = 0.0;
@@ -572,7 +569,7 @@ static double wolfe_line_search(
             return wolfe_zoom(st, fn, off, T, d, phi_0, slope_0,
                               alpha_prev, phi_prev, alpha,
                               u_base, du, lam, dir, u_work, e_vec,
-                              lam_new, grad_new, phi_new);
+                              log_denom_scratch, lam_new, grad_new, phi_new);
         }
         if (std::fabs(slope) <= kC2 * std::fabs(slope_0)) {
             // Accepted: compute full gradient
@@ -584,7 +581,7 @@ static double wolfe_line_search(
             return wolfe_zoom(st, fn, off, T, d, phi_0, slope_0,
                               alpha, phi_trial, alpha_prev,
                               u_base, du, lam, dir, u_work, e_vec,
-                              lam_new, grad_new, phi_new);
+                              log_denom_scratch, lam_new, grad_new, phi_new);
         }
         alpha_prev = alpha; phi_prev = phi_trial;
         alpha = std::min(2.0 * alpha, 8.0);
@@ -631,6 +628,8 @@ static LBFGSResult lbfgsb_solve_inner(CalibState& st,
 
     int max_iter = st.outer_max_iter;
     int final_iter = 0;
+    // 773f.2: single allocation for logit log-denom scratch; passed into both Wolfe helpers.
+    std::vector<double> log_denom_scratch(fn.exponential ? 0 : st.n);
     std::vector<double> lam_new(total), s_new(total), y_new(total);
     for (int iter = 0; iter < max_iter; iter++) {
         final_iter = iter + 1;
@@ -652,7 +651,7 @@ static LBFGSResult lbfgsb_solve_inner(CalibState& st,
         double phi_new = phi_curr;
 
         wolfe_line_search(st, fn, off, T, d, lam, phi_curr, slope_0,
-                          u, du, u_work, e_vec, dir, lam_new, grad_new, phi_new);
+                          u, du, u_work, e_vec, dir, log_denom_scratch, lam_new, grad_new, phi_new);
 
         for (int i = 0; i < total; i++) {
             s_new[i] = lam_new[i] - lam[i];
