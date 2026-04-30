@@ -1663,3 +1663,4 @@
 | 14:42 | Extract build_cells_per_cat() helper (fcbo.4) | cell_table.hpp, greenkhorn.cpp, raking.cpp, logit_calib.cpp | 3 callers refactored, all compile+test verified (532 pass), commit 7f401b4 | ~3800 |
 | 10:45 | fcbo.5: hoisted compute_weight_kl from 3 solver lambdas to calib_dispatch.hpp | src/{calib_dispatch,raking,sinkhorn,ieppa}.{hpp,cpp} | 3 lambdas removed, 8 call sites replaced, bulk_log vectorization unified | ~8000 |
 | 12:45 | Extracted mark_converged() template helper into calib_dispatch.hpp; replaced 6 convergence blocks across 5 solvers (sinkhorn, raking x2, chebyshev, greenkhorn, logit_calib) | src/calib_dispatch.hpp, src/*.cpp | Compiled clean, no errors | ~8500 |
+| 15:47 | 773f.5: Eliminate redundant O(M_cell) copies on sinkhorn non-projection path | src/sinkhorn.cpp | Moved X[c]=X_proj[c] into if(needs_projection) block; removed no-op else { X_proj=X } copy. Tests: 532 pass, 2 pre-existing failures. Commit 7a995fd. | ~450 |
