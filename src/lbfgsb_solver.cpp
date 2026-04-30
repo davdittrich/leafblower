@@ -260,7 +260,7 @@ static LBFGSResult compute_final_weights_and_error(
     }
     double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
 
-    res.l1_weight_change = pct_change;  // rename; pct_change local var preserved until updates computation
+    res.l1_weight_change = pct_change;  // max relative weight shift (start→final); field name is legacy
     res.mean_error       = mean_err;
     res.kl               = kl_max;
     res.chi2             = chi2_total;
