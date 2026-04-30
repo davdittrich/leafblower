@@ -91,11 +91,30 @@
 #' @param adaptive_order Ignored.
 #' @param enforce_mean Ignored (retained for compatibility).
 #' @param accelerate Logical. Enable Safeguarded Regularized Anderson Acceleration
-#'   (SRAA-m, window m=5) for \code{method="greenkhorn"} and \code{method="raking"}.
-#'   SRAA-m guarantees \code{max_error_accelerated <= max_error_plain} per super-step
-#'   via an explicit safeguard, using 2 F-evals per accepted step (vs. SQUAREM's 3).
-#'   Replaces prior SQUAREM/CBB scheme which overshot the bounded optimum.
-#'   Default \code{FALSE}.
+#'   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
+#'   \code{"ieppa"}, and \code{"ieppa_soft"}. Default \code{FALSE}.
+#'
+#'   \strong{For ieppa and ieppa_soft}, SRAA-m operates in log-factor space
+#'   (dimension n_cats_total ≈ 50–500, not M_cell), so history matrices are
+#'   small. Expected benefit: ≥30\% fewer outer iterations on tight-bounds
+#'   problems (K≥6, max_weight<3, or skewed margins).
+#'
+#'   \strong{Behavioral changes when accelerate=TRUE for ieppa/ieppa_soft:}
+#'   \itemize{
+#'     \item \strong{SOR disabled}: adaptive under-relaxation (SOR) is turned
+#'       off; omega stays fixed at omega_init (default 1.0). Use
+#'       \code{accelerate=FALSE} if adaptive SOR is required.
+#'     \item \strong{Greedy scheduler downgraded}: if \code{scheduler="greedy"},
+#'       it is silently changed to \code{"round_robin"} (logged at
+#'       \code{verbose >= 1}). AA requires a deterministic sweep map.
+#'     \item \strong{res$iterations}: reports F-evals consumed, not BCD outer
+#'       iterations (AA-accepted step = 2 F-evals; plain step = 1).
+#'     \item \strong{res$aa_accepted_count}: number of AA steps accepted this
+#'       solve (0 when accelerate=FALSE). Access via
+#'       \code{attr(result, "result")$aa_accepted_count}.
+#'     \item SRAA history is reset at each homotopy level boundary and on
+#'       linear-to-log-path fallback.
+#'   }
 #' @param add_na_proportion Not supported in v1; raises error if TRUE.
 #' @param auto_collapse Not supported in v1; raises error if TRUE.
 #' @param collapse_vars Not supported in v1; raises error if TRUE.
