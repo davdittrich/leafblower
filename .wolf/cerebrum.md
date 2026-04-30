@@ -2,7 +2,7 @@
 
 > OpenWolf's learning memory. Updated automatically as the AI learns from interactions.
 > Do not edit manually unless correcting an error.
-> Last updated: 2026-04-24
+> Last updated: 2026-04-30
 
 ## User Preferences
 
@@ -11,6 +11,7 @@
 ## Key Learnings
 
 - **Project:** leafblower
+- **Refactoring Pattern (fcbo.2):** When extracting duplicated code across multiple solvers (chebyshev, sinkhorn, greg, raking), use context-mode batch_execute with grep to find all sites first, then add helpers to calib_dispatch.hpp, then replace sites one file at a time with Edit tool. Prefer using references to vectors passed by reference rather than initializing them with sizes, letting the helper function do the resizing.
 
 ## Do-Not-Repeat
 
