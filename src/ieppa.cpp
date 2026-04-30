@@ -600,6 +600,70 @@ IEPPAResult ieppa_solve(CalibState& st) {
         };
 
         // ────────────────────────────────────────────────────────────────────
+        // SRAA-m: apply_single_margin_log hoisted to homotopy scope so
+        // f_eval_lf can dispatch it when use_linear=false. Body unchanged.
+        // ────────────────────────────────────────────────────────────────────
+        auto apply_single_margin_log = [&](int k) -> bool {
+            // effective omega for this margin (log-space path).
+            double eff_omega_log;
+            if (!sor_active) {
+                eff_omega_log = 1.0;
+            } else if (!sor_auto_v && omega_fixed_v > 0.0) {
+                eff_omega_log = omega_fixed_v;
+            } else {
+                eff_omega_log = sor_omega[k];
+            }
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
+                if (cells.empty()) { record_empty(k, j); continue; }
+                lv.assign(cells.size(), -std::numeric_limits<double>::infinity());
+                double lv_max = -std::numeric_limits<double>::infinity();
+                for (size_t r = 0; r < cells.size(); r++) {
+                    int c = cells[r];
+                    if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
+                    double s = log_X_init[c] + log_W[c];
+                    for (int m = 0; m < st.K; m++) {
+                        if (m == k) continue;
+                        int gm = ct.g_per_cell[m][c];
+                        s += lf[cat_offset[m] + gm];
+                    }
+                    lv[r] = s;
+                    if (s > lv_max) lv_max = s;
+                }
+                if (!std::isfinite(lv_max)) { record_empty(k, j); continue; }
+                double sum = 0.0;
+                for (size_t r = 0; r < lv.size(); r++) {
+                    if (std::isfinite(lv[r])) sum += std::exp(lv[r] - lv_max);
+                }
+                double log_S_kj = lv_max + std::log(sum);
+                if (!std::isfinite(log_S_kj) || log_S_kj < log_empty_threshold) {
+                    record_empty(k, j);
+                    continue;
+                }
+                record_nonempty(k, j);
+                double log_target = std::log(st.targets[k][j] * ct.W_input);
+                // in log-space, SOR applies as a fractional step:
+                // lf_new = lf_old + net*(log_target - log_S_kj), where net = alpha * eff_omega_log.
+                // alpha=1 && eff_omega_log=1 → lf_new = log_target - log_S_kj (fast path, no change).
+                double net_log = alpha * eff_omega_log;
+                {
+                    double lf_old = lf[cat_offset[k] + j];
+                    double lf_new = (net_log == 1.0)
+                        ? (log_target - log_S_kj)
+                        : ((1.0 - net_log) * lf_old + net_log * (log_target - log_S_kj));
+                    lf[cat_offset[k] + j] = lf_new;
+                    // T2.A: maintain cell_lf incrementally (eliminates K=20 DRAM streams)
+                    double delta = lf_new - lf_old;
+                    if (std::fabs(delta) > 1e-12) {
+                        for (int c : cells_by_margin_cat[cat_offset[k] + j])
+                            cell_lf[c] += delta;
+                    }
+                }
+            }
+            return false;  // log path does not trip overflow mid-sweep
+        };
+
+        // ────────────────────────────────────────────────────────────────────
         // SRAA-m fixed-point map for the linear path of this homotopy level.
         // Hoisted out of the inner for-loop so the SRAA while-loop can invoke
         // it. Captures lf, f_lin, cell_lf, X_cur, ct, X_init, st.K, cat_offset,
@@ -770,66 +834,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
         // Do NOT read st.max_weight here — homotopy levels pass
         // current_max_weight indirectly via the shared U_cell already built.
-
-        auto apply_single_margin_log = [&](int k) -> bool {
-            // effective omega for this margin (log-space path).
-            double eff_omega_log;
-            if (!sor_active) {
-                eff_omega_log = 1.0;
-            } else if (!sor_auto_v && omega_fixed_v > 0.0) {
-                eff_omega_log = omega_fixed_v;
-            } else {
-                eff_omega_log = sor_omega[k];
-            }
-            for (int j = 0; j < st.cat_counts[k]; j++) {
-                const auto& cells = cells_by_margin_cat[cat_offset[k] + j];
-                if (cells.empty()) { record_empty(k, j); continue; }
-                lv.assign(cells.size(), -std::numeric_limits<double>::infinity());
-                double lv_max = -std::numeric_limits<double>::infinity();
-                for (size_t r = 0; r < cells.size(); r++) {
-                    int c = cells[r];
-                    if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
-                    double s = log_X_init[c] + log_W[c];
-                    for (int m = 0; m < st.K; m++) {
-                        if (m == k) continue;
-                        int gm = ct.g_per_cell[m][c];
-                        s += lf[cat_offset[m] + gm];
-                    }
-                    lv[r] = s;
-                    if (s > lv_max) lv_max = s;
-                }
-                if (!std::isfinite(lv_max)) { record_empty(k, j); continue; }
-                double sum = 0.0;
-                for (size_t r = 0; r < lv.size(); r++) {
-                    if (std::isfinite(lv[r])) sum += std::exp(lv[r] - lv_max);
-                }
-                double log_S_kj = lv_max + std::log(sum);
-                if (!std::isfinite(log_S_kj) || log_S_kj < log_empty_threshold) {
-                    record_empty(k, j);
-                    continue;
-                }
-                record_nonempty(k, j);
-                double log_target = std::log(st.targets[k][j] * ct.W_input);
-                // in log-space, SOR applies as a fractional step:
-                // lf_new = lf_old + net*(log_target - log_S_kj), where net = alpha * eff_omega_log.
-                // alpha=1 && eff_omega_log=1 → lf_new = log_target - log_S_kj (fast path, no change).
-                double net_log = alpha * eff_omega_log;
-                {
-                    double lf_old = lf[cat_offset[k] + j];
-                    double lf_new = (net_log == 1.0)
-                        ? (log_target - log_S_kj)
-                        : ((1.0 - net_log) * lf_old + net_log * (log_target - log_S_kj));
-                    lf[cat_offset[k] + j] = lf_new;
-                    // T2.A: maintain cell_lf incrementally (eliminates K=20 DRAM streams)
-                    double delta = lf_new - lf_old;
-                    if (std::fabs(delta) > 1e-12) {
-                        for (int c : cells_by_margin_cat[cat_offset[k] + j])
-                            cell_lf[c] += delta;
-                    }
-                }
-            }
-            return false;  // log path does not trip overflow mid-sweep
-        };
 
         // Per-margin residual errRp_k = max_j |S_lin[j]/W_total - targets[k][j]|.
         // Uses the current X_cur (linear path) or rebuilt S via cells_by_margin_cat (log).
