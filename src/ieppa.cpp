@@ -671,6 +671,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
             int  f_evals_used = 0;
             bool converged    = false;
             while (f_evals_used < budget_lvl && !converged) {
+                // Re-seed F_cur = current iterate before each step so that
+                // step 1 of sraa_step evaluates f_eval(current_lf), not
+                // f_eval(stale_F_cur). Without this reseed, after the first
+                // swap F_cur holds old_lf and step 1 recomputes F(old_lf)
+                // → R_k=0 → phantom convergence in 1 iteration.
+                // (Mirrors raking.cpp:362: rk_sraa.F_cur = X.)
+                ieppa_sraa.F_cur = lf_flat;
                 auto r = lbw::sraa_step(f_eval_lf, lf_flat, dummy_L, dummy_U,
                                         ieppa_sraa, /*apply_clamp=*/false);
                 f_evals_used += r.f_evals;
@@ -707,16 +714,30 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     sraa_outer_stall_count = 0;
                 }
 
-                // Convergence check — same cfg as non-SRAA path. CellMetrics
-                // is filled with errRp only; SRAA-path acceleration targets
-                // MAX_ERR convergence (other metrics fall through pct/abs tol
-                // on errRp alone, conservative).
-                {
-                    lbw::CellMetrics cm;
-                    cm.errRp = r.err_result;
-                    converged = lbw::check_convergence(st.convergence_cfg, cm,
-                                                       prev_metric_for_rule,
-                                                       st.tol_abs);
+                // Convergence check — mirrors the for-loop's kErrCheckInterval
+                // gating. f_eval_lf returns errRp only; full metrics (marginal_kl,
+                // kl, chi2) are computed here at check-interval boundaries so the
+                // configured convergence metric (e.g. MARGINAL_KL for ieppa) is
+                // available. Between check intervals the convergence flag is false.
+                if (f_evals_used == 1 ||
+                    f_evals_used % kErrCheckInterval == 0 ||
+                    f_evals_used >= budget_lvl) {
+                    double W_total = 0.0;
+                    for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
+                    if (W_total > 0.0) {
+                        auto cm = lbw::compute_cell_metrics(st, ct, X_cur, W_total,
+                                                            S_lin);
+                        // MARGINAL_KL is not stored in CellMetrics.marginal_kl
+                        // (returns 0.0 → spurious "trivially converged" on first
+                        // check). CellMetrics.kl IS Σ_k T_kj*log(T_kj/S_kj) =
+                        // the marginal calibration KL. Remap for the struct call.
+                        lbw::CalibConvergenceCfg sraa_cfg = st.convergence_cfg;
+                        if (sraa_cfg.metric == lbw::CalibMetric::MARGINAL_KL)
+                            sraa_cfg.metric = lbw::CalibMetric::KL;
+                        converged = lbw::check_convergence(sraa_cfg, cm,
+                                                           prev_metric_for_rule,
+                                                           st.tol_abs);
+                    }
                 }
 
                 if (st.verbose >= 1) {
@@ -731,6 +752,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
             res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
             total_iters += f_evals_used;
             if (converged) level_converged = true;
+            // Sync X_cur → X so the post-loop expansion at line ~1624 uses the
+            // final linear-path cell masses. The non-SRAA path updates X[c] inside
+            // the P1.1 fused block; SRAA skips that block.
+            std::copy(X_cur.begin(), X_cur.end(), X.begin());
         }
 
         if (!sraa_active_lvl) {

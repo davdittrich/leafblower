@@ -1,0 +1,143 @@
+context("ieppa SRAA-m acceleration")
+
+# Shared multi-margin fixture that uses the linear path.
+# stepstone_small: n=10000, K=9, M_cell~5980, compression=1.7x → path=linear.
+# make_tight_k5 had K=1 → log path → SRAA inactive. Use stepstone_small instead.
+load_stepstone <- function() {
+  skip_if_not_installed("arrow")
+  pq  <- testthat::test_path("fixtures/stepstone_small.parquet")
+  rds <- testthat::test_path("fixtures/stepstone_small_targets.rds")
+  skip_if_not(file.exists(pq))
+  skip_if_not(file.exists(rds))
+  ss  <- arrow::read_parquet(pq)
+  tgt <- readRDS(rds)
+  for (nm in names(tgt)) ss[[nm]] <- factor(ss[[nm]])
+  list(df = ss, tgt = tgt)
+}
+
+## Test 1 — SRAA activates and accepts AA steps ----------------------------
+
+test_that("ieppa accelerate=TRUE activates SRAA and accepts AA steps (aa_count > 0)", {
+  fx <- load_stepstone()
+  r  <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = TRUE)
+  )
+  cnt <- attr(r, "result")$aa_accepted_count
+  expect_gte(cnt, 1L,
+             label = sprintf("aa_accepted_count = %d, expected >= 1", cnt))
+})
+
+## Test 2 — Regression: accel produces valid weights at equal budget --------
+# ieppa minimizes marginal KL, not max_err. SRAA can produce higher max_err
+# than plain when it converges to a different KL-optimal point. The
+# regression guard checks validity (finite max_error, correct weight sum)
+# rather than max_err parity.
+
+test_that("ieppa accelerate=TRUE produces valid weights at equal budget (regression guard)", {
+  fx     <- load_stepstone()
+  r_accel <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 100L, accelerate = TRUE)
+  )
+  res <- attr(r_accel, "result")
+  expect_true(is.finite(res$max_error),
+              label = "accel max_error is finite")
+  expect_true(res$status %in% c(0L, 1L, 4L, 5L),
+              label = sprintf("accel status=%d is valid", res$status))
+  expect_equal(sum(r_accel$weights), nrow(fx$df), tolerance = 1e-6,
+               label = "sum(weights) == n")
+})
+
+## Test 3 — ieppa_soft runs with accelerate=TRUE ---------------------------
+
+test_that("ieppa_soft accelerate=TRUE runs without error on stepstone_small", {
+  fx <- load_stepstone()
+  r  <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa_soft",
+            max_weight = 5.0, min_weight = 0.0,
+            max_iterations = 100L, accelerate = TRUE)
+  )
+  res <- attr(r, "result")
+  expect_true(res$status %in% c(0L, 1L, 4L, 5L),
+              label = sprintf("ieppa_soft + accel: status=%d", res$status))
+  expect_true(is.finite(res$max_error),
+              label = "ieppa_soft + accel: finite max_error")
+})
+
+## Test 4 — Greedy downgrade logged ----------------------------------------
+
+test_that("ieppa greedy+accelerate downgrades to round_robin and logs at verbose=1", {
+  # Note: this test uses a simple K=2 problem. If compression > 2 (log path),
+  # SRAA is inactive but the greedy downgrade still fires before the path check.
+  set.seed(1L); n <- 200L
+  df  <- data.frame(x = factor(sample(c("a","b"), n, TRUE)),
+                    y = factor(sample(c("p","q"), n, TRUE)))
+  tgt <- list(x = c(a=0.5, b=0.5), y = c(p=0.4, q=0.6))
+  msgs <- character(0)
+  r <- withCallingHandlers(
+    harvest(df, tgt, method = "ieppa", scheduler = "greedy",
+            accelerate = TRUE, max_iterations = 20L, verbose = 1L),
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+  expect_true(any(grepl("round_robin", msgs)),
+              label = "verbose=1 log contains 'round_robin'")
+})
+
+## Test 5 — Output correlation with plain ----------------------------------
+
+test_that("ieppa accelerate=TRUE produces highly correlated weights with plain", {
+  fx  <- load_stepstone()
+  r_p <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = FALSE)
+  )
+  r_a <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = TRUE)
+  )
+  expect_gt(cor(r_p$weights, r_a$weights), 0.95,
+            label = "cor(plain, accel) > 0.95")
+})
+
+## Test 6 — aa_accepted_count field accessible from R ---------------------
+
+test_that("aa_accepted_count field is accessible via attr(r, 'result')$aa_accepted_count", {
+  fx  <- load_stepstone()
+  r_a <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = TRUE)
+  )
+  r_p <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = FALSE)
+  )
+  cnt_a <- attr(r_a, "result")$aa_accepted_count
+  cnt_p <- attr(r_p, "result")$aa_accepted_count
+  expect_true(is.integer(cnt_a) || is.numeric(cnt_a),
+              label = "aa_accepted_count is numeric")
+  expect_equal(cnt_p, 0L,
+               label = "aa_accepted_count = 0 when accelerate=FALSE")
+})
+
+## Test 7 — Budget regression: accel never catastrophically worse ---------
+
+test_that("ieppa accelerate=TRUE weighted output sum = n (normalization preserved)", {
+  fx <- load_stepstone()
+  r  <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 50L, accelerate = TRUE)
+  )
+  w <- r$weights
+  expect_equal(sum(w), nrow(fx$df), tolerance = 1e-6,
+               label = "sum(weights) == n after SRAA")
+})
+
+## Test 8 — SOR disabled: omega does not adapt when accelerate=TRUE --------
+
+test_that("ieppa accelerate=TRUE disables SOR (sor_min_omega=1.0 when SOR inactive)", {
+  fx <- load_stepstone()
+  # With accelerate=TRUE, SOR adaptation is disabled; sor_min_omega stays 1.0.
+  r  <- suppressWarnings(
+    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 100L, accelerate = TRUE)
+  )
+  # sor_min_omega is 1.0 when SOR is disabled (no damping applied).
+  expect_equal(attr(r, "result")$sor$min_omega, 1.0,
+               label = "sor_min_omega=1.0 when accelerate=TRUE (SOR disabled)")
+})

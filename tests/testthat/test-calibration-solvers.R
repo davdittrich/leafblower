@@ -483,15 +483,14 @@ test_that("squarem-ac4: step-halving path produces valid weights (no NaN, bounds
   expect_equal(sum(w), n, tolerance=1e-8, label="AC4: weights sum to n")
 })
 
-test_that("squarem-ac5: accelerate=TRUE with non-raking method warns and runs", {
+test_that("squarem-ac5: accelerate=TRUE is now supported for ieppa (no warning)", {
+  # ieppa now supports accelerate=TRUE (SRAA-m). The old warning about
+  # "raking-only" was removed when SRAA was extended to ieppa.
   df  <- data.frame(v1 = factor(c("1","2","1","2","1")))
   tgt <- list(v1=c("1"=0.5,"2"=0.5))
-
-  expect_warning(
+  expect_no_error(
     leafblower::harvest(df, tgt, method="ieppa", accelerate=TRUE,
-                        max_weight=3, attach_weights=FALSE),
-    regexp="accelerate.*raking",
-    label="accelerate=TRUE with ieppa must warn"
+                        max_weight=3, attach_weights=FALSE)
   )
 })
 
