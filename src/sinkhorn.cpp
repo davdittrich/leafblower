@@ -171,21 +171,18 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                 res.base.status = RK_ERR_INFEAS;
                 break;
             }
-        } else {
-            X_proj = X;
-            // B10: Dykstra invariant — do NOT zero a[] here. Accumulated correction from prior
-            // projected iterations is valid history; zeroing would corrupt subsequent bisect_capacity
-            // calls. The no-op on a[] is the correct standard Dykstra behavior for non-binding steps.
-        }
-        if (needs_projection) {
+            // Dykstra correction: accumulate log-space adjustment
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X[c] > 1e-300 && X_proj[c] > 1e-300)
                     a[c] += std::log(X[c]) - std::log(X_proj[c]);
                 a[c] = std::clamp(a[c], -kAmax, kAmax);
             }
             lbw::bulk_scaled_exp(1.0, a.data(), exp_a.data(), ct.M_cell);
+            // 773f.5: apply projection result to X only on projection path. No-op copy eliminated.
+            for (int c = 0; c < ct.M_cell; c++) X[c] = X_proj[c];
         }
-        for (int c = 0; c < ct.M_cell; c++) X[c] = X_proj[c];
+        // B10: On non-projection path, X unchanged — do NOT zero a[]. Accumulated correction from prior
+        // projected iterations is valid history; zeroing would corrupt subsequent bisect_capacity calls.
 
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
             const double W = W_total;  // preserved by Sinkhorn sweeps + bisection
