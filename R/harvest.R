@@ -283,10 +283,10 @@ harvest <- function(
   }
 
   sor_cfg <- parse_sor(sor)
-  if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn"))
-    warning("accelerate=TRUE is only supported for method='raking' or 'greenkhorn'; ignoring for method='",
+  if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft"))
+    warning("accelerate=TRUE is only supported for method='raking', 'greenkhorn', 'ieppa', or 'ieppa_soft'; ignoring for method='",
             method, "'", call. = FALSE)
-  accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn")
+  accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft")
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
   if (!is.null(design_weights)) {

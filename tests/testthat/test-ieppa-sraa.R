@@ -63,26 +63,22 @@ test_that("ieppa_soft accelerate=TRUE runs without error on stepstone_small", {
               label = "ieppa_soft + accel: finite max_error")
 })
 
-## Test 4 — Greedy downgrade logged ----------------------------------------
+## Test 4 — SRAA active on log path with accelerate=TRUE --------------------
 
-test_that("ieppa greedy+accelerate downgrades to round_robin and logs at verbose=1", {
-  # Note: this test uses a simple K=2 problem. If compression > 2 (log path),
-  # SRAA is inactive but the greedy downgrade still fires before the path check.
+test_that("ieppa accelerate=TRUE activates SRAA on log path at verbose=1", {
+  # LL3: sraa_active_lvl = st.accelerate (path-agnostic). This K=2 case uses
+  # the log path (compression=50x); SRAA now runs and logs [sraa] lines.
   set.seed(1L); n <- 200L
   df  <- data.frame(x = factor(sample(c("a","b"), n, TRUE)),
                     y = factor(sample(c("p","q"), n, TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5), y = c(p=0.4, q=0.6))
-  msgs <- character(0)
-  r <- withCallingHandlers(
+  r <- suppressWarnings(
     harvest(df, tgt, method = "ieppa", scheduler = "greedy",
-            accelerate = TRUE, max_iterations = 20L, verbose = 1L),
-    message = function(m) {
-      msgs <<- c(msgs, conditionMessage(m))
-      invokeRestart("muffleMessage")
-    }
+            accelerate = TRUE, max_iterations = 20L, verbose = 1L)
   )
-  expect_true(any(grepl("round_robin", msgs)),
-              label = "verbose=1 log contains 'round_robin'")
+  # SRAA logs go via Rprintf (stdout), not R messages — check aa_accepted_count.
+  expect_gt(attr(r, "result")$aa_accepted_count, 0L,
+            label = "aa_accepted_count > 0 on log path")
 })
 
 ## Test 5 — Output correlation with plain ----------------------------------

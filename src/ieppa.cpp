@@ -742,7 +742,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // linear path when accelerate=TRUE. The for-loop below is gated on
         // !sraa_active_lvl.
         // ────────────────────────────────────────────────────────────────────
-        const bool sraa_active_lvl = st.accelerate && use_linear;
+        // SRAA-m is path-agnostic: f_eval_lf dispatches on use_linear internally.
+        const bool sraa_active_lvl = st.accelerate;
         lbw::SRAAState ieppa_sraa;
         std::vector<double> lf_flat;
         std::vector<double> lf_best;
@@ -844,10 +845,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
             res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
             total_iters += f_evals_used;
             if (converged) level_converged = true;
-            // Sync X_cur → X so the post-loop expansion at line ~1624 uses the
-            // final linear-path cell masses. The non-SRAA path updates X[c] inside
-            // the P1.1 fused block; SRAA skips that block.
-            std::copy(X_cur.begin(), X_cur.end(), X.begin());
+            // Sync working cell masses → X for the post-loop expansion.
+            // Linear path uses X_cur; log path uses X_tilde (both hold
+            // X_init * exp(cell_lf) post-sweep).
+            if (use_linear) {
+                std::copy(X_cur.begin(), X_cur.end(), X.begin());
+            } else if (!X_tilde.empty()) {
+                std::copy(X_tilde.begin(), X_tilde.end(), X.begin());
+            }
         }
 
         if (!sraa_active_lvl) {
@@ -1129,6 +1134,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
                 res.n_xcur_writes_per_iter_linear = 0;
                 use_linear = false;
+                // SRAA history from linear path is stale after path flip.
+                if (sraa_active_lvl && !lf_flat.empty()) {
+                    res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
+                    ieppa_sraa.clear();
+                    pack_lf(lf, lf_flat);
+                    ieppa_sraa.F_cur = lf_flat;
+                }
                 linear_fallback_used = true;
                 // reset X_prev after fallback — X semantics changed (log-path).
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
