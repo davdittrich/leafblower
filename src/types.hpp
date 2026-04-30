@@ -15,7 +15,7 @@ struct HomotopyConfigLbw {
     double start_factor    = 1.0;   // starting max_weight multiplier
     double end_factor      = 1.0;   // ending max_weight multiplier
     double budget_split_p  = 0.5;   // Chizat-inspired budget split
-    bool   enabled         = false; // master toggle; set true when n_levels > 1
+    // enabled is derived: (n_levels > 1) — no separate field to desync
 };
 
 enum class SchedulerMode   : int { ROUND_ROBIN = 0, GREEDY = 1 };

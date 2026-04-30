@@ -86,7 +86,6 @@ void rk_params_init(rk_params_t* p) {
     p->homotopy.start_factor   = 1.0;
     p->homotopy.end_factor     = 1.0;
     p->homotopy.budget_split_p = 0.5;
-    p->homotopy.enabled        = 0;
     p->scheduler               = RK_SCHED_ROUND_ROBIN;
     p->eta_mode                = RK_ETA_FIXED;
     p->eta_start               = 1.0;
@@ -211,7 +210,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.homotopy.start_factor    = p->homotopy.start_factor;
     st.homotopy.end_factor      = p->homotopy.end_factor;
     st.homotopy.budget_split_p  = p->homotopy.budget_split_p;
-    st.homotopy.enabled         = (p->homotopy.enabled != 0) || (p->homotopy.n_levels > 1);
     st.scheduler.mode           = (p->scheduler == RK_SCHED_GREEDY)
                                     ? lbw::SchedulerMode::GREEDY
                                     : lbw::SchedulerMode::ROUND_ROBIN;

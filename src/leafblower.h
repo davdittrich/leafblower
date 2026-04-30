@@ -18,13 +18,13 @@ typedef enum {
 typedef enum { RK_SCHED_ROUND_ROBIN = 0, RK_SCHED_GREEDY = 1 } rk_scheduler_t;
 typedef enum { RK_ETA_FIXED = 0, RK_ETA_TANG_DYNAMIC = 1 } rk_eta_mode_t;
 
-/* Homotopy config (default = single level = identity) */
+/* Homotopy config (default = single level = identity).
+ * enabled is derived: (n_levels > 1) — callers must not rely on an enabled field. */
 typedef struct {
     int    n_levels;
     double start_factor;
     double end_factor;
     double budget_split_p;
-    int    enabled;
 } rk_homotopy_cfg_t;
 /* ── End overlay enums ── */
 
@@ -69,7 +69,7 @@ typedef struct {
     void*           log_ctx;
     rk_bounds_mode_t bounds_mode;  /* default RK_BOUNDS_CELL */
     /* ── Overlay knobs ── */
-    rk_homotopy_cfg_t homotopy;         /* default: n_levels=1, enabled=0 */
+    rk_homotopy_cfg_t homotopy;         /* default: n_levels=1 (enabled iff n_levels>1) */
     rk_scheduler_t    scheduler;        /* default RK_SCHED_ROUND_ROBIN */
     rk_eta_mode_t     eta_mode;         /* default RK_ETA_FIXED */
     double            eta_start;
@@ -178,7 +178,7 @@ static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
 static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
     "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");
 /* ABI layout (2026-04-24): added overlay fields after bounds_mode.
- *   rk_homotopy_cfg_t (n_levels int + 4B pad + 3 doubles + enabled int + 4B pad = 40B)
+ *   rk_homotopy_cfg_t (n_levels int + 4B pad + 3 doubles = 32B; enabled removed 2026-04-30)
  *   rk_scheduler_t (int, 4B) + rk_eta_mode_t (int, 4B)
  *   eta_start (double, 8B) + eta_end (double, 8B) + eta_schedule_power (double, 8B)
  * WU-A (2026-04-25): convergence redesign — criterion→metric+rule in rk_params_t:
@@ -188,8 +188,8 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  *   sor_omega_init (double, 8B) + sor_omega_min (double, 8B) + sor_omega_fixed (double, 8B)
  *   sor_burnin (int, 4B) + 4B pad
  * T4 (2026-04-29): capacity_penalty (double, 8B) after sor_burnin;
- *   total: 232B. Verified 2026-04-29 Linux x86_64. */
-#define EXPECTED_RK_PARAMS_BYTES 232
+ * ztid.7 (2026-04-30): removed enabled int from rk_homotopy_cfg_t; total: 224B. */
+#define EXPECTED_RK_PARAMS_BYTES 224
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

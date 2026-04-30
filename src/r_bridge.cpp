@@ -206,7 +206,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     p.homotopy.start_factor    = REAL(homotopy_start_factor_sexp)[0];
     p.homotopy.end_factor      = REAL(homotopy_end_factor_sexp)[0];
     p.homotopy.budget_split_p  = REAL(homotopy_budget_p_sexp)[0];
-    p.homotopy.enabled         = (p.homotopy.n_levels > 1) ? 1 : 0;
     {
         const char* sched_str = CHAR(STRING_ELT(scheduler_sexp, 0));
         p.scheduler = (strcmp(sched_str, "greedy") == 0) ? RK_SCHED_GREEDY : RK_SCHED_ROUND_ROBIN;
@@ -296,7 +295,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     st.homotopy.start_factor    = p.homotopy.start_factor;
     st.homotopy.end_factor      = p.homotopy.end_factor;
     st.homotopy.budget_split_p  = p.homotopy.budget_split_p;
-    st.homotopy.enabled         = (p.homotopy.enabled != 0) || (p.homotopy.n_levels > 1);
     st.scheduler.mode           = (p.scheduler == RK_SCHED_GREEDY)
                                     ? lbw::SchedulerMode::GREEDY
                                     : lbw::SchedulerMode::ROUND_ROBIN;
