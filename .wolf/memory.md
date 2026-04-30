@@ -3,6 +3,16 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+| 00:37 | T4: warm-start X_init from w_warm_obs in chebyshev_ipm; delta_warm deferred to T5 (units mismatch) | src/chebyshev.cpp | commit 0d0b89a; FAIL 5 (was 6+2 new) | ~3k |
+
+| 00:30 | T3: warm-start plumbing | src/chebyshev.hpp, src/chebyshev.cpp, src/r_bridge.cpp | DONE — compile OK, T_cheby_warm RED(3), pre-existing FAIL(3) unchanged | ~800 |
+
+| 22:00 | Created RED test file for T1 chebyshev/greg fix plan | tests/testthat/test-chebyshev.R | committed; FAIL 4, SKIP 1, PASS 2 | ~500 |
+
+| 22:45 | T3: added rk_outer_stall_count + outer revert block in raking.cpp SRAA path | src/raking.cpp | PASS 2 FAIL 3 compile OK committed 81edfe8 | ~800 |
+
+| T3 | Integrate SRAA-m into greenkhorn.cpp: remove SQUAREM CBB, wire sraa_step. Fix Rcpp→R.h in sraa.hpp, noexcept mismatch in calib_linalg.cpp, F_cur must be seeded = X before each sraa_step call. | src/greenkhorn.cpp, src/sraa.hpp, src/calib_linalg.cpp | commit 6297a7c | ~8000 |
+
 | 20:47 | Task 4: A1 fixture generation fix | data-raw/gen_ieppa_kl_ref.R, tests/testthat/fixtures/ieppa_kl_reference_stepstone.rds, tests/testthat/test-calibration-solvers.R | Fixed extraction: best_error → convergence_used$solver_objective; A1 test field correction; PASS 388 (2 pre-existing failures), A1 satisfied (sinkhorn 0.342 < ieppa 0.344) | ~6K |
 
 | 12:30 | T4.B: Defer X_tilde allocation to save 8MB | src/ieppa.cpp | 3 guards added (fallback, greedy, log-path), audit verified, compile+test passed | ~8K |
@@ -1258,3 +1268,205 @@
 | 22:00 | Edited tests/testthat/test-calibration-solvers.R | 11→11 lines | ~143 |
 | 22:03 | Edited data-raw/gen_ieppa_kl_ref.R | 7→7 lines | ~62 |
 | 22:03 | Edited tests/testthat/test-calibration-solvers.R | 3→3 lines | ~47 |
+| 15:17 | Edited src/calib_linalg.cpp | 8→8 lines | ~106 |
+| 15:23 | Edited src/greenkhorn.cpp | 5→6 lines | ~39 |
+| 15:23 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~340 |
+| 15:24 | Edited src/greenkhorn.cpp | removed 54 lines | ~71 |
+| 15:25 | Edited src/sraa.hpp | 4→4 lines | ~24 |
+| 15:25 | Edited src/sraa.hpp | stop() → Rf_error() | ~147 |
+| 15:25 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~194 |
+| 15:27 | Edited src/greenkhorn.cpp | modified if() | ~64 |
+| 15:30 | Edited src/greenkhorn.cpp | modified if() | ~55 |
+| 15:30 | Edited src/greenkhorn.cpp | 2→1 lines | ~11 |
+| 15:38 | Edited src/raking.cpp | 6→7 lines | ~46 |
+| 15:39 | Edited src/raking.cpp | removed 168 lines | ~139 |
+| 15:39 | Edited tests/testthat/test-calibration-solvers.R | 2→2 lines | ~35 |
+| 15:40 | Edited src/raking.cpp | added 3 condition(s) | ~564 |
+| 15:41 | T4 SRAA-m integration into raking.cpp | src/raking.cpp, tests/testthat/test-calibration-solvers.R | DONE — compile OK, T_sraa_rk PASS, FAIL=3 | ~3k |
+| 15:44 | Edited R/harvest.R | acceleration() → step() | ~118 |
+| 15:44 | Edited R/harvest.R | inline fix | ~25 |
+| 15:44 | Edited R/harvest.R | inline fix | ~14 |
+| 15:44 | Edited R/harvest.R | 3→3 lines | ~57 |
+| 15:44 | Edited NEWS.md | expanded (+21 lines) | ~270 |
+| 15:46 | T5 SRAA-m docs: updated @param accelerate roxygen + NEWS.md + regenerated man/harvest.Rd | R/harvest.R, NEWS.md, man/harvest.Rd | commit 1753d0b | ~600 |
+| 15:47 | Edited R/harvest.R | 2→2 lines | ~23 |
+| 15:49 | Edited src/raking.cpp | "[raking] greedy scheduler" → "[raking] greedy scheduler" | ~27 |
+| 15:49 | Edited src/raking.cpp | inline fix | ~19 |
+| 15:49 | Edited src/raking.cpp | inline fix | ~23 |
+| 15:49 | Edited src/raking.cpp | inline fix | ~2 |
+| 15:50 | Session end: 89 writes across 10 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 18 reads | ~95397 tok |
+| 15:54 | Session end: 89 writes across 10 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 18 reads | ~95397 tok |
+| 15:57 | Session end: 89 writes across 10 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 18 reads | ~95397 tok |
+| 16:15 | Session end: 89 writes across 10 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 21 reads | ~95397 tok |
+| 16:21 | Session end: 89 writes across 10 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 21 reads | ~95397 tok |
+| 16:24 | Session end: 89 writes across 10 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 21 reads | ~95397 tok |
+| 16:26 | Session end: 89 writes across 10 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 21 reads | ~95397 tok |
+| 16:28 | Created docs/superpowers/specs/2026-04-29-i0am-sraa-global-safeguard.md | — | ~2223 |
+| 16:28 | Session end: 90 writes across 11 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 21 reads | ~97779 tok |
+| 16:30 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-global-safeguard.md | swap() → copy() | ~153 |
+| 16:30 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-global-safeguard.md | modified comparison() | ~359 |
+| 16:31 | Session end: 92 writes across 11 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 22 reads | ~100684 tok |
+| 16:37 | Created docs/superpowers/plans/2026-04-29-i0am-global-safeguard.md | — | ~5129 |
+| 17:22 | Edited docs/superpowers/plans/2026-04-29-i0am-global-safeguard.md | 7→9 lines | ~111 |
+| 17:22 | Edited docs/superpowers/plans/2026-04-29-i0am-global-safeguard.md | inline fix | ~12 |
+| 17:23 | Session end: 95 writes across 12 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 23 reads | ~111119 tok |
+| 17:30 | Created tests/testthat/test-sraa-global.R | — | ~384 |
+| 17:45 | Created tests/testthat/test-sraa-global.R | — | ~1152 |
+| 18:07 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~103 |
+| 18:08 | Created tests/testthat/test-sraa-global.R | — | ~619 |
+| 18:09 | Edited src/sraa.hpp | 1→3 lines | ~70 |
+| 18:09 | Edited src/sraa.hpp | 1→6 lines | ~98 |
+| 18:09 | Edited src/sraa.hpp | modified catch() | ~35 |
+| 18:09 | Edited src/sraa.hpp | modified clear() | ~148 |
+| 18:09 | Edited src/sraa.hpp | added 2 condition(s) | ~252 |
+| 18:10 | Edited src/sraa.hpp | 2→2 lines | ~27 |
+| 18:10 | Edited src/sraa.hpp | 6→7 lines | ~50 |
+| 18:10 | Edited src/sraa.hpp | modified if() | ~54 |
+| 18:10 | Edited src/sraa.hpp | 5→6 lines | ~53 |
+| 18:10 | Edited src/sraa.hpp | 6→7 lines | ~67 |
+| 18:10 | Edited src/sraa.hpp | 11→13 lines | ~167 |
+| 18:10 | Edited src/sraa.hpp | added 1 condition(s) | ~104 |
+| 18:14 | Edited src/sraa.hpp | added 1 condition(s) | ~117 |
+| 18:15 | Edited src/sraa.hpp | 6→2 lines | ~27 |
+| 18:15 | Edited src/sraa.hpp | added 1 condition(s) | ~322 |
+| 18:19 | Edited src/sraa.hpp | 8→12 lines | ~166 |
+| 18:19 | Edited src/sraa.hpp | modified if() | ~91 |
+| 18:24 | Edited src/sraa.hpp | modified if() | ~54 |
+| 18:24 | Edited src/sraa.hpp | 6→2 lines | ~27 |
+| 18:24 | Edited src/sraa.hpp | modified if() | ~223 |
+| 18:24 | Edited src/sraa.hpp | 7→3 lines | ~40 |
+| 18:24 | Created tests/testthat/test-sraa-global.R | — | ~434 |
+| 18:31 | Edited src/sraa.hpp | added 1 condition(s) | ~114 |
+| 18:33 | Edited src/sraa.hpp | 6→2 lines | ~27 |
+| 18:38 | Edited src/sraa.hpp | 2→3 lines | ~55 |
+| 18:38 | Edited src/sraa.hpp | 2→3 lines | ~35 |
+| 18:39 | Edited src/sraa.hpp | 2→3 lines | ~76 |
+| 18:39 | Edited src/sraa.hpp | modified for() | ~501 |
+| 18:43 | Edited src/sraa.hpp | 2→3 lines | ~78 |
+| 18:43 | Edited src/sraa.hpp | added 1 condition(s) | ~468 |
+| 18:44 | Edited src/sraa.hpp | inline fix | ~31 |
+| 18:59 | Created src/sraa.hpp | — | ~2041 |
+| 19:00 | Session end: 131 writes across 13 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 24 reads | ~115065 tok |
+| 19:20 | Session end: 131 writes across 13 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 24 reads | ~108236 tok |
+| 21:35 | Session end: 131 writes across 13 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 24 reads | ~108236 tok |
+| 21:47 | Created docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | — | ~3352 |
+| 21:50 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | added 1 condition(s) | ~381 |
+| 21:50 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | modified enable_aa() | ~433 |
+| 21:50 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | modified if() | ~150 |
+| 21:51 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | inline fix | ~60 |
+| 21:51 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | expanded (+54 lines) | ~826 |
+| 21:51 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | expanded (+6 lines) | ~161 |
+| 21:51 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | 6→8 lines | ~202 |
+| 21:52 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | inline fix | ~24 |
+| 21:53 | Edited docs/superpowers/specs/2026-04-29-i0am-sraa-correct-all-scales.md | "X = W_best; rk_sraa.clear" → "W = W_best; rk_sraa.clear" | ~22 |
+| 21:53 | Session end: 141 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 25 reads | ~118658 tok |
+| 21:59 | Created docs/superpowers/plans/2026-04-29-i0am-sraa-correct-all-scales.md | — | ~8272 |
+| 22:10 | Edited docs/superpowers/plans/2026-04-29-i0am-sraa-correct-all-scales.md | added 6 condition(s) | ~824 |
+| 22:10 | Edited docs/superpowers/plans/2026-04-29-i0am-sraa-correct-all-scales.md | added 1 condition(s) | ~125 |
+| 22:11 | Edited docs/superpowers/plans/2026-04-29-i0am-sraa-correct-all-scales.md | 4→4 lines | ~75 |
+| 22:11 | Session end: 145 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 26 reads | ~136804 tok |
+| 22:14 | Session end: 145 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 26 reads | ~136804 tok |
+| 22:21 | Created docs/superpowers/plans/2026-04-29-i0am-sraa-correct-all-scales.md | — | ~5806 |
+| 22:25 | Session end: 146 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 26 reads | ~140283 tok |
+| 22:30 | Edited tests/testthat/test-sraa-global.R | added 2 condition(s) | ~1136 |
+| 22:41 | Edited src/sraa.hpp | 1→3 lines | ~71 |
+| 22:41 | Edited src/greenkhorn.cpp | modified if() | ~35 |
+| 22:41 | Edited src/greenkhorn.cpp | modified for() | ~72 |
+| 22:41 | Edited src/greenkhorn.cpp | modified for() | ~29 |
+| 22:41 | Edited src/greenkhorn.cpp | added 3 condition(s) | ~372 |
+| 22:44 | Edited src/raking.cpp | 2→3 lines | ~31 |
+| 22:45 | Edited src/raking.cpp | added 2 condition(s) | ~251 |
+| 22:47 | Session end: 154 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 26 reads | ~141367 tok |
+| 22:51 | Session end: 154 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 26 reads | ~141367 tok |
+| 22:54 | Session end: 154 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 26 reads | ~141367 tok |
+| 23:01 | Session end: 154 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 26 reads | ~115452 tok |
+| 23:05 | Session end: 154 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 28 reads | ~115452 tok |
+| 23:08 | Session end: 154 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 28 reads | ~115452 tok |
+| 23:10 | Session end: 154 writes across 14 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 28 reads | ~115452 tok |
+| 23:12 | Created docs/superpowers/specs/2026-04-29-chebyshev-greg-fix.md | — | ~2912 |
+| 23:12 | Session end: 155 writes across 15 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 28 reads | ~118572 tok |
+| 23:16 | Edited docs/superpowers/specs/2026-04-29-chebyshev-greg-fix.md | added 1 condition(s) | ~868 |
+| 23:16 | Edited docs/superpowers/specs/2026-04-29-chebyshev-greg-fix.md | added 1 condition(s) | ~542 |
+| 23:17 | Edited docs/superpowers/specs/2026-04-29-chebyshev-greg-fix.md | 11→15 lines | ~241 |
+| 23:17 | Edited docs/superpowers/specs/2026-04-29-chebyshev-greg-fix.md | modified function() | ~905 |
+| 23:24 | Session end: 159 writes across 15 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 31 reads | ~125194 tok |
+| 23:33 | Created docs/superpowers/plans/2026-04-29-chebyshev-greg-fix.md | — | ~10961 |
+| 23:44 | Edited docs/superpowers/plans/2026-04-29-chebyshev-greg-fix.md | inline fix | ~27 |
+| 23:44 | Edited docs/superpowers/plans/2026-04-29-chebyshev-greg-fix.md | added 1 condition(s) | ~238 |
+| 23:44 | Edited docs/superpowers/plans/2026-04-29-chebyshev-greg-fix.md | 2→4 lines | ~294 |
+| 23:45 | Session end: 163 writes across 15 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 32 reads | ~147824 tok |
+| 23:46 | Created tests/testthat/test-chebyshev.R | — | ~1115 |
+| 23:49 | Edited R/harvest.R | added 1 condition(s) | ~185 |
+| 23:50 | Session end: 165 writes across 16 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 33 reads | ~149297 tok |
+| 00:28 | Edited src/chebyshev.hpp | modified chebyshev_solve() | ~127 |
+| 00:28 | Edited src/chebyshev.hpp | 2→3 lines | ~37 |
+| 00:28 | Edited src/chebyshev.cpp | modified chebyshev_ipm() | ~76 |
+| 00:29 | Edited src/r_bridge.cpp | added 2 condition(s) | ~352 |
+| 00:29 | Edited src/r_bridge.cpp | inline fix | ~11 |
+| 00:32 | Edited src/chebyshev.cpp | 3→1 lines | ~21 |
+| 00:32 | Edited src/chebyshev.cpp | added 2 condition(s) | ~315 |
+| 00:32 | Edited src/chebyshev.cpp | added 1 condition(s) | ~134 |
+| 00:36 | Edited src/chebyshev.cpp | min() → delta_warm() | ~101 |
+| 00:40 | Edited src/chebyshev.cpp | 3→6 lines | ~110 |
+| 00:41 | Edited src/chebyshev.cpp | 4→5 lines | ~90 |
+| 00:50 | Edited src/r_bridge.cpp | expanded (+7 lines) | ~174 |
+| 00:50 | Edited src/chebyshev.cpp | initialization() → cpp() | ~84 |
+| 00:52 | Edited tests/testthat/test-calib-linalg.R | "schur_nu must be positive" → "schur_nu must be positive" | ~38 |
+| 00:54 | Edited src/chebyshev.cpp | expanded (+6 lines) | ~197 |
+| 00:56 | Edited src/chebyshev.cpp | added 31 condition(s) | ~5006 |
+| 00:57 | Edited src/chebyshev.cpp | removed 184 lines | ~38 |
+| 00:57 | Edited src/chebyshev.cpp | 6→2 lines | ~23 |
+| 00:57 | Edited src/chebyshev.cpp | removed 26 lines | ~46 |
+| 00:59 | Edited src/chebyshev.cpp | 4→5 lines | ~91 |
+| 01:01 | Edited src/chebyshev.cpp | modified for() | ~445 |
+| 01:01 | Edited src/chebyshev.cpp | modified for() | ~341 |
+| 01:02 | Edited src/chebyshev.cpp | inline fix | ~23 |
+| 01:03 | Edited src/chebyshev.cpp | n_comp() → min() | ~282 |
+| 01:05 | Edited src/chebyshev.cpp | 6→8 lines | ~176 |
+| 01:06 | Edited src/chebyshev.cpp | modified chebyshev_ipm() | ~40 |
+| 01:06 | Edited src/chebyshev.cpp | added 2 condition(s) | ~408 |
+| 01:08 | Edited src/chebyshev.cpp | added 2 condition(s) | ~432 |
+| 01:10 | Edited src/chebyshev.cpp | added 23 condition(s) | ~2063 |
+| 01:11 | Edited src/chebyshev.cpp | modified if() | ~345 |
+| 01:12 | Edited src/chebyshev.cpp | 3→4 lines | ~95 |
+| 01:13 | Edited src/chebyshev.cpp | 4→4 lines | ~99 |
+| 01:14 | Edited src/chebyshev.cpp | added 2 condition(s) | ~199 |
+| 01:15 | Edited src/chebyshev.cpp | added 2 condition(s) | ~506 |
+| 01:21 | Session end: 199 writes across 20 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 34 reads | ~185918 tok |
+| 01:23 | Edited src/chebyshev.cpp | inline fix | ~25 |
+| 01:36 | Edited src/chebyshev.cpp | inline fix | ~25 |
+| 01:37 | Session end: 201 writes across 20 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 34 reads | ~185972 tok |
+| 01:40 | Edited src/chebyshev.cpp | added 2 condition(s) | ~175 |
+| 01:40 | Edited src/chebyshev.cpp | inline fix | ~26 |
+| 01:40 | Edited src/chebyshev.cpp | 1→4 lines | ~82 |
+| 01:41 | Edited src/chebyshev.cpp | degenerate() → large() | ~126 |
+| 01:48 | Edited src/chebyshev.cpp | 1→3 lines | ~82 |
+| 01:49 | Session end: 206 writes across 20 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 34 reads | ~186844 tok |
+| 01:51 | Session end: 206 writes across 20 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 34 reads | ~186844 tok |
+| 02:08 | Session end: 206 writes across 20 files (ieppa.cpp, 2026-04-27-ieppa-linear-overflow-fix.md, 2026-04-27-ieppa-overflow-fix.md, test-calibration-solvers.R, calib_linalg.cpp) | 34 reads | ~186844 tok |
+| 02:11 | Edited src/chebyshev.hpp | inline fix | ~10 |
+| 02:11 | Edited src/chebyshev.hpp | modified chebyshev_solve() | ~30 |
+| 02:11 | Edited src/chebyshev.cpp | removed 2 lines | ~7 |
+| 02:11 | Edited src/chebyshev.cpp | 4→2 lines | ~39 |
+| 02:11 | Edited src/chebyshev.cpp | modified if() | ~79 |
+| 02:11 | Edited src/chebyshev.cpp | 2→1 lines | ~21 |
+| 02:12 | Edited src/chebyshev.cpp | 4→5 lines | ~54 |
+| 02:12 | Edited src/calib_dispatch.hpp | 3→2 lines | ~23 |
+| 02:12 | Edited src/c_api.cpp | — | ~0 |
+| 02:12 | Edited src/c_api.cpp | removed 5 lines | ~13 |
+| 02:12 | Edited src/r_bridge.cpp | — | ~0 |
+| 02:12 | Edited src/r_bridge.cpp | 2→1 lines | ~20 |
+| 02:12 | Edited src/r_bridge.cpp | inline fix | ~14 |
+| 02:12 | Edited src/r_bridge.cpp | 5→3 lines | ~54 |
+| 02:12 | Edited src/r_bridge.cpp | 3→2 lines | ~54 |
+| 02:12 | Edited src/r_bridge.cpp | 8→3 lines | ~48 |
+| 02:13 | Edited R/harvest.R | 3→2 lines | ~32 |
+| 02:13 | Edited R/harvest.R | removed 10 lines | ~10 |
+| 02:13 | Edited R/harvest.R | 2→2 lines | ~66 |
+| 02:13 | Edited R/harvest.R | inline fix | ~35 |
+| 02:13 | Edited src/leafblower.h | inline fix | ~26 |
+| 02:13 | Edited src/Makevars | inline fix | ~52 |
+| 02:13 | Edited src/Makevars.in | inline fix | ~52 |
+| 02:13 | Edited src/r_bridge.cpp | 3→3 lines | ~34 |
+| 02:15 | Edited tests/testthat/test-calibration-solvers.R | implemented() → expect_error() | ~114 |
+| 02:15 | Edited tests/testthat/test-calibration-solvers.R | reduced (-11 lines) | ~75 |

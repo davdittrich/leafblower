@@ -154,7 +154,7 @@
       "source_file": "conftest.py",
       "source_location": "L1",
       "id": "conftest_py",
-      "community": 17,
+      "community": 19,
       "norm_label": "conftest.py"
     },
     {
@@ -162,7 +162,7 @@
       "file_type": "rationale",
       "source_file": "python/conftest.py",
       "source_location": "L1",
-      "community": 17,
+      "community": 19,
       "norm_label": "ensure the installed wheel's leafblower package is found, not the local source t",
       "id": "conftest_rationale_1"
     },
@@ -172,7 +172,7 @@
       "source_file": "patch_wolfe.py",
       "source_location": "L1",
       "id": "patch_wolfe_py",
-      "community": 14,
+      "community": 16,
       "norm_label": "patch_wolfe.py"
     },
     {
@@ -181,7 +181,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
       "source_location": "L7",
       "id": "patch_wolfe_patch_wolfe",
-      "community": 14,
+      "community": 16,
       "norm_label": "patch_wolfe()"
     },
     {
@@ -190,7 +190,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
       "source_location": "L40",
       "id": "patch_wolfe_patch_wolfe_line_search",
-      "community": 14,
+      "community": 16,
       "norm_label": "patch_wolfe_line_search()"
     },
     {
@@ -199,7 +199,7 @@
       "source_file": "patch_raking.py",
       "source_location": "L1",
       "id": "patch_raking_py",
-      "community": 18,
+      "community": 20,
       "norm_label": "patch_raking.py"
     },
     {
@@ -208,7 +208,7 @@
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L1",
       "id": "benchmarks_stepstone_benchmark_py",
-      "community": 1,
+      "community": 10,
       "norm_label": "stepstone_benchmark.py"
     },
     {
@@ -217,7 +217,7 @@
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L34",
       "id": "stepstone_benchmark_load_data",
-      "community": 1,
+      "community": 10,
       "norm_label": "load_data()"
     },
     {
@@ -226,7 +226,7 @@
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L52",
       "id": "stepstone_benchmark_bench_harvest",
-      "community": 1,
+      "community": 10,
       "norm_label": "bench_harvest()"
     },
     {
@@ -235,7 +235,7 @@
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L86",
       "id": "stepstone_benchmark_design_effect",
-      "community": 1,
+      "community": 10,
       "norm_label": "design_effect()"
     },
     {
@@ -244,7 +244,7 @@
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L92",
       "id": "stepstone_benchmark_effective_sample_size",
-      "community": 1,
+      "community": 10,
       "norm_label": "effective_sample_size()"
     },
     {
@@ -253,7 +253,7 @@
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L96",
       "id": "stepstone_benchmark_main",
-      "community": 1,
+      "community": 10,
       "norm_label": "main()"
     },
     {
@@ -261,7 +261,7 @@
       "file_type": "rationale",
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L53",
-      "community": 1,
+      "community": 10,
       "norm_label": "time leafblower.harvest() over n_runs; return timing + result stats.",
       "id": "stepstone_benchmark_rationale_53"
     },
@@ -270,9 +270,63 @@
       "file_type": "rationale",
       "source_file": "benchmarks/stepstone_benchmark.py",
       "source_location": "L87",
-      "community": 1,
+      "community": 10,
       "norm_label": "kish (1965) design effect: n * sum(w2) / sum(w)2.",
       "id": "stepstone_benchmark_rationale_87"
+    },
+    {
+      "label": "python_ipf_benchmark.py",
+      "file_type": "code",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L1",
+      "id": "benchmarks_python_ipf_benchmark_py",
+      "community": 13,
+      "norm_label": "python_ipf_benchmark.py"
+    },
+    {
+      "label": "load_data()",
+      "file_type": "code",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L14",
+      "id": "python_ipf_benchmark_load_data",
+      "community": 13,
+      "norm_label": "load_data()"
+    },
+    {
+      "label": "compute_metrics()",
+      "file_type": "code",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L31",
+      "id": "python_ipf_benchmark_compute_metrics",
+      "community": 13,
+      "norm_label": "compute_metrics()"
+    },
+    {
+      "label": "run_ipfn()",
+      "file_type": "code",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L61",
+      "id": "python_ipf_benchmark_run_ipfn",
+      "community": 13,
+      "norm_label": "run_ipfn()"
+    },
+    {
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L122",
+      "id": "python_ipf_benchmark_main",
+      "community": 13,
+      "norm_label": "main()"
+    },
+    {
+      "label": "ipfn.IPFN in DataFrame mode on compressed cell table (28,905 cells).",
+      "file_type": "rationale",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L62",
+      "community": 13,
+      "norm_label": "ipfn.ipfn in dataframe mode on compressed cell table (28,905 cells).",
+      "id": "python_ipf_benchmark_rationale_62"
     },
     {
       "label": "stepstone_fulldata_benchmark.py",
@@ -280,7 +334,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L1",
       "id": "benchmarks_stepstone_fulldata_benchmark_py",
-      "community": 1,
+      "community": 14,
       "norm_label": "stepstone_fulldata_benchmark.py"
     },
     {
@@ -289,7 +343,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L34",
       "id": "stepstone_fulldata_benchmark_load_data",
-      "community": 1,
+      "community": 14,
       "norm_label": "load_data()"
     },
     {
@@ -298,7 +352,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L50",
       "id": "stepstone_fulldata_benchmark_bench_harvest",
-      "community": 1,
+      "community": 14,
       "norm_label": "bench_harvest()"
     },
     {
@@ -307,7 +361,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L84",
       "id": "stepstone_fulldata_benchmark_design_effect",
-      "community": 1,
+      "community": 14,
       "norm_label": "design_effect()"
     },
     {
@@ -316,7 +370,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L89",
       "id": "stepstone_fulldata_benchmark_effective_sample_size",
-      "community": 1,
+      "community": 14,
       "norm_label": "effective_sample_size()"
     },
     {
@@ -325,7 +379,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L93",
       "id": "stepstone_fulldata_benchmark_main",
-      "community": 1,
+      "community": 14,
       "norm_label": "main()"
     },
     {
@@ -334,7 +388,7 @@
       "source_file": "python/conftest.py",
       "source_location": "L1",
       "id": "python_conftest_py",
-      "community": 17,
+      "community": 19,
       "norm_label": "conftest.py"
     },
     {
@@ -343,7 +397,7 @@
       "source_file": "python/leafblower/__init__.py",
       "source_location": "L1",
       "id": "python_leafblower_init_py",
-      "community": 1,
+      "community": 3,
       "norm_label": "__init__.py"
     },
     {
@@ -351,7 +405,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/__init__.py",
       "source_location": "L1",
-      "community": 1,
+      "community": 3,
       "norm_label": "leafblower: high-performance survey calibration.",
       "id": "init_rationale_1"
     },
@@ -361,7 +415,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L1",
       "id": "python_leafblower_test_python_py",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_python.py"
     },
     {
@@ -370,7 +424,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L4",
       "id": "test_python_test_harvest_returns_copy",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_harvest_returns_copy()"
     },
     {
@@ -379,7 +433,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L18",
       "id": "test_python_test_convergence_unknown_key_raises",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_convergence_unknown_key_raises()"
     },
     {
@@ -388,7 +442,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L26",
       "id": "test_python_test_min_weight_badarg_python",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_min_weight_badarg_python()"
     },
     {
@@ -397,7 +451,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L35",
       "id": "test_python_make_fixture",
-      "community": 1,
+      "community": 3,
       "norm_label": "_make_fixture()"
     },
     {
@@ -406,7 +460,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L44",
       "id": "test_python_test_default_convergence_is_max_err_improvement",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_default_convergence_is_max_err_improvement()"
     },
     {
@@ -415,7 +469,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L55",
       "id": "test_python_test_all_metrics_in_result_pct_change_removed",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_all_metrics_in_result_pct_change_removed()"
     },
     {
@@ -424,7 +478,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L66",
       "id": "test_python_test_all_6_metrics_present",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_all_6_metrics_present()"
     },
     {
@@ -433,7 +487,7 @@
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L76",
       "id": "test_python_test_best_error_le_max_error",
-      "community": 1,
+      "community": 3,
       "norm_label": "test_best_error_le_max_error()"
     },
     {
@@ -441,7 +495,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L5",
-      "community": 1,
+      "community": 3,
       "norm_label": "weights_out must be a copy, not a view into input.",
       "id": "test_python_rationale_5"
     },
@@ -450,7 +504,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L36",
-      "community": 1,
+      "community": 3,
       "norm_label": "balanced 2-level fixture for parity tests.",
       "id": "test_python_rationale_36"
     },
@@ -459,7 +513,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L45",
-      "community": 1,
+      "community": 3,
       "norm_label": "default convergence: metric=max_err, rule=improvement (wu-g).",
       "id": "test_python_rationale_45"
     },
@@ -468,7 +522,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L56",
-      "community": 1,
+      "community": 3,
       "norm_label": "l1_weight_change and grake_norm present; pct_change absent (wu-g).",
       "id": "test_python_rationale_56"
     },
@@ -477,7 +531,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L67",
-      "community": 1,
+      "community": 3,
       "norm_label": "all 6 quality metrics must be present in result attrs (wu-g).",
       "id": "test_python_rationale_67"
     },
@@ -486,7 +540,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/test_python.py",
       "source_location": "L77",
-      "community": 1,
+      "community": 3,
       "norm_label": "best_error <= max_error always (best iterate tracked throughout).",
       "id": "test_python_rationale_77"
     },
@@ -496,7 +550,7 @@
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L1",
       "id": "python_leafblower_harvest_py",
-      "community": 1,
+      "community": 3,
       "norm_label": "_harvest.py"
     },
     {
@@ -505,7 +559,7 @@
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L31",
       "id": "harvest_parse_convergence",
-      "community": 1,
+      "community": 3,
       "norm_label": "_parse_convergence()"
     },
     {
@@ -514,7 +568,7 @@
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L88",
       "id": "harvest_parse_sor",
-      "community": 1,
+      "community": 3,
       "norm_label": "_parse_sor()"
     },
     {
@@ -523,7 +577,7 @@
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L101",
       "id": "harvest_harvest",
-      "community": 1,
+      "community": 3,
       "norm_label": "harvest()"
     },
     {
@@ -532,7 +586,7 @@
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L347",
       "id": "harvest_diagnose_weights",
-      "community": 1,
+      "community": 3,
       "norm_label": "diagnose_weights()"
     },
     {
@@ -540,7 +594,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L32",
-      "community": 1,
+      "community": 3,
       "norm_label": "derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict.",
       "id": "harvest_rationale_32"
     },
@@ -549,7 +603,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L89",
-      "community": 1,
+      "community": 3,
       "norm_label": "mirror r parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed",
       "id": "harvest_rationale_89"
     },
@@ -558,7 +612,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L117",
-      "community": 1,
+      "community": 3,
       "norm_label": "calibrate survey weights. drop-in for r leafblower::harvest().      parameters",
       "id": "harvest_rationale_117"
     },
@@ -567,7 +621,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L348",
-      "community": 1,
+      "community": 3,
       "norm_label": "diagnose calibration quality (python equivalent of r diagnose_weights()).      p",
       "id": "harvest_rationale_348"
     },
@@ -576,7 +630,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L311",
-      "community": 1,
+      "community": 3,
       "norm_label": "# note: no post-normalization clamp to [min_weight, max_weight]. clamping",
       "id": "harvest_rationale_311"
     },
@@ -586,7 +640,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
-      "community": 14,
+      "community": 16,
       "norm_label": "patch_wolfe.py"
     },
     {
@@ -594,7 +648,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L337",
-      "community": 19,
+      "community": 21,
       "norm_label": "diagnose calibration quality (python equivalent of r diagnose_weights()).      p",
       "id": "harvest_rationale_337"
     },
@@ -603,7 +657,7 @@
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
       "source_location": "L305",
-      "community": 20,
+      "community": 22,
       "norm_label": "# note: no post-normalization clamp to [min_weight, max_weight]. clamping",
       "id": "harvest_rationale_305"
     },
@@ -616,7 +670,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 15,
+      "community": 17,
       "norm_label": "leafblower r/python package",
       "id": "leafblower_package"
     },
@@ -629,7 +683,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 15,
+      "community": 17,
       "norm_label": "openwolf context management system",
       "id": "openwolf_system"
     },
@@ -642,7 +696,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 15,
+      "community": 17,
       "norm_label": "bd (beads) issue tracker",
       "id": "beads_tracker"
     },
@@ -655,7 +709,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 15,
+      "community": 17,
       "norm_label": "graphify knowledge graph tool",
       "id": "graphify_tool"
     },
@@ -668,7 +722,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 4,
       "norm_label": "harvest() calibration entry point",
       "id": "harvest_function"
     },
@@ -681,7 +735,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 5,
       "norm_label": "news.md breaking changes",
       "id": "news_breaking_changes"
     },
@@ -694,7 +748,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "method='ieppa' \u2014 paper-faithful algbcd solver",
       "id": "method_ieppa"
     },
@@ -707,7 +761,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 6,
       "norm_label": "method='raking' \u2014 ipf+dykstra hybrid solver",
       "id": "method_raking"
     },
@@ -720,7 +774,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "method='lbfgsb' \u2014 l-bfgs-b dual solver",
       "id": "method_lbfgsb"
     },
@@ -733,7 +787,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "method='auto' \u2014 algorithm auto-selection",
       "id": "method_auto"
     },
@@ -746,7 +800,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence api (metric + rule + tol)",
       "id": "convergence_api"
     },
@@ -759,7 +813,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence metric: max_err (l\u221e marginal error)",
       "id": "convergence_metric_max_err"
     },
@@ -772,7 +826,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence metric: mean_err",
       "id": "convergence_metric_mean_err"
     },
@@ -785,7 +839,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "convergence metric: kl (kl divergence)",
       "id": "convergence_metric_kl"
     },
@@ -798,7 +852,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence metric: chi2",
       "id": "convergence_metric_chi2"
     },
@@ -811,7 +865,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "convergence metric: grake_norm (survey::calibrate-compatible)",
       "id": "convergence_metric_grake_norm"
     },
@@ -824,7 +878,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence metric: l1_weight (autumn/anesrake standard)",
       "id": "convergence_metric_l1_weight"
     },
@@ -837,7 +891,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence rule: threshold",
       "id": "convergence_rule_threshold"
     },
@@ -850,7 +904,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence rule: improvement (relative change)",
       "id": "convergence_rule_improvement"
     },
@@ -863,7 +917,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence rule: plateau (autumn semantics)",
       "id": "convergence_rule_plateau"
     },
@@ -876,7 +930,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "ieppa code assessment: deviations from standard raking",
       "id": "ieppa_assessment"
     },
@@ -889,7 +943,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "cell-level bounding (vs obs-level bounding)",
       "id": "cell_level_bounding"
     },
@@ -902,7 +956,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "dual-domain (linear/log) execution",
       "id": "dual_domain_execution"
     },
@@ -915,7 +969,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "cell compression (unique tuple optimization)",
       "id": "cell_compression"
     },
@@ -928,7 +982,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "intra-cell water-filling redistribution (solution 2)",
       "id": "water_fill_solution"
     },
@@ -941,7 +995,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "pre-computed min/max cell bounds (solution 1)",
       "id": "precomputed_bounds_solution"
     },
@@ -954,7 +1008,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "raking documentation: survey calibration algorithms",
       "id": "raking_doc"
     },
@@ -967,7 +1021,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 6,
       "norm_label": "iterative proportional fitting (ipf/deming-stephan 1940)",
       "id": "ipf_algorithm"
     },
@@ -980,7 +1034,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "deville-sarndal (1992) calibration framework",
       "id": "deville_sarndal"
     },
@@ -993,7 +1047,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "logit link function for bounded calibration",
       "id": "logit_method"
     },
@@ -1006,7 +1060,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "l-bfgs-b quasi-newton algorithm",
       "id": "lbfgsb_algorithm"
     },
@@ -1019,7 +1073,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "optimal transport / sinkhorn equivalency",
       "id": "optimal_transport"
     },
@@ -1032,7 +1086,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "capacity-constrained optimal transport (ccot)",
       "id": "capacity_constrained_ot"
     },
@@ -1045,7 +1099,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "ieppa paper algorithm (chu-liang-toh-yang 2022, arxiv:2011.14312)",
       "id": "ieppa_paper_alg"
     },
@@ -1058,7 +1112,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "raking bounds documentation: hybrid ipf+dykstra analysis",
       "id": "raking_bounds_doc"
     },
@@ -1071,7 +1125,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "dykstra's alternating projections algorithm",
       "id": "dykstra_algorithm"
     },
@@ -1084,7 +1138,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "bregman dykstra (multiplicative kl-space dykstra)",
       "id": "bregman_dykstra"
     },
@@ -1097,7 +1151,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 6,
       "norm_label": "kk1.20.4 convergence & wall-clock investigation (2026-04-23)",
       "id": "kk1204_investigation"
     },
@@ -1110,7 +1164,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 6,
       "norm_label": "kk1204 benchmark: k=20, n=1m, cat=5, max_weight=3",
       "id": "kk1204_benchmark"
     },
@@ -1123,7 +1177,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "m_cell/n ratio (compression factor)",
       "id": "mcell_n_ratio"
     },
@@ -1136,7 +1190,7 @@
       "captured_at": null,
       "author": "Dennis Alexis Valin Dittrich",
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "ieppa speed/convergence/bounds hardening design (2026-04-24)",
       "id": "ieppa_speed_design"
     },
@@ -1149,7 +1203,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "p1.1 \u2014 fuse post-sweep x_tilde + capacity inline (speed)",
       "id": "p11_fuse_sweep"
     },
@@ -1162,7 +1216,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "p2.1 \u2014 adaptive damping schedule (replace hard 0.5 latch)",
       "id": "p21_adaptive_damping"
     },
@@ -1175,7 +1229,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "p2.2 \u2014 anderson(m=5) acceleration on lf iterates",
       "id": "p22_anderson_acceleration"
     },
@@ -1188,7 +1242,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "p2.2d \u2014 halpern mixing (o(1/k) convergence guarantee)",
       "id": "p22d_halpern_mixing"
     },
@@ -1201,7 +1255,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "p3.1 \u2014 bounds_mode parameter + water-filling expansion",
       "id": "p31_bounds_mode"
     },
@@ -1214,7 +1268,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "apva (asymmetric partial-variable anderson) \u2014 failed approach",
       "id": "apva_approach"
     },
@@ -1227,7 +1281,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "tang 2024 primal-dual with newton on constraint duals \u2014 shelved",
       "id": "tang2024_approach"
     },
@@ -1240,7 +1294,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "algorithm selection benchmark design (2026-04-20)",
       "id": "algo_selection_design"
     },
@@ -1253,7 +1307,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "bayesian level set estimation benchmark (gp surrogate)",
       "id": "bayesian_lse_benchmark"
     },
@@ -1266,7 +1320,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "kcomplexitythreshold constant for auto routing",
       "id": "complexity_threshold"
     },
@@ -1279,7 +1333,7 @@
       "captured_at": null,
       "author": "Dennis Alexis Valin Dittrich",
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "faithful ieppa solver design (2026-04-23)",
       "id": "faithful_ieppa_design"
     },
@@ -1292,7 +1346,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "algbcd at c=0 (sinkhorn block coordinate descent)",
       "id": "algbcd_algorithm"
     },
@@ -1305,7 +1359,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "celltable data structure (sort-based cell deduplication)",
       "id": "cell_table"
     },
@@ -1318,7 +1372,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "rk_alg_raking = 3 (renamed hybrid)",
       "id": "rk_alg_raking_enum"
     },
@@ -1331,7 +1385,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "bounded convergence fix design (2026-04-18)",
       "id": "bounded_convergence_fix"
     },
@@ -1344,7 +1398,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "bug: bcd_sweep clamps during ipf violating sinkhorn invariant",
       "id": "bcd_sweep_bug"
     },
@@ -1357,7 +1411,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "bug: l-bfgs-b uses exp link when max_weight finite (should use logit)",
       "id": "lbfgsb_link_bug"
     },
@@ -1370,7 +1424,7 @@
       "captured_at": null,
       "author": "Dennis Alexis Valin Dittrich",
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "ieppa convergence hardening design (2026-04-23)",
       "id": "convergence_hardening_design"
     },
@@ -1383,7 +1437,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "wu-1: false-positive infeasibility detection (persistent tracker)",
       "id": "false_positive_infeas"
     },
@@ -1396,7 +1450,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "wu-2: linear-space dispatch at dense compression",
       "id": "linear_space_dispatch"
     },
@@ -1409,7 +1463,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "wu-3: adaptive damping (geometric blend, auto-trigger)",
       "id": "adaptive_damping_wu3"
     },
@@ -1422,7 +1476,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "prefactored products x_cur invariant (o(k\u00b7m_cell) per iter)",
       "id": "prefactored_products"
     },
@@ -1435,7 +1489,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "convergence criterion reform + sor + best-iterate design (2026-04-24)",
       "id": "convergence_metrics_sor_design"
     },
@@ -1448,7 +1502,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "sor adaptive under-relaxation (ieppa oscillation damping)",
       "id": "sor_stabilization"
     },
@@ -1461,7 +1515,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "best-iterate tracking (w at minimum observed errrp)",
       "id": "best_iterate_tracking"
     },
@@ -1474,7 +1528,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "calibration solvers redesign spec (2026-04-25)",
       "id": "calibration_solvers_design"
     },
@@ -1487,7 +1541,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 6,
       "norm_label": "method='sinkhorn' \u2014 kl bregman dykstra solver",
       "id": "method_sinkhorn"
     },
@@ -1500,7 +1554,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "method='chebyshev' \u2014 lp for l\u221e calibration",
       "id": "method_chebyshev"
     },
@@ -1513,7 +1567,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "method='greg' \u2014 newton qp for chi2 (greg calibration)",
       "id": "method_greg"
     },
@@ -1526,7 +1580,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "method='grake' \u2014 lp for grake_norm (survey::calibrate equivalent)",
       "id": "method_grake"
     },
@@ -1539,7 +1593,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "calib_linalg.hpp \u2014 shared normal equations kernel",
       "id": "calib_linalg"
     },
@@ -1552,7 +1606,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "method='raking' migration to cell-table (100-300x speedup)",
       "id": "raking_cell_migration"
     },
@@ -1565,7 +1619,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "convergence criteria redesign spec (2026-04-25)",
       "id": "convergence_redesign_spec"
     },
@@ -1578,7 +1632,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "calib_dispatch.hpp \u2014 shared metric/rule dispatch header",
       "id": "calib_dispatch_hpp"
     },
@@ -1591,7 +1645,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "convergence redesign simplify & fix plan (2026-04-25)",
       "id": "convergence_simplify_plan"
     },
@@ -1604,7 +1658,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "clean code fixes round 1 plan (2026-04-18)",
       "id": "clean_code_fixes_1"
     },
@@ -1617,7 +1671,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "clean code fixes round 2 plan (2026-04-18)",
       "id": "clean_code_fixes_2"
     },
@@ -1630,7 +1684,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "clean code fixes round 3 plan (2026-04-19)",
       "id": "clean_code_fixes_3"
     },
@@ -1643,7 +1697,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "calibration solvers plan d: calib_linalg + method=greg (2026-04-26)",
       "id": "calibration_solvers_plan_d"
     },
@@ -1656,7 +1710,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "stepstone full dataset benchmark (n=1.58m, k=9, m_cell/n=0.018)",
       "id": "stepstone_dataset"
     },
@@ -1669,7 +1723,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "src/ieppa.cpp \u2014 ieppa solver implementation",
       "id": "src_ieppa_cpp"
     },
@@ -1682,7 +1736,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "src/raking.cpp \u2014 raking solver (renamed from ieppa)",
       "id": "src_raking_cpp"
     },
@@ -1695,7 +1749,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "src/cell_table.hpp + cell_table.cpp",
       "id": "src_cell_table"
     },
@@ -1708,7 +1762,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "src/c_api.cpp \u2014 c api + algorithm selection",
       "id": "src_c_api_cpp"
     },
@@ -1721,7 +1775,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 21,
+      "community": 23,
       "norm_label": "src/leafblower.h \u2014 public c header + enum definitions",
       "id": "src_leafblower_h"
     },
@@ -1734,7 +1788,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "r/harvest.r \u2014 r wrapper + parse_convergence()",
       "id": "r_harvest_r"
     },
@@ -1747,7 +1801,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 4,
       "norm_label": "python/leafblower/_harvest.py \u2014 python wrapper",
       "id": "python_harvest_py"
     },
@@ -1760,7 +1814,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "bounds_mode parameter ('cell' | 'unit')",
       "id": "bounds_mode_param"
     },
@@ -1773,7 +1827,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "rk_bounds_unit = 1 (per-observation bounds)",
       "id": "rk_bounds_unit_enum"
     },
@@ -1786,7 +1840,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 11,
+      "community": 6,
       "norm_label": "kinfeaspersistence = 5 (streak threshold for false-positive guard)",
       "id": "infeas_persistence"
     },
@@ -1799,7 +1853,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "log-space sinkhorn with log-sum-exp stabilization",
       "id": "log_space_sinkhorn"
     },
@@ -1812,7 +1866,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "rationale: cell-level bounding for speed vs obs-level for statistical correctness",
       "id": "rationale_cell_bounding"
     },
@@ -1825,7 +1879,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 5,
       "norm_label": "rationale: rename old ieppa\u2192raking, implement paper-faithful ieppa",
       "id": "rationale_ieppa_rename"
     },
@@ -1838,7 +1892,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 7,
       "norm_label": "rationale: halpern mixing over apva/anderson \u2014 immune to oscillation",
       "id": "rationale_halpern_over_anderson"
     },
@@ -1851,7 +1905,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "rationale: max_err+improvement+0.001 as default convergence",
       "id": "rationale_max_err_improvement_default"
     },
@@ -1864,7 +1918,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "rationale: migrate raking to cell-table for 100-300x speedup",
       "id": "rationale_cell_table_raking"
     },
@@ -1877,7 +1931,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 5,
       "norm_label": "l1_weight_change result field (renamed from pct_change)",
       "id": "l1_weight_change_field"
     },
@@ -1890,7 +1944,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence_used nested list (metric, rule, tol, fired_at_iter)",
       "id": "convergence_used_field"
     },
@@ -1903,7 +1957,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "plan d: calib_linalg + method=greg (newton qp for chi2)",
       "id": "plan_calibration_solvers_d_greg"
     },
@@ -1916,7 +1970,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "faithful ieppa implementation plan (algbcd)",
       "id": "plan_ieppa_faithful_impl"
     },
@@ -1929,7 +1983,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "calibration refactor (remove auto, ieppa default, alm)",
       "id": "plan_calibration_refactor"
     },
@@ -1942,7 +1996,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "ieppa convergence hardening (wu-1/2/3)",
       "id": "plan_ieppa_convergence_hardening"
     },
@@ -1955,7 +2009,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "critical review fixes (raking bounds, int overflow, kl-for-auto)",
       "id": "plan_critical_review_fixes"
     },
@@ -1968,7 +2022,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "plan c: method=sinkhorn (kl bregman dykstra)",
       "id": "plan_calibration_solvers_c_sinkhorn"
     },
@@ -1981,7 +2035,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "review fixes: kssd + normalize-move + free_sum fix",
       "id": "plan_review_fixes_kssd_normalize"
     },
@@ -1994,7 +2048,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "p2.2d halpern mixing implementation plan",
       "id": "plan_ieppa_halpern_impl"
     },
@@ -2007,7 +2061,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 16,
+      "community": 18,
       "norm_label": "improvement-based convergence criterion",
       "id": "plan_improvement_criterion"
     },
@@ -2020,7 +2074,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "move weight normalization from wrappers to solvers",
       "id": "plan_move_normalization_to_solvers"
     },
@@ -2033,7 +2087,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "ieppa speed/convergence/bounds (p1.1/p2.1/p2.2/p3.1)",
       "id": "plan_ieppa_speed_convergence_bounds"
     },
@@ -2046,7 +2100,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "convergence criteria redesign (metric+rule orthogonal abi)",
       "id": "plan_convergence_redesign"
     },
@@ -2059,7 +2113,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "plan a review fixes (c_api field aliasing, inf init)",
       "id": "plan_a_review_fixes"
     },
@@ -2072,7 +2126,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "leafblower core (initial c api + l-bfgs-b + r layer)",
       "id": "plan_leafblower_core"
     },
@@ -2085,7 +2139,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "clean code fixes round 4 (ieppa infeasibility status bug)",
       "id": "plan_clean_code_fixes_4"
     },
@@ -2098,7 +2152,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "plan e: method=chebyshev + method=grake (lp barrier)",
       "id": "plan_calibration_solvers_e_chebyshev_grake"
     },
@@ -2111,7 +2165,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "convergence reform post-review fixes",
       "id": "plan_convergence_reform_fixes"
     },
@@ -2124,7 +2178,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "plan a: calibration solvers infrastructure + ieppa default",
       "id": "plan_calibration_solvers_a_infra"
     },
@@ -2137,7 +2191,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "post-p3 code review fixes (2026-04-22)",
       "id": "plan_review_fixes_2026_04_22"
     },
@@ -2150,7 +2204,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "leafblower c performance optimization (simd, libmvec)",
       "id": "plan_c_perf_optimization"
     },
@@ -2163,7 +2217,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "sinkhorn correctness fixes (dykstra overflow, bisection)",
       "id": "plan_sinkhorn_correctness_fixes"
     },
@@ -2176,7 +2230,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "ieppa (sinkhorn-bcd / algbcd calibration)",
       "id": "algo_ieppa"
     },
@@ -2189,7 +2243,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "raking (multiplicative iterative proportional fitting)",
       "id": "algo_raking"
     },
@@ -2202,7 +2256,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "l-bfgs-b with logit/exp dual link",
       "id": "algo_lbfgsb"
     },
@@ -2215,7 +2269,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "greg calibration (deville-sarnal 1992, newton qp for chi2)",
       "id": "algo_greg"
     },
@@ -2228,7 +2282,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "sinkhorn (kl bregman dykstra alternating projections)",
       "id": "algo_sinkhorn"
     },
@@ -2241,7 +2295,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "chebyshev calibration (true l-inf minimum)",
       "id": "algo_chebyshev"
     },
@@ -2254,7 +2308,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "grake calibration (normalized chebyshev)",
       "id": "algo_grake"
     },
@@ -2267,7 +2321,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "halpern mixing (o(1/k) fixed-point acceleration)",
       "id": "algo_halpern_mixing"
     },
@@ -2280,7 +2334,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "anderson acceleration (apva, m=5, via dgels lapack)",
       "id": "algo_anderson_acceleration"
     },
@@ -2293,7 +2347,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "dykstra alternating projections",
       "id": "algo_dykstra_projection"
     },
@@ -2306,7 +2360,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "augmented lagrangian method (alm for sum(w)=n in l-bfgs-b)",
       "id": "algo_alm"
     },
@@ -2319,7 +2373,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "logarithmic barrier method (central-path, lp for l-inf)",
       "id": "algo_lp_barrier"
     },
@@ -2332,7 +2386,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "modified ldlt factorization (gill-murray diagonal perturbation)",
       "id": "algo_ldlt"
     },
@@ -2345,7 +2399,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "normal equations (compute_normal_equations)",
       "id": "algo_normal_equations"
     },
@@ -2358,7 +2412,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "cell table (sort-based dedup, cell-compressed representation)",
       "id": "algo_cell_table"
     },
@@ -2371,7 +2425,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "intra-cell water-filling (bounds_mode=unit)",
       "id": "algo_water_filling"
     },
@@ -2384,7 +2438,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 16,
+      "community": 18,
       "norm_label": "convergence criterion: improvement (relative errrp decrease)",
       "id": "convergence_criterion_improvement"
     },
@@ -2397,7 +2451,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 16,
+      "community": 18,
       "norm_label": "convergence criterion: pct (weight-change stopping)",
       "id": "convergence_criterion_pct"
     },
@@ -2410,7 +2464,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "convergence redesign: orthogonal metric+rule abi",
       "id": "convergence_redesign_metric_rule"
     },
@@ -2423,7 +2477,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "bug: false-positive rk_err_infeas on transient empty buckets",
       "id": "bug_false_positive_infeas"
     },
@@ -2436,7 +2490,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "bug: raking post-clamp normalization violates bounds",
       "id": "bug_raking_bounds_normalization"
     },
@@ -2449,7 +2503,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 4,
       "norm_label": "bug: int overflow in m_cell*10 > n*9 routing",
       "id": "bug_int_overflow_routing"
     },
@@ -2462,7 +2516,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "bug: wrapper normalization after solver breaks bounds_mode=unit",
       "id": "bug_wrapper_normalization"
     },
@@ -2475,7 +2529,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "bug: sinkhorn dykstra correction a[c] unbounded accumulation causing exp overflow",
       "id": "bug_sinkhorn_dykstra_overflow"
     },
@@ -2488,7 +2542,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "bug: ieppa rk_err_infeas never returned (pre-clean-code-4)",
       "id": "bug_ieppa_infeas_never_returned"
     },
@@ -2501,7 +2555,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "bug: w_best snapshot incorrect across homotopy levels",
       "id": "bug_w_best_homotopy"
     },
@@ -2514,7 +2568,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "rationale: ieppa as default (benchmark shows dominance over l-bfgs-b across all complexity/tol space)",
       "id": "rationale_ieppa_as_default"
     },
@@ -2527,7 +2581,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "rationale: remove auto routing (no 1.2x contour found in lse benchmark)",
       "id": "rationale_remove_auto_routing"
     },
@@ -2540,7 +2594,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "rationale: dykstra hyperplane projection replaces in-loop renormalization (rescaling q[] violates fixed-point invariant)",
       "id": "rationale_dykstra_replaces_renorm"
     },
@@ -2553,7 +2607,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "rationale: halpern replaces apva (487/500 safeguard rejections; apva too aggressive)",
       "id": "rationale_halpern_replaces_apva"
     },
@@ -2566,7 +2620,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "rationale: normalization moved into solvers so bounds_mode=unit sees post-normalize weights",
       "id": "rationale_normalization_in_solver"
     },
@@ -2579,7 +2633,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 16,
+      "community": 18,
       "norm_label": "rationale: improvement criterion measures actual calibration progress; pct (weight change) can misfire when weights stall but error remains high",
       "id": "rationale_improvement_criterion"
     },
@@ -2592,7 +2646,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "rationale: linear-space sinkhorn when compression<=2x avoids log/exp overhead (22x raking gap at m_cell/n=1)",
       "id": "rationale_linear_space_dispatch"
     },
@@ -2605,7 +2659,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "rationale: per-(k,j) streak counter replaces single-hit latch to avoid false infeas on transient near-zero buckets",
       "id": "rationale_persistent_infeas_tracker"
     },
@@ -2618,7 +2672,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "src/lbfgsb_solver.cpp",
       "id": "src_lbfgsb_solver_cpp"
     },
@@ -2631,7 +2685,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "src/calib_linalg.cpp",
       "id": "src_calib_linalg_cpp"
     },
@@ -2644,7 +2698,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 1,
       "norm_label": "src/greg.cpp",
       "id": "src_greg_cpp"
     },
@@ -2657,7 +2711,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "src/sinkhorn.cpp",
       "id": "src_sinkhorn_cpp"
     },
@@ -2670,7 +2724,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "src/chebyshev.cpp",
       "id": "src_chebyshev_cpp"
     },
@@ -2683,7 +2737,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 22,
+      "community": 24,
       "norm_label": "src/r_bridge.cpp",
       "id": "src_r_bridge_cpp"
     },
@@ -2696,7 +2750,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "src/logit.hpp (linkfn with f, df, fh)",
       "id": "src_logit_hpp"
     },
@@ -2709,7 +2763,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "src/types.hpp (calibstate, calibmetric, calibrule enums)",
       "id": "src_types_hpp"
     },
@@ -2722,7 +2776,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "parameter: bounds_mode (unit vs cell)",
       "id": "param_bounds_mode"
     },
@@ -2735,7 +2789,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 23,
+      "community": 25,
       "norm_label": "parameter: method (ieppa/raking/lbfgsb/sinkhorn/greg/chebyshev/grake)",
       "id": "param_method"
     },
@@ -2748,7 +2802,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "benchmark: kk1204 (n=1m, k=20, cat=5, dense compression)",
       "id": "benchmark_kk1204"
     },
@@ -2761,7 +2815,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 9,
       "norm_label": "benchmark: stepstone fulldata (n=1.58m, k=9, 836 cats)",
       "id": "benchmark_stepstone"
     },
@@ -2787,7 +2841,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "raking calibration algorithm",
       "id": "raking_algorithm"
     },
@@ -2800,7 +2854,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "l-bfgs-b solver",
       "id": "lbfgsb_solver"
     },
@@ -2852,7 +2906,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "sor adaptive under-relaxation (ieppa only)",
       "id": "sor_under_relaxation"
     },
@@ -2878,7 +2932,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "best-iterate tracking (best_weights/best_error/best_iter)",
       "id": "best_iter_tracking"
     },
@@ -2891,7 +2945,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 2,
       "norm_label": "descent monitor (stall detection via kmaxnoimprove)",
       "id": "descent_monitor"
     },
@@ -2904,7 +2958,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "convergence criteria reform (pct/max_err/mean_err/kl/chi2)",
       "id": "convergence_criteria_reform"
     },
@@ -2917,7 +2971,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "cell-table backend (compressed obs-level representation)",
       "id": "cell_table_backend"
     },
@@ -2930,7 +2984,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "algorithm selection benchmark (bayesian lse)",
       "id": "algo_selection_benchmark"
     },
@@ -2982,7 +3036,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "bug: best_iter always tracks errrp regardless of active metric",
       "id": "bug_best_iter_always_max_err"
     },
@@ -3021,7 +3075,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "fix: best_errrp_seen \u2192 best_metric_seen via select_metric()",
       "id": "fix_best_iter_select_metric"
     },
@@ -3034,7 +3088,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "fix: eliminate per-iteration vector copies in l-bfgs-b (std::swap)",
       "id": "fix_lbfgsb_per_iter_copies"
     },
@@ -3047,7 +3101,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 15,
       "norm_label": "fix: ieppa.cpp convergence gate + w-sum helper + std::clamp",
       "id": "fix_ieppa_convergence_gate"
     },
@@ -3060,7 +3114,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 15,
       "norm_label": "fix: configure omp simd probe + run-gate + flag split + makevars.in",
       "id": "fix_configure_omp_simd"
     },
@@ -3073,7 +3127,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 15,
       "norm_label": "refactor: move weight normalization from wrappers into solvers",
       "id": "normalization_move_to_solvers"
     },
@@ -3125,7 +3179,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "plan: convergence reform + sor + best-iterate (6 wus)",
       "id": "convergence_sor_impl_plan"
     },
@@ -3138,7 +3192,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "plan: l-bfgs-b audit fixes (rev3, wu-1 to wu-3)",
       "id": "lbfgsb_audit_fixes_plan"
     },
@@ -3151,7 +3205,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "plan: l-bfgs-b phase 2",
       "id": "lbfgsb_phase2_plan"
     },
@@ -3164,7 +3218,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "plan: calibration solvers plan b (raking cell-table migration)",
       "id": "calibration_solvers_plan_b"
     },
@@ -3190,7 +3244,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 6,
       "norm_label": "plan: descent monitor + kk1.20.4 investigation (wu-p1, wu-p2)",
       "id": "descent_monitor_plan"
     },
@@ -3203,7 +3257,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 15,
       "norm_label": "plan: code review fixes \u2014 ieppa.cpp + configure (6 tasks)",
       "id": "code_review_fixes_plan"
     },
@@ -3216,7 +3270,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "plan: algorithm selection benchmark (bayesian lse, k-stability)",
       "id": "algo_selection_benchmark_plan"
     },
@@ -3255,7 +3309,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "plan: fix best_iter to track active metric",
       "id": "best_iter_active_metric_plan"
     },
@@ -3281,7 +3335,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 4,
       "norm_label": "prd: leafblower core product requirements",
       "id": "prd_leafblower_core"
     },
@@ -3333,7 +3387,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "rationale: pct=0.001 default criterion \u2014 oscillation-resistant, industry-standard (greg/survey/anesrake)",
       "id": "rationale_pct_default_criterion"
     },
@@ -3359,7 +3413,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 13,
+      "community": 15,
       "norm_label": "rationale: move normalization to solvers so wrappers are thin and output is consistent",
       "id": "rationale_normalization_in_solvers"
     },
@@ -3372,7 +3426,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 8,
       "norm_label": "rationale: ieppa dominates across full tested space \u2014 justifies auto routing removal",
       "id": "rationale_ieppa_dominates_lbfgsb"
     },
@@ -3398,7 +3452,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 4,
       "norm_label": "python/cmakelists.txt (python extension build config)",
       "id": "cmake_python"
     },
@@ -3645,7 +3699,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "gp posterior mean (log10_compression=0): contour map of log(t_ieppa/t_raking) over complexity x tol space; raking faster at high complexity",
       "id": "algo_selection_contour"
     },
@@ -3658,7 +3712,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "gp posterior uncertainty: high posterior sd (orange/yellow) indicates unreliable algorithm selection regions in complexity x tol space",
       "id": "algo_selection_uncertainty"
     },
@@ -3671,7 +3725,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "k-stability plot: 1.2x contour at k=3,9,18 showing robustness of gp algorithm selection boundary across gp ensemble size",
       "id": "algo_selection_k_stability"
     },
@@ -3684,7 +3738,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "gp posterior mean log10_compression=0.0: ieppa vs raking time ratio; raking wins (purple) at high complexity ~10^7",
       "id": "ieppa_vs_raking_slice0"
     },
@@ -3697,7 +3751,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "gp posterior mean log10_compression=1.0: ieppa vs raking ratio; raking advantage at high complexity persists with moderate compression",
       "id": "ieppa_vs_raking_slice1"
     },
@@ -3710,7 +3764,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "gp posterior mean log10_compression=2.0: ieppa vs raking ratio; crossover region shifts with higher compression",
       "id": "ieppa_vs_raking_slice2"
     },
@@ -3723,7 +3777,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "gp posterior mean log10_compression=3.0: ieppa vs raking ratio; at max compression raking dominates at complexity >10^6.5",
       "id": "ieppa_vs_raking_slice3"
     },
@@ -3736,7 +3790,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 4,
       "norm_label": "gaussian process emulator: models log(t_ieppa/t_raking) surface over complexity x tol x compression space for algorithm selection",
       "id": "gp_emulator"
     },
@@ -4033,6 +4087,102 @@
       "_tgt": "harvest_harvest",
       "source": "stepstone_benchmark_main",
       "target": "harvest_harvest"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_src": "benchmarks_python_ipf_benchmark_py",
+      "_tgt": "python_ipf_benchmark_load_data",
+      "source": "benchmarks_python_ipf_benchmark_py",
+      "target": "python_ipf_benchmark_load_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_src": "benchmarks_python_ipf_benchmark_py",
+      "_tgt": "python_ipf_benchmark_compute_metrics",
+      "source": "benchmarks_python_ipf_benchmark_py",
+      "target": "python_ipf_benchmark_compute_metrics",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "_src": "benchmarks_python_ipf_benchmark_py",
+      "_tgt": "python_ipf_benchmark_run_ipfn",
+      "source": "benchmarks_python_ipf_benchmark_py",
+      "target": "python_ipf_benchmark_run_ipfn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L122",
+      "weight": 1.0,
+      "_src": "benchmarks_python_ipf_benchmark_py",
+      "_tgt": "python_ipf_benchmark_main",
+      "source": "benchmarks_python_ipf_benchmark_py",
+      "target": "python_ipf_benchmark_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L124",
+      "weight": 1.0,
+      "_src": "python_ipf_benchmark_main",
+      "_tgt": "python_ipf_benchmark_load_data",
+      "source": "python_ipf_benchmark_load_data",
+      "target": "python_ipf_benchmark_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L114",
+      "weight": 1.0,
+      "_src": "python_ipf_benchmark_run_ipfn",
+      "_tgt": "python_ipf_benchmark_compute_metrics",
+      "source": "python_ipf_benchmark_compute_metrics",
+      "target": "python_ipf_benchmark_run_ipfn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L131",
+      "weight": 1.0,
+      "_src": "python_ipf_benchmark_main",
+      "_tgt": "python_ipf_benchmark_run_ipfn",
+      "source": "python_ipf_benchmark_run_ipfn",
+      "target": "python_ipf_benchmark_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/python_ipf_benchmark.py",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_src": "python_ipf_benchmark_rationale_62",
+      "_tgt": "python_ipf_benchmark_run_ipfn",
+      "source": "python_ipf_benchmark_run_ipfn",
+      "target": "python_ipf_benchmark_rationale_62",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",

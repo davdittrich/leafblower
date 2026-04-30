@@ -1,0 +1,89 @@
+{
+  "agent": "security-design",
+  "timestamp": "2026-04-27T00:00:00Z",
+  "document": "docs/superpowers/specs/2026-04-27-sinkhorn-a1-fix-ieppa-admm-method.md",
+  "verdict": "NEEDS_REVISION",
+  "threat_model": {
+    "high_risk": [
+      {
+        "id": "H1",
+        "title": "best_objective_seen field does not exist in IEPPAResult",
+        "severity": "BLOCKER",
+        "evidence": "grep count: best_objective_seen appears 1x in ieppa.cpp (in convergence_objective assignment, but field itself is NOT declared in ieppa.hpp struct)",
+        "impact": "Part 1 (Decouple Solver Objective) cannot be implemented as written. The design assumes best_objective_seen will be added to result struct, but struct definition is missing from ieppa.hpp. Current code only has: status, iterations, max_error, M_cell, n_cap_active, best_error (infinity default), convergence_objective (assigned=best_metric_seen), etc. No best_objective_seen field.",
+        "confidence": 95
+      },
+      {
+        "id": "H2",
+        "title": "use_admm_capacity flag does not exist in IEPPAConfig",
+        "severity": "BLOCKER",
+        "evidence": "grep -c use_admm_capacity /src/*.hpp /src/*.cpp returns 0; flag is mentioned nowhere in codebase",
+        "impact": "Part 2 (ieppa_classic variant) cannot compile. Gate condition in P1.1 block cannot be added without declaring the config flag first. No IEPPAConfig struct definition found that would hold this bool.",
+        "confidence": 95
+      },
+      {
+        "id": "H3",
+        "title": "Fixture regeneration uses wrong field (r$best_error) instead of weight KL at best_iter",
+        "severity": "HIGH",
+        "evidence": "gen_ieppa_kl_ref.R line 30: kl_at_best_iter = r$best_error. But r$best_error is initialized to infinity() and only set to max_error at solver exit, NOT weight KL at best_iter. This field mismatch causes the reference fixture to contain wrong baseline value.",
+        "impact": "A1 test will pass with false-positive. When ieppa+ADMM is implemented, r$best_error will still be final max_error (not weight KL). The reference fixture will not track the actual weight KL at best_iter, so sinkhorn KL comparison will be meaningless. Test needs to extract convergence_objective or a new best_objective_weight_kl field, NOT best_error.",
+        "confidence": 98
+      }
+    ],
+    "medium_risk": [
+      {
+        "id": "M1",
+        "title": "No NaN/Inf handling for best_objective_seen",
+        "severity": "MEDIUM",
+        "evidence": "15 instances of 'finite' checks found in ieppa.cpp for X_tilde, W, X, but no guard on best_objective_seen assignment. If compute_cell_metrics returns NaN for KL (e.g., due to 0/0 in log), best_objective_seen will propagate NaN to result without check.",
+        "impact": "Edge case: empty cells or degenerate data could produce NaN weight KL, which would silently corrupt convergence_objective. A1 test would then compare sinkhorn KL <= NaN, which always fails in C++. Should guard: best_objective_seen = std::isfinite(kl) ? kl : infinity().",
+        "confidence": 70,
+        "fix_required": true
+      },
+      {
+        "id": "M2",
+        "title": "u[] vector allocation coupling with use_admm_capacity flag",
+        "severity": "MEDIUM",
+        "evidence": "u[] is always allocated (grep -c 'u[' = 4). If use_admm_capacity=false, u[] is allocated but never used in P1.1 block per design. This is safe (unused allocation) but wastes memory if many cells. No safety risk, but inefficient.",
+        "impact": "Minor: extra memory overhead. If design intends to free u[] when use_admm_capacity=false, must verify cell_lf and u are both conditional in init, or u is conditionally resized. Currently safe due to always-allocated; just not optimal.",
+        "confidence": 60
+      },
+      {
+        "id": "M3",
+        "title": "Fixture stale-read detection missing",
+        "severity": "MEDIUM",
+        "evidence": "gen_ieppa_kl_ref.R records ieppa_version and date, but A1 test does not check version compatibility. If ieppa method changes between fixture generation and test run, old fixture could be used with new code, causing false passes.",
+        "impact": "If fixture was generated pre-ADMM and test runs post-ADMM code, comparison baseline is obsolete. Test should assert: packageVersion >= fixture$ieppa_version or fail-skip explicitly.",
+        "confidence": 65,
+        "fix_required": false
+      }
+    ],
+    "mitigations_required": [
+      "Add best_objective_seen (type: double, init: infinity()) to IEPPAResult struct in ieppa.hpp",
+      "Add use_admm_capacity (type: bool, default: true) to IEPPAConfig struct in ieppa.hpp",
+      "Guard best_objective_seen assignment with std::isfinite() check; set to infinity() if NaN/Inf detected",
+      "Correct gen_ieppa_kl_ref.R to extract weight KL from convergence_objective, NOT r$best_error",
+      "Add fixture version check in A1 test: if (packageVersion() < fixture_version) skip_if() else test",
+      "Verify select_objective() helper is implemented for all solver types before merging (currently not in codebase)",
+      "Ensure sinkhorn default metric='kl' is set in R/harvest.R dispatch; grep shows no evidence of this change yet"
+    ]
+  },
+  "blockers": [
+    "SPEC_FAILURE: best_objective_seen field not defined in result struct",
+    "SPEC_FAILURE: use_admm_capacity flag not defined in config struct",
+    "SPEC_FAILURE: Part 1, 2, and 3 cannot be implemented without struct definitions"
+  ],
+  "suggestions": [
+    "Implement struct field additions (H1, H2) FIRST before any solver changes",
+    "Add NaN/Inf guard to best_objective_seen assignment (M1)",
+    "Regenerate fixture AFTER struct fields are stable and ADMM logic is finalized",
+    "Add integration test that compares convergence_objective across all solver types to verify select_objective() correctness",
+    "Consider benchmark: measure memory overhead of always-allocated u[] vs. conditional allocation for large M_cell"
+  ],
+  "questions": [
+    "Is best_objective_seen intended to be ALWAYS the mathematical objective (regardless of stopping metric), or only when stopping metric == mathematical objective?",
+    "Should ieppa_classic reuse the same marginal_kl stopping criterion, or switch to a pre-ADMM-compatible metric (e.g., pure max_err)?",
+    "Is the fixture baseline expected to change when ADMM is added? (Yes per design, but must confirm test expectations match.)",
+    "What is the recovery if select_objective(GRAKE, m) is called but m.grake_norm is uninitialized? Add assert or set default?"
+  ]
+}

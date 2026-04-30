@@ -1,0 +1,76 @@
+
+R version 4.6.0 (2026-04-24) -- "Because it was There"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # This file is part of the R package leafblower.
+> # See the file LICENSE in the package root for license information.
+> 
+> library(testthat)
+> library(leafblower)
+> 
+> test_check("leafblower")
+[leafblower] iEPPA: n=10000 K=2 M_cell=25 compression=400.0x path=log
+[leafblower] iEPPA iter 1: errRp=8.068e-05
+[leafblower] iEPPA iter 10: errRp=1.642e-13
+[leafblower] iEPPA converged in 10 iters, errRp=1.642e-13
+Saving _problems/test-ieppa-nonuniform-d-28.R
+Saving _problems/test-ieppa-nonuniform-d-29.R
+Saving _problems/test-raking-89.R
+[ FAIL 3 | WARN 62 | SKIP 8 | PASS 401 ]
+
+══ Skipped tests (8) ═══════════════════════════════════════════════════════════
+• On CRAN (6): 'test-bench-gate.R:2:3', 'test-bench-gate.R:20:3',
+  'test-bench-gate.R:29:3', 'test-best-iterate.R:49:3',
+  'test-calibration-solvers.R:40:3', 'test-calibration-solvers.R:97:3'
+• stepstone dataset not available (local-only benchmark) (1):
+  'test-calibration-solvers.R:588:3'
+• {survey} is not installed (1): 'test-convergence-criteria.R:343:3'
+
+══ Failed tests ════════════════════════════════════════════════════════════════
+── Failure ('test-ieppa-nonuniform-d.R:28:3'): marginals hit targets when d[i] varies within cell ──
+Expected `abs(m_a0 - 0.3)` < 1e-04.
+Actual comparison: 0.0474 >= 0.0001
+Difference: 0.0473 >= 0
+── Failure ('test-ieppa-nonuniform-d.R:29:3'): marginals hit targets when d[i] varies within cell ──
+Expected `abs(m_a1 - 0.7)` < 1e-04.
+Actual comparison: 0.0474 >= 0.0001
+Difference: 0.0473 >= 0
+── Failure ('test-raking.R:88:3'): descent monitor aborts early on stalled errRp trajectory ──
+Expected `probe` to match regexp "errRp stalled for [0-9]+ consecutive checks".
+Actual text:
+✖ │ [leafblower] raking iter 1: errRp=4.15e-01
+  │ [leafblower] raking iter 10: errRp=4.15e-01
+  │ [leafblower] raking iter 20: errRp=4.15e-01
+  │ [leafblower] raking iter 30: errRp=4.15e-01
+  │ [leafblower] raking iter 40: errRp=4.15e-01
+  │ [leafblower] raking iter 50: errRp=4.15e-01
+  │ [leafblower] raking iter 60: errRp=4.15e-01
+  │ [leafblower] raking iter 70: errRp=4.15e-01
+  │ [leafblower] raking iter 80: errRp=4.15e-01
+expected descent-monitor message; got: [leafblower] raking iter 1: errRp=4.15e-01
+[leafblower] raking iter 10: errRp=4.15e-01
+[leafblower] raking iter 20: errRp=4.15e-01
+[leafblower] raking iter 30: errRp=4.15e-01
+[leafblower] raking iter 40: errRp=4.15e-01
+[leafblower] raking iter 50: errRp=4.15e-01
+[leafblower] raking iter 60: errRp=4.15e-01
+[leafblower] raking iter 70: errRp=4.15e-01
+[leafblower] raking iter 80: errRp=4.15e-01
+
+[ FAIL 3 | WARN 62 | SKIP 8 | PASS 401 ]
+Error:
+! Test failures.
+Execution halted

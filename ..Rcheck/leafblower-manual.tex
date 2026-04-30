@@ -1,0 +1,426 @@
+\nonstopmode{}
+\documentclass[a4paper]{book}
+\usepackage[times,hyper]{Rd}
+\usepackage{makeidx}
+\makeatletter\@ifl@t@r\fmtversion{2018/04/01}{}{\usepackage[utf8]{inputenc}}\makeatother
+% \usepackage{graphicx} % @USE GRAPHICX@
+\makeindex{}
+\begin{document}
+\chapter*{}
+\begin{center}
+{\textbf{\huge Package `leafblower'}}
+\par\bigskip{\large \today}
+\end{center}
+\ifthenelse{\boolean{Rd@use@hyper}}{\hypersetup{pdftitle = {leafblower: High-Performance Survey Calibration via iEPPA and L-BFGS-B}}}{}
+\ifthenelse{\boolean{Rd@use@hyper}}{\hypersetup{pdfauthor = {Dennis Alexis Valin Dittrich}}}{}
+\begin{description}
+\raggedright{}
+\item[Title]\AsIs{High-Performance Survey Calibration via iEPPA and L-BFGS-B}
+\item[Version]\AsIs{0.1.0}
+\item[Author]\AsIs{Dennis Alexis Valin Dittrich [aut, cre]}
+\item[Maintainer]\AsIs{Dennis Alexis Valin Dittrich }\email{davdittrich@gmail.com}\AsIs{}
+\item[Description]\AsIs{Drop-in replacement for autumn::harvest() implementing iEPPA
+(Sinkhorn block-coordinate descent) and L-BFGS-B over the Deville-Sarndal
+logit dual. Adds min_weight lower bound; shares a single C++17 core with
+the Python bindings.}
+\item[License]\AsIs{MIT + file LICENSE}
+\item[Encoding]\AsIs{UTF-8}
+\item[NeedsCompilation]\AsIs{yes}
+\item[SystemRequirements]\AsIs{C++17 compiler, OpenMP (optional, for SIMD exp
+vectorisation)}
+\item[Suggests]\AsIs{autumn (>= 0.2.0), testthat (>= 3.0.0), bench, lhs,
+DiceKriging, ggplot2, rprojroot, survey}
+\item[RoxygenNote]\AsIs{7.3.3}
+\end{description}
+\Rdcontents{Contents}
+\HeaderA{anesrake}{anesrake compatibility wrapper}{anesrake}
+%
+\begin{Description}
+Maps anesrake parameter names to harvest(). Unknown params produce warnings.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+anesrake(
+  inputter,
+  targets,
+  weightvec = NULL,
+  caseid = NULL,
+  pctlim = 0.05,
+  cap = 5,
+  choosemethod = "rake",
+  type = "pctlim",
+  nlim = 500L,
+  iterate = TRUE,
+  threads = 1L,
+  ...
+)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{inputter}] Data frame (maps to \code{data}).
+
+\item[\code{targets}] Named list of target proportions.
+
+\item[\code{weightvec}] Starting weights or NULL.
+
+\item[\code{caseid}] Ignored (row label not used by calibration).
+
+\item[\code{pctlim}] Deprecated; maps to \code{convergence["pct"]}.
+
+\item[\code{cap}] Upper weight cap; maps to \code{max\_weight}.
+
+\item[\code{choosemethod}] "rake" or "nrake"; maps to \code{method="lbfgsb"} with warning.
+
+\item[\code{type}] Ignored.
+
+\item[\code{nlim}] Max iterations; maps to \code{max\_iterations}.
+
+\item[\code{iterate}] Ignored (always iterates).
+
+\item[\code{threads}] Ignored (single-threaded v1).
+
+\item[\code{...}] Unknown params produce a warning then are ignored.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Value}
+Same as \code{harvest()}.
+\end{Value}
+\HeaderA{design\_effect}{Kish design effect (1-argument) or Henry-Valliant (4-argument)}{design.Rul.effect}
+%
+\begin{Description}
+When called with only \code{weights}, computes the Kish (1992) design effect:
+\code{n * sum(w\textasciicircum{}2) / sum(w)\textasciicircum{}2}.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+design_effect(weights, outcome = NULL, data = NULL, target = NULL)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{weights}] Numeric vector of calibrated weights.
+
+\item[\code{outcome}] Numeric outcome vector (optional; 4-arg form only).
+
+\item[\code{data}] Data frame used in calibration (optional; 4-arg form only).
+
+\item[\code{target}] Named list of target proportions (optional; 4-arg form only).
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}
+When called with all four arguments, computes the Henry \& Valliant (2015)
+calibration design effect: \code{var\_weighted(y) / var\_unweighted(y)}.
+\end{Details}
+%
+\begin{Value}
+Numeric scalar design effect.
+\end{Value}
+\HeaderA{diagnose\_weights}{Diagnose calibration quality}{diagnose.Rul.weights}
+%
+\begin{Description}
+Returns a data frame comparing original and weighted marginals to targets.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+diagnose_weights(data, target, weights)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{data}] Data frame used in calibration.
+
+\item[\code{target}] Named list of target proportions (same format as harvest()).
+
+\item[\code{weights}] Numeric vector of calibrated weights, length nrow(data).
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Value}
+Data frame with columns: variable, level, prop\_original, prop\_weighted,
+target, error\_original, error\_weighted.
+\end{Value}
+\HeaderA{effective\_sample\_size}{Effective sample size}{effective.Rul.sample.Rul.size}
+%
+\begin{Description}
+Effective sample size
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+effective_sample_size(weights)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{weights}] Numeric vector of calibrated weights.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Value}
+Numeric scalar: n / design\_effect(weights).
+\end{Value}
+\HeaderA{get\_current\_miss}{Current calibration miss (matching autumn's export name)}{get.Rul.current.Rul.miss}
+%
+\begin{Description}
+Current calibration miss (matching autumn's export name)
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+get_current_miss(data, target, weights)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{data}] Data frame.
+
+\item[\code{target}] Named list of target proportions.
+
+\item[\code{weights}] Numeric weight vector.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Value}
+Named numeric vector of max absolute errors per variable.
+\end{Value}
+\HeaderA{harvest}{Generate calibrated weights (drop-in for autumn::harvest)}{harvest}
+%
+\begin{Description}
+Generate calibrated weights (drop-in for autumn::harvest)
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+harvest(
+  data,
+  target,
+  min_weight = 0,
+  max_weight = 5,
+  method = "ieppa",
+  verbose = 0,
+  max_iterations = 500,
+  start_weights = NULL,
+  attach_weights = TRUE,
+  weight_column = "weights",
+  convergence = list(),
+  sor = list(auto = TRUE, omega_min = 0.3),
+  bounds_mode = "cell",
+  homotopy_levels = 1L,
+  homotopy_start_factor = 1,
+  homotopy_end_factor = 1,
+  homotopy_budget_p = 0.5,
+  scheduler = c("round_robin", "greedy"),
+  eta_schedule = c("fixed", "tang_dynamic"),
+  eta_start = 1,
+  eta_end = 1,
+  eta_schedule_power = 0.5,
+  select_params = NULL,
+  select_function = NULL,
+  error_function = NULL,
+  adaptive_order = NULL,
+  enforce_mean = TRUE,
+  accelerate = FALSE,
+  add_na_proportion = FALSE,
+  auto_collapse = FALSE,
+  collapse_vars = NULL,
+  target_map = NULL,
+  design_weights = NULL,
+  ...
+)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{data}] A data frame containing columns to calibrate.
+
+\item[\code{target}] A named list of named numeric vectors (variable -> proportions).
+
+\item[\code{min\_weight}] Lower bound on weights. Default 0 (no lower bound).
+
+\item[\code{max\_weight}] Upper bound on weights. Default 5.
+
+\item[\code{method}] Calibration method. One of \code{"auto"} (default: iEPPA or
+raking based on M\_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
+\code{"raking"} (IPF + Dykstra box projection), \code{"lbfgsb"}
+(L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
+\code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
+(L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM).
+
+\item[\code{verbose}] Integer verbosity: 0=silent, 1=progress, 2=debug.
+
+\item[\code{max\_iterations}] Maximum inner BCD iterations per outer step. Default 500.
+
+\item[\code{start\_weights}] Starting weights vector or NULL (uniform).
+
+\item[\code{attach\_weights}] If TRUE, return data frame with weights column. Default TRUE.
+
+\item[\code{weight\_column}] Name of weight column. Default "weights".
+
+\item[\code{convergence}] Named list controlling the stopping criterion. Accepted keys:
+\begin{itemize}
+
+\item{} \code{metric}: quality metric to monitor. One of \code{"max\_err"}
+(default), \code{"mean\_err"}, \code{"kl"}, \code{"chi2"},
+\code{"grake\_norm"}, \code{"l1\_weight"}.
+\item{} \code{rule}: stopping rule. One of \code{"improvement"} (default) —
+stop when metric improves by less than \code{tol} relative; \code{"threshold"} —
+stop when metric falls below \code{tol} absolutely; \code{"plateau"} —
+stop when metric changes less than \code{tol} over a window.
+\item{} \code{tol}: tolerance value (default \code{0.001}).
+\item{} \code{stop\_when}: \code{"any"} (default) or \code{"all"}.
+
+\end{itemize}
+
+Shorthand keys (each sets metric+rule+tol simultaneously):
+\begin{itemize}
+
+\item{} \code{pct}: sets \code{metric="l1\_weight"}, \code{rule="plateau"},
+\code{tol=pct}. Example: \code{list(pct = 0.001)}.
+\item{} \code{absolute}: sets \code{metric="max\_err"}, \code{rule="threshold"},
+\code{tol=absolute}. Example: \code{list(absolute = 1e-4)}.
+\item{} \code{improvement}: sets \code{metric="max\_err"}, \code{rule="improvement"},
+\code{tol=improvement}. Example: \code{list(improvement = 0.001)}.
+
+\end{itemize}
+
+Shorthands and explicit keys may be combined; explicit keys override shorthand
+defaults. \code{convergence = list()} uses the default (max\_err + improvement +
+tol = 0.001). For \code{method="ieppa"}, the default metric is \code{kl}
+(Sinkhorn-type algorithm minimizing KL divergence). For other methods: \code{max\_err}.
+
+\strong{chi2 cross-solver note:} chi2 is not directly comparable
+across methods. iEPPA uses unnormalized cell mass as \code{W\_total};
+raking and lbfgsb use \code{n}. Use chi2 as a convergence criterion
+within one method; do not compare values across methods.
+
+\item[\code{sor}] Named list for SOR adaptive under-relaxation (iEPPA only).
+\code{NULL} disables SOR. Keys:
+\begin{itemize}
+
+\item{} \code{auto}: logical, default \code{TRUE}.
+\item{} \code{omega\_min}: lower bound on relaxation factor, default \code{0.3}.
+\item{} \code{omega}: fixed relaxation factor (disables auto-adapt).
+\item{} \code{burnin}: iterations before adaptation starts, default \code{20}.
+
+\end{itemize}
+
+
+\item[\code{bounds\_mode}] One of "cell" (default) or "unit". Controls per-observation
+vs cell-aggregate bound enforcement.
+
+\item[\code{homotopy\_levels}] Number of homotopy levels (default 1 = disabled). Values > 1
+progressively tighten max\_weight from homotopy\_start\_factor to homotopy\_end\_factor
+across n levels.
+
+\item[\code{homotopy\_start\_factor}] Starting max\_weight multiplier (default 1.0 = no change).
+
+\item[\code{homotopy\_end\_factor}] Ending max\_weight multiplier (default 1.0 = no change).
+
+\item[\code{homotopy\_budget\_p}] Budget split fraction across homotopy levels (default 0.5).
+
+\item[\code{scheduler}] Margin sweep scheduler: "round\_robin" (default) or "greedy"
+(Greenkhorn priority).
+
+\item[\code{eta\_schedule}] ALM penalty schedule: "fixed" (default) or "tang\_dynamic".
+
+\item[\code{eta\_start}] Starting ALM penalty multiplier (default 1.0).
+
+\item[\code{eta\_end}] Ending ALM penalty multiplier (default 1.0).
+
+\item[\code{eta\_schedule\_power}] Power for Tang-eta schedule interpolation (default 0.5).
+
+\item[\code{select\_params}] Ignored with verbose >= 2 note.
+
+\item[\code{select\_function}] Ignored.
+
+\item[\code{error\_function}] Ignored.
+
+\item[\code{adaptive\_order}] Ignored.
+
+\item[\code{enforce\_mean}] Ignored (retained for compatibility).
+
+\item[\code{accelerate}] Ignored.
+
+\item[\code{add\_na\_proportion}] Not supported in v1; raises error if TRUE.
+
+\item[\code{auto\_collapse}] Not supported in v1; raises error if TRUE.
+
+\item[\code{collapse\_vars}] Not supported in v1; raises error if TRUE.
+
+\item[\code{target\_map}] Passed through for data-frame target format handling.
+
+\item[\code{...}] Additional arguments ignored.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Value}
+data frame with weights column if \code{attach\_weights=TRUE}, else a numeric
+vector of length \code{n}. In both cases the object carries attributes:
+\begin{description}
+
+\item[\code{result}] Named list of solver diagnostics. Key fields:
+\begin{itemize}
+
+\item{} \code{status}: 0=converged, 1=max\_iter hit, 2=infeasible, 3=bad args.
+\item{} \code{iterations}: number of outer iterations completed.
+\item{} \code{max\_error}: maximum marginal error at the returned weights.
+\item{} \code{l1\_weight\_change}: L1-normalized weight change Σ|Δw|/n.
+For \code{method="lbfgsb"} this is start-to-final (batch solver);
+for iEPPA and raking it is iteration-to-iteration.
+\item{} \code{grake\_norm}: survey-grake normalized residual
+max\_k|misfit|/(1+|pop|).
+\item{} \code{convergence\_used}: Named list with \code{metric}, \code{rule},
+\code{tol}, and \code{fired\_at\_iter} documenting which criterion fired.
+\item{} \code{best\_error}: minimum marginal error seen across all iterates.
+\item{} \code{best\_weights}: numeric vector (length \code{n}, sum normalized to
+\code{n}) at the iterate with minimum observed marginal error. When
+\code{best\_error} is \code{Inf} (solver exited before the first convergence
+check), \code{best\_weights} is all-zero. Guard:
+\code{if (is.finite(attr(r, "result")\$best\_error))} before use.
+
+\end{itemize}
+
+
+\item[\code{algorithm}] Character name of the solver used.
+\item[\code{iterations}] Convenience alias for \code{result\$iterations}.
+
+\end{description}
+
+\end{Value}
+\HeaderA{weighted\_pct}{Weighted proportions}{weighted.Rul.pct}
+%
+\begin{Description}
+Weighted proportions
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+weighted_pct(x, weights)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{x}] Factor or character vector.
+
+\item[\code{weights}] Numeric weights, same length as x.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Value}
+Named numeric vector of weighted proportions summing to 1.
+\end{Value}
+\printindex{}
+\end{document}
