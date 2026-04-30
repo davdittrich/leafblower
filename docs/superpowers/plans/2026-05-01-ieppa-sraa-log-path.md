@@ -506,7 +506,7 @@ Interleaved before/after via the single `bench::mark` call.
 Rscript -e 'testthat::test_dir("tests/testthat", filter = "ieppa-sraa-log-path")' 2>&1 | tail -10
 Rscript -e 'testthat::test_dir("tests/testthat")' 2>&1 | tail -2
 ```
-Full suite must remain green; the new file must show 2 passing tests with `aa_accepted_count > 0`.
+Full suite must remain green; the new file must show 3 passing tests with `aa_accepted_count > 0`.
 
 **Stepstone smoke:**
 ```bash
