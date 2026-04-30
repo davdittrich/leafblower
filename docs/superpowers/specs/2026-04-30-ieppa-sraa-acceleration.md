@@ -57,36 +57,51 @@ auto f_eval_lf = [&](std::vector<double>& flat) -> double {
 
 **SRAA outer loop** — replaces the `for (iter_in_lvl=1; ...)` loop entirely when `st.accelerate && use_linear`. The for-loop is NOT preserved alongside SRAA; it is an either/or branch:
 
+**Two tracking variables serve different purposes — do not conflate:**
+- `W_best[c] = X[c]/X_init[c]` (normalized weight ratios) — existing field used to populate `res.best_weights` at solve exit. Unchanged.
+- `lf_best` (lf-space iterate at best_iter) — NEW variable used for SRAA outer stall revert. Cannot be derived from `W_best` alone (lf[k][j] are not recoverable from X_cur without solving a system). Must be a separate saved copy of `lf_flat`.
+
 ```cpp
 if (st.accelerate && use_linear) {
     // --- SRAA accelerated path ---
     lbw::SRAAState ieppa_sraa;
     ieppa_sraa.init(n_cats_total_with_na, lbw::kSRAAm);
     std::vector<double> lf_flat(n_cats_total_with_na);
+    std::vector<double> lf_best(n_cats_total_with_na);   // lf-space best-iterate for stall revert
     std::vector<double> dummy_L, dummy_U;   // empty; not accessed with apply_clamp=false
     pack_lf(lf, lf_flat);
+
+    // Seed F_cur ONCE before the loop. sraa_step's Step 1 evaluates F at F_cur;
+    // subsequent steps carry F_cur forward via swap — do NOT reset F_cur inside the loop.
+    ieppa_sraa.F_cur = lf_flat;
 
     int f_evals_used = 0;
     bool converged   = false;
     while (f_evals_used < budget_lvl && !converged) {
-        ieppa_sraa.F_cur = lf_flat;   // seed F_cur before each step
         auto r = lbw::sraa_step(f_eval_lf, lf_flat, dummy_L, dummy_U,
                                 ieppa_sraa, /*apply_clamp=*/false);
         f_evals_used += r.f_evals;
         res.base.iterations = f_evals_used;   // single write location; no conflict
 
-        // best-iterate tracking (same pattern as raking.cpp:353)
+        // best-iterate tracking: save W_best (normalized ratios, for best_weights output)
+        // AND lf_best (lf-space iterate, for SRAA stall revert).
         if (r.err_result < best_metric_seen) {
             best_metric_seen = r.err_result;
-            W_best = X_cur;
+            for (int c = 0; c < ct.M_cell; c++)   // W_best = X/X_init (normalized ratios)
+                W_best[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
+            lf_best          = lf_flat;            // lf-space snapshot for SRAA revert
             best_iter_val    = f_evals_used;
             best_objective_seen = compute_weight_kl(...);
         }
         // outer stall guard (mirrors raking.cpp:358-368)
         if (r.err_result > best_metric_seen * (1.0 + lbw::kSRAAOuterSlack)) {
             if (++sraa_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
-                X_cur = W_best;   unpack_lf_state_only(W_best, lf, f_lin, cell_lf);
-                ieppa_sraa.clear(); sraa_outer_stall_count = 0;
+                // Revert to lf-space best iterate; restore all derived state via unpack_lf.
+                lf_flat = lf_best;
+                unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init, st.K, cat_offset);
+                ieppa_sraa.clear();
+                ieppa_sraa.F_cur = lf_flat;   // reseed F_cur after clear+revert
+                sraa_outer_stall_count = 0;
             }
         } else { sraa_best_errRp = std::min(sraa_best_errRp, r.err_result);
                  sraa_outer_stall_count = 0; }
