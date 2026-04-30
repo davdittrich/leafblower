@@ -26,6 +26,7 @@ ChebyshevResult chebyshev_ipm(
     static constexpr double kEpsLdlt   = 1e-10;  // LDLT perturbation
     static constexpr double kStepScale = 0.99;   // line search safety factor
     static constexpr int    kInfeasPersistence = 5;  // consecutive negative-slack iters before INFEAS
+    (void)variant;  // GRAKE removed; parameter retained for ABI stability
     ChebyshevResult res;
     res.status = RK_ERR_NOCONV;
 
@@ -68,8 +69,7 @@ ChebyshevResult chebyshev_ipm(
     for (int k = 0; k < st.K; k++)
         for (int j = 0; j < st.cat_counts[k]; j++) {
             int m = cat_offset[k] + j;
-            w_kj[m] = (variant == LpVariant::CHEBYSHEV)
-                      ? n_d : 1.0 + st.targets[k][j] * n_d;
+            w_kj[m] = n_d;
         }
 
     std::vector<double> Tgt(nct);
@@ -108,8 +108,6 @@ ChebyshevResult chebyshev_ipm(
 
     // Warm-start override: aggregate ieppa obs-level weights → cell masses,
     // then apply mass-preserving clamp (clamp → rescale → reclamp).
-    // GRAKE variant is excluded in r_bridge.cpp (GRAKE's w_kj weighting causes
-    // LP slack degeneration with near-perfect warm-start; CHEBYSHEV is safe).
     if (!w_warm_obs.empty() && static_cast<int>(w_warm_obs.size()) == st.n) {
         std::vector<double> X_warm(ct.M_cell, 0.0);
         for (int i = 0; i < st.n; i++)
@@ -367,12 +365,11 @@ ChebyshevResult chebyshev_ipm(
             }
         }
 
-        // Mehrotra predictor-corrector for CHEBYSHEV; original fixed-sigma for GRAKE.
-        // Jacobi preconditioning (applied above) benefits both variants.
+        // Mehrotra predictor-corrector; Jacobi preconditioning applied above.
         // n_comp = 2*ct.M_cell + 2*nct + 1 > 0 always.
         double sigma_mu;
-        if (variant != LpVariant::CHEBYSHEV || n_comp == 0) {
-            // GRAKE or degenerate: Jacobi-preconditioned single-step with fixed σ
+        if (n_comp == 0) {
+            // Degenerate: Jacobi-preconditioned single-step with fixed σ
             sigma_mu = kSigma * mu;
             const double rmu_delta_f = sigma_mu - s_delta*y_delta;
             double margin_delta_center_f = 0.0;
@@ -806,8 +803,7 @@ ChebyshevResult chebyshev_ipm(
     // Populate metrics
     res.convergence_solver_objective = best_delta;
     res.best_error = best_errRp;  // actual calibration error at best_iter
-    res.convergence_minimized_metric = static_cast<int>(
-        variant == LpVariant::CHEBYSHEV ? CalibMetric::MAX_ERR : CalibMetric::GRAKE_NORM);
+    res.convergence_minimized_metric = static_cast<int>(CalibMetric::MAX_ERR);
     res.convergence_metric = res.convergence_minimized_metric;
 
     // Use X_best (X at lowest errRp iteration) for final metrics and weights.

@@ -6,7 +6,7 @@
 
 namespace lbw {
 
-enum class LpVariant { CHEBYSHEV, GRAKE };
+enum class LpVariant { CHEBYSHEV };
 
 struct ChebyshevResult {
     int    status        = RK_ERR_NOCONV;
@@ -41,9 +41,6 @@ ChebyshevResult chebyshev_ipm(
 
 inline ChebyshevResult chebyshev_solve(CalibState& st) {
     return chebyshev_ipm(st, LpVariant::CHEBYSHEV);
-}
-inline ChebyshevResult grake_solve(CalibState& st) {
-    return chebyshev_ipm(st, LpVariant::GRAKE);
 }
 
 } // namespace lbw

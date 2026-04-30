@@ -1,11 +1,12 @@
-test_that("T1a: chebyshev and grake are now implemented (no stub error)", {
+test_that("T1a: chebyshev is implemented; grake is removed", {
   data <- data.frame(a = factor(c("1","2","1","2","1")))
   target <- list(a = c("1"=0.5, "2"=0.5))
   expect_no_error(
     leafblower::harvest(data, target, max_weight=3, method="chebyshev", attach_weights=FALSE)
   )
-  expect_no_error(
-    leafblower::harvest(data, target, max_weight=3, method="grake", attach_weights=FALSE)
+  expect_error(
+    leafblower::harvest(data, target, max_weight=3, method="grake", attach_weights=FALSE),
+    regexp = "should be one of"
   )
 })
 
@@ -274,24 +275,13 @@ test_that("E1: chebyshev max_err <= raking max_err (correctness)", {
   expect_true(all(w_cheb >= 0.2 - 1e-10 & w_cheb <= 5 + 1e-10))
 })
 
-test_that("E2: grake grake_norm <= raking grake_norm (correctness)", {
-  set.seed(13)
-  n <- 400
-  data <- data.frame(
-    a = factor(sample(c("1","2","3"), n, replace=TRUE)),
-    b = factor(sample(c("1","2"), n, replace=TRUE))
+test_that("E2: grake is deprecated and removed (errors on dispatch)", {
+  data <- data.frame(a = factor(c("1","2","1","2","1")))
+  target <- list(a = c("1"=0.5, "2"=0.5))
+  expect_error(
+    leafblower::harvest(data, target, method="grake"),
+    regexp = "should be one of"
   )
-  target <- list(a=c("1"=0.4,"2"=0.4,"3"=0.2), b=c("1"=0.6,"2"=0.4))
-  w_grake <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
-                                 method="grake", attach_weights=FALSE)
-  r_grake <- attr(w_grake, "result")
-  w_rake <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
-                                method="raking", max_iterations=500, attach_weights=FALSE)
-  r_rake <- attr(w_rake, "result")
-  expect_equal(r_grake$status, 0L)
-  expect_lte(r_grake$grake_norm, r_rake$grake_norm + 1e-6,
-             label="grake grake_norm <= raking grake_norm")
-  expect_true(all(w_grake >= 0.2 - 1e-10 & w_grake <= 5 + 1e-10))
 })
 
 # ──────────────────────────────────────────────────────────────────────────────

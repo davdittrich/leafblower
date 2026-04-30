@@ -241,7 +241,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     else if (strcmp(method_str, "raking")    == 0) p.algorithm = RK_ALG_RAKING;
     else if (strcmp(method_str, "greg")      == 0) p.algorithm = RK_ALG_GREG;
     else if (strcmp(method_str, "chebyshev") == 0) p.algorithm = RK_ALG_CHEBYSHEV;
-    else if (strcmp(method_str, "grake")     == 0) p.algorithm = RK_ALG_GRAKE;
     else if (strcmp(method_str, "sinkhorn")  == 0) p.algorithm = RK_ALG_SINKHORN;
     else if (strcmp(method_str, "auto")      == 0) p.algorithm = RK_ALG_AUTO;
     else if (strcmp(method_str, "greenkhorn") == 0) p.algorithm = RK_ALG_GREENKHORN;
@@ -260,7 +259,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             (strcmp(method_str, "sinkhorn")   == 0) ? RK_ALG_SINKHORN :
             (strcmp(method_str, "greg")       == 0) ? RK_ALG_GREG :
             (strcmp(method_str, "chebyshev")  == 0) ? RK_ALG_CHEBYSHEV :
-            (strcmp(method_str, "grake")      == 0) ? RK_ALG_GRAKE :
             (strcmp(method_str, "greenkhorn") == 0) ? RK_ALG_GREENKHORN :
             (strcmp(method_str, "logit")      == 0) ? RK_ALG_LOGIT :
                                                        RK_ALG_RAKING;
@@ -522,12 +520,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         else
             res_best_weights.assign(st.n, 0.0);
     } else {
-        // Dispatch for chebyshev, grake (shared solver), ieppa_soft, and default ieppa.
+        // Dispatch for chebyshev, ieppa_soft, and default ieppa.
 
-        // Run ieppa warm-start BEFORE dispatch (once for both chebyshev and grake).
+        // Run ieppa warm-start BEFORE chebyshev dispatch.
         std::vector<double> w_warm_obs;
         double delta_warm = -1.0;
-        if (strcmp(method_str, "chebyshev") == 0 || strcmp(method_str, "grake") == 0) {
+        if (strcmp(method_str, "chebyshev") == 0) {
             // SAFETY: weights_copy protects st.weights from ieppa_solve mutation.
             std::vector<double> weights_copy(st.weights, st.weights + st.n);
             lbw::CalibState st_warm = st;
@@ -544,13 +542,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         }
 
         auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
-            // Warm-start only for CHEBYSHEV: GRAKE's target-proportional w_kj
-            // weighting causes LP slack degeneration with near-perfect X_warm.
-            const std::vector<double>& warm_ref =
-                (variant == lbw::LpVariant::CHEBYSHEV) ? w_warm_obs
-                                                        : std::vector<double>{};
-            const double d_warm =
-                (variant == lbw::LpVariant::CHEBYSHEV) ? delta_warm : -1.0;
+            const std::vector<double>& warm_ref = w_warm_obs;
+            const double d_warm = delta_warm;
             auto res = lbw::chebyshev_ipm(st, variant, warm_ref, d_warm);
             pack_solver_result(res);
             res_status     = res.status;
@@ -564,8 +557,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         };
         if (strcmp(method_str, "chebyshev") == 0) {
             dispatch_cheb(lbw::LpVariant::CHEBYSHEV, static_cast<int>(RK_ALG_CHEBYSHEV));
-        } else if (strcmp(method_str, "grake") == 0) {
-            dispatch_cheb(lbw::LpVariant::GRAKE, static_cast<int>(RK_ALG_GRAKE));
         } else if (strcmp(method_str, "ieppa_soft") == 0) {
             st.ieppa_auto_selected = false;
             st.use_admm_capacity   = true;
@@ -628,7 +619,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                          : (res_alg_used == static_cast<int>(RK_ALG_SINKHORN))        ? "sinkhorn"
                          : (res_alg_used == static_cast<int>(RK_ALG_GREG))            ? "greg"
                          : (res_alg_used == static_cast<int>(RK_ALG_CHEBYSHEV))       ? "chebyshev"
-                         : (res_alg_used == static_cast<int>(RK_ALG_GRAKE))           ? "grake"
                          : (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN))      ? "greenkhorn"
                          : (res_alg_used == static_cast<int>(RK_ALG_LOGIT))           ? "logit"
                          : "iEPPA";

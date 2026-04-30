@@ -167,7 +167,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_SINKHORN:   alg = RK_ALG_SINKHORN;   break;
             case RK_ALG_GREG:    alg = RK_ALG_GREG; break;
             case RK_ALG_CHEBYSHEV:   alg = RK_ALG_CHEBYSHEV;   break;
-            case RK_ALG_GRAKE:       alg = RK_ALG_GRAKE;       break;
             case RK_ALG_GREENKHORN:  alg = RK_ALG_GREENKHORN;  break;
             case RK_ALG_LOGIT:       alg = RK_ALG_LOGIT;       break;
             case RK_ALG_AUTO:
@@ -301,10 +300,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
             auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
-            pack_solver_result(result, r, alg);
-            return r.status;
-        } else if (alg == RK_ALG_GRAKE) {
-            auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::GRAKE);
             pack_solver_result(result, r, alg);
             return r.status;
         } else if (alg == RK_ALG_IEPPA_SOFT) {

@@ -118,7 +118,6 @@ struct CellMetrics {
 inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
     switch (alg_id) {
     case RK_ALG_GREG:      return m.chi2;
-    case RK_ALG_GRAKE:     return m.grake_norm;
     case RK_ALG_CHEBYSHEV: return m.errRp;
     default:               return m.errRp;
     }

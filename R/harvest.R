@@ -21,8 +21,7 @@
 #'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
 #'   (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
 #'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
-#'   (L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM),
-#'   \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
+#'   (L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
 #'   picks the single hardest margin per step; supports \code{accelerate=TRUE} for
 #'   SQUAREM round-level acceleration. Distinct from \code{scheduler="greedy"} on raking,
 #'   which sorts all K margins but still sweeps all per round),
@@ -247,15 +246,6 @@ harvest <- function(
       is.null(convergence[["absolute"]])) {
     conv$metric <- "kl"
   }
-  # grake minimizes grake_norm — override default metric when user hasn't specified one.
-  if (method == "grake" &&
-      is.null(convergence[["metric"]]) &&
-      is.null(convergence[["criterion"]]) &&
-      is.null(convergence[["improvement"]]) &&
-      is.null(convergence[["pct"]]) &&
-      is.null(convergence[["absolute"]])) {
-    conv$metric <- "grake_norm"
-  }
   if (!is.null(capacity_penalty)) {
     if (!is.numeric(capacity_penalty) || length(capacity_penalty) != 1L ||
         !is.finite(capacity_penalty) || capacity_penalty <= 0) {
@@ -467,8 +457,8 @@ harvest <- function(
       calib_result$n_bounds_clamped, min_weight, max_weight))
   }
 
-  # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7, IEPPA_SOFT=8
-  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake", "ieppa_soft", "greenkhorn", "logit")
+  # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7(deprecated), IEPPA_SOFT=8
+  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "", "ieppa_soft", "greenkhorn", "logit")
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
   # Make algorithm_used human-readable string (attr(r,"result")$algorithm_used == "greenkhorn")
   calib_result$algorithm_used <- alg_used
@@ -540,7 +530,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "grake", "greenkhorn", "logit"))
+  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit"))
 }
 
 parse_convergence <- function(convergence) {
