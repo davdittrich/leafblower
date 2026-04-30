@@ -26,6 +26,9 @@ ChebyshevResult chebyshev_ipm(
     static constexpr double kEpsLdlt   = 1e-10;  // LDLT perturbation
     static constexpr double kStepScale = 0.99;   // line search safety factor
     static constexpr int    kInfeasPersistence = 5;  // consecutive negative-slack iters before INFEAS
+    static constexpr double kWarmStartRelEps       = 1e-8;   // fractional shift off bound for strict-interior warm start
+    static constexpr double kWarmStartAbsEps        = 1e-10; // absolute floor when gap is tiny
+    static constexpr double kPrimalMachinePrecConv  = 1e-8;  // Mehrotra: accept when best errRp at machine precision
     (void)variant;  // GRAKE removed; parameter retained for ABI stability
     ChebyshevResult res;
     res.status = RK_ERR_NOCONV;
@@ -153,7 +156,7 @@ ChebyshevResult chebyshev_ipm(
     {
         double max_gap = 0.0;
         for (int c = 0; c < ct.M_cell; c++) max_gap = std::max(max_gap, U_cell[c]-L_cell[c]);
-        double eps_shift = std::max(1e-8 * max_gap, 1e-10);
+        double eps_shift = std::max(kWarmStartRelEps * max_gap, kWarmStartAbsEps);
         for (int c = 0; c < ct.M_cell; c++) {
             double gap = U_cell[c] - L_cell[c];
             if (gap < 2.0*eps_shift) X[c] = 0.5*(L_cell[c]+U_cell[c]);
@@ -278,7 +281,7 @@ ChebyshevResult chebyshev_ipm(
             // brings errRp to machine precision while μ stays large (degenerate complementarity).
             // The X_best NaN guard above ensures best_errRp < 1e-8 only fires on valid solutions.
             // Guard iter>0: warm-start may already have perfect errRp on iter 0; require a step.
-            bool converged = (mu < kTolMu) || (iter > 0 && best_errRp < 1e-8);
+            bool converged = (mu < kTolMu) || (iter > 0 && best_errRp < kPrimalMachinePrecConv);
             if (have_abs) converged = converged || converged_abs;
 
             if (converged) {

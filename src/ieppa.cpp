@@ -69,6 +69,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Intermediate homotopy levels stop early once errRp drops below this loose
     // threshold; only the final level uses the user's tol_abs for full precision.
     constexpr double kHomotopyIntermediateTol = 1e-5;
+    constexpr double kAlphaBeta          = 0.5;   // P2.1 stress→alpha mapping: alpha = 1/(1+β·stress)
+    constexpr double kSorOscillationDamp = 0.7;   // SOR sign-flip: reduce omega by this factor
+    constexpr double kSorRecoveryGrowth  = 1.05;  // SOR monotone: recover omega by this factor
+    constexpr double kInfeasStallRatio   = 10.0;  // stall warn: max_error / pct_tol threshold
 
     IEPPAResult res;
     res.status = RK_ERR_NOCONV;
@@ -260,7 +264,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // β = 0.5: at stress=2, alpha=0.5; at stress=10, alpha≈0.17. Unlatched — recovers as
     // streaks reset. Preserves Peyré-Cuturi §4.4 convergence (alpha ∈ (0, 1]).
     // β is mutable so eta_schedule can vary it per homotopy level.
-    double beta  = 0.5;
+    double beta  = kAlphaBeta;
     double alpha = 1.0;
     // Test-only override (parallel to LBW_IEPPA_FORCE_PATH): "on"|"off"|unset.
     // Always compiled; microsecond getenv cost. Enables falsifiable
@@ -1065,11 +1069,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         bool sign_flip  = !decreasing && sor_prev_decreasing[k];
                         if (sign_flip) {
                             // Oscillation detected: damp omega by 0.7, clamp to floor.
-                            sor_omega[k] = std::max(omega_min_v, sor_omega[k] * 0.7);
+                            sor_omega[k] = std::max(omega_min_v, sor_omega[k] * kSorOscillationDamp);
                             sor_n_damped++;
                         } else if (decreasing) {
                             // Monotone convergence: cautiously recover omega toward 1.0.
-                            sor_omega[k] = std::min(1.0, sor_omega[k] * 1.05);
+                            sor_omega[k] = std::min(1.0, sor_omega[k] * kSorRecoveryGrowth);
                         }
                         if (sor_omega[k] < sor_min_omega) sor_min_omega = sor_omega[k];
                         sor_prev_decreasing[k] = decreasing;
@@ -1339,7 +1343,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         if (res.status != RK_OK &&
             (cfg.metric == CalibMetric::MAX_ERR || cfg.metric == CalibMetric::MEAN_ERR) &&
             cfg.pct_tol > 0.0 &&
-            res.max_error > 10.0 * cfg.pct_tol &&
+            res.max_error > kInfeasStallRatio * cfg.pct_tol &&
             st.log_fn != nullptr) {
             char msg[256];
             std::snprintf(msg, sizeof(msg),

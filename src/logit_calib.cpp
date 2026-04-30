@@ -96,6 +96,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     constexpr double kArmijoC     = 0.01; // Armijo sufficient-decrease constant
     constexpr double kMaxDeltaZ   = 2.0;  // max z-shift per Newton step (norm guard)
     constexpr double kArmijoHalving = 0.5;
+    constexpr double kLambdaInitRejectAbs = 10.0;  // reject lambda_0 if any component exceeds this
 
     // Layer 2: design-weight initialization — place lambda_0 in convergence basin
     // Solve (AA^T)lambda_0 = Az_target where z_target[c] = logit(sigma_target[c])
@@ -127,7 +128,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             // Reject if any component exceeds 10 (z_c shifts >10*K would saturate sigma).
             double max_lambda_init = 0.0;
             for (double lj : b_init) max_lambda_init = std::max(max_lambda_init, std::abs(lj));
-            if (max_lambda_init <= 10.0) lambda = std::move(b_init);
+            if (max_lambda_init <= kLambdaInitRejectAbs) lambda = std::move(b_init);
         }
         // if factor fails or lambda_0 is ill-conditioned: lambda stays zero (Armijo handles it)
     }
