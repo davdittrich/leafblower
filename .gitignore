@@ -10,3 +10,20 @@
 # Python build artifacts
 python/leafblower/*.so
 python/leafblower/*.pyd
+
+# R build artifacts
+*.o
+*.so
+*.dll
+src/*.o
+src/leafblower.so
+
+# R CMD check output
+..Rcheck/
+
+# Test failure tracking
+tests/testthat/_problems/
+tests/testthat/testthat-problems.rds
+
+# Graphify cache (large, auto-regenerated)
+graphify-out/cache/
