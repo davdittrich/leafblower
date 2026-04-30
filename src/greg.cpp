@@ -24,33 +24,17 @@ GregResult greg_solve(CalibState& st) {
     res.base.best_iter                    = 1;
 
     CellTable ct;
-    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
-        res.base.status = RK_ERR_BADARG;
-        std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
-        return res;
-    }
-    res.M_cell = ct.M_cell;
-
-    std::vector<double> X_init(ct.M_cell, 0.0);
-    for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
-
-    const double lo = st.min_weight;
-    const double hi = lbw::resolve_hi(st);
+    std::vector<double> X_init;
+    double hi_eff;
     std::vector<double> L_cell, U_cell;
-    lbw::compute_cell_bounds(ct, lo, hi, L_cell, U_cell);
-
-    // cat_offset[k] = starting index for margin k in the n_cats_total vector
-    std::vector<int> cat_offset(st.K);
-    int n_cats_total = lbw::build_cat_offset(st.K, st.cat_counts, cat_offset);
-
-    {
-        rk_result_t tmp_res = {};
-        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
-            res.base.status = tmp_res.status;
-            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
-            return res;
-        }
-    }
+    std::vector<int> cat_offset;
+    int n_cats_total;
+    if (lbw::solver_setup_ct(st, ct, X_init, hi_eff, L_cell, U_cell,
+                              cat_offset, n_cats_total, res) != RK_OK)
+        return res;
+    res.M_cell = ct.M_cell;
+    const double lo = st.min_weight;
+    const double hi = hi_eff;
 
     std::vector<bool> fixed_lo(ct.M_cell, false), fixed_hi(ct.M_cell, false);
     std::vector<double> X(X_init);

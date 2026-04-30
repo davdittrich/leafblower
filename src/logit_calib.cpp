@@ -39,18 +39,15 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         return res;
     }
 
-    // Build cell table
     CellTable ct;
-    {
-        std::vector<const int32_t*> gids(st.K);
-        for (int k = 0; k < st.K; k++) gids[k] = st.group_ids[k];
-        if (build_cell_table(st.n, st.K, gids.data(), st.cat_counts, st.weights, ct) != RK_OK) {
-            res.base.status = RK_ERR_INFEAS;
-            std::snprintf(res.message, sizeof(res.message),
-                "logit: cell table build failed");
-            return res;
-        }
-    }
+    std::vector<double> X_init;
+    double hi_eff;
+    std::vector<double> L_cell, U_cell;
+    std::vector<int> cat_offset;
+    int nct;
+    if (lbw::solver_setup_ct(st, ct, X_init, hi_eff, L_cell, U_cell,
+                              cat_offset, nct, res) != RK_OK)
+        return res;
 
     const int M = ct.M_cell;
     const int K = st.K;
@@ -58,22 +55,6 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     // cells_per_cat[k][j] = list of cell indices in bucket (k,j)
     int max_cats = lbw::max_cats_count(K, st.cat_counts);
     auto cells_per_cat = lbw::build_cells_per_cat(ct, K, st.cat_counts);
-
-    // cat_offset and nct
-    int nct = 0;
-    std::vector<int> cat_offset(K);
-    for (int k = 0; k < K; k++) { cat_offset[k] = nct; nct += st.cat_counts[k]; }
-
-    // X_init[c] from design weights
-    std::vector<double> X_init(M, 0.0);
-    for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
-
-    // Capacity bounds per cell
-    std::vector<double> L_cell(M), U_cell(M);
-    for (int c = 0; c < M; c++) {
-        L_cell[c] = st.min_weight * ct.n_per_cell[c];
-        U_cell[c] = st.max_weight * ct.n_per_cell[c];
-    }
 
     // Newton state
     std::vector<double> lambda(nct, 0.0);   // dual variables; initialized below from design-weight logit-inverse

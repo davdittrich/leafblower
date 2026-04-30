@@ -44,28 +44,17 @@ ChebyshevResult chebyshev_ipm(
         st.convergence_cfg.metric = lbw::CalibMetric::MAX_ERR;
 
     CellTable ct;
-    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
-        res.base.status = RK_ERR_BADARG;
-        std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
-        return res;
-    }
-    res.M_cell = ct.M_cell;
-
-    const double lo = st.min_weight;
-    const double hi = lbw::resolve_hi(st);
+    std::vector<double> X_init;
+    double hi_eff;
     std::vector<double> L_cell, U_cell;
-    lbw::compute_cell_bounds(ct, lo, hi, L_cell, U_cell);
-
-    std::vector<int> cat_offset(st.K);
-    int nct = 0;
-    for (int k = 0; k < st.K; k++) { cat_offset[k] = nct; nct += st.cat_counts[k]; }
-
-    if (nct > kNCatsTotalMax) {
-        res.base.status = RK_ERR_BADARG;
-        std::snprintf(res.message, sizeof(res.message),
-                      "n_cats_total=%d exceeds limit %d", nct, kNCatsTotalMax);
+    std::vector<int> cat_offset;
+    int nct;
+    if (lbw::solver_setup_ct(st, ct, X_init, hi_eff, L_cell, U_cell,
+                              cat_offset, nct, res) != RK_OK)
         return res;
-    }
+    res.M_cell = ct.M_cell;
+    const double lo = st.min_weight;
+    const double hi = hi_eff;
 
     const double n_d = static_cast<double>(st.n);
 
@@ -105,19 +94,6 @@ ChebyshevResult chebyshev_ipm(
                 if (!(st.cat_counts[k] >= 2 && j == st.cat_counts[k]-1))
                     full_to_red[m] = nr++;
             }
-    }
-
-    // Initial cell masses — cold start from current obs weights
-    std::vector<double> X_init(ct.M_cell, 0.0);
-    for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
-
-    {
-        rk_result_t tmp_res = {};
-        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), nct) != RK_OK) {
-            res.base.status = tmp_res.status;
-            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
-            return res;
-        }
     }
 
     // Warm-start override: aggregate ieppa obs-level weights → cell masses,

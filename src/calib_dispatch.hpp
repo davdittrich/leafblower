@@ -22,9 +22,11 @@
 #include <cmath>
 #include <limits>
 #include "cell_table.hpp"
+#include "calib_validate.hpp"
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 
 namespace lbw {
 
@@ -242,6 +244,64 @@ inline int build_cat_offset(int K, const int* cat_counts,
 inline int max_cats_count(int K, const int* cat_counts) noexcept {
     if (K == 0) return 0;
     return *std::max_element(cat_counts, cat_counts + K);
+}
+
+// Full cell-table setup: build_cell_table + X_init + bounds + cat_offset + validate.
+// ResT must have: res.base.status (int) and res.message (char[]).
+// Returns RK_OK on success, otherwise sets res.base.status + res.message and returns error code.
+template <typename ResT>
+inline int solver_setup_ct(
+    CalibState&              st,
+    CellTable&               ct,
+    std::vector<double>&     X_init,
+    double&                  hi_eff,
+    std::vector<double>&     L_cell,
+    std::vector<double>&     U_cell,
+    std::vector<int>&        cat_offset,
+    int&                     n_cats_total,
+    ResT&                    res) noexcept
+{
+    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
+        res.base.status = RK_ERR_BADARG;
+        std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
+        return RK_ERR_BADARG;
+    }
+    X_init.assign(ct.M_cell, 0.0);
+    for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
+    hi_eff = lbw::resolve_hi(st);
+    lbw::compute_cell_bounds(ct, st.min_weight, hi_eff, L_cell, U_cell);
+    n_cats_total = lbw::build_cat_offset(st.K, st.cat_counts, cat_offset);
+    rk_result_t tmp = {};
+    if (calib_validate_preentry(ct, st, &tmp, X_init.data(), n_cats_total) != RK_OK) {
+        res.base.status = tmp.status;
+        std::strncpy(res.message, tmp.message, sizeof(res.message) - 1);
+        return tmp.status;
+    }
+    return RK_OK;
+}
+
+// Partial cell-table setup for raking: build_cell_table + X_init + bounds only.
+// No cat_offset, no validate. ResT only needs res.base.status (no message field required).
+// Returns RK_OK on success, otherwise sets res.base.status and returns error code.
+template <typename ResT>
+inline int solver_setup_ct_base(
+    CalibState&              st,
+    CellTable&               ct,
+    std::vector<double>&     X_init,
+    double&                  hi_eff,
+    std::vector<double>&     L_cell,
+    std::vector<double>&     U_cell,
+    ResT&                    res) noexcept
+{
+    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
+        res.base.status = RK_ERR_BADARG;
+        return RK_ERR_BADARG;
+    }
+    X_init.assign(ct.M_cell, 0.0);
+    for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
+    hi_eff = lbw::resolve_hi(st);
+    lbw::compute_cell_bounds(ct, st.min_weight, hi_eff, L_cell, U_cell);
+    return RK_OK;
 }
 
 } // namespace lbw

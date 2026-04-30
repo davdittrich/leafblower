@@ -97,32 +97,18 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     res.base.convergence_solver_objective = std::numeric_limits<double>::infinity();
 
     CellTable ct;
-    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
-        res.base.status = RK_ERR_BADARG;
-        std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
-        return res;
-    }
-    res.M_cell = ct.M_cell;
-
-    std::vector<double> X(ct.M_cell, 0.0);
-    for (int i = 0; i < st.n; i++) X[ct.cell_of[i]] += st.weights[i];
-    const std::vector<double> X_init(X);
-
-    {
-        std::vector<int> dummy_cat_offset;
-        int n_cats_total = lbw::build_cat_offset(st.K, st.cat_counts, dummy_cat_offset);
-        rk_result_t tmp_res = {};
-        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
-            res.base.status = tmp_res.status;
-            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
-            return res;
-        }
-    }
-
-    const double lo = st.min_weight;
-    const double hi = lbw::resolve_hi(st);
+    std::vector<double> X_init;
+    double hi_eff;
     std::vector<double> L_cell, U_cell;
-    lbw::compute_cell_bounds(ct, lo, hi, L_cell, U_cell);
+    std::vector<int> cat_offset;
+    int n_cats_total;
+    if (lbw::solver_setup_ct(st, ct, X_init, hi_eff, L_cell, U_cell,
+                              cat_offset, n_cats_total, res) != RK_OK)
+        return res;
+    res.M_cell = ct.M_cell;
+    std::vector<double> X(X_init);  // working copy; X_init kept for obs-expansion
+    const double lo = st.min_weight;
+    const double hi = hi_eff;
 
     // log-domain Dykstra correction for capacity box
     std::vector<double> a(ct.M_cell, 0.0);

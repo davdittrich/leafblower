@@ -69,20 +69,16 @@ RakingResult raking_solve(CalibState& st) {
     res.base.iterations = 0;
     res.base.max_error  = 1.0;
 
-    // Build cell table: O(n log n) one-time cost.
+    // Build cell table + initial masses + bounds.
     CellTable ct;
-    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts,
-                         st.weights, ct) != 0) {
-        // RakingResult has no message field; caller gets RK_ERR_BADARG status.
-        res.base.status = RK_ERR_BADARG;
+    std::vector<double> X_init;
+    double hi_eff;
+    std::vector<double> L_cell, U_cell;
+    if (lbw::solver_setup_ct_base(st, ct, X_init, hi_eff, L_cell, U_cell, res) != RK_OK)
         return res;
-    }
 
-    // Initial cell masses: X[c] = Σ_{i∈c} st.weights[i]
-    std::vector<double> X(ct.M_cell, 0.0);
-    for (int i = 0; i < st.n; i++)
-        X[ct.cell_of[i]] += st.weights[i];
-    std::vector<double> X_init(X);
+    // Working copy of cell masses.
+    std::vector<double> X(X_init);
 
     // Per-(margin, category) cell index lists for water-filling.
     // cells_per_cat[k][j] = cells where g_per_cell[k][c] == j.
@@ -97,11 +93,8 @@ RakingResult raking_solve(CalibState& st) {
     std::vector<double>  wf_x_orig(wf_max_cat);
     std::vector<uint8_t> wf_status(wf_max_cat);
 
-    // Cell bounds: L_c = lo * n_per_cell[c], U_c = hi * n_per_cell[c]
     const double lo = st.min_weight;
-    const double hi = lbw::resolve_hi(st);
-    std::vector<double> L_cell, U_cell;
-    lbw::compute_cell_bounds(ct, lo, hi, L_cell, U_cell);
+    const double hi = hi_eff;
 
     // No Dykstra correction vectors: water-filling enforces bounds within F_eval.
 

@@ -17,18 +17,15 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     GreenkornResult res;
     res.base.status = RK_ERR_NOCONV;
 
-    // Build cell table
     CellTable ct;
-    {
-        std::vector<const int32_t*> gids(st.K);
-        for (int k = 0; k < st.K; k++) gids[k] = st.group_ids[k];
-        if (build_cell_table(st.n, st.K, gids.data(), st.cat_counts, st.weights, ct) != RK_OK) {
-            res.base.status = RK_ERR_INFEAS;
-            std::snprintf(res.message, sizeof(res.message),
-                "greenkhorn: cell table build failed");
-            return res;
-        }
-    }
+    std::vector<double> X_init;
+    double hi_eff;
+    std::vector<double> L_cell, U_cell;
+    std::vector<int> cat_offset;
+    int n_cats_total;
+    if (lbw::solver_setup_ct(st, ct, X_init, hi_eff, L_cell, U_cell,
+                              cat_offset, n_cats_total, res) != RK_OK)
+        return res;
 
     const int M = ct.M_cell;
     const int K = st.K;
@@ -37,29 +34,10 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // Build cells_per_cat[k][j] = list of cell indices in bucket (k,j)
     auto cells_per_cat = lbw::build_cells_per_cat(ct, K, st.cat_counts);
 
-    // Initialize cell masses from design weights
-    std::vector<double> X(M, 0.0);
-    for (int i = 0; i < st.n; i++) X[ct.cell_of[i]] += st.weights[i];
-    const std::vector<double> X_init = X;
-
-    {
-        std::vector<int> dummy_cat_offset;
-        int n_cats_total = lbw::build_cat_offset(K, st.cat_counts, dummy_cat_offset);
-        rk_result_t tmp_res = {};
-        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
-            res.base.status = tmp_res.status;
-            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
-            return res;
-        }
-    }
-
-    // Capacity bounds per cell
-    std::vector<double> L_cell(M), U_cell(M);
-    for (int c = 0; c < M; c++) {
-        L_cell[c] = st.min_weight * ct.n_per_cell[c];
-        U_cell[c] = st.max_weight * ct.n_per_cell[c];
+    // Working copy; clamp to capacity bounds (X_init kept for obs-expansion reference)
+    std::vector<double> X(X_init);
+    for (int c = 0; c < M; c++)
         X[c] = std::clamp(X[c], L_cell[c], U_cell[c]);
-    }
 
     // Total mass W (maintained incrementally)
     double W = 0.0;
