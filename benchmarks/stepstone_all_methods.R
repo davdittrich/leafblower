@@ -69,13 +69,13 @@ ITERS <- 5000L
 cat("=== leafblower methods ===\n")
 r_ieppa      <- run("ieppa",       max_iterations=ITERS)
 r_raking     <- run("raking",      max_iterations=ITERS)
-r_raking_sq  <- run("raking",      label="raking+squarem",    max_iterations=ITERS, accelerate=TRUE)
+r_raking_sq  <- run("raking",      label="raking+sraa",       max_iterations=ITERS, accelerate=TRUE)
 r_ieppa_soft <- run("ieppa_soft",  max_iterations=ITERS)
 r_sinkhorn   <- run("sinkhorn",    max_iterations=ITERS)
 r_greg       <- run("greg",        max_iterations=ITERS)
 r_cheby      <- run("chebyshev",   max_iterations=ITERS)
 r_grk        <- run("greenkhorn",  max_iterations=ITERS)
-r_grk_sq     <- run("greenkhorn",  label="greenkhorn+squarem", max_iterations=ITERS, accelerate=TRUE)
+r_grk_sq     <- run("greenkhorn",  label="greenkhorn+sraa",    max_iterations=ITERS, accelerate=TRUE)
 r_logit      <- run("logit",       max_iterations=ITERS)
 
 cat("\n=== autumn (reference — cached) ===\n")
@@ -99,7 +99,7 @@ r_ieppa_greedy <- run("ieppa", label="ieppa+greedy",
 cat("\n=== Pearson r vs iEPPA ===\n")
 for (nm in c("raking","raking_sq","ieppa_soft","grk","grk_sq","logit","ieppa_greedy","sinkhorn","greg","cheby","autumn")) {
   rv <- get(paste0("r_", nm))
-  lbl <- switch(nm, raking_sq="raking+squarem", grk="greenkhorn", grk_sq="greenkhorn+squarem",
+  lbl <- switch(nm, raking_sq="raking+sraa", grk="greenkhorn", grk_sq="greenkhorn+sraa",
                 ieppa_greedy="ieppa+greedy", nm)
   cat(sprintf("  ieppa ↔ %-20s  r=%.6f\n", lbl, cor(r_ieppa$w, rv$w)))
 }
