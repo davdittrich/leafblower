@@ -72,7 +72,6 @@ r_raking     <- run("raking",      max_iterations=ITERS)
 r_raking_sq  <- run("raking",      label="raking+squarem",    max_iterations=ITERS, accelerate=TRUE)
 r_ieppa_soft <- run("ieppa_soft",  max_iterations=ITERS)
 r_sinkhorn   <- run("sinkhorn",    max_iterations=ITERS)
-r_grake      <- run("grake",       max_iterations=ITERS)
 r_greg       <- run("greg",        max_iterations=ITERS)
 r_cheby      <- run("chebyshev",   max_iterations=ITERS)
 r_grk        <- run("greenkhorn",  max_iterations=ITERS)
@@ -98,7 +97,7 @@ r_ieppa_greedy <- run("ieppa", label="ieppa+greedy",
     max_iterations = ITERS)
 
 cat("\n=== Pearson r vs iEPPA ===\n")
-for (nm in c("raking","raking_sq","ieppa_soft","grk","grk_sq","logit","ieppa_greedy","sinkhorn","grake","greg","cheby","autumn")) {
+for (nm in c("raking","raking_sq","ieppa_soft","grk","grk_sq","logit","ieppa_greedy","sinkhorn","greg","cheby","autumn")) {
   rv <- get(paste0("r_", nm))
   lbl <- switch(nm, raking_sq="raking+squarem", grk="greenkhorn", grk_sq="greenkhorn+squarem",
                 ieppa_greedy="ieppa+greedy", nm)
