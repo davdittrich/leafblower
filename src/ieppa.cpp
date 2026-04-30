@@ -701,6 +701,52 @@ IEPPAResult ieppa_solve(CalibState& st) {
             return err;
         };
 
+        // ────────────────────────────────────────────────────────────────────
+        // SRAA-m fixed-point map for the linear path of this homotopy level.
+        // Captures lf, f_lin, cell_lf, X_cur, ct, X_init, st.K, cat_offset,
+        // apply_single_margin_linear, S_lin by [&].
+        //
+        // Receives a flat lf iterate (size cat_offset[st.K]); rebuilds derived
+        // state via unpack_lf; runs one round-robin BCD pass over K margins;
+        // packs updated lf back into `flat`; returns errRp on success or +inf
+        // on overflow. On overflow, lf is mid-sweep (partial); SRAA safeguard
+        // rejects via err_AA=inf>err_plain and reverts via swap with F_cur.
+        // ────────────────────────────────────────────────────────────────────
+        auto f_eval_lf = [&](std::vector<double>& flat) -> double {
+            unpack_lf(flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
+                      st.K, cat_offset);
+            bool overflow = false;
+            for (int k = 0; k < st.K && !overflow; k++) {
+                if (apply_single_margin_linear(k)) overflow = true;
+            }
+            // Always pack — on overflow, lf is partially updated; packing
+            // preserves the SRAA invariant that `flat` reflects the current
+            // iterate after the call.
+            pack_lf(lf, flat);
+            if (overflow) return std::numeric_limits<double>::infinity();
+
+            // Compute errRp from X_cur (same formula as convergence block).
+            double W_total = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
+            if (!(W_total > 0.0)) return std::numeric_limits<double>::infinity();
+            double errRp = 0.0;
+            for (int k = 0; k < st.K; k++) {
+                const int nj = st.cat_counts[k];
+                std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
+                const int* gk = ct.g_per_cell[k].data();
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int j = gk[c];
+                    if (j >= 0 && j < nj) S_lin[j] += X_cur[c];
+                }
+                for (int j = 0; j < nj; j++) {
+                    double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
+                    if (e > errRp) errRp = e;
+                }
+            }
+            return errRp;
+        };
+        (void)f_eval_lf;
+
         const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
 
         // 773f.3: hoist per_margin_err outside inner iter loop — eliminates K-sized alloc per iteration.
