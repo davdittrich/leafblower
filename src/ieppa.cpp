@@ -297,12 +297,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
     std::deque<int> probe_queue(probe_targets.begin(), probe_targets.end());
     std::vector<std::pair<int,double>> probe_samples;
 
-    // WU-B: X_prev tracks X[c] at the last convergence check for pct_change computation.
+    // X_prev tracks X[c] at the last convergence check for pct_change computation.
     // Initialized from X_init (uniform W[c]=1 at entry, X[c] = X_init[c]).
     std::vector<double> X_prev(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X_init[c];
 
-    // WU-C: improvement/plateau rule — track active metric across kErrCheckInterval checks.
+    // improvement/plateau rule — track active metric across kErrCheckInterval checks.
     // Initialized to +∞ so first check never triggers convergence.
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
@@ -427,7 +427,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
         bool level_converged = false;
 
-        // WU-B Fix 1: reset X_prev at the start of each homotopy level so that
+        // reset X_prev at the start of each homotopy level so that
         // pct_change measures iteration-to-iteration shift within a level, not
         // cross-level drift from the previous level's final X.
         // B11: At lvl=0, X is still all-zeros (not yet populated); the X_prev
@@ -436,7 +436,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         if (lvl > 0) {
             for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
         }
-        // WU-C: reset improvement/plateau baseline at each homotopy level.
+        // reset improvement/plateau baseline at each homotopy level.
         prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
     for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
@@ -462,7 +462,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (X_init[c] <= 0.0) continue;
                 S_lin[j] += X_cur[c] * inv_f_old_lin[j];
             }
-            // WU-D: effective omega for this margin.
+            // effective omega for this margin.
             // sor_active==false → eff_omega=1.0 (fast path, no pow()).
             // sor_active && !sor_auto && omega_fixed_v>0 → fixed omega.
             // sor_active && sor_auto → per-margin adaptive omega[k].
@@ -488,7 +488,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 double new_f;
                 if (alpha == 1.0) {
-                    // WU-D: SOR under-relaxation in linear space.
+                    // SOR under-relaxation in linear space.
                     // ratio = T_kj*W_input / S_kj = naive (the full Sinkhorn step).
                     // Applying pow(ratio, eff_omega) is equivalent to a fractional step
                     // in log-space: lf_new = lf_old + eff_omega*(log(T)-log(S)).
@@ -555,7 +555,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         };
 
         auto apply_single_margin_log = [&](int k) -> bool {
-            // WU-D: effective omega for this margin (log-space path).
+            // effective omega for this margin (log-space path).
             double eff_omega_log;
             if (!sor_active) {
                 eff_omega_log = 1.0;
@@ -593,7 +593,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
                 record_nonempty(k, j);
                 double log_target = std::log(st.targets[k][j] * ct.W_input);
-                // WU-D: in log-space, SOR applies as a fractional step:
+                // in log-space, SOR applies as a fractional step:
                 // lf_new = lf_old + net*(log_target - log_S_kj), where net = alpha * eff_omega_log.
                 // alpha=1 && eff_omega_log=1 → lf_new = log_target - log_S_kj (fast path, no change).
                 double net_log = alpha * eff_omega_log;
@@ -750,7 +750,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // (preserves prior iter=0 semantics; global iter counter may regress
                 // by one level's worth of iters but that matches pre-refactor behaviour).
                 iter_in_lvl = 0;
-                // WU-B Fix 2: reset X_prev after fallback — X semantics changed (log-path).
+                // reset X_prev after fallback — X semantics changed (log-path).
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
                 // Reset best-iterate: pre-fallback W_best from degenerate linear-space
                 best_metric_seen = std::numeric_limits<double>::infinity();
@@ -865,7 +865,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 res.n_xcur_writes_per_iter_linear = 0;
                 use_linear = false;
                 linear_fallback_used = true;
-                // WU-B Fix 2: reset X_prev after fallback — X semantics changed (log-path).
+                // reset X_prev after fallback — X semantics changed (log-path).
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
                 if (st.verbose >= 1) st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 continue;
@@ -1042,7 +1042,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
-            // WU-D: per-margin omega adaptation (both linear and log paths; auto mode only;
+            // per-margin omega adaptation (both linear and log paths; auto mode only;
             // suppressed during burnin to let the infeas-streak damping settle first).
             if (sor_active && sor_auto && iter >= sor_burnin_v) {
                 if (W_total > 0.0) {
@@ -1087,13 +1087,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
-            // WU-C: l1_weight = Σ|ΔX| / W_input (normalized absolute shift in cell mass).
+            // l1_weight = Σ|ΔX| / W_input (normalized absolute shift in cell mass).
             double l1_weight = 0.0;
             for (int c = 0; c < ct.M_cell; c++)
                 l1_weight += std::fabs(X[c] - X_prev[c]);
             if (ct.W_input > 0.0) l1_weight /= ct.W_input;
 
-            // WU-B/C extra metrics gate: skip O(K*M_cell) passes when the active
+            // extra metrics gate: skip O(K*M_cell) passes when the active
             // stopping criterion does not need them. Always compute on the final
             // iteration (iter_in_lvl == budget_lvl) so result struct is fully
             // populated on exit. grake_norm moved inside this gate (was unconditional,
@@ -1173,8 +1173,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
             // Store metrics in result struct (unconditional — intermediate checks
             // store 0 for gated metrics; final iter always populates all fields).
-            res.l1_weight_change = l1_weight;    // WU-C: real Σ|ΔX|/W_input (replaces pct_change stub)
-            res.grake_norm       = grake_norm;   // WU-C: max_kj normalized margin residual
+            res.l1_weight_change = l1_weight;    // real Σ|ΔX|/W_input (replaces pct_change stub)
+            res.grake_norm       = grake_norm;   // max_kj normalized margin residual
             res.mean_error       = mean_err;
             res.kl               = kl_max;
             res.chi2             = chi2_total;
@@ -1227,7 +1227,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
-            // WU-C: metric + rule dispatch.
+            // metric + rule dispatch.
             // Select the active metric value, apply the stopping rule, then combine
             // with the optional secondary absolute threshold via stop_when semantics.
             // Intermediate homotopy levels additionally allow warm-jump when errRp < tol_lvl.
@@ -1351,7 +1351,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
     }
 
-    // WU-C: populate convergence diagnostics at solver exit.
+    // populate convergence diagnostics at solver exit.
     res.convergence_metric             = static_cast<int>(st.convergence_cfg.metric);
     res.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
     res.convergence_tol = absolute_tol_fired
@@ -1537,7 +1537,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         st.log(msg);
     }
 
-    // WU-D: store SOR diagnostics in result.
+    // store SOR diagnostics in result.
     res.sor_min_omega = sor_min_omega;
     res.sor_n_damped  = sor_n_damped;
 

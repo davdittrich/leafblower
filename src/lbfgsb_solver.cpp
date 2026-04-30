@@ -250,7 +250,7 @@ static LBFGSResult compute_final_weights_and_error(
                 double obs    = S2[j];
                 double pop_kj = T * Wn;
                 chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
-                // WU-D: grake_norm = max_kj |S_kj - pop_kj| / (1 + |pop_kj|)
+                // grake_norm = max_kj |S_kj - pop_kj| / (1 + |pop_kj|)
                 double nm = std::fabs(obs - pop_kj) / (1.0 + std::fabs(pop_kj));
                 if (nm > grake_norm) grake_norm = nm;
             }
@@ -260,17 +260,17 @@ static LBFGSResult compute_final_weights_and_error(
     }
     double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
 
-    res.l1_weight_change = pct_change;  // WU-B: rename; pct_change local var preserved until WU-B updates computation
+    res.l1_weight_change = pct_change;  // rename; pct_change local var preserved until updates computation
     res.mean_error       = mean_err;
     res.kl               = kl_max;
     res.chi2             = chi2_total;
-    res.grake_norm       = grake_norm;  // WU-D
+    res.grake_norm       = grake_norm;
 
     res.best_error = max_err;
     res.best_iter  = iterations;
     // best_weights assigned post-normalization in lbfgsb_solve() below.
 
-    // WU-D: active-criterion + CalibRule dispatch for status.
+    // active-criterion + CalibRule dispatch for status.
     // lbfgsb is a batch solver (single pass); there is no per-iteration baseline.
     // IMPROVEMENT and PLATEAU rules therefore reduce to a threshold check on the
     // active metric value (start→final comparison is implicit in pct_change).
@@ -373,7 +373,7 @@ static double wolfe_zoom(
             lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + alpha * Tdir;
         double slope = Tdir;
-        // WU-A3: branch-hoisted SIMD. reduction(+:...) avoids the OpenMP
+        // branch-hoisted SIMD. reduction(+:...) avoids the OpenMP
         // reduction(-:x) combiner bug (would yield orig+Σ, not orig-Σ).
         if (st.alm_mu > 0.0) {
             // ALM scalar fallback: dead at runtime (alm_mu=0.0 forced) but
@@ -506,7 +506,7 @@ static double wolfe_line_search(
             lbw::bulk_scaled_exp(fn.logit_scale, u_work.data(), e_vec.data(), st.n);
         double phi_trial = Tlam + Tdir * alpha;
         double slope = Tdir;
-        // WU-A3: branch-hoisted SIMD. reduction(+:...) avoids combiner bug.
+        // branch-hoisted SIMD. reduction(+:...) avoids combiner bug.
         if (st.alm_mu > 0.0) {
             // ALM scalar fallback (dead at runtime; kept correct).
             double sum_w = 0.0, sum_dw = 0.0;
