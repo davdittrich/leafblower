@@ -159,8 +159,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     if (st.use_admm_capacity) u.assign(ct.M_cell, 0.0);
 
     // ALM persistent state (ieppa_soft only). N_levels-dependent vars set below.
-    const bool alm_active = st.use_admm_capacity && st.capacity_mu > 0.0;
-    const double capacity_mu_base    = st.capacity_mu;
+    const bool alm_active = st.use_admm_capacity && st.alm.capacity_mu > 0.0;
+    const double capacity_mu_base    = st.alm.capacity_mu;
     double capacity_mu_adaptive      = capacity_mu_base;
     double eta_i_current             = 1.0;
     int    alm_violation_streak      = 0;
@@ -366,7 +366,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     for (int lvl = 0; lvl < N_levels; lvl++) {
         budget_weight_sum += std::pow(lvl + 1.0, p_budget);
     }
-    const double alm_mu_base = st.alm_mu;
+    const double alm_mu_base = st.alm.mu;
     int total_iters = 0;
     bool homotopy_break = false;
     bool absolute_tol_fired = false;  // set when absolute_tol triggers convergence
@@ -398,7 +398,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 std::pow(st.eta_schedule.eta_end / st.eta_schedule.eta_start, scaled_frac);
             res.eta_final = eta_i;
             if (alm_mu_base > 0.0) {
-                st.alm_mu = eta_i * alm_mu_base;
+                st.alm.mu = eta_i * alm_mu_base;
             } else {
                 beta = 0.5 * eta_i;
             }
@@ -411,10 +411,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 eta_i_current = st.eta_schedule.eta_start *
                     std::pow(st.eta_schedule.eta_end / st.eta_schedule.eta_start, scaled_frac);
                 res.eta_final = eta_i_current;
-                st.capacity_mu = eta_i_current * capacity_mu_adaptive;
+                st.alm.capacity_mu = eta_i_current * capacity_mu_adaptive;
             } else {
                 eta_i_current = 1.0;
-                st.capacity_mu = capacity_mu_adaptive;
+                st.alm.capacity_mu = capacity_mu_adaptive;
             }
             alm_violation_streak = 0;
             std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
@@ -837,12 +837,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     // ALM: linearized Newton step, rho = mu*X_tilde balances KL Hessian.
                     // X = X_tilde * (1 - lambda + mu*z) / (1 + rho); lambda += mu*(X-z).
                     const double z   = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
-                    const double rho = st.capacity_mu * X_tilde_c;
-                    double X_alm = X_tilde_c * (1.0 - lambda_cell[c] + st.capacity_mu * z) / (1.0 + rho);
+                    const double rho = st.alm.capacity_mu * X_tilde_c;
+                    double X_alm = X_tilde_c * (1.0 - lambda_cell[c] + st.alm.capacity_mu * z) / (1.0 + rho);
                     if (!std::isfinite(X_alm) || X_alm <= 0.0) X_alm = z;  // NaN guard
                     X[c] = X_alm; W[c] = X_alm / X_tilde_c; X_cur[c] = X_alm;
                     const double lambda_cap = 10.0 * capacity_mu_base * st.max_weight;
-                    lambda_cell[c] += st.capacity_mu * (X_alm - z);
+                    lambda_cell[c] += st.alm.capacity_mu * (X_alm - z);
                     lambda_cell[c]  = std::clamp(lambda_cell[c], -lambda_cap, lambda_cap);
                 } else {
                     // Hard clamp (ieppa default or X_tilde_c <= 0).
@@ -912,13 +912,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
             for (int c = 0; c < ct.M_cell; c++) {
                 if (alm_active && X_tilde[c] > 0.0) {
                     const double z   = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
-                    const double rho = st.capacity_mu * X_tilde[c];
-                    double X_alm = X_tilde[c] * (1.0 - lambda_cell[c] + st.capacity_mu * z) / (1.0 + rho);
+                    const double rho = st.alm.capacity_mu * X_tilde[c];
+                    double X_alm = X_tilde[c] * (1.0 - lambda_cell[c] + st.alm.capacity_mu * z) / (1.0 + rho);
                     if (!std::isfinite(X_alm) || X_alm <= 0.0) X_alm = z;
                     X[c] = X_alm;
                     W[c] = X_alm / X_tilde[c];
                     const double lambda_cap = 10.0 * capacity_mu_base * st.max_weight;
-                    lambda_cell[c] += st.capacity_mu * (X_alm - z);
+                    lambda_cell[c] += st.alm.capacity_mu * (X_alm - z);
                     lambda_cell[c]  = std::clamp(lambda_cell[c], -lambda_cap, lambda_cap);
                 } else {
                     double xc = std::clamp(X_tilde[c], L_cell[c], U_cell[c]);
@@ -956,7 +956,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 if (++alm_violation_streak >= kAlmPersistenceThreshold &&
                     capacity_mu_adaptive < capacity_mu_base * kAlmMaxScale) {
                     capacity_mu_adaptive *= kAlmGrowthFactor;
-                    st.capacity_mu = eta_i_current * capacity_mu_adaptive;
+                    st.alm.capacity_mu = eta_i_current * capacity_mu_adaptive;
                     res.alm_n_growth_events++;
                     alm_violation_streak = 0;
                     if (st.verbose >= 2) {

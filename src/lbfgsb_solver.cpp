@@ -71,11 +71,11 @@ static double phi_from_u(const CalibState& st,
         }
     }
 
-    if (st.alm_mu > 0.0) {
+    if (st.alm.mu > 0.0) {
         double sum_w = 0.0;
         for (int i = 0; i < st.n; i++) sum_w += d[i] * fn.F(u[i]);
         double residual = sum_w - static_cast<double>(st.n);
-        double alm_scale = st.alm_lambda + st.alm_mu * residual;
+        double alm_scale = st.alm.lambda + st.alm.mu * residual;
 
         for (int k = 0; k < st.K; k++) {
             for (int i = 0; i < st.n; i++) {
@@ -84,7 +84,7 @@ static double phi_from_u(const CalibState& st,
                     grad[off[k] + g] += alm_scale * d[i] * fn.dF(u[i]);
             }
         }
-        obj += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
+        obj += st.alm.lambda * residual + (st.alm.mu / 2.0) * residual * residual;
     }
 
     return obj;
@@ -375,7 +375,7 @@ static double wolfe_zoom(
         double slope = Tdir;
         // branch-hoisted SIMD. reduction(+:...) avoids the OpenMP
         // reduction(-:x) combiner bug (would yield orig+Σ, not orig-Σ).
-        if (st.alm_mu > 0.0) {
+        if (st.alm.mu > 0.0) {
             // ALM scalar fallback: dead at runtime (alm_mu=0.0 forced) but
             // kept correct for future reactivation.
             double sum_w = 0.0, sum_dw = 0.0;
@@ -389,8 +389,8 @@ static double wolfe_zoom(
                 sum_dw    += d[i] * fn.dF(u_work[i]) * du[i];
             }
             double residual = sum_w - static_cast<double>(st.n);
-            double alm_scale = st.alm_lambda + st.alm_mu * residual;
-            phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
+            double alm_scale = st.alm.lambda + st.alm.mu * residual;
+            phi_trial += st.alm.lambda * residual + (st.alm.mu / 2.0) * residual * residual;
             slope     += alm_scale * sum_dw;
         } else {
             double phi_acc = 0.0, slope_acc = 0.0;
@@ -507,7 +507,7 @@ static double wolfe_line_search(
         double phi_trial = Tlam + Tdir * alpha;
         double slope = Tdir;
         // branch-hoisted SIMD. reduction(+:...) avoids combiner bug.
-        if (st.alm_mu > 0.0) {
+        if (st.alm.mu > 0.0) {
             // ALM scalar fallback (dead at runtime; kept correct).
             double sum_w = 0.0, sum_dw = 0.0;
             for (int j = 0; j < st.n; j++) {
@@ -520,8 +520,8 @@ static double wolfe_line_search(
                 sum_dw    += d[j] * fn.dF(u_work[j]) * du[j];
             }
             double residual = sum_w - static_cast<double>(st.n);
-            double alm_scale = st.alm_lambda + st.alm_mu * residual;
-            phi_trial += st.alm_lambda * residual + (st.alm_mu / 2.0) * residual * residual;
+            double alm_scale = st.alm.lambda + st.alm.mu * residual;
+            phi_trial += st.alm.lambda * residual + (st.alm.mu / 2.0) * residual * residual;
             slope     += alm_scale * sum_dw;
         } else {
             double phi_acc = 0.0, slope_acc = 0.0;
@@ -703,8 +703,8 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     // (R/harvest.R:218, python/_harvest.py): start_weights are pre-normalized
     // so Σ d_i = n. Output contract (moved in-solver 2026-04-24 per user
     // directive): solver self-normalizes to sum(w) = n before return.
-    st.alm_lambda = 0.0;
-    st.alm_mu     = 0.0;
+    st.alm.lambda = 0.0;
+    st.alm.mu     = 0.0;
     LBFGSResult res = lbfgsb_solve_inner(st, off, T, d, W_sum);
 
     // Post-solve normalization. Placement after the inner solve is safe because

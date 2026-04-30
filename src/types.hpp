@@ -68,6 +68,12 @@ struct CalibSorCfg {
     int    burnin        = 20;  // iterations before SOR adaptation starts; iEPPA only (raking ignores)
 };
 
+struct ALMConfig {
+    double lambda      = 0.0;  // dual variable for sum(w)=n; only read when mu > 0
+    double mu          = 0.0;  // penalty coefficient; 0.0 = ALM inactive
+    double capacity_mu = 0.0;  // ieppa_soft ALM penalty (capacity box constraint); 0.0 = inactive
+};
+
 struct CalibState {
     int n;
     int K;
@@ -84,9 +90,7 @@ struct CalibState {
     int verbose;
     bool ieppa_auto_selected  = false;  // true iff AUTO routing selected iEPPA; used for verbose prefix
     bool use_admm_capacity    = false;  // ieppa_soft: ADMM P1.1; default false = hard clamp
-    double alm_lambda = 0.0;  // dual variable for sum(w)=n; only read when alm_mu > 0
-    double alm_mu     = 0.0;  // penalty coefficient; 0.0 = ALM inactive
-    double capacity_mu = 0.0;  // ieppa_soft ALM penalty (capacity box constraint); 0.0 = inactive
+    ALMConfig alm;  // ALM penalty state: lambda, mu, capacity_mu
     rk_bounds_mode_t bounds_mode = RK_BOUNDS_CELL;  /* P3.1: per-obs vs cell-aggregate bounds */
     // ── Overlay config ──
     HomotopyConfigLbw    homotopy;

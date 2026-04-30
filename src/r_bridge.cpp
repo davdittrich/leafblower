@@ -316,8 +316,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     st.sor_cfg.omega_fixed          = p.sor_omega_fixed;
     st.sor_cfg.burnin               = p.sor_burnin;
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
-    st.alm_lambda = 0.0;
-    st.alm_mu     = 0.0;
+    st.alm.lambda = 0.0;
+    st.alm.mu     = 0.0;
     st.accelerate = (INTEGER(accelerate_sexp)[0] != 0);
 
     // Resolve capacity_mu for ieppa_soft: build cell table to obtain auto value.
@@ -335,12 +335,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         if (ct_rc != 0) {
             // build_cell_table failure is non-fatal here — capacity_mu falls back to 1.0.
             // Infeasibility (empty cell with positive target) is caught by validate_inputs above.
-            st.capacity_mu = 1.0;
+            st.alm.capacity_mu = 1.0;
         } else {
             const double cp_val = Rf_isNull(capacity_penalty_sexp)
                 ? -1.0
                 : (LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
-            st.capacity_mu = (cp_val <= 0.0) ? ct_tmp.capacity_mu_auto : cp_val;
+            st.alm.capacity_mu = (cp_val <= 0.0) ? ct_tmp.capacity_mu_auto : cp_val;
         }
     }
 
