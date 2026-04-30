@@ -216,20 +216,20 @@ static LBFGSResult compute_final_weights_and_error(
     }
     res.max_error = max_err;
 
-    // WU-B: compute pct_change (start weights d[i] vs. final st.weights[i]).
+    // Compute pct_change (max relative shift start weights d[i] vs. final st.weights[i]).
     double pct_change = 0.0;
     for (int i = 0; i < st.n; i++) {
         double rel = std::fabs(st.weights[i] - d[i]) / std::max(d[i], 1e-12);
         if (rel > pct_change) pct_change = rel;
     }
 
-    // WU-B: alternative metrics from final weights.
+    // Alternative metrics from final weights.
     constexpr double kMetricEps = 1e-10;
     constexpr double kChi2Floor = 1.0;
     double mean_err_sum = 0.0;
     double kl_max       = 0.0;
     double chi2_total   = 0.0;
-    double grake_norm   = 0.0;  // WU-D: max over margins of |S_kj - T_kj*Wn| / (1 + |T_kj*Wn|)
+    double grake_norm   = 0.0;  // max over margins of |S_kj - T_kj*Wn| / (1 + |T_kj*Wn|)
     if (Wn > 0.0) {
         for (int k = 0; k < st.K; k++) {
             std::vector<double> S2(st.cat_counts[k], 0.0);

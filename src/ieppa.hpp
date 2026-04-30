@@ -22,16 +22,16 @@ struct IEPPAResult {
     int    greedy_sweeps_taken   = 0;   // total greedy margin sweeps across all levels and iterations
     double eta_final             = 0.0; // alm_mu multiplier at solver exit (0 = N/A)
     // ── End overlay diagnostics ──
-    // ── Extended quality metrics (WU-A scaffold; populated in WU-B+) ──
+    // ── Extended quality metrics ──
     double mean_error          = 0.0;
     double kl                  = 0.0;
     double chi2                = 0.0;
-    double l1_weight_change    = 0.0;  // WU-A: renamed from pct_change; computation in WU-B
-    double grake_norm          = 0.0;  // WU-A stub; computation in WU-D
-    int    convergence_metric  = 0;    // WU-A stub; CalibMetric at exit
-    int    convergence_rule    = 1;    // WU-A stub; CalibRule at exit (IMPROVEMENT)
-    double convergence_tol     = 0.001; // WU-A stub; threshold that fired
-    int    convergence_iter    = -1;   // WU-A stub; iteration at convergence (-1=max_iter)
+    double l1_weight_change    = 0.0;  // renamed from pct_change; L1 normalized weight change Σ|Δw|/n
+    double grake_norm          = 0.0;  // max_k |misfit|/(1+|pop|) normalized residual
+    int    convergence_metric  = 0;    // CalibMetric at exit
+    int    convergence_rule    = 1;    // CalibRule at exit (IMPROVEMENT)
+    double convergence_tol     = 0.001; // threshold that fired
+    int    convergence_iter    = -1;   // iteration at convergence (-1=max_iter)
     double best_error          = std::numeric_limits<double>::infinity();
     int    best_iter           = 0;
     std::vector<double> best_weights;  // obs-level; length n; sum-normalized to n; empty if never checked

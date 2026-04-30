@@ -314,7 +314,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     int    best_iter_val   = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
 
-    // WU-D: SOR adaptive under-relaxation state (iEPPA-only).
+    // SOR adaptive under-relaxation state (iEPPA-only).
     // Per-margin omega[k] starts at omega_init (1.0 = no damping = fast path).
     // Adaptation: sign-flip in per-margin errRp trajectory → omega *= 0.7 (floor: omega_min).
     // Monotone decrease → omega *= 1.05, capped at 1.0 (recovery).
@@ -1078,7 +1078,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
 
-            // WU-B: compute pct_change (max relative shift in cell mass since last check).
+            // Compute pct_change (max relative shift in cell mass since last check).
             double pct_change = 0.0;
             if (W_total > 0.0) {
                 for (int c = 0; c < ct.M_cell; c++) {
