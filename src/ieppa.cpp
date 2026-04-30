@@ -4,6 +4,7 @@
 #include "calib_dispatch.hpp"
 #include "cell_table.hpp"
 #include "leafblower.h"
+#include "sraa.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -486,17 +487,14 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // reset improvement/plateau baseline at each homotopy level.
         prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
-    for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
-        const int iter = total_iters + iter_in_lvl;
-        res.base.iterations = iter;
-        alpha = compute_alpha();
-        if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
-
-        // Margin sweep: branched by path.
-        bool overflow_trip = false;
-
-        // Do NOT read st.max_weight here — homotopy levels pass
-        // current_max_weight indirectly via the shared U_cell already built.
+        // ────────────────────────────────────────────────────────────────────
+        // SRAA-m linear-path acceleration — outer-loop replacement.
+        // The lambdas below are hoisted out of the inner for-loop so f_eval_lf
+        // can be invoked from the SRAA while-loop branch.
+        // apply_single_margin_linear captures alpha (declared at line 319,
+        // outside the for-loop) and writes through it via compute_alpha; it
+        // does NOT reference iter_in_lvl or iter directly.
+        // ────────────────────────────────────────────────────────────────────
         auto apply_single_margin_linear = [&](int k) -> bool {
             const int nj = st.cat_counts[k];
             const int off = cat_offset[k];
@@ -601,6 +599,153 @@ IEPPAResult ieppa_solve(CalibState& st) {
             return false;
         };
 
+        // ────────────────────────────────────────────────────────────────────
+        // SRAA-m fixed-point map for the linear path of this homotopy level.
+        // Hoisted out of the inner for-loop so the SRAA while-loop can invoke
+        // it. Captures lf, f_lin, cell_lf, X_cur, ct, X_init, st.K, cat_offset,
+        // apply_single_margin_linear, S_lin by [&].
+        //
+        // Receives a flat lf iterate (size cat_offset[st.K]); rebuilds derived
+        // state via unpack_lf; runs one round-robin BCD pass over K margins;
+        // packs updated lf back into `flat`; returns errRp on success or +inf
+        // on overflow. On overflow, lf is mid-sweep (partial); SRAA safeguard
+        // rejects via err_AA=inf>err_plain and reverts via swap with F_cur.
+        // ────────────────────────────────────────────────────────────────────
+        auto f_eval_lf = [&](std::vector<double>& flat) -> double {
+            unpack_lf(flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
+                      st.K, cat_offset);
+            bool overflow = false;
+            for (int k = 0; k < st.K && !overflow; k++) {
+                if (apply_single_margin_linear(k)) overflow = true;
+            }
+            // Always pack — on overflow, lf is partially updated; packing
+            // preserves the SRAA invariant that `flat` reflects the current
+            // iterate after the call.
+            pack_lf(lf, flat);
+            if (overflow) return std::numeric_limits<double>::infinity();
+
+            // Compute errRp from X_cur (same formula as convergence block).
+            double W_total = 0.0;
+            for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
+            if (!(W_total > 0.0)) return std::numeric_limits<double>::infinity();
+            double errRp = 0.0;
+            for (int k = 0; k < st.K; k++) {
+                const int nj = st.cat_counts[k];
+                std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
+                const int* gk = ct.g_per_cell[k].data();
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int j = gk[c];
+                    if (j >= 0 && j < nj) S_lin[j] += X_cur[c];
+                }
+                for (int j = 0; j < nj; j++) {
+                    double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
+                    if (e > errRp) errRp = e;
+                }
+            }
+            return errRp;
+        };
+
+        // ────────────────────────────────────────────────────────────────────
+        // SRAA-m outer-loop branch (B3): replaces the inner for-loop on the
+        // linear path when accelerate=TRUE. The for-loop below is gated on
+        // !sraa_active_lvl.
+        // ────────────────────────────────────────────────────────────────────
+        const bool sraa_active_lvl = st.accelerate && use_linear;
+        lbw::SRAAState ieppa_sraa;
+        std::vector<double> lf_flat;
+        std::vector<double> lf_best;
+        const std::vector<double> dummy_L;
+        const std::vector<double> dummy_U;
+        int sraa_outer_stall_count = 0;
+        double sraa_best_errRp     = std::numeric_limits<double>::infinity();
+        if (sraa_active_lvl) {
+            ieppa_sraa.init(total_cats, lbw::kSRAAm);
+            lf_flat.assign(total_cats, 0.0);
+            lf_best.assign(total_cats, 0.0);
+            pack_lf(lf, lf_flat);
+            // Seed F_cur ONCE before the loop; sraa_step's Step 1 evaluates F
+            // at F_cur. Subsequent steps carry F_cur forward via swap — do
+            // NOT reset F_cur inside the loop.
+            ieppa_sraa.F_cur = lf_flat;
+
+            int  f_evals_used = 0;
+            bool converged    = false;
+            while (f_evals_used < budget_lvl && !converged) {
+                auto r = lbw::sraa_step(f_eval_lf, lf_flat, dummy_L, dummy_U,
+                                        ieppa_sraa, /*apply_clamp=*/false);
+                f_evals_used += r.f_evals;
+                res.base.iterations = total_iters + f_evals_used;
+                res.base.max_error  = r.err_result;
+
+                // Best-iterate tracking — mirrors raking.cpp pattern but uses
+                // X_cur (the SRAA working state) and saves lf_flat for revert.
+                if (r.err_result < best_metric_seen) {
+                    best_metric_seen = r.err_result;
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        W_best[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
+                    }
+                    lf_best             = lf_flat;
+                    best_iter_val       = res.base.iterations;
+                    best_objective_seen = lbw::compute_weight_kl(
+                        X_cur, X_init, ct.M_cell, st.n,
+                        kl_ratio_buf.data(), kl_weight_buf.data());
+                }
+
+                // Outer stall guard — revert lf to lf_best and clear AA history
+                // when the metric degrades for kSRAAOuterStallWindow steps.
+                if (r.err_result > best_metric_seen * (1.0 + lbw::kSRAAOuterSlack)) {
+                    if (++sraa_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
+                        lf_flat = lf_best;
+                        unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
+                                  st.K, cat_offset);
+                        ieppa_sraa.clear();
+                        ieppa_sraa.F_cur = lf_flat;
+                        sraa_outer_stall_count = 0;
+                    }
+                } else {
+                    sraa_best_errRp = std::min(sraa_best_errRp, r.err_result);
+                    sraa_outer_stall_count = 0;
+                }
+
+                // Convergence check — same cfg as non-SRAA path. CellMetrics
+                // is filled with errRp only; SRAA-path acceleration targets
+                // MAX_ERR convergence (other metrics fall through pct/abs tol
+                // on errRp alone, conservative).
+                {
+                    lbw::CellMetrics cm;
+                    cm.errRp = r.err_result;
+                    converged = lbw::check_convergence(st.convergence_cfg, cm,
+                                                       prev_metric_for_rule,
+                                                       st.tol_abs);
+                }
+
+                if (st.verbose >= 1) {
+                    char msg[256];
+                    std::snprintf(msg, sizeof(msg),
+                                  "iEPPA[sraa] f_evals=%d errRp=%.3e aa=%d",
+                                  f_evals_used, r.err_result,
+                                  (int)r.aa_accepted);
+                    st.log(msg);
+                }
+            }
+            res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
+            total_iters += f_evals_used;
+            if (converged) level_converged = true;
+        }
+
+        if (!sraa_active_lvl) {
+        for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
+        const int iter = total_iters + iter_in_lvl;
+        res.base.iterations = iter;
+        alpha = compute_alpha();
+        if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
+
+        // Margin sweep: branched by path.
+        bool overflow_trip = false;
+
+        // Do NOT read st.max_weight here — homotopy levels pass
+        // current_max_weight indirectly via the shared U_cell already built.
+
         auto apply_single_margin_log = [&](int k) -> bool {
             // effective omega for this margin (log-space path).
             double eff_omega_log;
@@ -701,51 +846,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
             return err;
         };
 
-        // ────────────────────────────────────────────────────────────────────
-        // SRAA-m fixed-point map for the linear path of this homotopy level.
-        // Captures lf, f_lin, cell_lf, X_cur, ct, X_init, st.K, cat_offset,
-        // apply_single_margin_linear, S_lin by [&].
-        //
-        // Receives a flat lf iterate (size cat_offset[st.K]); rebuilds derived
-        // state via unpack_lf; runs one round-robin BCD pass over K margins;
-        // packs updated lf back into `flat`; returns errRp on success or +inf
-        // on overflow. On overflow, lf is mid-sweep (partial); SRAA safeguard
-        // rejects via err_AA=inf>err_plain and reverts via swap with F_cur.
-        // ────────────────────────────────────────────────────────────────────
-        auto f_eval_lf = [&](std::vector<double>& flat) -> double {
-            unpack_lf(flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
-                      st.K, cat_offset);
-            bool overflow = false;
-            for (int k = 0; k < st.K && !overflow; k++) {
-                if (apply_single_margin_linear(k)) overflow = true;
-            }
-            // Always pack — on overflow, lf is partially updated; packing
-            // preserves the SRAA invariant that `flat` reflects the current
-            // iterate after the call.
-            pack_lf(lf, flat);
-            if (overflow) return std::numeric_limits<double>::infinity();
-
-            // Compute errRp from X_cur (same formula as convergence block).
-            double W_total = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
-            if (!(W_total > 0.0)) return std::numeric_limits<double>::infinity();
-            double errRp = 0.0;
-            for (int k = 0; k < st.K; k++) {
-                const int nj = st.cat_counts[k];
-                std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
-                const int* gk = ct.g_per_cell[k].data();
-                for (int c = 0; c < ct.M_cell; c++) {
-                    int j = gk[c];
-                    if (j >= 0 && j < nj) S_lin[j] += X_cur[c];
-                }
-                for (int j = 0; j < nj; j++) {
-                    double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
-                    if (e > errRp) errRp = e;
-                }
-            }
-            return errRp;
-        };
-        (void)f_eval_lf;
+        // f_eval_lf is hoisted to the homotopy-level scope above (see B3 SRAA
+        // wiring). Inside this for-loop it remains in scope but is unused on
+        // the non-SRAA path.
 
         const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
 
@@ -825,6 +928,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 // restart outer loop from iter 0. State-clean list per spec rev 5 §5.
                 linear_fallback_used = true;
                 use_linear = false;
+                // SRAA history from the linear path is stale after fallback.
+                if (sraa_active_lvl) {
+                    res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
+                    ieppa_sraa.clear();
+                }
                 std::fill(lf.begin(), lf.end(), 0.0);
                 std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
                 cell_lf_hwm = std::numeric_limits<double>::lowest();
@@ -1371,7 +1479,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
         }
         res.final_alpha = alpha;
-    }
+    }  // end for (iter_in_lvl)
+        }  // end if (!sraa_active_lvl)
         // Log-space overflow: ieppa inner loop sets res.base.status = RK_ERR_NOCONV
         // and res.base.max_error = +inf via `break`. Must not proceed to next level.
         if (!std::isfinite(res.base.max_error)) {
