@@ -652,6 +652,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
         const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
 
+        // 773f.3: hoist per_margin_err outside inner iter loop — eliminates K-sized alloc per iteration.
+        // Shared by both linear and log greedy paths.
+        std::vector<double> per_margin_err(st.K);
+
         if (use_linear) {
             // WU-2 prefactored linear-space sweep (spec rev 5 §5).
             // Sequential (raking-style) access to X_cur for cache efficiency.
@@ -660,7 +664,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
             //   X_cur[c] rescaled by f_new/f_old in pass 2. Identical to bucket loop.
 
             if (use_greedy) {
-                std::vector<double> per_margin_err(st.K);
                 for (int k = 0; k < st.K; k++) {
                     per_margin_err[k] = compute_margin_errRp_linear(k);
                 }
@@ -769,7 +772,6 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 lbw::bulk_exp_clipped(s_buf.data(), X_tilde.data(), ct.M_cell, kLogClip);
                 for (int c = 0; c < ct.M_cell; c++)
                     if (X_init[c] <= 0.0) X_tilde[c] = 0.0;
-                std::vector<double> per_margin_err(st.K);
                 for (int k = 0; k < st.K; k++)
                     per_margin_err[k] = compute_margin_errRp_log(k);
                 double initial_sum = 0.0;
