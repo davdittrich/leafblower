@@ -222,6 +222,10 @@ RakingResult raking_solve(CalibState& st) {
     // Declared here (outer scope) so the [&] lambda capture includes it.
     lbw::CellMetrics last_F_metrics;
 
+    // 773f.6: controls whether F_eval runs full compute_cell_metrics or fast errRp-only path.
+    // Set true before check-interval iterations and always for SRAA (needs full metrics).
+    bool f_eval_full_metrics = false;
+
     // F_eval: one complete bounded IPF iteration using water-filling.
     // Water-filling enforces X[c] ∈ [L[c], U[c]] within each margin step.
     // No correction vectors — F is stateless: enables SRAA-m L2 halving.
@@ -299,10 +303,29 @@ RakingResult raking_solve(CalibState& st) {
             for (int c = 0; c < ct.M_cell; c++) Xv[c] *= sc_hp;
         }
 
-        // compute_cell_metrics is a strict superset of compute_errRp_ct at same O(K×M_cell) cost.
-        // Stores all metrics in last_F_metrics — SRAA-m convergence check reuses them directly.
-        last_F_metrics = lbw::compute_cell_metrics(st, ct, Xv, static_cast<double>(st.n), bucket);
-        return last_F_metrics.errRp;
+        // 773f.6: full metrics only on check iterations; fast errRp-only otherwise.
+        if (f_eval_full_metrics) {
+            last_F_metrics = lbw::compute_cell_metrics(st, ct, Xv, static_cast<double>(st.n), bucket);
+            return last_F_metrics.errRp;
+        }
+        // Fast path: compute errRp only (single O(K×M_cell) pass, no chi2/kl/grake).
+        double errRp_fast = 0.0;
+        {
+            const double W_fast = static_cast<double>(st.n);
+            for (int k = 0; k < st.K; k++) {
+                const int nj = st.cat_counts[k];
+                std::fill(bucket.begin(), bucket.begin() + nj, 0.0);
+                for (int c = 0; c < ct.M_cell; c++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < nj) bucket[g] += Xv[c];
+                }
+                for (int j = 0; j < nj; j++) {
+                    double e = std::fabs(bucket[j] / W_fast - st.targets[k][j]);
+                    if (e > errRp_fast) errRp_fast = e;
+                }
+            }
+        }
+        return errRp_fast;
     };
 
     // SRAA-m state (replaces SRAA-m step-halving while-loop)
@@ -310,6 +333,8 @@ RakingResult raking_solve(CalibState& st) {
     if (st.accelerate) rk_sraa.init(ct.M_cell, lbw::kSRAAm);
 
     if (st.accelerate) {
+        // 773f.6: SRAA always needs full metrics (last_F_metrics reused in convergence check below).
+        f_eval_full_metrics = true;
         // SRAA-m replaced by SRAA-m. X_prev_sq (stall detection) removed — SRAA-m-specific.
         // Loop mirrors greenkhorn: sraa_step called once per outer iteration until budget exhausted.
         int f_eval_budget = st.inner_max_iter;
@@ -364,9 +389,10 @@ RakingResult raking_solve(CalibState& st) {
         for (int iter = 1; iter <= st.inner_max_iter; iter++) {
             res.base.iterations = iter;
 
+            f_eval_full_metrics = (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter);
             double errRp = F_eval(X);
 
-            if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+            if (f_eval_full_metrics) {
                 res.base.max_error = errRp;
 
                 // Best-iterate tracking (MAX_ERR metric)
