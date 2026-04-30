@@ -62,6 +62,57 @@ static void write_trajectory_csv(
 //
 // Log-sum-exp stabilization on S_kj prevents overflow when partial log-sums
 // approach log(DBL_MAX) ≈ 709.
+
+// SRAA-m helpers — file-local. lf is the flat per-margin log-factor vector
+// of size cat_offset[K] = Σ_k (cat_counts[k]+1). These helpers are O(M_cell)
+// and pre-allocate nothing; all destination buffers are owned by ieppa_solve.
+//
+// pack_lf: copy lf -> dst (size n_cats_total_with_na). NA slots (j == cat_counts[k])
+// are inert zeros; they participate in the SRAA linear system with ΔX=ΔR=0.
+static inline void pack_lf(const std::vector<double>& lf,
+                           std::vector<double>& dst) {
+    std::copy(lf.begin(), lf.end(), dst.begin());
+}
+
+// unpack_lf: from a flat lf iterate, rebuild the derived state required by
+// apply_single_margin_linear for the next sweep:
+//   1) lf      <- src
+//   2) f_lin[i] = exp(lf[i])     for i in 0..total_cats-1
+//   3) cell_lf[c] = Σ_k lf[cat_offset[k] + g_per_cell[k][c]]   (g<0 skipped)
+//   4) X_cur[c]   = X_init[c] * exp(cell_lf[c])
+//
+// inv_f_old_lin is NOT set here; apply_single_margin_linear recomputes it
+// at the head of each margin call.
+static inline void unpack_lf(const std::vector<double>& src,
+                             std::vector<double>& lf,
+                             std::vector<double>& f_lin,
+                             std::vector<double>& cell_lf,
+                             std::vector<double>& X_cur,
+                             const lbw::CellTable& ct,
+                             const std::vector<double>& X_init,
+                             int K,
+                             const std::vector<int>& cat_offset) {
+    const int total_cats = cat_offset[K];
+    for (int i = 0; i < total_cats; i++) {
+        lf[i]    = src[i];
+        f_lin[i] = std::exp(src[i]);
+    }
+    const int M = ct.M_cell;
+    std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+    for (int k = 0; k < K; k++) {
+        const int* gk  = ct.g_per_cell[k].data();
+        const int  off = cat_offset[k];
+        for (int c = 0; c < M; c++) {
+            int g = gk[c];
+            if (g < 0) continue;
+            cell_lf[c] += src[off + g];
+        }
+    }
+    for (int c = 0; c < M; c++) {
+        X_cur[c] = (X_init[c] > 0.0) ? X_init[c] * std::exp(cell_lf[c]) : 0.0;
+    }
+}
+
 IEPPAResult ieppa_solve(CalibState& st) {
     constexpr int    kErrCheckInterval = 10;
     constexpr double kEmptyBucketThreshold = 1e-15;
