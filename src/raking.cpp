@@ -87,15 +87,7 @@ RakingResult raking_solve(CalibState& st) {
     // Per-(margin, category) cell index lists for water-filling.
     // cells_per_cat[k][j] = cells where g_per_cell[k][c] == j.
     // Built once: O(M_cell × K). Memory: ~M_cell × K ints.
-    std::vector<std::vector<std::vector<int>>> cells_per_cat(st.K);
-    for (int k = 0; k < st.K; k++) {
-        cells_per_cat[k].assign(st.cat_counts[k], {});
-        for (int c = 0; c < ct.M_cell; c++) {
-            int g = ct.g_per_cell[k][c];
-            if (g >= 0 && g < st.cat_counts[k])
-                cells_per_cat[k][g].push_back(c);
-        }
-    }
+    auto cells_per_cat = lbw::build_cells_per_cat(ct, st.K, st.cat_counts);
 
     // Pre-allocated scratch for water-filling inner loop.
     int wf_max_cat = 0;

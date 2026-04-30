@@ -32,4 +32,20 @@ int estimate_M_cell(int n, int K,
 // Maximum K supported (prevents unbounded key allocation).
 inline constexpr int K_MAX = 64;
 
+/// Build cells_per_cat[k][j] = sorted list of cell indices c where g_per_cell[k][c] == j.
+/// K and cat_counts must match the CellTable that was built from the same inputs.
+inline std::vector<std::vector<std::vector<int>>>
+build_cells_per_cat(const CellTable& ct, int K, const int* cat_counts)
+{
+    std::vector<std::vector<std::vector<int>>> cpc(K);
+    for (int k = 0; k < K; k++) {
+        cpc[k].assign(cat_counts[k], {});
+        for (int c = 0; c < ct.M_cell; c++) {
+            int g = ct.g_per_cell[k][c];
+            if (g >= 0 && g < cat_counts[k]) cpc[k][g].push_back(c);
+        }
+    }
+    return cpc;
+}
+
 } // namespace lbw

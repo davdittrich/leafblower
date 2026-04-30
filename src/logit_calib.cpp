@@ -57,14 +57,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
 
     // cells_per_cat[k][j] = list of cell indices in bucket (k,j)
     int max_cats = lbw::max_cats_count(K, st.cat_counts);
-    std::vector<std::vector<std::vector<int>>> cells_per_cat(K);
-    for (int k = 0; k < K; k++) {
-        cells_per_cat[k].assign(st.cat_counts[k], {});
-        for (int c = 0; c < M; c++) {
-            int g = ct.g_per_cell[k][c];
-            if (g >= 0 && g < st.cat_counts[k]) cells_per_cat[k][g].push_back(c);
-        }
-    }
+    auto cells_per_cat = lbw::build_cells_per_cat(ct, K, st.cat_counts);
 
     // cat_offset and nct
     int nct = 0;
