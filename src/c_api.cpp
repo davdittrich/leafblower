@@ -6,7 +6,7 @@
 #include "raking.hpp"     // renamed hybrid
 #include "sinkhorn.hpp"   // KL Bregman Dykstra
 #include "greg.hpp"       // Newton QP chi2 (GREG, Deville-Sarnal 1992)
-#include "chebyshev.hpp"  // Chebyshev/GRAKE LP-based solvers
+#include "chebyshev.hpp"  // Chebyshev LP-based solver
 #include "cell_table.hpp" // estimate_M_cell for AUTO routing
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"

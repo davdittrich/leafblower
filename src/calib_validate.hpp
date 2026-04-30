@@ -10,7 +10,7 @@ namespace lbw {
 constexpr int kNCatsTotalMax = 2048;
 
 /**
- * Pre-entry validation for new cell-table solvers (sinkhorn, chebyshev, greg, grake).
+ * Pre-entry validation for new cell-table solvers (sinkhorn, chebyshev, greg, greenkhorn).
  * Returns RK_OK, RK_ERR_BADARG, or RK_ERR_INFEAS.
  * On error, writes a human-readable message to result->message.
  *
