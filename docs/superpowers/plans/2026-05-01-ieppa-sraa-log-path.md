@@ -96,6 +96,8 @@ already at homotopy scope).
 
 ## Task LL2: Extend `f_eval_lf` to dispatch on `use_linear`
 
+**HARD PREREQUISITE: LL1 compile gate must pass before starting LL2.** `apply_single_margin_log` is referenced inside `f_eval_lf` at line ~614; if the lambda hasn't been hoisted yet, applying LL2 will produce a compile error.
+
 **Files modified:**
 - `src/ieppa.cpp` (`unpack_lf` helper at lines 87-115, `f_eval_lf` lambda at lines 614-646)
 
@@ -187,10 +189,7 @@ static inline void unpack_lf(const std::vector<double>& src,
 }
 ```
 
-**Update call sites** — three of them in `ieppa.cpp`:
-1. Inside `f_eval_lf` (line 615): add `log_X_init` and `cell_lf_hwm` args.
-2. Inside the SRAA outer-stall revert path (line 706): add same args.
-3. Any other callers — grep `unpack_lf(` to confirm only two sites.
+**Update call sites** — exactly two: (1) inside f_eval_lf at ~line 615, (2) inside the SRAA outer-stall revert block at ~line 706.
 
 ```bash
 grep -n "unpack_lf(" src/ieppa.cpp
@@ -383,15 +382,37 @@ cat("aa_count =", res$aa_accepted_count,
 ```
 `aa_count > 0` proves SRAA actually ran on the log path.
 
+**Second fallback site SRAA clear:** There are two `use_linear = false` fallback sites in the code. The first (at ~line 930 or the main overflow-trip block) already clears SRAA history. The second one (at ~line 1099 for the log-path overflow/renorm) does NOT. Add SRAA clear to the second site:
+
+```cpp
+if (sraa_active_lvl && !lf_flat.empty()) {
+    res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
+    ieppa_sraa.clear();
+    pack_lf(lf, lf_flat);
+    ieppa_sraa.F_cur = lf_flat;
+}
+```
+
+**Compile gate:**
+```bash
+R CMD INSTALL --preclean . 2>&1 | tail -20
+```
+
+**Test gate:**
+```bash
+Rscript -e 'testthat::test_dir("tests/testthat", filter = "ieppa")' 2>&1 | tail -2
+```
+
 **Commit:**
 ```
 feat(ieppa): enable SRAA-m on log path, fix X sync for both paths
 
 Drop the use_linear gate from sraa_active_lvl. Post-SRAA sync copies the
 path-correct cell-mass vector (X_cur for linear, X_tilde for log) into X
-so the post-loop expansion sees consistent state. Path flip during the
-solve is handled by capture-by-reference; the existing fallback clear()
-already resets SRAA history.
+so the post-loop expansion sees consistent state. Add SRAA clear() at the
+second fallback site (~line 1099) to match the first. Path flip during the
+solve is handled by capture-by-reference; the existing fallback clears
+already reset SRAA history.
 ```
 
 ---
@@ -440,6 +461,20 @@ test_that("SRAA-m log path matches non-accelerated log path", {
   r_off <- leafblower::rake(df, tg, method = "ieppa", accelerate = FALSE)
   r_on  <- leafblower::rake(df, tg, method = "ieppa", accelerate = TRUE)
   expect_equal(r_on$weights, r_off$weights, tolerance = 1e-4)
+})
+
+test_that("ieppa SRAA: linear-to-log fallback with accelerate=TRUE stays valid", {
+  fx <- load_stepstone()
+  withr::with_envvar(c(LBW_IEPPA_FORCE_PATH = "linear"), {
+    r <- suppressWarnings(
+      harvest(fx$df, fx$tgt, method = "ieppa",
+              max_iterations = 30L, accelerate = TRUE)
+    )
+  })
+  res <- attr(r, "result")
+  expect_true(is.finite(res$max_error), label = "fallback: finite max_error")
+  expect_equal(sum(r$weights), nrow(fx$df), tolerance = 1e-6,
+               label = "fallback: sum(weights) == n")
 })
 ```
 
