@@ -1659,3 +1659,4 @@
 | 12:10 | Edited src/chebyshev.cpp | isfinite() → resolve_hi() | ~84 |
 | 12:15 | fcbo.2: Complete resolve_hi() migration for raking+sinkhorn | src/raking.cpp, src/sinkhorn.cpp | Both sites replaced hi_obs calc with resolve_hi() call. Tests pass (2 pre-existing failures in ieppa-nonuniform unrelated). | ~150 |
 | 14:42 | Extract build_cells_per_cat() helper (fcbo.4) | cell_table.hpp, greenkhorn.cpp, raking.cpp, logit_calib.cpp | 3 callers refactored, all compile+test verified (532 pass), commit 7f401b4 | ~3800 |
+| 10:45 | fcbo.5: hoisted compute_weight_kl from 3 solver lambdas to calib_dispatch.hpp | src/{calib_dispatch,raking,sinkhorn,ieppa}.{hpp,cpp} | 3 lambdas removed, 8 call sites replaced, bulk_log vectorization unified | ~8000 |

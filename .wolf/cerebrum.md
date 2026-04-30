@@ -12,6 +12,7 @@
 
 - **Project:** leafblower
 - **Refactoring Pattern (fcbo.2):** When extracting duplicated code across multiple solvers (chebyshev, sinkhorn, greg, raking), use context-mode batch_execute with grep to find all sites first, then add helpers to calib_dispatch.hpp, then replace sites one file at a time with Edit tool. Prefer using references to vectors passed by reference rather than initializing them with sizes, letting the helper function do the resizing.
+- **compute_weight_kl vectorization (fcbo.5):** When hoisting lambdas that compute weight-space KL, the vectorized version uses bulk_log for performance. Simple scalar paths (sinkhorn/ieppa) can be unified with vectorized path by passing caller-owned scratch buffers. Raking already had scratch buffers; sinkhorn/ieppa needed new vector allocations. All 8 call sites across 3 solvers use identical function signature.
 
 ## Do-Not-Repeat
 
