@@ -77,7 +77,8 @@ SRAAStepResult sraa_step(
     std::vector<double>& X,
     const std::vector<double>& L_cell,
     const std::vector<double>& U_cell,
-    SRAAState& state)
+    SRAAState& state,
+    bool apply_clamp = true)
 {
     const int M = state.M;
 
@@ -162,12 +163,16 @@ SRAAStepResult sraa_step(
 
     // --- Step 8: Extrapolate + clamp into scratch ---
     // scratch currently holds R_k; overwrite in-place with X_AA
+    // apply_clamp=false: lf-space (unconstrained); L_cell/U_cell not dereferenced.
     for (int c = 0; c < M; c++) {
         double Rk_c = state.scratch[c];  // read R_k before overwrite
         double corr = 0.0;
         for (int i = 0; i < n; i++)
             corr += state.gamma_[i] * (state.dX_buf[i * M + c] + state.dR_buf[i * M + c]);
-        state.scratch[c] = std::clamp(X[c] + Rk_c - corr, L_cell[c], U_cell[c]);
+        double val = X[c] + Rk_c - corr;
+        state.scratch[c] = apply_clamp
+            ? std::clamp(val, L_cell[c], U_cell[c])
+            : val;
     }
 
     // --- Step 9: F(X_AA); scratch -> F(X_AA) ---
