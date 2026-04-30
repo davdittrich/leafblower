@@ -20,8 +20,9 @@ for (m in methods_to_test) {
 
 test_that("unknown method rejected by R layer (C++ kAlgMap fallback not reachable via harvest)", {
   # harvest.R validates method via match.arg before reaching C++.
-  # This confirms the R-level guard works; the C++ fallback (RK_ALG_IEPPA)
-  # is a safety net for direct C_rk_calibrate callers only.
+  # This test confirms the R-level guard works (catching unknown methods with
+  # "should be one of" error). The C++ RK_ALG_RAKING fallback is a safety net
+  # for direct C API callers only and is intentionally not tested from R.
   n   <- 20L
   df  <- data.frame(x = factor(rep(c("a", "b"), n / 2L)))
   tgt <- list(x = c(a = 0.5, b = 0.5))

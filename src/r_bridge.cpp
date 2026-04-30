@@ -21,7 +21,7 @@
 #include "logit_calib.hpp"
 
 namespace {
-static const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
+const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
     {"ieppa",      RK_ALG_IEPPA},
     {"ieppa_soft", RK_ALG_IEPPA_SOFT},
     {"lbfgsb",     RK_ALG_LBFGSB},
@@ -250,17 +250,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     if (LENGTH(method_sexp) != 1)
         Rf_error("method must be a length-1 character string");
     const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
-    {
-        auto it = kAlgMap.find(method_str);
-        p.algorithm = (it != kAlgMap.end()) ? it->second : RK_ALG_IEPPA;
-    }
+    const auto alg_it = kAlgMap.find(method_str);
+    p.algorithm = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_IEPPA;
 
     // Full input validation — shared with c_api.cpp path via validation.hpp.
     {
         rk_result_t validation_result;
         rk_result_init(&validation_result);
-        auto it2 = kAlgMap.find(method_str);
-        rk_algorithm_t alg_for_validation = (it2 != kAlgMap.end()) ? it2->second : RK_ALG_RAKING;
+        rk_algorithm_t alg_for_validation = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_RAKING;
         int vrc = lbw::validate_calibrate_inputs(
             n, K,
             weights.data(),
