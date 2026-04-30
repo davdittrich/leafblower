@@ -377,7 +377,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Adaptation is suppressed for sor_burnin iterations so early transient oscillation
     // (driven by infeas-streak damping) does not prematurely reduce omega.
     const bool sor_active     = st.sor_cfg.enabled;
-    const bool sor_auto       = st.sor_cfg.auto_adapt;
+    const bool sor_auto_v     = st.sor_cfg.auto_adapt && !st.accelerate;
     const double omega_init_v = st.sor_cfg.omega_init;    // default 1.0
     const double omega_min_v  = st.sor_cfg.omega_min;     // default 0.3
     const double omega_fixed_v = st.sor_cfg.omega_fixed;  // -1.0 = use auto
@@ -509,12 +509,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
             // effective omega for this margin.
             // sor_active==false → eff_omega=1.0 (fast path, no pow()).
-            // sor_active && !sor_auto && omega_fixed_v>0 → fixed omega.
-            // sor_active && sor_auto → per-margin adaptive omega[k].
+            // sor_active && !sor_auto_v && omega_fixed_v>0 → fixed omega.
+            // sor_active && sor_auto_v → per-margin adaptive omega[k].
             double eff_omega;
             if (!sor_active) {
                 eff_omega = 1.0;
-            } else if (!sor_auto && omega_fixed_v > 0.0) {
+            } else if (!sor_auto_v && omega_fixed_v > 0.0) {
                 eff_omega = omega_fixed_v;
             } else {
                 eff_omega = sor_omega[k];
@@ -751,7 +751,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             double eff_omega_log;
             if (!sor_active) {
                 eff_omega_log = 1.0;
-            } else if (!sor_auto && omega_fixed_v > 0.0) {
+            } else if (!sor_auto_v && omega_fixed_v > 0.0) {
                 eff_omega_log = omega_fixed_v;
             } else {
                 eff_omega_log = sor_omega[k];
@@ -850,7 +850,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // wiring). Inside this for-loop it remains in scope but is unused on
         // the non-SRAA path.
 
-        const bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
+        bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
+        if (st.accelerate && use_greedy) {
+            use_greedy = false;
+            if (st.verbose >= 1)
+                st.log("[ieppa] greedy scheduler disabled under SRAA-m; using round_robin");
+        }
 
         // 773f.3: hoist per_margin_err outside inner iter loop — eliminates K-sized alloc per iteration.
         // Shared by both linear and log greedy paths.
@@ -1262,7 +1267,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
             // per-margin omega adaptation (both linear and log paths; auto mode only;
             // suppressed during burnin to let the infeas-streak damping settle first).
-            if (sor_active && sor_auto && iter >= sor_burnin_v) {
+            if (sor_active && sor_auto_v && iter >= sor_burnin_v) {
                 if (W_total > 0.0) {
                     for (int k = 0; k < st.K; k++) {
                         const int nj_k = st.cat_counts[k];
