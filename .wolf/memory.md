@@ -1655,3 +1655,4 @@
 | 12:10 | Edited src/calib_dispatch.hpp | modified for() | ~277 |
 | 12:10 | Edited src/chebyshev.cpp | 7→4 lines | ~48 |
 | 12:10 | Edited src/chebyshev.cpp | isfinite() → resolve_hi() | ~84 |
+| 12:15 | fcbo.2: Complete resolve_hi() migration for raking+sinkhorn | src/raking.cpp, src/sinkhorn.cpp | Both sites replaced hi_obs calc with resolve_hi() call. Tests pass (2 pre-existing failures in ieppa-nonuniform unrelated). | ~150 |
