@@ -1156,6 +1156,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     capacity_mu_adaptive < capacity_mu_base * kAlmMaxScale) {
                     capacity_mu_adaptive *= kAlmGrowthFactor;
                     st.alm.capacity_mu = eta_i_current * capacity_mu_adaptive;
+                    // SRAA history stale after capacity_mu change — fixed-point shifted.
+                    if (sraa_active_lvl && !lf_flat.empty()) {
+                        res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
+                        ieppa_sraa.clear();
+                        pack_lf(lf, lf_flat);
+                        ieppa_sraa.F_cur = lf_flat;
+                    }
                     res.alm_n_growth_events++;
                     alm_violation_streak = 0;
                     if (st.verbose >= 2) {
