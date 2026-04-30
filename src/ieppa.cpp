@@ -91,8 +91,10 @@ static inline void unpack_lf(const std::vector<double>& src,
                              std::vector<double>& X_cur,
                              const lbw::CellTable& ct,
                              const std::vector<double>& X_init,
+                             const std::vector<double>& log_X_init,
                              int K,
-                             const std::vector<int>& cat_offset) {
+                             const std::vector<int>& cat_offset,
+                             double& cell_lf_hwm) {
     const int total_cats = cat_offset[K];
     for (int i = 0; i < total_cats; i++) {
         lf[i]    = src[i];
@@ -109,9 +111,17 @@ static inline void unpack_lf(const std::vector<double>& src,
             cell_lf[c] += src[off + g];
         }
     }
+    double hwm = std::numeric_limits<double>::lowest();
     for (int c = 0; c < M; c++) {
-        X_cur[c] = (X_init[c] > 0.0) ? X_init[c] * std::exp(cell_lf[c]) : 0.0;
+        if (X_init[c] > 0.0) {
+            X_cur[c] = X_init[c] * std::exp(cell_lf[c]);
+            double v = log_X_init[c] + cell_lf[c];
+            if (std::isfinite(v) && v > hwm) hwm = v;
+        } else {
+            X_cur[c] = 0.0;
+        }
     }
+    cell_lf_hwm = hwm;
 }
 
 IEPPAResult ieppa_solve(CalibState& st) {
@@ -676,11 +686,29 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // rejects via err_AA=inf>err_plain and reverts via swap with F_cur.
         // ────────────────────────────────────────────────────────────────────
         auto f_eval_lf = [&](std::vector<double>& flat) -> double {
-            unpack_lf(flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
-                      st.K, cat_offset);
+            unpack_lf(flat, lf, f_lin, cell_lf, X_cur, ct, X_init, log_X_init,
+                      st.K, cat_offset, cell_lf_hwm);
+
             bool overflow = false;
-            for (int k = 0; k < st.K && !overflow; k++) {
-                if (apply_single_margin_linear(k)) overflow = true;
+            if (use_linear) {
+                for (int k = 0; k < st.K && !overflow; k++) {
+                    if (apply_single_margin_linear(k)) overflow = true;
+                }
+            } else {
+                // Log-path setup: seed X_tilde = X_cur, rebuild log_W from W.
+                if (X_tilde.size() != static_cast<size_t>(ct.M_cell)) {
+                    X_tilde.assign(ct.M_cell, 0.0);
+                }
+                std::copy(X_cur.begin(), X_cur.end(), X_tilde.begin());
+                lbw::bulk_log(W.data(), log_W.data(), ct.M_cell);
+
+                for (int k = 0; k < st.K && !overflow; k++) {
+                    if (apply_single_margin_log(k)) overflow = true;  // always false for log path
+                }
+                // Refresh X_tilde from updated cell_lf.
+                for (int c = 0; c < ct.M_cell; c++) {
+                    X_tilde[c] = (X_init[c] > 0.0) ? X_init[c] * std::exp(cell_lf[c]) : 0.0;
+                }
             }
             // Always pack — on overflow, lf is partially updated; packing
             // preserves the SRAA invariant that `flat` reflects the current
@@ -688,9 +716,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
             pack_lf(lf, flat);
             if (overflow) return std::numeric_limits<double>::infinity();
 
-            // Compute errRp from X_cur (same formula as convergence block).
+            const std::vector<double>& X_eval = use_linear ? X_cur : X_tilde;
             double W_total = 0.0;
-            for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
+            for (int c = 0; c < ct.M_cell; c++) W_total += X_eval[c];
             if (!(W_total > 0.0)) return std::numeric_limits<double>::infinity();
             double errRp = 0.0;
             for (int k = 0; k < st.K; k++) {
@@ -699,7 +727,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 const int* gk = ct.g_per_cell[k].data();
                 for (int c = 0; c < ct.M_cell; c++) {
                     int j = gk[c];
-                    if (j >= 0 && j < nj) S_lin[j] += X_cur[c];
+                    if (j >= 0 && j < nj) S_lin[j] += X_eval[c];
                 }
                 for (int j = 0; j < nj; j++) {
                     double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
@@ -768,7 +796,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     if (++sraa_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
                         lf_flat = lf_best;
                         unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
-                                  st.K, cat_offset);
+                                  log_X_init, st.K, cat_offset, cell_lf_hwm);
                         ieppa_sraa.clear();
                         ieppa_sraa.F_cur = lf_flat;
                         sraa_outer_stall_count = 0;
