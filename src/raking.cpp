@@ -107,12 +107,9 @@ RakingResult raking_solve(CalibState& st) {
 
     // Cell bounds: L_c = lo * n_per_cell[c], U_c = hi * n_per_cell[c]
     const double lo = st.min_weight;
-    const double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
-    std::vector<double> L_cell(ct.M_cell), U_cell(ct.M_cell);
-    for (int c = 0; c < ct.M_cell; c++) {
-        L_cell[c] = lo * static_cast<double>(ct.n_per_cell[c]);
-        U_cell[c] = hi * static_cast<double>(ct.n_per_cell[c]);
-    }
+    const double hi = lbw::resolve_hi(st);
+    std::vector<double> L_cell, U_cell;
+    lbw::compute_cell_bounds(ct, lo, hi, L_cell, U_cell);
 
     // No Dykstra correction vectors: water-filling enforces bounds within F_eval.
 
@@ -558,7 +555,7 @@ RakingResult raking_solve(CalibState& st) {
             for (int c = 0; c < ct.M_cell; c++) W_best[c] *= sc;
         }
         res.base.best_weights.resize(st.n);
-        const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
+        const double hi_obs = lbw::resolve_hi(st);
         for (int i = 0; i < st.n; i++) {
             int c = ct.cell_of[i];
             double mult = (X_init[c] > 0.0) ? W_best[c] / X_init[c] : 1.0;

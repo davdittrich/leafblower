@@ -3,6 +3,8 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+| 11:49 | ztid.6: add select_metric(CalibMetric, const CellMetrics&) struct overload | src/calib_dispatch.hpp, src/sinkhorn.cpp, tests/testthat/test-select-metric-struct.R | committed e95ff9c; 4 PASS, 2 pre-existing failures unrelated | ~3k |
+
 | 00:37 | T4: warm-start X_init from w_warm_obs in chebyshev_ipm; delta_warm deferred to T5 (units mismatch) | src/chebyshev.cpp | commit 0d0b89a; FAIL 5 (was 6+2 new) | ~3k |
 
 | 00:30 | T3: warm-start plumbing | src/chebyshev.hpp, src/chebyshev.cpp, src/r_bridge.cpp | DONE — compile OK, T_cheby_warm RED(3), pre-existing FAIL(3) unchanged | ~800 |
@@ -1577,3 +1579,77 @@
 | 10:26 | Edited tests/testthat/test-rk-params-passthrough.R | 7→8 lines | ~112 |
 | 10:26 | Edited tests/testthat/test-rk-params-passthrough.R | 7→8 lines | ~113 |
 | 10:27 | Task ztid.2 complete: regression test for rk_params_init | test-rk-params-passthrough.R | PASS (2/2) | ~600 |
+| 10:29 | Edited src/chebyshev.cpp | 9→12 lines | ~303 |
+| 10:29 | Edited src/chebyshev.cpp | inline fix | ~22 |
+| 10:29 | Edited src/chebyshev.cpp | inline fix | ~26 |
+| 10:29 | Edited src/ieppa.cpp | 6→10 lines | ~205 |
+| 10:29 | Edited src/ieppa.cpp | 5→5 lines | ~96 |
+| 10:29 | Edited src/ieppa.cpp | modified if() | ~62 |
+| 10:29 | Edited src/ieppa.cpp | modified if() | ~62 |
+| 10:29 | Edited src/ieppa.cpp | 10→10 lines | ~158 |
+| 10:29 | Edited src/logit_calib.cpp | 7→8 lines | ~174 |
+| 10:29 | Edited src/logit_calib.cpp | 6→6 lines | ~130 |
+| 10:30 | Task ztid.3 complete: 8 magic number → named constexpr refactor (chebyshev, ieppa, logit_calib) | src/chebyshev.cpp, src/ieppa.cpp, src/logit_calib.cpp | Commit 2226839, all tests pass (2 pre-existing failures unrelated) | ~2000 |
+| 10:32 | Edited src/types.hpp | 7→7 lines | ~106 |
+| 10:33 | Edited src/leafblower.h | modified struct() | ~74 |
+| 10:33 | Edited src/leafblower.h | inline fix | ~24 |
+| 10:33 | Edited src/leafblower.h | modified layout() | ~231 |
+| 10:33 | Edited src/c_api.cpp | 5→4 lines | ~40 |
+| 10:33 | Edited src/c_api.cpp | 5→4 lines | ~63 |
+| 10:33 | Edited src/r_bridge.cpp | 5→4 lines | ~72 |
+| 10:33 | Edited src/r_bridge.cpp | 5→4 lines | ~62 |
+| 10:34 | Created tests/testthat/test-homotopy-enabled-field.R | — | ~200 |
+| 10:34 | Edited tests/testthat/test-homotopy-enabled-field.R | 21→19 lines | ~204 |
+| 10:35 | Edited tests/testthat/test-homotopy-enabled-field.R | 9→10 lines | ~134 |
+| 11:07 | Edited tests/testthat/test-homotopy-enabled-field.R | 2→4 lines | ~80 |
+| 11:08 | Edited src/types.hpp | expanded (+6 lines) | ~159 |
+| 11:08 | Edited src/types.hpp | 3→1 lines | ~18 |
+| 11:08 | Edited src/ieppa.cpp | inline fix | ~5 |
+| 11:08 | Edited src/ieppa.cpp | inline fix | ~3 |
+| 11:08 | Edited src/r_bridge.cpp | 2→2 lines | ~14 |
+| 11:09 | Edited src/r_bridge.cpp | 8→8 lines | ~138 |
+| 11:09 | Edited src/c_api.cpp | modified if() | ~83 |
+| 11:09 | Edited src/lbfgsb_solver.cpp | inline fix | ~3 |
+| 11:09 | Edited src/lbfgsb_solver.cpp | inline fix | ~4 |
+| 11:09 | Created tests/testthat/test-alm-config-grouping.R | — | ~243 |
+| 11:10 | Edited tests/testthat/test-alm-config-grouping.R | 17→17 lines | ~172 |
+| 11:13 | Edited src/r_bridge.cpp | inline fix | ~19 |
+| 11:14 | Edited src/r_bridge.cpp | 9→10 lines | ~59 |
+| 11:14 | Edited src/r_bridge.cpp | expanded (+15 lines) | ~140 |
+| 11:14 | Edited src/r_bridge.cpp | removed 11 lines | ~35 |
+| 11:14 | Edited src/r_bridge.cpp | removed 11 lines | ~38 |
+| 11:14 | Created tests/testthat/test-method-dispatch.R | — | ~238 |
+| 11:15 | Edited tests/testthat/test-method-dispatch.R | 9→13 lines | ~157 |
+| 11:45 | Edited src/r_bridge.cpp | 2→2 lines | ~22 |
+| 11:45 | Edited src/r_bridge.cpp | 14→11 lines | ~150 |
+| 11:45 | Edited tests/testthat/test-method-dispatch.R | fallback() → works() | ~106 |
+| 11:46 | Fixed 3 issues: merged kAlgMap double lookup, removed redundant static, updated test comment | r_bridge.cpp, test-method-dispatch.R | all tests pass, commit 51c8eaf | ~180 |
+| 11:47 | Edited src/calib_dispatch.hpp | expanded (+8 lines) | ~159 |
+| 11:47 | Edited src/calib_dispatch.hpp | removed 9 lines | ~8 |
+| 11:48 | Edited src/calib_dispatch.hpp | expanded (+8 lines) | ~178 |
+| 11:48 | Edited src/calib_dispatch.hpp | inline fix | ~15 |
+| 11:48 | Edited src/sinkhorn.cpp | 3→2 lines | ~28 |
+| 11:48 | Created tests/testthat/test-select-metric-struct.R | — | ~171 |
+| 11:49 | Edited tests/testthat/test-select-metric-struct.R | 4→4 lines | ~44 |
+| 11:50 | Edited src/raking.cpp | modified if() | ~119 |
+| 11:50 | Edited src/chebyshev.cpp | 10→9 lines | ~148 |
+| 11:56 | Edited src/types.hpp | 3→5 lines | ~31 |
+| 11:56 | Edited src/types.hpp | expanded (+25 lines) | ~375 |
+| 11:56 | Created src/raking.hpp | — | ~82 |
+| 11:57 | Created src/lbfgsb_solver.hpp | — | ~87 |
+| 11:57 | Edited src/greenkhorn.hpp | reduced (-18 lines) | ~101 |
+| 11:57 | Edited src/sinkhorn.hpp | reduced (-15 lines) | ~128 |
+| 11:58 | Edited src/greg.hpp | reduced (-13 lines) | ~233 |
+| 11:58 | Edited src/chebyshev.hpp | modified chebyshev_solve() | ~287 |
+| 11:58 | Edited src/logit_calib.hpp | reduced (-14 lines) | ~357 |
+| 11:58 | Edited src/ieppa.hpp | reduced (-17 lines) | ~394 |
+| 12:02 | Edited src/sinkhorn.cpp | 4→7 lines | ~81 |
+| 12:02 | Edited src/greg.cpp | modified greg_solve() | ~178 |
+| 12:02 | Edited src/chebyshev.cpp | 4→9 lines | ~128 |
+| 12:02 | Edited src/logit_calib.cpp | modified logit_calibrate() | ~194 |
+| 12:06 | Created tests/testthat/test-calib-result-consolidation.R | — | ~336 |
+| 12:06 | Edited tests/testthat/test-calib-result-consolidation.R | 9→7 lines | ~82 |
+| 12:07 | ztid.4: defined CalibResult in types.hpp, migrated 8 solver structs to embed base, updated r_bridge+c_api field paths, added consolidation test | src/types.hpp, src/*.hpp, src/*.cpp, tests/testthat/test-calib-result-consolidation.R | PASS: 16/16 new tests, 516 existing; commit c5b44d4 | ~8000 |
+| 12:10 | Edited src/calib_dispatch.hpp | modified for() | ~277 |
+| 12:10 | Edited src/chebyshev.cpp | 7→4 lines | ~48 |
+| 12:10 | Edited src/chebyshev.cpp | isfinite() → resolve_hi() | ~84 |

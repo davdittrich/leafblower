@@ -1,5 +1,5 @@
 {
-  "last_heartbeat": "2026-04-29T23:47:15.521Z",
+  "last_heartbeat": "2026-04-30T09:47:15.530Z",
   "engine_status": "running",
   "execution_log": [
     {
@@ -271,6 +271,30 @@
       "status": "success",
       "timestamp": "2026-04-30T00:00:00.078Z",
       "duration_ms": 2
+    },
+    {
+      "task_id": "anatomy-rescan",
+      "status": "success",
+      "timestamp": "2026-04-30T04:00:00.352Z",
+      "duration_ms": 61
+    },
+    {
+      "task_id": "anatomy-rescan",
+      "status": "success",
+      "timestamp": "2026-04-30T09:58:42.960Z",
+      "duration_ms": 73
+    },
+    {
+      "task_id": "token-audit",
+      "status": "success",
+      "timestamp": "2026-04-30T09:58:48.623Z",
+      "duration_ms": 47
+    },
+    {
+      "task_id": "anatomy-rescan",
+      "status": "success",
+      "timestamp": "2026-04-30T10:00:00.404Z",
+      "duration_ms": 30
     }
   ],
   "dead_letter_queue": [],

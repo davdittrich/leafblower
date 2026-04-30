@@ -208,4 +208,23 @@ inline void apply_obs_expansion(
     }
 }
 
+/// Returns st.max_weight if finite, else 1e300.
+inline double resolve_hi(const CalibState& st) noexcept {
+    return std::isfinite(st.max_weight) ? st.max_weight : 1e300;
+}
+
+/// Fills L[c] = lo*n_per_cell[c], U[c] = hi*n_per_cell[c] for c in [0, M_cell).
+inline void compute_cell_bounds(
+    const CellTable& ct,
+    double lo, double hi,
+    std::vector<double>& L,
+    std::vector<double>& U) noexcept
+{
+    L.resize(ct.M_cell); U.resize(ct.M_cell);
+    for (int c = 0; c < ct.M_cell; c++) {
+        L[c] = lo * static_cast<double>(ct.n_per_cell[c]);
+        U[c] = hi * static_cast<double>(ct.n_per_cell[c]);
+    }
+}
+
 } // namespace lbw

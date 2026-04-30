@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-04-30T08:26:26.443Z
-> Files: 511 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-04-30T10:10:27.419Z
+> Files: 516 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ..Rcheck/
 
@@ -95,7 +95,6 @@
 - `test-priority-sweep.R` (~783 tok)
 - `test-quality-metrics.R` (~1266 tok)
 - `test-raking.R` (~604 tok)
-- `test-rk-params-passthrough.R` — Regression test: rk_params_init not called on caller-supplied params (~300 tok)
 - `test-sor.R` (~459 tok)
 - `testthat-problems.rds` (~4935 tok)
 
@@ -151,8 +150,8 @@
 - `.local_version` (~2 tok)
 - `config.yaml` — Beads Configuration File (~597 tok)
 - `export-state.json` (~38 tok)
-- `interactions.jsonl` (~44963 tok)
-- `issues.jsonl` (~216971 tok)
+- `interactions.jsonl` (~45608 tok)
+- `issues.jsonl` (~232313 tok)
 - `last-touched` (~5 tok)
 - `metadata.json` (~46 tok)
 - `README.md` — Project documentation (~562 tok)
@@ -191,7 +190,7 @@
 ## .claude/
 
 - `settings.json` (~661 tok)
-- `settings.local.json` (~1027 tok)
+- `settings.local.json` (~1084 tok)
 
 ## .claude/rules/
 
@@ -211,7 +210,7 @@
 
 ## .tldr/cache/
 
-- `call_graph.json` (~928 tok)
+- `call_graph.json` (~1484 tok)
 
 ## benchmarks/
 
@@ -417,9 +416,9 @@
 - `.graphify_python` (~4 tok)
 - `.graphify_root` (~7 tok)
 - `cost.json` (~59 tok)
-- `GRAPH_REPORT.md` — Graph Report - leafblower  (2026-04-30) (~4494 tok)
-- `graph.html` — graphify - graphify-out/graph.html (~66730 tok)
-- `graph.json` (~85961 tok)
+- `GRAPH_REPORT.md` — Graph Report - leafblower  (2026-04-30) (~4463 tok)
+- `graph.html` — graphify - graphify-out/graph.html (~93676 tok)
+- `graph.json` (~119490 tok)
 - `manifest.json` (~4366 tok)
 
 ## graphify-out/cache/
@@ -500,6 +499,108 @@
 - `fa41a656cfb40c4feadb89d71ab8e945428de96568cf0485adc4877b5c232966.json` (~288 tok)
 - `fd57a7f239a4090c2b7f48bb929e37e505fa05761a963eb7c4e9652f7e4d6889.json` (~74 tok)
 
+## graphify-out/cache/ast/
+
+- `04a34252d1d3df2f4832a4d92fa4564a3247c8013fed67392480ace8248c4a0e.json` (~96 tok)
+- `089b9692217c1147b7abb815a006b9b8616f8b07ecb5e5dcfaf2fe0f3d7d247f.json` (~254 tok)
+- `0efa79ccc5705b802e8ef7b999aa8f754276e7239ae323ed777857ca891bfaca.json` (~5898 tok)
+- `0eface3030fea738f33b7ad9a98685cb8c2d644734eb1e4ce62a00233fbbbcda.json` (~90 tok)
+- `17a0f9b30e36f9f6fa6cc49263b8957fc69f7aec6be035abe86a444697233d80.json` (~24213 tok)
+- `195ddf61b21d86c6c84670ddfc9def15539f5acd3ff3e10a7c41bf5b41e49e77.json` (~329 tok)
+- `19a5e07a17f7dec4c43aa88c2157eee4a55e22b8eb043af3fec642905bbc7a4b.json` (~3972 tok)
+- `19f86bb314c7beb0c0e14e08b714dc82a8589671d11b23f25ff68429df0093ad.json` (~16749 tok)
+- `205bac4d52b73e53d2ac239dabf56771c37c41f3db68b299a4aa316e3ea10d20.json` (~320 tok)
+- `24405cd3c8cb622d29e4f0e11f43fad61c84b4fbfacb4571956f95278095c9cd.json` (~8697 tok)
+- `25c34fffacabccb5cddc2876f880bea543be145dc5e51ee94ef3f6f8beb37403.json` (~196 tok)
+- `2a494dbe8b6233ddadc492dcd9695fda6bab3302ae5b849778e872e69719c59c.json` (~88 tok)
+- `2a85d463161ae377f840c04a316e722e991e592b4210d2ab12e25e3fe973c258.json` (~126 tok)
+- `2c5a1394c429f02413aec3bc60300a2f85f1422a4557822afdeb4a4f1b1800f3.json` (~276 tok)
+- `2ea11fac655e04ee3169ff9388539e365174abb82c39f34160846676adedb3f3.json` (~8205 tok)
+- `349b52f11930004db1b5ce4e90ac680a9f8d4784d33a109c0e95a4a2be3c68b6.json` (~320 tok)
+- `34ace3e728e99f9c592fd6675d65bab52aa1bc0ae5cc6b90f726b4e4eddb8506.json` (~8697 tok)
+- `36777fa908d4c6246e447496b92a9942b6f075d27cbc092ab5837749deb71c06.json` (~511 tok)
+- `3935880aa852808350fa385666a4e014801f13766a42ab64563d247f26f4f798.json` (~210 tok)
+- `3d3dbf61aba4e8454b75e16265c5886b2b8ecfdd59878e65633948a1b1bcc79f.json` (~2364 tok)
+- `4202b325a406efda39089d867918eae665a5f2b486477515a297cbf6c9bcf584.json` (~85 tok)
+- `4295dc4c7aa9ab22adc4ee4b56e3791fd91ad3eff23ee2deff990235e5939621.json` (~1777 tok)
+- `4578e200d4d10f598295a692f64f7767751a533fc69e87e7d1af6fa936a6a969.json` (~464 tok)
+- `494e687e4c1564f47e339304da57fd23ceb6ee83113ea1ac9d5ba03f7d14697a.json` (~2533 tok)
+- `497bc20790beae15bc225642545e134820f858a6f6c6d47ba5d96cfaaf5b5227.json` (~90 tok)
+- `4e9408c8824dd6857831df779147a827c7452a65ce592d6ffec0a97141fbadba.json` (~91 tok)
+- `50dc4b93f9ac2514aaa5658eb511c1fe3ff526d3da5a13c969c86ad329a6adb2.json` (~9531 tok)
+- `56ae9962016b91b9e26ef92d4fc0b3ec30d1adba68e294570accfce3b0ed44fd.json` (~346 tok)
+- `57030adcd5737fe1f35720bd542c3bb2631267efdbc66d31e03d31e3b2b365ac.json` (~89 tok)
+- `5765f507d4037641da5cb057dbe70855df3238aea47f240b038559fb6117ab6b.json` (~16749 tok)
+- `5937b06ae88264fdfc0d2e7f6bcfbf9f8a90f3ff4e123d42f917bc9f83298f76.json` (~3620 tok)
+- `5aa666c03b3d6d786563c60b27ff9d318b2a65eed8994311a8c3c57a1b636089.json` (~24976 tok)
+- `5abb652854b89917fa2438a3afe844e3dff141fb4a97f1ba6369200e7ad9f082.json` (~90 tok)
+- `5dd526d04ebdf28382cff09f320cb8686aca6e1cfd812a00f9c5988f7a4e8136.json` (~343 tok)
+- `5ea74426e28c4ed82f64afcf8f608437dcd23906ef94f00b20384a20c926b5f4.json` (~4595 tok)
+- `65d2c18ef3dfb9240f9768be75c2f87ced733f120166fcd9187dfeb6036af3d6.json` (~93 tok)
+- `66cdacfc318d99bb8f06af8f6b34770949db8adaab1d74b3aad48c0fe898e164.json` (~259 tok)
+- `69504ae18c0aae446048eb901e9acc9b9c56c9479fbb7675a03497cc5aa9d26f.json` (~173 tok)
+- `6aae34d5d22985f332d927132a5824a5e5953a6dc373505afe85551d2af9bdb2.json` (~254 tok)
+- `7092ef4c79820af7c921d56d11fd45cbb4bc59ba606ad349fc1641490bda2e89.json` (~3549 tok)
+- `77bd5f89211e691d3abeef602c33bbd06f5ccc4d118a9ea1971630e136733f47.json` (~84 tok)
+- `79244b1234f88d9e5c13df169c026bdebfe11830339788eb0b17422f7b7b1511.json` (~90 tok)
+- `792f0acd61e5c9acafda6a470235b20bfa6ed8a400d6f72a1ac59f5212881372.json` (~4595 tok)
+- `7dbe1ec98ab98e5e2d0e09a6e231348983eadc981b113315aecb28973360213a.json` (~3640 tok)
+- `7e0bbff781de0c13318f6a4c4bd2b9f618635936ee91d2183f4cdc8090641874.json` (~269 tok)
+- `7e0c0086c82d40741bec2a02a12b7eb382f6600d524f76805fa47afff666d64e.json` (~8205 tok)
+- `844d5f39b3bdad5e1f8476b7c0244e93e12d6601c28e819667585d0bf6777c81.json` (~2934 tok)
+- `8604a22eb8991662177b7eccde5d13c62f6ddc325c1c52294676e516b57a8421.json` (~265 tok)
+- `86cc3b0d5f0e0bb358c78c5474f7385e7e481cdf287a7348188b582b845a8074.json` (~89 tok)
+- `87ae5aa14bd86364f4782f9b001ab263a453707db262a35c62496ddb12f3935f.json` (~96 tok)
+- `897350fb685376d3c60a10b93c845280179eb355f5a837d01e8ff2497c003a76.json` (~403 tok)
+- `8bf36dd0533314469db2f2ee28d45c9f5469277aab307e50183f2b38be488257.json` (~87 tok)
+- `8cdbad22191347a2b5f17baeb12fd68399400e15c0fc700ecfd1b666735c0c13.json` (~2356 tok)
+- `8d554835358b001b85724157692508aa138297251d67fb8ef4033941d3025d31.json` (~88 tok)
+- `8db300bf43686440539795b5a37fa7fa246427c76b478830c46e51fc05ddd4b9.json` (~66 tok)
+- `8de300ca88bb18303d6eb6d273e3b8e6d9af11aa746cac1fabbfe3a54ee83846.json` (~2695 tok)
+- `9667e12b9affbce60511add6f171d0f2bbe8e2b1a1a690ff7c7d259b4f49f970.json` (~3972 tok)
+- `96b461ab2e80a9ff4c8bef440f4c2af8b182aacc3c2ace55bcc0efeeee05d85b.json` (~100 tok)
+- `99b895809b9e68dff54df7ca404d23a7b6901d0e127607936bc80ca36ff149b8.json` (~89 tok)
+- `9b2d48a86241ce1c2225ab08b4b4c6822d734899905c92e8fa2ed1c8f745a9ef.json` (~8697 tok)
+- `9b96004b8cab326c4f99fae76497e2dcd431bd4990b4f125f506cfb3deebb936.json` (~3956 tok)
+- `9c557013a56953ebb938746a57c7468ad6c9b6476f8e2ac72d1ae613d378a5de.json` (~16749 tok)
+- `9cd53a3f8ad3acd55155a56c8dc4a9f12985e27a477308f72144a1aa4f86a83c.json` (~24976 tok)
+- `a03d882c2696312947a462846475aa7315646495dd1653d02a983a0876a03029.json` (~2372 tok)
+- `a0f8567b66e71a26d9fa28cc3ea6a39d1e0f0ff9b2a234e536d048e5688b99c2.json` (~16749 tok)
+- `a37a87f1d8be8e7784831f60e369625202f698409a2a360534f24a5d702c140d.json` (~1288 tok)
+- `a4e1c44696221bfafbef5722c7e4e0f817ac0ae88ac84b389a1321b4b62ead61.json` (~2433 tok)
+- `a9975d401e142412a81788be083892a61565d76d69c304029e1451a7d250c555.json` (~201 tok)
+- `ab652a9e65580053e5d13c85f9e6722b33ee677484d011dae00e451adcfea4aa.json` (~91 tok)
+- `b1bec497f3d2d00efece27773cbd23b8034048ee34e860310d4955382d8c7e28.json` (~1118 tok)
+- `b228e616eb1a47cce1eef2d112f005fd011ad17afd5629b282204b487c68b072.json` (~3549 tok)
+- `b2b53c4f7eed66b6a1a3aa4d5954ad9f47d78a15b35492651d04142d8f229959.json` (~94 tok)
+- `b47adcf093a583baa4a80ae720c13fc8fe106e82bdba18d9ee3a8e6f2c2b7f4a.json` (~88 tok)
+- `b542e8ee0f8613a3d1e1f6b0e950793775960ca38587a62fec69b8c82cc4b78c.json` (~320 tok)
+- `bfa158e0806ce047e963f0799f020c27aef4e18cb971edc8a9e5af97a49ea135.json` (~24976 tok)
+- `c013047638b2c45a7b0435251727f71e542419f88251d93232ecaaa1da87af0d.json` (~94 tok)
+- `c0d6b1c04390ef2e3d584622de11aa1967c0e1f7133a2cc238b1ff9cdda12e27.json` (~316 tok)
+- `c27bd827b470e91a26a28c0e3c972d91b93e84899ced6ac9b9962310a8adfe15.json` (~964 tok)
+- `c6afe275c86a76aa7f27a63ccc03b7891163cbb564cc571734281e4a8f1d3cfa.json` (~338 tok)
+- `c839d09100c431789d977c1bc63ea881876aaa3a81e9e50c4fcfb5e8376e2bc0.json` (~12547 tok)
+- `cbb0afcebc29146f1481bab288a7e169811e5641234c1c1550b41f84015968d0.json` (~172 tok)
+- `d5656e635bb39b03707ab2cf59c4727a9f4a1d6ccad57a74573c151fc1d0c7e3.json` (~3549 tok)
+- `d851e60e387c9b1f2c291336a00e11ac2cece5465a035ffc7f3d6dda0a4a7c7a.json` (~350 tok)
+- `de21419e5dbc618ead1f87acaf420ddeb297f64eade51d4ebbfc091cdf6f7924.json` (~196 tok)
+- `dec90be3de9be77c9e17558664083d9143ced223a0a281f00f0f2994a90c4884.json` (~16749 tok)
+- `e27661aad7134f2aa8568e3398bb89459216cb14219f8fc1a0b569e87e6256f0.json` (~24264 tok)
+- `e4b6a03ff68eb7d3759fd5e5f97cadab16bf6f43f95b4568306783b83b43c957.json` (~4706 tok)
+- `e51cbb0d9358f2ce92e96e4bd068420691d5b9c821db4cb1586768d829bde4da.json` (~8205 tok)
+- `e5cce781d84ee6fbf88538a770a304e4fb439e222a4664e97db3547469822442.json` (~8697 tok)
+- `e86e55c266fed55560fcdfc80ab8a74dfe07da16be9b3b696ab8623ff826ee0b.json` (~24976 tok)
+- `eaa55ce8ef9b17449f7d728c699089b10cc0f789ea212659546fea0518203203.json` (~8697 tok)
+- `efb99caccefa5ef0b2a014ca2d31b1903f343afbc270c6fa19f82000512ad889.json` (~83 tok)
+- `f0a8518b7290ac22c2a7be937c404706363ae1b0e615325501d01345fa1fb5f0.json` (~4664 tok)
+- `f489bf78ded0fc1688d0a045a129c9f53a646e6ac37b73545fadac8103cd5d3a.json` (~2400 tok)
+- `f7659214aa6d160ec232e9dad15bc4ad90a8d4874d868825d7a4407aae2ce154.json` (~366 tok)
+- `f8788fc4787d82ff263f2be76087773a884284793a2d036f543520b138597e81.json` (~257 tok)
+- `f904304f7b51de7f895b387401d6d18eb5e4757fd532fae52b8e15750d682afd.json` (~4664 tok)
+- `fb7fa61519bc1bded5aeefe5aa68612bee569aa6c5b2cc89d0de35a11f11317d.json` (~280 tok)
+- `ff6648c827e169724ed6fb80f0b49623eee01acd014f1e22ef87e670159f09c3.json` (~2700 tok)
+
 ## leafblower.Rcheck/
 
 - `00check.log` — Declares calls (~1084 tok)
@@ -567,157 +668,15 @@
 - `cell_table.o` (~4840 tok)
 - `ieppa.cpp` — include "lbw_config.h" (~3649 tok)
 - `ieppa.hpp` — pragma once (~156 tok)
-- `ieppa.o` (~5742 tok)
-- `lbfgsb_solver.cpp` — include "lbw_config.h" (~6918 tok)
-- `lbfgsb_solver.hpp` — pragma once (~74 tok)
-- `lbfgsb_solver.o` (~12986 tok)
-- `lbw_config.h` — ifndef LBW_CONFIG_H (~56 tok)
-- `lbw_math.hpp` — pragma once (~260 tok)
-- `leafblower.h` — ifndef LEAFBLOWER_H (~945 tok)
-- `logit.cpp` — include "logit.hpp" (~112 tok)
-- `logit.hpp` — pragma once (~921 tok)
-- `logit.o` (~250 tok)
-- `Makevars` (~50 tok)
-- `Makevars.in` (~58 tok)
-- `r_bridge.cpp` — include "leafblower.h" (~3080 tok)
-- `r_bridge.o` (~10410 tok)
-- `raking.cpp` — include "lbw_config.h" (~2397 tok)
-- `raking.hpp` — pragma once (~50 tok)
-- `raking.o` (~2859 tok)
-- `symbols.rds` (~516 tok)
-- `types.hpp` — pragma once (~334 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/tests/
-
-- `testthat.R` — This file is part of the R package leafblower. (~49 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/tests/testthat/
-
-- `lbfgsb_baseline_time.rds` (~27 tok)
-- `lbfgsb_ref_weights.rds` (~2943 tok)
-- `task1_ref.rds` (~531 tok)
-- `task2_ieppa_ref.rds` (~1526 tok)
-- `test-algo-selection.R` — tests/testthat/test-algo-selection.R (~2289 tok)
-- `test-bounded-convergence.R` (~400 tok)
-- `test-cell-table.R` (~497 tok)
-- `test-compare.R` (~393 tok)
-- `test-compat.R` (~292 tok)
-- `test-design.R` (~223 tok)
-- `test-harvest.R` (~1083 tok)
-- `test-ieppa-faithful.R` (~1057 tok)
-- `test-ieppa.R` (~611 tok)
-- `test-lbfgsb.R` (~957 tok)
-- `test-logit.R` (~308 tok)
-- `test-raking.R` (~604 tok)
-
-## leafblower.Rcheck/R_check_bin/
-
-- `R` (~22 tok)
-- `Rscript` (~24 tok)
-
-## leafblower.Rcheck/leafblower/
-
-- `DESCRIPTION` (~263 tok)
-- `INDEX` (~139 tok)
-- `LICENSE` — Project license (~16 tok)
-- `NAMESPACE` (~64 tok)
-- `NEWS.md` — leafblower (development) (~224 tok)
-
-## leafblower.Rcheck/leafblower/Meta/
-
-- `features.rds` (~32 tok)
-- `hsearch.rds` (~134 tok)
-- `links.rds` (~60 tok)
-- `nsInfo.rds` (~98 tok)
-- `package.rds` (~271 tok)
-- `Rd.rds` (~132 tok)
-
-## leafblower.Rcheck/leafblower/R/
-
-- `leafblower` — File share/R/nspackloader.R (~283 tok)
-- `leafblower.rdb` (~3935 tok)
-- `leafblower.rdx` (~120 tok)
-
-## leafblower.Rcheck/leafblower/help/
-
-- `aliases.rds` (~44 tok)
-- `AnIndex` (~54 tok)
-- `leafblower.rdb` (~3176 tok)
-- `leafblower.rdx` (~87 tok)
-- `paths.rds` (~59 tok)
-
-## leafblower.Rcheck/leafblower/html/
-
-- `00Index.html` — R: High-Performance Survey Calibration via iEPPA and L-BFGS-B (~535 tok)
-- `R.css` — Styles: 3 rules, 1 media queries (~527 tok)
-
-## leafblower.Rcheck/leafblower/libs/
-
-- `symbols.rds` (~516 tok)
-
-## leafblower.Rcheck/tests/
-
-- `startup.Rs` — # A custom startup file for tests (~38 tok)
-- `testthat.R` — This file is part of the R package leafblower. (~49 tok)
-- `testthat.Rout` — Declares to (~259 tok)
-
-## leafblower.Rcheck/tests/testthat/
-
-- `lbfgsb_baseline_time.rds` (~27 tok)
-- `lbfgsb_ref_weights.rds` (~2943 tok)
-- `task1_ref.rds` (~531 tok)
-- `task2_ieppa_ref.rds` (~1526 tok)
-- `test-algo-selection.R` — tests/testthat/test-algo-selection.R (~2289 tok)
-- `test-bounded-convergence.R` (~400 tok)
-- `test-cell-table.R` (~497 tok)
-- `test-compare.R` (~393 tok)
-- `test-compat.R` (~292 tok)
-- `test-design.R` (~223 tok)
-- `test-harvest.R` (~1083 tok)
-- `test-ieppa-faithful.R` (~1057 tok)
-- `test-ieppa.R` (~611 tok)
-- `test-lbfgsb.R` (~957 tok)
-- `test-logit.R` (~308 tok)
-- `test-raking.R` (~604 tok)
-
-## man/
-
-- `anesrake.Rd` (~312 tok)
-- `design_effect.Rd` (~240 tok)
-- `diagnose_weights.Rd` (~176 tok)
-- `effective_sample_size.Rd` (~103 tok)
-- `get_current_miss.Rd` (~141 tok)
-- `harvest.Rd` (~3256 tok)
-- `weighted_pct.Rd` (~109 tok)
-
-## python/
-
-- `CMakeLists.txt` — CMake build configuration (~284 tok)
-- `conftest.py` — Ensure the installed wheel's leafblower package is found, not the local (~74 tok)
-- `pyproject.toml` — Python project configuration (~297 tok)
-
-## python/.pytest_cache/
-
-- `.gitignore` — Git ignore rules (~10 tok)
-- `CACHEDIR.TAG` (~51 tok)
-- `README.md` — Project documentation (~76 tok)
-
-## python/.pytest_cache/v/cache/
-
-- `lastfailed` (~11 tok)
-- `nodeids` (~51 tok)
-
-## python/leafblower/
-
-- `__init__.py` — leafblower: high-performance survey calibration. (~42 tok)
-- `_bindings.cpp` — include <pybind11/pybind11.h> (~2328 tok)
 
 ## src/
 
-- `ieppa.cpp` — include "lbw_config.h" (~20966 tok)
-- `ieppa.hpp` — pragma once (~795 tok)
-- `lbfgsb_solver.cpp` — include "lbw_config.h" (~8343 tok)
+- `calib_dispatch.hpp` — pragma once (~2416 tok)
+- `chebyshev.cpp` — include "chebyshev.hpp" (~11732 tok)
+- `greg.cpp` — include "greg.hpp" (~1978 tok)
+- `logit_calib.cpp` — include "lbw_config.h" (~3901 tok)
+- `sinkhorn.cpp` — include "sinkhorn.hpp" (~3173 tok)
 
 ## tests/testthat/
 
-- `test-rk-params-passthrough.R` (~427 tok)
+- `test-calib-result-consolidation.R` — # test-calib-result-consolidation.R (~306 tok)

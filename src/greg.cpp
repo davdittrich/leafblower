@@ -35,12 +35,9 @@ GregResult greg_solve(CalibState& st) {
     for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
 
     const double lo = st.min_weight;
-    const double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
-    std::vector<double> L_cell(ct.M_cell), U_cell(ct.M_cell);
-    for (int c = 0; c < ct.M_cell; c++) {
-        L_cell[c] = lo * static_cast<double>(ct.n_per_cell[c]);
-        U_cell[c] = hi * static_cast<double>(ct.n_per_cell[c]);
-    }
+    const double hi = lbw::resolve_hi(st);
+    std::vector<double> L_cell, U_cell;
+    lbw::compute_cell_bounds(ct, lo, hi, L_cell, U_cell);
 
     // cat_offset[k] = starting index for margin k in the n_cats_total vector
     std::vector<int> cat_offset(st.K);
@@ -165,7 +162,7 @@ GregResult greg_solve(CalibState& st) {
     }
 
     // Obs expansion + clamp
-    const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
+    const double hi_obs = lbw::resolve_hi(st);
     apply_obs_expansion(ct, X, X_init, st.n, lo, hi_obs, st.weights);
 
     res.base.best_weights.resize(st.n);

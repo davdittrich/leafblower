@@ -27,3 +27,5 @@ tests/testthat/testthat-problems.rds
 
 # Graphify cache (large, auto-regenerated)
 graphify-out/cache/
+# Added by code-review-graph
+.code-review-graph/
