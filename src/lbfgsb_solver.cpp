@@ -178,17 +178,23 @@ static LBFGSResult compute_final_weights_and_error(
     // scale identically under uniform normalization, so max_err is
     // scale-invariant and remains valid after the outer normalize.
 
+    // 773f.1: hoist bucket alloc outside K-loops — eliminates 2*K heap allocs per solve.
+    int max_cats = 0;
+    for (int k = 0; k < st.K; k++)
+        if (st.cat_counts[k] > max_cats) max_cats = st.cat_counts[k];
+    std::vector<double> bucket(max_cats, 0.0);
+
     double Wn = 0.0;
     for (int i = 0; i < st.n; i++) Wn += st.weights[i];
     double max_err = 0.0;
     for (int k = 0; k < st.K; k++) {
-        std::vector<double> S(st.cat_counts[k], 0.0);
+        std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
         for (int i = 0; i < st.n; i++) {
             int g = st.group_ids[k][i];
-            if (g >= 0) S[g] += st.weights[i];
+            if (g >= 0) bucket[g] += st.weights[i];
         }
         for (int j = 0; j < st.cat_counts[k]; j++) {
-            max_err = std::max(max_err, std::fabs(S[j] / Wn - st.targets[k][j]));
+            max_err = std::max(max_err, std::fabs(bucket[j] / Wn - st.targets[k][j]));
         }
     }
     // Saturation diagnostic: when NOCONV and >50% of weights are pinned at
@@ -232,22 +238,22 @@ static LBFGSResult compute_final_weights_and_error(
     double grake_norm   = 0.0;  // max over margins of |S_kj - T_kj*Wn| / (1 + |T_kj*Wn|)
     if (Wn > 0.0) {
         for (int k = 0; k < st.K; k++) {
-            std::vector<double> S2(st.cat_counts[k], 0.0);
+            std::fill(bucket.begin(), bucket.begin() + st.cat_counts[k], 0.0);
             for (int i = 0; i < st.n; i++) {
                 int g = st.group_ids[k][i];
-                if (g >= 0) S2[g] += st.weights[i];
+                if (g >= 0) bucket[g] += st.weights[i];
             }
             double max_k = 0.0;
             double kl_k  = 0.0;
             for (int j = 0; j < st.cat_counts[k]; j++) {
-                double S_p = S2[j] / Wn;
+                double S_p = bucket[j] / Wn;
                 double T   = st.targets[k][j];
                 double err = std::fabs(S_p - T);
                 if (err > max_k) max_k = err;
                 if (T > 0.0) {
                     kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
                 }
-                double obs    = S2[j];
+                double obs    = bucket[j];
                 double pop_kj = T * Wn;
                 chi2_total += (obs - pop_kj) * (obs - pop_kj) / (pop_kj + kChi2Floor);
                 // grake_norm = max_kj |S_kj - pop_kj| / (1 + |pop_kj|)
