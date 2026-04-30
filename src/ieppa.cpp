@@ -1404,22 +1404,17 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
 
     if (st.bounds_mode == RK_BOUNDS_CELL) {
-        // Clamp post-normalization violations: normalization (w *= n/total_w)
-        // can push weights above max_weight when cells were clamped (W_total<n).
-        // Cell mode previously only counted — now clamps too, mirroring unit mode.
-        // n_bounds_clamped = n_bounds_violated: every violation is clamped.
+        // Cell mode: count per-obs bound violations for diagnostic only.
+        // Do NOT clamp — cell-mode contract is X[c] <= U_cell[c] (aggregate),
+        // not w[i] <= max_weight. Clamping individual weights here distorts
+        // marginals when d[i] varies within a cell (non-uniform design weights).
         int violations = 0;
         for (int i = 0; i < st.n; i++) {
-            if (st.weights[i] > st.max_weight) {
-                st.weights[i] = st.max_weight;
+            if (st.weights[i] > st.max_weight || st.weights[i] < st.min_weight)
                 violations++;
-            } else if (st.weights[i] < st.min_weight) {
-                st.weights[i] = st.min_weight;
-                violations++;
-            }
         }
         res.n_bounds_violated = violations;
-        res.n_bounds_clamped  = violations;   // every violation was clamped
+        res.n_bounds_clamped  = 0;
     } else {
         // Unit mode: per-cell water-filling.
         // Water-fill redistributes excess within each cell, preserving the
