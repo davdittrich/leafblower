@@ -227,4 +227,21 @@ inline void compute_cell_bounds(
     }
 }
 
+/// Builds prefix-sum cat_offset[k] and returns n_cats_total.
+/// cat_offset[k] = sum of cat_counts[0..k-1].
+inline int build_cat_offset(int K, const int* cat_counts,
+                             std::vector<int>& cat_offset) noexcept
+{
+    cat_offset.resize(K);
+    int nct = 0;
+    for (int k = 0; k < K; k++) { cat_offset[k] = nct; nct += cat_counts[k]; }
+    return nct;
+}
+
+/// Returns max(cat_counts[0..K-1]), or 0 when K==0.
+inline int max_cats_count(int K, const int* cat_counts) noexcept {
+    if (K == 0) return 0;
+    return *std::max_element(cat_counts, cat_counts + K);
+}
+
 } // namespace lbw

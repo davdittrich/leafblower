@@ -201,7 +201,7 @@ ChebyshevResult chebyshev_ipm(
     const int n_comp = 2*ct.M_cell + 2*nct + 1;  // s_lo,s_hi,s_up,s_dn,s_delta
 
     // Hoisted work vectors
-    const int max_cats = *std::max_element(st.cat_counts, st.cat_counts+st.K);
+    const int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
     std::vector<double> D_eff(ct.M_cell), D_marg(nct);
     // Full nct system (for δ Sherman-Morrison — must use full space to preserve E1/E2)
     std::vector<double> N0((size_t)nct * (size_t)nct);

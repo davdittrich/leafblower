@@ -109,8 +109,8 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     const std::vector<double> X_init(X);
 
     {
-        int n_cats_total = 0;
-        for (int k = 0; k < st.K; k++) n_cats_total += st.cat_counts[k];
+        std::vector<int> dummy_cat_offset;
+        int n_cats_total = lbw::build_cat_offset(st.K, st.cat_counts, dummy_cat_offset);
         rk_result_t tmp_res = {};
         if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
             res.base.status = tmp_res.status;
@@ -129,7 +129,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     // exp_a[c] = exp(a[c]); a init=0 → exp=1. Updated via bulk_scaled_exp after each a[] write.
     std::vector<double> exp_a(ct.M_cell, 1.0);
 
-    int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
+    int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
 
     double best_metric_seen    = std::numeric_limits<double>::infinity();
     double best_objective_seen = 0.0;  // weight KL at best_iter (A1 fix)

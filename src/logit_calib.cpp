@@ -56,8 +56,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     const int K = st.K;
 
     // cells_per_cat[k][j] = list of cell indices in bucket (k,j)
-    int max_cats = 0;
-    for (int k = 0; k < K; k++) max_cats = std::max(max_cats, st.cat_counts[k]);
+    int max_cats = lbw::max_cats_count(K, st.cat_counts);
     std::vector<std::vector<std::vector<int>>> cells_per_cat(K);
     for (int k = 0; k < K; k++) {
         cells_per_cat[k].assign(st.cat_counts[k], {});

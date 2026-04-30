@@ -41,8 +41,7 @@ GregResult greg_solve(CalibState& st) {
 
     // cat_offset[k] = starting index for margin k in the n_cats_total vector
     std::vector<int> cat_offset(st.K);
-    int n_cats_total = 0;
-    for (int k = 0; k < st.K; k++) { cat_offset[k] = n_cats_total; n_cats_total += st.cat_counts[k]; }
+    int n_cats_total = lbw::build_cat_offset(st.K, st.cat_counts, cat_offset);
 
     {
         rk_result_t tmp_res = {};
@@ -56,7 +55,7 @@ GregResult greg_solve(CalibState& st) {
     std::vector<bool> fixed_lo(ct.M_cell, false), fixed_hi(ct.M_cell, false);
     std::vector<double> X(X_init);
 
-    const int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
+    const int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
     // Hoist per-iteration work vectors to avoid heap churn (D_eff/N/b reused each Newton step)
     std::vector<double> bucket_b(max_cats);
     std::vector<double> D_eff(ct.M_cell);

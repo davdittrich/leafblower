@@ -120,7 +120,7 @@ RakingResult raking_solve(CalibState& st) {
     for (int c = 0; c < ct.M_cell; c++)
         inv_n_per_cell[c] = 1.0 / static_cast<double>(ct.n_per_cell[c]);
 
-    int max_cats = *std::max_element(st.cat_counts, st.cat_counts + st.K);
+    int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
     std::vector<double> bucket(max_cats);
 
     // Descent monitor — tracks solver loss function (weight KL for flat loop, errRp for SRAA-m).

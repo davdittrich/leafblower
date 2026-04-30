@@ -32,8 +32,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
 
     const int M = ct.M_cell;
     const int K = st.K;
-    int max_cats = 0;
-    for (int k = 0; k < K; k++) max_cats = std::max(max_cats, st.cat_counts[k]);
+    int max_cats = lbw::max_cats_count(K, st.cat_counts);
 
     // Build cells_per_cat[k][j] = list of cell indices in bucket (k,j)
     std::vector<std::vector<std::vector<int>>> cells_per_cat(K);
@@ -51,8 +50,8 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     const std::vector<double> X_init = X;
 
     {
-        int n_cats_total = 0;
-        for (int k = 0; k < K; k++) n_cats_total += st.cat_counts[k];
+        std::vector<int> dummy_cat_offset;
+        int n_cats_total = lbw::build_cat_offset(K, st.cat_counts, dummy_cat_offset);
         rk_result_t tmp_res = {};
         if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
             res.base.status = tmp_res.status;
