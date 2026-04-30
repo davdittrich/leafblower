@@ -15,7 +15,7 @@ namespace lbw {
 
 GreenkornResult greenkhorn_solve(CalibState& st) {
     GreenkornResult res;
-    res.status = RK_ERR_NOCONV;
+    res.base.status = RK_ERR_NOCONV;
 
     // Build cell table
     CellTable ct;
@@ -23,7 +23,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         std::vector<const int32_t*> gids(st.K);
         for (int k = 0; k < st.K; k++) gids[k] = st.group_ids[k];
         if (build_cell_table(st.n, st.K, gids.data(), st.cat_counts, st.weights, ct) != RK_OK) {
-            res.status = RK_ERR_INFEAS;
+            res.base.status = RK_ERR_INFEAS;
             std::snprintf(res.message, sizeof(res.message),
                 "greenkhorn: cell table build failed");
             return res;
@@ -55,7 +55,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         for (int k = 0; k < K; k++) n_cats_total += st.cat_counts[k];
         rk_result_t tmp_res = {};
         if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
-            res.status = tmp_res.status;
+            res.base.status = tmp_res.status;
             std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
             return res;
         }
@@ -94,8 +94,8 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
 
     // Best-iterate tracking
     double best_errRp = *std::max_element(errRp.begin(), errRp.end());
-    res.best_error = best_errRp;
-    res.best_iter  = 0;
+    res.base.best_error = best_errRp;
+    res.base.best_iter  = 0;
     std::vector<double> X_best = X;
 
     // Convergence state
@@ -170,7 +170,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     for (int iter = 0; iter < st.inner_max_iter; iter++) {
         // W<=0 guard
         if (W <= 0.0) {
-            res.status = RK_ERR_INFEAS;
+            res.base.status = RK_ERR_INFEAS;
             std::snprintf(res.message, sizeof(res.message),
                 "greenkhorn: total mass W<=0 (all cells at zero bound)");
             break;
@@ -191,20 +191,20 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
                 }
             }
             for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
-            res.iterations += K * (r.aa_accepted ? 2 : 1);
+            res.base.iterations += K * (r.aa_accepted ? 2 : 1);
         } else {
             // Pure Greenkhorn: single margin per step
             int k_star = (int)(std::max_element(errRp.begin(), errRp.end()) - errRp.begin());
             greenkhorn_step(k_star);
-            res.iterations = iter + 1;
+            res.base.iterations = iter + 1;
         }
 
         // Best-iterate
         double curr_max = *std::max_element(errRp.begin(), errRp.end());
         if (curr_max < best_errRp) {
             best_errRp = curr_max;
-            res.best_error = best_errRp;
-            res.best_iter  = res.iterations;
+            res.base.best_error = best_errRp;
+            res.base.best_iter  = res.base.iterations;
             X_best = X;
         } else if (st.accelerate && K > 0 &&
                    curr_max > best_errRp * (1.0 + lbw::kSRAAOuterSlack)) {
@@ -232,8 +232,8 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, X, W, bucket_scratch);
             bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
             if (converged) {
-                res.status = RK_OK;
-                res.convergence_iter = res.iterations;
+                res.base.status = RK_OK;
+                res.base.convergence_iter = res.base.iterations;
                 X_best = X;
                 break;
             }
@@ -241,24 +241,24 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     }
 
     // Post-loop status
-    if (res.status == RK_ERR_NOCONV) {
+    if (res.base.status == RK_ERR_NOCONV) {
         double final_errRp = *std::max_element(errRp.begin(), errRp.end());
-        res.status = (final_errRp < prev_metric * 0.999) ? RK_ERR_BUDGET : RK_ERR_STALL;
+        res.base.status = (final_errRp < prev_metric * 0.999) ? RK_ERR_BUDGET : RK_ERR_STALL;
         std::snprintf(res.message, sizeof(res.message),
             "greenkhorn: %s after %d steps; best max_err=%.4e",
-            res.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",
-            res.iterations, res.best_error);
+            res.base.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",
+            res.base.iterations, res.base.best_error);
     }
 
     // Weight reconstruction from X_best
-    res.best_weights.resize(st.n);
+    res.base.best_weights.resize(st.n);
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
-        res.best_weights[i] = (X_init[c] > 0.0)
+        res.base.best_weights[i] = (X_init[c] > 0.0)
             ? st.weights[i] * X_best[c] / X_init[c]
             : st.weights[i];
     }
-    res.max_error = best_errRp;
+    res.base.max_error = best_errRp;
 
     return res;
 }

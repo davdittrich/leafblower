@@ -166,7 +166,7 @@ static LBFGSResult compute_final_weights_and_error(
         const std::vector<double>& d, const std::vector<int>& off,
         std::vector<double>& u, int iterations, int max_iter) {
     LBFGSResult res;
-    res.iterations = iterations;
+    res.base.iterations = iterations;
 
     for (int i = 0; i < st.n; i++) {
         double wi = d[i] * fn.F(u[i]);
@@ -214,7 +214,7 @@ static LBFGSResult compute_final_weights_and_error(
             st.log(msg);
         }
     }
-    res.max_error = max_err;
+    res.base.max_error = max_err;
 
     // Compute pct_change (max relative shift start weights d[i] vs. final st.weights[i]).
     double pct_change = 0.0;
@@ -260,14 +260,14 @@ static LBFGSResult compute_final_weights_and_error(
     }
     double mean_err = (st.K > 0) ? (mean_err_sum / static_cast<double>(st.K)) : 0.0;
 
-    res.l1_weight_change = pct_change;  // max relative weight shift (start→final); field name is legacy
-    res.mean_error       = mean_err;
-    res.kl               = kl_max;
-    res.chi2             = chi2_total;
-    res.grake_norm       = grake_norm;
+    res.base.l1_weight_change = pct_change;  // max relative weight shift (start→final); field name is legacy
+    res.base.mean_error       = mean_err;
+    res.base.kl               = kl_max;
+    res.base.chi2             = chi2_total;
+    res.base.grake_norm       = grake_norm;
 
-    res.best_error = max_err;
-    res.best_iter  = iterations;
+    res.base.best_error = max_err;
+    res.base.best_iter  = iterations;
     // best_weights assigned post-normalization in lbfgsb_solve() below.
 
     // active-criterion + CalibRule dispatch for status.
@@ -303,13 +303,13 @@ static LBFGSResult compute_final_weights_and_error(
             converged = converged_abs;
         }
         if (converged) {
-            res.status = RK_OK;
+            res.base.status = RK_OK;
         } else if (iterations >= max_iter) {
-            res.status = RK_ERR_BUDGET;
+            res.base.status = RK_ERR_BUDGET;
         } else {
-            res.status = RK_ERR_STALL;
+            res.base.status = RK_ERR_STALL;
         }
-        res.convergence_metric = static_cast<int>(cfg.metric);
+        res.base.convergence_metric = static_cast<int>(cfg.metric);
         // lbfgsb is a batch solver: all rules reduce to a threshold check internally.
         // Report cfg.rule as-requested for diagnostics; log when non-THRESHOLD.
         if (cfg.rule != lbw::CalibRule::THRESHOLD) {
@@ -320,11 +320,11 @@ static LBFGSResult compute_final_weights_and_error(
                 static_cast<int>(cfg.rule));
             st.log(msg);
         }
-        res.convergence_rule   = static_cast<int>(cfg.rule);
-        res.convergence_tol    = cfg.pct_tol;
-        res.convergence_iter               = converged ? res.iterations : -1;
-        res.convergence_solver_objective   = res.max_error;
-        res.convergence_minimized_metric   = static_cast<int>(cfg.metric);
+        res.base.convergence_rule   = static_cast<int>(cfg.rule);
+        res.base.convergence_tol    = cfg.pct_tol;
+        res.base.convergence_iter               = converged ? res.base.iterations : -1;
+        res.base.convergence_solver_objective   = res.base.max_error;
+        res.base.convergence_minimized_metric   = static_cast<int>(cfg.metric);
     }
     return res;
 }
@@ -708,10 +708,10 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     LBFGSResult res = lbfgsb_solve_inner(st, off, T, d, W_sum);
 
     // Post-solve normalization. Placement after the inner solve is safe because
-    // res.max_error is computed inside compute_final_weights_and_error as
+    // res.base.max_error is computed inside compute_final_weights_and_error as
     // max_{k,j} |S_kj/Wn - target_kj| — scale-invariant under uniform weight
     // rescaling. Therefore normalizing st.weights here does NOT invalidate
-    // res.max_error. Contract: total_w == 0 leaves weights untouched.
+    // res.base.max_error. Contract: total_w == 0 leaves weights untouched.
     double total_w = 0.0;
     for (int i = 0; i < st.n; i++) total_w += st.weights[i];
     if (std::isfinite(total_w) && total_w > 0.0) {
@@ -721,7 +721,7 @@ LBFGSResult lbfgsb_solve(CalibState& st) {
     // Re-capture best_weights after Σ=n normalization so it satisfies spec §4
     // contract: sum(best_weights) == n.  (The earlier capture in
     // compute_final_weights_and_error pre-dates this normalization step.)
-    res.best_weights.assign(st.weights, st.weights + st.n);
+    res.base.best_weights.assign(st.weights, st.weights + st.n);
     return res;
 }
 

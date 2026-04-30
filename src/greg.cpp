@@ -13,11 +13,19 @@ namespace lbw {
 
 GregResult greg_solve(CalibState& st) {
     GregResult res;
-    res.status = RK_ERR_NOCONV;
+    // GREG defaults differ from CalibResult — override here to preserve existing behavior.
+    res.base.status                       = RK_ERR_NOCONV;
+    res.base.convergence_metric           = static_cast<int>(CalibMetric::CHI2);
+    res.base.convergence_rule             = 0;
+    res.base.convergence_tol             = 0.0;
+    res.base.convergence_iter             = 1;
+    res.base.convergence_minimized_metric = static_cast<int>(CalibMetric::CHI2);
+    res.base.convergence_solver_objective = std::numeric_limits<double>::infinity();
+    res.base.best_iter                    = 1;
 
     CellTable ct;
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
-        res.status = RK_ERR_BADARG;
+        res.base.status = RK_ERR_BADARG;
         std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
         return res;
     }
@@ -42,7 +50,7 @@ GregResult greg_solve(CalibState& st) {
     {
         rk_result_t tmp_res = {};
         if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
-            res.status = tmp_res.status;
+            res.base.status = tmp_res.status;
             std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
             return res;
         }
@@ -67,7 +75,7 @@ GregResult greg_solve(CalibState& st) {
     bool need_refactor = true; // R1: refactor only when active set changes
 
     for (int newton_iter = 0; newton_iter < kMaxNewtonIters; newton_iter++) {
-        res.iterations = newton_iter + 1;
+        res.base.iterations = newton_iter + 1;
 
         if (need_refactor) {
             std::fill(D_eff.begin(), D_eff.end(), 0.0);
@@ -78,11 +86,11 @@ GregResult greg_solve(CalibState& st) {
             if (compute_normal_equations(ct, D_eff.data(), N.data(),
                                          cat_offset.data(), st.K,
                                          static_cast<size_t>(n_cats_total)) != RK_OK) {
-                res.status = RK_ERR_BADARG; return res;
+                res.base.status = RK_ERR_BADARG; return res;
             }
             N_factored = N; // cache pre-factored N for potential future use
             if (ldlt_factor_inplace(N_factored.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
-                res.status = RK_ERR_BADARG; return res;
+                res.base.status = RK_ERR_BADARG; return res;
             }
         }
 
@@ -130,13 +138,13 @@ GregResult greg_solve(CalibState& st) {
         prev_fixed_hi = fixed_hi;
 
         if (!any_clamped) {
-            res.status = RK_OK;
-            res.convergence_iter = newton_iter + 1;
+            res.base.status = RK_OK;
+            res.base.convergence_iter = newton_iter + 1;
             break;
         }
     }
 
-    if (res.status == RK_ERR_NOCONV) {
+    if (res.base.status == RK_ERR_NOCONV) {
         std::snprintf(res.message, sizeof(res.message),
                       "greg: no convergence after %d Newton steps; active set still cycling",
                       kMaxNewtonIters);
@@ -147,21 +155,21 @@ GregResult greg_solve(CalibState& st) {
     for (int c = 0; c < ct.M_cell; c++) W += X[c];
     {
         auto m = lbw::compute_cell_metrics(st, ct, X, W, bucket_b);
-        res.max_error  = m.errRp;
-        res.kl         = m.kl;
-        res.chi2       = m.chi2;
-        res.mean_error = m.mean_err;
-        res.grake_norm = m.grake_norm;
-        res.convergence_solver_objective = lbw::select_solver_objective(RK_ALG_GREG, m);
-        res.best_error = m.chi2;
+        res.base.max_error  = m.errRp;
+        res.base.kl         = m.kl;
+        res.base.chi2       = m.chi2;
+        res.base.mean_error = m.mean_err;
+        res.base.grake_norm = m.grake_norm;
+        res.base.convergence_solver_objective = lbw::select_solver_objective(RK_ALG_GREG, m);
+        res.base.best_error = m.chi2;
     }
 
     // Obs expansion + clamp
     const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
     apply_obs_expansion(ct, X, X_init, st.n, lo, hi_obs, st.weights);
 
-    res.best_weights.resize(st.n);
-    std::copy(st.weights, st.weights + st.n, res.best_weights.begin());
+    res.base.best_weights.resize(st.n);
+    std::copy(st.weights, st.weights + st.n, res.base.best_weights.begin());
     return res;
 }
 

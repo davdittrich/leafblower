@@ -380,38 +380,38 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
     auto pack_solver_result = [&](const auto& res) {
-        res_l1_weight_change         = res.l1_weight_change;
-        res_grake_norm               = res.grake_norm;
-        res_conv_metric              = res.convergence_metric;
-        res_conv_rule                = res.convergence_rule;
-        res_conv_tol                 = res.convergence_tol;
-        res_conv_iter                = res.convergence_iter;
-        res_conv_objective           = res.convergence_solver_objective;
-        res_conv_minimized_metric    = res.convergence_minimized_metric;
-        res_mean_error               = res.mean_error;
-        res_kl                       = res.kl;
-        res_chi2                     = res.chi2;
-        res_best_error               = res.best_error;
-        res_best_iter                = res.best_iter;
+        res_l1_weight_change         = res.base.l1_weight_change;
+        res_grake_norm               = res.base.grake_norm;
+        res_conv_metric              = res.base.convergence_metric;
+        res_conv_rule                = res.base.convergence_rule;
+        res_conv_tol                 = res.base.convergence_tol;
+        res_conv_iter                = res.base.convergence_iter;
+        res_conv_objective           = res.base.convergence_solver_objective;
+        res_conv_minimized_metric    = res.base.convergence_minimized_metric;
+        res_mean_error               = res.base.mean_error;
+        res_kl                       = res.base.kl;
+        res_chi2                     = res.base.chi2;
+        res_best_error               = res.base.best_error;
+        res_best_iter                = res.base.best_iter;
     };
 
     try {
     if (strcmp(method_str, "lbfgsb") == 0) {
         auto res = lbw::lbfgsb_solve(st);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
         res_alg_used   = (int)RK_ALG_LBFGSB;
         pack_solver_result(res);
-        res_best_weights = std::move(res.best_weights);
+        res_best_weights = std::move(res.base.best_weights);
     } else if (strcmp(method_str, "raking") == 0) {
         auto res = lbw::raking_solve(st);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
         res_alg_used   = (int)RK_ALG_RAKING;
         pack_solver_result(res);
-        res_best_weights = std::move(res.best_weights);
+        res_best_weights = std::move(res.base.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
         // AUTO routing: select raking when M_cell/n > 0.9, else iEPPA.
         int M_cell_est = lbw::estimate_M_cell(n, K,
@@ -423,18 +423,18 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         const std::vector<double> weights_backup(weights);
         if (use_raking) {
             auto res = lbw::raking_solve(st);
-            res_status     = res.status;
-            res_iterations = res.iterations;
-            res_max_error  = res.max_error;
+            res_status     = res.base.status;
+            res_iterations = res.base.iterations;
+            res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_RAKING;
             pack_solver_result(res);
-            res_best_weights = std::move(res.best_weights);
+            res_best_weights = std::move(res.base.best_weights);
         } else {
             st.ieppa_auto_selected = true;
             auto res = lbw::ieppa_solve(st);
-            res_status     = res.status;
-            res_iterations = res.iterations;
-            res_max_error  = res.max_error;
+            res_status     = res.base.status;
+            res_iterations = res.base.iterations;
+            res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_IEPPA;
             res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
             res_min_alpha             = res.min_alpha_seen;
@@ -448,7 +448,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             pack_solver_result(res);
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
-            res_best_weights = std::move(res.best_weights);
+            res_best_weights = std::move(res.base.best_weights);
         }
         // Auto-fallback: if primary solver NOCONVs or exhausts budget (still
         // improving), retry with L-BFGS-B.  STALL(5) is excluded: the solver
@@ -460,33 +460,33 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             std::copy(weights_backup.begin(), weights_backup.end(), weights.begin());
             st.ieppa_auto_selected = false;
             auto fb = lbw::lbfgsb_solve(st);
-            res_status     = fb.status;
-            res_iterations = fb.iterations;
-            res_max_error  = fb.max_error;
+            res_status     = fb.base.status;
+            res_iterations = fb.base.iterations;
+            res_max_error  = fb.base.max_error;
             res_alg_used   = (int)RK_ALG_LBFGSB;
             pack_solver_result(fb);
-            res_best_weights = std::move(fb.best_weights);
+            res_best_weights = std::move(fb.base.best_weights);
         }
     } else if (strcmp(method_str, "sinkhorn") == 0) {
         auto res = lbw::sinkhorn_solve(st);
         pack_solver_result(res);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
         res_alg_used   = static_cast<int>(RK_ALG_SINKHORN);
-        if (!res.best_weights.empty())
-            res_best_weights = std::move(res.best_weights);
+        if (!res.base.best_weights.empty())
+            res_best_weights = std::move(res.base.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
     } else if (strcmp(method_str, "greg") == 0) {
         auto res = lbw::greg_solve(st);
         pack_solver_result(res);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
         res_alg_used   = static_cast<int>(RK_ALG_GREG);
-        if (!res.best_weights.empty())
-            res_best_weights = std::move(res.best_weights);
+        if (!res.base.best_weights.empty())
+            res_best_weights = std::move(res.base.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
     } else if (strcmp(method_str, "greenkhorn") == 0) {
@@ -495,23 +495,23 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             Rf_error("leafblower: greenkhorn requires min_weight < max_weight");
         auto res = lbw::greenkhorn_solve(st);
         pack_solver_result(res);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
         res_alg_used   = (int)RK_ALG_GREENKHORN;
-        if (!res.best_weights.empty())
-            res_best_weights = std::move(res.best_weights);
+        if (!res.base.best_weights.empty())
+            res_best_weights = std::move(res.base.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
     } else if (strcmp(method_str, "logit") == 0) {
         auto res = lbw::logit_calibrate(st);
         pack_solver_result(res);
-        res_status     = res.status;
-        res_iterations = res.iterations;
-        res_max_error  = res.max_error;
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
         res_alg_used   = (int)RK_ALG_LOGIT;
-        if (!res.best_weights.empty())
-            res_best_weights = std::move(res.best_weights);
+        if (!res.base.best_weights.empty())
+            res_best_weights = std::move(res.base.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
     } else {
@@ -528,11 +528,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
             auto ieppa_res = lbw::ieppa_solve(st_warm);
             // st_warm must NOT escape this block (dangling pointer after weights_copy destroyed).
-            if (!ieppa_res.best_weights.empty() &&
-                static_cast<int>(ieppa_res.best_weights.size()) == st.n &&
-                std::isfinite(ieppa_res.max_error)) {
-                w_warm_obs = std::move(ieppa_res.best_weights);
-                delta_warm = ieppa_res.max_error * 1.5;
+            if (!ieppa_res.base.best_weights.empty() &&
+                static_cast<int>(ieppa_res.base.best_weights.size()) == st.n &&
+                std::isfinite(ieppa_res.base.max_error)) {
+                w_warm_obs = std::move(ieppa_res.base.best_weights);
+                delta_warm = ieppa_res.base.max_error * 1.5;
             }
         }
 
@@ -541,12 +541,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             const double d_warm = delta_warm;
             auto res = lbw::chebyshev_ipm(st, variant, warm_ref, d_warm);
             pack_solver_result(res);
-            res_status     = res.status;
-            res_iterations = res.iterations;
-            res_max_error  = res.max_error;
+            res_status     = res.base.status;
+            res_iterations = res.base.iterations;
+            res_max_error  = res.base.max_error;
             res_alg_used   = alg_code;
-            if (!res.best_weights.empty())
-                res_best_weights = std::move(res.best_weights);
+            if (!res.base.best_weights.empty())
+                res_best_weights = std::move(res.base.best_weights);
             else
                 res_best_weights.assign(st.n, 0.0);
         };
@@ -556,9 +556,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             st.ieppa_auto_selected = false;
             st.use_admm_capacity   = true;
             auto res = lbw::ieppa_solve(st);
-            res_status     = res.status;
-            res_iterations = res.iterations;
-            res_max_error  = res.max_error;
+            res_status     = res.base.status;
+            res_iterations = res.base.iterations;
+            res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_IEPPA_SOFT;
             res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
             res_min_alpha             = res.min_alpha_seen;
@@ -576,14 +576,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_alm_n_growth_events   = res.alm_n_growth_events;
             res_alm_max_dual_norm     = res.alm_max_dual_norm;
             res_alm_sum_drift         = res.alm_sum_drift;
-            res_best_weights = std::move(res.best_weights);
+            res_best_weights = std::move(res.base.best_weights);
         } else {
             // Default / ieppa
             st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);
             auto res = lbw::ieppa_solve(st);
-            res_status     = res.status;
-            res_iterations = res.iterations;
-            res_max_error  = res.max_error;
+            res_status     = res.base.status;
+            res_iterations = res.base.iterations;
+            res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_IEPPA;
             res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
             res_min_alpha             = res.min_alpha_seen;
@@ -597,7 +597,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             pack_solver_result(res);
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
-            res_best_weights = std::move(res.best_weights);
+            res_best_weights = std::move(res.base.best_weights);
         }
     }
     } catch (const std::exception& e) {

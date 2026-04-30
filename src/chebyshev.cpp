@@ -31,7 +31,12 @@ ChebyshevResult chebyshev_ipm(
     static constexpr double kPrimalMachinePrecConv  = 1e-8;  // Mehrotra: accept when best errRp at machine precision
     (void)variant;  // GRAKE removed; parameter retained for ABI stability
     ChebyshevResult res;
-    res.status = RK_ERR_NOCONV;
+    // Chebyshev defaults differ from CalibResult — override here to preserve existing behavior.
+    res.base.status                       = RK_ERR_NOCONV;
+    res.base.convergence_rule             = 0;
+    res.base.convergence_tol             = 0.0;
+    res.base.best_iter                    = 1;
+    res.base.convergence_solver_objective = std::numeric_limits<double>::infinity();
 
     // L1_WEIGHT is not computable by IPM (no prev-weight reference).
     // Fall back to MAX_ERR so the improvement rule tracks the actual objective.
@@ -40,7 +45,7 @@ ChebyshevResult chebyshev_ipm(
 
     CellTable ct;
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
-        res.status = RK_ERR_BADARG;
+        res.base.status = RK_ERR_BADARG;
         std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
         return res;
     }
@@ -59,7 +64,7 @@ ChebyshevResult chebyshev_ipm(
     for (int k = 0; k < st.K; k++) { cat_offset[k] = nct; nct += st.cat_counts[k]; }
 
     if (nct > kNCatsTotalMax) {
-        res.status = RK_ERR_BADARG;
+        res.base.status = RK_ERR_BADARG;
         std::snprintf(res.message, sizeof(res.message),
                       "n_cats_total=%d exceeds limit %d", nct, kNCatsTotalMax);
         return res;
@@ -112,7 +117,7 @@ ChebyshevResult chebyshev_ipm(
     {
         rk_result_t tmp_res = {};
         if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), nct) != RK_OK) {
-            res.status = tmp_res.status;
+            res.base.status = tmp_res.status;
             std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
             return res;
         }
@@ -228,7 +233,7 @@ ChebyshevResult chebyshev_ipm(
 
     const int max_ipm = std::min(kMaxIpm, st.inner_max_iter);
     for (int iter = 0; iter < max_ipm; iter++) {
-        res.iterations = iter+1;
+        res.base.iterations = iter+1;
         compute_S(X, S);
 
         // Recompute μ from actual complementarity
@@ -243,14 +248,14 @@ ChebyshevResult chebyshev_ipm(
         // O(K*nct) pass — cheap vs LDLT O(nct³). Computes all 6 metrics from current S[].
         double W = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W += X[c];
-        if (W < 1e-300) { res.status = RK_ERR_INFEAS; return res; }
+        if (W < 1e-300) { res.base.status = RK_ERR_INFEAS; return res; }
         CellMetrics cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
         // Only save X_best when X is fully finite — Mehrotra on ill-conditioned K>=9 systems
         // can produce NaN X values; saving NaN as best would corrupt the final result.
         if (cm.errRp < best_errRp && std::isfinite(cm.errRp)) {
             bool x_ok = true;
             for (int c = 0; c < ct.M_cell && x_ok; c++) x_ok = std::isfinite(X[c]);
-            if (x_ok) { best_errRp = cm.errRp; res.best_iter = iter+1; X_best = X; }
+            if (x_ok) { best_errRp = cm.errRp; res.base.best_iter = iter+1; X_best = X; }
         }
         // If X has gone NaN (numerical drift in ill-conditioned system), stop iterating.
         // Use whatever X_best was saved before NaN propagated.
@@ -284,11 +289,11 @@ ChebyshevResult chebyshev_ipm(
             if (have_abs) converged = converged || converged_abs;
 
             if (converged) {
-                res.status             = RK_OK;
-                res.convergence_metric = static_cast<int>(cfg.metric);
-                res.convergence_rule   = static_cast<int>(cfg.rule);
-                res.convergence_tol    = cfg.pct_tol;
-                res.convergence_iter   = iter+1;
+                res.base.status             = RK_OK;
+                res.base.convergence_metric = static_cast<int>(cfg.metric);
+                res.base.convergence_rule   = static_cast<int>(cfg.rule);
+                res.base.convergence_tol    = cfg.pct_tol;
+                res.base.convergence_iter   = iter+1;
                 break;
             }
         }
@@ -327,7 +332,7 @@ ChebyshevResult chebyshev_ipm(
         if (lbw::compute_normal_equations(ct, D_eff.data(), N0.data(),
                                           cat_offset.data(), st.K,
                                           static_cast<size_t>(nct)) != RK_OK) {
-            res.status = RK_ERR_BADARG; return res;
+            res.base.status = RK_ERR_BADARG; return res;
         }
 
         // Jacobi diagonal preconditioning: D_jac[j] = 1/sqrt(max(N[j*nct+j], 1e-12))
@@ -340,7 +345,7 @@ ChebyshevResult chebyshev_ipm(
 
         // LDLT factor scaled N_0 once per iteration
         if (ldlt_factor_inplace(N0.data(), static_cast<size_t>(nct), kEpsLdlt) != RK_OK) {
-            res.status = RK_ERR_BADARG; return res;
+            res.base.status = RK_ERR_BADARG; return res;
         }
         res.n_factorizations++;
 
@@ -487,7 +492,7 @@ ChebyshevResult chebyshev_ipm(
                         std::snprintf(res.message, sizeof(res.message),
                                       "chebyshev: %d consecutive iters with negative slacks — INFEAS",
                                       slack_violations);
-                        res.status = RK_ERR_INFEAS;
+                        res.base.status = RK_ERR_INFEAS;
                         break;
                     }
                 } else { slack_violations = 0; }
@@ -770,7 +775,7 @@ ChebyshevResult chebyshev_ipm(
                         std::snprintf(res.message, sizeof(res.message),
                                       "chebyshev: %d consecutive iters with negative slacks — INFEAS",
                                       slack_violations);
-                        res.status = RK_ERR_INFEAS;
+                        res.base.status = RK_ERR_INFEAS;
                         break;
                     }
                 } else {
@@ -812,10 +817,10 @@ ChebyshevResult chebyshev_ipm(
     }
 
     // Populate metrics
-    res.convergence_solver_objective = best_delta;
-    res.best_error = best_errRp;  // actual calibration error at best_iter
-    res.convergence_minimized_metric = static_cast<int>(CalibMetric::MAX_ERR);
-    res.convergence_metric = res.convergence_minimized_metric;
+    res.base.convergence_solver_objective = best_delta;
+    res.base.best_error = best_errRp;  // actual calibration error at best_iter
+    res.base.convergence_minimized_metric = static_cast<int>(CalibMetric::MAX_ERR);
+    res.base.convergence_metric = res.base.convergence_minimized_metric;
 
     // Use X_best (X at lowest errRp iteration) for final metrics and weights.
     // The final IPM iterate may have drifted due to numerical degeneration; the
@@ -827,11 +832,11 @@ ChebyshevResult chebyshev_ipm(
     for (int c = 0; c < ct.M_cell; c++) W_final += X_out[c];
     if (W_final > 1e-300) {
         auto m2 = lbw::compute_cell_metrics(st, ct, X_out, W_final, bucket_tmp);
-        res.max_error  = m2.errRp;
-        res.kl         = m2.kl;
-        res.chi2       = m2.chi2;
-        res.mean_error = m2.mean_err;
-        res.grake_norm = m2.grake_norm;
+        res.base.max_error  = m2.errRp;
+        res.base.kl         = m2.kl;
+        res.base.chi2       = m2.chi2;
+        res.base.mean_error = m2.mean_err;
+        res.base.grake_norm = m2.grake_norm;
     }
     // else: X_best collapsed — leave metrics at default 0.0 (not NaN)
 
@@ -842,8 +847,8 @@ ChebyshevResult chebyshev_ipm(
         double mult = (X_init[c] > 1e-10) ? X_out[c]/X_init[c] : 1.0;
         st.weights[i] = std::clamp(st.weights[i]*mult, lo, hi_obs);
     }
-    res.best_weights.resize(st.n);
-    std::copy(st.weights, st.weights+st.n, res.best_weights.begin());
+    res.base.best_weights.resize(st.n);
+    std::copy(st.weights, st.weights+st.n, res.base.best_weights.begin());
     return res;
 }
 

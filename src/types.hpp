@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <limits>
+#include <vector>
 #include "leafblower.h"   /* rk_bounds_mode_t */
 #ifndef LBW_NO_R
 #  include <R_ext/Print.h>
@@ -73,6 +75,31 @@ struct ALMConfig {
     double mu          = 0.0;  // penalty coefficient; 0.0 = ALM inactive
     double capacity_mu = 0.0;  // ieppa_soft ALM penalty (capacity box constraint); 0.0 = inactive
 };
+
+// ── CalibResult: shared base fields present in every solver result struct ────
+// Solver structs embed CalibResult and add solver-specific extras (message,
+// M_cell, n_factorizations, ALM diagnostics, iEPPA internals, etc.).
+// Invariant: no iEPPA-private diagnostics here.
+struct CalibResult {
+    int    status              = RK_ERR_NOCONV;
+    int    iterations          = 0;
+    double max_error           = 1.0;   // 1.0 is the dominant existing default
+    double mean_error          = 0.0;
+    double kl                  = 0.0;
+    double chi2                = 0.0;
+    double l1_weight_change    = 0.0;
+    double grake_norm          = 0.0;
+    int    convergence_metric  = 0;
+    int    convergence_rule    = 1;
+    double convergence_tol     = 0.001;
+    int    convergence_iter    = -1;
+    double best_error          = std::numeric_limits<double>::infinity();
+    int    best_iter           = 0;
+    std::vector<double> best_weights;
+    double convergence_solver_objective = 0.0;
+    int    convergence_minimized_metric = 0;
+};
+// ── End CalibResult ───────────────────────────────────────────────────────────
 
 struct CalibState {
     int n;

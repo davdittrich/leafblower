@@ -14,17 +14,25 @@ namespace lbw {
 
 LogitCalibResult logit_calibrate(CalibState& st) {
     LogitCalibResult res;
-    res.status = RK_ERR_NOCONV;
+    // Logit defaults differ from CalibResult — override here to preserve existing behavior.
+    res.base.status                       = RK_ERR_NOCONV;
+    res.base.convergence_metric           = static_cast<int>(CalibMetric::CHI2);
+    res.base.convergence_rule             = 0;
+    res.base.convergence_tol             = 0.0;
+    res.base.convergence_iter             = 1;
+    res.base.convergence_minimized_metric = static_cast<int>(CalibMetric::CHI2);
+    res.base.convergence_solver_objective = std::numeric_limits<double>::infinity();
+    res.base.best_iter                    = 1;
 
     // Input validation: logit with max_weight=Inf blows up
     if (!std::isfinite(st.max_weight) || st.max_weight <= 0.0) {
-        res.status = RK_ERR_BADARG;
+        res.base.status = RK_ERR_BADARG;
         std::snprintf(res.message, sizeof(res.message),
             "logit: max_weight must be finite and positive");
         return res;
     }
     if (st.min_weight >= st.max_weight) {
-        res.status = RK_ERR_BADARG;
+        res.base.status = RK_ERR_BADARG;
         std::snprintf(res.message, sizeof(res.message),
             "logit: min_weight (%.4g) >= max_weight (%.4g)",
             st.min_weight, st.max_weight);
@@ -37,7 +45,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         std::vector<const int32_t*> gids(st.K);
         for (int k = 0; k < st.K; k++) gids[k] = st.group_ids[k];
         if (build_cell_table(st.n, st.K, gids.data(), st.cat_counts, st.weights, ct) != RK_OK) {
-            res.status = RK_ERR_INFEAS;
+            res.base.status = RK_ERR_INFEAS;
             std::snprintf(res.message, sizeof(res.message),
                 "logit: cell table build failed");
             return res;
@@ -139,7 +147,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     std::vector<double> lambda_trial(nct, 0.0); // trial lambda for Armijo
 
     for (int iter = 0; iter < kMaxNewtonIters; iter++) {
-        res.iterations = iter + 1;
+        res.base.iterations = iter + 1;
 
         // (1) Compute w[c] and D_eff[c] from lambda
         for (int c = 0; c < M; c++) {
@@ -173,7 +181,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         if (max_b < best_resid) {
             best_resid = max_b;
             w_best = w;
-            res.best_iter = iter + 1;
+            res.base.best_iter = iter + 1;
         }
 
         // Capture ||b_current||² before ldlt_solve overwrites b with delta_lambda
@@ -186,7 +194,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         if (compute_normal_equations(ct, D_eff.data(), N.data(),
                                       cat_offset.data(), K,
                                       static_cast<size_t>(nct)) != RK_OK) {
-            res.status = RK_ERR_INFEAS;
+            res.base.status = RK_ERR_INFEAS;
             std::snprintf(res.message, sizeof(res.message),
                 "logit: singular normal equations (degenerate bounds - L=U cells)");
             break;
@@ -197,7 +205,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         // remain O(kMaxDeltaZ), keeping alpha_max bounded away from zero.
         double eps_ldlt = std::max(1e-10, max_b_mag / kMaxDeltaZ);
         if (ldlt_factor_inplace(N.data(), static_cast<size_t>(nct), eps_ldlt) != RK_OK) {
-            res.status = RK_ERR_INFEAS;
+            res.base.status = RK_ERR_INFEAS;
             std::snprintf(res.message, sizeof(res.message),
                 "logit: LDLT factorization failed (degenerate bounds)");
             break;
@@ -274,20 +282,20 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, w, W_total, bucket_scratch);
         bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
         if (converged) {
-            res.status = RK_OK;
-            res.convergence_iter = iter + 1;
+            res.base.status = RK_OK;
+            res.base.convergence_iter = iter + 1;
             w_best = w;
             break;
         }
     }
 
     // Post-loop status
-    if (res.status == RK_ERR_NOCONV) {
-        res.status = (best_resid < initial_resid * 0.999) ? RK_ERR_BUDGET : RK_ERR_STALL;
+    if (res.base.status == RK_ERR_NOCONV) {
+        res.base.status = (best_resid < initial_resid * 0.999) ? RK_ERR_BUDGET : RK_ERR_STALL;
         std::snprintf(res.message, sizeof(res.message),
             "logit: %s after %d Newton steps",
-            res.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",
-            res.iterations);
+            res.base.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",
+            res.base.iterations);
     }
 
     // Final metrics
@@ -295,18 +303,18 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     double W_best = 0.0;
     for (int c = 0; c < M; c++) W_best += w_best[c];
     lbw::CellMetrics m_best = lbw::compute_cell_metrics(st, ct, w_best, W_best, bucket_scratch);
-    res.max_error  = m_best.errRp;
-    res.best_error = m_best.errRp;
-    res.mean_error = m_best.mean_err;
-    res.kl         = m_best.kl;
-    res.chi2       = m_best.chi2;
-    res.grake_norm = m_best.grake_norm;
+    res.base.max_error  = m_best.errRp;
+    res.base.best_error = m_best.errRp;
+    res.base.mean_error = m_best.mean_err;
+    res.base.kl         = m_best.kl;
+    res.base.chi2       = m_best.chi2;
+    res.base.grake_norm = m_best.grake_norm;
 
     // Weight reconstruction
-    res.best_weights.resize(st.n);
+    res.base.best_weights.resize(st.n);
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
-        res.best_weights[i] = (X_init[c] > 0.0)
+        res.base.best_weights[i] = (X_init[c] > 0.0)
             ? st.weights[i] * w_best[c] / X_init[c]
             : st.weights[i];
     }

@@ -27,41 +27,41 @@
 template <typename R>
 static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t alg) noexcept {
     if (!dst) return;
-    dst->status                       = src.status;
-    dst->iterations                   = src.iterations;
-    dst->max_error                    = src.max_error;
-    dst->convergence_metric           = src.convergence_metric;
-    dst->convergence_rule             = src.convergence_rule;
-    dst->convergence_tol              = src.convergence_tol;
-    dst->convergence_iter             = src.convergence_iter;
-    dst->convergence_solver_objective        = src.convergence_solver_objective;
-    dst->convergence_minimized_metric = src.convergence_minimized_metric;
-    dst->best_error                   = src.best_error;
-    dst->best_iter                    = src.best_iter;
-    dst->mean_error                   = src.mean_error;
-    dst->kl                           = src.kl;
-    dst->chi2                         = src.chi2;
-    dst->grake_norm                   = src.grake_norm;
-    dst->l1_weight_change             = src.l1_weight_change;
+    dst->status                       = src.base.status;
+    dst->iterations                   = src.base.iterations;
+    dst->max_error                    = src.base.max_error;
+    dst->convergence_metric           = src.base.convergence_metric;
+    dst->convergence_rule             = src.base.convergence_rule;
+    dst->convergence_tol              = src.base.convergence_tol;
+    dst->convergence_iter             = src.base.convergence_iter;
+    dst->convergence_solver_objective        = src.base.convergence_solver_objective;
+    dst->convergence_minimized_metric = src.base.convergence_minimized_metric;
+    dst->best_error                   = src.base.best_error;
+    dst->best_iter                    = src.base.best_iter;
+    dst->mean_error                   = src.base.mean_error;
+    dst->kl                           = src.base.kl;
+    dst->chi2                         = src.base.chi2;
+    dst->grake_norm                   = src.base.grake_norm;
+    dst->l1_weight_change             = src.base.l1_weight_change;
     dst->algorithm_used               = alg;
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
 }
 
 static void pack_lbfgsb_result(rk_result_t* dst, const lbw::LBFGSResult& src) noexcept {
     if (!dst) return;
-    dst->mean_error                   = src.mean_error;
-    dst->kl                           = src.kl;
-    dst->chi2                         = src.chi2;
-    dst->l1_weight_change             = src.l1_weight_change;
-    dst->grake_norm                   = src.grake_norm;
-    dst->convergence_metric           = src.convergence_metric;
-    dst->convergence_rule             = src.convergence_rule;
-    dst->convergence_tol              = src.convergence_tol;
-    dst->convergence_iter             = src.convergence_iter;
-    dst->convergence_solver_objective        = src.convergence_solver_objective;
-    dst->convergence_minimized_metric = src.convergence_minimized_metric;
-    dst->best_error                   = src.best_error;
-    dst->best_iter                    = src.best_iter;
+    dst->mean_error                   = src.base.mean_error;
+    dst->kl                           = src.base.kl;
+    dst->chi2                         = src.base.chi2;
+    dst->l1_weight_change             = src.base.l1_weight_change;
+    dst->grake_norm                   = src.base.grake_norm;
+    dst->convergence_metric           = src.base.convergence_metric;
+    dst->convergence_rule             = src.base.convergence_rule;
+    dst->convergence_tol              = src.base.convergence_tol;
+    dst->convergence_iter             = src.base.convergence_iter;
+    dst->convergence_solver_objective        = src.base.convergence_solver_objective;
+    dst->convergence_minimized_metric = src.base.convergence_minimized_metric;
+    dst->best_error                   = src.base.best_error;
+    dst->best_iter                    = src.base.best_iter;
     /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
 }
 
@@ -241,65 +241,65 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
 
     if (alg == RK_ALG_LBFGSB) {
         auto res = lbw::lbfgsb_solve(st);
-        status = res.status;
-        iterations = res.iterations;
-        max_error = res.max_error;
+        status = res.base.status;
+        iterations = res.base.iterations;
+        max_error = res.base.max_error;
         used = RK_ALG_LBFGSB;
         pack_lbfgsb_result(result, res);
     } else if (alg == RK_ALG_RAKING) {
         // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
         auto res = lbw::raking_solve(st);
-        status = res.status;
-        iterations = res.iterations;
-        max_error = res.max_error;
+        status = res.base.status;
+        iterations = res.base.iterations;
+        max_error = res.base.max_error;
         used = RK_ALG_RAKING;
         if (result) {
-            result->mean_error          = res.mean_error;
-            result->kl                  = res.kl;
-            result->chi2                = res.chi2;
-            result->l1_weight_change    = res.l1_weight_change;
-            result->grake_norm          = res.grake_norm;
-            result->convergence_metric  = res.convergence_metric;
-            result->convergence_rule    = res.convergence_rule;
-            result->convergence_tol     = res.convergence_tol;
-            result->convergence_iter                = res.convergence_iter;
-            result->convergence_solver_objective           = res.convergence_solver_objective;
-            result->convergence_minimized_metric    = res.convergence_minimized_metric;
-            result->best_error          = res.best_error;
-            result->best_iter           = res.best_iter;
+            result->mean_error          = res.base.mean_error;
+            result->kl                  = res.base.kl;
+            result->chi2                = res.base.chi2;
+            result->l1_weight_change    = res.base.l1_weight_change;
+            result->grake_norm          = res.base.grake_norm;
+            result->convergence_metric  = res.base.convergence_metric;
+            result->convergence_rule    = res.base.convergence_rule;
+            result->convergence_tol     = res.base.convergence_tol;
+            result->convergence_iter                = res.base.convergence_iter;
+            result->convergence_solver_objective           = res.base.convergence_solver_objective;
+            result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
+            result->best_error          = res.base.best_error;
+            result->best_iter           = res.base.best_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
         }
     } else if (alg == RK_ALG_SINKHORN) {
         auto sres = lbw::sinkhorn_solve(st);
         pack_solver_result(result, sres, alg);
-        return sres.status;
+        return sres.base.status;
     } else if (alg == RK_ALG_GREG) {
         auto gres = lbw::greg_solve(st);
         pack_solver_result(result, gres, alg);
-        return gres.status;
+        return gres.base.status;
     } else if (alg == RK_ALG_GREENKHORN) {
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure min_weight < max_weight. */
         auto res = lbw::greenkhorn_solve(st);
         pack_solver_result(result, res, alg);
         used = RK_ALG_GREENKHORN;
-        status = res.status;
-        iterations = res.iterations;
-        max_error = res.max_error;
+        status = res.base.status;
+        iterations = res.base.iterations;
+        max_error = res.base.max_error;
     } else if (alg == RK_ALG_LOGIT) {
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure max_weight is finite and > min_weight. */
         auto res = lbw::logit_calibrate(st);
         pack_solver_result(result, res, alg);
         used = RK_ALG_LOGIT;
-        status = res.status;
-        iterations = res.iterations;
-        max_error = res.max_error;
+        status = res.base.status;
+        iterations = res.base.iterations;
+        max_error = res.base.max_error;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
             auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
             pack_solver_result(result, r, alg);
-            return r.status;
+            return r.base.status;
         } else if (alg == RK_ALG_IEPPA_SOFT) {
             st.use_admm_capacity = true;
             /* capacity_penalty for ieppa_soft: direct C API callers bypass R-layer validation.
@@ -312,9 +312,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
             }
             auto res = lbw::ieppa_solve(st);
-            status = res.status;
-            iterations = res.iterations;
-            max_error = res.max_error;
+            status = res.base.status;
+            iterations = res.base.iterations;
+            max_error = res.base.max_error;
             used = RK_ALG_IEPPA_SOFT;
             if (result) {
                 result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
@@ -326,28 +326,28 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 result->homotopy_final_factor = res.homotopy_final_factor;
                 result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
                 result->eta_final             = res.eta_final;
-                result->mean_error          = res.mean_error;
-                result->kl                  = res.kl;
-                result->chi2                = res.chi2;
-                result->l1_weight_change    = res.l1_weight_change;
-                result->grake_norm          = res.grake_norm;
-                result->convergence_metric  = res.convergence_metric;
-                result->convergence_rule    = res.convergence_rule;
-                result->convergence_tol     = res.convergence_tol;
-                result->convergence_iter                = res.convergence_iter;
-                result->convergence_solver_objective    = res.convergence_solver_objective;
-                result->convergence_minimized_metric    = res.convergence_minimized_metric;
-                result->best_error          = res.best_error;
-                result->best_iter           = res.best_iter;
+                result->mean_error          = res.base.mean_error;
+                result->kl                  = res.base.kl;
+                result->chi2                = res.base.chi2;
+                result->l1_weight_change    = res.base.l1_weight_change;
+                result->grake_norm          = res.base.grake_norm;
+                result->convergence_metric  = res.base.convergence_metric;
+                result->convergence_rule    = res.base.convergence_rule;
+                result->convergence_tol     = res.base.convergence_tol;
+                result->convergence_iter                = res.base.convergence_iter;
+                result->convergence_solver_objective    = res.base.convergence_solver_objective;
+                result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
+                result->best_error          = res.base.best_error;
+                result->best_iter           = res.base.best_iter;
                 result->sor_min_omega       = res.sor_min_omega;
                 result->sor_n_damped        = res.sor_n_damped;
             }
         } else {
             // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
             auto res = lbw::ieppa_solve(st);
-            status = res.status;
-            iterations = res.iterations;
-            max_error = res.max_error;
+            status = res.base.status;
+            iterations = res.base.iterations;
+            max_error = res.base.max_error;
             used = RK_ALG_IEPPA;
         if (result) {
             result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
@@ -359,19 +359,19 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->homotopy_final_factor = res.homotopy_final_factor;
             result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
             result->eta_final             = res.eta_final;
-            result->mean_error          = res.mean_error;
-            result->kl                  = res.kl;
-            result->chi2                = res.chi2;
-            result->l1_weight_change    = res.l1_weight_change;
-            result->grake_norm          = res.grake_norm;
-            result->convergence_metric  = res.convergence_metric;
-            result->convergence_rule    = res.convergence_rule;
-            result->convergence_tol     = res.convergence_tol;
-            result->convergence_iter                = res.convergence_iter;
-            result->convergence_solver_objective           = res.convergence_solver_objective;
-            result->convergence_minimized_metric    = res.convergence_minimized_metric;
-            result->best_error          = res.best_error;
-            result->best_iter           = res.best_iter;
+            result->mean_error          = res.base.mean_error;
+            result->kl                  = res.base.kl;
+            result->chi2                = res.base.chi2;
+            result->l1_weight_change    = res.base.l1_weight_change;
+            result->grake_norm          = res.base.grake_norm;
+            result->convergence_metric  = res.base.convergence_metric;
+            result->convergence_rule    = res.base.convergence_rule;
+            result->convergence_tol     = res.base.convergence_tol;
+            result->convergence_iter                = res.base.convergence_iter;
+            result->convergence_solver_objective           = res.base.convergence_solver_objective;
+            result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
+            result->best_error          = res.base.best_error;
+            result->best_iter           = res.base.best_iter;
             result->sor_min_omega       = res.sor_min_omega;
             result->sor_n_damped        = res.sor_n_damped;
         }
@@ -385,9 +385,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         // Restore original weights (only mutated field in CalibState)
         std::copy(weights_backup.begin(), weights_backup.end(), weights);
         auto fb = lbw::lbfgsb_solve(st);
-        status     = fb.status;
-        iterations = fb.iterations;
-        max_error  = fb.max_error;
+        status     = fb.base.status;
+        iterations = fb.base.iterations;
+        max_error  = fb.base.max_error;
         used       = RK_ALG_LBFGSB;
         pack_lbfgsb_result(result, fb);
         /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */

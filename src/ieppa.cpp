@@ -75,9 +75,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
     constexpr double kInfeasStallRatio   = 10.0;  // stall warn: max_error / pct_tol threshold
 
     IEPPAResult res;
-    res.status = RK_ERR_NOCONV;
-    res.iterations = 0;
-    res.max_error = 1.0;
+    res.base.status = RK_ERR_NOCONV;
+    res.base.iterations = 0;
+    res.base.max_error = 1.0;
     res.M_cell = 0;
     res.n_cap_active = 0;
     res.n_xcur_writes_per_iter_linear = 0;
@@ -92,7 +92,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
         int rc = build_cell_table(st.n, st.K, st.group_ids,
                                   st.cat_counts, st.weights, ct);
         if (rc != 0) {
-            res.status = RK_ERR_BADARG;
+            res.base.status = RK_ERR_BADARG;
             return res;
         }
     }
@@ -445,7 +445,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
     for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
-        res.iterations = iter;
+        res.base.iterations = iter;
         alpha = compute_alpha();
         if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
 
@@ -895,8 +895,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
             for (int c = 0; c < ct.M_cell; c++)
                 if (X_init[c] <= 0.0) X_tilde[c] = 0.0;
             if (overflow_detected) {
-                res.status = RK_ERR_NOCONV;
-                res.max_error = std::numeric_limits<double>::infinity();
+                res.base.status = RK_ERR_NOCONV;
+                res.base.max_error = std::numeric_limits<double>::infinity();
                 if (st.verbose >= 2) {
                     char msg[256];
                     std::snprintf(msg, sizeof(msg),
@@ -1017,7 +1017,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 }
             }
             res.marginal_kl_at_iter = marg_kl;
-            res.max_error = errRp;
+            res.base.max_error = errRp;
 
             // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
             // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
@@ -1177,11 +1177,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
             // Store metrics in result struct (unconditional — intermediate checks
             // store 0 for gated metrics; final iter always populates all fields).
-            res.l1_weight_change = l1_weight;    // real Σ|ΔX|/W_input (replaces pct_change stub)
-            res.grake_norm       = grake_norm;   // max_kj normalized margin residual
-            res.mean_error       = mean_err;
-            res.kl               = kl_max;
-            res.chi2             = chi2_total;
+            res.base.l1_weight_change = l1_weight;    // real Σ|ΔX|/W_input (replaces pct_change stub)
+            res.base.grake_norm       = grake_norm;   // max_kj normalized margin residual
+            res.base.mean_error       = mean_err;
+            res.base.kl               = kl_max;
+            res.base.chi2             = chi2_total;
 
             // Update X_prev AFTER computing pct_change.
             for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
@@ -1274,7 +1274,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
                     // set terminal status; else warm-jump to the next (tighter) level.
                     level_converged = true;
                     if (lvl == N_levels - 1) {
-                        res.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+                        res.base.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
                     }
                     res.final_alpha = alpha;
                     break;
@@ -1283,12 +1283,12 @@ IEPPAResult ieppa_solve(CalibState& st) {
         }
         res.final_alpha = alpha;
     }
-        // Log-space overflow: ieppa inner loop sets res.status = RK_ERR_NOCONV
-        // and res.max_error = +inf via `break`. Must not proceed to next level.
-        if (!std::isfinite(res.max_error)) {
+        // Log-space overflow: ieppa inner loop sets res.base.status = RK_ERR_NOCONV
+        // and res.base.max_error = +inf via `break`. Must not proceed to next level.
+        if (!std::isfinite(res.base.max_error)) {
             homotopy_break = true;
         }
-        total_iters = res.iterations;  // global iter counter; picks up partial level
+        total_iters = res.base.iterations;  // global iter counter; picks up partial level
         if (level_converged && lvl == N_levels - 1) {
             homotopy_break = true;
         }
@@ -1330,8 +1330,8 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Classify RK_ERR_NOCONV → BUDGET or STALL.
     // RK_ERR_BUDGET (4): metric improved at some point → increase max_iterations.
     // RK_ERR_STALL  (5): metric never improved from initial → at constrained optimum.
-    if (res.status == RK_ERR_NOCONV) {
-        res.status = std::isfinite(best_metric_seen) ? RK_ERR_BUDGET : RK_ERR_STALL;
+    if (res.base.status == RK_ERR_NOCONV) {
+        res.base.status = std::isfinite(best_metric_seen) ? RK_ERR_BUDGET : RK_ERR_STALL;
     }
 
     // PCT stall detection: pct_change < pct_tol (PCT converged) but max_error >> pct_tol
@@ -1340,36 +1340,36 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Warning only — status unchanged for backward compatibility.
     {
         const auto& cfg = st.convergence_cfg;
-        if (res.status != RK_OK &&
+        if (res.base.status != RK_OK &&
             (cfg.metric == CalibMetric::MAX_ERR || cfg.metric == CalibMetric::MEAN_ERR) &&
             cfg.pct_tol > 0.0 &&
-            res.max_error > kInfeasStallRatio * cfg.pct_tol &&
+            res.base.max_error > kInfeasStallRatio * cfg.pct_tol &&
             st.log_fn != nullptr) {
             char msg[256];
             std::snprintf(msg, sizeof(msg),
                 "PCT convergence stall: pct_change < %.3g but max_error=%.3g "
                 "(%.0fx pct_tol). Possible contradictory or infeasible targets.",
-                cfg.pct_tol, res.max_error,
-                res.max_error / cfg.pct_tol);
+                cfg.pct_tol, res.base.max_error,
+                res.base.max_error / cfg.pct_tol);
             st.log_fn(msg, st.log_ctx);
         }
     }
 
     // populate convergence diagnostics at solver exit.
-    res.convergence_metric             = static_cast<int>(st.convergence_cfg.metric);
-    res.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
-    res.convergence_tol = absolute_tol_fired
+    res.base.convergence_metric             = static_cast<int>(st.convergence_cfg.metric);
+    res.base.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
+    res.base.convergence_tol = absolute_tol_fired
         ? st.convergence_cfg.absolute_tol : st.convergence_cfg.pct_tol;
-    res.convergence_iter               = (res.status == RK_OK) ? res.iterations : -1;
-    res.convergence_solver_objective   = best_objective_seen;
-    res.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
+    res.base.convergence_iter               = (res.base.status == RK_OK) ? res.base.iterations : -1;
+    res.base.convergence_solver_objective   = best_objective_seen;
+    res.base.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
 
     // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.
     // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.
     // NO water-fill, NO bounds-clamping — this is a mid-loop snapshot.
     // If best_metric_seen == ∞ (solver exited before first check), best_weights is all zeros.
-    res.best_error = best_metric_seen;
-    res.best_iter  = best_iter_val;
+    res.base.best_error = best_metric_seen;
+    res.base.best_iter  = best_iter_val;
     if (std::isfinite(best_metric_seen)) {
         std::vector<double> best_weights_obs(st.n);
         for (int i = 0; i < st.n; i++) {
@@ -1382,9 +1382,9 @@ IEPPAResult ieppa_solve(CalibState& st) {
             const double scale = static_cast<double>(st.n) / s;
             for (int i = 0; i < st.n; i++) best_weights_obs[i] *= scale;
         }
-        res.best_weights = std::move(best_weights_obs);
+        res.base.best_weights = std::move(best_weights_obs);
     } else {
-        res.best_weights.assign(st.n, 0.0);
+        res.base.best_weights.assign(st.n, 0.0);
     }
 
     // Expansion to observation weights.
@@ -1506,19 +1506,19 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
 
     if (!structural_infeas_pairs.empty() &&
-        (res.status == RK_ERR_NOCONV || res.status == RK_ERR_BUDGET || res.status == RK_ERR_STALL)) {
-        res.status = RK_ERR_INFEAS;
+        (res.base.status == RK_ERR_NOCONV || res.base.status == RK_ERR_BUDGET || res.base.status == RK_ERR_STALL)) {
+        res.base.status = RK_ERR_INFEAS;
     }
 
     if (st.verbose >= 1) {
         const char* status_label =
-            (res.status == RK_OK) ? "converged" :
-            (res.status == RK_ERR_NOCONV) ? "max_iter exhausted (NOCONV)" :
-            (res.status == RK_ERR_INFEAS) ? "infeasible" : "error";
+            (res.base.status == RK_OK) ? "converged" :
+            (res.base.status == RK_ERR_NOCONV) ? "max_iter exhausted (NOCONV)" :
+            (res.base.status == RK_ERR_INFEAS) ? "infeasible" : "error";
         char msg[256];
         std::snprintf(msg, sizeof(msg),
                       "iEPPA %s in %d iters, errRp=%.3e",
-                      status_label, res.iterations, res.max_error);
+                      status_label, res.base.iterations, res.base.max_error);
         st.log(msg);
     }
 

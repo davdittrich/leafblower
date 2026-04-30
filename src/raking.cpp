@@ -65,16 +65,16 @@ RakingResult raking_solve(CalibState& st) {
     static constexpr int    kMaxNoImprove         = 5;
 
     RakingResult res;
-    res.status     = RK_ERR_BUDGET;  // initial; overwritten by criterion/stall; remains if budget exhausted
-    res.iterations = 0;
-    res.max_error  = 1.0;
+    res.base.status     = RK_ERR_BUDGET;  // initial; overwritten by criterion/stall; remains if budget exhausted
+    res.base.iterations = 0;
+    res.base.max_error  = 1.0;
 
     // Build cell table: O(n log n) one-time cost.
     CellTable ct;
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts,
                          st.weights, ct) != 0) {
         // RakingResult has no message field; caller gets RK_ERR_BADARG status.
-        res.status = RK_ERR_BADARG;
+        res.base.status = RK_ERR_BADARG;
         return res;
     }
 
@@ -363,8 +363,8 @@ RakingResult raking_solve(CalibState& st) {
             rk_sraa.F_cur = X;  // seed F_cur with current X before each sraa_step call
             auto r = lbw::sraa_step(F_eval, X, L_cell, U_cell, rk_sraa);
             f_evals_used += r.f_evals;
-            res.max_error  = r.err_result;
-            res.iterations = f_evals_used;
+            res.base.max_error  = r.err_result;
+            res.base.iterations = f_evals_used;
 
             // Best-iterate tracking
             if (r.err_result < best_metric_seen) {
@@ -392,11 +392,11 @@ RakingResult raking_solve(CalibState& st) {
                 m_conv.errRp = r.err_result;
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
-                    res.status             = RK_OK;
-                    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-                    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-                    res.convergence_tol    = st.convergence_cfg.pct_tol;
-                    res.convergence_iter   = f_evals_used;
+                    res.base.status             = RK_OK;
+                    res.base.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                    res.base.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                    res.base.convergence_tol    = st.convergence_cfg.pct_tol;
+                    res.base.convergence_iter   = f_evals_used;
                     break;
                 }
             }
@@ -410,12 +410,12 @@ RakingResult raking_solve(CalibState& st) {
         }
     } else {
         for (int iter = 1; iter <= st.inner_max_iter; iter++) {
-            res.iterations = iter;
+            res.base.iterations = iter;
 
             double errRp = F_eval(X);
 
             if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
-                res.max_error = errRp;
+                res.base.max_error = errRp;
 
                 // Best-iterate tracking (MAX_ERR metric)
                 if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
@@ -464,11 +464,11 @@ RakingResult raking_solve(CalibState& st) {
                     }
                 }
 
-                res.mean_error       = mean_err;
-                res.kl               = kl_max;
-                res.chi2             = chi2_total;
-                res.grake_norm       = grake_norm;
-                res.l1_weight_change = l1_weight;
+                res.base.mean_error       = mean_err;
+                res.base.kl               = kl_max;
+                res.base.chi2             = chi2_total;
+                res.base.grake_norm       = grake_norm;
+                res.base.l1_weight_change = l1_weight;
 
                 if (st.verbose >= 1) {
                     char msg[256];
@@ -485,11 +485,11 @@ RakingResult raking_solve(CalibState& st) {
                     // Converged — do NOT override with INFEAS here. water_fill_cat may
                     // transiently set is_infeasible when cells temporarily hit U_cell during
                     // convergence. INFEAS only overrides on stall (post-loop check below).
-                    res.status             = RK_OK;
-                    res.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
-                    res.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
-                    res.convergence_tol    = st.convergence_cfg.pct_tol;
-                    res.convergence_iter   = iter;
+                    res.base.status             = RK_OK;
+                    res.base.convergence_metric = static_cast<int>(st.convergence_cfg.metric);
+                    res.base.convergence_rule   = static_cast<int>(st.convergence_cfg.rule);
+                    res.base.convergence_tol    = st.convergence_cfg.pct_tol;
+                    res.base.convergence_iter   = iter;
                     break;
                 }
 
@@ -498,7 +498,7 @@ RakingResult raking_solve(CalibState& st) {
                 // Guard: wkl ≤ tol_abs means effectively at optimum → converged (not stalled).
                 const double wkl_flat = compute_weight_kl();
                 if (wkl_flat <= st.tol_abs) {
-                    res.status = RK_OK; res.convergence_iter = iter; break;
+                    res.base.status = RK_OK; res.base.convergence_iter = iter; break;
                 }
                 if (!std::isfinite(min_loss_window)) {
                     min_loss_window = wkl_flat; n_no_improve = 0;
@@ -509,7 +509,7 @@ RakingResult raking_solve(CalibState& st) {
                 }
 
                 if (n_no_improve >= kMaxNoImprove) {
-                    res.status = RK_ERR_STALL;
+                    res.base.status = RK_ERR_STALL;
                     if (st.verbose >= 1) {
                         char msg[256];
                         std::snprintf(msg, 256,
@@ -546,10 +546,10 @@ RakingResult raking_solve(CalibState& st) {
     }
 
     // Best-iterate: normalize cell snapshot, then expand to obs.
-    res.convergence_solver_objective = best_objective_seen;
-    res.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
-    res.best_error = best_metric_seen;
-    res.best_iter  = best_iter_val;
+    res.base.convergence_solver_objective = best_objective_seen;
+    res.base.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
+    res.base.best_error = best_metric_seen;
+    res.base.best_iter  = best_iter_val;
     if (std::isfinite(best_metric_seen)) {
         double s = 0.0;
         for (int c = 0; c < ct.M_cell; c++) s += W_best[c];
@@ -557,15 +557,15 @@ RakingResult raking_solve(CalibState& st) {
             const double sc = static_cast<double>(st.n) / s;
             for (int c = 0; c < ct.M_cell; c++) W_best[c] *= sc;
         }
-        res.best_weights.resize(st.n);
+        res.base.best_weights.resize(st.n);
         const double hi_obs = std::isfinite(st.max_weight) ? st.max_weight : 1e300;
         for (int i = 0; i < st.n; i++) {
             int c = ct.cell_of[i];
             double mult = (X_init[c] > 0.0) ? W_best[c] / X_init[c] : 1.0;
-            res.best_weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
+            res.base.best_weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
         }
     } else {
-        res.best_weights.assign(st.n, 0.0);
+        res.base.best_weights.assign(st.n, 0.0);
     }
 
     // Post-exit obs expansion: w_i = d_i × X[c]/X_init[c], hard clamp.
