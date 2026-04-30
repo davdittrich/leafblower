@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-04-30T00:15:18.572Z
-> Files: 515 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-04-30T08:26:26.443Z
+> Files: 511 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ..Rcheck/
 
@@ -95,6 +95,7 @@
 - `test-priority-sweep.R` (~783 tok)
 - `test-quality-metrics.R` (~1266 tok)
 - `test-raking.R` (~604 tok)
+- `test-rk-params-passthrough.R` — Regression test: rk_params_init not called on caller-supplied params (~300 tok)
 - `test-sor.R` (~459 tok)
 - `testthat-problems.rds` (~4935 tok)
 
@@ -120,7 +121,7 @@
 
 ## ./
 
-- `.gitignore` — Git ignore rules (~48 tok)
+- `.gitignore` — Git ignore rules (~113 tok)
 - `.Rbuildignore` (~75 tok)
 - `.tldrignore` — TLDR ignore patterns (gitignore syntax) (~280 tok)
 - `AGENTS.md` — Agent Instructions (~726 tok)
@@ -150,8 +151,8 @@
 - `.local_version` (~2 tok)
 - `config.yaml` — Beads Configuration File (~597 tok)
 - `export-state.json` (~38 tok)
-- `interactions.jsonl` (~44029 tok)
-- `issues.jsonl` (~216355 tok)
+- `interactions.jsonl` (~44963 tok)
+- `issues.jsonl` (~216971 tok)
 - `last-touched` (~5 tok)
 - `metadata.json` (~46 tok)
 - `README.md` — Project documentation (~562 tok)
@@ -212,10 +213,6 @@
 
 - `call_graph.json` (~928 tok)
 
-## R/
-
-- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~8554 tok)
-
 ## benchmarks/
 
 - `ABE_trajectory_stepstone_small.csv` (~40 tok)
@@ -235,7 +232,7 @@
 - `probe_baseline.R` (~149 tok)
 - `python_ipf_benchmark.py` — load_data, compute_metrics, run_ipfn, main (~1338 tok)
 - `sraa-m-baseline-pre.log` (~258 tok)
-- `stepstone_all_methods.R` — All-methods comparison on stepstone fulldata (1.58M rows, 9 margins). (~1584 tok)
+- `stepstone_all_methods.R` — All-methods comparison on stepstone fulldata (1.58M rows, 9 margins). (~1566 tok)
 - `stepstone_bench_targets.json` (~10918 tok)
 - `stepstone_benchmark.py` — def: load_data, bench_harvest, design_effect, effective_sample_size + 1 more (~1398 tok)
 - `stepstone_benchmark.R` — benchmarks/stepstone_benchmark.R (~2830 tok)
@@ -385,6 +382,9 @@
 - `2026-04-29-i0am-global-safeguard.md` — SRAA-m Global Safeguard Implementation Plan (~4783 tok)
 - `2026-04-29-i0am-sraa-acceleration.md` — SRAA-m: Replace SQUAREM with Anderson Acceleration (~6308 tok)
 - `2026-04-29-i0am-sraa-correct-all-scales.md` — SRAA-m Correct Acceleration for All K Scales — Combined Fix (~5487 tok)
+- `2026-04-30-efficiency-hotpath.md` — Hot-Path Efficiency Fixes — Implementation Plan (~10383 tok)
+- `2026-04-30-quality-fixes.md` — Code Quality Fixes — Implementation Plan (~10279 tok)
+- `2026-04-30-reuse-dedup.md` — Code Reuse & Deduplication — Implementation Plan (~6740 tok)
 
 ## docs/superpowers/specs/
 
@@ -417,7 +417,7 @@
 - `.graphify_python` (~4 tok)
 - `.graphify_root` (~7 tok)
 - `cost.json` (~59 tok)
-- `GRAPH_REPORT.md` — Graph Report - leafblower  (2026-04-29) (~4494 tok)
+- `GRAPH_REPORT.md` — Graph Report - leafblower  (2026-04-30) (~4494 tok)
 - `graph.html` — graphify - graphify-out/graph.html (~66730 tok)
 - `graph.json` (~85961 tok)
 - `manifest.json` (~4366 tok)
@@ -714,16 +714,10 @@
 
 ## src/
 
-- `c_api.cpp` — include "leafblower.h" (~5292 tok)
-- `calib_dispatch.hpp` — pragma once (~2153 tok)
-- `chebyshev.cpp` — include "chebyshev.hpp" (~11499 tok)
-- `chebyshev.hpp` — pragma once (~391 tok)
-- `leafblower.h` — ifndef LEAFBLOWER_H (~2662 tok)
-- `Makevars` (~78 tok)
-- `Makevars.in` (~86 tok)
-- `r_bridge.cpp` — include "leafblower.h" (~10245 tok)
+- `ieppa.cpp` — include "lbw_config.h" (~20966 tok)
+- `ieppa.hpp` — pragma once (~795 tok)
+- `lbfgsb_solver.cpp` — include "lbw_config.h" (~8343 tok)
 
 ## tests/testthat/
 
-- `test-calib-linalg.R` — Direct tests for LDLT factorization and compute_normal_equations (~1458 tok)
-- `test-calibration-solvers.R` (~14335 tok)
+- `test-rk-params-passthrough.R` (~427 tok)
