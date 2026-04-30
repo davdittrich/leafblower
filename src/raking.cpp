@@ -511,6 +511,14 @@ RakingResult raking_solve(CalibState& st) {
 
                 if (n_no_improve >= kMaxNoImprove) {
                     res.status = RK_ERR_STALL;
+                    if (st.verbose >= 1) {
+                        char msg[256];
+                        std::snprintf(msg, 256,
+                            "raking: errRp stalled for %d consecutive checks "
+                            "(wkl=%.2e); aborting at iter %d.",
+                            n_no_improve, wkl_flat, iter);
+                        st.log(msg);
+                    }
                     break;
                 }
             }
