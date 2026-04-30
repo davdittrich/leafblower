@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include "lbw_math.hpp"
 
 namespace lbw {
 
@@ -302,6 +303,32 @@ inline int solver_setup_ct_base(
     hi_eff = lbw::resolve_hi(st);
     lbw::compute_cell_bounds(ct, st.min_weight, hi_eff, L_cell, U_cell);
     return RK_OK;
+}
+
+/// Weight-space KL: Σ_c X[c]*log(X[c]/X_init[c]) / n.
+/// ratio_buf and weight_buf are caller-owned scratch of size >= M_cell.
+/// Returns 0.0 when result is non-finite.
+inline double compute_weight_kl(
+    const std::vector<double>& X,
+    const std::vector<double>& X_init,
+    int M_cell, int n,
+    double* ratio_buf,
+    double* weight_buf) noexcept
+{
+    const double inv_n = 1.0 / static_cast<double>(n);
+    int valid = 0;
+    for (int c = 0; c < M_cell; c++) {
+        if (X_init[c] > 0.0 && X[c] > 0.0) {
+            ratio_buf[valid]  = X[c] / X_init[c];
+            weight_buf[valid] = X[c];
+            valid++;
+        }
+    }
+    if (valid == 0) return 0.0;
+    lbw::bulk_log(ratio_buf, ratio_buf, valid);
+    double wkl = 0.0;
+    for (int i = 0; i < valid; i++) wkl += weight_buf[i] * ratio_buf[i] * inv_n;
+    return std::isfinite(wkl) ? wkl : 0.0;
 }
 
 } // namespace lbw

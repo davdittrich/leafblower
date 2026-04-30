@@ -152,24 +152,6 @@ RakingResult raking_solve(CalibState& st) {
         st.log("[raking] greedy scheduler disabled under SRAA-m acceleration; using round_robin");
     }
 
-    // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
-    // Distinct from m.kl (marginal KL) — this is what raking actually minimizes.
-    auto compute_weight_kl = [&]() -> double {
-        const double inv_n = 1.0 / static_cast<double>(st.n);
-        int valid_count = 0;
-        for (int c = 0; c < ct.M_cell; c++) {
-            if (X_init[c] > 0.0 && X[c] > 0.0) {
-                kl_ratio_scratch[valid_count] = X[c] / X_init[c];
-                kl_weight_scratch[valid_count] = X[c];
-                valid_count++;
-            }
-        }
-        lbw::bulk_log(kl_ratio_scratch.data(), kl_ratio_scratch.data(), valid_count);
-        double wkl = 0.0;
-        for (int i = 0; i < valid_count; i++)
-            wkl += kl_weight_scratch[i] * kl_ratio_scratch[i] * inv_n;
-        return std::isfinite(wkl) ? wkl : 0.0;
-    };
 
     // water_fill_cat: KL projection of category j (margin k) onto
     // {Σ_{c∈j} Xv[c] = T_kj, L_cell[c] ≤ Xv[c] ≤ U_cell[c]}.
@@ -352,7 +334,7 @@ RakingResult raking_solve(CalibState& st) {
             if (r.err_result < best_metric_seen) {
                 best_metric_seen    = r.err_result;
                 best_iter_val       = f_evals_used;
-                best_objective_seen = compute_weight_kl();
+                best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
                 W_best              = X;
             }
 
@@ -404,7 +386,7 @@ RakingResult raking_solve(CalibState& st) {
                     if (errRp < best_metric_seen) {
                         best_metric_seen    = errRp;
                         best_iter_val       = iter;
-                        best_objective_seen = compute_weight_kl();
+                        best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
                         W_best              = X;
                     }
                 }
@@ -439,7 +421,7 @@ RakingResult raking_solve(CalibState& st) {
                             if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
                                 best_metric_seen    = curr_best;
                                 best_iter_val       = iter;
-                                best_objective_seen = compute_weight_kl();
+                                best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
                                 W_best              = X;
                             }
                         }
@@ -478,7 +460,7 @@ RakingResult raking_solve(CalibState& st) {
                 // Weight KL stall: monotone for water-filling IPF (Csiszar-Tusnady).
                 // KL plateau ↔ constrained KL minimum — correct stall signal.
                 // Guard: wkl ≤ tol_abs means effectively at optimum → converged (not stalled).
-                const double wkl_flat = compute_weight_kl();
+                const double wkl_flat = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
                 if (wkl_flat <= st.tol_abs) {
                     res.base.status = RK_OK; res.base.convergence_iter = iter; break;
                 }

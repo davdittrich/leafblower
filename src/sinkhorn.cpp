@@ -122,17 +122,9 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     int    best_iter_val    = 0;
     std::vector<double> W_best(ct.M_cell, 0.0);
 
-    // Weight-space KL objective: Σ_c X[c]*log(X[c]/X_init[c])/n
-    // Distinct from m.kl (marginal KL) — this is what sinkhorn actually minimizes.
-    auto compute_weight_kl = [&]() -> double {
-        double wkl = 0.0;
-        const double inv_n = 1.0 / static_cast<double>(st.n);
-        for (int c = 0; c < ct.M_cell; c++) {
-            if (X_init[c] > 0.0 && X[c] > 0.0)
-                wkl += X[c] * std::log(X[c] / X_init[c]) * inv_n;
-        }
-        return std::isfinite(wkl) ? wkl : 0.0;
-    };
+    // Scratch buffers for compute_weight_kl.
+    std::vector<double> kl_ratio_buf(ct.M_cell);
+    std::vector<double> kl_weight_buf(ct.M_cell);
 
     std::vector<double> bucket(max_cats);
     std::vector<double> scale(max_cats);
@@ -222,7 +214,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                 // === BEST-ITER UPDATE ===
                 best_metric_seen    = curr_best;
                 best_iter_val       = iter;
-                best_objective_seen = compute_weight_kl();
+                best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data());
                 W_best              = X;
                 // === END BEST-ITER UPDATE ===
             }

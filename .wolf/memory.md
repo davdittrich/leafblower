@@ -3,6 +3,8 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+| 12:27 | fcbo.1: extracted solver_setup_ct/solver_setup_ct_base into calib_dispatch.hpp; migrated 6 solvers | src/calib_dispatch.hpp, src/greg.cpp, src/sinkhorn.cpp, src/chebyshev.cpp, src/greenkhorn.cpp, src/logit_calib.cpp, src/raking.cpp | DONE — 535 pass, 2 pre-existing ieppa fails | ~4000 |
+
 | 12:11 | fcbo.2: extract resolve_hi() + compute_cell_bounds() into calib_dispatch.hpp | src/calib_dispatch.hpp, src/chebyshev.cpp, src/sinkhorn.cpp, src/greg.cpp, src/raking.cpp | 5 sites each for hi_obs pattern; 7 sites for cell bounds loop; R CMD INSTALL OK; all tests PASS except 2 pre-existing failures in test-ieppa-nonuniform-d.R | ~4k |
 
 | 11:49 | ztid.6: add select_metric(CalibMetric, const CellMetrics&) struct overload | src/calib_dispatch.hpp, src/sinkhorn.cpp, tests/testthat/test-select-metric-struct.R | committed e95ff9c; 4 PASS, 2 pre-existing failures unrelated | ~3k |
@@ -1656,3 +1658,4 @@
 | 12:10 | Edited src/chebyshev.cpp | 7→4 lines | ~48 |
 | 12:10 | Edited src/chebyshev.cpp | isfinite() → resolve_hi() | ~84 |
 | 12:15 | fcbo.2: Complete resolve_hi() migration for raking+sinkhorn | src/raking.cpp, src/sinkhorn.cpp | Both sites replaced hi_obs calc with resolve_hi() call. Tests pass (2 pre-existing failures in ieppa-nonuniform unrelated). | ~150 |
+| 14:42 | Extract build_cells_per_cat() helper (fcbo.4) | cell_table.hpp, greenkhorn.cpp, raking.cpp, logit_calib.cpp | 3 callers refactored, all compile+test verified (532 pass), commit 7f401b4 | ~3800 |
