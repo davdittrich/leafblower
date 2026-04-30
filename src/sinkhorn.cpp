@@ -1,6 +1,7 @@
 #include "sinkhorn.hpp"
 #include "lbw_math.hpp"
 #include "calib_dispatch.hpp"
+#include "calib_validate.hpp"
 #include "leafblower.h"
 #include <cmath>
 #include <cstring>
@@ -103,6 +104,17 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     std::vector<double> X(ct.M_cell, 0.0);
     for (int i = 0; i < st.n; i++) X[ct.cell_of[i]] += st.weights[i];
     const std::vector<double> X_init(X);
+
+    {
+        int n_cats_total = 0;
+        for (int k = 0; k < st.K; k++) n_cats_total += st.cat_counts[k];
+        rk_result_t tmp_res = {};
+        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
+            res.status = tmp_res.status;
+            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
+            return res;
+        }
+    }
 
     const double lo = st.min_weight;
     const double hi = std::isfinite(st.max_weight) ? st.max_weight : 1e300;

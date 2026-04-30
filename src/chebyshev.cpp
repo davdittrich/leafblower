@@ -106,6 +106,15 @@ ChebyshevResult chebyshev_ipm(
     std::vector<double> X_init(ct.M_cell, 0.0);
     for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
 
+    {
+        rk_result_t tmp_res = {};
+        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), nct) != RK_OK) {
+            res.status = tmp_res.status;
+            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
+            return res;
+        }
+    }
+
     // Warm-start override: aggregate ieppa obs-level weights → cell masses,
     // then apply mass-preserving clamp (clamp → rescale → reclamp).
     if (!w_warm_obs.empty() && static_cast<int>(w_warm_obs.size()) == st.n) {

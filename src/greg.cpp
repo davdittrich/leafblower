@@ -39,12 +39,13 @@ GregResult greg_solve(CalibState& st) {
     int n_cats_total = 0;
     for (int k = 0; k < st.K; k++) { cat_offset[k] = n_cats_total; n_cats_total += st.cat_counts[k]; }
 
-    if (n_cats_total > kNCatsTotalMax) {
-        res.status = RK_ERR_BADARG;
-        std::snprintf(res.message, sizeof(res.message),
-                      "n_cats_total=%d exceeds limit %d; use method='ieppa'",
-                      n_cats_total, kNCatsTotalMax);
-        return res;
+    {
+        rk_result_t tmp_res = {};
+        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
+            res.status = tmp_res.status;
+            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
+            return res;
+        }
     }
 
     std::vector<bool> fixed_lo(ct.M_cell, false), fixed_hi(ct.M_cell, false);

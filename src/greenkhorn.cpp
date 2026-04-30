@@ -1,6 +1,7 @@
 #include "lbw_config.h"
 #include "greenkhorn.hpp"
 #include "calib_dispatch.hpp"
+#include "calib_validate.hpp"
 #include "cell_table.hpp"
 #include "sraa.hpp"
 #include <algorithm>
@@ -48,6 +49,17 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     std::vector<double> X(M, 0.0);
     for (int i = 0; i < st.n; i++) X[ct.cell_of[i]] += st.weights[i];
     const std::vector<double> X_init = X;
+
+    {
+        int n_cats_total = 0;
+        for (int k = 0; k < K; k++) n_cats_total += st.cat_counts[k];
+        rk_result_t tmp_res = {};
+        if (calib_validate_preentry(ct, st, &tmp_res, X_init.data(), n_cats_total) != RK_OK) {
+            res.status = tmp_res.status;
+            std::strncpy(res.message, tmp_res.message, sizeof(res.message) - 1);
+            return res;
+        }
+    }
 
     // Capacity bounds per cell
     std::vector<double> L_cell(M), U_cell(M);
