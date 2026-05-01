@@ -159,6 +159,22 @@ LM damping stabilizes Newton inside its convergence basin but cannot deform the 
 
 See plan rev 2: `docs/superpowers/plans/2026-05-01-newton-kl-homotopy-plan.md`.
 
+### IEPPA warm-start
+
+LM damping + best-iterate fallback stabilize Newton inside its convergence basin, but rank-deficient `H_pre` (overlapping-margin samples like stepstone) leaves a basin floor that Newton alone cannot cross from a `λ=0` cold start. **IEPPA (iterative proportional fitting / coordinate descent in log-factor space)** cannot overshoot across margin boundaries — its updates always land `λ` inside the correct basin. Running IEPPA for `K_warm` sweeps before LM-Newton produces a `λ_init` close enough to `λ*(T_0)` that Newton's quadratic basin captures the rest.
+
+**Mechanism:** `K_warm = 8` IEPPA+SRAA sweeps with the original target `T` (NOT a smoothed `T_eps`). Capture the lf vector at IEPPA's best-iterate (`lf_best`, mirroring `W_best`). Convert to Newton's `λ` via `λ[lam_off_newton[k] + j - 1] = lf_best[cat_offset_ieppa[k] + j] - lf_best[cat_offset_ieppa[k] + 0]` for `j ≥ 1`. The constant offset `C = sum_k lf_best[cat_offset_ieppa[k] + 0]` shifts away under Newton's LSE; weights are scale-equivalent.
+
+**Three-tier fallback:** SRAA-fail (non-finite lf or status ≥ 1) → plain IEPPA retry (`accelerate=FALSE`) → cold start (`λ = 0`). Strictly additive — warm-start can only improve, never regress. Diagnostic field `n_warmstart_iters_used` records which tier fired (8 = SRAA, 8 = plain IEPPA, 0 = cold).
+
+**Recovery:** weights computed from final ε=0 Newton's `λ` (no homotopy smoothing). After warm-start, Newton runs the existing LM-damped inner with `lm_mu = max(lm_mu_after_first_iter / 3, 1e-6)` (see "Levenberg-Marquardt damping" subsection for the rest of the inner-loop semantics).
+
+**Diagnostic field:** `n_warmstart_iters_used` (integer) on `NewtonCalibResult`, surfaced via `r_bridge.cpp pack_solver_result`. Replaces the now-stale `n_homotopy_levels_used` (Epic-B target homotopy was BLOCKED; see `docs/investigations/2026-05-01-newton-kl-homotopy-result.md`).
+
+**AUTO routing impact:** none. Warm-start is internal to `newton_calibrate`; `c_api.cpp` AUTO selection logic is independent of inner-solver mechanics.
+
+See plan rev 3: `docs/superpowers/plans/2026-05-01-newton-kl-ieppa-warmstart-plan.md`.
+
 ## Cost Analysis
 
 | Operation | Cost | K=20, n=1M |
