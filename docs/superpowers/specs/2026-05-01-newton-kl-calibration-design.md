@@ -38,7 +38,7 @@ kk1204: n=1M, K=20, nj=5, max_weight=3, skewed targets, OMP_NUM_THREADS=1.
 
 ## Scope
 
-- New standalone solver: `method="newton"` in `harvest()`
+- New standalone solver: `method="newton_kl"` in `harvest()`
 - Designed to replace lbfgsb for the zero-compression regime AND serve as a faster alternative to ieppa+sraa
 - AUTO routing: K ≥ 5 AND M_cell/n ≥ 0.9 (K ≥ 5 justified below; same M_cell/n threshold already in c_api.cpp)
 - Obs-level iteration (not cell-level) — explicitly NOT using cell_lf
@@ -134,10 +134,10 @@ Target: **< 2s** on kk1204 (vs ieppa+sraa 3.7s, lbfgsb 73.8s).
 | `src/newton_calib.hpp` | `NewtonCalibResult` struct (embeds `CalibResult base`), `newton_calibrate()` declaration |
 | `src/newton_calib.cpp` | Full implementation: obs-level Hessian accumulation, LDLT solve, Armijo line search |
 | `src/Makevars.in` | Add `newton_calib.cpp` to `PKG_SOURCES` |
-| `src/leafblower.h` | `RK_ALG_NEWTON = 11` in `rk_algorithm_t` enum |
+| `src/leafblower.h` | `RK_ALG_NEWTON_KL = 11` in `rk_algorithm_t` enum |
 | `src/c_api.cpp` | AUTO dispatch: Newton when M_cell/n ≥ 0.9 AND K ≥ 5; add Newton arm |
 | `src/r_bridge.cpp` | **Both** AUTO dispatch (line ~425) **and** Newton dispatch arm; expose result fields |
-| `R/harvest.R` | `method="newton"` in `match.arg`, AUTO routing comment |
+| `R/harvest.R` | `method="newton_kl"` in `match.arg`, AUTO routing comment |
 
 **Reuse from existing infrastructure:**
 - `lbw::ldlt_factor_inplace` + `lbw::ldlt_solve` from `calib_linalg.hpp`
@@ -179,19 +179,23 @@ Newton solves the **unconstrained** KL dual. Weight bounds (`max_weight`, `min_w
 **`src/c_api.cpp`** (line ~171, before existing `M_cell > 0.9` rule):
 ```cpp
 // Newton: smooth dual, K ≥ 5, zero-compression regime
-if (est_ratio >= 0.9 && K >= 5) alg = RK_ALG_NEWTON;
+if (est_ratio >= 0.9 && K >= 5) alg = RK_ALG_NEWTON_KL;
 ```
 
 **`src/r_bridge.cpp`** (line ~425, AUTO arm, same condition):
 ```cpp
-alg_for_validation = (kAlgMap.count(method_str) && ...) : RK_ALG_NEWTON when condition;
+alg_for_validation = (kAlgMap.count(method_str) && ...) : RK_ALG_NEWTON_KL when condition;
 ```
 Both sites must be updated.
 
 ## Testing
 
 1. `test-newton-kl.R`: K=3 small problem, status==0, max_error < 1e-6
-2. `test-newton-kl.R`: K=9 stepstone_small, status==0, max_error < 1e-3
+2. `test-newton-kl.R`: K=9 stepstone_small, status==0, max_error < 1e-4 (tighter than greenkhorn)
+3. Manual benchmark: kk1204 (K=20, n=1M) → target < 2s, max_error < 1e-4
+4. `test-newton-kl.R`: bounds-active problem → fallback triggers correctly, status = RK_ERR_NOCONV
+5. `test-newton-kl.R`: **KL vs chi2 quality validation** — same fixture, `newton_kl$max_error < greg$max_error`. Validates the core design claim: Newton-KL minimizes KL divergence, producing better marginal calibration quality than greg's chi2 Newton. A gradient or dual implementation bug would produce greg-like convergence (small step) without KL-correctness; this test catches it.
+6. Full regression: FAIL 0
 3. `test-newton-kl.R`: kk1204 manual benchmark (K=20, n=1M) → target < 2s, max_error < 1e-4
 4. `test-newton-kl.R`: bounds-active problem → fallback triggers correctly, status = RK_ERR_NOCONV
 5. Full regression: FAIL 0 after Newton dispatch added
