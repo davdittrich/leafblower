@@ -239,6 +239,7 @@ harvest <- function(
   collapse_vars    = NULL,
   target_map       = NULL,
   design_weights   = NULL,
+  jacobi_sweep     = FALSE,
   ...
 ) {
   # Not-in-v1 hard stops
@@ -391,6 +392,8 @@ harvest <- function(
                as.integer(sor_cfg$burnin),
                ## SRAA-m accelerate flag
                as.integer(accelerate_bool),
+               ## Jacobi log-path sweep flag
+               as.integer(isTRUE(jacobi_sweep)),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
