@@ -264,16 +264,17 @@ ChebyshevResult chebyshev_ipm(
             // IPM convergence: μ → 0 is the correct criterion (not improvement on errRp).
             // CalibRule (improvement/plateau) is designed for iterative projection methods;
             // for IPM it fires prematurely while the algorithm is still making progress.
-            // Primary: μ < kTolMu. Secondary: user absolute_tol if set.
-            // Tertiary: best_errRp < 1e-8 — Mehrotra drives primal to machine precision while
-            // μ stays large (degenerate complementarity); accept when best calibration is perfect.
-            // Guard iter>0: warm-start may already have perfect errRp on iter 0; require a step.
-            // Primary: complementarity gap. Tertiary: best_errRp < 1e-8 fires when warm-start
-            // brings errRp to machine precision while μ stays large (degenerate complementarity).
-            // The X_best NaN guard above ensures best_errRp < 1e-8 only fires on valid solutions.
-            // Guard iter>0: warm-start may already have perfect errRp on iter 0; require a step.
+            // Primary:      μ < kTolMu — complementarity gap closed.
+            // Secondary:    user absolute_tol if set.
+            // Tertiary:     best_errRp < 1e-8 — Mehrotra drives primal to machine precision while
+            //               μ stays large (degenerate complementarity).
+            // Quarternary:  best_errRp < pct_tol — IPM stalled but primal quality meets user
+            //               tolerance. For tight K≥3 problems μ may not reach 1e-6 within kMaxIpm
+            //               while the calibration objective (max marginal error) is already met.
             bool converged = (mu < kTolMu) || (iter > 0 && best_errRp < kPrimalMachinePrecConv);
             if (have_abs) converged = converged || converged_abs;
+            if (!converged && have_pct && iter > 0 && std::isfinite(best_errRp))
+                converged = (best_errRp < cfg.pct_tol);
 
             if (converged) {
                 lbw::mark_converged(res, cfg, iter+1);
