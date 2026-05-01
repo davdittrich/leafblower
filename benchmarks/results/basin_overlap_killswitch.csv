@@ -1,0 +1,7 @@
+"metric","value"
+"max_abs_log_ratio",1.50270129078505
+"median_abs_log_ratio",0.00926427935255483
+"p95_abs_log_ratio",0.0380454096320235
+"n_close",7966
+"n_nonfinite",93
+"n_total",200000
