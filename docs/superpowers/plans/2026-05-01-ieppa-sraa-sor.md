@@ -77,9 +77,37 @@ const bool allow_sor_this_iter = sor_auto_base && !r.aa_accepted;
 sor_auto_v = allow_sor_this_iter;
 ```
 
-5. The SOR adaptation block at `ieppa.cpp:1357` reads `sor_auto_v`. Confirm it is reachable from the SRAA path. **It is not** (SRAA branch does not enter the for-loop). So we need to invoke SOR adaptation *inside* `f_eval_lf` itself. Update `f_eval_lf` to take `sor_omega`/`sor_prev_errRp`/`sor_prev_decreasing`/`sor_burnin_v` by reference and apply the same adaptation rule already at `:1357`.
+5. The SOR adaptation block at `ieppa.cpp:1357` reads `sor_auto_v`. Confirm it is reachable from the SRAA path. **It is not** (SRAA branch does not enter the for-loop). So we need to invoke SOR adaptation *inside* `f_eval_lf` itself. The outer `bool sor_run_this_feval` flag (set in the SRAA while-loop) controls whether f_eval_lf applies SOR on this call.
 
-6. **Hoist** the SOR adaptation block at `:1357-XXX` into a free function `sor_adapt_omega(...)` in a new anonymous-namespace static within `ieppa.cpp` (no new TU; matches existing style). Both the for-loop body and `f_eval_lf` call this helper with `sor_run = sor_active && sor_auto_v && (iter or feval) >= sor_burnin_v`.
+Concrete `f_eval_lf` signature addition (add `sor_run_this_feval` captured by [&]):
+```cpp
+bool sor_run_this_feval = false;   // declared just before f_eval_lf, before the SRAA block
+
+auto f_eval_lf = [&](std::vector<double>& flat) -> double {
+    unpack_lf(flat, lf, f_lin, cell_lf, X_cur, ct, X_init, log_X_init,
+              st.K, cat_offset, cell_lf_hwm);
+    // [existing sweep logic: linear or log path] ...
+    // B-narrow SOR hook: only when previous SRAA step was plain (aa_accepted=false)
+    if (sor_run_this_feval && sor_active && iter_sraa >= sor_burnin_v) {
+        for (int k = 0; k < st.K; k++) {
+            double errRp_k = compute_margin_errRp_linear(k); // existing lambda
+            bool decreasing = (errRp_k < sor_prev_errRp[k]);
+            bool sign_flip  = !decreasing && sor_prev_decreasing[k];
+            if (sign_flip)
+                sor_omega[k] = std::max(omega_min_v, sor_omega[k] * kSorOscillationDamp);
+            else if (decreasing)
+                sor_omega[k] = std::min(1.0,         sor_omega[k] * kSorRecoveryGrowth);
+            sor_prev_decreasing[k] = decreasing;
+            sor_prev_errRp[k]      = errRp_k;
+        }
+    }
+    pack_lf(lf, flat);
+    // ... [errRp return] ...
+};
+```
+In the SRAA while-loop, set `sor_run_this_feval = !last_aa_accepted` before calling `sraa_step`. Track `last_aa_accepted = r.aa_accepted` after the call.
+
+6. `iter_sraa` counter: declare as `int iter_sraa = 0;` before the SRAA while-loop; increment each iteration.
 
 7. **Touch only what is strictly needed.** Do not refactor unrelated SOR code paths. Do not change defaults. Do not touch `sor_cfg` struct.
 
