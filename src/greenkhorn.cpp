@@ -123,7 +123,9 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             }
         }
         std::swap(X, Xv); std::swap(S_flat, Sv_sraa); std::swap(W, Wv);
-        // Adaptive sort: re-sort errRp after each step (identical to plain greenkhorn)
+        // K greenkhorn steps: each picks the current argmax-violation margin.
+        // F(X) is deterministic (same X → same errRp → same argmax sequence),
+        // so the fixed-point map is stationary and SRAA is valid.
         for (int ki = 0; ki < K; ki++) {
             int k_star = (int)(std::max_element(errRp.begin(), errRp.end()) - errRp.begin());
             greenkhorn_step(k_star);
