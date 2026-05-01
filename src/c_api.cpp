@@ -168,14 +168,20 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_CHEBYSHEV:   alg = RK_ALG_CHEBYSHEV;   break;
             case RK_ALG_GREENKHORN:  alg = RK_ALG_GREENKHORN;  break;
             case RK_ALG_LOGIT:       alg = RK_ALG_LOGIT;       break;
+            case RK_ALG_NEWTON_KL:   alg = RK_ALG_NEWTON_KL;   break;
             case RK_ALG_AUTO:
             default: {
-                // Route to raking when cell table is nearly incompressible (M_cell/n > 0.9).
-                // At high ratios iEPPA has no compression benefit; raking is equivalent and simpler.
+                // Route based on cell table compression ratio and dimension.
+                // Newton-KL: smooth dual, zero-compression regime (M_cell/n >= 0.9 && K >= 5)
+                // Raking: high-compression regime (M_cell/n > 0.9 && K < 5)
+                // iEPPA: default low-compression regime
                 int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
-                // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
-                alg = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9)
-                      ? RK_ALG_RAKING : RK_ALG_IEPPA;
+                // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
+                if (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9) {
+                    alg = (K >= 5) ? RK_ALG_NEWTON_KL : RK_ALG_RAKING;
+                } else {
+                    alg = RK_ALG_IEPPA;
+                }
                 auto_selected = true;
                 break;
             }
@@ -295,6 +301,12 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         status = res.base.status;
         iterations = res.base.iterations;
         max_error = res.base.max_error;
+    } else if (alg == RK_ALG_NEWTON_KL) {
+        // newton_calib.cpp implements this — placeholder until N2
+        if (result) {
+            result->status = RK_ERR_BADARG;
+        }
+        return RK_ERR_BADARG;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
             auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
