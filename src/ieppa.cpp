@@ -851,7 +851,15 @@ IEPPAResult ieppa_solve(CalibState& st) {
             }
             res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
             total_iters += f_evals_used;
-            if (converged) level_converged = true;
+            if (converged) {
+                level_converged = true;
+                // Set convergence status — mirrors the mark_converged() call
+                // in the non-SRAA for-loop. Without this, status stays at
+                // RK_ERR_NOCONV and is later mis-classified as RK_ERR_BUDGET.
+                if (lvl == N_levels - 1) {
+                    lbw::mark_converged(res, st.convergence_cfg, res.base.iterations);
+                }
+            }
             // Clamp cell masses to [L_cell, U_cell] before syncing to X.
             // SRAA lf extrapolation is unconstrained and can overshoot cell
             // capacity bounds; without clamping, per-obs weights explode
