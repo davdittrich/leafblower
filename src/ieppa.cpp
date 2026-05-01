@@ -124,7 +124,7 @@ static inline void unpack_lf(const std::vector<double>& src,
     cell_lf_hwm = hwm;
 }
 
-IEPPAResult ieppa_solve(CalibState& st) {
+IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     constexpr int    kErrCheckInterval = 10;
     constexpr double kEmptyBucketThreshold = 1e-15;
     constexpr double kLogClip = 700.0;  // exp(700) < DBL_MAX
@@ -200,6 +200,33 @@ IEPPAResult ieppa_solve(CalibState& st) {
     }
     total_cats = cat_offset[st.K];
     std::vector<double> lf(total_cats, 0.0);  // lf[cat_offset[k] + j]
+
+    // WI-1: best-iterate lf snapshot for optional lf_capture output.
+    // Updated alongside W_best in the SRAA branch (mirrors lf_best = lf_flat).
+    // Fallback: if best-iterate is never recorded (e.g. early-exit before any
+    // improvement, or non-SRAA path that does not maintain a lf_best), the
+    // RAII guard writes the final `lf` instead — caller documents this fallback.
+    std::vector<double> lf_best_snap(total_cats, 0.0);
+    bool                lf_best_snap_set = false;
+    // RAII guard: writes the captured lf to *lf_capture on destruction so all
+    // exit paths (returns, exceptions) are covered without manually wiring
+    // every return statement in this long function.
+    struct LfCaptureGuard {
+        std::vector<double>*       out;
+        const std::vector<double>* snap;
+        const bool*                snap_set;
+        const std::vector<double>* fallback;
+        ~LfCaptureGuard() {
+            if (out == nullptr) return;
+            if (snap_set != nullptr && *snap_set && snap != nullptr) {
+                *out = *snap;
+            } else if (fallback != nullptr) {
+                *out = *fallback;
+            }
+        }
+    };
+    LfCaptureGuard lf_capture_guard{lf_capture, &lf_best_snap,
+                                    &lf_best_snap_set, &lf};
 
     // Per-cell capacity multiplier (linear-space).
     std::vector<double> W(ct.M_cell, 1.0);
@@ -848,6 +875,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         W_best[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
                     }
                     lf_best             = lf_flat;
+                    // WI-1: mirror best-iterate lf into the function-scope
+                    // snapshot consumed by lf_capture_guard on solve exit.
+                    lf_best_snap        = lf_flat;
+                    lf_best_snap_set    = true;
                     best_iter_val       = res.base.iterations;
                     best_objective_seen = lbw::compute_weight_kl(
                         X_cur, X_init, ct.M_cell, st.n,

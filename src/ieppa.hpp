@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include "types.hpp"
 
 namespace lbw {
@@ -36,6 +37,13 @@ struct IEPPAResult {
 
 // Faithful iEPPA (paper-faithful algBCD at C=0). See
 // docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md.
-IEPPAResult ieppa_solve(CalibState& state);
+//
+// Optional `lf_capture` (default nullptr): if non-null, on solve exit the
+// best-iterate log-Sinkhorn factors `lf` are written to *lf_capture. The
+// snapshot mirrors the W_best best-iterate tracking (NOT the trajectory's
+// final lf). Used by Newton warm-start (WI-2). Default nullptr keeps every
+// existing caller bit-identical.
+IEPPAResult ieppa_solve(CalibState& state,
+                        std::vector<double>* lf_capture = nullptr);
 
 } // namespace lbw
