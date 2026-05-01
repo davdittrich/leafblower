@@ -211,6 +211,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Reuses lf[] (line 135) as log(f_lin) in the linear path.
     // cell_lf also used by T2.A in the log path.
     std::vector<double> cell_lf(ct.M_cell, 0.0);
+    // J2: Jacobi snapshot of cell_lf taken at outer-iter start (log path only).
+    // Lambda reads from this when st.jacobi_log==true; else reads cell_lf directly.
+    // Allocated only when jacobi_log is set (zero memory cost for default GS path).
+    std::vector<double> cell_lf_frozen;
+    if (st.jacobi_log) cell_lf_frozen.assign(ct.M_cell, 0.0);
     // High-water mark: max_c(log_X_init[c] + cell_lf[c]) ≈ max_c log(X_tilde[c]).
     // Monotone-nondecreasing between corrections — stale-high is intentional.
     double cell_lf_hwm = std::numeric_limits<double>::lowest();
@@ -669,8 +674,10 @@ IEPPAResult ieppa_solve(CalibState& st) {
                         : ((1.0 - net_log) * lf_old + net_log * (log_target - log_S_kj));
                     lf[cat_offset[k] + j] = lf_new;
                     // T2.A: maintain cell_lf incrementally (eliminates K=20 DRAM streams)
+                    // J2: Jacobi gates the scattered cell_lf writes; rebuild fires after sweep.
+                    // lf[off+j] write above is UNGATED — log factors must propagate for rebuild.
                     double delta = lf_new - lf_old;
-                    if (std::fabs(delta) > 1e-12) {
+                    if (!st.jacobi_log && std::fabs(delta) > 1e-12) {
                         for (int c : cells_by_margin_cat[cat_offset[k] + j])
                             cell_lf[c] += delta;
                     }
@@ -710,6 +717,18 @@ IEPPAResult ieppa_solve(CalibState& st) {
 
                 for (int k = 0; k < st.K && !overflow; k++) {
                     if (apply_single_margin_log(k)) overflow = true;  // always false for log path
+                }
+                // J2: Jacobi rebuild after K-margin sweep in SRAA f_eval_lf.
+                if (st.jacobi_log) {
+                    std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+                    for (int k = 0; k < st.K; k++) {
+                        const int off = cat_offset[k];
+                        const int* gk = ct.g_per_cell[k].data();
+                        for (int c = 0; c < ct.M_cell; c++) {
+                            int g = gk[c];
+                            if (g >= 0) cell_lf[c] += lf[off + g];
+                        }
+                    }
                 }
                 // Refresh X_tilde from updated cell_lf.
                 for (int c = 0; c < ct.M_cell; c++) {
@@ -916,6 +935,11 @@ IEPPAResult ieppa_solve(CalibState& st) {
         res.base.iterations = iter;
         alpha = compute_alpha();
         if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
+
+        // J2: Jacobi freeze. Log path only; linear path uses live X_cur leave-one-out.
+        if (st.jacobi_log && !use_linear) {
+            std::copy(cell_lf.begin(), cell_lf.end(), cell_lf_frozen.begin());
+        }
 
         // Margin sweep: branched by path.
         bool overflow_trip = false;
@@ -1127,6 +1151,25 @@ IEPPAResult ieppa_solve(CalibState& st) {
             } else {
                 for (int k = 0; k < st.K; k++) {
                     (void) apply_single_margin_log(k);
+                }
+            }
+            // J2: Jacobi rebuild. O(K * M_cell) sequential; cache-friendly.
+            // Rebuilds cell_lf from current lf[] and refreshes cell_lf_hwm.
+            if (st.jacobi_log) {
+                std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+                for (int k = 0; k < st.K; k++) {
+                    const int off = cat_offset[k];
+                    const int* gk = ct.g_per_cell[k].data();
+                    for (int c = 0; c < ct.M_cell; c++) {
+                        int g = gk[c];
+                        if (g >= 0) cell_lf[c] += lf[off + g];
+                    }
+                }
+                // Refresh hwm from live cell_lf (one O(M_cell) pass).
+                cell_lf_hwm = std::numeric_limits<double>::lowest();
+                for (int c = 0; c < ct.M_cell; c++) {
+                    double val = cell_lf[c] + log_X_init[c];
+                    if (std::isfinite(val) && val > cell_lf_hwm) cell_lf_hwm = val;
                 }
             }
         }
