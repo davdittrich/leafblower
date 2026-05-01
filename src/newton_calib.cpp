@@ -6,6 +6,7 @@
 #include "calib_validate.hpp"
 #include <cmath>
 #include <algorithm>
+#include <limits>
 #include <numeric>
 #include <cstring>
 #include <cstdio>
@@ -69,35 +70,67 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     const int max_iter = (st.outer_max_iter > 0) ? st.outer_max_iter : 50;
     const double tol_abs = (st.tol_abs > 0.0) ? st.tol_abs : 1e-6;
 
-    // LM damping state — start conservative (1.0) to avoid overshoot on iter 0.
-    // Adaptive μ schedule: gain-ratio ρ>0.75 → μ/=3 (model good), ρ<0.25 → μ×10.
+    // LM damping state. Init 1e-3 (mildly damped); adaptive μ via Marquardt
+    // gain ratio: ρ>0.75 → μ/=3 (model good), ρ<0.25 → μ×10. Init 1.0 was too
+    // damped on well-conditioned (stepstone K=9): max_err stuck at ~1.0 after
+    // 33 iters — μ couldn't relax fast enough. 1e-3 lets Newton step at full
+    // length on iter 0 when H is well-conditioned.
     const double lm_mu_min = 1e-12;
     const double lm_mu_max = 1e12;
-    double lm_mu = 1.0;
+    double lm_mu = 1e-3;
 
-    // ── 4. Dual objective: g(λ) = log Z(λ) - Σ_a T[a]*λ[a] ─────────────────
-    // g is convex; Newton minimizes it. At optimum ∇g = 0 ↔ margins calibrated.
-    auto eval_dual = [&](const std::vector<double>& lam_v, double& Z_out) -> double {
-        double Z = 0.0;
-        for (int i = 0; i < n; ++i) {
-            double u = 0.0;
-            for (int k = 0; k < K; ++k) {
-                const int j = st.group_ids[k][i];
-                if (j > 0) u += lam_v[lam_off[k] + j - 1];
-            }
-            Z += st.weights[i] * std::exp(u);
+    // ── 4. Dual objective with log-sum-exp stabilization ───────────────────
+    // g(λ) = log Z(λ) - T·λ where Z(λ) = Σ d_i exp(u_i). For K=20 with skewed
+    // targets |u_i| reaches 60+ → raw exp(u_i) overflows/underflows, Z→0/∞,
+    // false-convergence (NaN compares short-circuit gap=0). Stable form:
+    // u_max = max_i u_i; Z = exp(u_max)·Σ d_i exp(u_i − u_max);
+    // log Z = u_max + log Σ d_i exp(u_i − u_max).
+    // All ratios (G/Z, H/Z, w_i = exp(u_i)/Z·n) are u_max-shift invariant.
+    auto compute_u = [&](const std::vector<double>& lam_v, int i) -> double {
+        double u = 0.0;
+        for (int k = 0; k < K; ++k) {
+            const int j = st.group_ids[k][i];
+            if (j > 0) u += lam_v[lam_off[k] + j - 1];
         }
-        Z_out = Z;
+        return u;
+    };
+    auto compute_u_max = [&](const std::vector<double>& lam_v) -> double {
+        double u_max = -std::numeric_limits<double>::infinity();
+        for (int i = 0; i < n; ++i) {
+            const double u = compute_u(lam_v, i);
+            if (u > u_max) u_max = u;
+        }
+        return u_max;
+    };
+    // eval_dual: returns g(λ); Z_out = Σ d_i exp(u_i − u_max); u_max_out = max u.
+    auto eval_dual = [&](const std::vector<double>& lam_v,
+                         double& Z_stable_out, double& u_max_out) -> double {
+        const double u_max = compute_u_max(lam_v);
+        double Z_stable = 0.0;
+        for (int i = 0; i < n; ++i) {
+            Z_stable += st.weights[i] * std::exp(compute_u(lam_v, i) - u_max);
+        }
+        Z_stable_out = Z_stable;
+        u_max_out    = u_max;
         double Tlam = 0.0;
         for (int a = 0; a < n_lam; ++a) Tlam += T[a] * lam_v[a];
-        return std::log(Z) - Tlam;
+        return u_max + std::log(Z_stable) - Tlam;
     };
 
-    double Z_curr = 0.0;
-    double g_curr = eval_dual(lam, Z_curr);
+    double Z_curr = 0.0;     // = Z_stable at current λ (u_max factored out)
+    double u_max_curr = 0.0; // current λ's u_max for stable recovery in step 6
+    double g_curr = eval_dual(lam, Z_curr, u_max_curr);
 
     // ── 5. Newton iterations ─────────────────────────────────────────────────
     int consecutive_failed = 0;  // consecutive line-search failures; cap at 3
+    // Best-iterate tracking: rank-deficient near-optimum can drift λ to ∞ even
+    // while Armijo accepts (model under-predicts decrease). Save λ at lowest
+    // gap seen; restore before recovery if the loop exits in a worse state.
+    std::vector<double> lam_best(lam);
+    double best_gap     = std::numeric_limits<double>::infinity();
+    double best_Z       = Z_curr;
+    double best_u_max   = u_max_curr;
+    int    best_iter_id = 0;
     int iter = 0;
     for (iter = 0; iter < max_iter; ++iter) {
 
@@ -106,14 +139,13 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         std::fill(H.begin(), H.end(), 0.0);
         double Z = 0.0;
 
-        // 5b. Single obs-level pass: accumulate Z, G, H (upper triangle).
+        // 5b. LSE prep: scan u_max once, then accumulate using exp(u_i − u_max).
+        // u_max factor cancels in all ratios (G/Z, H/Z) so this is a pure
+        // numerical-stability shift. Cost: one extra O(n·K) pass per Newton iter.
+        const double u_max_step = compute_u_max(lam);
         for (int i = 0; i < n; ++i) {
-            double u = 0.0;
-            for (int k = 0; k < K; ++k) {
-                const int j = st.group_ids[k][i];
-                if (j > 0) u += lam[lam_off[k] + j - 1];
-            }
-            const double f_i = st.weights[i] * std::exp(u);
+            const double u = compute_u(lam, i);
+            const double f_i = st.weights[i] * std::exp(u - u_max_step);
             Z += f_i;
 
             // Gradient accumulation
@@ -135,7 +167,8 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                 }
             }
         }
-        Z_curr = Z;
+        Z_curr     = Z;            // = Σ d_i exp(u_i − u_max_step)
+        u_max_curr = u_max_step;   // shift used during this step's accumulation
 
         // 5c. Normalize G and H by Z.
         const double inv_Z = 1.0 / Z;
@@ -166,6 +199,15 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         for (int a = 0; a < n_lam; ++a)
             dual_gap = std::max(dual_gap, std::fabs(G[a]));
         res.dual_gap = dual_gap;
+
+        // Track best λ (lowest gap seen) for end-of-loop fallback recovery.
+        if (dual_gap < best_gap) {
+            best_gap     = dual_gap;
+            best_Z       = Z;
+            best_u_max   = u_max_step;
+            best_iter_id = iter;
+            lam_best     = lam;
+        }
 
         if (dual_gap < tol_abs) {
             res.lm_mu_final = lm_mu;
@@ -203,10 +245,15 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         }
 
         // δᵀ H_pre δ using pre-damp (PSD) Hessian for the gain-ratio denominator.
+        // Clamp ≥ 0: under severe rank deficiency (severe-skew K=20, many empty
+        // cells), Schur-complement subtraction can produce tiny-negative diagonal
+        // due to FP rounding. PSD is the mathematical truth; clamping avoids
+        // contaminating ρ with spurious numerical violations.
         double delta_H_delta = 0.0;
         for (int a = 0; a < n_lam; ++a)
             for (int b = 0; b < n_lam; ++b)
                 delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
+        if (delta_H_delta < 0.0) delta_H_delta = 0.0;
 
         // G·δ = G^T H_damp^{-1} G ≥ 0 (descent curvature).
         double g_dot_d = 0.0;
@@ -216,12 +263,12 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         // Sufficient decrease: g(λ - α·δ) ≤ g(λ) - c1·α·(G·δ).
         double alpha = 1.0;
         std::vector<double> lam_trial(n_lam);
-        double Z_trial = 0.0, g_trial = 0.0;
+        double Z_trial = 0.0, g_trial = 0.0, u_max_trial = 0.0;
         constexpr double c1 = 1e-4;
         bool accepted = false;
         for (int ls = 0; ls < 30; ++ls) {
             for (int a = 0; a < n_lam; ++a) lam_trial[a] = lam[a] - alpha * delta[a];
-            g_trial = eval_dual(lam_trial, Z_trial);
+            g_trial = eval_dual(lam_trial, Z_trial, u_max_trial);
             if (g_trial <= g_curr - c1 * alpha * g_dot_d) { accepted = true; break; }
             alpha *= 0.5;
         }
@@ -263,8 +310,9 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             step2 += d * d;
         }
         res.step_norm = std::sqrt(step2);
-        g_curr  = g_trial;
-        Z_curr  = Z_trial;
+        g_curr     = g_trial;
+        Z_curr     = Z_trial;
+        u_max_curr = u_max_trial;
 
         // Secondary stop: step too small to make progress.
         if (res.step_norm < 1e-14) {
@@ -275,17 +323,33 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     }
     res.base.iterations = iter + 1;
 
-    // ── 6. Recover obs weights: w_i = weights[i] * exp(u_i) / Z * n ────────
+    // ── 5l. Best-iterate restoration ──────────────────────────────────────
+    // If the loop's final λ has a worse gap than the best one seen, restore.
+    // Defensive against drift: rank-deficient Hessian + accepted-by-Armijo can
+    // walk λ past the optimum into unbounded-dual regions; gap stops decreasing
+    // but g keeps decreasing (descent direction is wrong but still descent).
+    // Compare conservatively (factor 1.01) so a stale best at iter 0 doesn't
+    // overrule a slightly-noisy iter-N+ result.
+    if (best_gap < res.dual_gap * 0.99) {
+        lam        = lam_best;
+        Z_curr     = best_Z;
+        u_max_curr = best_u_max;
+        res.dual_gap         = best_gap;
+        res.base.iterations  = best_iter_id + 1;
+    }
+
+    // ── 6. Recover obs weights via stable form ─────────────────────────────
+    // w_i = d_i · exp(u_i) / Z_real · n
+    //     = d_i · exp(u_i − u_max) / Z_stable · n   (u_max factor cancels)
+    // Z_curr and u_max_curr are the LSE-stable values from the last accepted
+    // iter (set in step 5b for the convergence-break path, or in step 5j
+    // after Armijo accept). They correspond to the current `lam`.
     std::vector<double> w(n);
     const double scale = static_cast<double>(n) / Z_curr;
     int n_violated = 0;
     for (int i = 0; i < n; ++i) {
-        double u = 0.0;
-        for (int k = 0; k < K; ++k) {
-            const int j = st.group_ids[k][i];
-            if (j > 0) u += lam[lam_off[k] + j - 1];
-        }
-        const double w_i = st.weights[i] * std::exp(u) * scale;
+        const double u = compute_u(lam, i);
+        const double w_i = st.weights[i] * std::exp(u - u_max_curr) * scale;
         w[i] = w_i;
         if (w_i > st.max_weight || w_i < st.min_weight) ++n_violated;
     }
