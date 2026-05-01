@@ -135,6 +135,30 @@ Sample H rank-collapses dynamically as λ drifts (severe-skew K=20 case): only a
 
 See plan rev2 (`docs/superpowers/plans/2026-05-01-newton-kl-lm-plan.md`) for the full rationale and the failure modes ruled out (multiplicative-only damping, μ·I spherical damping, trust-region clip, tiny-step fallback).
 
+### Target homotopy
+
+LM damping stabilizes Newton inside its convergence basin but cannot deform the basin itself. Severe-skew K=20 problems and stepstone-style overlapping-margin fixtures have rank-deficient Hessians whose dual landscape has a finite-gap plateau — Newton converges to that plateau but no further. **Mechanism:** target homotopy provides a warm-start path: each intermediate problem's `λ*` is a starting point for the next, keeping Newton inside its quadratic basin throughout the descent to `λ*(T_0)`. Rank deficiency in `H` persists at every ε, but Newton's basin is wide enough when `λ_init` is close to `λ*`.
+
+**Schedule:** ε ∈ {0.5, 0.1, 0.03, 0.01, 0.003, 0.0}.
+
+**Per-ε targets:** `T_eps[k][j] = (1-ε)·T[k][j] + ε·(1/cat_counts[k])` (per-margin uniform; NOT joint uniform — joint would explode cell count).
+
+**Feasibility guard:** before the first ε iteration, verify every (k,j) with `T_eps[k][j] > 0` has at least one observation `cat_k(i) == j` with `d_i > 0`. If any (k,j) fails, abort with `RK_ERR_BADARG` (smoothed target unreachable from sample).
+
+**Inner solve:** existing LM-damped Newton iter loop, max 20 iters per ε. λ carries across ε boundaries (warm start).
+
+**`lm_mu` schedule:** at first ε, `lm_mu = 1e-3`. At each subsequent ε, `lm_mu = max(lm_mu_final_prev / 3, 1e-6)` — keeps recovered damping while avoiding saturation lock-in.
+
+**Final ε=0:** runs the same inner with original targets; expected to converge in 3-5 Newton iters from a near-optimal warm start.
+
+**Recovery:** weights computed from final ε=0's converged λ. No homotopy bias in returned weights.
+
+**New diagnostic:** `n_homotopy_levels_used` field on `NewtonCalibResult` records the count of ε levels that ran ≥1 inner Newton iter.
+
+**AUTO routing impact:** none in the success/PARTIAL paths (homotopy is internal to `newton_calibrate`; signature unchanged). On ESCAPE verdict, AUTO routing in `c_api.cpp` adds a target-skew gate to route severely-skewed K≥5 problems to ieppa+sraa (homotopy code stays in `newton_calib.cpp` for moderate-skew users).
+
+See plan rev 2: `docs/superpowers/plans/2026-05-01-newton-kl-homotopy-plan.md`.
+
 ## Cost Analysis
 
 | Operation | Cost | K=20, n=1M |
@@ -226,4 +250,3 @@ Both sites must be updated. The string key `"newton_kl"` must be in `kAlgMap` to
 
 - Not for compressed problems (M_cell << n); ieppa/raking are better there
 - No greedy scheduler, SOR, SRAA overlays
-- No homotopy
