@@ -254,6 +254,13 @@ Constant: `kSchurNuMin = 1e-8` (with `D_nu` of order `n_d · M_cell`, `1e-8` is 
 
 Confidence on the formulas: 90 (block elimination is textbook; reference elimination is the only non-obvious piece and matches the prior approved spec).
 
+### T2 baseline gate (no code changes — verify existing tests still pass before T3 begins)
+```bash
+R CMD INSTALL --preclean .
+Rscript -e 'testthat::test_dir("tests/testthat", filter="chebyshev")'
+```
+Expected: `* DONE (leafblower)` and 4/4 chebyshev tests GREEN. If any test is red before T3 starts, **halt** — do not proceed.
+
 ---
 
 ## T3 — Implementation in `src/chebyshev.cpp`
@@ -643,6 +650,12 @@ Delete lines 322–351 of the current file (the `verbose >= 2 && iter == 0 && nc
 
 ### Step 3.7 — Remove the `n_comp == 0` degenerate branch
 
+**Safety verification (mandatory before deletion):**
+```bash
+grep -n "n_comp" src/chebyshev.cpp
+```
+Confirm: (a) `n_comp` is assigned exactly once as `n_comp = 2*ct.M_cell + 2*nct + 1`, and (b) `ct.M_cell >= 1` and `nct >= 1` always (they fail build_cell_table earlier if 0), so `n_comp >= 5`. The `if (n_comp == 0)` branch is unreachable. The existing comment at lines 354–355 confirms this. If the grep shows any other write to `n_comp` — **halt and report BLOCKED.**
+
 Lines 356–490 of the current file are dead code (`n_comp = 2*M_cell + 2*nct + 1 >= 1` always). The current comment at 354–355 acknowledges this. Drop the `if (n_comp == 0) { … } else { …Phase A/B… }` wrapper; keep the Phase A/B body unindented. Cuts ~135 lines of unreachable code, simplifies T3 review.
 
 ### Compile gate
@@ -674,6 +687,37 @@ Expected: 4 PASS. `T_cheby_warm` must remain GREEN (K=3 max_err <= raking + marg
 ### Goal
 
 Demonstrate the canonical Stepstone K=9 failure now converges (`status==0`) with `max_err` competitive against raking and greenkhorn.
+
+### Step 4.0 — Committed K=4 testthat test (CI-safe, no parquet)
+
+Add to `tests/testthat/test-chebyshev.R` (committed before running other steps):
+```r
+test_that("chebyshev converges on K=4 overlapping-margin problem (ν fix)", {
+  set.seed(7L); n <- 2000L
+  df <- data.frame(
+    a = factor(sample(3L, n, replace = TRUE)),
+    b = factor(sample(4L, n, replace = TRUE)),
+    c = factor(sample(3L, n, replace = TRUE)),
+    d = factor(sample(2L, n, replace = TRUE))
+  )
+  tgt <- list(
+    a = setNames(rep(1/3, 3L), as.character(1:3)),
+    b = setNames(rep(1/4, 4L), as.character(1:4)),
+    c = setNames(rep(1/3, 3L), as.character(1:3)),
+    d = setNames(rep(1/2, 2L), as.character(1:2))
+  )
+  r <- suppressWarnings(
+    harvest(df, tgt, method = "chebyshev", max_iterations = 300L,
+            attach_weights = FALSE, verbose = 0L)
+  )
+  res <- attr(r, "result")
+  expect_equal(res$status, 0L,
+    label = sprintf("K=4 chebyshev: status=%d max_err=%.2e", res$status, res$max_error))
+  expect_lt(res$max_error, 1e-3,
+    label = sprintf("K=4 chebyshev: max_err=%.2e", res$max_error))
+})
+```
+This test fails with the current code (NOCONV on K=4) and passes after T3. Commit it as part of T4 Step 4.0 so CI tracks the fix.
 
 ### Step 4.1 — K=2 sanity (must not regress)
 
