@@ -126,6 +126,7 @@ struct CalibState {
     CalibConvergenceCfg  convergence_cfg;
     CalibSorCfg          sor_cfg;
     bool                 accelerate = false;  // SQUAREM outer loop for raking
+    bool                 jacobi_log = false;  // log path: freeze cell_lf at iter start (Jacobi semantics)
     // ── End overlay config ──
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;

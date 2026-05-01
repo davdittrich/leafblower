@@ -228,6 +228,7 @@ harvest <- function(
   adaptive_order   = NULL,
   enforce_mean     = TRUE,
   accelerate       = FALSE,
+  jacobi_sweep     = FALSE,
   add_na_proportion = FALSE,
   auto_collapse    = FALSE,
   collapse_vars    = NULL,
@@ -305,6 +306,9 @@ harvest <- function(
     warning("accelerate=TRUE is only supported for method='raking', 'greenkhorn', 'ieppa', or 'ieppa_soft'; ignoring for method='",
             method, "'", call. = FALSE)
   accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft")
+
+  if (!is.logical(jacobi_sweep) || length(jacobi_sweep) != 1L)
+    stop("jacobi_sweep must be TRUE or FALSE", call. = FALSE)
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
   if (!is.null(design_weights)) {
@@ -385,6 +389,7 @@ harvest <- function(
                as.integer(sor_cfg$burnin),
                ## SRAA-m accelerate flag
                as.integer(accelerate_bool),
+               as.integer(isTRUE(jacobi_sweep)),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
