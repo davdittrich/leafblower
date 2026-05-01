@@ -64,6 +64,31 @@ test_that("T_cheby_warm_fallback: chebyshev returns finite result even with marg
     label="chebyshev must return finite max_error (not NaN from bad warm-start)")
 })
 
+test_that("T_cheby_K4: chebyshev converges on K=4 overlapping-margin problem (ν fix)", {
+  set.seed(7L); n <- 2000L
+  df <- data.frame(
+    a = factor(sample(3L, n, replace = TRUE)),
+    b = factor(sample(4L, n, replace = TRUE)),
+    c = factor(sample(3L, n, replace = TRUE)),
+    d = factor(sample(2L, n, replace = TRUE))
+  )
+  tgt <- list(
+    a = setNames(rep(1/3, 3L), as.character(1:3)),
+    b = setNames(rep(1/4, 4L), as.character(1:4)),
+    c = setNames(rep(1/3, 3L), as.character(1:3)),
+    d = setNames(rep(1/2, 2L), as.character(1:2))
+  )
+  r <- suppressWarnings(
+    harvest(df, tgt, method = "chebyshev", max_iterations = 300L,
+            attach_weights = FALSE, verbose = 0L)
+  )
+  res <- attr(r, "result")
+  expect_equal(res$status, 0L,
+    label = sprintf("K=4 chebyshev: status=%d max_err=%.2e", res$status, res$max_error))
+  expect_lt(res$max_error, 1e-3,
+    label = sprintf("K=4 chebyshev: max_err=%.2e", res$max_error))
+})
+
 test_that("T_cheby_K9: chebyshev K=9 stepstone max_err <= greenkhorn", {
   skip_if_not_installed("arrow")
   skip_if_not_installed("jsonlite")

@@ -179,19 +179,33 @@ ChebyshevResult chebyshev_ipm(
     // Hoisted work vectors
     const int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
     std::vector<double> D_eff(ct.M_cell), D_marg(nct);
-    // Full nct system (for δ Sherman-Morrison — must use full space to preserve E1/E2)
-    std::vector<double> N0((size_t)nct * (size_t)nct);
-    std::vector<double> u_vec(nct), v_vec(nct);
-    std::vector<double> dlambda(nct);
+
+    // Reduced normal equations + reduced Newton vectors (reference-cat elim → schur_nu > 0)
+    std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
+    std::vector<double> u_red(nct_red), v_red(nct_red);
+    std::vector<double> e_red(nct_red), w_e_red(nct_red), tmp_red(nct_red);
+    std::vector<double> rhs_A_red(nct_red), rhs_B_red(nct_red);
+    std::vector<double> dlambda_A_red(nct_red), dlambda_B_red(nct_red);
+    std::vector<double> D_jac_red(nct_red);
+
+    // red_to_full inverse map (built once; mirrors full_to_red built at L88–97)
+    std::vector<int> red_to_full(nct_red);
+    {
+        int nr = 0;
+        for (int m = 0; m < nct; m++) if (full_to_red[m] >= 0) red_to_full[nr++] = m;
+    }
+
+    // Pre-fill u_red[nr] = w_kj[red_to_full[nr]] (constant across iterations: w_kj[m] = n_d)
+    for (int nr = 0; nr < nct_red; nr++) u_red[nr] = w_kj[red_to_full[nr]];
+
+    static constexpr double kSchurNuMin = 1e-8;  // tight; D_nu = O(n_d·M_cell)
+
+    // Full-nct outputs (unchanged: duals, slacks, primal step on cells/δ)
     std::vector<double> dX(ct.M_cell);
     std::vector<double> dS_up(nct), dS_dn(nct);
     std::vector<double> dY_lo(ct.M_cell), dY_hi(ct.M_cell), dY_up(nct), dY_dn(nct);
     std::vector<double> delta_S(nct);   // full nct — reference margins included
     std::vector<double> bucket_tmp(max_cats);
-    // Mehrotra predictor-corrector workspace
-    std::vector<double> D_jac(nct);                       // Jacobi scaling diagonal
-    std::vector<double> rhs_A(nct), rhs_B(nct);          // Phase A / Phase B RHS
-    std::vector<double> dlambda_A(nct), dlambda_B(nct);  // Phase A / Phase B solutions
     std::vector<double> dX_A(ct.M_cell), dX_B(ct.M_cell);
     std::vector<double> dS_up_A(nct), dS_dn_A(nct);      // Phase A slack steps
     double best_delta = delta;
@@ -290,251 +304,128 @@ ChebyshevResult chebyshev_ipm(
         for (int m = 0; m < nct; m++)
             r_delta_stat -= w_kj[m]*(y_up[m]+y_dn[m]);
 
-        // Sherman-Morrison: u[m]=w_kj[m], Theta = second derivative of barrier w.r.t. δ
+        // Sherman-Morrison: u_red[nr]=w_kj[red_to_full[nr]] (pre-filled); Theta = 1/alpha_sm
         double Theta = y_delta / s_delta;
         for (int m = 0; m < nct; m++)
             Theta += w_kj[m]*w_kj[m] * (y_up[m]/s_up[m] + y_dn[m]/s_dn[m]);
         double alpha_sm = (Theta > 1e-300) ? 1.0/Theta : 0.0;
-        for (int m = 0; m < nct; m++) u_vec[m] = w_kj[m];
 
-        // N_0 = A * D_eff * A^T (full nct×nct) — rebuilt fresh each iteration
-        if (lbw::compute_normal_equations(ct, D_eff.data(), N0.data(),
-                                          cat_offset.data(), st.K,
-                                          static_cast<size_t>(nct)) != RK_OK) {
+        // N_red = A_red * D_eff * A_red^T (reduced nct_red×nct_red) — rebuilt fresh each iteration
+        if (lbw::compute_normal_equations_reduced(ct, D_eff.data(), N_red.data(),
+                                                  cat_offset.data(), st.K,
+                                                  static_cast<size_t>(nct_red),
+                                                  full_to_red.data()) != RK_OK) {
             res.base.status = RK_ERR_BADARG; return res;
         }
 
-        // Jacobi diagonal preconditioning: D_jac[j] = 1/sqrt(max(N[j*nct+j], 1e-12))
-        // Scale N in-place: N_scaled[i][j] = D_jac[i]*N[i][j]*D_jac[j]
-        for (int j = 0; j < nct; j++)
-            D_jac[j] = 1.0 / std::sqrt(std::max(N0[(size_t)j*nct+j], 1e-12));
-        for (int i = 0; i < nct; i++)
-            for (int j = 0; j < nct; j++)
-                N0[(size_t)i*nct+j] *= D_jac[i] * D_jac[j];
+        // Jacobi diagonal preconditioning on N_red
+        for (int j = 0; j < nct_red; j++)
+            D_jac_red[j] = 1.0 / std::sqrt(std::max(N_red[(size_t)j*nct_red+j], 1e-12));
+        for (int i = 0; i < nct_red; i++)
+            for (int j = 0; j < nct_red; j++)
+                N_red[(size_t)i*nct_red+j] *= D_jac_red[i] * D_jac_red[j];
 
-        // LDLT factor scaled N_0 once per iteration
-        if (ldlt_factor_inplace(N0.data(), static_cast<size_t>(nct), kEpsLdlt) != RK_OK) {
+        // LDLT factor scaled N_red once per iteration
+        if (ldlt_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsLdlt) != RK_OK) {
             res.base.status = RK_ERR_BADARG; return res;
         }
         res.n_factorizations++;
 
-        // ν diagnostic at verbose >= 2, first iteration only.
-        // Uses reduced N (reference categories eliminated) to avoid degenerate near-zero schur_nu.
-        // schur_nu = D_nu - e_red^T * N_red^{-1} * e_red.
-        if (st.verbose >= 2 && iter == 0 && nct_red > 0) {
-            std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
-            std::vector<double> e_red(nct_red, 0.0), w_e_red(nct_red);
-            if (lbw::compute_normal_equations_reduced(ct, D_eff.data(), N_red.data(),
-                                                      cat_offset.data(), st.K,
-                                                      static_cast<size_t>(nct_red),
-                                                      full_to_red.data()) == RK_OK &&
-                ldlt_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsLdlt) == RK_OK) {
-                for (int c = 0; c < ct.M_cell; c++)
-                    for (int k = 0; k < st.K; k++) {
-                        int g = ct.g_per_cell[k][c];
-                        if (g < 0 || g >= st.cat_counts[k]) continue;
-                        int m = cat_offset[k] + g;
-                        int nr = full_to_red[m];
-                        if (nr >= 0) e_red[nr] += D_eff[c];
-                    }
-                std::copy(e_red.begin(), e_red.end(), w_e_red.begin());
-                ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), w_e_red.data());
-                double D_nu = 0.0;
-                for (int c = 0; c < ct.M_cell; c++) D_nu += D_eff[c];
-                double eTw_e = 0.0;
-                for (int nr = 0; nr < nct_red; nr++) eTw_e += e_red[nr] * w_e_red[nr];
-                const double schur_nu = D_nu - eTw_e;
-                char msg[128];
-                std::snprintf(msg, sizeof(msg), "chebyshev: schur_nu=%.4e (iter 0)", schur_nu);
-                st.log(msg);
+        // Once-per-iteration ν workspace: e_red[nr], D_nu, r_nu
+        std::fill(e_red.begin(), e_red.end(), 0.0);
+        double D_nu = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) {
+            D_nu += D_eff[c];
+            for (int k = 0; k < st.K; k++) {
+                int g = ct.g_per_cell[k][c];
+                if (g < 0 || g >= st.cat_counts[k]) continue;
+                int nr = full_to_red[cat_offset[k] + g];
+                if (nr >= 0) e_red[nr] += D_eff[c];
             }
         }
+        const double r_nu = W - n_d;   // W from L222–223
 
         // Mehrotra predictor-corrector; Jacobi preconditioning applied above.
         // n_comp = 2*ct.M_cell + 2*nct + 1 > 0 always.
         double sigma_mu;
-        if (n_comp == 0) {
-            // Degenerate: Jacobi-preconditioned single-step with fixed σ
-            sigma_mu = kSigma * mu;
-            const double rmu_delta_f = sigma_mu - s_delta*y_delta;
-            double margin_delta_center_f = 0.0;
-            for (int m = 0; m < nct; m++) {
-                double rmu_up = sigma_mu - s_up[m]*y_up[m];
-                double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
-                rhs_A[m] = -(S[m] - T_flat[m]*W)
-                           + D_marg[m] * (rmu_up/s_up[m] - rmu_dn/s_dn[m]);
-                margin_delta_center_f += w_kj[m]*(rmu_up/s_up[m] + rmu_dn/s_dn[m]);
-            }
-            // Scale, solve, unscale (using Jacobi-preconditioned N0)
-            for (int m = 0; m < nct; m++) rhs_A[m] *= D_jac[m];
-            ldlt_solve(N0.data(), static_cast<size_t>(nct), rhs_A.data());
-            for (int m = 0; m < nct; m++) dlambda_A[m] = D_jac[m] * rhs_A[m];
-            // SM correction
-            for (int m = 0; m < nct; m++) v_vec[m] = D_jac[m] * u_vec[m];
-            ldlt_solve(N0.data(), static_cast<size_t>(nct), v_vec.data());
-            for (int m = 0; m < nct; m++) v_vec[m] *= D_jac[m];
-            double utv_f = 0.0, utw_f = 0.0;
-            for (int m = 0; m < nct; m++) { utv_f += u_vec[m]*v_vec[m]; utw_f += u_vec[m]*dlambda_A[m]; }
-            double sm_denom_f = 1.0 + alpha_sm*utv_f;
-            double sm_coeff_f = (std::fabs(sm_denom_f) > 1e-300) ? (alpha_sm*utw_f/sm_denom_f) : 0.0;
-            for (int m = 0; m < nct; m++) dlambda[m] = dlambda_A[m] - sm_coeff_f * v_vec[m];
-            // dX from dlambda
-            std::fill(dX.begin(), dX.end(), 0.0);
-            for (int k = 0; k < st.K; k++)
-                for (int c = 0; c < ct.M_cell; c++) {
-                    int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < st.cat_counts[k])
-                        dX[c] += dlambda[cat_offset[k]+g];
-                }
-            for (int c = 0; c < ct.M_cell; c++) dX[c] = D_eff[c] * dX[c];
-            double w_dot_dlambda_f = 0.0;
-            for (int m = 0; m < nct; m++) w_dot_dlambda_f += w_kj[m]*dlambda[m];
-            double d_delta_f = alpha_sm * (
-                rmu_delta_f/s_delta
-              + margin_delta_center_f
-              - r_delta_stat
-              - (y_delta/s_delta)*w_dot_dlambda_f
-            );
-            std::fill(delta_S.begin(), delta_S.end(), 0.0);
-            for (int k = 0; k < st.K; k++)
-                for (int c = 0; c < ct.M_cell; c++) {
-                    int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < st.cat_counts[k])
-                        delta_S[cat_offset[k]+g] += dX[c];
-                }
-            for (int m = 0; m < nct; m++) {
-                dS_up[m] = w_kj[m]*d_delta_f - delta_S[m];
-                dS_dn[m] = delta_S[m] + w_kj[m]*d_delta_f;
-            }
-            for (int m = 0; m < nct; m++) {
-                double rmu_up = sigma_mu - s_up[m]*y_up[m];
-                double rmu_dn = sigma_mu - s_dn[m]*y_dn[m];
-                dY_up[m] = (rmu_up - y_up[m]*dS_up[m]) / s_up[m];
-                dY_dn[m] = (rmu_dn - y_dn[m]*dS_dn[m]) / s_dn[m];
-            }
-            for (int c = 0; c < ct.M_cell; c++) {
-                double rmu_lo = sigma_mu - s_lo[c]*y_lo[c];
-                double rmu_hi = sigma_mu - s_hi[c]*y_hi[c];
-                dY_lo[c] = (rmu_lo - y_lo[c]*dX[c]) / s_lo[c];
-                dY_hi[c] = (rmu_hi + y_hi[c]*dX[c]) / s_hi[c];
-            }
-            double dY_delta_f = (rmu_delta_f - y_delta*d_delta_f) / s_delta;
-            // Line search and update
-            double alpha_p = 1.0, alpha_d = 1.0;
-            for (int c = 0; c < ct.M_cell; c++) {
-                if (dX[c] > 0.0)  alpha_p = std::min(alpha_p, kStepScale*s_hi[c]/dX[c]);
-                if (dX[c] < 0.0)  alpha_p = std::min(alpha_p, -kStepScale*s_lo[c]/dX[c]);
-                if (dY_lo[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_lo[c]/dY_lo[c]);
-                if (dY_hi[c] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_hi[c]/dY_hi[c]);
-            }
-            for (int m = 0; m < nct; m++) {
-                if (dS_up[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_up[m]/dS_up[m]);
-                if (dS_dn[m] < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_dn[m]/dS_dn[m]);
-                if (dY_up[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_up[m]/dY_up[m]);
-                if (dY_dn[m] < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_dn[m]/dY_dn[m]);
-            }
-            if (d_delta_f < 0.0) alpha_p = std::min(alpha_p, -kStepScale*s_delta/d_delta_f);
-            if (dY_delta_f < 0.0) alpha_d = std::min(alpha_d, -kStepScale*y_delta/dY_delta_f);
-            for (int c = 0; c < ct.M_cell; c++) X[c] += alpha_p*dX[c];
-            delta += alpha_p*d_delta_f;
-            if (delta < kEps) delta = kEps;
-            s_delta = delta;
-            for (int c = 0; c < ct.M_cell; c++) {
-                s_lo[c] = std::max(X[c]-L_cell[c], kEps);
-                s_hi[c] = std::max(U_cell[c]-X[c], kEps);
-            }
-            compute_S(X, S);
-            {
-                double W_upd = 0.0;
-                for (int c = 0; c < ct.M_cell; c++) W_upd += X[c];
-                int viol_this_iter = 0;
-                for (int m = 0; m < nct; m++) {
-                    double raw_sup = T_flat[m]*W_upd + w_kj[m]*delta - S[m];
-                    double raw_sdn = S[m] - T_flat[m]*W_upd + w_kj[m]*delta;
-                    if (raw_sup < 0.0 || raw_sdn < 0.0) viol_this_iter++;
-                    s_up[m] = std::max(raw_sup, kEps);
-                    s_dn[m] = std::max(raw_sdn, kEps);
-                }
-                if (viol_this_iter > 0) {
-                    slack_violations++;
-                    if (slack_violations > kInfeasPersistence) {
-                        std::snprintf(res.message, sizeof(res.message),
-                                      "chebyshev: %d consecutive iters with negative slacks — INFEAS",
-                                      slack_violations);
-                        res.base.status = RK_ERR_INFEAS;
-                        break;
-                    }
-                } else { slack_violations = 0; }
-            }
-            y_delta += alpha_d*dY_delta_f; if (y_delta < kEps) y_delta = kEps;
-            for (int c = 0; c < ct.M_cell; c++) {
-                y_lo[c] += alpha_d*dY_lo[c]; if (y_lo[c] < kEps) y_lo[c] = kEps;
-                y_hi[c] += alpha_d*dY_hi[c]; if (y_hi[c] < kEps) y_hi[c] = kEps;
-            }
-            for (int m = 0; m < nct; m++) {
-                y_up[m] += alpha_d*dY_up[m]; if (y_up[m] < kEps) y_up[m] = kEps;
-                y_dn[m] += alpha_d*dY_dn[m]; if (y_dn[m] < kEps) y_dn[m] = kEps;
-            }
-            {
-                double comp_new = y_delta*s_delta;
-                for (int c = 0; c < ct.M_cell; c++) comp_new += y_lo[c]*s_lo[c] + y_hi[c]*s_hi[c];
-                for (int m = 0; m < nct; m++) comp_new += y_up[m]*s_up[m] + y_dn[m]*s_dn[m];
-                double mu_new = comp_new / n_comp;
-                if (mu_new > 100.0 * mu) {
-                    y_delta = mu / s_delta;
-                    for (int c = 0; c < ct.M_cell; c++) { y_lo[c] = mu/s_lo[c]; y_hi[c] = mu/s_hi[c]; }
-                    for (int m = 0; m < nct; m++) { y_up[m] = mu/s_up[m]; y_dn[m] = mu/s_dn[m]; }
-                }
-            }
-            if (delta < best_delta) { best_delta = delta; }
-            continue;
-        } else {
+        {
             // ── Phase A: affine predictor (σ = 0, no centering) ──────────────────
-            // RHS_A[m] = -(S[m] - T_flat[m]*W) + D_marg[m]*(-s_up*y_up/s_up + s_dn*y_dn/s_dn)
-            //          = -(S[m] - T_flat[m]*W) - D_marg[m]*(y_up - y_dn)
-            // (rmu_up = 0 - s_up*y_up with σ=0; contribution = -y_up; similarly for dn)
-            for (int m = 0; m < nct; m++)
-                rhs_A[m] = -(S[m] - T_flat[m]*W)
-                           + D_marg[m] * (-y_up[m] + y_dn[m]);
+            // RHS in reduced space: reference categories dropped
+            for (int nr = 0; nr < nct_red; nr++) {
+                int m = red_to_full[nr];
+                rhs_A_red[nr] = -(S[m] - T_flat[m]*W)
+                                + D_marg[m] * (-y_up[m] + y_dn[m]);
+            }
 
-            // δ centering contribution to δ step (σ=0 → rmu_delta = -s_delta*y_delta)
-            // margin_delta_center = Σ w[m]*(rmu_up/s_up + rmu_dn/s_dn); with σ=0: -y_up-y_dn
+            // δ centering contribution (σ=0 → rmu_delta = -s_delta*y_delta)
+            // margin_delta_center sums over full nct (δ stationarity uses all margins)
             double margin_delta_center_A = 0.0;
             for (int m = 0; m < nct; m++)
                 margin_delta_center_A += w_kj[m]*(-y_up[m] - y_dn[m]);
             double rmu_delta_A = -s_delta*y_delta;
 
-            // Scale RHS_A: rhs_A_scaled[j] = D_jac[j] * rhs_A[j]
-            for (int m = 0; m < nct; m++) rhs_A[m] *= D_jac[m];
-            // Solve Phase A (scaled)
-            ldlt_solve(N0.data(), static_cast<size_t>(nct), rhs_A.data());
-            // Unscale: dlambda_A[j] = D_jac[j] * rhs_A_scaled_solved[j]
-            for (int m = 0; m < nct; m++) dlambda_A[m] = D_jac[m] * rhs_A[m];
+            // Solve N_red · dlambda_A_red = rhs_A_red (Jacobi-scaled)
+            for (int nr = 0; nr < nct_red; nr++) rhs_A_red[nr] *= D_jac_red[nr];
+            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), rhs_A_red.data());
+            for (int nr = 0; nr < nct_red; nr++) dlambda_A_red[nr] = D_jac_red[nr] * rhs_A_red[nr];
 
-            // SM correction for Phase A (δ direction)
-            // v_vec = N_0^{-1} · (D_jac * u_vec)
-            for (int m = 0; m < nct; m++) v_vec[m] = D_jac[m] * u_vec[m];
-            ldlt_solve(N0.data(), static_cast<size_t>(nct), v_vec.data());
-            for (int m = 0; m < nct; m++) v_vec[m] *= D_jac[m];
-
+            // δ-SM correction on dlambda_A_red (first SM)
+            for (int nr = 0; nr < nct_red; nr++) tmp_red[nr] = D_jac_red[nr] * u_red[nr];
+            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
+            for (int nr = 0; nr < nct_red; nr++) v_red[nr] = D_jac_red[nr] * tmp_red[nr];
             double utv = 0.0, utw_A = 0.0;
-            for (int m = 0; m < nct; m++) { utv += u_vec[m]*v_vec[m]; utw_A += u_vec[m]*dlambda_A[m]; }
+            for (int nr = 0; nr < nct_red; nr++) {
+                utv   += u_red[nr]*v_red[nr];
+                utw_A += u_red[nr]*dlambda_A_red[nr];
+            }
             double sm_denom = 1.0 + alpha_sm*utv;
             double sm_coeff_A = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw_A/sm_denom) : 0.0;
-            for (int m = 0; m < nct; m++) dlambda_A[m] -= sm_coeff_A * v_vec[m];
+            for (int nr = 0; nr < nct_red; nr++) dlambda_A_red[nr] -= sm_coeff_A * v_red[nr];
 
-            // dx_A, d_delta_A from dlambda_A
+            // ── ν correction (Phase A): third back-solve + Schur Δν ─────────────
+            for (int nr = 0; nr < nct_red; nr++) tmp_red[nr] = D_jac_red[nr] * e_red[nr];
+            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
+            for (int nr = 0; nr < nct_red; nr++) w_e_red[nr] = D_jac_red[nr] * tmp_red[nr];
+            double ute_A = 0.0;
+            for (int nr = 0; nr < nct_red; nr++) ute_A += u_red[nr] * w_e_red[nr];
+            double sm_coeff_e_A = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm * ute_A / sm_denom) : 0.0;
+            for (int nr = 0; nr < nct_red; nr++) w_e_red[nr] -= sm_coeff_e_A * v_red[nr];
+
+            double eTw_e_A = 0.0, eTdl_A = 0.0;
+            for (int nr = 0; nr < nct_red; nr++) {
+                eTw_e_A += e_red[nr] * w_e_red[nr];
+                eTdl_A  += e_red[nr] * dlambda_A_red[nr];
+            }
+            const double schur_nu_A = D_nu - eTw_e_A;
+            const double dnu_A = (schur_nu_A > kSchurNuMin) ? (-r_nu - eTdl_A) / schur_nu_A : 0.0;
+            for (int nr = 0; nr < nct_red; nr++) dlambda_A_red[nr] -= dnu_A * w_e_red[nr];
+
+            // Verbose iter-0 diagnostic (replaces removed diagnostic block)
+            if (st.verbose >= 2 && iter == 0) {
+                char msg[160];
+                std::snprintf(msg, sizeof(msg),
+                    "chebyshev: schur_nu=%.4e dnu=%.4e r_nu=%.4e (iter 0, Phase A)",
+                    schur_nu_A, dnu_A, r_nu);
+                st.log(msg);
+            }
+
+            // dX_A from dlambda_A_red + Δν · D_eff
             std::fill(dX_A.begin(), dX_A.end(), 0.0);
-            for (int k = 0; k < st.K; k++)
-                for (int c = 0; c < ct.M_cell; c++) {
+            for (int c = 0; c < ct.M_cell; c++) {
+                double sum_dlam = 0.0;
+                for (int k = 0; k < st.K; k++) {
                     int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < st.cat_counts[k])
-                        dX_A[c] += dlambda_A[cat_offset[k]+g];
+                    if (g < 0 || g >= st.cat_counts[k]) continue;
+                    int nr = full_to_red[cat_offset[k] + g];
+                    if (nr >= 0) sum_dlam += dlambda_A_red[nr];
                 }
-            for (int c = 0; c < ct.M_cell; c++) dX_A[c] = D_eff[c] * dX_A[c];
+                dX_A[c] = D_eff[c] * (sum_dlam + dnu_A);
+            }
 
+            // w_dot_dlambda_A AFTER ν correction
             double w_dot_dlambda_A = 0.0;
-            for (int m = 0; m < nct; m++) w_dot_dlambda_A += w_kj[m]*dlambda_A[m];
+            for (int nr = 0; nr < nct_red; nr++)
+                w_dot_dlambda_A += w_kj[red_to_full[nr]] * dlambda_A_red[nr];
             double d_delta_A = alpha_sm * (
                 rmu_delta_A/s_delta
               + margin_delta_center_A
@@ -587,40 +478,18 @@ ChebyshevResult chebyshev_ipm(
             sigma_mu = sigma * mu;
 
             // ── Phase B: corrector (centering + second-order) ─────────────────────
-            // rhs_B[m] = rhs_A_original[m] + σμ/s_up - σμ/s_dn
-            //          + D_marg[m]*( σμ/s_up - σμ/s_dn - dx_A·ds_up_A/s_up + dx_A·ds_dn_A/s_dn )
-            // Combining: second-order correction = -dS_up_A[m]*y_up_affine_step/s_up
-            // Full Mehrotra corrector for rhs_B:
-            // rhs_B[m] = -(S-TW) + D_marg*(σμ - s_up*y_up - dS_up_A*dY_up_A)/s_up
-            //                     - D_marg*(σμ - s_dn*y_dn - dS_dn_A*dY_dn_A)/s_dn
-            // where dY_up_A[m] = (-s_up[m]*y_up[m] - y_up[m]*dS_up_A[m]) / s_up[m]
-            //                   = (-y_up[m]*(s_up[m]+dS_up_A[m])) / s_up[m]  (σ=0 affine)
-            // So dS_up_A * dY_up_A = dS_up_A * (-y_up*(s_up+dS_up_A))/s_up
-            // Simplified: Mehrotra second-order term = -dS_up_A[m]*dY_up_A_unscaled
-            // where dY_up_A_unscaled = (0 - y_up*dS_up_A)/s_up  (σ=0)
-            // => second_order_up[m] = -dS_up_A[m] * (-y_up[m]*dS_up_A[m]/s_up[m])
-            //                       = dS_up_A[m]^2 * y_up[m] / s_up[m]
-            // Full corrector rhs:
-            // rhs_B[m] = -(S-TW) + D_marg*(σμ - s_up*y_up + dS_up_A^2*y_up/s_up - (-σμ + s_dn*y_dn - dS_dn_A^2*y_dn/s_dn)) / ...
-            // Compact form matching the spec's "rhs_B = rhs_A + σ*μ*e - dx_A·ds_A":
-            // The "dx_A·ds_A" term in the Schur-complement reduced system is:
-            // Δ_m = D_marg[m] * (dS_up_A[m]*(y_up[m]*dS_up_A[m]/s_up[m])
-            //                  - dS_dn_A[m]*(y_dn[m]*dS_dn_A[m]/s_dn[m]))
-            // Mehrotra second-order correction: -Δs_A*Δy_A for each complementarity pair.
-            // With σ=0 affine: Δy_up_A = (-s_up*y_up - y_up*Δs_up_A)/s_up
-            //   → -Δs_up_A*Δy_up_A = y_up*Δs_up_A + y_up*Δs_up_A²/s_up
-            for (int m = 0; m < nct; m++) {
+            // RHS_B (reduced rows only — reference categories dropped)
+            for (int nr = 0; nr < nct_red; nr++) {
+                int m = red_to_full[nr];
                 double corr_up = y_up[m]*dS_up_A[m] + y_up[m]*dS_up_A[m]*dS_up_A[m]/s_up[m];
                 double corr_dn = y_dn[m]*dS_dn_A[m] + y_dn[m]*dS_dn_A[m]*dS_dn_A[m]/s_dn[m];
                 double rmu_up_B = sigma_mu - s_up[m]*y_up[m] + corr_up;
                 double rmu_dn_B = sigma_mu - s_dn[m]*y_dn[m] + corr_dn;
-                rhs_B[m] = -(S[m] - T_flat[m]*W)
-                           + D_marg[m] * (rmu_up_B/s_up[m] - rmu_dn_B/s_dn[m]);
+                rhs_B_red[nr] = -(S[m] - T_flat[m]*W)
+                                + D_marg[m] * (rmu_up_B/s_up[m] - rmu_dn_B/s_dn[m]);
             }
 
-            // δ Phase B centering with second-order correction
-            // Δy_delta_A = (-s_delta*y_delta - y_delta*d_delta_A)/s_delta
-            // -d_delta_A*Δy_delta_A = y_delta*d_delta_A + y_delta*d_delta_A²/s_delta
+            // δ centering (full nct; δ stationarity row spans ALL margins including reference)
             double corr_delta = y_delta*d_delta_A + y_delta*d_delta_A*d_delta_A/s_delta;
             double rmu_delta_B = sigma_mu - s_delta*y_delta + corr_delta;
             double margin_delta_center_B = 0.0;
@@ -632,29 +501,45 @@ ChebyshevResult chebyshev_ipm(
                 margin_delta_center_B += w_kj[m]*(rmu_up_B/s_up[m] + rmu_dn_B/s_dn[m]);
             }
 
-            // Scale and solve Phase B — REUSE same factored N0 (no refactor)
-            for (int m = 0; m < nct; m++) rhs_B[m] *= D_jac[m];
-            ldlt_solve(N0.data(), static_cast<size_t>(nct), rhs_B.data());
-            for (int m = 0; m < nct; m++) dlambda_B[m] = D_jac[m] * rhs_B[m];
+            // Solve in reduced space — REUSE factored N_red (no refactor)
+            for (int nr = 0; nr < nct_red; nr++) rhs_B_red[nr] *= D_jac_red[nr];
+            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), rhs_B_red.data());
+            for (int nr = 0; nr < nct_red; nr++) dlambda_B_red[nr] = D_jac_red[nr] * rhs_B_red[nr];
 
-            // SM correction for Phase B (same v_vec from Phase A)
+            // δ-SM correction on dlambda_B_red (same v_red and sm_denom from Phase A)
             double utw_B = 0.0;
-            for (int m = 0; m < nct; m++) utw_B += u_vec[m]*dlambda_B[m];
+            for (int nr = 0; nr < nct_red; nr++) utw_B += u_red[nr]*dlambda_B_red[nr];
             double sm_coeff_B = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw_B/sm_denom) : 0.0;
-            for (int m = 0; m < nct; m++) dlambda_B[m] -= sm_coeff_B * v_vec[m];
+            for (int nr = 0; nr < nct_red; nr++) dlambda_B_red[nr] -= sm_coeff_B * v_red[nr];
 
-            // dx_B from dlambda_B
+            // ── ν correction (Phase B): reuse w_e_red (SM-corrected) and schur_nu from Phase A ──
+            // e_red is fixed within iteration → w_e_red identical between phases.
+            const double schur_nu_B = D_nu - [&](){
+                double s = 0.0;
+                for (int nr = 0; nr < nct_red; nr++) s += e_red[nr] * w_e_red[nr];
+                return s;
+            }();
+            double eTdl_B = 0.0;
+            for (int nr = 0; nr < nct_red; nr++) eTdl_B += e_red[nr] * dlambda_B_red[nr];
+            const double dnu_B = (schur_nu_B > kSchurNuMin) ? (-r_nu - eTdl_B) / schur_nu_B : 0.0;
+            for (int nr = 0; nr < nct_red; nr++) dlambda_B_red[nr] -= dnu_B * w_e_red[nr];
+
+            // dX_B from dlambda_B_red + Δν · D_eff
             std::fill(dX_B.begin(), dX_B.end(), 0.0);
-            for (int k = 0; k < st.K; k++)
-                for (int c = 0; c < ct.M_cell; c++) {
+            for (int c = 0; c < ct.M_cell; c++) {
+                double sum_dlam = 0.0;
+                for (int k = 0; k < st.K; k++) {
                     int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < st.cat_counts[k])
-                        dX_B[c] += dlambda_B[cat_offset[k]+g];
+                    if (g < 0 || g >= st.cat_counts[k]) continue;
+                    int nr = full_to_red[cat_offset[k] + g];
+                    if (nr >= 0) sum_dlam += dlambda_B_red[nr];
                 }
-            for (int c = 0; c < ct.M_cell; c++) dX_B[c] = D_eff[c] * dX_B[c];
+                dX_B[c] = D_eff[c] * (sum_dlam + dnu_B);
+            }
 
             double w_dot_dlambda_B = 0.0;
-            for (int m = 0; m < nct; m++) w_dot_dlambda_B += w_kj[m]*dlambda_B[m];
+            for (int nr = 0; nr < nct_red; nr++)
+                w_dot_dlambda_B += w_kj[red_to_full[nr]] * dlambda_B_red[nr];
             double d_delta_B = alpha_sm * (
                 rmu_delta_B/s_delta
               + margin_delta_center_B
@@ -662,8 +547,7 @@ ChebyshevResult chebyshev_ipm(
               - (y_delta/s_delta)*w_dot_dlambda_B
             );
 
-            // Alias Phase B result to the standard dlambda/dX/d_delta variables
-            for (int m = 0; m < nct; m++) dlambda[m] = dlambda_B[m];
+            // Alias Phase B result to dX/d_delta for downstream line search
             for (int c = 0; c < ct.M_cell; c++) dX[c] = dX_B[c];
 
             // Compute delta_S from dX_B
@@ -778,11 +662,8 @@ ChebyshevResult chebyshev_ipm(
             }
 
             if (delta < best_delta) { best_delta = delta; }
-            continue;  // skip the old single-step code below (never reached)
-        }
-
-        // n_comp > 0 always; the continue above is always taken. Unreachable.
-        if (delta < best_delta) { best_delta = delta; }
+            if (delta < best_delta) { best_delta = delta; }
+        }  // end Mehrotra predictor-corrector block
     }
 
     // Populate metrics
