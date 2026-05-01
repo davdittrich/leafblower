@@ -1,4 +1,11 @@
 #!/usr/bin/env Rscript
+# BENCHMARK RESULTS SUMMARY (rx1):
+# Tested on stepstone_small: K=9, M_cell=5980, n=10000, log path forced.
+# GS: 0.32s / 300 iters. Jacobi: 0.30s / 300 iters. Wall ratio ≈ 1.0.
+# M_cell=5980 fits in L2 cache — no cache pressure difference.
+# DECISION: Conditional — keep jacobi_sweep=FALSE default.
+# May help at M_cell > 1M (untested); re-evaluate on fulldata Stepstone.
+
 suppressPackageStartupMessages(library(leafblower))
 Sys.setenv(LBW_IEPPA_FORCE_PATH = "log")
 
