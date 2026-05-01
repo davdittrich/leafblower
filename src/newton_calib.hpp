@@ -9,6 +9,7 @@ struct NewtonCalibResult {
     double dual_gap   = 0.0;
     double step_norm  = 0.0;
     double line_alpha = 1.0;
+    double lm_mu_final = 0.0;
     char   message[256] = {0};
 };
 

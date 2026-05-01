@@ -69,6 +69,12 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     const int max_iter = (st.outer_max_iter > 0) ? st.outer_max_iter : 50;
     const double tol_abs = (st.tol_abs > 0.0) ? st.tol_abs : 1e-6;
 
+    // LM damping state — start conservative (1.0) to avoid overshoot on iter 0.
+    // Adaptive μ schedule: gain-ratio ρ>0.75 → μ/=3 (model good), ρ<0.25 → μ×10.
+    const double lm_mu_min = 1e-12;
+    const double lm_mu_max = 1e12;
+    double lm_mu = 1.0;
+
     // ── 4. Dual objective: g(λ) = log Z(λ) - Σ_a T[a]*λ[a] ─────────────────
     // g is convex; Newton minimizes it. At optimum ∇g = 0 ↔ margins calibrated.
     auto eval_dual = [&](const std::vector<double>& lam_v, double& Z_out) -> double {
@@ -91,6 +97,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     double g_curr = eval_dual(lam, Z_curr);
 
     // ── 5. Newton iterations ─────────────────────────────────────────────────
+    int consecutive_failed = 0;  // consecutive line-search failures; cap at 3
     int iter = 0;
     for (iter = 0; iter < max_iter; ++iter) {
 
@@ -145,6 +152,12 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             for (int b = a + 1; b < n_lam; ++b)
                 H[b * n_lam + a] = H[a * n_lam + b];
 
+        // 5e2. Mean diagonal — additive floor so damping is effective even when
+        //      H has rank-collapsed coordinates (pure μ·diag would be zero there).
+        double d_floor = 0.0;
+        for (int a = 0; a < n_lam; ++a) d_floor += H[a * n_lam + a];
+        d_floor /= std::max(n_lam, 1);
+
         // 5f. Subtract targets to get gradient ∇g = G - T.
         for (int a = 0; a < n_lam; ++a) G[a] -= T[a];
 
@@ -155,27 +168,52 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         res.dual_gap = dual_gap;
 
         if (dual_gap < tol_abs) {
+            res.lm_mu_final = lm_mu;
             mark_converged(res, st.convergence_cfg, iter);
             break;
         }
 
-        // 5h. Newton direction: solve H·δ = G (descent direction: λ -= α·δ).
-        std::copy(G.begin(), G.end(), delta.begin());
-        if (ldlt_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
+        // 5h. LM damped Newton direction: H_damp·δ = G, λ -= α·δ.
+        // Save pre-damp H to compute δᵀHδ for the Marquardt gain ratio.
+        std::vector<double> H_pre(H);  // n_lam×n_lam copy — ≤80×80 doubles = trivial.
+
+        bool solve_ok = false;
+        for (int retry = 0; retry < 3 && !solve_ok; ++retry) {
+            // Restore H (LDLT factored in-place, so retry needs the original).
+            std::copy(H_pre.begin(), H_pre.end(), H.begin());
+            // Scale-invariant LM damping with additive floor — handles rank collapse.
+            for (int a = 0; a < n_lam; ++a) {
+                H[a * n_lam + a] = std::max(H[a * n_lam + a] * (1.0 + lm_mu),
+                                             lm_mu * d_floor);
+            }
+            std::copy(G.begin(), G.end(), delta.begin());
+            if (ldlt_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
+                lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+                continue;
+            }
+            ldlt_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
+            solve_ok = true;
+        }
+        if (!solve_ok) {
             res.base.status = RK_ERR_BADARG;
             std::snprintf(res.message, sizeof(res.message),
-                "newton_kl: LDLT factorization failed at iter %d", iter);
+                "newton_kl: LDLT failed 3x even at lm_mu=%.2e", lm_mu);
+            res.lm_mu_final = lm_mu;
             return res;
         }
-        ldlt_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
 
-        // 5i. Armijo backtracking line search.
-        // g is convex; we minimize, so descent direction is -δ (λ -= α·δ).
-        // Sufficient decrease: g(λ - α·δ) ≤ g(λ) - c1·α·(G·δ).
-        // G·δ = G^T H^{-1} G ≥ 0 (H PSD), so this is a reduction condition.
+        // δᵀ H_pre δ using pre-damp (PSD) Hessian for the gain-ratio denominator.
+        double delta_H_delta = 0.0;
+        for (int a = 0; a < n_lam; ++a)
+            for (int b = 0; b < n_lam; ++b)
+                delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
+
+        // G·δ = G^T H_damp^{-1} G ≥ 0 (descent curvature).
         double g_dot_d = 0.0;
         for (int a = 0; a < n_lam; ++a) g_dot_d += G[a] * delta[a];
 
+        // 5i. Armijo backtracking line search.
+        // Sufficient decrease: g(λ - α·δ) ≤ g(λ) - c1·α·(G·δ).
         double alpha = 1.0;
         std::vector<double> lam_trial(n_lam);
         double Z_trial = 0.0, g_trial = 0.0;
@@ -184,21 +222,40 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         for (int ls = 0; ls < 30; ++ls) {
             for (int a = 0; a < n_lam; ++a) lam_trial[a] = lam[a] - alpha * delta[a];
             g_trial = eval_dual(lam_trial, Z_trial);
-            if (g_trial <= g_curr - c1 * alpha * g_dot_d) {
-                accepted = true;
-                break;
-            }
+            if (g_trial <= g_curr - c1 * alpha * g_dot_d) { accepted = true; break; }
             alpha *= 0.5;
-        }
-        if (!accepted) {
-            // Line search exhausted — take a tiny step anyway to avoid stall
-            alpha = 1.0 / (1 << 30);
-            for (int a = 0; a < n_lam; ++a) lam_trial[a] = lam[a] - alpha * delta[a];
-            g_trial = eval_dual(lam_trial, Z_trial);
         }
         res.line_alpha = alpha;
 
-        // 5j. Update λ and dual objective.
+        // 5j. Three-way Armijo outcome.
+        if (!accepted) {
+            // FAILED — line search exhausted; back off μ, do NOT advance λ.
+            lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+            if (++consecutive_failed >= 3) {
+                res.base.status = RK_ERR_NOCONV;
+                res.lm_mu_final = lm_mu;
+                break;
+            }
+            continue;  // re-enter iter with new lm_mu, same λ
+        }
+        consecutive_failed = 0;
+
+        // Marquardt gain ratio: actual / predicted reduction.
+        // Guard denominator — predicted can be tiny/negative near singularity.
+        const double predicted = alpha * g_dot_d
+                                 - 0.5 * alpha * alpha * delta_H_delta;
+        const double rho = (g_curr - g_trial) / std::max(predicted, 1e-300);
+
+        if (alpha >= 0.999 && rho > 0.75) {
+            // FULL_ACCEPT with good model quality — tighten damping.
+            lm_mu = std::max(lm_mu_min, lm_mu / 3.0);
+        } else if (rho < 0.25) {
+            // Poor quadratic model (accepted Armijo but low gain) — back off.
+            lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+        }
+        // else: BACKTRACKED or moderate ρ — keep lm_mu unchanged.
+
+        // 5k. Update λ and dual objective.
         double step2 = 0.0;
         for (int a = 0; a < n_lam; ++a) {
             const double d = alpha * delta[a];
@@ -211,6 +268,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
 
         // Secondary stop: step too small to make progress.
         if (res.step_norm < 1e-14) {
+            res.lm_mu_final = lm_mu;
             mark_converged(res, st.convergence_cfg, iter);
             break;
         }
@@ -264,6 +322,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     }
     res.base.max_error    = max_err;
     res.base.best_weights = w;
+    res.lm_mu_final       = lm_mu;
 
     return res;
 }
