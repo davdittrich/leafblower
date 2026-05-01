@@ -30,25 +30,6 @@
 
 namespace lbw {
 
-// Cell-table errRp: O(K * M_cell). bucket pre-allocated to max_cats.
-static double compute_errRp_ct(const CalibState& st,
-                                const CellTable& ct,
-                                const std::vector<double>& X,
-                                std::vector<double>& bucket) {
-    double W = 0.0;
-    for (int c = 0; c < ct.M_cell; c++) W += X[c];
-    double err = 0.0;
-    for (int k = 0; k < st.K; k++) {
-        lbw::aggregate_to_margin(ct, X, k, st.cat_counts[k], bucket.data());
-        for (int j = 0; j < st.cat_counts[k]; j++) {
-            double e = std::fabs(bucket[j] / W - st.targets[k][j]);
-            if (e > err) err = e;
-        }
-    }
-    return err;
-}
-
-
 // Constrained raking solver: cyclic IPF with per-category water-filling box projections.
 // Each margin step applies water_fill_cat() — KL projection onto
 // {Σ_c Xv[c]=T_kj, L_c≤Xv[c]≤U_c} (Csiszar-Tusnady 1984; autumn single_adjust).
