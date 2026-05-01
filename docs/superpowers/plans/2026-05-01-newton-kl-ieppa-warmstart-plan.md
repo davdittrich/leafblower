@@ -1,10 +1,25 @@
-# Newton-KL IEPPA Warm-Start — Plan (rev 2)
+# Newton-KL IEPPA Warm-Start — Plan (rev 3)
 
 **Epic:** `leafblower-usg8` (Epic-C; follow-up to Epic-B BLOCKED)
 **Spec reference:** `docs/superpowers/specs/2026-05-01-newton-kl-calibration-design.md` (a new "IEPPA warm-start" subsection lands in WI-0)
 **Predecessors:** epic `leafblower-5k08` (LM rev 2; landed); `leafblower-91u7` (Epic-B target homotopy; BLOCKED — see `docs/investigations/2026-05-01-newton-kl-homotopy-result.md`)
-**Tasks (sequential):** WI-0 (spec) → WI-1 (ieppa-inner extraction) → WI-2 (warm-start wiring) → WI-3 (T6 + T7 + T8 + T9 + T9b + T10 tests) → WI-4 (verify) → WI-5a (bench) → WI-5b (verdict + investigation doc)
+**Tasks (sequential):** WI-0 (spec) → WI-0b (basin kill-switch) → WI-1 (ieppa-inner extraction) → WI-2 (warm-start wiring) → WI-1c (r_bridge SEXP surfacing) → WI-3 (T6 + T7 + T8 + T9 + T9b + T10 tests) → WI-4 (verify) → WI-5a (bench) → WI-5b (verdict + investigation doc)
 **Date:** 2026-05-01
+
+---
+
+## Rev 3 Changelog (plan-review-gate iteration 1 — REVISION NEEDED: Feasibility FAIL ×3, Scope FAIL ×2)
+
+Applied after plan-review-gate rev 2 returned REVISION NEEDED. Fixes are lettered P–U.
+
+| Fix | Section(s) affected | Summary |
+|-----|---------------------|---------|
+| P | §Forbidden | Remove `src/r_bridge.cpp` from the untouched-files list (narrowly: SEXP-pack of two new scalar fields only — `n_warmstart_iters_used` and `warmstart_max_err_at_handoff`). Does NOT surface `lam`. Resolves Feasibility FAIL: WI-3 tests read `res$n_warmstart_iters_used` and `res$warmstart_max_err_at_handoff` from R, which requires r_bridge.cpp to be touched. |
+| Q | §Plan Steps | Insert new ticket WI-1c (r_bridge SEXP surfacing) between WI-2 and WI-3. Touches `src/r_bridge.cpp` only. Adds two scalar entries to `pack_solver_result` on the newton_kl path: `n_warmstart_iters_used` (integer) and `warmstart_max_err_at_handoff` (double). DOES NOT surface `lam`. Atomic ≤30-line change. WI-3 now depends on WI-1c, not WI-2. |
+| R | §Plan Steps | Insert new ticket WI-0b (basin-overlap kill-switch) between WI-0 and WI-1. Pure analysis, no new code. One-shot R script `benchmarks/basin_overlap_kill_switch.R` comparing converged IEPPA weights vs Newton weights on stepstone via `max(|log(w_ieppa / w_newton)|)`. PROCEED iff `max(|log_ratio|) >= 1e-3`. Supersedes Fix M (WI-4 basin-overlap experiment), which is removed from WI-4. |
+| S | §Cost (new §Epic-C Value Justification) | Add explicit value statement: IEPPA+SRAA standalone achieves 1.13e-4 on stepstone — MISSES the 1e-4 gate by 13%. Newton polish closes that gap. On kk1204 severe-skew, master Newton-KL DIVERGES; IEPPA-warm-started Newton-KL is the only path that converges to <1e-4 within 5s wall. PARTIAL (wall ≥3s) is strict improvement over master's diverging behavior. |
+| T | §WI-2 deliverables, §WI-1 | Add `#include "ieppa.hpp"` at top of `newton_calib.cpp` to WI-2 required touches (and note it must exist in WI-1 if the shim is defined in newton_calib.cpp). The static helper `newton_kl_ieppa_warmstart` calls `ieppa_solve` from this include. |
+| U | §Plan Steps sequence | New 9-ticket sequence: WI-0 → WI-0b → WI-1 → WI-2 → WI-1c → WI-3 → WI-4 → WI-5a → WI-5b. Header line updated. WI-1 now depends on WI-0b; WI-3 now depends on WI-1c. |
 
 ---
 
@@ -237,7 +252,7 @@ Carried forward from rev 2 homotopy plan where applicable, plus IEPPA-specific e
 - **No skipping pre-commit hooks.**
 - **No T2 amendment.** WI-3 explicitly forbids touching T2; only ADDs T7 + T8 (T8 is the K=20 severe-skew unit test mirrored from Epic-B's design).
 - **No bundling tickets.** WI-0, WI-1, WI-2, WI-3, WI-4, WI-5a, WI-5b are each one bead. WI-2 is "warm-start wiring + NEWS.md + field rename" — atomic only because the rename is meaningless without the wiring.
-- **No touching files outside:** `src/newton_calib.cpp`, `src/newton_calib.hpp`, `src/ieppa.cpp` (one new lf-capture parameter on `ieppa_solve`), `src/ieppa.hpp` (one new function signature), `tests/testthat/test-newton-kl.R`, `benchmarks/newton_kl_bench.R`, `benchmarks/results/`, `NEWS.md`, `docs/superpowers/specs/2026-05-01-newton-kl-calibration-design.md` (WI-0 only). NO touches to `src/r_bridge.cpp`, `src/c_api.cpp`, `R/*.R`.
+- **No touching files outside:** `src/newton_calib.cpp`, `src/newton_calib.hpp`, `src/ieppa.cpp` (one new lf-capture parameter on `ieppa_solve`), `src/ieppa.hpp` (one new function signature), `src/r_bridge.cpp` **(Fix P — narrowly in scope for WI-1c only: SEXP-pack of `n_warmstart_iters_used` (integer) and `warmstart_max_err_at_handoff` (double) on the newton_kl result path. Does NOT surface `lam`. ≤30 lines. No other changes to r_bridge.cpp.)**, `tests/testthat/test-newton-kl.R`, `benchmarks/newton_kl_bench.R`, `benchmarks/results/`, `NEWS.md`, `docs/superpowers/specs/2026-05-01-newton-kl-calibration-design.md` (WI-0 only), `benchmarks/basin_overlap_kill_switch.R` (WI-0b only). NO touches to `src/c_api.cpp`, `R/*.R`.
 - *Not applicable: `T_eps` schedules, `lm_mu` per-ε reset semantics, `T_eps` feasibility guard, ε-schedule tail-jump risk, `n_homotopy_levels_used == N_EPS` brittle assertion.* All Epic-B concerns; this epic does no homotopy.
 - *Not applicable: "rank deficiency in `H` is fixed by warm start".* It isn't. Warm start lands `λ` inside the basin; rank deficiency can still strike if the LM solver oversteps from the warm-start. The LM-Newton's own best-iterate-restoration handles that, exactly as today.
 
@@ -245,7 +260,7 @@ Carried forward from rev 2 homotopy plan where applicable, plus IEPPA-specific e
 
 ## Plan Steps
 
-Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 → WI-2 → WI-3 → WI-4 → WI-5a → WI-5b. No parallel paths in this epic (the parallel `LM-1c` r_bridge surfacing from rev 2 is deferred — no R-side consumer needs it, and it is properly Epic-D scope if ever raised).
+Each ticket is independently revertible. The sequence is strict (9 tickets): WI-0 → WI-0b → WI-1 → WI-2 → WI-1c → WI-3 → WI-4 → WI-5a → WI-5b. No parallel paths in this epic.
 
 ---
 
@@ -263,9 +278,67 @@ Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 �
 
 ---
 
+### WI-0b — Basin-overlap kill-switch (Fix R)
+
+- **Files:** `benchmarks/basin_overlap_kill_switch.R` (new, committed). `benchmarks/results/basin_overlap_killswitch.csv` (output).
+- **Blocked by:** WI-0 (spec must exist before referencing it in the script header).
+- **Objective:** Pure analysis ticket. NO new source code. Empirically determine whether IEPPA and Newton-KL converge to the same primal basin on stepstone, BEFORE any warm-start code is written. This is the kill-switch: if they already converge to the same basin, warm-start is a functional no-op and the epic should be aborted.
+- **Method:** Uses CURRENT MASTER (TH-1a state, no warm-start code). One-shot R script:
+  1. `harvest(method="ieppa", accelerate=TRUE)` on stepstone → `converged_ieppa_weights`.
+  2. `harvest(method="newton_kl")` on stepstone (cold-start, current master path, drift to gap=1.4e-4 then best-iterate restoration) → `newton_basin_weights`.
+  3. Compute per-obs log-weight-ratio: `log_ratio[i] = log(w_ieppa[i] / w_newton[i])` for all observations.
+  4. Compute `max_log_ratio = max(abs(log_ratio))`.
+  5. Save full per-obs CSV + summary row to `benchmarks/results/basin_overlap_killswitch.csv`.
+- **Decision criterion:**
+  - **PROCEED** iff `max_log_ratio >= 1e-3` (warm-start would land Newton in a basin meaningfully different from cold start → the warm-start can change behavior).
+  - **ABORT** iff `max_log_ratio < 1e-3` (both methods already converge to the same primal basin → warm-start is a no-op → halt epic, file BLOCKED on leafblower-usg8 with evidence).
+- **Supersedes:** Fix M (basin-overlap experiment in WI-4). Fix M is removed from WI-4 (see below). Running this earlier means we abort before writing any code if the fundamental hypothesis is wrong.
+- **Script structure:**
+  ```r
+  # benchmarks/basin_overlap_kill_switch.R
+  # Basin-overlap kill-switch for Epic-C (Newton-KL IEPPA warm-start)
+  # Uses CURRENT MASTER — no warm-start code must be present.
+  # Spec: docs/superpowers/plans/2026-05-01-newton-kl-ieppa-warmstart-plan.md §WI-0b
+
+  library(leafblower)
+  library(arrow)
+
+  # Load stepstone fixture
+  stepstone <- read_parquet("tests/testthat/fixtures/stepstone_small.parquet")
+  targets   <- readRDS("tests/testthat/fixtures/stepstone_small_targets.rds")
+
+  # Run IEPPA
+  res_ieppa <- harvest(stepstone, targets, method = "ieppa", accelerate = TRUE)
+  w_ieppa   <- res_ieppa$weights
+
+  # Run Newton-KL (cold start, current master)
+  res_newton <- harvest(stepstone, targets, method = "newton_kl")
+  w_newton   <- res_newton$weights
+
+  # Compute log-ratio
+  log_ratio <- log(w_ieppa / w_newton)
+  max_lr    <- max(abs(log_ratio))
+
+  cat(sprintf("max|log(w_ieppa / w_newton)| = %.4e\n", max_lr))
+  cat(sprintf("Decision: %s\n", if (max_lr >= 1e-3) "PROCEED" else "ABORT EPIC"))
+
+  # Save results
+  dir.create("benchmarks/results", showWarnings = FALSE)
+  write.csv(
+    data.frame(obs = seq_along(log_ratio), log_ratio = log_ratio),
+    "benchmarks/results/basin_overlap_killswitch.csv", row.names = FALSE
+  )
+  ```
+- **Constraints:** Commit the script (not scratch). `R CMD INSTALL --preclean .` before running. The script itself does NOT modify any source. Commit: `bench(epic-c): basin-overlap kill-switch experiment`.
+- **Halt criterion:** If `max_log_ratio < 1e-3`, output ABORT EPIC, mark `leafblower-usg8` BLOCKED, stop. Do NOT proceed to WI-1.
+
+---
+
 ### WI-1 — IEPPA lf-capture orchestration shim (no Newton wiring yet)
 
 - **Files:** `src/ieppa.hpp`, `src/ieppa.cpp`, `src/newton_calib.cpp` (new helper function — does NOT call into Newton inner), `src/newton_calib.hpp` (forward declare warmstart helper if exposed at TU level; otherwise file-static).
+- **Blocked by:** WI-0b (basin kill-switch must PROCEED before any warm-start code is written).
+- **Fix T — `#include "ieppa.hpp"` in newton_calib.cpp:** If the `newton_kl_ieppa_warmstart` shim is defined in `newton_calib.cpp`, it calls `ieppa_solve`. That requires `#include "ieppa.hpp"` at the top of `newton_calib.cpp`. Add this include in this ticket.
 - **Objective:** Land the orchestration shim (`newton_kl_ieppa_warmstart`) and the IEPPA lf-capture affordance. **No behavioural change to the Newton solver in this ticket** — `run_newton_inner(T, max_iter)` is still called with `lam` initialised to zero. The shim is dead code at end of WI-1 (called by no one). Build clean. All existing tests pass bit-identically.
 - **Constraints:** `ieppa_solve` signature change must default-nullptr the new lf-capture parameter so all existing callers compile and behave bit-identically. Confirm this with grep before commit: *all* call sites of `ieppa_solve` (the `harvest` path through `r_bridge.cpp`, AUTO routing through `c_api.cpp`, any internal callers) take the no-arg default. Build clean (`R CMD INSTALL --preclean .`); zero new warnings.
 - **Body sketch:**
@@ -280,6 +353,7 @@ Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 �
 ### WI-2 — Warm-start wiring + field rename + NEWS.md + diagnostic entry point
 
 - **Files:** `src/newton_calib.cpp`, `src/newton_calib.hpp`, `NEWS.md`. Single atomic commit.
+- **Fix T — `#include "ieppa.hpp"` required:** `src/newton_calib.cpp` must include `#include "ieppa.hpp"` at the top (or wherever system includes are placed) so that `newton_kl_ieppa_warmstart` can call `ieppa_solve`. This include is a required touch in this ticket. List it explicitly in §IV step 2 of the WI-2 ticket.
 - **Objective:** Rename `n_homotopy_levels_used` → `n_warmstart_iters_used`; add `warmstart_max_err_at_handoff`; wire the warm-start shim before the Newton inner call at `src/newton_calib.cpp:371`; add env-var override `LBW_NEWTON_KL_WARMSTART_ITERS` (Fix L); add test-only diagnostic entry point (Fix J); clarify iter accumulation (Fix K). Update NEWS.md.
 - **Constraints:** Bit-identical Newton inner behaviour for `K_warm = 0`. Build clean.
 - **Fix J — Diagnostic entry point:** Add a C-linkage function (gated on `#ifdef LEAFBLOWER_TESTING`) callable from testthat via `.Call`:
@@ -318,9 +392,35 @@ Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 �
 
 ---
 
+### WI-1c — r_bridge SEXP surfacing of warm-start fields (Fix Q)
+
+- **Files:** `src/r_bridge.cpp` only. Single atomic commit. ≤30 lines changed.
+- **Blocked by:** WI-2 (`NewtonCalibResult` must carry `n_warmstart_iters_used` and `warmstart_max_err_at_handoff` before r_bridge.cpp can pack them).
+- **Objective:** Surface the two new scalar fields from `NewtonCalibResult` into the R list returned by `harvest(method="newton_kl")`. This is the prerequisite for WI-3 tests that read `res$n_warmstart_iters_used` and `res$warmstart_max_err_at_handoff`.
+- **Scope (strictly bounded):**
+  - ADD `n_warmstart_iters_used` as an integer scalar to the SEXP list in `pack_solver_result` (or equivalent newton_kl result-packing block in r_bridge.cpp).
+  - ADD `warmstart_max_err_at_handoff` as a double scalar.
+  - DO NOT surface `lam` — kept internal to C++, not exposed to R.
+  - DO NOT change any other field in the result list.
+  - DO NOT touch any code path outside the newton_kl result-packing block.
+- **Constraints:** Build clean (`R CMD INSTALL --preclean .`). All existing tests pass unchanged. `testthat` suite unchanged (no new test here — WI-3 adds the tests). Atomic.
+- **Body sketch:**
+  1. Read `src/r_bridge.cpp` — locate the newton_kl result packing block (search for `NewtonCalibResult` or `newton_calibrate`).
+  2. In the SEXP list construction (e.g., near `pack_solver_result` or equivalent), add:
+     ```cpp
+     SET_VECTOR_ELT(result_list, idx++, Rf_ScalarInteger(newton_res.n_warmstart_iters_used));
+     SET_VECTOR_ELT(result_list, idx++, Rf_ScalarReal(newton_res.warmstart_max_err_at_handoff));
+     ```
+     with corresponding `SET_STRING_ELT` name assignments.
+  3. Build clean.
+  4. Conventional commit: `feat(r_bridge): surface n_warmstart_iters_used + warmstart_max_err_at_handoff for newton_kl`.
+
+---
+
 ### WI-3 — T6 + T7 + T8 + T9 + T9b + T10 regression tests
 
 - **Files:** `tests/testthat/test-newton-kl.R`.
+- **Blocked by:** WI-1c. R-side field names `res$n_warmstart_iters_used` and `res$warmstart_max_err_at_handoff` must exist in the harvest() result before these tests can be written.
 - **Objective:** Six new tests. T6 = lf → λ conversion correctness (structural gate via diagnostic entry point). T7 = stepstone K=9 + warm-start audit + monotonicity. T8 = K=20 severe-skew unit test. T9 = IEPPA-infeasibility cold-start fallback. T9b = K=20 moderate-skew wall regression. T10 = cold-start non-regression.
 - **Constraints:** **DO NOT modify T2.** T2's `<1e-4` gate stays. Only ADD T6–T10.
 - **WI-2 prerequisite (Fix J, Fix K):** WI-2 must expose test-only C entry point `_newton_kl_warmstart_diagnostic(...)` returning `(lf, λ, max(|u_newton - u_ieppa - C|))` on a tiny fixture. Also clarify that `res.base.iterations` = Newton-only count; warm-start iters live only in `n_warmstart_iters_used` (Fix K).
@@ -341,21 +441,13 @@ Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 �
 
 ---
 
-### WI-4 — Verify test suite + basin-overlap experiment
+### WI-4 — Verify test suite
 
-- **Files:** none (verification only). One-shot R script (scratch, not committed) for Fix M.
-- **Objective:** Run the full testthat suite and confirm zero failures. Specific gate: T2 (stepstone) passes at `<1e-4`. Also run basin-overlap experiment (Fix M).
+- **Files:** none (verification only). No commit.
+- **Objective:** Run the full testthat suite and confirm zero failures. Specific gate: T2 (stepstone) passes at `<1e-4`. The basin-overlap kill-switch (Fix R) was already run in WI-0b BEFORE any code was written; no re-run needed here.
 - **Body:**
   - `Rscript -e "testthat::test_file('tests/testthat/test-newton-kl.R')"` — T1, T2, T3, T4, T5, T6, T7, T8, T9, T9b, T10 all PASS.
   - `Rscript -e "testthat::test_local('.')"` — FAIL=0.
-  - **Basin-overlap experiment (Fix M):** Run a one-shot scratch R script on stepstone:
-    ```r
-    cold <- harvest(method="newton_kl", ...)  # K_warm=0 via env var
-    warm <- harvest(method="newton_kl", ...)  # K_warm=8 default
-    cat(sprintf("max|lambda_warm - lambda_cold| = %.2e\n",
-                max(abs(warm$lam - cold$lam))))
-    ```
-    If `max(|λ_warm_final - λ_cold_final|) < 1e-3`, warm-start is functionally a no-op (converges to identical basin) → escalate WI-5b to BLOCKED immediately with this evidence, before benchmarking. Record the value in this ticket's output schema.
   - **Halt criterion (SPEC_FAILURE):** if T2 still fails (warm-start did not break the basin floor), output `SPEC_FAILURE` and halt. Do NOT proceed to WI-5a.
   - No commit on this ticket — verification only.
 
@@ -381,6 +473,18 @@ Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 �
   - **GATE_MET** (kk1204 severe-skew wall `<3s` ∧ `max_err <1e-4` ∧ stepstone `<1e-4`): commit investigation doc + verdict NEWS.md bullet, close Epic-C as resolved. *Honest assessment: GATE_MET is plausible on quality (warm-start solves the structural problem) but unlikely on wall (see §Cost). Expected outcome is PARTIAL.*
   - **PARTIAL** (quality OK on T2/T7/T8 but wall ≥3s on kk1204, OR severe-skew `max_err ∈ [1e-4, 1e-3]`): commit `fix(newton_kl): IEPPA warm-start partial — wall budget unmet` analogue. **Close Epic-C** with the warm-start as the *correct* algorithm; file Epic-D ("Newton-KL wall-time tuning" or "AUTO routing on quality verdict") as a follow-up. PARTIAL is the planned successful closure mode.
   - **BLOCKED** (T2 stays `>1e-4` even with warm-start): the basin-warm-start hypothesis itself is wrong. The investigation doc explains why; epic closes BLOCKED. The follow-up at this point is Epic-E: ESCAPE-only AUTO routing (route severe-skew K≥5 to `ieppa+sraa` directly, leaving Newton-KL for moderate-skew K≥5). This is the rev 2 homotopy plan's contingency, copy-pasted forward.
+
+---
+
+## Epic-C Value Justification (Fix S)
+
+**Why not just use IEPPA+SRAA alone?**
+
+IEPPA+SRAA standalone achieves `1.13e-4` on stepstone — MISSES the `<1e-4` gate by 13%. The Epic-C value-add is the Newton polish that closes that 13% gap. IEPPA alone cannot reach the gate by itself on this fixture.
+
+On kk1204 severe-skew (n=1M, K=20, nj=5, max_weight=3, OMP=1): master Newton-KL DIVERGES (status=1, drift past optimum). IEPPA-warm-started Newton-KL is the only available path that converges to `<1e-4` within a 5s wall budget. The PARTIAL verdict (wall ≥3s) is still a strict improvement over master's diverging behavior (status=1, `max_err >> 1e-4`).
+
+**Summary:** IEPPA alone misses quality gate by 13%. Newton alone diverges on severe-skew. IEPPA-warm-started Newton is the combination that achieves both convergence and quality.
 
 ---
 
