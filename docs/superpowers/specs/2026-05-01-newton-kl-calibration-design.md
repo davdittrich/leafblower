@@ -184,9 +184,11 @@ if (est_ratio >= 0.9 && K >= 5) alg = RK_ALG_NEWTON_KL;
 
 **`src/r_bridge.cpp`** (line ~425, AUTO arm, same condition):
 ```cpp
-alg_for_validation = (kAlgMap.count(method_str) && ...) : RK_ALG_NEWTON_KL when condition;
+// kAlgMap already contains {"newton_kl", RK_ALG_NEWTON_KL} from the new dispatch arm.
+// AUTO arm: when M_cell/n >= 0.9 && K >= 5, set method_str = "newton_kl" before lookup.
+alg_for_validation = RK_ALG_NEWTON_KL;  // set directly in AUTO branch
 ```
-Both sites must be updated.
+Both sites must be updated. The string key `"newton_kl"` must be in `kAlgMap` to match `harvest.R`'s `match.arg`.
 
 ## Testing
 
@@ -194,11 +196,8 @@ Both sites must be updated.
 2. `test-newton-kl.R`: K=9 stepstone_small, status==0, max_error < 1e-4 (tighter than greenkhorn)
 3. Manual benchmark: kk1204 (K=20, n=1M) → target < 2s, max_error < 1e-4
 4. `test-newton-kl.R`: bounds-active problem → fallback triggers correctly, status = RK_ERR_NOCONV
-5. `test-newton-kl.R`: **KL vs chi2 quality validation** — same fixture, `newton_kl$max_error < greg$max_error`. Validates the core design claim: Newton-KL minimizes KL divergence, producing better marginal calibration quality than greg's chi2 Newton. A gradient or dual implementation bug would produce greg-like convergence (small step) without KL-correctness; this test catches it.
+5. `test-newton-kl.R`: **KL vs chi2 quality validation** — same fixture, `newton_kl$max_error < greg$max_error`. Validates that Newton-KL minimizes KL divergence (better marginal calibration than greg's chi2 Newton). Catches gradient or dual implementation bugs that produce greg-like convergence without KL-correctness.
 6. Full regression: FAIL 0
-3. `test-newton-kl.R`: kk1204 manual benchmark (K=20, n=1M) → target < 2s, max_error < 1e-4
-4. `test-newton-kl.R`: bounds-active problem → fallback triggers correctly, status = RK_ERR_NOCONV
-5. Full regression: FAIL 0 after Newton dispatch added
 
 ## Non-Goals
 
