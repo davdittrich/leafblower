@@ -852,13 +852,16 @@ IEPPAResult ieppa_solve(CalibState& st) {
             res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
             total_iters += f_evals_used;
             if (converged) level_converged = true;
-            // Sync working cell masses → X for the post-loop expansion.
-            // Linear path uses X_cur; log path uses X_tilde (both hold
-            // X_init * exp(cell_lf) post-sweep).
-            if (use_linear) {
-                std::copy(X_cur.begin(), X_cur.end(), X.begin());
-            } else if (!X_tilde.empty()) {
-                std::copy(X_tilde.begin(), X_tilde.end(), X.begin());
+            // Clamp cell masses to [L_cell, U_cell] before syncing to X.
+            // SRAA lf extrapolation is unconstrained and can overshoot cell
+            // capacity bounds; without clamping, per-obs weights explode
+            // (e.g. wmax=75 on stepstone with max_weight=5).
+            {
+                const std::vector<double>& src_cells = use_linear ? X_cur
+                    : (!X_tilde.empty() ? X_tilde : X_cur);
+                for (int c = 0; c < ct.M_cell; c++) {
+                    X[c] = std::clamp(src_cells[c], L_cell[c], U_cell[c]);
+                }
             }
         }
 
