@@ -19,6 +19,7 @@
 #include "lbfgsb_solver.hpp"
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
+#include "newton_calib.hpp"
 
 namespace {
 const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
@@ -32,6 +33,7 @@ const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
     {"auto",       RK_ALG_AUTO},
     {"greenkhorn", RK_ALG_GREENKHORN},
     {"logit",      RK_ALG_LOGIT},
+    {"newton_kl",  RK_ALG_NEWTON_KL},
 };
 } // anonymous namespace
 
@@ -42,7 +44,7 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -123,7 +125,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP sor_omega_init_sexp, SEXP sor_omega_min_sexp,
                     SEXP sor_omega_fixed_sexp, SEXP sor_burnin_sexp,
                     /* SQUAREM */
-                    SEXP accelerate_sexp, SEXP jacobi_sweep_sexp) {
+                    SEXP accelerate_sexp) {
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -316,7 +318,6 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;
     st.accelerate = (INTEGER(accelerate_sexp)[0] != 0);
-    st.jacobi_log = (INTEGER(jacobi_sweep_sexp)[0] != 0);
 
     // Resolve capacity_mu for ieppa_soft: build cell table to obtain auto value.
     // Done here (not inside solver) so r_bridge.cpp controls the resolution contract.
@@ -526,6 +527,17 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_best_weights = std::move(res.base.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
+    } else if (strcmp(method_str, "newton_kl") == 0) {
+        auto res = lbw::newton_calibrate(st);
+        pack_solver_result(res);
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
+        res_alg_used   = (int)RK_ALG_NEWTON_KL;
+        if (!res.base.best_weights.empty())
+            res_best_weights = std::move(res.base.best_weights);
+        else
+            res_best_weights.assign(st.n, 0.0);
     } else {
         // Dispatch for chebyshev, ieppa_soft, and default ieppa.
 
@@ -630,6 +642,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                          : (res_alg_used == static_cast<int>(RK_ALG_CHEBYSHEV))       ? "chebyshev"
                          : (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN))      ? "greenkhorn"
                          : (res_alg_used == static_cast<int>(RK_ALG_LOGIT))           ? "logit"
+                         : (res_alg_used == static_cast<int>(RK_ALG_NEWTON_KL))      ? "newton_kl"
                          : "iEPPA";
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
                   alg_name, res_iterations, res_max_error);

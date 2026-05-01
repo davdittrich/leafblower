@@ -10,6 +10,7 @@
 #include "cell_table.hpp" // estimate_M_cell for AUTO routing
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
+#include "newton_calib.hpp"
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -302,11 +303,22 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = res.base.iterations;
         max_error = res.base.max_error;
     } else if (alg == RK_ALG_NEWTON_KL) {
-        // newton_calib.cpp implements this — placeholder until N2
+        auto nkr = lbw::newton_calibrate(st);
         if (result) {
-            result->status = RK_ERR_BADARG;
+            result->status     = nkr.base.status;
+            result->iterations = nkr.base.iterations;
+            result->max_error  = nkr.base.max_error;
+            result->convergence_metric  = nkr.base.convergence_metric;
+            result->convergence_rule    = nkr.base.convergence_rule;
+            result->convergence_tol     = nkr.base.convergence_tol;
+            result->convergence_iter    = nkr.base.convergence_iter;
+            result->best_error          = nkr.base.best_error;
+            result->best_iter           = nkr.base.best_iter;
+            result->algorithm_used      = RK_ALG_NEWTON_KL;
+            std::strncpy(result->message, nkr.message, sizeof(result->message) - 1);
         }
-        return RK_ERR_BADARG;
+        for (int i = 0; i < n; i++) weights[i] = st.weights[i];
+        return nkr.base.status;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
             auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);

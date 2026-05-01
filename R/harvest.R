@@ -505,7 +505,7 @@ harvest <- function(
   }
 
   # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7(deprecated), IEPPA_SOFT=8
-  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "", "ieppa_soft", "greenkhorn", "logit")
+  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "", "ieppa_soft", "greenkhorn", "logit", "newton_kl")
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
   # Make algorithm_used human-readable string (attr(r,"result")$algorithm_used == "greenkhorn")
   calib_result$algorithm_used <- alg_used
@@ -577,7 +577,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit"))
+  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"))
 }
 
 parse_convergence <- function(convergence) {
