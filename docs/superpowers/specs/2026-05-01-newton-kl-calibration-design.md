@@ -12,10 +12,20 @@ kk1204: n=1M, K=20, nj=5, max_weight=3, skewed targets, OMP_NUM_THREADS=1.
 | raking+sraa | 60.3 | 200 | budget | 3.8e-3 |
 | greenkhorn | 16.3 | 200 | budget | 3.2e-2 |
 | greenkhorn+sraa | 309 | 4560 | budget | 7.6e-3 |
+| ieppa_soft | 14.4 | 100 | budget | 1.5e-3 |
+| **ieppa_soft+sraa** | **3.7** | **10** | **✅** | **2.4e-14** |
+| **greg** | **3.2** | **2** | **✅** | **2.5e-2 ⚠️** |
+| sinkhorn | 12.0 | 100 | NOCONV | 2.6e-3 |
 | lbfgsb | 73.8 | 200 | budget | 8.3e-4 |
 | logit | 35.8 | 50 | budget | 1.5e-3 |
+| chebyshev | 104 | 100 | NOCONV | 1.1e-2 |
 
-**greenkhorn is NOT a competitor** — diverges on K=20 dense problems (4560 iters). lbfgsb takes 73.8s. ieppa+sraa already achieves status=0 in 3.7s.
+**Key observations:**
+- greenkhorn diverges on K=20 dense problems (4560 iters, 309s)
+- lbfgsb takes 73.8s — unusable
+- **greg converges in 3.2s (2 Newton steps!) but max_err=2.5e-2** — validates that Newton-type methods are fast here; greg fails on quality because it minimizes chi2 not KL
+- ieppa+sraa and ieppa_soft+sraa both solve to max_err=2.4e-14 in 3.7s
+- Newton-KL should match greg's speed (both Newton on the dual) but with KL-optimal quality
 
 ## Revised Problem Statement
 
