@@ -387,7 +387,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
     // Adaptation is suppressed for sor_burnin iterations so early transient oscillation
     // (driven by infeas-streak damping) does not prematurely reduce omega.
     const bool sor_active     = st.sor_cfg.enabled;
-    const bool sor_auto_v     = st.sor_cfg.auto_adapt && !st.accelerate;
+    // When SRAA is active, SOR adaptation is allowed on plain steps
+    // (aa_accepted=false) but suppressed on AA-accepted steps (their trajectory
+    // is non-monotone from extrapolation; SOR would fight AA). The SRAA
+    // while-loop updates sor_auto_v per-step via r.aa_accepted; non-SRAA
+    // (accelerate=false) keeps the original masked semantics.
+    const bool sor_base       = st.sor_cfg.auto_adapt;
+    bool sor_auto_v           = sor_base && !st.accelerate;
     const double omega_init_v = st.sor_cfg.omega_init;    // default 1.0
     const double omega_min_v  = st.sor_cfg.omega_min;     // default 0.3
     const double omega_fixed_v = st.sor_cfg.omega_fixed;  // -1.0 = use auto
@@ -769,6 +775,7 @@ IEPPAResult ieppa_solve(CalibState& st) {
             ieppa_sraa.F_cur = lf_flat;
 
             int  f_evals_used = 0;
+            int  iter_sraa    = 0;   // SRAA-local iteration counter for SOR burnin
             bool converged    = false;
             while (f_evals_used < budget_lvl && !converged) {
                 // Re-seed F_cur = current iterate before each step so that
@@ -781,8 +788,38 @@ IEPPAResult ieppa_solve(CalibState& st) {
                 auto r = lbw::sraa_step(f_eval_lf, lf_flat, dummy_L, dummy_U,
                                         ieppa_sraa, /*apply_clamp=*/false);
                 f_evals_used += r.f_evals;
+                iter_sraa    += r.f_evals;
                 res.base.iterations = total_iters + f_evals_used;
                 res.base.max_error  = r.err_result;
+
+                // B-narrow SOR coexistence: enable SOR adaptation on plain
+                // (non-AA-accepted) SRAA steps, disable on AA-accepted steps
+                // (their trajectory is non-monotone from extrapolation; SOR
+                // would fight AA). Uses global errRp from r.err_result as the
+                // monotonicity proxy — coarser than per-margin errRp_k but
+                // preserves the dampening effect needed to stabilize max_err.
+                sor_auto_v = sor_base && !r.aa_accepted;
+                if (sor_auto_v && sor_active && iter_sraa >= sor_burnin_v) {
+                    const double curr_errRp = r.err_result;
+                    bool decreasing = (curr_errRp < sor_prev_errRp[0]);
+                    bool sign_flip  = !decreasing && sor_prev_decreasing[0];
+                    if (sign_flip) {
+                        for (int k = 0; k < st.K; k++) {
+                            sor_omega[k] = std::max(omega_min_v,
+                                sor_omega[k] * kSorOscillationDamp);
+                            if (sor_omega[k] < sor_min_omega)
+                                sor_min_omega = sor_omega[k];
+                        }
+                        sor_n_damped++;
+                    } else if (decreasing) {
+                        for (int k = 0; k < st.K; k++) {
+                            sor_omega[k] = std::min(1.0,
+                                sor_omega[k] * kSorRecoveryGrowth);
+                        }
+                    }
+                    sor_prev_decreasing[0] = decreasing;
+                    sor_prev_errRp[0]      = curr_errRp;
+                }
 
                 // Best-iterate tracking — mirrors raking.cpp pattern but uses
                 // X_cur (the SRAA working state) and saves lf_flat for revert.
