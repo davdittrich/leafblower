@@ -16,7 +16,7 @@ Add the normalization-dual ν via reference-category elimination: drop the last 
 - No renorm workaround / post-hoc rescaling of `X` after each Newton step (superseded approach in the now-defunct `cheb-renorm` branch).
 - No use of full-nct `e_vec` SM correction without reference elimination (yields `schur_nu ≈ 0` for sum-to-1 targets → divide-by-near-zero → INFEAS, the failure mode named in the ticket title).
 - No new public API in `chebyshev.hpp`. No change to `LpVariant` enum. No change to `ChebyshevResult` struct layout.
-- No silent guard `if (schur_nu < eps) dnu = 0` (this just disables the fix on the very systems we need it for); use the reduced system unconditionally.
+- No silent guard `if (schur_nu < eps) dnu = 0` applied to the **full-nct** system (that disables the fix on the very systems we need it for). The `kSchurNuMin = 1e-8` guard in T2/T3 is applied to the **reduced** system after reference elimination — this is intentional and safe because reference elimination makes `schur_nu_red` generically non-zero for well-conditioned problems (the problematic near-zero only arises in the full-nct system due to sum-to-1 degeneracy, which the elimination resolves). If `schur_nu_red < kSchurNuMin` fires in the reduced system, it signals genuine ill-conditioning, not the sum-to-1 degeneracy; `dnu=0` is the correct fallback in that case.
 - No bypass of `R CMD INSTALL --preclean .` between tasks.
 
 ## Audit
