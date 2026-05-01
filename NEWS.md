@@ -1,5 +1,19 @@
 # leafblower (development version)
 
+## Newton-KL calibration
+
+* `method="newton_kl"` now uses Levenberg-Marquardt scale-invariant damping
+  with Marquardt gain-ratio adaptive μ (commits 88033d1 + e4276cc). Replaces
+  the prior trust-region clip + pivot-bump bandaid. Adds LSE stabilization in
+  the dual evaluation and weight recovery (fixes NaN weights on K=20 severe-skew
+  inputs that previously short-circuited convergence via false gap=0). Adds
+  best-iterate fallback so rank-deficient drift past the optimum is auto-rolled
+  back to the lowest-gap λ. New diagnostic field `lm_mu_final` on the C++
+  `NewtonCalibResult` (R-side surfacing pending in a follow-up).
+* Stepstone K=9 max_err: 0.988 (regression from rev-1 LM) → 2.8e-4 (final).
+  Still above the 1e-4 gate; closure depends on Epic-B (target homotopy) —
+  see `docs/investigations/2026-05-01-newton-kl-lm-result.md`.
+
 ## Breaking changes
 
 * `harvest(method="greenkhorn", accelerate=TRUE)` and `harvest(method="raking", accelerate=TRUE)`:
