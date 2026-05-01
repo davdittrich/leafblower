@@ -744,6 +744,13 @@ IEPPAResult ieppa_solve(CalibState& st) {
         // ────────────────────────────────────────────────────────────────────
         // SRAA-m is path-agnostic: f_eval_lf dispatches on use_linear internally.
         const bool sraa_active_lvl = st.accelerate;
+        // Greedy downgrade — hoist to homotopy scope so it fires for both
+        // linear and log SRAA paths (was inside for-loop, unreachable when
+        // sraa_active_lvl=true after LL3 dropped the && use_linear gate).
+        if (sraa_active_lvl && st.scheduler.mode == SchedulerMode::GREEDY) {
+            if (st.verbose >= 1)
+                st.log("[ieppa] greedy scheduler disabled under SRAA-m; using round_robin");
+        }
         lbw::SRAAState ieppa_sraa;
         std::vector<double> lf_flat;
         std::vector<double> lf_best;

@@ -137,3 +137,21 @@ test_that("ieppa accelerate=TRUE disables SOR (sor_min_omega=1.0 when SOR inacti
   expect_equal(attr(r, "result")$sor$min_omega, 1.0,
                label = "sor_min_omega=1.0 when accelerate=TRUE (SOR disabled)")
 })
+
+## Test 9 — Greedy scheduler + accelerate=TRUE downgrades to round_robin ----
+# log goes via Rprintf (stdout), not R message conditions — use capture.output
+
+test_that("ieppa greedy+accelerate downgrades to round_robin and logs at verbose=1", {
+  set.seed(1L); n <- 200L
+  df  <- data.frame(x = factor(sample(c("a","b"), n, TRUE)),
+                    y = factor(sample(c("p","q"), n, TRUE)))
+  tgt <- list(x = c(a=0.5, b=0.5), y = c(p=0.4, q=0.6))
+  out <- capture.output(
+    suppressWarnings(
+      harvest(df, tgt, method = "ieppa", scheduler = "greedy",
+              accelerate = TRUE, max_iterations = 20L, verbose = 1L)
+    )
+  )
+  expect_true(any(grepl("round_robin", out)),
+              label = "verbose=1 stdout contains 'round_robin'")
+})
