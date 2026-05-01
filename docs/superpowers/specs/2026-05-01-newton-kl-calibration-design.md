@@ -73,7 +73,7 @@ For K=20, nj=5: n_λ = 80.
 
 where `S_{k1j1,k2j2} = Σ_{i: j_{k1}(i)=j1, j_{k2}(i)=j2} f_i(λ)` (cross-margin joint sum).
 
-**Newton step:** `δ = H^{-1} ∇g`, `λ ← λ + α δ` (Armijo line search for α).
+**Newton step (LM-damped):** `H_damped · δ = ∇g` where `H_damped[a,a] = max(H[a,a]·(1+lm_mu), lm_mu·d_floor)`, `d_floor = mean(diag(H))`; `λ -= α δ` (Armijo line search; gain-ratio adaptive lm_mu — see "Levenberg-Marquardt damping" subsection below).
 
 ## Single-Pass Per-Step Algorithm (obs-level, NOT cell-level)
 
@@ -111,6 +111,29 @@ H_factored = LDLT(H)   // n_λ × n_λ, negligible
 ```
 
 **IMPORTANT:** This is obs-level (`group_ids[k][i]`), NOT cell-level (`g_per_cell[k][c]`). No `cell_lf` is used.
+
+### Levenberg-Marquardt damping
+
+Sample H rank-collapses dynamically as λ drifts (severe-skew K=20 case): only a small subset of obs has meaningful `exp(u_i − u_max)`, so the empirical Hessian effectively builds from a shrinking subset. Plain Newton overshoots, gradient stalls. Solution: scale-invariant damping with additive floor.
+
+**Damped Hessian:**
+- `H_damped[a,a] = max(H[a,a]·(1+lm_mu), lm_mu·d_floor)` where `d_floor = mean(diag(H))`.
+- `(1+lm_mu)` preserves per-coordinate scale where H is well-conditioned.
+- `max(..., lm_mu·d_floor)` provides a non-zero damping floor where `H[a,a]→0` (rank-collapsed direction).
+
+**Adaptive `lm_mu` via Marquardt gain ratio:**
+```
+ρ = (g_curr − g_trial) / (α·G·δ − ½·α²·δᵀHδ)
+```
+- `ρ > 0.75` AND Armijo full accept (α=1) ⇒ `lm_mu ← max(lm_mu/3, 1e-12)` (recover Newton near optimum).
+- `ρ < 0.25` OR Armijo line search exhausted ⇒ `lm_mu ← min(lm_mu·10, 1e12)` (poor model — back off toward gradient descent).
+- Otherwise: keep `lm_mu` unchanged.
+
+**Init:** `lm_mu = 1.0`. Bounds: `[1e-12, 1e12]`.
+
+**Failed line search:** retry the LDLT solve with `lm_mu *= 10` in the same iter (max 3 retries). Do NOT advance λ with a tiny-step fallback. If three consecutive iterations fail line search, return `RK_ERR_NOCONV` with `lm_mu_final` set to the saturated value (used by AUTO-routing safety patch on Epic-D ESCAPE verdict).
+
+See plan rev2 (`docs/superpowers/plans/2026-05-01-newton-kl-lm-plan.md`) for the full rationale and the failure modes ruled out (multiplicative-only damping, μ·I spherical damping, trust-region clip, tiny-step fallback).
 
 ## Cost Analysis
 
