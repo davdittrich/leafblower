@@ -1,100 +1,32 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-04-30T10:10:27.419Z
-> Files: 516 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-05-01T10:00:00.243Z
+> Files: 539 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ..Rcheck/
 
-- `00check.log` — Declares calls (~2235 tok)
-- `00install.out` (~251 tok)
-- `leafblower-manual.log` (~4595 tok)
 - `leafblower-manual.tex` — algorithm: proportions, proportions (~3688 tok)
-- `Rdlatex.log` (~5635 tok)
-
-## ..Rcheck/R_check_bin/
-
-- `R` (~22 tok)
-- `Rscript` (~24 tok)
-
-## ..Rcheck/leafblower/
-
-- `DESCRIPTION` (~247 tok)
-- `INDEX` (~139 tok)
-- `LICENSE` — Project license (~16 tok)
-- `NAMESPACE` (~64 tok)
-- `NEWS.md` — leafblower (development) (~224 tok)
-
-## ..Rcheck/leafblower/Meta/
-
-- `features.rds` (~32 tok)
-- `hsearch.rds` (~134 tok)
-- `links.rds` (~60 tok)
-- `nsInfo.rds` (~98 tok)
-- `package.rds` (~258 tok)
-- `Rd.rds` (~132 tok)
-
-## ..Rcheck/leafblower/R/
-
-- `leafblower` — File share/R/nspackloader.R (~283 tok)
-- `leafblower.rdb` (~3933 tok)
-- `leafblower.rdx` (~117 tok)
-
-## ..Rcheck/leafblower/help/
-
-- `aliases.rds` (~44 tok)
-- `AnIndex` (~54 tok)
-- `leafblower.rdb` (~3126 tok)
-- `leafblower.rdx` (~87 tok)
-- `paths.rds` (~55 tok)
-
-## ..Rcheck/leafblower/html/
-
-- `00Index.html` — R: High-Performance Survey Calibration via iEPPA and L-BFGS-B (~535 tok)
-- `R.css` — Styles: 3 rules, 1 media queries (~527 tok)
-
-## ..Rcheck/leafblower/libs/
-
-- `symbols.rds` (~516 tok)
 
 ## ..Rcheck/tests/
 
-- `startup.Rs` — # A custom startup file for tests (~38 tok)
-- `testthat.R` — This file is part of the R package leafblower. (~49 tok)
-- `testthat.Rout` — Declares to (~259 tok)
 - `testthat.Rout.fail` — Declares to (~870 tok)
 
 ## ..Rcheck/tests/testthat/
 
-- `lbfgsb_baseline_time.rds` (~27 tok)
-- `lbfgsb_ref_weights.rds` (~2943 tok)
-- `task1_ref.rds` (~531 tok)
-- `task2_ieppa_ref.rds` (~1526 tok)
-- `test-algo-selection.R` — tests/testthat/test-algo-selection.R (~2289 tok)
 - `test-bench-gate.R` (~609 tok)
 - `test-best-iterate.R` (~1633 tok)
-- `test-bounded-convergence.R` (~400 tok)
 - `test-calib-linalg.R` — Direct tests for LDLT factorization and compute_normal_equations (~1442 tok)
 - `test-calibration-solvers.R` (~8311 tok)
-- `test-cell-table.R` (~497 tok)
-- `test-compare.R` (~393 tok)
-- `test-compat.R` (~292 tok)
 - `test-config-defaults.R` (~600 tok)
 - `test-convergence-criteria.R` (~4070 tok)
 - `test-convergence-trajectory.R` (~253 tok)
-- `test-design.R` (~223 tok)
 - `test-eta-schedule.R` (~402 tok)
-- `test-harvest.R` (~1083 tok)
 - `test-homotopy.R` (~533 tok)
 - `test-ieppa-bounds-mode.R` (~2360 tok)
-- `test-ieppa-faithful.R` (~1057 tok)
 - `test-ieppa-nonuniform-d.R` (~447 tok)
 - `test-ieppa-persistent-infeas.R` — WU-1: persistent-infeas tracker regression test. (~1171 tok)
-- `test-ieppa.R` (~611 tok)
-- `test-lbfgsb.R` (~957 tok)
-- `test-logit.R` (~308 tok)
 - `test-priority-sweep.R` (~783 tok)
 - `test-quality-metrics.R` (~1266 tok)
-- `test-raking.R` (~604 tok)
 - `test-sor.R` (~459 tok)
 - `testthat-problems.rds` (~4935 tok)
 
@@ -120,14 +52,15 @@
 
 ## ./
 
-- `.gitignore` — Git ignore rules (~113 tok)
+- `.gitignore` — Git ignore rules (~126 tok)
+- `.mcp.json` (~50 tok)
 - `.Rbuildignore` (~75 tok)
 - `.tldrignore` — TLDR ignore patterns (gitignore syntax) (~280 tok)
 - `AGENTS.md` — Agent Instructions (~726 tok)
 - `baseline_bench.R` (~191 tok)
 - `cell_table_92c4f45.cpp` — include "lbw_config.h" (~1375 tok)
 - `cell_table_92c4f45.hpp` — pragma once (~285 tok)
-- `CLAUDE.md` — OpenWolf (~729 tok)
+- `CLAUDE.md` — OpenWolf (~1167 tok)
 - `cleanup` (~8 tok)
 - `code-review-findings.md` — Code Review: C++ Source Files (cell_table, chebyshev, sinkhorn, grake, greg) (~1627 tok)
 - `configure` — Detect C++17 support. (~1050 tok)
@@ -150,8 +83,8 @@
 - `.local_version` (~2 tok)
 - `config.yaml` — Beads Configuration File (~597 tok)
 - `export-state.json` (~38 tok)
-- `interactions.jsonl` (~45608 tok)
-- `issues.jsonl` (~232313 tok)
+- `interactions.jsonl` (~49448 tok)
+- `issues.jsonl` (~250055 tok)
 - `last-touched` (~5 tok)
 - `metadata.json` (~46 tok)
 - `README.md` — Project documentation (~562 tok)
@@ -189,12 +122,24 @@
 
 ## .claude/
 
-- `settings.json` (~661 tok)
-- `settings.local.json` (~1084 tok)
+- `settings.json` (~336 tok)
+- `settings.local.json` (~1111 tok)
 
 ## .claude/rules/
 
 - `openwolf.md` (~313 tok)
+
+## .claude/skills/
+
+- `debug-issue.md` — Debug Issue (~271 tok)
+- `explore-codebase.md` — Explore Codebase (~301 tok)
+- `refactor-safely.md` — Refactor Safely (~299 tok)
+- `review-changes.md` — Review Changes (~266 tok)
+
+## .code-review-graph/
+
+- `.gitignore` — Git ignore rules (~38 tok)
+- `graph.html` — Code Review Graph (~184230 tok)
 
 ## .gemini-bridge/
 
@@ -222,6 +167,8 @@
 - `baseline_tuning_sweep.R` (~439 tok)
 - `baseline_tuning_sweep.rds` (~74 tok)
 - `benchmark_run.log` (~229 tok)
+- `blse_routing_sweep.R` — BLSE routing sweep: localize ieppa/raking crossover across compression ratio. (~561 tok)
+- `blse_routing_sweep.rds` (~114 tok)
 - `compute_rate_slope.R` — benchmarks/compute_rate_slope.R (~516 tok)
 - `final_rate_slope.rds` (~369 tok)
 - `ieppa_vs_raking_bench.R` — Bayesian Level Set Estimation: ieppa (faithful) vs raking (hybrid). (~1352 tok)
@@ -231,7 +178,7 @@
 - `probe_baseline.R` (~149 tok)
 - `python_ipf_benchmark.py` — load_data, compute_metrics, run_ipfn, main (~1338 tok)
 - `sraa-m-baseline-pre.log` (~258 tok)
-- `stepstone_all_methods.R` — All-methods comparison on stepstone fulldata (1.58M rows, 9 margins). (~1566 tok)
+- `stepstone_all_methods.R` — All-methods comparison on stepstone fulldata (1.58M rows, 9 margins). (~1670 tok)
 - `stepstone_bench_targets.json` (~10918 tok)
 - `stepstone_benchmark.py` — def: load_data, bench_harvest, design_effect, effective_sample_size + 1 more (~1398 tok)
 - `stepstone_benchmark.R` — benchmarks/stepstone_benchmark.R (~2830 tok)
@@ -382,8 +329,16 @@
 - `2026-04-29-i0am-sraa-acceleration.md` — SRAA-m: Replace SQUAREM with Anderson Acceleration (~6308 tok)
 - `2026-04-29-i0am-sraa-correct-all-scales.md` — SRAA-m Correct Acceleration for All K Scales — Combined Fix (~5487 tok)
 - `2026-04-30-efficiency-hotpath.md` — Hot-Path Efficiency Fixes — Implementation Plan (~10383 tok)
+- `2026-04-30-epic-b-sraa-tickets.md` — Epic B: SRAA-m iEPPA Implementation — Ticket Summary (~1303 tok)
+- `2026-04-30-ieppa-sraa-acceleration.md` — iEPPA SRAA-m Anderson Acceleration — Implementation Plan (~11172 tok)
 - `2026-04-30-quality-fixes.md` — Code Quality Fixes — Implementation Plan (~10279 tok)
 - `2026-04-30-reuse-dedup.md` — Code Reuse & Deduplication — Implementation Plan (~6740 tok)
+- `2026-05-01-blse-routing-sweep.md` — BLSE 3x3 Routing Sweep Implementation Plan (~1026 tok)
+- `2026-05-01-compute-errrp-ct-audit.md` — compute_errRp_ct Dead-Code Audit Implementation Plan (~637 tok)
+- `2026-05-01-deferred.md` — Deferred Tickets — Status Summary (2026-05-01) (~1064 tok)
+- `2026-05-01-ieppa-sraa-log-path.md` — iEPPA SRAA-m Log-Path Extension — Implementation Plan (~5753 tok)
+- `2026-05-01-ieppa-sraa-sor.md` — ieppa+SRAA SOR Coexistence Implementation Plan (~2239 tok)
+- `2026-05-01-validation-dedup.md` — Validation Target-Sum Dedup Implementation Plan (~1023 tok)
 
 ## docs/superpowers/specs/
 
@@ -410,15 +365,16 @@
 - `2026-04-29-i0am-sraa-global-safeguard.md` — i0am-B: SRAA-m Global Safeguard + Revert-to-Best (~2357 tok)
 - `2026-04-29-ieppa-alm-soft-capacity.md` — iEPPA Soft: ALM Capacity Enforcement — Design Spec (rev 3) (~10424 tok)
 - `2026-04-29-sv89-logit-newton-fix.md` — sv89: Logit Newton Stabilization — Design Spec (~3315 tok)
+- `2026-04-30-ieppa-sraa-acceleration.md` — iEPPA + SRAA-m (Anderson Acceleration) — Design Spec (rev 2) (~3862 tok)
 
 ## graphify-out/
 
 - `.graphify_python` (~4 tok)
 - `.graphify_root` (~7 tok)
 - `cost.json` (~59 tok)
-- `GRAPH_REPORT.md` — Graph Report - leafblower  (2026-04-30) (~4463 tok)
-- `graph.html` — graphify - graphify-out/graph.html (~93676 tok)
-- `graph.json` (~119490 tok)
+- `GRAPH_REPORT.md` — Graph Report - leafblower  (2026-05-01) (~5329 tok)
+- `graph.html` — graphify - graphify-out/graph.html (~98246 tok)
+- `graph.json` (~124715 tok)
 - `manifest.json` (~4366 tok)
 
 ## graphify-out/cache/
@@ -438,19 +394,14 @@
 - `39558b68d7749ed324b28379d129892fb4264f74ed1e7eeccb0aeae8c36134fd.json` (~7046 tok)
 - `40da61f854d251272ade2923ab5a9100e744e5b859cd901f32448bfe7c34ce21.json` (~110 tok)
 - `42a08c21d0168461659e5fe894b61ade7e74ba69c79d60e65fef265e4f7d2ff6.json` (~104 tok)
-- `43271132868b745ab526038bc618ef64faa0e62ba56548cc02cf6e2980800b92.json` (~6912 tok)
 - `47119dbe4a955e5fa28a905b1e85ba578a64b533c95a4ea209b4b3108432e3e7.json` (~7962 tok)
 - `47b54ab49aaf46fbe2a1ce561ae2c483489b94c8b6cbd31850eafc9800a666ff.json` (~241 tok)
 - `47f1dd7fb41578da933ac0fbd968e5f0603f53bc0d5886179ab47870b4712a1a.json` (~224 tok)
 - `490b54a28002327d8de5db4aae04af6632f246d45aae36b7738e4c7eda26e66d.json` (~5920 tok)
-- `4f6cae39d93e2edae46447110080b617b581b71c6a344f02543072dccd600dbc.json` (~460 tok)
-- `593fcfbc33cd6dc7d05a774697df7c69e19613b4b8cd9d4d2f3910bc9a8878de.json` (~4805 tok)
 - `63a49f2fc3a7ca5bae578b895b4bfddf67d296a76181a130889e8aeda89910a4.json` (~109 tok)
 - `65afdee86b707f89e0d71524513f1f01a54b904c5112275d1359f56048233992.json` (~264 tok)
-- `6630caf93978794a744dcf827cba4bf332c8ae93328202b124f5dedaaf01b558.json` (~322 tok)
 - `6922c8de6abc125dff563b2c5c285781ad44db7d24935413e21f691d3de6c244.json` (~385 tok)
 - `69d065ffc04054b2159bbeb53e1996dc07d13f358a69d4826d91295733b8912e.json` (~264 tok)
-- `71242c807c2a0b64bf935b507686edb182b0cd482cc53df157fcb691252ed9d7.json` (~129 tok)
 - `72ffe7b0f7722f9b26fb6c8fc27346ca81de6842a0ccfa5c2f90008f5be59714.json` (~285 tok)
 - `7379c9885df632f63a86e695139b7f15a7843e5b31dfd23f5fad65943b4a18dd.json` (~146 tok)
 - `7574ae05b2f08c595f7d618a8e96630cf06711cfcdc3d87144a87a4dbd406d6a.json` (~234 tok)
@@ -460,11 +411,9 @@
 - `82776448d5bfc1e1ede366018facdb7da2fe91980d74954c5f64c3272511dad5.json` (~91 tok)
 - `82ea2765b2060c996d7959110f285246008076f70929f41061cc254c72290491.json` (~219 tok)
 - `83867a04920f97d4d907227dec186789c9f6b69762414c62b70b396647f420e4.json` (~1164 tok)
-- `85944fea414ea5915df287815d58fb9ea8a9bc70c72d61b9f5995472c7f92a85.json` (~5323 tok)
 - `87ee12e470724d10c6ac1658ee24df0bff20a6daa253fcae6b030c901e9d08c2.json` (~438 tok)
 - `94146a918c7988939a12299e8fd8cfe852d05f7944d159028ce07f0e2e8d5f3f.json` (~253 tok)
 - `9cc5b9ffb2e7ef172d940c48c217f9a8fed8c7fc4f1bd276450007b99202b350.json` (~436 tok)
-- `a435f2a247ce20fe812c72fa5b87c327a80f1892b0075df409f2cdff117d0858.json` (~3908 tok)
 - `a66a725fed2f9bf2ce4a5f7a62f43021ea38a3db6a35fd8b3b8563b20ba10207.json` (~260 tok)
 - `ad7f176b6a2371e4af0cb85368f40060dcc7c1d3cb3dfe14633091618ed142ec.json` (~259 tok)
 - `aed46ee284bab950f15aaa2a43723f5d32f2cfef18e5ee81b3009a6a8db1bf99.json` (~5665 tok)
@@ -473,7 +422,6 @@
 - `b2b3d802863b99a7e6854eeb337aecfc816881fa610c720f01295d0f7727bb34.json` (~337 tok)
 - `b85338137e339486974a442de497e16bf31bda3577d7ec604ea89b2b0f365f97.json` (~104 tok)
 - `bfa3120a76b2fb060e442cfe9336c266111360a135b5d0d817ac979b60bc0e93.json` (~159 tok)
-- `c2ec4fa1ee0153bb604bbbf81491dd4955cfcae51cbe3f655a711d027b1ae400.json` (~296 tok)
 - `c4b85f4e7f1d3834c24a5d2c42247a4b20c8abe2b80be681c0e122dc28305a8b.json` (~422 tok)
 - `cac8835293fa982b7572f9a1921a0c97b69c2fc278da0537ac93d922e96477a6.json` (~154 tok)
 - `cbd54d66af0e6ef43a82441132d01a40c1a38d7f783e5985751b882f108ef139.json` (~253 tok)
@@ -481,7 +429,6 @@
 - `ccd663ace2f49a1ef194fbac6dbe9d45d295970018443021133565a33dd5b852.json` (~1282 tok)
 - `d448c5fd9a908ff739852d41a700a9aa76cf2946b190f3f84c9b780cd3664cdc.json` (~254 tok)
 - `d582fd91bc7fc0ba5cd2934e927b60430c3294e3265e041e20c895150f4fa52d.json` (~290 tok)
-- `d629ad1907eec236d1daf2abb6f376de28badaec9c2606066ec6bbb82a4d215c.json` (~7046 tok)
 - `d659b00f194eb6937556bcebee970b10aa028a0da06e50c93a96aff967965c6b.json` (~264 tok)
 - `daec21cc4827209b3f5674844b235a9da3a38e4b400ff067303bbbd902b798bf.json` (~84 tok)
 - `e109d63534e374b21bcc982159c71b32e6c6a1fddf085dcb189ac3f415f25b3b.json` (~415 tok)
@@ -490,75 +437,138 @@
 - `e33c2d6aeca974a95d9b9cd1dd83d8a6fefd82d76d00332ed07004e09a3fa7cf.json` (~152 tok)
 - `e5b1c9fdaeb2b43a6944ad6f15c92e9f4125d971dc7dc46055b9756631c0e13a.json` (~248 tok)
 - `e732e086fed8bd665b6e0270103e36246e6707131dd48d63b7cb099bc046a178.json` (~145 tok)
-- `ed4eff8e622cd97a68367d48ceb6858fcb430e7164b1e9c218ac75464ae5855a.json` (~340 tok)
 - `ee778ee1eda010c0228177439180e6c0c435335a35afa2e6c4814c7a115ee5ef.json` (~146 tok)
 - `f0d0393d9147bcf0a2cfa649e87c27566894b9e9f175f19de0b37be829f391d2.json` (~73 tok)
 - `f0d48a76004fd82176282e6bb3ee31810da32fdb4b7e8354b6919eb34bd5b9b3.json` (~378 tok)
 - `f61fae7539b8e2c3c65488e27b76da70254022824981191cf2b5ffd67a2be264.json` (~7962 tok)
-- `f82c016626a1b588ee0d332b0350dda2b927b504eae3c591499d57ae0dcc1126.json` (~597 tok)
 - `fa41a656cfb40c4feadb89d71ab8e945428de96568cf0485adc4877b5c232966.json` (~288 tok)
 - `fd57a7f239a4090c2b7f48bb929e37e505fa05761a963eb7c4e9652f7e4d6889.json` (~74 tok)
 
 ## graphify-out/cache/ast/
 
+- `03c679ba6af811c744267ddd1925f5eb9a9f342a25fde0604addf2faeca1fb33.json` (~17847 tok)
 - `04a34252d1d3df2f4832a4d92fa4564a3247c8013fed67392480ace8248c4a0e.json` (~96 tok)
 - `089b9692217c1147b7abb815a006b9b8616f8b07ecb5e5dcfaf2fe0f3d7d247f.json` (~254 tok)
+- `096d6838512a750331a6c08d75ea91e6c6e2b8cb976b691e35c279591fe18aeb.json` (~203 tok)
+- `09e041145484211438f9987732afebc9cebfd9507f755fab486a287e80616b2a.json` (~8362 tok)
+- `0ae5ab132d940781713e5a85d59b912e8560b7f041890c8669e4ad219c1b2687.json` (~126 tok)
+- `0d1be6be4a7bb16854eff81a8c3201b5f449460c875983f3b204d52e0fd84be3.json` (~19716 tok)
 - `0efa79ccc5705b802e8ef7b999aa8f754276e7239ae323ed777857ca891bfaca.json` (~5898 tok)
 - `0eface3030fea738f33b7ad9a98685cb8c2d644734eb1e4ce62a00233fbbbcda.json` (~90 tok)
+- `1510052574df022ce967a6d4b14d5dddb47fe648b336122e7c6e00b2bb171e92.json` (~8697 tok)
+- `1710691e0e7a795856de2116b18425f715c4b2cce1a93cb86f27755e18212433.json` (~3549 tok)
 - `17a0f9b30e36f9f6fa6cc49263b8957fc69f7aec6be035abe86a444697233d80.json` (~24213 tok)
 - `195ddf61b21d86c6c84670ddfc9def15539f5acd3ff3e10a7c41bf5b41e49e77.json` (~329 tok)
 - `19a5e07a17f7dec4c43aa88c2157eee4a55e22b8eb043af3fec642905bbc7a4b.json` (~3972 tok)
 - `19f86bb314c7beb0c0e14e08b714dc82a8589671d11b23f25ff68429df0093ad.json` (~16749 tok)
+- `1ef7daa855a6b636c8f085308c00185a23d7de5bb258caa31a56a7c236b68c14.json` (~16606 tok)
 - `205bac4d52b73e53d2ac239dabf56771c37c41f3db68b299a4aa316e3ea10d20.json` (~320 tok)
 - `24405cd3c8cb622d29e4f0e11f43fad61c84b4fbfacb4571956f95278095c9cd.json` (~8697 tok)
+- `25a4d3d27af6ac8b6bf898f30b67169d8114fa7e5a573b83d75034a5a2cda237.json` (~197 tok)
 - `25c34fffacabccb5cddc2876f880bea543be145dc5e51ee94ef3f6f8beb37403.json` (~196 tok)
+- `25e25b07223b3321a81d1607d27686afb4cc06667b0b6e36ad76855073e78f3d.json` (~128 tok)
+- `2a16a3a6dd1bedc136a982510f51a883adab4b6d2b61e1733c7c814bde612621.json` (~4570 tok)
 - `2a494dbe8b6233ddadc492dcd9695fda6bab3302ae5b849778e872e69719c59c.json` (~88 tok)
 - `2a85d463161ae377f840c04a316e722e991e592b4210d2ab12e25e3fe973c258.json` (~126 tok)
 - `2c5a1394c429f02413aec3bc60300a2f85f1422a4557822afdeb4a4f1b1800f3.json` (~276 tok)
 - `2ea11fac655e04ee3169ff9388539e365174abb82c39f34160846676adedb3f3.json` (~8205 tok)
+- `304c5cf0e9cee41c96f2189a819596340f5b28e1445bb02a5b5c245b739be565.json` (~19665 tok)
+- `33dfebfa8f0ff560b62b076e93a36a06b3de27c1be6fdfcde6e81f6ca1d3ce1b.json` (~20054 tok)
 - `349b52f11930004db1b5ce4e90ac680a9f8d4784d33a109c0e95a4a2be3c68b6.json` (~320 tok)
 - `34ace3e728e99f9c592fd6675d65bab52aa1bc0ae5cc6b90f726b4e4eddb8506.json` (~8697 tok)
 - `36777fa908d4c6246e447496b92a9942b6f075d27cbc092ab5837749deb71c06.json` (~511 tok)
+- `3694bac49c6ebb94e4231aebd3138039a1d61e2e7c7529ad57c63387261dc7a8.json` (~3775 tok)
+- `385f3d86578f080b0689d3bd9da49b97d332742df84e513bfc343b780f6cc464.json` (~4602 tok)
+- `3920d0d06fee39876b008975d0899e56dafd37b62b8b880647b6f6f658acf6ae.json` (~2480 tok)
 - `3935880aa852808350fa385666a4e014801f13766a42ab64563d247f26f4f798.json` (~210 tok)
+- `3ba0582adfbed87a9c9880b8fd59d3b2c637b9b3e0320b134ba2a8e1ef82a0f9.json` (~444 tok)
+- `3bd4f3dc0693983ae85db9cd03ad181d1e31482359d3aea3e739ffebf7dc9581.json` (~4904 tok)
+- `3bf35289e5c26938b4e4f19443caa772904d90781cbd387604d18dfbf4154d95.json` (~3768 tok)
 - `3d3dbf61aba4e8454b75e16265c5886b2b8ecfdd59878e65633948a1b1bcc79f.json` (~2364 tok)
 - `4202b325a406efda39089d867918eae665a5f2b486477515a297cbf6c9bcf584.json` (~85 tok)
 - `4295dc4c7aa9ab22adc4ee4b56e3791fd91ad3eff23ee2deff990235e5939621.json` (~1777 tok)
+- `42b2515e1821c56b9963606b7ec08eb2fbb822852712eaf47389d8df3318ce2d.json` (~17310 tok)
+- `4344f27b2260e7441206a86795863de59ea77e6750b1af60733cef316a7062bc.json` (~16607 tok)
 - `4578e200d4d10f598295a692f64f7767751a533fc69e87e7d1af6fa936a6a969.json` (~464 tok)
+- `470fdd14f8d9aa04e4048b3a83b9a9b40121cf87a3b51a30c7562266966d32a0.json` (~3242 tok)
+- `478caac394c97b9815ed5dfd8a701fba9db61c2eb291b84dcc16a490f7f74cbf.json` (~4031 tok)
 - `494e687e4c1564f47e339304da57fd23ceb6ee83113ea1ac9d5ba03f7d14697a.json` (~2533 tok)
 - `497bc20790beae15bc225642545e134820f858a6f6c6d47ba5d96cfaaf5b5227.json` (~90 tok)
+- `4c69b751336576e057fe96851dec6544efd86b6266ac5c951b76b8bd560d0013.json` (~4501 tok)
+- `4ce995fa60d4e4306f4a8793c5fb149d13943aa5936961eb0319c695588dd221.json` (~21863 tok)
 - `4e9408c8824dd6857831df779147a827c7452a65ce592d6ffec0a97141fbadba.json` (~91 tok)
+- `4f4095bb985cfed034066d063f70565e879048a21981b15db5b2c21ae5e11804.json` (~127 tok)
+- `4f6cae39d93e2edae46447110080b617b581b71c6a344f02543072dccd600dbc.json` (~492 tok)
 - `50dc4b93f9ac2514aaa5658eb511c1fe3ff526d3da5a13c969c86ad329a6adb2.json` (~9531 tok)
+- `51f6187441f6c96c5ba44eda36a95d9df58d3b79b731637a04c78fcd0bf38166.json` (~5735 tok)
+- `526a16ad782282bdcdd96d0f2a87a9d76516a86900a3219629ccd2e449b5b964.json` (~9050 tok)
+- `52c9e48b0796b0ffdd49958fb6bd93a79019cf9afbd0726a6ae57dd5496ef3cd.json` (~14130 tok)
+- `554da3ba3d0c1c0c0baa158e7fb9fe4b6a0fce74fb15d248e76c503af76e75cf.json` (~24428 tok)
 - `56ae9962016b91b9e26ef92d4fc0b3ec30d1adba68e294570accfce3b0ed44fd.json` (~346 tok)
 - `57030adcd5737fe1f35720bd542c3bb2631267efdbc66d31e03d31e3b2b365ac.json` (~89 tok)
 - `5765f507d4037641da5cb057dbe70855df3238aea47f240b038559fb6117ab6b.json` (~16749 tok)
 - `5937b06ae88264fdfc0d2e7f6bcfbf9f8a90f3ff4e123d42f917bc9f83298f76.json` (~3620 tok)
+- `593fcfbc33cd6dc7d05a774697df7c69e19613b4b8cd9d4d2f3910bc9a8878de.json` (~5486 tok)
+- `59884e36c9c0b29c74555f24a3a15a66ecc23f170c6f0118ba2fd69c4db0a1fd.json` (~20006 tok)
+- `5a9fb6553d8229bb0b81e1de75d8848d3dd202729a8b15c0a5beeb6cec255542.json` (~16942 tok)
 - `5aa666c03b3d6d786563c60b27ff9d318b2a65eed8994311a8c3c57a1b636089.json` (~24976 tok)
 - `5abb652854b89917fa2438a3afe844e3dff141fb4a97f1ba6369200e7ad9f082.json` (~90 tok)
 - `5dd526d04ebdf28382cff09f320cb8686aca6e1cfd812a00f9c5988f7a4e8136.json` (~343 tok)
 - `5ea74426e28c4ed82f64afcf8f608437dcd23906ef94f00b20384a20c926b5f4.json` (~4595 tok)
+- `5f09a0cd7fa25689eb35c04d2a949215eac3a403921a0b5c4d18be0db52a7aa0.json` (~254 tok)
+- `5f8d36b565e1eedc700b5c83a96bccb92da96b3caf9bc8511871e4aff913f148.json` (~8264 tok)
+- `5ff0f9de6ed3baeb2b445f47859a22fbe56006189feb81f2a71c276bacc10b77.json` (~16749 tok)
 - `65d2c18ef3dfb9240f9768be75c2f87ced733f120166fcd9187dfeb6036af3d6.json` (~93 tok)
+- `661fa16701c90a919c36992d66e36cfc3bb300fcf897f2de10a178cc00b9faea.json` (~4727 tok)
+- `6630caf93978794a744dcf827cba4bf332c8ae93328202b124f5dedaaf01b558.json` (~328 tok)
 - `66cdacfc318d99bb8f06af8f6b34770949db8adaab1d74b3aad48c0fe898e164.json` (~259 tok)
+- `68f79bc274ce9c3dd0d05cea883ea80c812110f2c44a25aabc5a2859e49b5434.json` (~686 tok)
 - `69504ae18c0aae446048eb901e9acc9b9c56c9479fbb7675a03497cc5aa9d26f.json` (~173 tok)
 - `6aae34d5d22985f332d927132a5824a5e5953a6dc373505afe85551d2af9bdb2.json` (~254 tok)
+- `6b1616f873c9010de944f16c7bf27b7bd2136bbc51df4525bca17ab4e1e9924e.json` (~18619 tok)
+- `6e6792ac54187033fdefee3a6e6e324cbd7859ff00e60af4609edb1d43363d1c.json` (~8320 tok)
 - `7092ef4c79820af7c921d56d11fd45cbb4bc59ba606ad349fc1641490bda2e89.json` (~3549 tok)
+- `70eafa79fc933712f662a28523a3e62f6b8ec35212585c413b6d218fafeeebf4.json` (~206 tok)
+- `71242c807c2a0b64bf935b507686edb182b0cd482cc53df157fcb691252ed9d7.json` (~129 tok)
+- `71a9911b2420def7dafde6e513980ca63713cb6e3181046ca87a813761a72ef5.json` (~320 tok)
+- `72d74f74d895aab008a58ee41643c4f75fb558eef59923ee726289d2eb6425dc.json` (~4625 tok)
+- `732a3d512942bf7576052a3e74b66bd0485201d95a4df199e3f38682b92474fc.json` (~16607 tok)
+- `7436759ca2faa38d97f75bd1e415d89aeda7d32889f4f22c28cf5d43d2a695b4.json` (~4626 tok)
+- `766e7546e3a8c31f042619a1bef1cc4c5995d25a2b2e21fc9ccb6a1ced13d598.json` (~201 tok)
 - `77bd5f89211e691d3abeef602c33bbd06f5ccc4d118a9ea1971630e136733f47.json` (~84 tok)
+- `78dfe924d9e0a663ac435e7121acf49b930f63627b6eaad31a307c304557001d.json` (~2356 tok)
 - `79244b1234f88d9e5c13df169c026bdebfe11830339788eb0b17422f7b7b1511.json` (~90 tok)
 - `792f0acd61e5c9acafda6a470235b20bfa6ed8a400d6f72a1ac59f5212881372.json` (~4595 tok)
 - `7dbe1ec98ab98e5e2d0e09a6e231348983eadc981b113315aecb28973360213a.json` (~3640 tok)
 - `7e0bbff781de0c13318f6a4c4bd2b9f618635936ee91d2183f4cdc8090641874.json` (~269 tok)
 - `7e0c0086c82d40741bec2a02a12b7eb382f6600d524f76805fa47afff666d64e.json` (~8205 tok)
+- `82d86dd6ca6eaf3070a45bbc779d9904a697e165ffa5389725db3af5d3056262.json` (~5082 tok)
 - `844d5f39b3bdad5e1f8476b7c0244e93e12d6601c28e819667585d0bf6777c81.json` (~2934 tok)
+- `85944fea414ea5915df287815d58fb9ea8a9bc70c72d61b9f5995472c7f92a85.json` (~6057 tok)
 - `8604a22eb8991662177b7eccde5d13c62f6ddc325c1c52294676e516b57a8421.json` (~265 tok)
 - `86cc3b0d5f0e0bb358c78c5474f7385e7e481cdf287a7348188b582b845a8074.json` (~89 tok)
 - `87ae5aa14bd86364f4782f9b001ab263a453707db262a35c62496ddb12f3935f.json` (~96 tok)
+- `88c9bb4c252851d72a84c18e5080eab0f4ae569ea252e75ef4395295fd90fbb0.json` (~4706 tok)
+- `89245e2799137aec18e7ce98053c35c715875cb20298d25a442c3d1d30d0f2f9.json` (~4087 tok)
+- `892f2541f8fa5420cd01d62356f0394cd8c665c11b8e8622c083316b5b08c506.json` (~269 tok)
 - `897350fb685376d3c60a10b93c845280179eb355f5a837d01e8ff2497c003a76.json` (~403 tok)
+- `8a79ae3ed749e8cf8426002ab0e9447965db341f93a30c6a7790fa03484ea224.json` (~18717 tok)
 - `8bf36dd0533314469db2f2ee28d45c9f5469277aab307e50183f2b38be488257.json` (~87 tok)
 - `8cdbad22191347a2b5f17baeb12fd68399400e15c0fc700ecfd1b666735c0c13.json` (~2356 tok)
 - `8d554835358b001b85724157692508aa138297251d67fb8ef4033941d3025d31.json` (~88 tok)
 - `8db300bf43686440539795b5a37fa7fa246427c76b478830c46e51fc05ddd4b9.json` (~66 tok)
 - `8de300ca88bb18303d6eb6d273e3b8e6d9af11aa746cac1fabbfe3a54ee83846.json` (~2695 tok)
+- `8f60b20a465624d7e1c74b59c7175c4972fdc0f2b6b181e17e599e2679e9b45a.json` (~4088 tok)
+- `922002133345abb35e91ba40d9f15a1277e58e864f0ce49fedb813e35ecf9e1b.json` (~4651 tok)
+- `9252d78b8cefbdbe4aefc2ffe8b086b6603e53dc5e59258ef19700b83fd8efa5.json` (~4764 tok)
+- `93be6d6a673453ceaae2c84e60910173ca084a74572cd909ac532dd1f7b653ee.json` (~126 tok)
+- `952bbf0184698e4a98f035efcf8c8b26830a79df2f63e1f15bb046294b89b75f.json` (~9050 tok)
 - `9667e12b9affbce60511add6f171d0f2bbe8e2b1a1a690ff7c7d259b4f49f970.json` (~3972 tok)
+- `9689a5589bd98a7a84a5e2eb197946f6b72812c2618e1f7780845cae325dc041.json` (~4388 tok)
 - `96b461ab2e80a9ff4c8bef440f4c2af8b182aacc3c2ace55bcc0efeeee05d85b.json` (~100 tok)
+- `985f2d63bf2ed48ddb521f50e51541dfc12a9a53dde46eddfba0bf3217d61b4c.json` (~1777 tok)
+- `987a07c966c92f6f192f6e61cabcd27356b9c8b77167c6c5943052f951889227.json` (~4706 tok)
+- `995e029575a27f8e499f701680d43784d1468eb8820634735593c769f51e9d03.json` (~18766 tok)
 - `99b895809b9e68dff54df7ca404d23a7b6901d0e127607936bc80ca36ff149b8.json` (~89 tok)
 - `9b2d48a86241ce1c2225ab08b4b4c6822d734899905c92e8fa2ed1c8f745a9ef.json` (~8697 tok)
 - `9b96004b8cab326c4f99fae76497e2dcd431bd4990b4f125f506cfb3deebb936.json` (~3956 tok)
@@ -566,117 +576,79 @@
 - `9cd53a3f8ad3acd55155a56c8dc4a9f12985e27a477308f72144a1aa4f86a83c.json` (~24976 tok)
 - `a03d882c2696312947a462846475aa7315646495dd1653d02a983a0876a03029.json` (~2372 tok)
 - `a0f8567b66e71a26d9fa28cc3ea6a39d1e0f0ff9b2a234e536d048e5688b99c2.json` (~16749 tok)
+- `a2ec53e81b3af474de4467df6945a476e7a017bafbcec8177bb674b611bfa25c.json` (~2873 tok)
 - `a37a87f1d8be8e7784831f60e369625202f698409a2a360534f24a5d702c140d.json` (~1288 tok)
+- `a435f2a247ce20fe812c72fa5b87c327a80f1892b0075df409f2cdff117d0858.json` (~4282 tok)
+- `a49279e50fb7f0ac542b987d5f1b80d7e0a758d3bb8d4ccb55b281ec39b17ebc.json` (~280 tok)
 - `a4e1c44696221bfafbef5722c7e4e0f817ac0ae88ac84b389a1321b4b62ead61.json` (~2433 tok)
 - `a9975d401e142412a81788be083892a61565d76d69c304029e1451a7d250c555.json` (~201 tok)
+- `ab184a734d89b8fc0a0ecd1555eca7c9ab0ae5f9efb5d868961de6a4d13cc927.json` (~8321 tok)
 - `ab652a9e65580053e5d13c85f9e6722b33ee677484d011dae00e451adcfea4aa.json` (~91 tok)
+- `abfd995e2da13c07c02a6ccfff257290faed98d127d52bd72dcd2933cede464f.json` (~2865 tok)
+- `aeb0255053b74b315962919c88c665ba22cf035382aa08c94a460640d4531f8d.json` (~4444 tok)
+- `b15c88b72ad612adb27767097fcf42de038381de99c518028ed6d1ba4f5bb7ba.json` (~3775 tok)
+- `b1996f4ba50e9c5198fcad47bc3106f471a2ab0d8c23a93bdf9e142495575220.json` (~4604 tok)
 - `b1bec497f3d2d00efece27773cbd23b8034048ee34e860310d4955382d8c7e28.json` (~1118 tok)
 - `b228e616eb1a47cce1eef2d112f005fd011ad17afd5629b282204b487c68b072.json` (~3549 tok)
+- `b279c0c0778e01319fcb3f09d61d9926d730b84b154c55f1f78d664dae816784.json` (~4143 tok)
+- `b2ad39269a3c26fd5b56963cd5288f9a678a84d0a26902b612ec663cda2d5d34.json` (~196 tok)
 - `b2b53c4f7eed66b6a1a3aa4d5954ad9f47d78a15b35492651d04142d8f229959.json` (~94 tok)
 - `b47adcf093a583baa4a80ae720c13fc8fe106e82bdba18d9ee3a8e6f2c2b7f4a.json` (~88 tok)
+- `b4d1902a52e4e6be50932063e810f0ac5f1d4823503549f8b4dbab2d30a2195d.json` (~19014 tok)
 - `b542e8ee0f8613a3d1e1f6b0e950793775960ca38587a62fec69b8c82cc4b78c.json` (~320 tok)
+- `b56d9563a6ee3bf5661f53d14ad65e6333d888673b5efa615635182c3247285c.json` (~2140 tok)
+- `b5748656f0fc8204ec3873c58367b69ce3f804c842ea700665203f6e964e3983.json` (~448 tok)
+- `b58022c9de7b0cb734ccf7bd1eabe7e24580db661fb24b851dc9686b12eca871.json` (~1118 tok)
+- `b5d4bfb09497e6e38bc152728f85f0c0b83503ce88046b78ed572358f3015a6d.json` (~4650 tok)
+- `b81c9c6c190aaf8bf4d0787d9f5b9d7a5b3041885e94d881634aee0098d68e87.json` (~2183 tok)
+- `bae32c1e8c1ba285e20dcc21bab6625d8698361d0e84385038e8982f875efac1.json` (~2428 tok)
+- `bccc7e13b754323fc08e344953c123e1af6dd254a8477138ba09e7f1dc822a30.json` (~126 tok)
+- `be67b21632fcfffb7603a2e5925a9f6f768bdefe6fa8f20658f7b5fbd047b8a7.json` (~3314 tok)
 - `bfa158e0806ce047e963f0799f020c27aef4e18cb971edc8a9e5af97a49ea135.json` (~24976 tok)
 - `c013047638b2c45a7b0435251727f71e542419f88251d93232ecaaa1da87af0d.json` (~94 tok)
 - `c0d6b1c04390ef2e3d584622de11aa1967c0e1f7133a2cc238b1ff9cdda12e27.json` (~316 tok)
 - `c27bd827b470e91a26a28c0e3c972d91b93e84899ced6ac9b9962310a8adfe15.json` (~964 tok)
+- `c2ec4fa1ee0153bb604bbbf81491dd4955cfcae51cbe3f655a711d027b1ae400.json` (~302 tok)
+- `c5f46d12d0953b46d77c3a3711110dc27453f514694e7bc7d1b20f0e1fc79d9c.json` (~3769 tok)
 - `c6afe275c86a76aa7f27a63ccc03b7891163cbb564cc571734281e4a8f1d3cfa.json` (~338 tok)
+- `c6f359e15f008180d4fbc276d37f35ce0095be40e09f0cf5276ffdcb467560be.json` (~4950 tok)
 - `c839d09100c431789d977c1bc63ea881876aaa3a81e9e50c4fcfb5e8376e2bc0.json` (~12547 tok)
+- `c84d70ebd8c7ea4ae7ad4625b81f2237e84eb67b09a71c3dd7659aaaee2cbc36.json` (~4650 tok)
+- `c9d3bd7eccb5656291ab35921f3cc0b9214060cce78c9f47e1a8d166326f726b.json` (~189 tok)
+- `cb4a099fea6314c3ee3f6042e848c6c76e072edee01aac2718216dd8f39d1cc0.json` (~24213 tok)
 - `cbb0afcebc29146f1481bab288a7e169811e5641234c1c1550b41f84015968d0.json` (~172 tok)
+- `cfd45921af0bc0d06864924caaba7e9a3aa6a926fe443d6cdfcf1ec47bd1ce87.json` (~2934 tok)
+- `d4df00bc5075cfeb7cce87d310f50478049893fd17c7cdc117b382ecc2d15afb.json` (~1117 tok)
 - `d5656e635bb39b03707ab2cf59c4727a9f4a1d6ccad57a74573c151fc1d0c7e3.json` (~3549 tok)
+- `d630a3d533d5b7cdddd5929053e877d13560dd925e18cc54128143df55f8ec0b.json` (~438 tok)
 - `d851e60e387c9b1f2c291336a00e11ac2cece5465a035ffc7f3d6dda0a4a7c7a.json` (~350 tok)
+- `d85bd456edd5f960733af956720cb05fb29ca1e421c1cece93738645a34e8069.json` (~4444 tok)
+- `d902c4eb00ae46e2220367c3aee64a3350d8bb39d68ad7c05a715111df0a25d5.json` (~4714 tok)
+- `db964adc73476f7cd976a523aebdfa784371d5e14ec911e7db2deca46dca8561.json` (~3721 tok)
+- `dccf831746390f556a46dfb1e7f931e8ac60afcc95fa6082cbef91c0e920239c.json` (~4477 tok)
+- `dd01a48b03350ba4b02101a2737617f2596e4951530babb7afd39d522feba332.json` (~2176 tok)
 - `de21419e5dbc618ead1f87acaf420ddeb297f64eade51d4ebbfc091cdf6f7924.json` (~196 tok)
 - `dec90be3de9be77c9e17558664083d9143ced223a0a281f00f0f2994a90c4884.json` (~16749 tok)
+- `dfd829eec133e7a71b3c8b854771853c9837fa2599a1326a31670d8b07ee062b.json` (~758 tok)
 - `e27661aad7134f2aa8568e3398bb89459216cb14219f8fc1a0b569e87e6256f0.json` (~24264 tok)
+- `e28906dc0e73a9d0caec6a54851c9c66a75b43854c57536405c78dd5439965b6.json` (~4694 tok)
+- `e3ca8c44b510b6ad4f60e66fe7c11c2cf3b823ca050baad06cc877ca3246feff.json` (~5898 tok)
+- `e4248603d83e0b388491f657fbd23b55ebb6b211007f5537c34640af9077e945.json` (~16606 tok)
 - `e4b6a03ff68eb7d3759fd5e5f97cadab16bf6f43f95b4568306783b83b43c957.json` (~4706 tok)
 - `e51cbb0d9358f2ce92e96e4bd068420691d5b9c821db4cb1586768d829bde4da.json` (~8205 tok)
 - `e5cce781d84ee6fbf88538a770a304e4fb439e222a4664e97db3547469822442.json` (~8697 tok)
+- `e6046f3d03eda0a4f873140082e686668421dc7b80231ee515c0d508b3cbcd45.json` (~4677 tok)
 - `e86e55c266fed55560fcdfc80ab8a74dfe07da16be9b3b696ab8623ff826ee0b.json` (~24976 tok)
+- `e94461805a6450ba0ca0983e564e3d7e76a232eae6ef8fa00880c3ac5851a82a.json` (~2420 tok)
 - `eaa55ce8ef9b17449f7d728c699089b10cc0f789ea212659546fea0518203203.json` (~8697 tok)
+- `eae3297ca9bc8e9d71ea4ac6de1c5787b5d0e2ff973e097c0161d1739052382e.json` (~4795 tok)
+- `ec6803a8b296c626c1fd015ce92defd4007fe579ed319320ab1a119246cde56b.json` (~4595 tok)
+- `ed4eff8e622cd97a68367d48ceb6858fcb430e7164b1e9c218ac75464ae5855a.json` (~344 tok)
 - `efb99caccefa5ef0b2a014ca2d31b1903f343afbc270c6fa19f82000512ad889.json` (~83 tok)
 - `f0a8518b7290ac22c2a7be937c404706363ae1b0e615325501d01345fa1fb5f0.json` (~4664 tok)
+- `f1551f8587cce1b01173887cd471967ba3b17190f8e58ddfab441eb6a07e1b57.json` (~19770 tok)
+- `f2a6a4aa680b2c26f604a812bbd0936dacf5a6dc2dbcfb50b465d9abaeb24bdb.json` (~19014 tok)
+- `f3c8b7275a09d964f845d5075d84ddb9ac27e3c264d0b04d106757125a1fb9eb.json` (~2532 tok)
 - `f489bf78ded0fc1688d0a045a129c9f53a646e6ac37b73545fadac8103cd5d3a.json` (~2400 tok)
-- `f7659214aa6d160ec232e9dad15bc4ad90a8d4874d868825d7a4407aae2ce154.json` (~366 tok)
-- `f8788fc4787d82ff263f2be76087773a884284793a2d036f543520b138597e81.json` (~257 tok)
-- `f904304f7b51de7f895b387401d6d18eb5e4757fd532fae52b8e15750d682afd.json` (~4664 tok)
-- `fb7fa61519bc1bded5aeefe5aa68612bee569aa6c5b2cc89d0de35a11f11317d.json` (~280 tok)
-- `ff6648c827e169724ed6fb80f0b49623eee01acd014f1e22ef87e670159f09c3.json` (~2700 tok)
-
-## leafblower.Rcheck/
-
-- `00check.log` — Declares calls (~1084 tok)
-- `00install.out` (~742 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/
-
-- `.tldrignore` — TLDR ignore patterns (gitignore syntax) (~280 tok)
-- `cleanup` (~8 tok)
-- `configure` — Detect C++17 support. (~1050 tok)
-- `DESCRIPTION` (~246 tok)
-- `LICENSE` — Project license (~16 tok)
-- `NAMESPACE` (~64 tok)
-- `NEWS.md` — leafblower (development) (~224 tok)
-- `patch_wolfe.py` — patch_wolfe, patch_wolfe_line_search (~903 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/.gemini-bridge/
-
-- `feedback.log` (~80 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/.pytest_cache/
-
-- `CACHEDIR.TAG` (~51 tok)
-- `README.md` — Project documentation (~76 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/.pytest_cache/v/cache/
-
-- `lastfailed` (~1 tok)
-- `nodeids` (~57 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/.tldr/
-
-- `languages.json` (~35 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/.tldr/cache/
-
-- `call_graph.json` (~708 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/R/
-
-- `anesrake.R` — ' anesrake compatibility wrapper (~489 tok)
-- `current_miss.R` — ' Current calibration miss (matching autumn's export name) (~190 tok)
-- `design_effect.R` — ' Kish design effect (1-argument) or Henry-Valliant (4-argument) (~408 tok)
-- `diagnose_weights.R` — ' Diagnose calibration quality (~466 tok)
-- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~2019 tok)
-- `weighted_pct.R` — ' Weighted proportions (~145 tok)
-- `zzz.R` — R_init_leafblower() in r_bridge.cpp is called automatically by R when the (~86 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/man/
-
-- `anesrake.Rd` (~312 tok)
-- `design_effect.Rd` (~240 tok)
-- `diagnose_weights.Rd` (~176 tok)
-- `effective_sample_size.Rd` (~103 tok)
-- `get_current_miss.Rd` (~141 tok)
-- `harvest.Rd` (~722 tok)
-- `weighted_pct.Rd` (~109 tok)
-
-## leafblower.Rcheck/00_pkg_src/leafblower/src/
-
-- `c_api.cpp` — include "leafblower.h" (~2373 tok)
-- `c_api.o` (~2132 tok)
-- `cell_table.cpp` — include "lbw_config.h" (~1397 tok)
-- `cell_table.hpp` — pragma once (~285 tok)
-- `cell_table.o` (~4840 tok)
-- `ieppa.cpp` — include "lbw_config.h" (~3649 tok)
-- `ieppa.hpp` — pragma once (~156 tok)
-
-## src/
-
-- `calib_dispatch.hpp` — pragma once (~2416 tok)
-- `chebyshev.cpp` — include "chebyshev.hpp" (~11732 tok)
-- `greg.cpp` — include "greg.hpp" (~1978 tok)
-- `logit_calib.cpp` — include "lbw_config.h" (~3901 tok)
-- `sinkhorn.cpp` — include "sinkhorn.hpp" (~3173 tok)
-
-## tests/testthat/
-
-- `test-calib-result-consolidation.R` — # test-calib-result-consolidation.R (~306 tok)
+- `f4a10dfaf3c377d47c5d3c84112ef0242654bb9a62b58f0998191c5bfc951413.json` (~4724 tok)
+- `f659b40076d65fa8206e68878405700bd329c939346228fe29cd0539f054548c.json` (~4903 tok)

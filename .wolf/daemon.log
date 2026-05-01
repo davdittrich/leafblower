@@ -264,3 +264,9 @@
 [2026-04-30T09:58:48.623Z] [INFO] Task Token audit report completed in 47ms
 [2026-04-30T10:00:00.374Z] [INFO] Executing task: Full anatomy rescan
 [2026-04-30T10:00:00.405Z] [INFO] Task Full anatomy rescan completed in 30ms
+[2026-05-01T04:00:00.276Z] [INFO] Executing task: Full anatomy rescan
+[2026-05-01T04:00:00.379Z] [INFO] Task Full anatomy rescan completed in 103ms
+[2026-05-01T09:59:43.687Z] [INFO] Executing task: Full anatomy rescan
+[2026-05-01T09:59:43.780Z] [INFO] Task Full anatomy rescan completed in 93ms
+[2026-05-01T10:00:00.212Z] [INFO] Executing task: Full anatomy rescan
+[2026-05-01T10:00:00.244Z] [INFO] Task Full anatomy rescan completed in 32ms

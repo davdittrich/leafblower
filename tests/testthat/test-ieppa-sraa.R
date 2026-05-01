@@ -125,17 +125,23 @@ test_that("ieppa accelerate=TRUE weighted output sum = n (normalization preserve
                label = "sum(weights) == n after SRAA")
 })
 
-## Test 8 — SOR disabled: omega does not adapt when accelerate=TRUE --------
+## Test 8 — SOR coexists with SRAA: adapts on plain (non-AA) steps -----------
 
-test_that("ieppa accelerate=TRUE disables SOR (sor_min_omega=1.0 when SOR inactive)", {
+test_that("ieppa accelerate=TRUE allows SOR adaptation on plain SRAA steps", {
   fx <- load_stepstone()
-  # With accelerate=TRUE, SOR adaptation is disabled; sor_min_omega stays 1.0.
+  # Option B: SOR adaptation is re-enabled on plain (non-AA-accepted) SRAA
+  # steps to dampen oscillating margins. AA-accepted steps still skip SOR
+  # because their trajectory is non-monotone from extrapolation. As a result
+  # sor_min_omega may drop below 1.0 when SRAA produces oscillating plain
+  # steps. The contract: min_omega is in (0, 1] and finite.
   r  <- suppressWarnings(
     harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 100L, accelerate = TRUE)
   )
-  # sor_min_omega is 1.0 when SOR is disabled (no damping applied).
-  expect_equal(attr(r, "result")$sor$min_omega, 1.0,
-               label = "sor_min_omega=1.0 when accelerate=TRUE (SOR disabled)")
+  min_omega <- attr(r, "result")$sor$min_omega
+  expect_true(is.finite(min_omega),
+              label = "sor_min_omega is finite under SRAA")
+  expect_gt(min_omega, 0.0)
+  expect_lte(min_omega, 1.0)
 })
 
 ## Test 9 — Greedy scheduler + accelerate=TRUE downgrades to round_robin ----

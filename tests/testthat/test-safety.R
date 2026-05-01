@@ -38,29 +38,30 @@ test_that("B7: C_rk_calibrate start_weights length mismatch produces error", {
           as.integer(50L),             # 7:  max_iterations
           bad_sw,                      # 8:  start_weights (wrong length — the probe)
           NULL,                        # 9:  capacity_penalty (NULL=auto; not under test here)
-          as.double(1e-6),             # 10: tol_abs (legacy slot)
-          as.integer(0L),              # 11: bounds_mode_int
-          as.integer(1L),              # 12: homotopy_levels
-          as.double(1.0),              # 13: homotopy_start_factor
-          as.double(1.0),              # 14: homotopy_end_factor
-          as.double(1.0),              # 15: homotopy_budget_p
-          as.character("round_robin"), # 16: scheduler
-          as.character("none"),        # 17: eta_schedule
-          as.double(0.5),              # 18: eta_start
-          as.double(0.1),              # 19: eta_end
-          as.double(1.0),              # 20: eta_schedule_power
-          as.double(1e-4),             # 21: conv pct_tol
-          as.double(0.0),              # 22: conv absolute_tol
-          as.integer(4L),              # 23: conv metric_int
-          as.integer(0L),              # 24: conv rule_int
-          as.integer(0L),              # 25: conv stop_when_int
-          as.integer(0L),              # 26: sor enabled
-          as.integer(0L),              # 27: sor auto
-          as.double(1.0),              # 28: sor omega_init
-          as.double(0.5),              # 29: sor omega_min
-          as.double(1.0),              # 30: sor omega_fixed
-          as.integer(0L),              # 31: sor burnin
-          as.integer(0L)               # 32: accelerate_bool
+          NULL,                        # 10: alm_penalty (NULL=disabled; not under test here)
+          as.double(1e-6),             # 11: tol_abs (legacy slot)
+          as.integer(0L),              # 12: bounds_mode_int
+          as.integer(1L),              # 13: homotopy_levels
+          as.double(1.0),              # 14: homotopy_start_factor
+          as.double(1.0),              # 15: homotopy_end_factor
+          as.double(1.0),              # 16: homotopy_budget_p
+          as.character("round_robin"), # 17: scheduler
+          as.character("none"),        # 18: eta_schedule
+          as.double(0.5),              # 19: eta_start
+          as.double(0.1),              # 20: eta_end
+          as.double(1.0),              # 21: eta_schedule_power
+          as.double(1e-4),             # 22: conv pct_tol
+          as.double(0.0),              # 23: conv absolute_tol
+          as.integer(4L),              # 24: conv metric_int
+          as.integer(0L),              # 25: conv rule_int
+          as.integer(0L),              # 26: conv stop_when_int
+          as.integer(0L),              # 27: sor enabled
+          as.integer(0L),              # 28: sor auto
+          as.double(1.0),              # 29: sor omega_init
+          as.double(0.5),              # 30: sor omega_min
+          as.double(1.0),              # 31: sor omega_fixed
+          as.integer(0L),              # 32: sor burnin
+          as.integer(0L)               # 33: accelerate_bool
     ),
     regexp = "start_weights length"
   )

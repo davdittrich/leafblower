@@ -42,7 +42,7 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP);
+                    SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -58,7 +58,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       32},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       33},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -108,7 +108,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP min_weight_sexp, SEXP max_weight_sexp,
                     SEXP method_sexp, SEXP verbose_sexp,
                     SEXP inner_max_iter_sexp, SEXP start_weights_sexp,
-                    SEXP capacity_penalty_sexp,
+                    SEXP capacity_penalty_sexp, SEXP alm_penalty_sexp,
                     SEXP tol_abs_sexp, SEXP bounds_mode_sexp,
                     SEXP homotopy_levels_sexp, SEXP homotopy_start_factor_sexp,
                     SEXP homotopy_end_factor_sexp, SEXP homotopy_budget_p_sexp,
@@ -339,6 +339,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                 : (LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
             st.alm.capacity_mu = (cp_val <= 0.0) ? ct_tmp.capacity_mu_auto : cp_val;
         }
+    }
+
+    // alm_penalty: objective ALM penalty coefficient (st.alm.mu). Positive value activates.
+    {
+        const double alm_penalty_val = Rf_isNull(alm_penalty_sexp)
+            ? -1.0
+            : (LENGTH(alm_penalty_sexp) == 1 ? REAL(alm_penalty_sexp)[0] : -1.0);
+        st.alm.mu = (alm_penalty_val > 0.0) ? alm_penalty_val : 0.0;
     }
 
     // Scalar fields mirrored from rk_result_t for compatibility with downstream assembly.

@@ -201,6 +201,7 @@ harvest <- function(
   min_weight       = 0,
   max_weight       = 5,
   capacity_penalty = NULL,
+  alm_penalty      = NULL,
   method           = "ieppa",
   verbose          = 0,
   max_iterations   = 500,
@@ -282,6 +283,23 @@ harvest <- function(
     }
   }
 
+  if (!is.null(alm_penalty)) {
+    if (!is.numeric(alm_penalty) || length(alm_penalty) != 1L ||
+        !is.finite(alm_penalty) || alm_penalty <= 0) {
+      stop("alm_penalty must be NULL (disabled) or a positive finite scalar; got: ",
+           deparse(alm_penalty), call. = FALSE)
+    }
+    if (alm_penalty > 1e15) {
+      stop("alm_penalty must be NULL (disabled) or a positive finite scalar; got: ",
+           deparse(alm_penalty), call. = FALSE)
+    }
+    if (alm_penalty < 1e-15) {
+      warning("alm_penalty=", alm_penalty,
+              " is below recommended range; objective penalty may be ineffective",
+              call. = FALSE)
+    }
+  }
+
   sor_cfg <- parse_sor(sor)
   if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft"))
     warning("accelerate=TRUE is only supported for method='raking', 'greenkhorn', 'ieppa', or 'ieppa_soft'; ignoring for method='",
@@ -340,7 +358,8 @@ harvest <- function(
                as.integer(max_iterations),
                sw_vec,
                if (is.null(capacity_penalty)) -1.0 else as.double(capacity_penalty),  # 9: capacity_penalty
-               as.double(if (conv$absolute_tol > 0) conv$absolute_tol else 1e-6),  # slot 10: legacy tol_abs
+               if (is.null(alm_penalty)) -1.0 else as.double(alm_penalty),  # 10: alm_penalty
+               as.double(if (conv$absolute_tol > 0) conv$absolute_tol else 1e-6),  # slot 11: legacy tol_abs
                as.integer(bounds_mode_int),
                as.integer(homotopy_levels),
                as.double(homotopy_start_factor),
