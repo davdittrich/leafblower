@@ -122,221 +122,253 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     double g_curr = eval_dual(lam, Z_curr, u_max_curr);
 
     // ── 5. Newton iterations ─────────────────────────────────────────────────
-    int consecutive_failed = 0;  // consecutive line-search failures; cap at 3
-    // Best-iterate tracking: rank-deficient near-optimum can drift λ to ∞ even
-    // while Armijo accepts (model under-predicts decrease). Save λ at lowest
-    // gap seen; restore before recovery if the loop exits in a worse state.
-    std::vector<double> lam_best(lam);
-    double best_gap     = std::numeric_limits<double>::infinity();
-    double best_Z       = Z_curr;
-    double best_u_max   = u_max_curr;
-    int    best_iter_id = 0;
-    int iter = 0;
-    for (iter = 0; iter < max_iter; ++iter) {
+    // run_newton_inner: encapsulates the per-ε inner Newton loop.
+    //   T_eps       — target vector to converge against (pass current T for now)
+    //   max_iter_inner — iteration budget for this inner call
+    // Captures outer-scope state by reference: lam, lm_mu, Z_curr, u_max_curr,
+    //   res, H, G, delta, n_lam, n, K, lam_off, st, g_curr, tol_abs, lm_mu_min,
+    //   lm_mu_max, compute_u, compute_u_max, eval_dual.
+    // Returns true  on converged-or-step-stalled exit (res.base.status == RK_OK).
+    // Returns false on BADARG/NOCONV (res.base.status >= 1; caller halts outer).
+    // Note: the BADARG (LDLT 3× fail) exit path now restores best-iterate λ
+    // before returning, matching the NOCONV path. Pre-refactor returned with
+    // unrestored λ on this path; no test exercises it, but the change brings
+    // the two failure paths into structural parity.
+    // Writes res.base.iterations to LOCAL iter count; outer caller reads it
+    // BEFORE the next inner call (which would overwrite it).
+    auto run_newton_inner = [&](const std::vector<double>& T_eps,
+                                int max_iter_inner) -> bool {
+        int consecutive_failed = 0;  // consecutive line-search failures; cap at 3
+        // Best-iterate tracking: rank-deficient near-optimum can drift λ to ∞ even
+        // while Armijo accepts (model under-predicts decrease). Save λ at lowest
+        // gap seen; restore before recovery if the loop exits in a worse state.
+        std::vector<double> lam_best(lam);
+        double best_gap     = std::numeric_limits<double>::infinity();
+        double best_Z       = Z_curr;
+        double best_u_max   = u_max_curr;
+        int    best_iter_id = 0;
+        int iter = 0;
+        for (iter = 0; iter < max_iter_inner; ++iter) {
 
-        // 5a. Zero accumulators for this step.
-        std::fill(G.begin(), G.end(), 0.0);
-        std::fill(H.begin(), H.end(), 0.0);
-        double Z = 0.0;
+            // 5a. Zero accumulators for this step.
+            std::fill(G.begin(), G.end(), 0.0);
+            std::fill(H.begin(), H.end(), 0.0);
+            double Z = 0.0;
 
-        // 5b. LSE prep: scan u_max once, then accumulate using exp(u_i − u_max).
-        // u_max factor cancels in all ratios (G/Z, H/Z) so this is a pure
-        // numerical-stability shift. Cost: one extra O(n·K) pass per Newton iter.
-        const double u_max_step = compute_u_max(lam);
-        for (int i = 0; i < n; ++i) {
-            const double u = compute_u(lam, i);
-            const double f_i = st.weights[i] * std::exp(u - u_max_step);
-            Z += f_i;
+            // 5b. LSE prep: scan u_max once, then accumulate using exp(u_i − u_max).
+            // u_max factor cancels in all ratios (G/Z, H/Z) so this is a pure
+            // numerical-stability shift. Cost: one extra O(n·K) pass per Newton iter.
+            const double u_max_step = compute_u_max(lam);
+            for (int i = 0; i < n; ++i) {
+                const double u = compute_u(lam, i);
+                const double f_i = st.weights[i] * std::exp(u - u_max_step);
+                Z += f_i;
 
-            // Gradient accumulation
-            for (int k = 0; k < K; ++k) {
-                const int j = st.group_ids[k][i];
-                if (j > 0) G[lam_off[k] + j - 1] += f_i;
-            }
+                // Gradient accumulation
+                for (int k = 0; k < K; ++k) {
+                    const int j = st.group_ids[k][i];
+                    if (j > 0) G[lam_off[k] + j - 1] += f_i;
+                }
 
-            // Hessian accumulation (upper triangle only)
-            for (int k1 = 0; k1 < K; ++k1) {
-                const int j1 = st.group_ids[k1][i];
-                if (j1 <= 0) continue;
-                const int a = lam_off[k1] + j1 - 1;
-                for (int k2 = k1; k2 < K; ++k2) {
-                    const int j2 = st.group_ids[k2][i];
-                    if (j2 <= 0) continue;
-                    const int b = lam_off[k2] + j2 - 1;
-                    H[a * n_lam + b] += f_i;
+                // Hessian accumulation (upper triangle only)
+                for (int k1 = 0; k1 < K; ++k1) {
+                    const int j1 = st.group_ids[k1][i];
+                    if (j1 <= 0) continue;
+                    const int a = lam_off[k1] + j1 - 1;
+                    for (int k2 = k1; k2 < K; ++k2) {
+                        const int j2 = st.group_ids[k2][i];
+                        if (j2 <= 0) continue;
+                        const int b = lam_off[k2] + j2 - 1;
+                        H[a * n_lam + b] += f_i;
+                    }
                 }
             }
-        }
-        Z_curr     = Z;            // = Σ d_i exp(u_i − u_max_step)
-        u_max_curr = u_max_step;   // shift used during this step's accumulation
+            Z_curr     = Z;            // = Σ d_i exp(u_i − u_max_step)
+            u_max_curr = u_max_step;   // shift used during this step's accumulation
 
-        // 5c. Normalize G and H by Z.
-        const double inv_Z = 1.0 / Z;
-        for (int a = 0; a < n_lam; ++a) G[a] *= inv_Z;
-        for (size_t idx = 0; idx < H.size(); ++idx) H[idx] *= inv_Z;
+            // 5c. Normalize G and H by Z.
+            const double inv_Z = 1.0 / Z;
+            for (int a = 0; a < n_lam; ++a) G[a] *= inv_Z;
+            for (size_t idx = 0; idx < H.size(); ++idx) H[idx] *= inv_Z;
 
-        // 5d. Subtract outer product G⊗G from H (Schur complement, upper triangle).
-        for (int a = 0; a < n_lam; ++a)
-            for (int b = a; b < n_lam; ++b)
-                H[a * n_lam + b] -= G[a] * G[b];
+            // 5d. Subtract outer product G⊗G from H (Schur complement, upper triangle).
+            for (int a = 0; a < n_lam; ++a)
+                for (int b = a; b < n_lam; ++b)
+                    H[a * n_lam + b] -= G[a] * G[b];
 
-        // 5e. Mirror upper triangle to lower.
-        for (int a = 0; a < n_lam; ++a)
-            for (int b = a + 1; b < n_lam; ++b)
-                H[b * n_lam + a] = H[a * n_lam + b];
+            // 5e. Mirror upper triangle to lower.
+            for (int a = 0; a < n_lam; ++a)
+                for (int b = a + 1; b < n_lam; ++b)
+                    H[b * n_lam + a] = H[a * n_lam + b];
 
-        // 5e2. Mean diagonal — additive floor so damping is effective even when
-        //      H has rank-collapsed coordinates (pure μ·diag would be zero there).
-        double d_floor = 0.0;
-        for (int a = 0; a < n_lam; ++a) d_floor += H[a * n_lam + a];
-        d_floor /= std::max(n_lam, 1);
+            // 5e2. Mean diagonal — additive floor so damping is effective even when
+            //      H has rank-collapsed coordinates (pure μ·diag would be zero there).
+            double d_floor = 0.0;
+            for (int a = 0; a < n_lam; ++a) d_floor += H[a * n_lam + a];
+            d_floor /= std::max(n_lam, 1);
 
-        // 5f. Subtract targets to get gradient ∇g = G - T.
-        for (int a = 0; a < n_lam; ++a) G[a] -= T[a];
+            // 5f. Subtract targets to get gradient ∇g = G - T_eps.
+            for (int a = 0; a < n_lam; ++a) G[a] -= T_eps[a];
 
-        // 5g. Convergence check: ||∇g||_∞ < tol_abs.
-        double dual_gap = 0.0;
-        for (int a = 0; a < n_lam; ++a)
-            dual_gap = std::max(dual_gap, std::fabs(G[a]));
-        res.dual_gap = dual_gap;
+            // 5g. Convergence check: ||∇g||_∞ < tol_abs.
+            double dual_gap = 0.0;
+            for (int a = 0; a < n_lam; ++a)
+                dual_gap = std::max(dual_gap, std::fabs(G[a]));
+            res.dual_gap = dual_gap;
 
-        // Track best λ (lowest gap seen) for end-of-loop fallback recovery.
-        if (dual_gap < best_gap) {
-            best_gap     = dual_gap;
-            best_Z       = Z;
-            best_u_max   = u_max_step;
-            best_iter_id = iter;
-            lam_best     = lam;
-        }
-
-        if (dual_gap < tol_abs) {
-            res.lm_mu_final = lm_mu;
-            mark_converged(res, st.convergence_cfg, iter);
-            break;
-        }
-
-        // 5h. LM damped Newton direction: H_damp·δ = G, λ -= α·δ.
-        // Save pre-damp H to compute δᵀHδ for the Marquardt gain ratio.
-        std::vector<double> H_pre(H);  // n_lam×n_lam copy — ≤80×80 doubles = trivial.
-
-        bool solve_ok = false;
-        for (int retry = 0; retry < 3 && !solve_ok; ++retry) {
-            // Restore H (LDLT factored in-place, so retry needs the original).
-            std::copy(H_pre.begin(), H_pre.end(), H.begin());
-            // Scale-invariant LM damping with additive floor — handles rank collapse.
-            for (int a = 0; a < n_lam; ++a) {
-                H[a * n_lam + a] = std::max(H[a * n_lam + a] * (1.0 + lm_mu),
-                                             lm_mu * d_floor);
+            // Track best λ (lowest gap seen) for end-of-loop fallback recovery.
+            if (dual_gap < best_gap) {
+                best_gap     = dual_gap;
+                best_Z       = Z;
+                best_u_max   = u_max_step;
+                best_iter_id = iter;
+                lam_best     = lam;
             }
-            std::copy(G.begin(), G.end(), delta.begin());
-            if (ldlt_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
-                lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
-                continue;
-            }
-            ldlt_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
-            solve_ok = true;
-        }
-        if (!solve_ok) {
-            res.base.status = RK_ERR_BADARG;
-            std::snprintf(res.message, sizeof(res.message),
-                "newton_kl: LDLT failed 3x even at lm_mu=%.2e", lm_mu);
-            res.lm_mu_final = lm_mu;
-            return res;
-        }
 
-        // δᵀ H_pre δ using pre-damp (PSD) Hessian for the gain-ratio denominator.
-        // Clamp ≥ 0: under severe rank deficiency (severe-skew K=20, many empty
-        // cells), Schur-complement subtraction can produce tiny-negative diagonal
-        // due to FP rounding. PSD is the mathematical truth; clamping avoids
-        // contaminating ρ with spurious numerical violations.
-        double delta_H_delta = 0.0;
-        for (int a = 0; a < n_lam; ++a)
-            for (int b = 0; b < n_lam; ++b)
-                delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
-        if (delta_H_delta < 0.0) delta_H_delta = 0.0;
-
-        // G·δ = G^T H_damp^{-1} G ≥ 0 (descent curvature).
-        double g_dot_d = 0.0;
-        for (int a = 0; a < n_lam; ++a) g_dot_d += G[a] * delta[a];
-
-        // 5i. Armijo backtracking line search.
-        // Sufficient decrease: g(λ - α·δ) ≤ g(λ) - c1·α·(G·δ).
-        double alpha = 1.0;
-        std::vector<double> lam_trial(n_lam);
-        double Z_trial = 0.0, g_trial = 0.0, u_max_trial = 0.0;
-        constexpr double c1 = 1e-4;
-        bool accepted = false;
-        for (int ls = 0; ls < 30; ++ls) {
-            for (int a = 0; a < n_lam; ++a) lam_trial[a] = lam[a] - alpha * delta[a];
-            g_trial = eval_dual(lam_trial, Z_trial, u_max_trial);
-            if (g_trial <= g_curr - c1 * alpha * g_dot_d) { accepted = true; break; }
-            alpha *= 0.5;
-        }
-        res.line_alpha = alpha;
-
-        // 5j. Three-way Armijo outcome.
-        if (!accepted) {
-            // FAILED — line search exhausted; back off μ, do NOT advance λ.
-            lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
-            if (++consecutive_failed >= 3) {
-                res.base.status = RK_ERR_NOCONV;
+            if (dual_gap < tol_abs) {
                 res.lm_mu_final = lm_mu;
+                mark_converged(res, st.convergence_cfg, iter);
                 break;
             }
-            continue;  // re-enter iter with new lm_mu, same λ
+
+            // 5h. LM damped Newton direction: H_damp·δ = G, λ -= α·δ.
+            // Save pre-damp H to compute δᵀHδ for the Marquardt gain ratio.
+            std::vector<double> H_pre(H);  // n_lam×n_lam copy — ≤80×80 doubles = trivial.
+
+            bool solve_ok = false;
+            for (int retry = 0; retry < 3 && !solve_ok; ++retry) {
+                // Restore H (LDLT factored in-place, so retry needs the original).
+                std::copy(H_pre.begin(), H_pre.end(), H.begin());
+                // Scale-invariant LM damping with additive floor — handles rank collapse.
+                for (int a = 0; a < n_lam; ++a) {
+                    H[a * n_lam + a] = std::max(H[a * n_lam + a] * (1.0 + lm_mu),
+                                                 lm_mu * d_floor);
+                }
+                std::copy(G.begin(), G.end(), delta.begin());
+                if (ldlt_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
+                    lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+                    continue;
+                }
+                ldlt_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
+                solve_ok = true;
+            }
+            if (!solve_ok) {
+                res.base.status = RK_ERR_BADARG;
+                std::snprintf(res.message, sizeof(res.message),
+                    "newton_kl: LDLT failed 3x even at lm_mu=%.2e", lm_mu);
+                res.lm_mu_final = lm_mu;
+                // Best-iterate restoration before early exit.
+                if (best_gap < res.dual_gap * 0.99) {
+                    lam        = lam_best;
+                    Z_curr     = best_Z;
+                    u_max_curr = best_u_max;
+                    res.dual_gap        = best_gap;
+                    res.base.iterations = best_iter_id + 1;
+                } else {
+                    res.base.iterations = iter + 1;
+                }
+                return false;
+            }
+
+            // δᵀ H_pre δ using pre-damp (PSD) Hessian for the gain-ratio denominator.
+            // Clamp ≥ 0: under severe rank deficiency (severe-skew K=20, many empty
+            // cells), Schur-complement subtraction can produce tiny-negative diagonal
+            // due to FP rounding. PSD is the mathematical truth; clamping avoids
+            // contaminating ρ with spurious numerical violations.
+            double delta_H_delta = 0.0;
+            for (int a = 0; a < n_lam; ++a)
+                for (int b = 0; b < n_lam; ++b)
+                    delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
+            if (delta_H_delta < 0.0) delta_H_delta = 0.0;
+
+            // G·δ = G^T H_damp^{-1} G ≥ 0 (descent curvature).
+            double g_dot_d = 0.0;
+            for (int a = 0; a < n_lam; ++a) g_dot_d += G[a] * delta[a];
+
+            // 5i. Armijo backtracking line search.
+            // Sufficient decrease: g(λ - α·δ) ≤ g(λ) - c1·α·(G·δ).
+            double alpha = 1.0;
+            std::vector<double> lam_trial(n_lam);
+            double Z_trial = 0.0, g_trial = 0.0, u_max_trial = 0.0;
+            constexpr double c1 = 1e-4;
+            bool accepted = false;
+            for (int ls = 0; ls < 30; ++ls) {
+                for (int a = 0; a < n_lam; ++a) lam_trial[a] = lam[a] - alpha * delta[a];
+                g_trial = eval_dual(lam_trial, Z_trial, u_max_trial);
+                if (g_trial <= g_curr - c1 * alpha * g_dot_d) { accepted = true; break; }
+                alpha *= 0.5;
+            }
+            res.line_alpha = alpha;
+
+            // 5j. Three-way Armijo outcome.
+            if (!accepted) {
+                // FAILED — line search exhausted; back off μ, do NOT advance λ.
+                lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+                if (++consecutive_failed >= 3) {
+                    res.base.status = RK_ERR_NOCONV;
+                    res.lm_mu_final = lm_mu;
+                    break;
+                }
+                continue;  // re-enter iter with new lm_mu, same λ
+            }
+            consecutive_failed = 0;
+
+            // Marquardt gain ratio: actual / predicted reduction.
+            // Guard denominator — predicted can be tiny/negative near singularity.
+            const double predicted = alpha * g_dot_d
+                                     - 0.5 * alpha * alpha * delta_H_delta;
+            const double rho = (g_curr - g_trial) / std::max(predicted, 1e-300);
+
+            if (alpha >= 0.999 && rho > 0.75) {
+                // FULL_ACCEPT with good model quality — tighten damping.
+                lm_mu = std::max(lm_mu_min, lm_mu / 3.0);
+            } else if (rho < 0.25) {
+                // Poor quadratic model (accepted Armijo but low gain) — back off.
+                lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+            }
+            // else: BACKTRACKED or moderate ρ — keep lm_mu unchanged.
+
+            // 5k. Update λ and dual objective.
+            double step2 = 0.0;
+            for (int a = 0; a < n_lam; ++a) {
+                const double d = alpha * delta[a];
+                lam[a] -= d;
+                step2 += d * d;
+            }
+            res.step_norm = std::sqrt(step2);
+            g_curr     = g_trial;
+            Z_curr     = Z_trial;
+            u_max_curr = u_max_trial;
+
+            // Secondary stop: step too small to make progress.
+            if (res.step_norm < 1e-14) {
+                res.lm_mu_final = lm_mu;
+                mark_converged(res, st.convergence_cfg, iter);
+                break;
+            }
         }
-        consecutive_failed = 0;
+        res.base.iterations = iter + 1;
 
-        // Marquardt gain ratio: actual / predicted reduction.
-        // Guard denominator — predicted can be tiny/negative near singularity.
-        const double predicted = alpha * g_dot_d
-                                 - 0.5 * alpha * alpha * delta_H_delta;
-        const double rho = (g_curr - g_trial) / std::max(predicted, 1e-300);
-
-        if (alpha >= 0.999 && rho > 0.75) {
-            // FULL_ACCEPT with good model quality — tighten damping.
-            lm_mu = std::max(lm_mu_min, lm_mu / 3.0);
-        } else if (rho < 0.25) {
-            // Poor quadratic model (accepted Armijo but low gain) — back off.
-            lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+        // ── 5l. Best-iterate restoration ──────────────────────────────────────
+        // If the loop's final λ has a worse gap than the best one seen, restore.
+        // Defensive against drift: rank-deficient Hessian + accepted-by-Armijo can
+        // walk λ past the optimum into unbounded-dual regions; gap stops decreasing
+        // but g keeps decreasing (descent direction is wrong but still descent).
+        // Compare conservatively (factor 1.01) so a stale best at iter 0 doesn't
+        // overrule a slightly-noisy iter-N+ result.
+        if (best_gap < res.dual_gap * 0.99) {
+            lam        = lam_best;
+            Z_curr     = best_Z;
+            u_max_curr = best_u_max;
+            res.dual_gap         = best_gap;
+            res.base.iterations  = best_iter_id + 1;
         }
-        // else: BACKTRACKED or moderate ρ — keep lm_mu unchanged.
 
-        // 5k. Update λ and dual objective.
-        double step2 = 0.0;
-        for (int a = 0; a < n_lam; ++a) {
-            const double d = alpha * delta[a];
-            lam[a] -= d;
-            step2 += d * d;
-        }
-        res.step_norm = std::sqrt(step2);
-        g_curr     = g_trial;
-        Z_curr     = Z_trial;
-        u_max_curr = u_max_trial;
+        res.lm_mu_final = lm_mu;
+        return res.base.status == RK_OK;
+    };
 
-        // Secondary stop: step too small to make progress.
-        if (res.step_norm < 1e-14) {
-            res.lm_mu_final = lm_mu;
-            mark_converged(res, st.convergence_cfg, iter);
-            break;
-        }
-    }
-    res.base.iterations = iter + 1;
-
-    // ── 5l. Best-iterate restoration ──────────────────────────────────────
-    // If the loop's final λ has a worse gap than the best one seen, restore.
-    // Defensive against drift: rank-deficient Hessian + accepted-by-Armijo can
-    // walk λ past the optimum into unbounded-dual regions; gap stops decreasing
-    // but g keeps decreasing (descent direction is wrong but still descent).
-    // Compare conservatively (factor 1.01) so a stale best at iter 0 doesn't
-    // overrule a slightly-noisy iter-N+ result.
-    if (best_gap < res.dual_gap * 0.99) {
-        lam        = lam_best;
-        Z_curr     = best_Z;
-        u_max_curr = best_u_max;
-        res.dual_gap         = best_gap;
-        res.base.iterations  = best_iter_id + 1;
-    }
+    run_newton_inner(T, max_iter);
 
     // ── 6. Recover obs weights via stable form ─────────────────────────────
     // w_i = d_i · exp(u_i) / Z_real · n

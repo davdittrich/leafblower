@@ -10,6 +10,7 @@ struct NewtonCalibResult {
     double step_norm  = 0.0;
     double line_alpha = 1.0;
     double lm_mu_final = 0.0;
+    int    n_homotopy_levels_used = 0;
     char   message[256] = {0};
 };
 
