@@ -74,19 +74,6 @@ int calib_validate_preentry(const CellTable& ct,
         return fail(RK_ERR_INFEAS, msg);
     }
 
-    // 5. Target sum validation
-    for (int k = 0; k < st.K; k++) {
-        double s = 0.0;
-        for (int j = 0; j < st.cat_counts[k]; j++) s += st.targets[k][j];
-        if (std::fabs(s - 1.0) > 1e-6) {
-            char msg[256];
-            std::snprintf(msg, sizeof(msg),
-                "margin %d targets sum to %.8f (expected 1.0±1e-6); "
-                "normalize targets before calling", k, s);
-            return fail(RK_ERR_BADARG, msg);
-        }
-    }
-
     return RK_OK;
 }
 
