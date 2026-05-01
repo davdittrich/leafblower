@@ -1,10 +1,34 @@
-# Newton-KL IEPPA Warm-Start — Plan (rev 1)
+# Newton-KL IEPPA Warm-Start — Plan (rev 2)
 
 **Epic:** `leafblower-usg8` (Epic-C; follow-up to Epic-B BLOCKED)
 **Spec reference:** `docs/superpowers/specs/2026-05-01-newton-kl-calibration-design.md` (a new "IEPPA warm-start" subsection lands in WI-0)
 **Predecessors:** epic `leafblower-5k08` (LM rev 2; landed); `leafblower-91u7` (Epic-B target homotopy; BLOCKED — see `docs/investigations/2026-05-01-newton-kl-homotopy-result.md`)
-**Tasks (sequential):** WI-0 (spec) → WI-1 (ieppa-inner extraction) → WI-2 (warm-start wiring) → WI-3 (T7 + T8 regression tests) → WI-4 (verify) → WI-5a (bench) → WI-5b (verdict + investigation doc)
+**Tasks (sequential):** WI-0 (spec) → WI-1 (ieppa-inner extraction) → WI-2 (warm-start wiring) → WI-3 (T6 + T7 + T8 + T9 + T9b + T10 tests) → WI-4 (verify) → WI-5a (bench) → WI-5b (verdict + investigation doc)
 **Date:** 2026-05-01
+
+---
+
+## Rev 2 Changelog (plan-review-gate NEEDS_REVISION — 3 reviewers)
+
+Applied after plan-review-gate rev 1 returned NEEDS_REVISION. Fixes are lettered A–O.
+
+| Fix | Section(s) affected | Summary |
+|-----|---------------------|---------|
+| A | §Mechanism conversion, WI-1 ticket | Explicitly distinguish `cat_offset` (IEPPA, size sum(cat_counts)+K, NA included) vs `lam_off` (Newton, size sum(cat_counts-1), no NA). Conversion reads `lf[cat_offset_ieppa[k] + j]` for j ∈ [0, cat_counts[k]-1]; NEVER accesses NA slot at `cat_counts[k]`. |
+| B | §WI-1 / Q1 | Capture `lf_best` not raw `lf`: mirror `ieppa.cpp:386` `W_best`. lf_capture writes ONCE at iter where `best_iter_val` is recorded, not at every exit path with current lf. |
+| C | §WI-1 / Q1 | Exit-path enumeration vs RAII: plan mandates RAII guard struct (simpler, less error-prone). Documents the choice. |
+| D | §WI-3 T7 | Monotonicity assertion: `expect_lte(res$max_error, res$warmstart_max_err_at_handoff*1.01 + 1e-10)`. Requires `warmstart_max_err_at_handoff` field added to WI-2 deliverables (already present; assertion is new). |
+| E | §WI-5a | Bench script must include `harvest(method="ieppa", accelerate=TRUE)` row on same kk1204 fixture for direct comparison baseline. |
+| F | §WI-3 | New test T9: synthetic fixture with `max_weight=1` + skewed targets triggers IEPPA infeasibility. Assert `status==0 AND n_warmstart_iters_used==0` (cold-start fallback fired). |
+| G | §WI-1 | Empirical K_warm=8 validation: one-shot R script after shim wired. Run IEPPA on stepstone for K_warm ∈ {1,2,4,8,16,32}, log max_err per K_warm. Capture in WI-1 commit body. ABORT if K_warm=8 doesn't reach max_err ≤ 1e-2. |
+| H | §WI-3 | New test T9b: K=20 moderate-skew (targets [0.4,0.25,0.15,0.12,0.08]) — assert `system.time(harvest(...)) < 1.5 × baseline_pre_warmstart_seconds`. |
+| I | §WI-3 | New test T10: stepstone K=9 with K_warm=0 (via env-var override, Fix L) — assert `max_err ≤ 2.8e-4` (TH-1a baseline preserved). |
+| J | §WI-3 T6, §WI-2 | T6: expose test-only C entry point `_newton_kl_warmstart_diagnostic` returning `(lf, λ, max(|u_newton - u_ieppa - C|))`. Asserts conversion math directly. Entry point added in WI-2. |
+| K | §WI-2 ticket | Clarify iter accumulation: `res.base.iterations` = Newton-only count; warm-start iters live only in `n_warmstart_iters_used`. |
+| L | §WI-2, Q3 | Env var `LBW_NEWTON_KL_WARMSTART_ITERS` (integer, optional). Overrides hardcoded K_warm=8. Used by T6/T10. |
+| M | §WI-4 | Basin-overlap experiment in WI-4: one-shot R script logs `max(|λ_warm_final - λ_cold_final|)` on stepstone. If < 1e-3, warm-start is functionally a no-op → escalate WI-5b BLOCKED. |
+| N | §Forbidden | Add rationale: "AUTO routing unchanged — warm-start is internal to newton_kl; AUTO selection independent of inner-solver mechanics." |
+| O | §Q2 / §Q6 | Clarify `accelerate=FALSE` handling: warm-start always uses SRAA regardless of caller's `accelerate`; user `accelerate` controls IEPPA main loop only when `method='ieppa'`. |
 
 ---
 
@@ -40,7 +64,7 @@ The *combined* picture: IEPPA brings us inside Newton's quadratic basin in O(K) 
   ```
 - Then `u_i_newton(λ) = u_i_ieppa(lf) - Σ_k lf[cat_offset[k] + 0] = u_i_ieppa(lf) - C` where `C` is a `λ`-independent constant.
 - Newton's stable LSE form (`src/newton_calib.cpp:106-118`) computes `Z_stable = Σ d_i exp(u_i - u_max)`, `g(λ) = u_max + log(Z_stable) - T·λ`. Both `Z_stable` and `u_max` shift by the same constant under `u → u - C`; their cancellation in `log(Z_stable) - max` is exact. The recovered weights `w_i ∝ d_i · exp(u_i)` are scale-equivalent under any constant shift of `u`. Hence the converted `λ` produces *bit-identical primal weights* to IEPPA's `lf`.
-- **Important caveat — NA buckets.** IEPPA stores `lf` for `j = cat_counts[k]` (the NA bucket at `cat_offset[k] + cat_counts[k]`). Newton has no NA-bucket dual. The Newton solver's `compute_u` already gates on `j > 0` (skips both `j == 0` reference *and* `j < 0` NA). Conversion uses only positive `j ≤ cat_counts[k] - 1`. The NA `lf` slot is silently dropped; this is correct because no obs with `j_k(i) = NA` enters Newton's dual sums. Confirmed against `src/ieppa.cpp:649` (`s += lf[cat_offset[m] + gm]` only fires when `gm >= 0`) and `src/newton_calib.cpp:91-93`.
+- **Important caveat — NA buckets (Fix A).** IEPPA stores `lf` for `j = cat_counts[k]` (the NA bucket at `cat_offset_ieppa[k] + cat_counts[k]`). Note: `cat_offset_ieppa[k+1] = cat_offset_ieppa[k] + cat_counts[k] + 1` (the `+1` is this NA bucket). Newton has no NA-bucket dual; `lam_off[k+1] = lam_off[k] + cat_counts[k] - 1` (reference-eliminated, no NA slot). Conversion loop reads `lf[cat_offset_ieppa[k] + j]` for `j ∈ [0, cat_counts[k]-1]` strictly — the loop bound `j < cat_counts[k]` ensures the NA slot at `j = cat_counts[k]` is NEVER accessed. The NA `lf` slot is silently dropped; this is correct because no obs with `j_k(i) = NA` enters Newton's dual sums. Confirmed against `src/ieppa.cpp:649` (`s += lf[cat_offset[m] + gm]` only fires when `gm >= 0`) and `src/newton_calib.cpp:91-93`.
 
 ### What the IEPPA solver gives us, structurally
 
@@ -53,21 +77,30 @@ The *combined* picture: IEPPA brings us inside Newton's quadratic basin in O(K) 
 
 ### Conversion lf → λ (exact)
 
+**Index space distinction (Fix A):**
+- **IEPPA `cat_offset`**: total size `sum(cat_counts) + K` (one NA bucket per margin at index `cat_counts[k]`). `cat_offset[k+1] = cat_offset[k] + cat_counts[k] + 1`. Valid category indices for margin k: `j ∈ [0, cat_counts[k]-1]`. Index `j == cat_counts[k]` is the NA bucket — NEVER read in conversion.
+- **Newton `lam_off`**: total size `sum(cat_counts - 1)` (reference category j=0 eliminated per margin). `lam_off[k+1] = lam_off[k] + (cat_counts[k]-1)`. Free dual indices: `j ∈ [1, cat_counts[k]-1]`.
+
 ```cpp
 // Inputs:
-//   lf       : size cat_offset[K], lf[cat_offset[k] + j] for j=0..cat_counts[k]
-//              (j == cat_counts[k] is the NA bucket; ignored)
-//   cat_offset_ie : ieppa-side cat_offset (size K+1; +1 per margin for NA)
-//   lam_off  : newton-side lam_off (size K+1; cat_counts[k]-1 free per margin)
+//   lf            : IEPPA lf_best (captured at best_iter_val, not at exit) [Fix B]
+//                   size cat_offset_ieppa[K], stride per margin = cat_counts[k]+1 (NA bucket)
+//                   lf[cat_offset_ieppa[k] + j] for j=0..cat_counts[k]-1 ONLY
+//                   j == cat_counts[k] is the NA bucket — NEVER access [Fix A]
+//   cat_offset_ieppa : ieppa-side cat_offset (size K+1;
+//                      cat_offset_ieppa[k+1] = cat_offset_ieppa[k] + cat_counts[k] + 1)
+//   lam_off       : newton-side lam_off (size K+1;
+//                      lam_off[k+1] = lam_off[k] + cat_counts[k]-1)
 // Output:
-//   lam      : size lam_off[K], lam[lam_off[k] + j - 1] for j=1..cat_counts[k]-1
+//   lam           : size lam_off[K], lam[lam_off[k] + j - 1] for j=1..cat_counts[k]-1
 //
 // Math: λ[k,j-1] = lf[k,j] - lf[k,0]. Constant column shift cancels in LSE.
 for (int k = 0; k < K; ++k) {
-    const double lf0 = lf[cat_offset_ie[k] + 0];
-    for (int j = 1; j < cat_counts[k]; ++j)
-        lam[lam_off[k] + j - 1] = lf[cat_offset_ie[k] + j] - lf0;
+    const double lf0 = lf[cat_offset_ieppa[k] + 0];         // reference category
+    for (int j = 1; j < cat_counts[k]; ++j)                 // STOP before cat_counts[k] (NA)
+        lam[lam_off[k] + j - 1] = lf[cat_offset_ieppa[k] + j] - lf0;
 }
+// INVARIANT: no access to lf[cat_offset_ieppa[k] + cat_counts[k]] (NA bucket)
 ```
 
 Verification before commit: a unit test asserts that for a tiny fixture (n=8, K=2, nj=3), running 1 IEPPA sweep + conversion produces `λ` whose `compute_u(λ, i)` differs from IEPPA's `cell_lf[c_of(i)]` by a single per-iter constant — i.e., `var(u_newton - u_ieppa) < 1e-12`. This is the structural correctness gate (T6, see §Plan Steps).
@@ -104,13 +137,40 @@ WarmstartResult newton_kl_ieppa_warmstart(const CalibState& st, int K_warm);
 The shim:
 1. Copies `st` into a local `CalibState st_warm` (struct-copy is cheap; pointer fields are caller-owned and shared safely).
 2. Sets `st_warm.outer_max_iter = K_warm` and `st_warm.accelerate = true` (SRAA on; see Q2).
-3. Calls `ieppa_solve(st_warm)` and captures the returned `IEPPAResult.base.max_error`, `iterations`, and `status`.
-4. Reaches into a *new* small accessor: an overload `ieppa_solve_capture_lf(CalibState&, std::vector<double>& lf_out)` that runs the same body but on its last `unpack_lf` / final lf state writes into the caller-supplied vector. **Or simpler**: introduce a single output parameter on `ieppa_solve` via overload — `ieppa_solve(CalibState&, std::vector<double>* lf_capture = nullptr)`. The default-nullptr overload preserves existing callers bit-identical; the warmstart shim passes a non-null pointer.
-5. Performs the conversion above into `lam_out`.
+3. Calls `ieppa_solve(st_warm, &lf_out)` and captures the returned `IEPPAResult.base.max_error`, `iterations`, and `status`.
+4. **lf-capture implementation — RAII guard, not exit-path enumeration (Fix C):** Introduce a RAII guard struct inside `ieppa_solve` that writes `*lf_capture = lf_best` on destruction. This fires at ALL exits (normal return, exception, early-exit) without enumerating every `return` statement. The guard captures `lf_capture` and `lf_best` by pointer/reference. **`lf_best`, not `lf` (Fix B):** mirror `ieppa.cpp:386` `W_best` — IEPPA already maintains a best-iterate `lf_best` (updated at each iter where the objective improves). The capture writes `lf_best` once, at the iter where `best_iter_val` is recorded, NOT the raw `lf` at function exit (which may be past-best due to SRAA overstep). This ensures the converted `λ` reflects IEPPA's quality-checked best point.
 
-**This is the minimal refactor.** It touches one new function declaration in `src/ieppa.hpp`, one new code path in `src/ieppa.cpp` (the lf-capture write — single line near each function exit), and adds the shim file. Existing callers (`harvest(method="ieppa")`, AUTO routing, `r_bridge.cpp`) are bit-identical. WI-1 ticket implements exactly this and only this.
+   ```cpp
+   // RAII lf-capture guard (Fix B + Fix C)
+   struct LfCaptureGuard {
+       std::vector<double>* out;
+       const std::vector<double>& lf_best;
+       ~LfCaptureGuard() { if (out) *out = lf_best; }
+   } lf_guard{lf_capture, lf_best};
+   // No exit-path enumeration needed — destructor fires at ALL exits.
+   ```
+
+5. Performs the conversion above into `lam_out` using `cat_offset_ieppa` and stopping at `cat_counts[k]` (Fix A).
+
+**K_warm empirical validation (Fix G):** After WI-1 shim is wired, before closing the ticket, the implementer MUST run a one-shot K_warm sweep on stepstone:
+
+```r
+# Run after shim is wired (can be a scratch script, not committed)
+for (K_warm in c(1, 2, 4, 8, 16, 32)) {
+  Sys.setenv(LBW_NEWTON_KL_WARMSTART_ITERS = K_warm)
+  res <- harvest(method = "newton_kl", ...)   # stepstone fixture
+  cat(sprintf("K_warm=%d  max_err=%.2e  n_iters_used=%d\n",
+              K_warm, res$warmstart_max_err_at_handoff, res$n_warmstart_iters_used))
+}
+```
+
+**ABORT criterion (Fix G):** If K_warm=8 does NOT produce `warmstart_max_err_at_handoff ≤ 1e-2` on stepstone, halt and escalate before proceeding to WI-2. Capture the per-K_warm table in the WI-1 commit body.
+
+**This is the minimal refactor.** It touches one new function declaration in `src/ieppa.hpp`, one RAII guard + `lf_best` capture in `src/ieppa.cpp`, and adds the shim. Existing callers (`harvest(method="ieppa")`, AUTO routing, `r_bridge.cpp`) are bit-identical. WI-1 ticket implements exactly this and only this.
 
 ### Q2: SRAA on or off for warm-start? — **ON**
+
+**`accelerate=FALSE` handling (Fix O):** The warm-start shim always sets `st_warm.accelerate = true` (SRAA on), regardless of the *caller's* `accelerate` parameter. The user's `accelerate` flag controls the IEPPA main loop only when `method='ieppa'`. When `method='newton_kl'`, SRAA inside the warm-start shim is an internal optimisation detail invisible to the public API.
 
 `accelerate = true` (SRAA-m) on the IEPPA warm-start. Justification:
 - SRAA-m converges 3-5× faster on stepstone (per `docs/superpowers/specs/2026-04-30-ieppa-sraa-acceleration.md`). The whole point of an 8-iter budget is to land deep in Newton's basin cheaply. Plain IEPPA at 8 iters gives roughly a 10× residual contraction; SRAA-m gives roughly 30-100×. Newton sees a tighter handoff for the same wall cost.
@@ -121,6 +181,8 @@ The shim:
 ### Q3: Warm-start budget — **`K_warm = 8`, fixed**
 
 See the contraction-rate derivation above. Not adaptive on gap because (a) the gap-to-Newton-basin-radius mapping isn't a clean threshold (basin depends on local `H` curvature, which Newton itself measures), (b) every dynamic-budget scheme adds branching that needs its own tests, and (c) 8 iters of IEPPA+SRAA on K=9 is `<0.5s` (per spec table extrapolation; ieppa+sraa needs 10 iters for full convergence at 3.7s on K=20 with n=1M; per-iter cost there is ~0.4s; on K=9 n=200K it is ~0.05s). The budget is dwarfed by Newton's own per-iter cost on these sizes.
+
+**Env-var override for testing (Fix L):** The env var `LBW_NEWTON_KL_WARMSTART_ITERS` (integer, optional) overrides `kNewtonKLWarmstartIters` at runtime. Read via `std::getenv` at the top of `newton_calibrate`. If set and parseable as a non-negative integer, use that value instead of 8. If `0`, warm-start is skipped entirely (K_warm=0 path). Used by T6, T10, and the empirical K_warm sweep (Fix G). Not exposed in user docs — test/debug knob only.
 
 ### Q4: What if IEPPA already converges (max_err < 1e-4) inside K_warm?
 
@@ -170,7 +232,7 @@ Carried forward from rev 2 homotopy plan where applicable, plus IEPPA-specific e
 - **No exposing `K_warm` via `CalibState` or `harvest()`** in this epic. Hard-coded constant. Tunability is a follow-up.
 - **No "skip Newton if IEPPA converged" branch.** Always run Newton after warm-start.
 - **No homotopy-bounds reuse.** `ieppa.homotopy_levels` is a different concept (bounds homotopy on `max_weight`); leave it alone. The warm-start runs at the user's `max_weight` directly.
-- **No public API changes.** `harvest()` signature, AUTO routing in `src/c_api.cpp:182` and `src/r_bridge.cpp:425` — all unchanged.
+- **No public API changes.** `harvest()` signature, AUTO routing in `src/c_api.cpp:182` and `src/r_bridge.cpp:425` — all unchanged. **Rationale (Fix N):** AUTO routing is unchanged because warm-start is internal to `newton_kl`; AUTO's method-selection logic is independent of the inner-solver mechanics. AUTO dispatches to `newton_kl` or `ieppa` based on fixture characteristics (K, skew, cell density); the warm-start does not change which method is selected.
 - **No NEWS.md update deferred to a later ticket.** Algorithmic change colocates with code in WI-2 per discipline §4.
 - **No skipping pre-commit hooks.**
 - **No T2 amendment.** WI-3 explicitly forbids touching T2; only ADDs T7 + T8 (T8 is the K=20 severe-skew unit test mirrored from Epic-B's design).
@@ -215,11 +277,19 @@ Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 �
 
 ---
 
-### WI-2 — Warm-start wiring + field rename + NEWS.md
+### WI-2 — Warm-start wiring + field rename + NEWS.md + diagnostic entry point
 
 - **Files:** `src/newton_calib.cpp`, `src/newton_calib.hpp`, `NEWS.md`. Single atomic commit.
-- **Objective:** Rename `n_homotopy_levels_used` → `n_warmstart_iters_used`; add `warmstart_max_err_at_handoff`; wire the warm-start shim before the Newton inner call at `src/newton_calib.cpp:371`. Update NEWS.md.
-- **Constraints:** Bit-identical Newton inner behaviour for `K_warm = 0` (i.e., if someone hard-codes `kNewtonKLWarmstartIters = 0`, the path collapses to today's master). Build clean.
+- **Objective:** Rename `n_homotopy_levels_used` → `n_warmstart_iters_used`; add `warmstart_max_err_at_handoff`; wire the warm-start shim before the Newton inner call at `src/newton_calib.cpp:371`; add env-var override `LBW_NEWTON_KL_WARMSTART_ITERS` (Fix L); add test-only diagnostic entry point (Fix J); clarify iter accumulation (Fix K). Update NEWS.md.
+- **Constraints:** Bit-identical Newton inner behaviour for `K_warm = 0`. Build clean.
+- **Fix J — Diagnostic entry point:** Add a C-linkage function (gated on `#ifdef LEAFBLOWER_TESTING`) callable from testthat via `.Call`:
+  ```cpp
+  // Test-only: returns list(lf=lf_best, lam=converted_lam, max_conv_residual=double)
+  // where max_conv_residual = max|u_newton(lam) - u_ieppa(lf_best) - C|
+  SEXP _newton_kl_warmstart_diagnostic(SEXP r_calib_state);
+  ```
+  This entry point runs `newton_kl_ieppa_warmstart` on the provided CalibState, computes both `u_newton(λ)` and `u_ieppa(lf_best)` for each obs, computes C = mean(u_ieppa - u_newton), and returns `max(|u_newton + C - u_ieppa|)`. Used by T6 to assert conversion residual < 1e-12.
+- **Fix K — Iter accumulation:** `res.base.iterations` counts Newton-only iterations (unchanged from existing semantics). `res.n_warmstart_iters_used` counts IEPPA outer sweeps in the warm-start shim. These are never summed. Do NOT add them together in any field or log message.
 - **Body sketch:**
   1. `src/newton_calib.hpp`: rename `int n_homotopy_levels_used = 0;` to `int n_warmstart_iters_used = 0;`. Add `double warmstart_max_err_at_handoff = 0.0;`.
   2. `src/newton_calib.cpp`: above the lambda definition, add `constexpr int kNewtonKLWarmstartIters = 8;`. Comment cites contraction-rate derivation and pins `8` as default.
@@ -248,39 +318,58 @@ Each ticket is independently revertible. The sequence is strict: WI-0 → WI-1 �
 
 ---
 
-### WI-3 — T6 + T7 + T8 regression tests
+### WI-3 — T6 + T7 + T8 + T9 + T9b + T10 regression tests
 
 - **Files:** `tests/testthat/test-newton-kl.R`.
-- **Objective:** Three new tests. T6 = lf → λ conversion correctness (the structural gate). T7 = stepstone K=9 + warm-start audit. T8 = K=20 severe-skew unit test.
-- **Constraints:** **DO NOT modify T2.** T2's `<1e-4` gate stays. The warm-start makes T2 pass at `<1e-4` from `2.8e-4` (the entire point of this epic). Only ADD T6, T7, T8.
+- **Objective:** Six new tests. T6 = lf → λ conversion correctness (structural gate via diagnostic entry point). T7 = stepstone K=9 + warm-start audit + monotonicity. T8 = K=20 severe-skew unit test. T9 = IEPPA-infeasibility cold-start fallback. T9b = K=20 moderate-skew wall regression. T10 = cold-start non-regression.
+- **Constraints:** **DO NOT modify T2.** T2's `<1e-4` gate stays. Only ADD T6–T10.
+- **WI-2 prerequisite (Fix J, Fix K):** WI-2 must expose test-only C entry point `_newton_kl_warmstart_diagnostic(...)` returning `(lf, λ, max(|u_newton - u_ieppa - C|))` on a tiny fixture. Also clarify that `res.base.iterations` = Newton-only count; warm-start iters live only in `n_warmstart_iters_used` (Fix K).
 - **Body sketch:**
-  - **T6 (lf → λ conversion).** Synthetic n=64 K=3 nj=3 fixture, simple targets. Run the warm-start shim directly (skip the public R API; call via a thin testthat helper that exposes `newton_kl_ieppa_warmstart` for testing — alternative: assert via the IEPPA solver and the Newton solver independently, computing each side's `u_i` and asserting `var(u_newton - u_ieppa) < 1e-10`). Asserts: warm-start produces `λ` such that recovered weights from Newton at this `λ` match IEPPA's recovered weights to within 1e-10 relative.
-  - **T7 (stepstone K=9 + audit).** Existing stepstone fixture from T2. Run `harvest(method="newton_kl")`. Assert `max_err < 1e-4`, `status == 0`, `n_warmstart_iters_used >= 1`, `warmstart_max_err_at_handoff < 1e-2` (sanity — handoff was inside basin). The assertion `n_warmstart_iters_used >= 1` is loose-and-correct (loose per Epic-B reviewer F7's earlier guidance against brittle `==N` asserts).
-  - **T8 (K=20 severe-skew unit).** n=10000, K=20, nj=5, target {0.6, 0.2, 0.1, 0.07, 0.03}, `max_weight = 3`. Assert `status == 0` (or `1` if bounds violation expected at this n; implementer determines empirically) AND `max_err < 1e-3`. Catches regressions where warm-start fails to break the K=20 drift.
-  - Conventional commit: `test(newton_kl): T6 conversion + T7 stepstone audit + T8 K=20 severe-skew`.
+  - **T6 (lf → λ conversion — Fix J).** Tiny synthetic n=8, K=2, nj=3 fixture. Call `_newton_kl_warmstart_diagnostic` (test-only C entry point added in WI-2). Assert `max(|u_newton - u_ieppa - C|) < 1e-12` where C is the constant column shift. This directly verifies the conversion math, not just the downstream weights. Label: `test_that("T6: lf->lambda conversion residual < 1e-12 on tiny fixture", {...})`.
+  - **T7 (stepstone K=9 + audit + monotonicity — Fix D).** Existing stepstone fixture from T2. Run `harvest(method="newton_kl")`. Assert:
+    - `res$max_error < 1e-4`
+    - `res$status == 0`
+    - `res$n_warmstart_iters_used >= 1`
+    - `res$warmstart_max_err_at_handoff < 1e-2`
+    - **Monotonicity (Fix D):** `expect_lte(res$max_error, res$warmstart_max_err_at_handoff * 1.01 + 1e-10)` — Newton must not increase max_error beyond the handoff value (1% slack for floating-point rounding; +1e-10 floor for near-zero handoff values).
+    Label: `test_that("T7: stepstone K=9 warm-start audit + Newton monotonicity", {...})`.
+  - **T8 (K=20 severe-skew unit).** n=10000, K=20, nj=5, target {0.6, 0.2, 0.1, 0.07, 0.03}, `max_weight = 3`. Assert `status %in% c(0L, 1L)` (empirically determined) AND `max_err < 1e-3`. Catches regressions where warm-start fails to break the K=20 drift. Label: `test_that("T8: K=20 severe-skew newton_kl max_err < 1e-3", {...})`.
+  - **T9 (IEPPA infeasibility fallback — Fix F).** Synthetic fixture with `max_weight=1` + highly skewed targets (e.g., one category at 0.95, rest near-zero) that triggers IEPPA infeasibility (status ≠ RK_OK from warm-start). Assert `result$status == 0 AND result$n_warmstart_iters_used == 0` — cold-start fallback fired and Newton succeeded from λ=0. Label: `test_that("T9: IEPPA infeasibility triggers cold-start fallback", {...})`.
+  - **T9b (K=20 moderate-skew wall regression — Fix H).** n=10000, K=20, nj=5, targets {0.4, 0.25, 0.15, 0.12, 0.08}, `max_weight=3`. Measure `system.time(harvest(method="newton_kl", ...))["elapsed"]`. Assert `< 1.5 × baseline_pre_warmstart_seconds` where baseline is established by running the same fixture with `LBW_NEWTON_KL_WARMSTART_ITERS=0` in the same test. Label: `test_that("T9b: K=20 moderate-skew wall < 1.5x cold baseline", {...})`.
+  - **T10 (cold-start non-regression — Fix I).** Stepstone K=9 with `LBW_NEWTON_KL_WARMSTART_ITERS=0` (env-var override per Fix L). Assert `max_err ≤ 2.8e-4` (TH-1a baseline preserved — warm-start off must not regress Newton's cold-start quality). Label: `test_that("T10: cold-start (K_warm=0) non-regression <= 2.8e-4 on stepstone", {...})`.
+  - Conventional commit: `test(newton_kl): T6–T10 warm-start regression tests`.
 
 ---
 
-### WI-4 — Verify test suite
+### WI-4 — Verify test suite + basin-overlap experiment
 
-- **Files:** none (verification only).
-- **Objective:** Run the full testthat suite and confirm zero failures. Specific gate: T2 (stepstone) passes at `<1e-4`.
+- **Files:** none (verification only). One-shot R script (scratch, not committed) for Fix M.
+- **Objective:** Run the full testthat suite and confirm zero failures. Specific gate: T2 (stepstone) passes at `<1e-4`. Also run basin-overlap experiment (Fix M).
 - **Body:**
-  - `Rscript -e "testthat::test_file('tests/testthat/test-newton-kl.R')"` — T1, T2, T3, T4, T5, T6, T7, T8 all PASS.
+  - `Rscript -e "testthat::test_file('tests/testthat/test-newton-kl.R')"` — T1, T2, T3, T4, T5, T6, T7, T8, T9, T9b, T10 all PASS.
   - `Rscript -e "testthat::test_local('.')"` — FAIL=0.
-  - **Halt criterion:** if T2 still fails (warm-start did not break the basin floor), STOP — escalate to BLOCKED. The warm-start either works or it doesn't; there is no rev-2-style mid-course adjustment available. (See §Risks for what BLOCKED looks like and what the next epic would be.)
+  - **Basin-overlap experiment (Fix M):** Run a one-shot scratch R script on stepstone:
+    ```r
+    cold <- harvest(method="newton_kl", ...)  # K_warm=0 via env var
+    warm <- harvest(method="newton_kl", ...)  # K_warm=8 default
+    cat(sprintf("max|lambda_warm - lambda_cold| = %.2e\n",
+                max(abs(warm$lam - cold$lam))))
+    ```
+    If `max(|λ_warm_final - λ_cold_final|) < 1e-3`, warm-start is functionally a no-op (converges to identical basin) → escalate WI-5b to BLOCKED immediately with this evidence, before benchmarking. Record the value in this ticket's output schema.
+  - **Halt criterion (SPEC_FAILURE):** if T2 still fails (warm-start did not break the basin floor), output `SPEC_FAILURE` and halt. Do NOT proceed to WI-5a.
   - No commit on this ticket — verification only.
 
 ---
 
-### WI-5a — kk1204 benchmark
+### WI-5a — kk1204 benchmark (newton_kl + ieppa+sraa baseline)
 
-- **Files:** `benchmarks/results/newton_kl_kk1204.csv`.
-- **Objective:** Run kk1204 severe-skew benchmark with `OMP_NUM_THREADS=1`. Capture wall, iters (Newton + warm-start separately), `max_err`, `n_warmstart_iters_used`, `warmstart_max_err_at_handoff`, `lm_mu_final`, status.
+- **Files:** `benchmarks/results/newton_kl_kk1204.csv`, `benchmarks/newton_kl_bench.R` (if edit needed).
+- **Objective:** Run kk1204 severe-skew benchmark with `OMP_NUM_THREADS=1`. Capture wall, iters (Newton + warm-start separately), `max_err`, `n_warmstart_iters_used`, `warmstart_max_err_at_handoff`, `lm_mu_final`, status. **Also capture ieppa+sraa baseline on same fixture (Fix E)** for direct comparison.
 - **Body:**
-  - `OMP_NUM_THREADS=1 Rscript benchmarks/newton_kl_bench.R` (existing script; if it doesn't capture warm-start fields, edit it in this ticket to do so — same-commit).
-  - Save CSV.
-  - Conventional commit: `bench(newton_kl): kk1204 with IEPPA warm-start`.
+  - Edit `benchmarks/newton_kl_bench.R` to include a `harvest(method="ieppa", accelerate=TRUE)` row on the same kk1204 fixture (Fix E). The CSV must contain one row per method: `newton_kl` (warm-started) and `ieppa_sraa` (baseline). This is the only way to determine whether `newton_kl` + warm-start beats, matches, or loses to plain `ieppa+sraa` on wall time and quality.
+  - `OMP_NUM_THREADS=1 Rscript benchmarks/newton_kl_bench.R`
+  - Save CSV to `benchmarks/results/newton_kl_kk1204.csv`.
+  - Conventional commit: `bench(newton_kl): kk1204 newton_kl warm-start vs ieppa+sraa baseline`.
 
 ---
 
