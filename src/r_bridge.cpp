@@ -390,6 +390,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     int    res_aa_accepted_count       = 0;
     /* Newton-KL TSVD diagnostic (Epic-Dβ WL-1; non-zero only for newton_kl) */
     int    res_n_projected_dims        = 0;
+    /* Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
+    double res_lm_mu_final             = 0.0;
     std::vector<double> res_best_weights;  // obs-level, length n
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
@@ -537,6 +539,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_max_error  = res.base.max_error;
         res_alg_used   = (int)RK_ALG_NEWTON_KL;
         res_n_projected_dims = res.n_projected_dims;
+        res_lm_mu_final      = res.lm_mu_final;
         if (!res.base.best_weights.empty())
             res_best_weights = std::move(res.base.best_weights);
         else
@@ -663,8 +666,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  36));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  36));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  37));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  37));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -751,6 +754,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     /* Element 35: Newton-KL TSVD diagnostic (newton_kl only; zero elsewhere) */
     SET_STRING_ELT(res_names, 35, Rf_mkChar("n_projected_dims"));
     SET_VECTOR_ELT(res_list,  35, Rf_ScalarInteger(res_n_projected_dims));
+    /* Element 36: Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
+    SET_STRING_ELT(res_names, 36, Rf_mkChar("lm_mu_final"));
+    SET_VECTOR_ELT(res_list,  36, Rf_ScalarReal(res_lm_mu_final));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

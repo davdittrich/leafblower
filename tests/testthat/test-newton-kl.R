@@ -22,6 +22,11 @@ test_that("T1: newton_kl K=3 status=0 max_error < 1e-6", {
     label=sprintf("newton_kl K=3: status=%d max_err=%.2e", res$status, res$max_error))
   expect_lt(res$max_error, 1e-6,
     label=sprintf("newton_kl K=3: max_err=%.2e", res$max_error))
+  # WH-d: lm_mu_final must surface in R result via r_bridge SEXP-pack
+  expect_true("lm_mu_final" %in% names(res),
+    label="WH-d: lm_mu_final must surface in R result")
+  expect_true(is.finite(res$lm_mu_final),
+    label="WH-d: lm_mu_final must be finite on converging fixture")
 })
 
 # T2: K=9 stepstone — status=0, tighter than greenkhorn
