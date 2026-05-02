@@ -4,7 +4,9 @@
 **Status:** Design — pre-plan, gate iteration 2
 **Predecessor:** Epic-J (`leafblower-y2ls`) FAIL verdict on kk1204 + side-finding CP wins stepstone (parity 0.45 vs `ieppa+sraa` baseline 1.13e-4)
 **Investigation report:** `docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md` Sec 2 + Sec 6 (Side-finding)
-**Revision history:** rev 1 → rev 2 closes 8 blockers from design-review-gate iter 1 (Architect: dispatch line refs, harvest.R line refs, accelerate default mechanism. Designer: same accelerate mechanism, alg_name ternary chain, kAlgMap entry, result field SEXP-pack indices, status_code R-side semantics).
+**Revision history:**
+- rev 1 → rev 2: closes 8 blockers from design-review-gate iter 1 (Architect: dispatch line refs, harvest.R line refs, accelerate default mechanism. Designer: same accelerate mechanism, alg_name ternary chain, kAlgMap entry, result field SEXP-pack indices, status_code R-side semantics).
+- rev 2 → rev 3: closes 4 blockers from design-review-gate iter 2 (Designer: warning EMIT SITE in harvest.R not C++; status_code=3 returns init-clamped weights not all-1.0. CTO: rate-fit exponents are spike-only diagnostic, not production-exposed; production CP stores NO per-iter trace — diagnostics are final-iteration scalars only). Folds Architect/Designer/Security/CTO/PM suggestions where high-value (T6 threshold tighten, T7 fallback test, NEWS.md bullet draft, K-7 reviewer set, R16 comment header step, include-guard rename).
 
 ## 1. Problem & Goals
 
@@ -79,7 +81,7 @@ research/                             ← stays under .Rbuildignore (Epic-J FAIL
 
 | Line | Current state | Edit |
 |---|---|---|
-| ~16–30 | `@param method` docstring (lists 11 methods) | Add `\code{"cp"} (Chambolle-Pock primal-dual; for moderate-skew K≥5 zero-compression — supports \code{accelerate=TRUE} for accelerated PDHG)`. Insertion position: adjacent to `\code{"chebyshev"}` (also primal-dual splitting paradigm). |
+| ~16–30 | `@param method` docstring (lists 11 methods) | Add `\code{"cp"} (Chambolle-Pock primal-dual; for moderate-skew K≥5 problems — outperforms ieppa+sraa on stepstone-class fixtures by ~2x. Cell-compressed by default; obs-level fallback when M_cell/n > 0.9 or bounds_mode='unit'. Supports \code{accelerate=TRUE} for accelerated PDHG)`. Insertion position: adjacent to `\code{"chebyshev"}` (primal-dual splitting paradigm). |
 | 236 | `accelerate = FALSE` default in signature | NO CHANGE to signature default |
 | 319–322 | `if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft"))` warning + `accelerate_bool <- isTRUE(accelerate) && method %in% c(...)` | Add `"cp"` to BOTH method whitelists (warning predicate + accelerate_bool predicate). |
 | ~318 (NEW LINE) | — | INSERT BEFORE line 319: `accelerate_explicit <- !missing(accelerate)`. THEN INSERT BEFORE line 322: `if (method == "cp" && !accelerate_explicit) accelerate <- TRUE`. This makes CP default to `accelerate=TRUE` while preserving the global `accelerate=FALSE` signature default for all OTHER methods (no breaking change). |
@@ -129,19 +131,23 @@ Mirror NewtonCalibResult precedent (Epic-Dβ + Epic-H WH-d): r_bridge.cpp surfac
 | 44 | `final_sigma` | REALSXP scalar (NA_real_ if pdhg) |
 | 45 | `fell_back_to_pdhg` | LGLSXP scalar |
 
-Slot count `R_LISTLEN` increments from 36 (Epic-H WH-e level) to 45. R-side these surface as `attr(result, "result")$n_cells`, etc., consistent with `lm_mu_final` precedent. Other solvers (newton_kl, ieppa, raking, etc.) populate these slots as `NA`/empty — `pack_solver_result` template specializes per `*Result` type with default `NA` for non-CP fields.
+Result list size grows from 37 elements (slots 0-36) to 46 elements (slots 0-45). Update both the `Rf_allocVector(VECSXP, ...)` call site and the names STRSXP allocation accordingly.
+
+**Population mechanism**: `pack_solver_result` is a generic lambda in r_bridge.cpp (~line 407) that touches only `res.base.*` shared fields — it does NOT dispatch on result type. CP-specific scalars (`n_cells`, `algorithm_used`, etc.) are captured in the CP dispatch arm (mirroring how the newton_kl arm captures `res_n_projected_dims` and `res_lm_mu_final` at r_bridge.cpp:608-609), then SEXP-pack writes slots 37-45 unconditionally. Non-CP solvers leave the C++ scalars at default-init values: `int = 0`, `double = NA_REAL`, `bool = FALSE`, `std::string = ""`. R-side these surface as `attr(result, "result")$n_cells`, etc. Empty/NA values for non-CP solvers are documented in `harvest.Rd` `@return` section.
 
 ### R-side warning/error semantics for CP status_codes
 
-Match newton_kl precedent (`r_bridge.cpp` lines ~481-484 / ~528-531 emit warnings on NOCONV/NaN with method-specific messages):
+Match newton_kl precedent: warnings emit from R/harvest.R post-call (lines 479-488 show status-code → R `warning()` dispatch). NOT C++ `Rf_warning()`. Add CP-specific dispatch arm in harvest.R after the existing newton_kl arm:
 
-| status_code | R behavior |
+| status_code | R behavior (emitted from harvest.R post-call) |
 |---|---|
 | 0 (converged) | Silent — return result |
-| 1 (max_iterations) | `warning("cp: max_iterations reached; max_error=<>; consider increasing max_iterations or trying method='ieppa'")` |
-| 2 (NaN/Inf detected) | `warning("cp: NaN/Inf detected at iter=<>; weights truncated. Consider tightening max_weight or trying method='ieppa'")` |
-| 3 (infeasible bounds) | `warning("cp: infeasible bounds (lo[i] >= hi[i] - 2*1e-8 for some i); returning all-1.0 weights")` |
-| 4 (power-iter divergence) | `warning("cp: power-iteration on ||A|| did not converge; aborted before solver started. Likely numerical issue with A_csr; report a bug.")` |
+| 1 (max_iterations) | `warning(sprintf("leafblower cp: max_iterations reached at iter=%d, max_error=%.2e; consider increasing max_iterations or trying method='ieppa'", iter, max_err))` |
+| 2 (NaN/Inf detected) | `warning(sprintf("leafblower cp: NaN/Inf detected at iter=%d; weights truncated; consider tightening max_weight or trying method='ieppa'", iter))` |
+| 3 (infeasible bounds) | `warning(sprintf("leafblower cp: infeasible bounds (lo[i] >= hi[i] - 2e-8 for some i); returning init-clamp weights"))` |
+| 4 (power-iter divergence) | `warning("leafblower cp: power-iteration on ||A|| did not converge; aborted before solver started; report a bug")` |
+
+**status_code=3 weight contract**: returned weights are the init-clamp values $w_i = \mathrm{clamp}(d_i, \ell_i + 10^{-8}, u_i - 10^{-8})$ (per spec Sec 3 common form init). NOT all-1.0. This matches the spec's init invariant and lets the caller see the design-weighted starting point even on infeasible bounds.
 
 NEVER `stop()` on solver status — match existing solver patterns. Caller can inspect `attr(result, "result")$status` for programmatic dispatch.
 
@@ -252,12 +258,18 @@ Final: clamp to [ℓ + δ, u - δ]
 
 ### 3.6 Diagnostic outputs
 
-`CpCalibResult` populates:
+`CpCalibResult` populates (matches Sec 2 SEXP-pack slots 37-45):
 - `n_cells` — int (M_cell or n)
-- `algorithm_used` — `"pdhg"` or `"accelerated_pdhg"` (after possible fallback)
-- `aA_norm_estimate` — double
+- `algorithm_requested` — string (`"pdhg"` or `"accelerated_pdhg"`, user-asked)
+- `algorithm_used` — string (after possible fallback)
+- `A_norm_estimate` — double (power-iter ‖A‖)
 - `n_power_iter` — int
-- `final_theta`, `final_tau`, `final_sigma` — Alg 2 only
+- `final_theta`, `final_tau`, `final_sigma` — accelerated_pdhg only (NA_real_ if pdhg)
+- `fell_back_to_pdhg` — bool
+
+**No per-iter trace stored in production CpCalibResult.** Memory bounded by O(n + ΣJ_k) — final-iteration scalars only. Spike-style trace (1000-row CSV with per-iter `max_err_last`, `max_err_ergodic`, `primal_resid`, `primal_stationarity_proxy`) is RESEARCH-ONLY (`benchmarks/research/cp_*_trace_rep*.csv` from Epic-J). Production analysts who want trace must use `verbose=2` for stderr logging, OR re-run via the spike harness.
+
+**Rate exponents (β_last, β_ergodic, R²) are spike-only.** Sec 1 cites β=-1.05, R²=0.96 as the empirical motivation/headline of why we're productionizing CP — they are NOT runtime-exposed in CpCalibResult or surface via `attr(r, "result")`. Production users get convergence quality via `max_error` and final residuals; rate-fit is a research-tool concept (`lm(log(max_err) ~ log(iter))` on captured trace).
 
 ## 4. Test Suite
 
@@ -270,7 +282,8 @@ Final: clamp to [ℓ + δ, u - δ]
 | **T3** | Cell-compressed CP (`bounds_mode="cell"`) ≡ obs-level CP (`bounds_mode="unit"`) within 1e-10 weight diff on K=2 fixture. |
 | **T4** | Bounds-active fallback: tight `max_weight=1.3` on 95/5 target → finite `max_error` (no NaN propagation). |
 | **T5** | KL-form vs chi2 (`greg`): cp weights distinct from greg by >1% rel diff; all cp weights `> 0`. |
-| **T6** | `accelerate=FALSE` (Algorithm 1) reaches stepstone parity (max_err < 1e-3) — covers Alg 1 code path. |
+| **T6** | `accelerate=FALSE` (Algorithm 1) reaches stepstone parity (`max_err < 1e-4`) — covers Alg 1 code path. Tightened from rev 1's 1e-3 to actually exercise Alg 1 quality (spike showed Alg 1 reaches 5.08e-5; 1e-4 leaves 50% headroom). |
+| **T7** | `accelerate=TRUE` with `max_weight=Inf` triggers γ=0 fallback. Asserts `attr(r, "result")$fell_back_to_pdhg == TRUE` AND `algorithm_used == "pdhg"` AND `algorithm_requested == "accelerated_pdhg"`. Verifies R3 mitigation (Sec 3.4 fallback path). |
 
 kk1204 NOT a CP test fixture (spike showed CP fails kk1204; out of scope).
 
@@ -321,13 +334,57 @@ One bd ticket per WU. Sequential per `superpowers:subagent-driven-development`.
 
 | WU | Title | Hard deps | Model | Wall | Decision Gate |
 |---|---|---|---|---|---|
-| **K-1** | Move + adapt cp_calib to src/, wire enum + r_bridge dispatch + harvest.R match.arg + accelerate explicit override + UPDATE tools/check_research_isolation.R | — | Gemini | ~2.5h | Build clean; pre-commit isolation gate green (cp_* allowed in src/leafblower.so); `harvest(small_df, tgt, method="cp")` returns weights without error; `accelerate=TRUE` is the default for cp without warnings |
+| **K-1** | Move + adapt cp_calib to src/ + isolation gate update + R wiring | — | Gemini | ~2.5h | All sub-steps below complete in single atomic commit. |
+
+**K-1 sub-step list** (single ticket, single commit per global rule 9.1 atomicity; revertible as one SHA):
+1. Edit `tools/check_research_isolation.R`: REMOVE `cp_solve_R` and `cp_calibrate` from forbidden-symbol list. KEEP `ipm_solve_R` and `ipm_calibrate` (still research-only per Epic-J FAIL).
+2. `git mv research/cp_calib.hpp src/cp_calib.hpp` and `git mv research/cp_calib.cpp src/cp_calib.cpp` (preserves history). Then add fossil-pointer header comment to `research/cp_calib.hpp`: `// Epic-K: MOVED TO src/cp_calib.hpp; this copy retained for Epic-J spike traceability only — DO NOT EDIT`.
+3. Refactor `src/cp_calib.hpp`: rename include guard `LEAFBLOWER_RESEARCH_CP_CALIB_HPP_` → `LEAFBLOWER_CP_CALIB_HPP_`. Replace standalone signature `cp_calibrate(int n_row, int n_col, ...)` with `lbw::CpCalibResult lbw::cp_calibrate(lbw::CalibState& st)` matching newton_calib.hpp pattern.
+4. Add OpenMP/thread-safety comment header to top of `src/cp_calib.cpp`: `// Single-threaded solver; cell-table build inherits ieppa OpenMP behavior unchanged.` (R16 mitigation).
+5. Update `src/cp_calib.cpp` body: read inputs from CalibState (replace raw pointer args), construct `CpCalibResult` with `CalibResult base + n_cells + algorithm_requested + algorithm_used + A_norm_estimate + n_power_iter + final_theta + final_tau + final_sigma + fell_back_to_pdhg`. NO per-iter trace storage (production diagnostics = final-iteration scalars only).
+6. `src/leafblower.h`: add `RK_ALG_CP = 12,` to `rk_algorithm_t` enum.
+7. `src/r_bridge.cpp`:
+   - Line 25-37: insert `{"cp", RK_ALG_CP}` after `{"newton_kl", RK_ALG_NEWTON_KL}`.
+   - Line ~617 (after newton_kl arm, before catch-all else block at 618): insert new `else if (strcmp(method_str, "cp") == 0) { ... }` arm following the newton_kl pattern, packing CpCalibResult fields into res_n_cells, res_algorithm_used, etc.
+   - Line ~709-718: insert `(res_alg_used == static_cast<int>(RK_ALG_CP)) ? "cp"` before `: "iEPPA"` fallback.
+   - Result list size: extend `Rf_allocVector(VECSXP, ...)` from 37 to 46 elements; extend names allocation; populate slots 37-45 per Sec 2 Result SEXP-pack table.
+8. `R/harvest.R`:
+   - Line ~318 (BEFORE line 319): insert `accelerate_explicit <- !missing(accelerate)`.
+   - Line ~318 (BEFORE line 322): insert `if (method == "cp" && !accelerate_explicit) accelerate <- TRUE`.
+   - Line 319: add `"cp"` to warning predicate whitelist.
+   - Line 322: add `"cp"` to `accelerate_bool` predicate whitelist.
+   - Line ~488 (after newton_kl status-code-warning arm; mirror lines 479-488 pattern): add CP-specific warning dispatch per Sec 2 R-side warning table.
+   - Line 590: add `"cp"` after `"newton_kl"` in match.arg whitelist.
+9. `R CMD INSTALL --preclean .` → exit 0; pre-commit isolation gate green (cp_* now allowed in src/leafblower.so).
+10. Smoke test: `Rscript -e 'library(leafblower); set.seed(1); df <- data.frame(x=factor(sample(c("a","b","c"), 100, TRUE))); tgt <- list(x=c(a=0.4, b=0.4, c=0.2)); r <- harvest(df, tgt, method="cp", max_weight=5); cat("alg:", attr(r, "algorithm"), "\n")'` → returns "cp" without warnings (accelerate=TRUE default for cp; whitelist now includes cp; no whitelist-warning fires).
 | **K-2** | Algorithm 1 obs-level production parity (port spike with src/ conventions) | K-1 | Gemini | ~2h | T1 + T6 PASS; T5 PASS (KL form distinct from greg) |
 | **K-3** | Algorithm 2 accelerated variant + fallback when u_max=Inf | K-2 | Opus | ~3h | T1 PASS; T6 PASS (Alg 1 path); default accelerate=TRUE produces stepstone tighter than Alg 1 |
 | **K-4** | Cell compression with bounds_mode="cell" + obs-level fallback at M_cell/n > 0.9 + bounds_mode="unit" | K-2 | Opus | ~4h | T3 PASS (cell ≡ obs); T2 PASS (stepstone tighter than ieppa+sraa) |
 | **K-5** | Test suite tests/testthat/test-cp.R (T1-T6) | K-1, K-2, K-3, K-4 | Haiku | ~1h | All 6 PASS via `devtools::test()`; full regression FAIL=0 outside Epic-Dβ T2 documented basin |
-| **K-6** | NEWS.md additive bullet + harvest.Rd regen + harvest.R docstring | K-5 | Haiku | ~30min | `devtools::document()` clean; `R CMD check` no NOTES related to cp |
-| **K-7** | Final code-review-gate (3 adversarial reviewers) + cleanup commit | K-6 | Opus | ~1h | All 3 reviewers PASS |
+| **K-6** | NEWS.md additive bullet + harvest.Rd regen + harvest.R docstring | K-5 | Haiku | ~30min | `devtools::document()` clean; `R CMD check` no NOTES related to cp; NEWS.md bullet text matches draft below |
+
+**K-6 NEWS.md draft text** (place under `## New features` of the development version section):
+```
+* New `method="cp"` (Chambolle-Pock primal-dual; Chambolle & Pock 2011)
+  for moderate-skew K>=5 calibration problems. Outperforms `method="ieppa"`
+  with `accelerate=TRUE` on stepstone-class fixtures by ~2x (max_err
+  5.08e-5 vs 4.39e-4 on stepstone_K9; rate exponent beta=-1.05, R^2=0.96).
+  Cell-compressed by default (M_cell/n <= 0.9, bounds_mode="cell"); falls
+  back to obs-level otherwise. `accelerate=TRUE` (default for cp) selects
+  the O(1/k^2) accelerated PDHG variant; falls back to O(1/k) plain PDHG
+  when `max_weight=Inf`. Opt-in only — AUTO routing unchanged in this
+  release. NOT recommended for severe-skew K>=5 (target_skew > 5) where
+  CP fails to converge (per Epic-J spike investigation: see
+  docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md).
+```
+
+**K-6 harvest.Rd `@param method` insertion** (adjacent to chebyshev grouping):
+```
+\code{"cp"} (Chambolle-Pock primal-dual splitting; for moderate-skew
+K>=5 problems — outperforms ieppa+sraa on stepstone-class fixtures by
+~2x. Cell-compressed by default; obs-level fallback when M_cell/n > 0.9
+or bounds_mode="unit". Supports accelerate=TRUE for accelerated PDHG.)
+| **K-7** | Final code-review-gate (3 adversarial reviewers) + cleanup commit | K-6 | Opus | ~1h | All 3 reviewers (Feasibility, Completeness, Scope & Alignment per `metaswarm:plan-review-gate` convention) PASS. Cleanup: ensure no residual research/cp_calib edits, no orphan .o/.so artefacts staged. |
 
 **Total wall:** ~13–14h sequential.
 
