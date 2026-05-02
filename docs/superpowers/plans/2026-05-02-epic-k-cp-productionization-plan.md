@@ -40,7 +40,7 @@
 - **Algorithm 1 production parity** is K-2 inline T6 (stepstone Alg 1 max_err < 1e-4). Catches obs-level CP regression.
 - **Algorithm 2 fallback** is K-3 inline T7 (max_weight=Inf → fell_back_to_pdhg=TRUE + algorithm_used="pdhg"). Catches γ=0 dispatch bug.
 - **Cell-mode equivalence** is K-4 inline T3 (cell ≡ obs to 1e-10 weight diff on bounds_mode="cell"). Catches cell aggregation errors.
-- **Headline win** is K-4 inline T2 (stepstone CP max_err ≤ 0.7× ieppa+sraa baseline). Locks Epic-J spike 2.2× win with safety margin.
+- **Headline win quality-at-budget** is K-4 inline T2 (stepstone CP max_err ≤ 0.7× ieppa+sraa baseline at cp_max_iter=5000 vs ieppa_max_iter=200). EXPLICITLY NOT wall-fair — cp's O(1/k) rate is structurally slower per-iter; ieppa+sraa converges to bounded fixed point ~4.39e-4; T2 verifies cp can beat that fixed point given proportional budget. Companion test T2b (walltime sanity ceiling): cp stepstone wall_time_ms < 90000 (90s; 73% headroom over Epic-J spike 52s) — guards against future src/cp_calib regression making cp unusably slow on stepstone, but is NOT a wall-fairness gate vs ieppa+sraa.
 - **Codified test suite** is K-5 (`tests/testthat/test-cp.R` T1-T7, runs under `devtools::test()`). Persistent CI regression detection.
 - **Pre-commit isolation gate** is K-1 step 1 (`tools/check_research_isolation.R` updated forbidden list). Mechanical guard against accidental ipm productionization.
 - **Adversarial review** is K-7 (3 fresh Opus reviewers on cumulative Epic-K diff). Catches cross-WU integration issues per-WU reviews missed.

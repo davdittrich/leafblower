@@ -1,13 +1,18 @@
-# Epic-K: stepstone-CP Productionization — Design (rev 4)
+# Epic-K: stepstone-CP Productionization — Design (rev 5)
 
-**Date:** 2026-05-02 (initial); 2026-05-03 (rev 4)
-**Status:** Design — pre-plan, gate iteration 3 → APPROVED with documented override (4/5 reviewers PASS iter 3; CTO 6 textual blockers folded into rev 4).
+**Date:** 2026-05-02 (initial); 2026-05-03 (rev 4 + rev 5)
+**Status:** Design — pre-plan; design-review-gate APPROVED iter 3 (4/5 with CTO textual override → rev 4); plan-review-gate iter 1 Feasibility FAIL on T2 confounder → rev 5 closes via re-labeled quality-at-budget gate + T2b walltime ceiling + honest NEWS framing.
 **Predecessor:** Epic-J (`leafblower-y2ls`) FAIL verdict on kk1204 + side-finding CP wins stepstone (parity 0.45 vs `ieppa+sraa` baseline 1.13e-4)
 **Investigation report:** `docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md` Sec 2 + Sec 6 (Side-finding)
 **Revision history:**
 - rev 1 → rev 2: closes 8 blockers from design-review-gate iter 1 (Architect: dispatch line refs, harvest.R line refs, accelerate default mechanism. Designer: same accelerate mechanism, alg_name ternary chain, kAlgMap entry, result field SEXP-pack indices, status_code R-side semantics).
 - rev 2 → rev 3: closes 4 blockers from design-review-gate iter 2 (Designer: warning EMIT SITE in harvest.R not C++; status_code=3 returns init-clamped weights not all-1.0. CTO: rate-fit exponents are spike-only diagnostic, not production-exposed; production CP stores NO per-iter trace — diagnostics are final-iteration scalars only). Folds Architect/Designer/Security/CTO/PM suggestions where high-value (T6 threshold tighten, T7 fallback test, NEWS.md bullet draft, K-7 reviewer set, R16 comment header step, include-guard rename).
 - rev 3 → rev 4: closes 6 textual-consistency blockers from design-review-gate iter 3 CTO review (T-count "6"→"7" globally; K-3 gate adds T7 + drops T6-as-K-3-gate (T6 belongs to K-2 only); K-5 gate "all 6"→"all 7"; K-6 markdown code fence properly closed before K-7 row; K-1 step 10 smoke test uses accelerate=FALSE since Alg 2 lands in K-3). PM/Architect/Designer/Security all APPROVED iter 3.
+- rev 4 → rev 5: closes 1 plan-review-gate iter 1 Feasibility blocker on T2 confounder (cp max_iter=5000 vs ieppa max_iter=200 = budget asymmetry making T2 structurally non-falsifiable). Rev 5 fixes:
+  - T2 explicitly re-labeled "quality-at-budget (NOT wall-fair)" with rationale (cp's O(1/k) rate is structurally slower per-iter; ieppa+sraa converges to bounded fixed point ~4.39e-4; T2 verifies cp can beat that fixed point given proportional budget — locks Epic-J spike result at the documented budget ratio).
+  - NEW T2b walltime ceiling: cp stepstone wall_time_ms < 90000 (90s; 73% headroom over spike 52s). Sanity check, NOT wall-fairness gate.
+  - K-6 NEWS.md draft text reworded for honest framing: "~2x tighter weights at convergence-budget" replaces ambiguous "outperforms ~2x"; explicit "NOT wall-time-faster: cp 52s vs ieppa+sraa 0.34s"; explicit "Choose cp when (a) need weights tighter than ieppa+sraa fixed-point AND (b) walltime budget allows proportionally more iterations".
+  - Plan-review-gate Completeness + Scope APPROVED iter 1; Feasibility now expected APPROVED on rev 5 re-review.
 
 ## 1. Problem & Goals
 
@@ -279,7 +284,8 @@ Final: clamp to [ℓ + δ, u - δ]
 | Test | Purpose |
 |---|---|
 | **T1** | K=3 small (n=1000): `status=0`, `max_err < 1e-6` (machine-precision sanity). |
-| **T2** | stepstone K=9: `cp` `max_err ≤ 0.7 × ieppa+sraa max_err` (LOCKS IN headline 2.2× win with safety margin; spike showed parity ratio 0.45). |
+| **T2** | stepstone K=9 quality-at-budget (NOT wall-fair): `cp` `max_err ≤ 0.7 × ieppa+sraa max_err` with cp run for `max_iterations=5000` and ieppa+sraa with `accelerate=TRUE max_iterations=200` (each method run at its convergence-budget per Epic-J spike). cp's PDHG has O(1/k) sublinear convergence and reaches arbitrary tightness given budget; ieppa+sraa converges to a bounded fixed point at ~4.39e-4. T2 verifies cp can beat that fixed point given proportional budget — locks the Epic-J spike result (parity ratio 0.45 at 5000:200 iters). T2 does NOT compare wall-time; see T2b. |
+| **T2b** | stepstone K=9 wall-time ceiling: cp `attr(r, "result")$wall_time_ms < 90000` (90s; 73% headroom over spike's 52s). Loose ceiling — sanity check that cp's stepstone walltime doesn't drift to unusable territory under future src/cp_calib refactors. NOT a fairness gate vs ieppa+sraa (which finishes in ~0.34s — cp is structurally slower per O(1/k) rate). |
 | **T3** | Cell-compressed CP (`bounds_mode="cell"`) ≡ obs-level CP (`bounds_mode="unit"`) within 1e-10 weight diff on K=2 fixture. |
 | **T4** | Bounds-active fallback: tight `max_weight=1.3` on 95/5 target → finite `max_error` (no NaN propagation). |
 | **T5** | KL-form vs chi2 (`greg`): cp weights distinct from greg by >1% rel diff; all cp weights `> 0`. |
@@ -367,16 +373,27 @@ One bd ticket per WU. Sequential per `superpowers:subagent-driven-development`.
 **K-6 NEWS.md draft text** (place under `## New features` of the development version section):
 ```
 * New `method="cp"` (Chambolle-Pock primal-dual; Chambolle & Pock 2011)
-  for moderate-skew K>=5 calibration problems. Outperforms `method="ieppa"`
-  with `accelerate=TRUE` on stepstone-class fixtures by ~2x (max_err
-  5.08e-5 vs 4.39e-4 on stepstone_K9; rate exponent beta=-1.05, R^2=0.96).
-  Cell-compressed by default (M_cell/n <= 0.9, bounds_mode="cell"); falls
-  back to obs-level otherwise. `accelerate=TRUE` (default for cp) selects
-  the O(1/k^2) accelerated PDHG variant; falls back to O(1/k) plain PDHG
-  when `max_weight=Inf`. Opt-in only — AUTO routing unchanged in this
-  release. NOT recommended for severe-skew K>=5 (target_skew > 5) where
-  CP fails to converge (per Epic-J spike investigation: see
-  docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md).
+  for moderate-skew K>=5 calibration problems. Reaches arbitrary tightness
+  given iteration budget per O(1/k) (`accelerate=FALSE`) or O(1/k^2)
+  (`accelerate=TRUE`, default) sublinear convergence. On stepstone_K9
+  fixture (Epic-J spike, max_iterations=5000): cp max_err 5.08e-5 vs
+  `method="ieppa"` `accelerate=TRUE` (max_iterations=200, converged at
+  bounded fixed point) max_err 4.39e-4 — cp produces ~2x tighter
+  weights at its convergence-budget. NOT wall-time-faster: cp 52s vs
+  ieppa+sraa 0.34s on the same fixture (per O(1/k) rate, cp pays
+  walltime for tightness). Choose cp when (a) you need weights tighter
+  than ieppa+sraa's fixed-point AND (b) walltime budget allows
+  proportionally more iterations.
+
+  Cell-compressed by default (M_cell/n <= 0.9 AND bounds_mode="cell");
+  falls back to obs-level otherwise. `accelerate=TRUE` falls back to
+  O(1/k) plain PDHG when `max_weight=Inf` (gamma-strong-convexity
+  precondition violated).
+
+  Opt-in only — AUTO routing unchanged in this release; pass
+  `method="cp"` explicitly. NOT recommended for severe-skew K>=5
+  (target_skew > 5) where CP fails to converge (per Epic-J spike
+  investigation: see docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md).
 ```
 
 **K-6 harvest.Rd `@param method` insertion** (adjacent to chebyshev grouping):
