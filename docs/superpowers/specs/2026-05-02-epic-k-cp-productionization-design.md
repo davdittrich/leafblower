@@ -424,14 +424,12 @@ accelerate=TRUE instead.)
 
 **Total wall:** ~13–14h sequential.
 
-**Dependency graph:**
+**Dependency graph (rev 6 sequential — K-3 → K-4):**
 ```
-K-1 ──► K-2 ──► K-3 ──► K-5 ──► K-6 ──► K-7
-            │           ▲
-            └─► K-4 ────┘
+K-1 ──► K-2 ──► K-3 ──► K-4 ──► K-5 ──► K-6 ──► K-7
 ```
 
-K-3 + K-4 both depend on K-2 (Alg 1 baseline correct first). K-5 hard-dep both K-3 + K-4.
+K-3 + K-4 sequential per rev 6 region partition: K-3 modifies cp_calibrate Algorithm 2 dispatch INSIDE function body; K-4 wraps cp_calibrate body in cell/obs dispatch at TOP-OF-FUNCTION and routes obs-path to K-3's modified code. Sequential ordering eliminates the merge-conflict risk of rev 5's parallel claim. K-5 hard-dep K-3 AND K-4.
 
 **Reversibility**: each WU = one commit; revert single SHA on bug. `research/` untouched.
 

@@ -3,7 +3,7 @@
 **Date:** 2026-05-02 (initial); 2026-05-03 (plan rev 1)
 **Beads epic:** `leafblower-pcs9`
 **Beads tasks:** `leafblower-pcs9.1` through `.7`
-**Spec:** `docs/superpowers/specs/2026-05-02-epic-k-cp-productionization-design.md` rev 4 (design-review-gate iter 3 APPROVED 4/5 with override; CTO 6 textual blockers folded in rev 4)
+**Spec:** `docs/superpowers/specs/2026-05-02-epic-k-cp-productionization-design.md` rev 6 (design-review-gate iter 3 APPROVED 4/5 with override → rev 4; plan-review-gate iter 2 4 blockers → rev 6)
 **Predecessor:** Epic-J (`leafblower-y2ls`) FAIL at master `484e1e2`; spike CP at master `4e89769`. Investigation: `docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md` Sec 6 (side-finding).
 
 ## Mechanism
@@ -15,14 +15,14 @@
 **ABI:** single-line `RK_ALG_CP = 12` enum addition to `src/leafblower.h`. NO `rk_params_t` field changes; `cp_safety_factor=1.05` hardcoded; `accelerate` reuses existing `st.accelerate` field. `EXPECTED_RK_PARAMS_BYTES` unchanged.
 
 **Audit strategy:**
-- Spec-compliance reviewer (Opus, per WU): each WU's DoD checklist verified against spec rev 4 sections.
+- Spec-compliance reviewer (Opus, per WU): each WU's DoD checklist verified against spec rev 6 sections.
 - Code-quality reviewer (Opus, per WU): memory safety (std::vector / Eigen / no raw new/delete), R/C boundary (PROTECT/UNPROTECT mirror newton_kl pattern), numerical NaN propagation (status_code=2 detection).
 - Mechanical CI gate (`tools/check_research_isolation.R`): forbidden-symbol list updated K-1 step 1 to remove cp_solve_R + cp_calibrate (now legitimately in src/leafblower.so) while keeping ipm_solve_R + ipm_calibrate (Epic-J FAIL artefacts).
 - K-7 plan-review-gate convention (3 adversarial reviewers Feasibility/Completeness/Scope & Alignment) on cumulative Epic-K diff before close.
 
 ## Forbidden
 
-- **No edits to** `src/Makevars.in`, `src/types.hpp` (CalibState/CalibResult), `src/cell_table.{hpp,cpp}` beyond what spec rev 4 explicitly permits.
+- **No edits to** `src/Makevars.in`, `src/types.hpp` (CalibState/CalibResult), `src/cell_table.{hpp,cpp}` beyond what spec rev 6 explicitly permits.
 - **No AUTO routing change** (Epic-K.2 deferred — fixture-class sweep required).
 - **No Mehrotra predictor-corrector PDHG**, **no warm-start**, **no SIMD**, **no Python bindings**, **no vignette docs** in this epic.
 - **No raw `new`/`delete`** in any C++ file — `std::vector` / Eigen only.
@@ -41,7 +41,7 @@
 - **Algorithm 2 fallback** is K-3 inline T7 (max_weight=Inf → fell_back_to_pdhg=TRUE + algorithm_used="pdhg"). Catches γ=0 dispatch bug.
 - **Cell-mode equivalence** is K-4 inline T3 (cell ≡ obs to 1e-10 weight diff on bounds_mode="cell"). Catches cell aggregation errors.
 - **Headline win quality-at-budget** is K-4 inline T2 (stepstone CP max_err ≤ 0.7× ieppa+sraa baseline at cp_max_iter=5000 vs ieppa_max_iter=200). EXPLICITLY NOT wall-fair — cp's O(1/k) rate is structurally slower per-iter; ieppa+sraa converges to bounded fixed point ~4.39e-4; T2 verifies cp can beat that fixed point given proportional budget. Companion test T2b (walltime sanity ceiling): cp stepstone wall_time_ms < 90000 (90s; 73% headroom over Epic-J spike 52s) — guards against future src/cp_calib regression making cp unusably slow on stepstone, but is NOT a wall-fairness gate vs ieppa+sraa.
-- **Codified test suite** is K-5 (`tests/testthat/test-cp.R` T1-T7, runs under `devtools::test()`). Persistent CI regression detection.
+- **Codified test suite** is K-5 (`tests/testthat/test-cp.R` T1-T7 + T2b = 8 tests, runs under `devtools::test()`). Persistent CI regression detection.
 - **Pre-commit isolation gate** is K-1 step 1 (`tools/check_research_isolation.R` updated forbidden list). Mechanical guard against accidental ipm productionization.
 - **Adversarial review** is K-7 (3 fresh Opus reviewers on cumulative Epic-K diff). Catches cross-WU integration issues per-WU reviews missed.
 
@@ -68,10 +68,10 @@ Per spec rev 6 region-partition decision: K-3 modifies cp_calibrate Algorithm 2 
 
 **Subagent routing**: Gemini for mechanical port + bench (K-1, K-2). Opus for algorithm correctness + cell compression + final review (K-3, K-4, K-7). Haiku for tests + docs (K-5, K-6). Per memory rule: avoid Sonnet; use Gemini for Tier-2 delegated work, Opus for Tier-3 design/review, Haiku for Tier-1 mechanical.
 
-## Decision Rule (verbatim from spec rev 4 Sec 1)
+## Decision Rule (verbatim from spec rev 6 Sec 1)
 
 Epic-K closes PASS iff:
-- All 7 tests in `tests/testthat/test-cp.R` PASS via `devtools::test()`.
+- All 8 tests in `tests/testthat/test-cp.R` PASS (T1-T7 + T2b walltime sanity) via `devtools::test()`.
 - `R CMD INSTALL --preclean .` clean.
 - `harvest.Rd` + `NEWS.md` updated.
 - AUTO routing untouched (existing `test-algo-selection.R` regression PASS).
@@ -81,9 +81,9 @@ Any FAIL → halt, fix, re-test (no `--no-verify` bypass).
 
 ## Reversibility / FAIL artefact policy
 
-Each WU = one revertible commit. K-1..K-7 are 7 sequential commits; revert any single SHA on bug. `research/cp_calib.{hpp,cpp}` stays as fossil with header comment "MOVED TO src/" (per K-1 sub-step 2). On Epic-K FAIL: revert all K-1..K-7 commits in reverse order; spec rev 4 stays as design artefact for future re-attempt.
+Each WU = one revertible commit. K-1..K-7 are 7 sequential commits; revert any single SHA on bug. `research/cp_calib.{hpp,cpp}` stays as fossil with header comment "MOVED TO src/" (per K-1 sub-step 2). On Epic-K FAIL: revert all K-1..K-7 commits in reverse order; spec rev 6 stays as design artefact for future re-attempt.
 
-## Risks & Mitigations (verbatim from spec rev 4 Sec 6 R1-R17; reproduced for plan completeness)
+## Risks & Mitigations (verbatim from spec rev 6 Sec 6 R1-R17; reproduced for plan completeness)
 
 | # | Risk | Mitigation |
 |---|---|---|
@@ -105,7 +105,7 @@ Each WU = one revertible commit. K-1..K-7 are 7 sequential commits; revert any s
 | R16 | OpenMP interaction with cell_table reuse | CP single-threaded; cell_table inherits ieppa parallelism; comment header K-1 step 4 |
 | R17 | tools/check_research_isolation.R blocks pre-commit because cp_* now in src/leafblower.so | K-1 step 1 (FIRST step): UPDATE forbidden list to REMOVE cp_solve_R + cp_calibrate; KEEP ipm_solve_R + ipm_calibrate |
 
-**Discontinuation triggers** (per spec rev 4 Sec 6):
+**Discontinuation triggers** (per spec rev 6 Sec 6):
 - R5 fires (whitelist drift) → halt; verify match.arg before any further commit.
 - R7 fires (enum collision) → halt; pick next free slot; audit downstream switch tables.
 - R12 fires (algorithm bug) → halt; revert; re-spike before continuing.
@@ -113,7 +113,7 @@ Each WU = one revertible commit. K-1..K-7 are 7 sequential commits; revert any s
 ## Success Criteria (Epic close)
 
 - [ ] All 7 WU tickets closed via bd.
-- [ ] `tests/testthat/test-cp.R` T1-T7 PASS via `devtools::test()`.
+- [ ] `tests/testthat/test-cp.R` T1-T7 + T2b PASS via `devtools::test()` (8 tests total).
 - [ ] `R CMD INSTALL --preclean .` clean.
 - [ ] `R CMD check` no NOTES related to cp.
 - [ ] AUTO routing regression tests PASS (`tests/testthat/test-algo-selection.R`).
