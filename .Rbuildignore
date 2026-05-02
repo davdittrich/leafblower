@@ -19,3 +19,5 @@
 ^\.metaswarm$
 ^\.worktrees$
 ^tests/testthat/fixtures$
+^research$
+^tools/check_research_isolation\.R$
