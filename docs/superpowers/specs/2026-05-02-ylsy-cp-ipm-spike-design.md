@@ -127,11 +127,26 @@ All `.Call` shim translation units MUST:
 
 **Output**: named R list:
 - `weights` — length-n `numeric`
-- `status_code` — integer (0 = converged, 1 = max_iterations exhausted, 2 = NaN/Inf detected, 3 = infeasible bounds, 4 = power-iter divergence)
+- `status_code` — integer (0 = converged, 1 = max_iterations exhausted, 2 = NaN/Inf detected OR LAPACK info≠0 (e.g. dsyevd non-convergence), 3 = infeasible bounds, 4 = power-iter divergence, 99 = WU-1 stub only — never returned by final code)
 - `status_msg` — character scalar
 - `iterations` — integer (total iterations performed)
 - `wall_time_ms` — double
-- `trace` — matrix with columns documented per algorithm (Sec 3); zero-row matrix iff `capture_trace=FALSE`. Per-iter scalar aggregates ONLY (no per-element residual vectors); ≤ 10 doubles per iter; max 5000 rows.
+- `trace` — matrix with columns documented per algorithm (Sec 3); zero-row matrix (with column names preserved) iff `capture_trace=FALSE`. Per-iter scalar aggregates ONLY (no per-element residual vectors); ≤ 10 doubles per iter; **hard cap 1000 rows** enforced via `trace_stride = max(1, max_iterations / 1000)` in shim — `Rf_error` if writer attempts > 1000.
+
+**Hard input bounds enforced in shim before any allocation:**
+- `n_expected = Rf_length(d) <= 1e8` (paste-error guard).
+- `n_col = ncol(A_csr) <= 1e6` (margin total cardinality guard).
+- `max_iterations <= 1e5`.
+- All bound failures → `Rf_error("research shim: <bound> exceeded")`.
+
+**Reserved status codes:** 0 = converged, 1 = max_iterations exhausted, 2 = NaN/Inf or LAPACK info≠0 (TSVD failure / dsyevd non-convergence in IPM), 3 = infeasible bounds, 4 = power-iter divergence (R9), **99 = not implemented** (WU-1 stub only; never returned by WU-2/WU-5 final code).
+
+**`A_csr` field convention** (0-indexed, R `Matrix::sparseMatrix(repr="C")` compatible):
+- `A_csr$p` integer length `n_row + 1`, `p[1] == 0`, `p[n_row + 1] == nnz`.
+- `A_csr$j` integer length `nnz`, 0-indexed column indices.
+- `A_csr$n_row` integer scalar, equals `length(d)`.
+- `A_csr$n_col` integer scalar, equals `length(b) = ΣJ_k`.
+- `A_csr$x` numeric length `nnz`, all entries 1.0 for block-incidence (one example: `A_csr$x[1:K] == rep(1, K)`).
 
 ## 3. Algorithm Specifications
 
@@ -174,7 +189,7 @@ For k = 0 .. max_iterations:
   w^{k+1} = prox_{τ f}(w^k − τ A y^{k+1})
   w̄^{k+1} = 2 w^{k+1} − w^k
   if k % trace_stride == 0 AND capture_trace:
-    record (k, time_ms, max_err(w^{k+1}), max_err(ergodic_avg(w)), primal_resid, dual_resid)
+    record (k, time_ms, max_err_last, max_err_ergodic, primal_resid, primal_stationarity_proxy)
   if ‖A^T w^{k+1} - b‖_∞ / max(Z, 1) < 1e-7: status_code = 0; break
   if any NaN/Inf: status_code = 2; break
 ```
@@ -208,9 +223,9 @@ Newton iteration (≤5 iters typical):
 | `max_err_last` | $\max_{k,j} \lvert \hat T_{kj}(w^{k+1}) - T_{kj} \rvert$ |
 | `max_err_ergodic` | $\max_{k,j} \lvert \hat T_{kj}(\bar w^k) - T_{kj} \rvert$ where $\bar w^k = \frac{1}{k+1} \sum_{i=0}^k w^i$ |
 | `primal_resid` | $\| A^\top w^{k+1} - b \|_\infty$ |
-| `dual_resid` | $\| w^{k+1} - w^k \|_\infty / \tau$ (proxy for primal stationarity) |
+| `primal_stationarity_proxy` | $\| w^{k+1} - w^k \|_\infty / \tau$ |
 
-`trace_stride = max(1, max_iterations / 1000)` to cap trace size at ~1000 rows.
+`trace_stride = max(1, max_iterations / 1000)` caps trace at exactly 1000 rows. Renamed `dual_resid` → `primal_stationarity_proxy` to disambiguate from IPM's `kkt_resid` in the unified summary CSV.
 
 ### 3.2 Interior-Point Newton (IPM)
 
@@ -307,7 +322,7 @@ Fixture generator pinned by name + commit hash in bench script header (R6 reprod
 | `wall_s` | elapsed seconds |
 | `n_iter` | iteration count |
 | `final_primal_resid` | CP only |
-| `final_dual_resid_or_kkt` | unified residual field |
+| `final_residual` | unified field — CP: `primal_stationarity_proxy` last value; IPM: `kkt_resid` last value |
 | `n_projected_dims_max` | IPM only; NA otherwise |
 | `rate_exponent` | $\beta$ from log-log fit |
 | `rate_R2` | fit $R^2$ |
@@ -353,6 +368,7 @@ R6 codified as gate.
 | Cell compression in CP / IPM | kk1204 has M_cell/n=1.0; compression buys nothing |
 | Convergence improvements to existing methods | New methods only, in `research/` |
 | Comparison vs external solvers (CVXPY, IPOPT, MOSEK) | Out of spike; could be follow-up if PASS triggers productionization |
+| AUTO routing carve-out criteria for PASS-kk1204-specialist verdict | Deferred to Epic-I (productionization). Spike outputs the verdict; Epic-I designs which fixtures route to CP/IPM vs ieppa+sraa. |
 
 ## 6. Risks & Mitigations
 
@@ -407,7 +423,7 @@ One bd ticket per WU. No bundling.
 | **WU-2** | CP implementation | WU-1 | `research/cp_calib.{hpp,cpp}` + `research_bridge.cpp` `cp_solve_R`. Power iter, prox Newton, full algorithm per Sec 3.1. Compiles standalone. | Compiles + sanity recovers w=1 on t1_small to max_err < 1e-8. |
 | **WU-3** | CP bench | WU-2 | `benchmarks/research/ylsy_cp_bench.R` + `sanity_t1_recovery.R`. Run on t1_small, stepstone_K9, kk1204_K20 (3×). Produce summary CSV + trace CSVs. | All three fixtures complete; CSVs written. |
 | **WU-4** | CP gate | WU-3 | Read CP CSVs; compute verdict via decision rule. Output `research/cp_verdict.txt` (PASS / PASS-specialist / PARTIAL / FAIL). | Verdict set. If PASS → skip WU-5/WU-6. |
-| **WU-5** | IPM implementation | WU-1, WU-4 ≠ PASS | `research/ipm_calib.{hpp,cpp}` + shim. Schur+TSVD per Sec 3.2. Sanity recovers w=1 to max_err < 1e-8. | Compiles + sanity passes. |
+| **WU-5** | IPM implementation | WU-1, WU-4 verdict ∈ {PARTIAL, FAIL} | `research/ipm_calib.{hpp,cpp}` + shim. Schur+TSVD per Sec 3.2. Sanity recovers w=1 to max_err < 1e-8. (WU-5 SKIPPED iff WU-4 ∈ {PASS, PASS-kk1204-specialist}.) | Compiles + sanity passes. |
 | **WU-6** | IPM bench | WU-5 | `benchmarks/research/ylsy_ipm_bench.R`. Same fixtures, same repetitions. CSVs. | All three fixtures complete. |
 | **WU-7** | Investigation report | WU-3 OR WU-6 (whichever final) | `ylsy_compare.R` produces unified table. Write `docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md` with verdict, table, plots, postmortem, recommendation. Update bd ylsy ticket. | Report committed; ticket updated; epic closed (PASS / FAIL / PARTIAL). |
 
