@@ -1,12 +1,13 @@
-# Epic-K: stepstone-CP Productionization — Design (rev 2)
+# Epic-K: stepstone-CP Productionization — Design (rev 4)
 
-**Date:** 2026-05-02
-**Status:** Design — pre-plan, gate iteration 2
+**Date:** 2026-05-02 (initial); 2026-05-03 (rev 4)
+**Status:** Design — pre-plan, gate iteration 3 → APPROVED with documented override (4/5 reviewers PASS iter 3; CTO 6 textual blockers folded into rev 4).
 **Predecessor:** Epic-J (`leafblower-y2ls`) FAIL verdict on kk1204 + side-finding CP wins stepstone (parity 0.45 vs `ieppa+sraa` baseline 1.13e-4)
 **Investigation report:** `docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md` Sec 2 + Sec 6 (Side-finding)
 **Revision history:**
 - rev 1 → rev 2: closes 8 blockers from design-review-gate iter 1 (Architect: dispatch line refs, harvest.R line refs, accelerate default mechanism. Designer: same accelerate mechanism, alg_name ternary chain, kAlgMap entry, result field SEXP-pack indices, status_code R-side semantics).
 - rev 2 → rev 3: closes 4 blockers from design-review-gate iter 2 (Designer: warning EMIT SITE in harvest.R not C++; status_code=3 returns init-clamped weights not all-1.0. CTO: rate-fit exponents are spike-only diagnostic, not production-exposed; production CP stores NO per-iter trace — diagnostics are final-iteration scalars only). Folds Architect/Designer/Security/CTO/PM suggestions where high-value (T6 threshold tighten, T7 fallback test, NEWS.md bullet draft, K-7 reviewer set, R16 comment header step, include-guard rename).
+- rev 3 → rev 4: closes 6 textual-consistency blockers from design-review-gate iter 3 CTO review (T-count "6"→"7" globally; K-3 gate adds T7 + drops T6-as-K-3-gate (T6 belongs to K-2 only); K-5 gate "all 6"→"all 7"; K-6 markdown code fence properly closed before K-7 row; K-1 step 10 smoke test uses accelerate=FALSE since Alg 2 lands in K-3). PM/Architect/Designer/Security all APPROVED iter 3.
 
 ## 1. Problem & Goals
 
@@ -31,7 +32,7 @@ Ship `harvest(method="cp", ...)` as production solver:
 
 ### Decision criteria for Epic-K close
 
-- All 6 tests in `tests/testthat/test-cp.R` PASS.
+- All 7 tests in `tests/testthat/test-cp.R` PASS.
 - `R CMD INSTALL --preclean .` clean.
 - `harvest.Rd` + `NEWS.md` updated.
 - AUTO routing untouched (existing `test-algo-selection.R` regression PASS).
@@ -56,7 +57,7 @@ tools/
                                         Keep ipm_solve_R, ipm_calibrate (still research-only — Epic-J FAIL).
 
 tests/testthat/
-└── test-cp.R                         ← NEW (6 tests: T1-T6)
+└── test-cp.R                         ← NEW (7 tests: T1-T7)
 
 man/harvest.Rd                        ← regenerate via devtools::document()
 NEWS.md                               ← additive entry under "## New features"
@@ -273,7 +274,7 @@ Final: clamp to [ℓ + δ, u - δ]
 
 ## 4. Test Suite
 
-`tests/testthat/test-cp.R` — 6 tests:
+`tests/testthat/test-cp.R` — 7 tests:
 
 | Test | Purpose |
 |---|---|
@@ -309,7 +310,7 @@ kk1204 NOT a CP test fixture (spike showed CP fails kk1204; out of scope).
 | R2 | Algorithm 2 step-size adaptation unstable on ill-conditioned A | M | M | Fallback to Alg 1 if θ_k underflows; diagnostic `final_theta` |
 | R3 | `u_max = Inf` violates γ > 0 precondition | L | M | Auto-fallback to PDHG; verbose log; `algorithm_used="pdhg"`, `fell_back_to_pdhg=true` |
 | R4 | r_bridge dispatch arm wires wrong field set | L | M | Mirror `newton_kl` dispatch arm; spec reviewer audits |
-| R5 | harvest.R `match.arg` whitelist drift | L | H | T1-T6 use `method="cp"`; whitelist drift → all tests fail |
+| R5 | harvest.R `match.arg` whitelist drift | L | H | T1-T7 use `method="cp"`; whitelist drift → all tests fail |
 | R6 | NEWS.md bullet under wrong section | L | L | Place under `## New features`; reviewer audits |
 | R7 | rk_algorithm_t enum collision | L | H | Verify before adding; 12 currently free |
 | R8 | A_cell construction differs from obs-level A | M | H | T3 direct comparison + assertion `sum(A_cell.x) == M_cell * K` |
@@ -356,11 +357,11 @@ One bd ticket per WU. Sequential per `superpowers:subagent-driven-development`.
    - Line ~488 (after newton_kl status-code-warning arm; mirror lines 479-488 pattern): add CP-specific warning dispatch per Sec 2 R-side warning table.
    - Line 590: add `"cp"` after `"newton_kl"` in match.arg whitelist.
 9. `R CMD INSTALL --preclean .` → exit 0; pre-commit isolation gate green (cp_* now allowed in src/leafblower.so).
-10. Smoke test: `Rscript -e 'library(leafblower); set.seed(1); df <- data.frame(x=factor(sample(c("a","b","c"), 100, TRUE))); tgt <- list(x=c(a=0.4, b=0.4, c=0.2)); r <- harvest(df, tgt, method="cp", max_weight=5); cat("alg:", attr(r, "algorithm"), "\n")'` → returns "cp" without warnings (accelerate=TRUE default for cp; whitelist now includes cp; no whitelist-warning fires).
+10. Smoke test (Algorithm 1 only — Alg 2 lands in K-3): `Rscript -e 'library(leafblower); set.seed(1); df <- data.frame(x=factor(sample(c("a","b","c"), 100, TRUE))); tgt <- list(x=c(a=0.4, b=0.4, c=0.2)); r <- harvest(df, tgt, method="cp", accelerate=FALSE, max_weight=5); res <- attr(r, "result"); stopifnot(res$status == 0L, attr(r, "algorithm") == "cp", res$algorithm_used == "pdhg")'`. K-1 ships only Algorithm 1 obs-level (refactored from research/cp_calib); accelerate=TRUE will fall back to Algorithm 1 with verbose log because Algorithm 2 (γ-strong-convexity dispatch + adaptive step sizes) is NOT yet wired — that is K-3's deliverable. Document this transient state in K-1 commit message: "Algorithm 2 dispatch returns Algorithm 1 with verbose log + fell_back_to_pdhg=true; full Alg 2 implementation in K-3."
 | **K-2** | Algorithm 1 obs-level production parity (port spike with src/ conventions) | K-1 | Gemini | ~2h | T1 + T6 PASS; T5 PASS (KL form distinct from greg) |
-| **K-3** | Algorithm 2 accelerated variant + fallback when u_max=Inf | K-2 | Opus | ~3h | T1 PASS; T6 PASS (Alg 1 path); default accelerate=TRUE produces stepstone tighter than Alg 1 |
+| **K-3** | Algorithm 2 accelerated variant + fallback when u_max=Inf or θ_k underflow | K-2 | Opus | ~3h | T1 PASS (no regression); T6 PASS (Alg 1 path not broken); T7 PASS (Alg 2 → PDHG fallback verified); default accelerate=TRUE produces stepstone max_err tighter than Alg 1 reference. |
 | **K-4** | Cell compression with bounds_mode="cell" + obs-level fallback at M_cell/n > 0.9 + bounds_mode="unit" | K-2 | Opus | ~4h | T3 PASS (cell ≡ obs); T2 PASS (stepstone tighter than ieppa+sraa) |
-| **K-5** | Test suite tests/testthat/test-cp.R (T1-T6) | K-1, K-2, K-3, K-4 | Haiku | ~1h | All 6 PASS via `devtools::test()`; full regression FAIL=0 outside Epic-Dβ T2 documented basin |
+| **K-5** | Test suite tests/testthat/test-cp.R (T1-T7) | K-1, K-2, K-3, K-4 | Haiku | ~1h | All 7 PASS via `devtools::test()`; full regression FAIL=0 outside Epic-Dβ T2 documented basin |
 | **K-6** | NEWS.md additive bullet + harvest.Rd regen + harvest.R docstring | K-5 | Haiku | ~30min | `devtools::document()` clean; `R CMD check` no NOTES related to cp; NEWS.md bullet text matches draft below |
 
 **K-6 NEWS.md draft text** (place under `## New features` of the development version section):
@@ -383,7 +384,14 @@ One bd ticket per WU. Sequential per `superpowers:subagent-driven-development`.
 \code{"cp"} (Chambolle-Pock primal-dual splitting; for moderate-skew
 K>=5 problems — outperforms ieppa+sraa on stepstone-class fixtures by
 ~2x. Cell-compressed by default; obs-level fallback when M_cell/n > 0.9
-or bounds_mode="unit". Supports accelerate=TRUE for accelerated PDHG.)
+or bounds_mode="unit". Supports accelerate=TRUE for accelerated PDHG.
+NOT recommended for severe-skew K>=5; per Epic-J spike, CP fails to
+converge on target_skew > 5 fixtures — use method="ieppa" with
+accelerate=TRUE instead.)
+```
+
+| WU | Title | Hard deps | Model | Wall | Decision Gate |
+|---|---|---|---|---|---|
 | **K-7** | Final code-review-gate (3 adversarial reviewers) + cleanup commit | K-6 | Opus | ~1h | All 3 reviewers (Feasibility, Completeness, Scope & Alignment per `metaswarm:plan-review-gate` convention) PASS. Cleanup: ensure no residual research/cp_calib edits, no orphan .o/.so artefacts staged. |
 
 **Total wall:** ~13–14h sequential.
