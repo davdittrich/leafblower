@@ -2,6 +2,18 @@
 
 ## Newton-KL calibration
 
+* Epic-Dβ verdict: **PARTIAL** — TSVD+Steihaug-CG composed pipeline shipped.
+  Stepstone K=9 max_err: 2.79e-4 (master) → 2.61e-4 (6.5% improvement, still
+  above 1e-4 gate). kk1204 K=20 severe-skew: master diverged (status=1) →
+  Epic-Dβ converges (status=0) at gap=6.24e-2 (above 1e-3 PARTIAL threshold
+  but eliminates pathological drift). Full regression FAIL=0 outside the
+  documented stepstone basin floor; over-projection regression test (T7 K=4)
+  PASS at max_err=2.84e-7. Best-iterate fallback retained: audit instrumented
+  `LEAFBLOWER_NEWTON_TRACE` counter shows fires across all scenarios (T1/T4/T5
+  testthat=25, T7 K=4=3, T2 stepstone=9, full regression=37). Stepstone
+  basin-floor at ~2.6e-4 appears intrinsic to the dual landscape; closure to
+  <1e-4 deferred to Epic-E (continuation methods, multi-start, or alternative
+  algorithm).
 * `method="newton_kl"` adds Steihaug-CG trust-region step in retained subspace
   when the truncated-SVD pseudoinverse exceeds the trust radius. Trust radius
   adapts via Marquardt gain ratio (ρ>0.75 ⇒ Δ doubles; ρ<0.25 ⇒ Δ /= 4).
