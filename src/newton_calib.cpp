@@ -4,6 +4,7 @@
 #include "calib_linalg.hpp"
 #include "cell_table.hpp"
 #include "calib_validate.hpp"
+#include <R_ext/Lapack.h>
 #include <cmath>
 #include <algorithm>
 #include <limits>
