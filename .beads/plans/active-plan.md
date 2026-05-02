@@ -1,30 +1,39 @@
 # Active Plan
-<!-- approved: 2026-05-01 -->
+<!-- approved: 2026-05-02 -->
 <!-- gate-iterations: 2 -->
 <!-- user-approved: pending -->
 <!-- status: ready_for_execution -->
-<!-- epic: leafblower-usg8 -->
-<!-- plan-doc: docs/superpowers/plans/2026-05-01-newton-kl-ieppa-warmstart-plan.md -->
+<!-- epic: leafblower-wkmq -->
+<!-- plan-doc: docs/superpowers/plans/2026-05-02-newton-kl-tsvd-cg-plan.md -->
 
-# Newton-KL IEPPA Warm-Start (Epic-C)
+# Newton-KL TSVD + Steihaug-CG (Epic-Dβ)
 
-**Triggered by:** Epic-B (target homotopy) BLOCKED — T2 stepstone regressed 2.8e-4 → 2.29e-3.
-**Plan rev 3 approved:** plan-review-gate iter 2, all 3 reviewers PASS (Feasibility, Completeness, Scope & Alignment).
+**Triggered by:** Epic-B (target homotopy) BLOCKED, Epic-C (IEPPA warm-start) BLOCKED, Epic-Dα (cheap-first lm_mu/pivot sweep) ESCALATE per `benchmarks/results/lm_pivot_sweep.csv` showing 2.79e-04 plateau across {1e-12, 1e-10, 1e-8}. Bottleneck is structural Newton-step direction, not conditioning. User picked B3 composed pipeline; LAPACK explicitly approved.
 
-## Sequence (9 atomic tickets)
+**Plan rev 2 approved:** plan-review-gate iter 2, all 3 reviewers PASS.
 
-WI-0 (usg8.1) spec amend → WI-0b (usg8.8) basin-overlap kill-switch → WI-1 (usg8.2) ieppa lf-capture shim + K_warm sweep → WI-2 (usg8.3) wiring + rename + NEWS + diagnostic + #include → WI-1c (usg8.9) r_bridge SEXP surface → WI-3 (usg8.4) T6-T10 tests → WI-4 (usg8.5) verify suite → WI-5a (usg8.6) bench → WI-5b (usg8.7) verdict + epic close.
+## Sequence (7 atomic tickets)
+
+WL-0 (wkmq.1) Makevars+Lapack wrappers → WL-1 (wkmq.2) eigendecomp+TSVD pinv + r_bridge SEXP-pack + n_projected_dims field → WL-2 (wkmq.3) T2 stepstone pinv-only measurement gate → WL-3 (wkmq.4) Steihaug-CG trust-region → WL-4 (wkmq.5) T7 K=4 over-projection HARD gate → WL-5 (wkmq.6) kk1204 K=20 PARTIAL gate → WL-6 (wkmq.7) verdict + best-iterate audit + cleanup ticket filing.
 
 ## Mechanism
 
-Run IEPPA+SRAA inner for K_warm=8 sweeps at original T → convert lf to Newton's λ via `λ_{k,j} = lf[cat_offset_ieppa[k]+j] - lf[cat_offset_ieppa[k]+0]` for j ≥ 1 (rebased to Newton's lam_off layout) → run existing `run_newton_inner` from this λ. Mathematical no-op handoff: lf and λ produce identical weights up to LSE-absorbed constant.
+1. LAPACK `dsyevd` eigendecomposition of `H_pre = V Λ V^T` (symmetric PSD, n_λ ≤ 80).
+2. Truncated-SVD: drop directions with `λ_i < 1e-8 × λ_max`. Project `g_keep = V_keep^T G`, compute `Λ_damped = Λ_keep × (1+μ) + μ × d_floor_retained`, get `δ_keep = g_keep / Λ_damped`. Back-project `δ = V_keep · δ_keep`.
+3. Steihaug-CG trust-region: when `||δ_pinv||₂ > Δ`, use CG iterates bounded by Δ. Diagonal H_proj makes math simple.
+4. ρ-formula: `(g_curr - g_trial) / (-G^T·δ - 0.5·δ^T·H·δ)`. Δ adapts: ρ>0.75 ⇒ Δ ← 2Δ (no upper cap, Nocedal-Wright Alg 4.1); ρ<0.25 ⇒ Δ ← Δ/4.
+5. LM damping composed in eigenbasis (preserves scale-invariance from Epic-A LM rev 2).
 
-Three-tier fallback: SRAA-fail → plain IEPPA → λ=0 cold start. Strictly additive — warm-start can only improve, never regress.
+## Verdict gates (WL-6)
 
-## Verdict gates (WI-5b)
+- **GATE_MET:** T2 stepstone <1e-4 AND T7 K=4 over-projection (n_projected_dims==0) AND kk1204 K=20 max_err<1e-4 (any wall) → close epic.
+- **PARTIAL:** T2 <1e-4 AND T7 OK AND kk1204 ∈ [1e-4, 1e-3] → close epic, file Epic-E for kk1204 follow-up.
+- **BLOCKED:** T2 ≥1e-4 even with composed pipeline → SPEC_FAILURE per discipline §9; file Epic-F (alternative path).
 
-- **GATE_MET:** stepstone <1e-4 AND kk1204 max_err<1e-4 AND kk1204 wall<3s — close epic.
-- **PARTIAL:** stepstone <1e-4 AND (kk1204 max_err<1e-4 with wall ≥3s, OR max_err ∈ [1e-4, 1e-3]) — close epic, file Epic-D follow-up.
-- **BLOCKED:** stepstone ≥1e-4 OR kk1204 diverges — file Epic-E (alternative path).
+## Honest gates
 
-Full plan: `docs/superpowers/plans/2026-05-01-newton-kl-ieppa-warmstart-plan.md` (rev 3).
+- T2 stepstone <1e-4 HARD (close 13% gap from current 2.79e-4 master baseline).
+- T7 K=4 well-conditioned `n_projected_dims == 0` HARD (over-projection regression guard).
+- T8 kk1204 K=20 severe-skew <1e-3 PARTIAL (master diverges; PARTIAL = strict improvement).
+
+Full plan: `docs/superpowers/plans/2026-05-02-newton-kl-tsvd-cg-plan.md` (rev 2).
