@@ -1,0 +1,14 @@
+FAIL
+wu5_skip=false
+kk1204_max_err_median=3.082839e-01
+kk1204_wall_s_median=206.7872
+stepstone_parity_ratio=0.4499
+rate_exponent_last=-0.0000
+rate_R2_last=0.0179
+n_fit_points_last=889
+rate_exponent_ergodic=-0.0013
+rate_R2_ergodic=0.6723
+n_fit_points_ergodic=889
+rate_ok_last=FALSE
+rate_ok_ergodic=FALSE
+stepstone_ok=TRUE
