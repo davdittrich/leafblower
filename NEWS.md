@@ -2,6 +2,9 @@
 
 ## Newton-KL calibration
 
+* `method="newton_kl"` adds Steihaug-CG trust-region step in retained subspace
+  when the truncated-SVD pseudoinverse exceeds the trust radius. Trust radius
+  adapts via Marquardt gain ratio (ρ>0.75 ⇒ Δ doubles; ρ<0.25 ⇒ Δ /= 4).
 * `method="newton_kl"` now applies truncated-SVD pseudoinverse to the LM-damped
   Hessian to handle rank-deficient Hessian directions on overlapping-margin
   fixtures. Eigendecomposition via LAPACK's `dsyevd`. Default truncation ratio

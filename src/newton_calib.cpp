@@ -84,6 +84,13 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     const double lm_mu_max = 1e12;
     double lm_mu = 1e-3;
 
+    // WL-3 trust-region radius (Steihaug-CG step). Persistent across inner-Newton
+    // iters within one solve (init at solve start); adaptive via Marquardt
+    // ρ-ratio. NO upper cap on growth (plan rev-2 fix H). Composes additively
+    // with LM lm_mu adaptation — both use the same actual/predicted ρ but each
+    // updates its own state.
+    double delta_radius = 1.0;
+
     // ── 4. Dual objective with log-sum-exp stabilization ───────────────────
     // g(λ) = log Z(λ) - T·λ where Z(λ) = Σ d_i exp(u_i). For K=20 with skewed
     // targets |u_i| reaches 60+ → raw exp(u_i) overflows/underflows, Z→0/∞,
@@ -141,6 +148,83 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     // the two failure paths into structural parity.
     // Writes res.base.iterations to LOCAL iter count; outer caller reads it
     // BEFORE the next inner call (which would overwrite it).
+    // Steihaug-CG on a DIAGONAL PSD operator H_diag (eigenbasis). Solves
+    // H_diag·x ≈ g_kp under the trust constraint ||x||₂ ≤ Δ. Returns the boundary
+    // intersection point if the iterate would exit the trust region, otherwise
+    // returns the converged interior solution.
+    //
+    // Mathematics (no negative-curvature branch — Λ_damped > 0 by construction):
+    //   x₀ = 0, r₀ = g_kp − H·x₀ = g_kp, p₀ = r₀
+    //   for k = 0..max_iter:
+    //       Hp = H_diag .* p
+    //       α  = (rᵀr) / (pᵀHp)
+    //       if ||x + α·p||₂ ≥ Δ: solve quadratic for τ ∈ (0,α], return x + τ·p
+    //       x ← x + α·p
+    //       r ← r − α·Hp
+    //       if ||r||₂ < tol_cg: return x
+    //       β  = (r_newᵀr_new) / (rᵀr); p ← r + β·p
+    //
+    // PSD ⇒ pᵀHp > 0 always (no division-by-zero). max_iter = 2·n_kp safety cap;
+    // exact arithmetic CG converges in ≤n_kp iters but FP roundoff may cost a
+    // small extra factor.
+    auto steihaug_cg = [](const std::vector<double>& g_kp,
+                          const std::vector<double>& H_diag,
+                          double Delta,
+                          double tol_cg,
+                          int max_iter) -> std::vector<double> {
+        const int n_kp = static_cast<int>(g_kp.size());
+        std::vector<double> x(n_kp, 0.0);
+        if (n_kp == 0) return x;
+        std::vector<double> r(g_kp);            // r₀ = g_kp (since x₀ = 0)
+        std::vector<double> p(g_kp);            // p₀ = r₀
+        double r_dot_r = 0.0;
+        for (int i = 0; i < n_kp; ++i) r_dot_r += r[i] * r[i];
+        std::vector<double> Hp(n_kp);
+        for (int k = 0; k < max_iter; ++k) {
+            double p_dot_Hp = 0.0;
+            for (int i = 0; i < n_kp; ++i) {
+                Hp[i] = H_diag[i] * p[i];
+                p_dot_Hp += p[i] * Hp[i];
+            }
+            // PSD ⇒ p_dot_Hp ≥ 0; Λ_damped > 0 strictly (lm_mu > 0 + retained
+            // eigenvalues ≥ ratio·λ_max), so p_dot_Hp > 0 unless p = 0.
+            if (p_dot_Hp <= 0.0) return x;  // defensive; should not occur
+            const double alpha = r_dot_r / p_dot_Hp;
+            // Trust-boundary check: if ||x + α·p||₂ ≥ Δ, solve quadratic.
+            double xx = 0.0, xp = 0.0, pp = 0.0;
+            for (int i = 0; i < n_kp; ++i) {
+                xx += x[i] * x[i];
+                xp += x[i] * p[i];
+                pp += p[i] * p[i];
+            }
+            // ||x + α·p||² = pp·α² + 2·xp·α + xx
+            const double xn2 = pp * alpha * alpha + 2.0 * xp * alpha + xx;
+            if (xn2 >= Delta * Delta) {
+                // Solve pp·τ² + 2·xp·τ + (xx − Δ²) = 0 for τ ∈ (0, α].
+                // Take the larger root (gives the further intersection along p).
+                const double aq = pp;
+                const double bq = 2.0 * xp;
+                const double cq = xx - Delta * Delta;
+                const double disc = std::max(0.0, bq * bq - 4.0 * aq * cq);
+                const double tau = (-bq + std::sqrt(disc)) / (2.0 * aq);
+                for (int i = 0; i < n_kp; ++i) x[i] += tau * p[i];
+                return x;
+            }
+            // Interior step: accept full α.
+            for (int i = 0; i < n_kp; ++i) {
+                x[i] += alpha * p[i];
+                r[i] -= alpha * Hp[i];
+            }
+            double r_dot_r_new = 0.0;
+            for (int i = 0; i < n_kp; ++i) r_dot_r_new += r[i] * r[i];
+            if (std::sqrt(r_dot_r_new) < tol_cg) return x;
+            const double beta = r_dot_r_new / r_dot_r;
+            for (int i = 0; i < n_kp; ++i) p[i] = r[i] + beta * p[i];
+            r_dot_r = r_dot_r_new;
+        }
+        return x;
+    };
+
     auto run_newton_inner = [&](const std::vector<double>& T_eps,
                                 int max_iter_inner) -> bool {
         int consecutive_failed = 0;  // consecutive line-search failures; cap at 3
@@ -154,6 +238,15 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         int    best_iter_id = 0;
         int iter = 0;
         for (iter = 0; iter < max_iter_inner; ++iter) {
+
+            // WL-3 per-iter trust-region carryover (reset each iter).
+            // m_pred_dec_for_trust: model-predicted decrease in eigenbasis,
+            //   used as ρ denominator for adaptive Δ update.
+            // trust_step_taken: true only when TSVD path computed δ_keep
+            //   (fast path or Steihaug-CG); false on LDLT-fallback paths
+            //   where Δ is left unchanged (no eigenbasis predicted-decrease).
+            double m_pred_dec_for_trust = 0.0;
+            bool   trust_step_taken     = false;
 
             // 5a. Zero accumulators for this step.
             std::fill(G.begin(), G.end(), 0.0);
@@ -300,21 +393,67 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                         tsvd_used = false;
                     } else {
                         const double d_floor_retained = sum_keep / static_cast<double>(n_keep);
-                        // Damped eigenvalues for retained set.
                         // dsyevd column-major: V[:,i] occupies H_eigvecs[i*n_lam .. i*n_lam+n_lam-1].
-                        // Project G → eigenbasis (retained columns), divide, back-project.
-                        std::fill(delta.begin(), delta.end(), 0.0);
+                        //
+                        // WL-3: build eigenbasis state (g_keep, lambda_damped) over retained
+                        // dims, compute δ_keep_pinv (pseudoinverse step in eigenbasis),
+                        // branch on ||δ_keep_pinv||₂ vs Δ:
+                        //   ||·||₂ ≤ Δ  → fast path: δ_keep = δ_keep_pinv
+                        //   ||·||₂ >  Δ → Steihaug-CG on diagonal Λ_damped to trust boundary
+                        // Then back-project δ_keep into ambient space.
+                        std::vector<int>    keep_idx;        keep_idx.reserve(n_keep);
+                        std::vector<double> g_keep(n_keep);
+                        std::vector<double> lambda_damped(n_keep);
+                        std::vector<double> delta_keep_pinv(n_keep);
+                        int kp = 0;
                         for (int i = 0; i < n_lam; ++i) {
                             if (eigvals[i] < thresh) continue;
-                            // g_keep_i = V[:,i] · G
+                            keep_idx.push_back(i);
+                            // g_keep_i = V[:,i] · G  (project gradient into eigenbasis)
                             double gi = 0.0;
                             const double* vi = H_eigvecs.data() + static_cast<size_t>(i) * n_lam;
                             for (int j = 0; j < n_lam; ++j) gi += vi[j] * G[j];
                             const double lam_damp = eigvals[i] * (1.0 + lm_mu) + lm_mu * d_floor_retained;
-                            const double dki = gi / lam_damp;
-                            // Back-project: δ[j] += V[j,i] · dki
+                            g_keep[kp]          = gi;
+                            lambda_damped[kp]   = lam_damp;
+                            delta_keep_pinv[kp] = gi / lam_damp;  // pseudoinverse step
+                            ++kp;
+                        }
+                        // Trust-region branch on pinv-step norm.
+                        double pinv_norm_sq = 0.0;
+                        for (int i = 0; i < n_keep; ++i)
+                            pinv_norm_sq += delta_keep_pinv[i] * delta_keep_pinv[i];
+                        const double pinv_norm = std::sqrt(pinv_norm_sq);
+
+                        std::vector<double> delta_keep(n_keep);
+                        if (pinv_norm <= delta_radius) {
+                            // Fast path: pinv step inside trust region — use it directly.
+                            delta_keep = delta_keep_pinv;
+                        } else {
+                            // Steihaug-CG on diagonal Λ_damped to trust boundary Δ.
+                            delta_keep = steihaug_cg(g_keep, lambda_damped, delta_radius,
+                                                     /*tol_cg=*/1e-10,
+                                                     /*max_iter=*/2 * n_keep);
+                        }
+                        // Back-project: δ[j] = Σ_{i∈R} V[j,i] · δ_keep[i].
+                        std::fill(delta.begin(), delta.end(), 0.0);
+                        for (int kp2 = 0; kp2 < n_keep; ++kp2) {
+                            const int i = keep_idx[kp2];
+                            const double* vi = H_eigvecs.data() + static_cast<size_t>(i) * n_lam;
+                            const double dki = delta_keep[kp2];
                             for (int j = 0; j < n_lam; ++j) delta[j] += vi[j] * dki;
                         }
+                        // WL-3: predicted decrease in eigenbasis (H is diagonal there):
+                        //   m(δ_keep) = -g_keepᵀ·δ_keep - 0.5·δ_keepᵀ·(Λ_damped .* δ_keep)
+                        // Used in ρ-ratio for adaptive Δ update post-Armijo accept.
+                        double pred_dec_eig = 0.0;
+                        for (int i = 0; i < n_keep; ++i) {
+                            pred_dec_eig += -g_keep[i] * delta_keep[i]
+                                            - 0.5 * delta_keep[i] * lambda_damped[i] * delta_keep[i];
+                        }
+                        // Stash for ρ computation post-Armijo.
+                        m_pred_dec_for_trust = pred_dec_eig;
+                        trust_step_taken     = true;
                         res.n_projected_dims = n_lam - n_keep;
                         tsvd_used = true;
                     }
@@ -421,6 +560,24 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                 lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
             }
             // else: BACKTRACKED or moderate ρ — keep lm_mu unchanged.
+
+            // WL-3: adaptive trust radius Δ via Marquardt ρ-ratio.
+            // Uses eigenbasis predicted-decrease m_pred_dec_for_trust (computed
+            // when TSVD path took the step). On LDLT-fallback iters trust path
+            // is inactive — leave Δ unchanged.
+            //   ρ_trust > 0.75 ⇒ Δ ← 2·Δ   (NO upper cap, plan rev-2 fix H)
+            //   ρ_trust < 0.25 ⇒ Δ ← Δ / 4
+            //   otherwise      ⇒ Δ unchanged.
+            // Composes additively with lm_mu adaptation above.
+            if (trust_step_taken) {
+                const double actual_dec  = g_curr - g_trial;
+                const double rho_trust   = actual_dec / std::max(m_pred_dec_for_trust, 1e-300);
+                if (rho_trust > 0.75) {
+                    delta_radius *= 2.0;          // grow trust region (no upper cap)
+                } else if (rho_trust < 0.25) {
+                    delta_radius *= 0.25;         // shrink (Δ /= 4)
+                }
+            }
 
             // 5k. Update λ and dual objective.
             double step2 = 0.0;
