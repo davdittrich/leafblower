@@ -1,0 +1,6 @@
+"solver","fixture","rep","status_code","status_msg","converged","max_err","max_err_ergodic","wall_s","n_iter","final_primal_resid","final_residual","n_projected_dims_max","rate_exponent_last","rate_R2_last","n_fit_points_last","rate_exponent_ergodic","rate_R2_ergodic","n_fit_points_ergodic","stepstone_parity_ratio","seed","omp_threads","blas_threads","git_sha"
+"ipm","t1_small",1,0,"converged",TRUE,0,NA,0.000583887100219727,31,NA,6.98491930961609e-10,0,NA,NA,0,NA,NA,NA,NA,1,"1",1,"5910e68"
+"ipm","stepstone_K9",1,1,"inner Newton cap exceeded",FALSE,0.0566411645909795,NA,2.53492021560669,5,NA,143837.908035534,158,NA,NA,0,NA,NA,NA,501.24924416796,1,"1",1,"5910e68"
+"ipm","kk1204_K20",1,1,"inner Newton cap exceeded",FALSE,0.483248933186697,NA,1.8316867351532,5,NA,465586.323100362,19,NA,NA,0,NA,NA,NA,NA,1,"1",1,"5910e68"
+"ipm","kk1204_K20",2,1,"inner Newton cap exceeded",FALSE,0.483248933186697,NA,2.05442690849304,5,NA,465586.323100362,19,NA,NA,0,NA,NA,NA,NA,1,"1",1,"5910e68"
+"ipm","kk1204_K20",3,1,"inner Newton cap exceeded",FALSE,0.483248933186697,NA,1.79143357276917,5,NA,465586.323100362,19,NA,NA,0,NA,NA,NA,NA,1,"1",1,"5910e68"

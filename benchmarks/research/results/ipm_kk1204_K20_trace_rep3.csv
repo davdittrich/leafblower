@@ -1,0 +1,2 @@
+"iter_outer","iter_inner","time_ms","mu","max_err","kkt_resid","n_projected_dims","alpha_step"
+0,5,1786.608115,1,0.483248933186697,465586.323100362,19,0.0167678537930031
