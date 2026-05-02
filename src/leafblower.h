@@ -92,6 +92,9 @@ typedef struct {
     int    sor_burnin;
     double          capacity_penalty;   /* ieppa_soft ALM penalty; <=0.0 = use auto (M_cell/n) */
     /* ── End convergence/SOR config ── */
+    double          newton_tsvd_ratio;  /* newton_kl TSVD truncation ratio (Epic-H WH-e); default 1e-8.
+                                          * Eigenvalues with λ_i < ratio*λ_max are dropped from the
+                                          * pseudoinverse. <=0.0 falls back to internal default 1e-8. */
 } rk_params_t;
 
 /* ── Result ── */
@@ -189,8 +192,9 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  *   sor_omega_init (double, 8B) + sor_omega_min (double, 8B) + sor_omega_fixed (double, 8B)
  *   sor_burnin (int, 4B) + 4B pad
  * T4 (2026-04-29): capacity_penalty (double, 8B) after sor_burnin;
- * ztid.7 (2026-04-30): removed enabled int from rk_homotopy_cfg_t; total: 224B. */
-#define EXPECTED_RK_PARAMS_BYTES 224
+ * ztid.7 (2026-04-30): removed enabled int from rk_homotopy_cfg_t; total: 224B.
+ * 8aex.3 (2026-05-02): added newton_tsvd_ratio (double) for Epic-H WH-e; +8B → 232B. */
+#define EXPECTED_RK_PARAMS_BYTES 232
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

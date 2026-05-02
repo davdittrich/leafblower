@@ -5,6 +5,7 @@
 #include "cell_table.hpp"
 #include "calib_validate.hpp"
 #include <R_ext/Lapack.h>
+#include <R_ext/Print.h>  // Rprintf (Epic-H WH-e diagnostics)
 #include <R_ext/RS.h>   // F77_CALL
 #ifndef FCONE
 # define FCONE
@@ -346,7 +347,8 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             //   • n_keep == n_λ: equivalent to plain LDLT (no truncation).
             std::vector<double> H_pre(H);  // n_lam×n_lam copy — ≤80×80 doubles = trivial.
 
-            constexpr double ratio_tsvd = 1e-8;  // truncation threshold; internal default for WL-1
+            // Epic-H WH-e: user-tunable TSVD truncation ratio; <=0 falls back to internal default 1e-8.
+            const double ratio_tsvd = st.newton_tsvd_ratio > 0.0 ? st.newton_tsvd_ratio : 1e-8;
             std::vector<double> H_eigvecs(H_pre);  // dsyevd overwrites in place with V (column-major)
             std::vector<double> eigvals(n_lam, 0.0);
 
@@ -373,6 +375,8 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                 // dsyevd returns eigvals in ascending order; λ_max = eigvals[n_lam-1].
                 double lam_max = eigvals[n_lam - 1];
                 if (lam_max <= 0.0) {
+                    // Epic-H WH-e I2: surface degenerate spectrum on stderr-equivalent (Rprintf).
+                    Rprintf("[newton_kl] degenerate lambda_max=%.3e <= 0; skipping TSVD\n", lam_max);
                     // Degenerate spectrum (all-zero or all-negative due to FP noise).
                     std::fill(delta.begin(), delta.end(), 0.0);
                     res.n_projected_dims = n_lam;
@@ -459,6 +463,8 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                     }
                 }
             } else {
+                // Epic-H WH-e I1: surface dsyevd failure before LDLT fallback.
+                Rprintf("[newton_kl] dsy_info=%d (LAPACK dsyevd failure)\n", dsy_info);
                 // dsyevd failed — fall back to LDLT.
                 res.n_projected_dims = n_lam;
                 tsvd_used = false;

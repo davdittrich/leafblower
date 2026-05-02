@@ -10,6 +10,7 @@ harvest(
   min_weight = 0,
   max_weight = 5,
   capacity_penalty = NULL,
+  alm_penalty = NULL,
   method = "ieppa",
   verbose = 0,
   max_iterations = 500,
@@ -39,6 +40,8 @@ harvest(
   collapse_vars = NULL,
   target_map = NULL,
   design_weights = NULL,
+  jacobi_sweep = FALSE,
+  newton_tsvd_ratio = 1e-08,
   ...
 )
 }
@@ -69,8 +72,7 @@ better than \code{"ieppa"} on tight-bounds problems where cells hit
 \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
 (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
 \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
-(L-infinity LP via IPM), \code{"grake"} (normalized Chebyshev via IPM),
-\code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
+(L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
 picks the single hardest margin per step; supports \code{accelerate=TRUE} for
 SQUAREM round-level acceleration. Distinct from \code{scheduler="greedy"} on raking,
 which sorts all K margins but still sweeps all per round),
@@ -163,11 +165,30 @@ across n levels.}
 \item{enforce_mean}{Ignored (retained for compatibility).}
 
 \item{accelerate}{Logical. Enable Safeguarded Regularized Anderson Acceleration
-(SRAA-m, window m=5) for \code{method="greenkhorn"} and \code{method="raking"}.
-SRAA-m guarantees \code{max_error_accelerated <= max_error_plain} per super-step
-via an explicit safeguard, using 2 F-evals per accepted step (vs. SQUAREM's 3).
-Replaces prior SQUAREM/CBB scheme which overshot the bounded optimum.
-Default \code{FALSE}.}
+  (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
+  \code{"ieppa"}, and \code{"ieppa_soft"}. Default \code{FALSE}.
+
+  \strong{For ieppa and ieppa_soft}, SRAA-m operates in log-factor space
+  (dimension n_cats_total ≈ 50–500, not M_cell), so history matrices are
+  small. Expected benefit: ≥30\% fewer outer iterations on tight-bounds
+  problems (K≥6, max_weight<3, or skewed margins).
+
+  \strong{Behavioral changes when accelerate=TRUE for ieppa/ieppa_soft:}
+  \itemize{
+    \item \strong{SOR disabled}: adaptive under-relaxation (SOR) is turned
+      off; omega stays fixed at omega_init (default 1.0). Use
+      \code{accelerate=FALSE} if adaptive SOR is required.
+    \item \strong{Greedy scheduler downgraded}: if \code{scheduler="greedy"},
+      it is silently changed to \code{"round_robin"} (logged at
+      \code{verbose >= 1}). AA requires a deterministic sweep map.
+    \item \strong{res$iterations}: reports F-evals consumed, not BCD outer
+      iterations (AA-accepted step = 2 F-evals; plain step = 1).
+    \item \strong{res$aa_accepted_count}: number of AA steps accepted this
+      solve (0 when accelerate=FALSE). Access via
+      \code{attr(result, "result")$aa_accepted_count}.
+    \item SRAA history is reset at each homotopy level boundary and on
+      linear-to-log-path fallback.
+  }}
 
 \item{add_na_proportion}{Not supported in v1; raises error if TRUE.}
 
@@ -180,6 +201,13 @@ Default \code{FALSE}.}
 \item{design_weights}{Optional design weights vector. When non-NULL and
 \code{start_weights} is NULL, used as starting weights (normalized to
 mean=1). Length must equal \code{nrow(data)}.}
+
+\item{jacobi_sweep}{Logical. Use Jacobi (frozen cell_lf snapshot) instead of
+Gauss-Seidel (incremental cell_lf updates) for the iEPPA log-path margin sweep.
+Default \code{FALSE} (Gauss-Seidel). May improve wall-time at very large
+\code{M_cell} (>1M unique cells) where scattered GS writes exceed last-level
+cache capacity. No benefit observed at M_cell < 100K. Ignored for linear-path
+problems (\code{n/M_cell < 2}).}
 
 \item{...}{Additional arguments ignored.}
 }

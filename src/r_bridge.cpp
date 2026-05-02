@@ -44,7 +44,7 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -60,7 +60,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       34},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       35},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -125,7 +125,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP sor_omega_init_sexp, SEXP sor_omega_min_sexp,
                     SEXP sor_omega_fixed_sexp, SEXP sor_burnin_sexp,
                     /* SQUAREM */
-                    SEXP accelerate_sexp) {
+                    SEXP accelerate_sexp,
+                    /* Jacobi log-path sweep flag (passed by R harvest(); currently unused in
+                     * bridge but consumed by R registry to keep positional alignment with newer
+                     * args appended below). */
+                    SEXP jacobi_sweep_sexp,
+                    /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
+                    SEXP newton_tsvd_ratio_sexp) {
+    (void)jacobi_sweep_sexp;  // Silenced: already-existing pass-through, no consumer yet.
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -314,6 +321,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     st.sor_cfg.omega_min            = p.sor_omega_min;
     st.sor_cfg.omega_fixed          = p.sor_omega_fixed;
     st.sor_cfg.burnin               = p.sor_burnin;
+    // Epic-H WH-e: newton_kl TSVD truncation ratio. <=0 falls back to internal default 1e-8.
+    st.newton_tsvd_ratio = REAL(newton_tsvd_ratio_sexp)[0];
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;

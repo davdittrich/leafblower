@@ -240,6 +240,7 @@ harvest <- function(
   target_map       = NULL,
   design_weights   = NULL,
   jacobi_sweep     = FALSE,
+  newton_tsvd_ratio = 1e-8,
   ...
 ) {
   # Not-in-v1 hard stops
@@ -305,6 +306,13 @@ harvest <- function(
               " is below recommended range; objective penalty may be ineffective",
               call. = FALSE)
     }
+  }
+
+  # Epic-H WH-e: newton_tsvd_ratio validation (newton_kl only; ignored elsewhere by C side).
+  if (!is.numeric(newton_tsvd_ratio) || length(newton_tsvd_ratio) != 1L ||
+      !is.finite(newton_tsvd_ratio) || newton_tsvd_ratio <= 0) {
+    stop("newton_tsvd_ratio must be a positive finite scalar; got: ",
+         deparse(newton_tsvd_ratio), call. = FALSE)
   }
 
   sor_cfg <- parse_sor(sor)
@@ -394,6 +402,8 @@ harvest <- function(
                as.integer(accelerate_bool),
                ## Jacobi log-path sweep flag
                as.integer(isTRUE(jacobi_sweep)),
+               ## Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8)
+               as.double(newton_tsvd_ratio),
                PACKAGE = "leafblower")
 
   weights <- raw$weights

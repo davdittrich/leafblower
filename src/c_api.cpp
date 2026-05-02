@@ -103,6 +103,7 @@ void rk_params_init(rk_params_t* p) {
     p->sor_omega_min           = 0.3;
     p->sor_omega_fixed         = -1.0;
     p->sor_burnin              = 20;
+    p->newton_tsvd_ratio       = 1e-8;  /* Epic-H WH-e: newton_kl TSVD truncation default */
 }
 
 void rk_result_init(rk_result_t* r) {
@@ -237,6 +238,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.sor_cfg.omega_min            = p->sor_omega_min;
     st.sor_cfg.omega_fixed          = p->sor_omega_fixed;
     st.sor_cfg.burnin               = p->sor_burnin;
+    st.newton_tsvd_ratio            = p->newton_tsvd_ratio;  /* Epic-H WH-e */
     // Only the auto-fallback path needs this; skip O(n) copy for explicit method calls.
     const std::vector<double> weights_backup = (p->algorithm == RK_ALG_AUTO)
         ? std::vector<double>(weights, weights + n)
