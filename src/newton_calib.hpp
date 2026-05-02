@@ -10,6 +10,7 @@ struct NewtonCalibResult {
     double step_norm  = 0.0;
     double line_alpha = 1.0;
     double lm_mu_final = 0.0;
+    int    n_projected_dims = 0;  // Epic-Dβ: count of TSVD-truncated null-space dims per last solve
     int    n_homotopy_levels_used = 0;
     char   message[256] = {0};
 };

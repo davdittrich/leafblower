@@ -5,6 +5,10 @@
 #include "cell_table.hpp"
 #include "calib_validate.hpp"
 #include <R_ext/Lapack.h>
+#include <R_ext/RS.h>   // F77_CALL
+#ifndef FCONE
+# define FCONE
+#endif
 #include <cmath>
 #include <algorithm>
 #include <limits>
@@ -232,43 +236,132 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                 break;
             }
 
-            // 5h. LM damped Newton direction: H_damp·δ = G, λ -= α·δ.
-            // Save pre-damp H to compute δᵀHδ for the Marquardt gain ratio.
+            // 5h. LM damped Newton direction via truncated-SVD pseudoinverse.
+            // Mechanism (Epic-Dβ WL-1):
+            //   1. Eigendecompose pre-damp PSD H = V Λ Vᵀ via dsyevd.
+            //   2. Threshold-truncate retained set R = {i : Λᵢ ≥ ratio · λ_max}.
+            //   3. Damp in eigenbasis: Λ_dampᵢ = Λᵢ·(1+μ) + μ·d_floor_retained.
+            //   4. Project G into eigenbasis (only retained columns), divide,
+            //      back-project: δ = Σ_{i∈R} V[:,i] · (Vᵀ[:,i]·G) / Λ_dampᵢ.
+            //   5. Null-space components (i∉R) contribute zero ⇒ λ unchanged
+            //      in null space (well-defined behavior under rank deficiency).
+            // Edge cases:
+            //   • λ_max ≤ 0 (degenerate / all-zero H): δ ← 0, n_projected = n_λ.
+            //   • n_keep == 0 (spectrum entirely below threshold): fall back to
+            //     LM-LDLT path; n_projected_dims = n_λ.
+            //   • dsyevd info ≠ 0: same fallback.
+            //   • n_keep == n_λ: equivalent to plain LDLT (no truncation).
             std::vector<double> H_pre(H);  // n_lam×n_lam copy — ≤80×80 doubles = trivial.
 
-            bool solve_ok = false;
-            for (int retry = 0; retry < 3 && !solve_ok; ++retry) {
-                // Restore H (LDLT factored in-place, so retry needs the original).
-                std::copy(H_pre.begin(), H_pre.end(), H.begin());
-                // Scale-invariant LM damping with additive floor — handles rank collapse.
-                for (int a = 0; a < n_lam; ++a) {
-                    H[a * n_lam + a] = std::max(H[a * n_lam + a] * (1.0 + lm_mu),
-                                                 lm_mu * d_floor);
-                }
-                std::copy(G.begin(), G.end(), delta.begin());
-                if (ldlt_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
-                    lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
-                    continue;
-                }
-                ldlt_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
-                solve_ok = true;
+            constexpr double ratio_tsvd = 1e-8;  // truncation threshold; internal default for WL-1
+            std::vector<double> H_eigvecs(H_pre);  // dsyevd overwrites in place with V (column-major)
+            std::vector<double> eigvals(n_lam, 0.0);
+
+            int dsy_n = n_lam, dsy_lda = n_lam, dsy_info = 0;
+            int dsy_lwork = -1, dsy_liwork = -1;
+            double work_query = 0.0;
+            int    iwork_query = 0;
+            F77_CALL(dsyevd)("V", "U", &dsy_n, H_eigvecs.data(), &dsy_lda, eigvals.data(),
+                             &work_query, &dsy_lwork, &iwork_query, &dsy_liwork, &dsy_info FCONE FCONE);
+
+            bool tsvd_used = false;   // if false → fall back to LDLT path below
+            int  n_keep    = 0;
+
+            if (dsy_info == 0) {
+                dsy_lwork  = static_cast<int>(work_query);
+                dsy_liwork = iwork_query;
+                std::vector<double> work(std::max(1, dsy_lwork));
+                std::vector<int>    iwork(std::max(1, dsy_liwork));
+                F77_CALL(dsyevd)("V", "U", &dsy_n, H_eigvecs.data(), &dsy_lda, eigvals.data(),
+                                 work.data(), &dsy_lwork, iwork.data(), &dsy_liwork, &dsy_info FCONE FCONE);
             }
-            if (!solve_ok) {
-                res.base.status = RK_ERR_BADARG;
-                std::snprintf(res.message, sizeof(res.message),
-                    "newton_kl: LDLT failed 3x even at lm_mu=%.2e", lm_mu);
-                res.lm_mu_final = lm_mu;
-                // Best-iterate restoration before early exit.
-                if (best_gap < res.dual_gap * 0.99) {
-                    lam        = lam_best;
-                    Z_curr     = best_Z;
-                    u_max_curr = best_u_max;
-                    res.dual_gap        = best_gap;
-                    res.base.iterations = best_iter_id + 1;
+
+            if (dsy_info == 0) {
+                // dsyevd returns eigvals in ascending order; λ_max = eigvals[n_lam-1].
+                double lam_max = eigvals[n_lam - 1];
+                if (lam_max <= 0.0) {
+                    // Degenerate spectrum (all-zero or all-negative due to FP noise).
+                    std::fill(delta.begin(), delta.end(), 0.0);
+                    res.n_projected_dims = n_lam;
+                    tsvd_used = true;
+                    n_keep    = 0;
                 } else {
-                    res.base.iterations = iter + 1;
+                    const double thresh = ratio_tsvd * lam_max;
+                    // Retained set: R = {i : eigvals[i] >= thresh}.
+                    // Compute mean over retained eigenvalues for d_floor_retained.
+                    double sum_keep = 0.0;
+                    for (int i = 0; i < n_lam; ++i)
+                        if (eigvals[i] >= thresh) { ++n_keep; sum_keep += eigvals[i]; }
+
+                    if (n_keep == 0) {
+                        // Spectrum entirely below threshold — Newton step undefined under
+                        // truncation. Fall back to LM-LDLT path on H_pre.
+                        res.n_projected_dims = n_lam;
+                        tsvd_used = false;
+                    } else {
+                        const double d_floor_retained = sum_keep / static_cast<double>(n_keep);
+                        // Damped eigenvalues for retained set.
+                        // dsyevd column-major: V[:,i] occupies H_eigvecs[i*n_lam .. i*n_lam+n_lam-1].
+                        // Project G → eigenbasis (retained columns), divide, back-project.
+                        std::fill(delta.begin(), delta.end(), 0.0);
+                        for (int i = 0; i < n_lam; ++i) {
+                            if (eigvals[i] < thresh) continue;
+                            // g_keep_i = V[:,i] · G
+                            double gi = 0.0;
+                            const double* vi = H_eigvecs.data() + static_cast<size_t>(i) * n_lam;
+                            for (int j = 0; j < n_lam; ++j) gi += vi[j] * G[j];
+                            const double lam_damp = eigvals[i] * (1.0 + lm_mu) + lm_mu * d_floor_retained;
+                            const double dki = gi / lam_damp;
+                            // Back-project: δ[j] += V[j,i] · dki
+                            for (int j = 0; j < n_lam; ++j) delta[j] += vi[j] * dki;
+                        }
+                        res.n_projected_dims = n_lam - n_keep;
+                        tsvd_used = true;
+                    }
                 }
-                return false;
+            } else {
+                // dsyevd failed — fall back to LDLT.
+                res.n_projected_dims = n_lam;
+                tsvd_used = false;
+            }
+
+            if (!tsvd_used) {
+                // LDLT fallback path (preserves pre-WL-1 behavior for n_keep==0
+                // and dsyevd-failure edge cases).
+                bool solve_ok = false;
+                for (int retry = 0; retry < 3 && !solve_ok; ++retry) {
+                    // Restore H (LDLT factored in-place, so retry needs the original).
+                    std::copy(H_pre.begin(), H_pre.end(), H.begin());
+                    // Scale-invariant LM damping with additive floor — handles rank collapse.
+                    for (int a = 0; a < n_lam; ++a) {
+                        H[a * n_lam + a] = std::max(H[a * n_lam + a] * (1.0 + lm_mu),
+                                                     lm_mu * d_floor);
+                    }
+                    std::copy(G.begin(), G.end(), delta.begin());
+                    if (ldlt_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
+                        lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+                        continue;
+                    }
+                    ldlt_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
+                    solve_ok = true;
+                }
+                if (!solve_ok) {
+                    res.base.status = RK_ERR_BADARG;
+                    std::snprintf(res.message, sizeof(res.message),
+                        "newton_kl: LDLT failed 3x even at lm_mu=%.2e", lm_mu);
+                    res.lm_mu_final = lm_mu;
+                    // Best-iterate restoration before early exit.
+                    if (best_gap < res.dual_gap * 0.99) {
+                        lam        = lam_best;
+                        Z_curr     = best_Z;
+                        u_max_curr = best_u_max;
+                        res.dual_gap        = best_gap;
+                        res.base.iterations = best_iter_id + 1;
+                    } else {
+                        res.base.iterations = iter + 1;
+                    }
+                    return false;
+                }
             }
 
             // δᵀ H_pre δ using pre-damp (PSD) Hessian for the gain-ratio denominator.

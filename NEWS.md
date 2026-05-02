@@ -2,6 +2,10 @@
 
 ## Newton-KL calibration
 
+* `method="newton_kl"` now applies truncated-SVD pseudoinverse to the LM-damped
+  Hessian to handle rank-deficient Hessian directions on overlapping-margin
+  fixtures. Eigendecomposition via LAPACK's `dsyevd`. Default truncation ratio
+  `1e-8 × λ_max`. New diagnostic `n_projected_dims` on result.
 * `method="newton_kl"` now uses Levenberg-Marquardt scale-invariant damping
   with Marquardt gain-ratio adaptive μ (commits 88033d1 + e4276cc). Replaces
   the prior trust-region clip + pivot-bump bandaid. Adds LSE stabilization in
