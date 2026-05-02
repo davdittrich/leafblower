@@ -1,9 +1,10 @@
-# Epic-K: stepstone-CP Productionization — Design
+# Epic-K: stepstone-CP Productionization — Design (rev 2)
 
 **Date:** 2026-05-02
-**Status:** Design — pre-plan
+**Status:** Design — pre-plan, gate iteration 2
 **Predecessor:** Epic-J (`leafblower-y2ls`) FAIL verdict on kk1204 + side-finding CP wins stepstone (parity 0.45 vs `ieppa+sraa` baseline 1.13e-4)
 **Investigation report:** `docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md` Sec 2 + Sec 6 (Side-finding)
+**Revision history:** rev 1 → rev 2 closes 8 blockers from design-review-gate iter 1 (Architect: dispatch line refs, harvest.R line refs, accelerate default mechanism. Designer: same accelerate mechanism, alg_name ternary chain, kAlgMap entry, result field SEXP-pack indices, status_code R-side semantics).
 
 ## 1. Problem & Goals
 
@@ -42,11 +43,15 @@ src/
 ├── cp_calib.hpp                      ← move from research/, refactor to newton_calib.hpp pattern
 ├── cp_calib.cpp                      ← move from research/, extend with Alg 2 + cell compression
 ├── leafblower.h                      ← add RK_ALG_CP = 12 to rk_algorithm_t enum
-└── r_bridge.cpp                      ← add `else if (strcmp(method_str, "cp") == 0)` dispatch arm
+└── r_bridge.cpp                      ← see "r_bridge.cpp edit points" below
 
 R/
-└── harvest.R                         ← match.arg += "cp"; @param method docstring; accelerate
-                                       whitelist += "cp" (line ~322)
+└── harvest.R                         ← see "harvest.R edit points" below
+
+tools/
+└── check_research_isolation.R        ← UPDATE forbidden-symbol list: REMOVE cp_solve_R, cp_calibrate
+                                        (now legitimately in src/leafblower.so post-K-1).
+                                        Keep ipm_solve_R, ipm_calibrate (still research-only — Epic-J FAIL).
 
 tests/testthat/
 └── test-cp.R                         ← NEW (6 tests: T1-T6)
@@ -55,9 +60,30 @@ man/harvest.Rd                        ← regenerate via devtools::document()
 NEWS.md                               ← additive entry under "## New features"
 
 research/                             ← stays under .Rbuildignore (Epic-J FAIL artefact)
-                                       cp_calib.{hpp,cpp} now duplicated in src/; ABANDONED
-                                       per FAIL artefact policy
+├── cp_calib.{hpp,cpp}                ← STAYS as fossil; ADD header comment "MOVED TO src/cp_calib.{hpp,cpp};
+                                        this copy retained for Epic-J spike traceability only — do not edit"
+└── ipm_calib.{hpp,cpp}               ← STAYS, ABANDONED (Epic-J FAIL)
 ```
+
+### r_bridge.cpp edit points (verified line numbers, master @ 7ad92f7)
+
+| Line | Current state | Edit |
+|---|---|---|
+| 25–37 | `kAlgMap` table missing `cp` | Add `{"cp", RK_ALG_CP}` after `{"newton_kl", RK_ALG_NEWTON_KL}` (line 36) |
+| 599–617 | `newton_kl` dispatch arm (existing) | NO CHANGE |
+| 618 | catch-all `else { if (chebyshev) ... }` block start | Insert NEW `else if (strcmp(method_str, "cp") == 0) { ... }` arm immediately BEFORE this line |
+| 709–718 | `alg_name` ternary chain | Insert `(res_alg_used == static_cast<int>(RK_ALG_CP)) ? "cp"` before the fallback `: "iEPPA"` |
+| 819–822 | NewtonCalibResult SEXP-pack precedent (`lm_mu_final`, `n_projected_dims` at fixed slots) | Add CP-specific slots — see "Result SEXP-pack" below |
+
+### harvest.R edit points (verified line numbers, master @ 7ad92f7)
+
+| Line | Current state | Edit |
+|---|---|---|
+| ~16–30 | `@param method` docstring (lists 11 methods) | Add `\code{"cp"} (Chambolle-Pock primal-dual; for moderate-skew K≥5 zero-compression — supports \code{accelerate=TRUE} for accelerated PDHG)`. Insertion position: adjacent to `\code{"chebyshev"}` (also primal-dual splitting paradigm). |
+| 236 | `accelerate = FALSE` default in signature | NO CHANGE to signature default |
+| 319–322 | `if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft"))` warning + `accelerate_bool <- isTRUE(accelerate) && method %in% c(...)` | Add `"cp"` to BOTH method whitelists (warning predicate + accelerate_bool predicate). |
+| ~318 (NEW LINE) | — | INSERT BEFORE line 319: `accelerate_explicit <- !missing(accelerate)`. THEN INSERT BEFORE line 322: `if (method == "cp" && !accelerate_explicit) accelerate <- TRUE`. This makes CP default to `accelerate=TRUE` while preserving the global `accelerate=FALSE` signature default for all OTHER methods (no breaking change). |
+| 590 | `match.arg(method, c("auto", "ieppa", ..., "newton_kl"))` (11 entries) | Add `"cp"` after `"newton_kl"` → 12-entry whitelist. |
 
 ### ABI changes (single-line)
 
@@ -76,14 +102,48 @@ enum rk_algorithm_t {
 
 ### Result struct
 
-`CpCalibResult` in `cp_calib.hpp` mirrors `NewtonCalibResult`:
+`CpCalibResult` in `cp_calib.hpp` (POD-compatible — no virtual, no inheritance other than `CalibResult` aggregate; matches `NewtonCalibResult` precedent):
 - `CalibResult base` (status, iterations, max_error, weights, best_weights)
 - `int n_cells` — `M_cell` if cell-compressed, `n` if obs-level
-- `std::string algorithm_used` — `"alg1"` or `"alg2"`
-- `double aA_norm_estimate` — power-iter `‖A‖`
+- `std::string algorithm_requested` — `"pdhg"` or `"accelerated_pdhg"` (user-asked, before fallback)
+- `std::string algorithm_used` — `"pdhg"` or `"accelerated_pdhg"` (actual, after possible fallback)
+- `double A_norm_estimate` — power-iter `‖A‖`
 - `int n_power_iter` — power-iter convergence count
-- `double final_theta` — Alg 2 only, last θ_k
-- `double final_tau`, `final_sigma` — Alg 2 final adaptive step sizes
+- `double final_theta` — accelerated_pdhg only, last θ_k (NaN if pdhg)
+- `double final_tau`, `final_sigma` — accelerated_pdhg only (NaN if pdhg)
+- `bool fell_back_to_pdhg` — true iff `algorithm_requested != algorithm_used`
+
+### Result SEXP-pack (R-side surfacing)
+
+Mirror NewtonCalibResult precedent (Epic-Dβ + Epic-H WH-d): r_bridge.cpp surfaces CP-specific fields by adding new slots to the result list. Slot indices append after existing newton_kl slots (which currently end at slot 36 = `lm_mu_final` per Epic-H WH-e). New CP slots:
+
+| Slot | Field | Type |
+|---|---|---|
+| 37 | `n_cells` | INTSXP scalar |
+| 38 | `algorithm_requested` | STRSXP scalar |
+| 39 | `algorithm_used` | STRSXP scalar |
+| 40 | `A_norm_estimate` | REALSXP scalar |
+| 41 | `n_power_iter` | INTSXP scalar |
+| 42 | `final_theta` | REALSXP scalar (NA_real_ if pdhg) |
+| 43 | `final_tau` | REALSXP scalar (NA_real_ if pdhg) |
+| 44 | `final_sigma` | REALSXP scalar (NA_real_ if pdhg) |
+| 45 | `fell_back_to_pdhg` | LGLSXP scalar |
+
+Slot count `R_LISTLEN` increments from 36 (Epic-H WH-e level) to 45. R-side these surface as `attr(result, "result")$n_cells`, etc., consistent with `lm_mu_final` precedent. Other solvers (newton_kl, ieppa, raking, etc.) populate these slots as `NA`/empty — `pack_solver_result` template specializes per `*Result` type with default `NA` for non-CP fields.
+
+### R-side warning/error semantics for CP status_codes
+
+Match newton_kl precedent (`r_bridge.cpp` lines ~481-484 / ~528-531 emit warnings on NOCONV/NaN with method-specific messages):
+
+| status_code | R behavior |
+|---|---|
+| 0 (converged) | Silent — return result |
+| 1 (max_iterations) | `warning("cp: max_iterations reached; max_error=<>; consider increasing max_iterations or trying method='ieppa'")` |
+| 2 (NaN/Inf detected) | `warning("cp: NaN/Inf detected at iter=<>; weights truncated. Consider tightening max_weight or trying method='ieppa'")` |
+| 3 (infeasible bounds) | `warning("cp: infeasible bounds (lo[i] >= hi[i] - 2*1e-8 for some i); returning all-1.0 weights")` |
+| 4 (power-iter divergence) | `warning("cp: power-iteration on ||A|| did not converge; aborted before solver started. Likely numerical issue with A_csr; report a bug.")` |
+
+NEVER `stop()` on solver status — match existing solver patterns. Caller can inspect `attr(result, "result")$status` for programmatic dispatch.
 
 ### r_bridge.cpp dispatch arm
 
@@ -133,7 +193,7 @@ $$\min_w \; \sum_i d_i \, \mathrm{KL}(w_i / d_i \| 1) \quad \text{s.t.} \quad A^
 | `cell_to_obs` | obs index list per cell |
 | `A_cell` | block-incidence on cells (M_cell × ΣJ_k, sparse, K nonzeros/row) |
 
-**Decision**: if `M_cell * 10 > n * 9` (M_cell/n > 0.9), skip cell-compression and run obs-level. Else run cell-compressed.
+**Decision**: if `static_cast<double>(M_cell) * 10.0 > static_cast<double>(n) * 9.0` (M_cell/n > 0.9), skip cell-compression and run obs-level. Else run cell-compressed. Use double cast to avoid 32-bit integer overflow at n > 2e8 (matches `src/ieppa.cpp` line ~168 `estimate_M_cell` precedent).
 
 **Bounds_mode constraint**: cell-compressed CP requires `bounds_mode = "cell"` (per-obs bounds aren't cell-aggregable). For `bounds_mode = "unit"`, force obs-level path regardless of M_cell/n.
 
@@ -158,7 +218,7 @@ Convergence: O(1/k) ergodic on primal-dual gap.
 
 Requires γ-strong convexity in f. KL on box $[\ell, u]$ with $u_{\max} < \infty$ has $\gamma = 1/u_{\max}$.
 
-**Fallback**: if any $u_i = \infty$, $\gamma = 0$ → set `accelerate = FALSE` automatically + log to `verbose ≥ 1`. `algorithm_used = "alg1"` in result struct.
+**Fallback (γ = 0 case)**: γ is computed from the SCALAR upper bound `st.max_weight` (single value broadcast to all i; matches existing newton_kl/ieppa convention — `harvest()` exposes only scalar `max_weight`/`min_weight`, never per-obs vectors). If `st.max_weight = Inf`, γ = 0 → set `accelerate = FALSE` automatically + log to `verbose ≥ 1`. `algorithm_used = "pdhg"` in result struct (and `algorithm_requested = "accelerated_pdhg"`, `fell_back_to_pdhg = true`).
 
 ```
 γ = 1 / max(u_i)
@@ -175,7 +235,7 @@ For k = 0 .. max_iter:
 
 Step-size invariant maintained: $\sigma_k \tau_k \|A\|^2 \le 1$ for all k. Convergence: O(1/k²) on primal-dual gap.
 
-**Stability fallback**: if $\theta_k \to 0$ ($\tau_k$ underflows below 1e-300) at any iter, force Algorithm 1 from that iter onward; record `final_theta` in result.
+**Stability fallback (θ_k underflow)**: if $\theta_k < 10^{-15}$ ($\tau_k$ approaches denormal) at any iter k_fallback, RESET adaptive step sizes to fixed $\tau = \sigma = 1/(\|A\| \cdot 1.05)$ AND continue under Algorithm 1 update from iter k_fallback onward. Record `final_theta = θ_{k_fallback}` (last adaptive value), set `algorithm_used = "pdhg"`, `fell_back_to_pdhg = true`. Do NOT freeze τ at the underflowed value (would stall progress).
 
 ### 3.5 prox_{τ f} per component
 
@@ -194,7 +254,7 @@ Final: clamp to [ℓ + δ, u - δ]
 
 `CpCalibResult` populates:
 - `n_cells` — int (M_cell or n)
-- `algorithm_used` — `"alg1"` or `"alg2"`
+- `algorithm_used` — `"pdhg"` or `"accelerated_pdhg"` (after possible fallback)
 - `aA_norm_estimate` — double
 - `n_power_iter` — int
 - `final_theta`, `final_tau`, `final_sigma` — Alg 2 only
@@ -206,7 +266,7 @@ Final: clamp to [ℓ + δ, u - δ]
 | Test | Purpose |
 |---|---|
 | **T1** | K=3 small (n=1000): `status=0`, `max_err < 1e-6` (machine-precision sanity). |
-| **T2** | stepstone K=9: `cp` `max_err ≤ 1.5 × ieppa+sraa max_err`. The headline-result regression test. |
+| **T2** | stepstone K=9: `cp` `max_err ≤ 0.7 × ieppa+sraa max_err` (LOCKS IN headline 2.2× win with safety margin; spike showed parity ratio 0.45). |
 | **T3** | Cell-compressed CP (`bounds_mode="cell"`) ≡ obs-level CP (`bounds_mode="unit"`) within 1e-10 weight diff on K=2 fixture. |
 | **T4** | Bounds-active fallback: tight `max_weight=1.3` on 95/5 target → finite `max_error` (no NaN propagation). |
 | **T5** | KL-form vs chi2 (`greg`): cp weights distinct from greg by >1% rel diff; all cp weights `> 0`. |
@@ -234,7 +294,7 @@ kk1204 NOT a CP test fixture (spike showed CP fails kk1204; out of scope).
 |---|---|---|---|---|
 | R1 | Cell compression bug — cell-mode bounds invariant violated | M | H | T3 test: cell vs obs path produce same weights to 1e-10 |
 | R2 | Algorithm 2 step-size adaptation unstable on ill-conditioned A | M | M | Fallback to Alg 1 if θ_k underflows; diagnostic `final_theta` |
-| R3 | `u_max = Inf` violates γ > 0 precondition | L | M | Auto-fallback to Alg 1; verbose log; `algorithm_used="alg1"` |
+| R3 | `u_max = Inf` violates γ > 0 precondition | L | M | Auto-fallback to PDHG; verbose log; `algorithm_used="pdhg"`, `fell_back_to_pdhg=true` |
 | R4 | r_bridge dispatch arm wires wrong field set | L | M | Mirror `newton_kl` dispatch arm; spec reviewer audits |
 | R5 | harvest.R `match.arg` whitelist drift | L | H | T1-T6 use `method="cp"`; whitelist drift → all tests fail |
 | R6 | NEWS.md bullet under wrong section | L | L | Place under `## New features`; reviewer audits |
@@ -246,6 +306,9 @@ kk1204 NOT a CP test fixture (spike showed CP fails kk1204; out of scope).
 | R12 | Algorithm bug not caught by spike sanity (max_err=0 only proves trivial recovery) | M | M | Spec compliance reviewer audits cp_calib.cpp on stepstone trace inspection |
 | R13 | else-if dispatch order shifts existing fall-through | L | H | Place `cp` arm BEFORE catch-all `else` |
 | R14 | bounds_mode="unit" cell expansion incorrect | L | H | bounds_mode="unit" forces obs-level; comment in cp_calib.cpp |
+| R15 | A_cell sparse vs dense storage choice ambiguous | L | M | Sparse `Eigen::SparseMatrix<double>` for A_cell (matches obs-level A storage); for power-iter use sparse matvec on $A^\top A v$. If profiling shows dense beats sparse on M_cell·ΣJ_k < 1e6, switch in Epic-K.2 (out of scope here). |
+| R16 | OpenMP interaction with cell_table reuse | L | L | CP solver runs single-threaded. cell_table.cpp build inherits ieppa OpenMP behavior unchanged. Document in cp_calib.cpp comment header: "single-threaded; cell-table build inherits cell_table.cpp parallelism". |
+| R17 | tools/check_research_isolation.R blocks pre-commit because cp_solve_R + cp_calibrate now legitimately in src/leafblower.so | H (will fire on every K-1 commit attempt) | H | WU-K-1 step 1: edit `tools/check_research_isolation.R` forbidden-symbol list to REMOVE `cp_solve_R` and `cp_calibrate`. Keep `ipm_solve_R` and `ipm_calibrate` (still research-only per Epic-J FAIL). |
 
 **Discontinuation triggers:**
 - R5 (whitelist drift) → halt; verify match.arg before commit.
@@ -258,7 +321,7 @@ One bd ticket per WU. Sequential per `superpowers:subagent-driven-development`.
 
 | WU | Title | Hard deps | Model | Wall | Decision Gate |
 |---|---|---|---|---|---|
-| **K-1** | Move + adapt cp_calib to src/, wire enum + r_bridge dispatch + harvest.R match.arg | — | Gemini | ~2h | Build clean; `harvest(small_df, tgt, method="cp")` returns weights without error |
+| **K-1** | Move + adapt cp_calib to src/, wire enum + r_bridge dispatch + harvest.R match.arg + accelerate explicit override + UPDATE tools/check_research_isolation.R | — | Gemini | ~2.5h | Build clean; pre-commit isolation gate green (cp_* allowed in src/leafblower.so); `harvest(small_df, tgt, method="cp")` returns weights without error; `accelerate=TRUE` is the default for cp without warnings |
 | **K-2** | Algorithm 1 obs-level production parity (port spike with src/ conventions) | K-1 | Gemini | ~2h | T1 + T6 PASS; T5 PASS (KL form distinct from greg) |
 | **K-3** | Algorithm 2 accelerated variant + fallback when u_max=Inf | K-2 | Opus | ~3h | T1 PASS; T6 PASS (Alg 1 path); default accelerate=TRUE produces stepstone tighter than Alg 1 |
 | **K-4** | Cell compression with bounds_mode="cell" + obs-level fallback at M_cell/n > 0.9 + bounds_mode="unit" | K-2 | Opus | ~4h | T3 PASS (cell ≡ obs); T2 PASS (stepstone tighter than ieppa+sraa) |
