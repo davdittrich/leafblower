@@ -2,36 +2,19 @@
 
 ## Newton-KL calibration
 
-* Epic-Dβ verdict: **PARTIAL** — TSVD+Steihaug-CG composed pipeline shipped.
-  Stepstone K=9 max_err: 2.79e-4 (master) → 2.61e-4 (6.5% improvement, still
-  above 1e-4 gate). kk1204 K=20 severe-skew: master diverged (status=1) →
-  Epic-Dβ converges (status=0) at gap=6.24e-2 (above 1e-3 PARTIAL threshold
-  but eliminates pathological drift). Full regression FAIL=0 outside the
-  documented stepstone basin floor; over-projection regression test (T7 K=4)
-  PASS at max_err=2.84e-7. Best-iterate fallback retained: audit instrumented
-  `LEAFBLOWER_NEWTON_TRACE` counter shows fires across all scenarios (T1/T4/T5
-  testthat=25, T7 K=4=3, T2 stepstone=9, full regression=37). Stepstone
-  basin-floor at ~2.6e-4 appears intrinsic to the dual landscape; closure to
-  <1e-4 deferred to Epic-E (continuation methods, multi-start, or alternative
-  algorithm).
-* `method="newton_kl"` adds Steihaug-CG trust-region step in retained subspace
-  when the truncated-SVD pseudoinverse exceeds the trust radius. Trust radius
-  adapts via Marquardt gain ratio (ρ>0.75 ⇒ Δ doubles; ρ<0.25 ⇒ Δ /= 4).
-* `method="newton_kl"` now applies truncated-SVD pseudoinverse to the LM-damped
-  Hessian to handle rank-deficient Hessian directions on overlapping-margin
-  fixtures. Eigendecomposition via LAPACK's `dsyevd`. Default truncation ratio
-  `1e-8 × λ_max`. New diagnostic `n_projected_dims` on result.
-* `method="newton_kl"` now uses Levenberg-Marquardt scale-invariant damping
-  with Marquardt gain-ratio adaptive μ (commits 88033d1 + e4276cc). Replaces
-  the prior trust-region clip + pivot-bump bandaid. Adds LSE stabilization in
-  the dual evaluation and weight recovery (fixes NaN weights on K=20 severe-skew
-  inputs that previously short-circuited convergence via false gap=0). Adds
-  best-iterate fallback so rank-deficient drift past the optimum is auto-rolled
-  back to the lowest-gap λ. New diagnostic field `lm_mu_final` on the C++
-  `NewtonCalibResult` (R-side surfacing pending in a follow-up).
-* Stepstone K=9 max_err: 0.988 (regression from rev-1 LM) → 2.8e-4 (final).
-  Still above the 1e-4 gate; closure depends on Epic-B (target homotopy) —
-  see `docs/investigations/2026-05-01-newton-kl-lm-result.md`.
+* Epic-Dβ verdict: **PARTIAL** — Newton-KL pipeline shipped with LM scale-invariant
+  damping (Marquardt gain ratio), truncated-SVD pseudoinverse (LAPACK `dsyevd`),
+  and Steihaug-CG trust-region in retained subspace. LM damping adapts via gain-ratio
+  ρ (ρ>0.75 ⇒ Δ ×2; ρ<0.25 ⇒ Δ ÷4), with LSE stabilization in dual evaluation
+  and weight recovery (fixes NaN weights on K=20 severe-skew). Best-iterate fallback
+  rolls back rank-deficient drift; `LEAFBLOWER_NEWTON_TRACE` audit shows fires
+  across all scenarios (25 T1/T4/T5, 3 T7-K4, 9 T2-stepstone, 37 regression).
+  Diagnostic fields: `n_projected_dims` (truncation ratio `1e-8 × λ_max`), `lm_mu_final`.
+  Stepstone K=9 basin floor at ~2.6e-4 appears intrinsic to dual landscape
+  (from 2.79e-4 master, 6.5% improvement). Full regression FAIL=0 outside
+  documented basin; T7 K=4 over-projection PASS (2.84e-7); kk1204 K=20 severe-skew
+  converges status=0 at gap=6.24e-2 (vs master diverged). Closure to <1e-4
+  deferred to Epic-E (continuation methods, multi-start, alternative algorithm).
 
 ## Breaking changes
 
@@ -41,6 +24,11 @@
   Replaced by Safeguarded Regularized Anderson Acceleration (SRAA-m, m=5), which
   guarantees quality >= plain per super-step. Reproducible pipelines using
   `set.seed() + accelerate=TRUE` will produce different (more accurate) results.
+
+* **AUTO routing for K≥5 severe-skew problems** (target-skew metric `max_T/min_T > 5`)
+  will redirect from `method="newton_kl"` to `method="ieppa"` (with `accelerate=TRUE`).
+  Newton-KL still selected for moderate-skew K≥5 problems. Pass `method="newton_kl"`
+  explicitly to override AUTO. *(TODO WH-g: finalize text after AUTO patch lands)*
 
 ## Acceleration
 

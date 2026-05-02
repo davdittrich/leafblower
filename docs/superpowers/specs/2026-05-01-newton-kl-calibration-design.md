@@ -175,6 +175,15 @@ LM damping + best-iterate fallback stabilize Newton inside its convergence basin
 
 See plan rev 3: `docs/superpowers/plans/2026-05-01-newton-kl-ieppa-warmstart-plan.md`.
 
+> **ERRATUM (2026-05-02):** This subsection was added in commit `32fcee6` documenting
+> Epic-C's intended IEPPA warm-start mechanism. Empirical falsification at Epic-C
+> closure (verdict BLOCKED): warm-start regresses T2 stepstone K=9 from 2.79e-4 (cold)
+> to 4.39e-4. IEPPA's basin floor sits OUTSIDE Newton's quadratic basin on stepstone;
+> warm-start lands Newton in a worse position than cold start. See
+> `docs/investigations/2026-05-02-newton-kl-ieppa-warmstart-result.md` for full
+> empirical analysis. Section retained for historical reference and potential future
+> revival; NOT current behavior.
+
 ## Cost Analysis
 
 | Operation | Cost | K=20, n=1M |
