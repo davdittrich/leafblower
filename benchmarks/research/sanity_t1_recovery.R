@@ -19,3 +19,11 @@ stopifnot(r_cp$status_code == 0L)
 max_err <- max(abs(r_cp$weights - d))
 stopifnot(max_err < 1e-8)
 cat("WU-2 sanity PASS: max_err =", max_err, "\n")
+
+# WU-5: IPM sanity recovery (spec Sec 3.2). Same fixture, w = d ground truth.
+r_ipm <- .Call("ipm_solve_R", A_csr, as.numeric(b), as.numeric(d), rep(0, n), rep(5, n), 50L, FALSE, 1L)
+
+stopifnot(r_ipm$status_code == 0L)
+max_err_ipm <- max(abs(r_ipm$weights - d))
+stopifnot(max_err_ipm < 1e-8)
+cat("WU-5 IPM sanity PASS: max_err =", max_err_ipm, "\n")
