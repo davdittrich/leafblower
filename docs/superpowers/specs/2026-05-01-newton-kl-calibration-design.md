@@ -248,19 +248,27 @@ Newton solves the **unconstrained** KL dual. Weight bounds (`max_weight`, `min_w
 
 ## AUTO Routing (both dispatch sites)
 
-**`src/c_api.cpp`** (line ~171, before existing `M_cell > 0.9` rule):
-```cpp
-// Newton: smooth dual, K ≥ 5, zero-compression regime
-if (est_ratio >= 0.9 && K >= 5) alg = RK_ALG_NEWTON_KL;
-```
+Three-way rule (Epic-H WH-g; both `src/c_api.cpp` and `src/r_bridge.cpp` AUTO arms):
 
-**`src/r_bridge.cpp`** (line ~425, AUTO arm, same condition):
-```cpp
-// kAlgMap already contains {"newton_kl", RK_ALG_NEWTON_KL} from the new dispatch arm.
-// AUTO arm: when M_cell/n >= 0.9 && K >= 5, set method_str = "newton_kl" before lookup.
-alg_for_validation = RK_ALG_NEWTON_KL;  // set directly in AUTO branch
-```
-Both sites must be updated. The string key `"newton_kl"` must be in `kAlgMap` to match `harvest.R`'s `match.arg`.
+| K | M_cell/n | target_skew = max_T / max(min_T, 1e-12) | alg                               |
+|---|----------|-----------------------------------------|-----------------------------------|
+| ≥5 | ≥0.9    | ≤ 5.0                                   | `RK_ALG_NEWTON_KL`                |
+| ≥5 | ≥0.9    | > 5.0                                   | `RK_ALG_IEPPA` + `accelerate=TRUE` |
+| <5 | ≥0.9    | —                                       | `RK_ALG_RAKING`                   |
+| any| <0.9    | —                                       | `RK_ALG_IEPPA`                    |
+
+Severe-skew rationale: Epic-Dβ kk1204 (K=20) evidence — Newton-KL converges to a high-error fixed
+point at gap≈6.24e-2 on severe-skew dual landscapes; iEPPA+SRAA escapes via primal projection.
+The 1e-12 floor on `min_T` guards against division-by-zero when targets contain exact zeros
+(zero-min still routes to severe-skew arm by construction).
+
+**`src/c_api.cpp`** AUTO branch computes `target_skew` over `targets[k][j]` and selects accordingly,
+setting `st.accelerate = true` for the severe-skew arm before solver dispatch.
+
+**`src/r_bridge.cpp`** AUTO branch implements the identical three-way rule (newton_kl arm added),
+also setting `st.accelerate = true` in the severe-skew sub-branch.
+
+The string key `"newton_kl"` must be in `kAlgMap` to match `harvest.R`'s `match.arg`.
 
 ## Testing
 

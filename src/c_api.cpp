@@ -17,6 +17,7 @@
 #include <climits>
 #include <cstdint>
 #include <limits>
+#include <algorithm>
 
 // C++17 [[nodiscard]] on rk_calibrate — silently ignored on C++14
 #if __cplusplus >= 201703L
@@ -159,6 +160,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     // — validate_inputs will reject those cases with a proper error message.
     rk_algorithm_t alg;
     bool auto_selected = false;
+    bool wh_g_severe_skew_accelerate = false;  // Epic-H WH-g: AUTO target-skew gate
     if (cat_counts && K > 0 && n > 0) {
         switch (p->algorithm) {
             case RK_ALG_LBFGSB:   alg = RK_ALG_LBFGSB; break;
@@ -173,14 +175,37 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_NEWTON_KL:   alg = RK_ALG_NEWTON_KL;   break;
             case RK_ALG_AUTO:
             default: {
-                // Route based on cell table compression ratio and dimension.
-                // Newton-KL: smooth dual, zero-compression regime (M_cell/n >= 0.9 && K >= 5)
-                // Raking: high-compression regime (M_cell/n > 0.9 && K < 5)
-                // iEPPA: default low-compression regime
+                // Route based on cell table compression ratio, dimension, and target skew.
+                // K<5 OR M_cell/n<0.9   → RK_ALG_IEPPA / RK_ALG_RAKING (unchanged)
+                // K≥5, M_cell/n≥0.9, target_skew ≤ 5 → RK_ALG_NEWTON_KL (moderate skew)
+                // K≥5, M_cell/n≥0.9, target_skew > 5 → RK_ALG_IEPPA + accelerate
+                //                                       (Epic-H WH-g: severe skew)
                 int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
                 // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
                 if (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9) {
-                    alg = (K >= 5) ? RK_ALG_NEWTON_KL : RK_ALG_RAKING;
+                    if (K >= 5) {
+                        // Compute target_skew = max_T / max(min_T, 1e-12).
+                        double max_target = 0.0, min_target = 1.0;
+                        for (int k = 0; k < K; ++k) {
+                            for (int j = 0; j < cat_counts[k]; ++j) {
+                                const double t = targets[k][j];
+                                if (t > max_target) max_target = t;
+                                if (t > 1e-12 && t < min_target) min_target = t;
+                            }
+                        }
+                        const double target_skew = max_target / std::max(min_target, 1e-12);
+                        const bool severe_skew = (target_skew > 5.0);
+                        if (severe_skew) {
+                            // Epic-H WH-g: kk1204 K=20 evidence — Newton-KL stalls at gap≈6.24e-2
+                            // on severe-skew dual landscape; iEPPA+SRAA converges instead.
+                            alg = RK_ALG_IEPPA;
+                            wh_g_severe_skew_accelerate = true;
+                        } else {
+                            alg = RK_ALG_NEWTON_KL;
+                        }
+                    } else {
+                        alg = RK_ALG_RAKING;
+                    }
                 } else {
                     alg = RK_ALG_IEPPA;
                 }
@@ -239,6 +264,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.sor_cfg.omega_fixed          = p->sor_omega_fixed;
     st.sor_cfg.burnin               = p->sor_burnin;
     st.newton_tsvd_ratio            = p->newton_tsvd_ratio;  /* Epic-H WH-e */
+    if (wh_g_severe_skew_accelerate) {
+        // Epic-H WH-g: severe-skew K≥5 AUTO routes to ieppa with SRAA enabled.
+        st.accelerate = true;
+    }
     // Only the auto-fallback path needs this; skip O(n) copy for explicit method calls.
     const std::vector<double> weights_backup = (p->algorithm == RK_ALG_AUTO)
         ? std::vector<double>(weights, weights + n)

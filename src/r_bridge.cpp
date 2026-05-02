@@ -438,15 +438,70 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         pack_solver_result(res);
         res_best_weights = std::move(res.base.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
-        // AUTO routing: select raking when M_cell/n > 0.9, else iEPPA.
+        // AUTO routing (Epic-H WH-g):
+        //   K<5 OR M_cell/n ≤ 0.9 → raking / iEPPA (compression-based, unchanged)
+        //   K≥5, M_cell/n > 0.9, target_skew ≤ 5 → newton_kl  (moderate skew)
+        //   K≥5, M_cell/n > 0.9, target_skew  > 5 → ieppa+SRAA (severe skew)
+        //   target_skew = max(targets) / max(min(targets), 1e-12)
         int M_cell_est = lbw::estimate_M_cell(n, K,
             const_cast<const int32_t**>(group_ids.data()),
             cat_counts.data());
         // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
-        bool use_raking = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9);
+        const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9);
         // Save for auto-fallback: only st.weights is mutated by solvers in-place
         const std::vector<double> weights_backup(weights);
-        if (use_raking) {
+        if (zero_compression && K >= 5) {
+            // Compute target_skew on the AUTO dispatch path.
+            double max_target = 0.0, min_target = 1.0;
+            for (int k = 0; k < K; ++k) {
+                for (int j = 0; j < cat_counts[k]; ++j) {
+                    const double t = targets[k][j];
+                    if (t > max_target) max_target = t;
+                    if (t > 1e-12 && t < min_target) min_target = t;
+                }
+            }
+            const double target_skew = max_target / std::max(min_target, 1e-12);
+            const bool severe_skew = (target_skew > 5.0);
+            if (severe_skew) {
+                // Epic-H WH-g: kk1204 K=20 evidence — Newton-KL stalls at gap≈6.24e-2
+                // on severe-skew dual landscape; iEPPA+SRAA converges instead.
+                st.ieppa_auto_selected = true;
+                st.accelerate = true;
+                auto res = lbw::ieppa_solve(st);
+                res_status     = res.base.status;
+                res_iterations = res.base.iterations;
+                res_max_error  = res.base.max_error;
+                res_alg_used   = (int)RK_ALG_IEPPA;
+                res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+                res_min_alpha             = res.min_alpha_seen;
+                res_final_alpha           = res.final_alpha;
+                res_n_bounds_violated     = res.n_bounds_violated;
+                res_n_bounds_clamped      = res.n_bounds_clamped;
+                res_homotopy_levels_used  = res.homotopy_levels_used;
+                res_homotopy_final_factor = res.homotopy_final_factor;
+                res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
+                res_eta_final             = res.eta_final;
+                pack_solver_result(res);
+                res_sor_min_omega    = res.sor_min_omega;
+                res_sor_n_damped     = res.sor_n_damped;
+                res_aa_accepted_count     = res.aa_accepted_count;
+                res_best_weights = std::move(res.base.best_weights);
+            } else {
+                auto res = lbw::newton_calibrate(st);
+                pack_solver_result(res);
+                res_status     = res.base.status;
+                res_iterations = res.base.iterations;
+                res_max_error  = res.base.max_error;
+                res_alg_used   = (int)RK_ALG_NEWTON_KL;
+                res_n_projected_dims = res.n_projected_dims;
+                res_lm_mu_final      = res.lm_mu_final;
+                if (!res.base.best_weights.empty())
+                    res_best_weights = std::move(res.base.best_weights);
+                else
+                    res_best_weights.assign(st.n, 0.0);
+            }
+        } else if (zero_compression) {
+            // K<5, zero-compression: raking
             auto res = lbw::raking_solve(st);
             res_status     = res.base.status;
             res_iterations = res.base.iterations;
@@ -455,6 +510,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             pack_solver_result(res);
             res_best_weights = std::move(res.base.best_weights);
         } else {
+            // Compressed regime: iEPPA (any K)
             st.ieppa_auto_selected = true;
             auto res = lbw::ieppa_solve(st);
             res_status     = res.base.status;

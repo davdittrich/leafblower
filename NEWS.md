@@ -25,10 +25,12 @@
   guarantees quality >= plain per super-step. Reproducible pipelines using
   `set.seed() + accelerate=TRUE` will produce different (more accurate) results.
 
-* **AUTO routing for K≥5 severe-skew problems** (target-skew metric `max_T/min_T > 5`)
-  will redirect from `method="newton_kl"` to `method="ieppa"` (with `accelerate=TRUE`).
-  Newton-KL still selected for moderate-skew K≥5 problems. Pass `method="newton_kl"`
-  explicitly to override AUTO. *(TODO WH-g: finalize text after AUTO patch lands)*
+* **AUTO routing for K≥5 severe-skew problems** (`max_T/min_T > 5`): `harvest(method="auto", ...)`
+  now selects `method="ieppa"` with `accelerate=TRUE` instead of `method="newton_kl"`.
+  Motivated by Epic-Dβ kk1204 K=20 evidence (Newton-KL converges to high-error fixed point
+  at gap=6.24e-2 on severe-skew). Moderate-skew K≥5 (max_T/min_T ≤ 5) still routes to
+  Newton-KL. Affected users: AUTO callers with K≥5 categorical strata and order-of-magnitude
+  target imbalance. Migration: pin `method="newton_kl"` explicitly to retain prior behavior.
 
 ## Acceleration
 
