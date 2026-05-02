@@ -189,6 +189,13 @@
 - `stepstone_fulldata_homotopy_report.rds` (~96 tok)
 - `stepstone_fulldata_homotopy_run_v2.log` (~666 tok)
 - `stepstone_fulldata_homotopy.R` — benchmarks/stepstone_fulldata_homotopy.R (~1974 tok)
+- `tsvd_T7_well_conditioned.R` — WL-4 T7 K=4 over-projection regression hard gate test (~700 tok)
+- `newton_kl_bench.R` — Newton-KL benchmark study (~400 tok)
+
+## benchmarks/results/
+
+- `tsvd_T7_K4.csv` — WL-4 T7 hard gate result: n_proj=0, max_err=2.84e-07 (~30 tok)
+- `newton_kl_kk1204.csv` — Newton-KL bench result (~20 tok)
 
 ## data-raw/
 
