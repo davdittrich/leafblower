@@ -52,21 +52,19 @@
 | K-1 | `leafblower-pcs9.1` | Move + adapt cp_calib to src/ + isolation gate update + R wiring | — | Gemini | ~2.5h |
 | K-2 | `leafblower-pcs9.2` | Validate Algorithm 1 obs-level production parity | K-1 | Gemini | ~2h |
 | K-3 | `leafblower-pcs9.3` | Implement Algorithm 2 accelerated PDHG + fallbacks | K-2 | Opus | ~3h |
-| K-4 | `leafblower-pcs9.4` | Cell-compressed CP with bounds_mode dispatch | K-2 | Opus | ~4h |
-| K-5 | `leafblower-pcs9.5` | Test suite tests/testthat/test-cp.R T1-T7 + full regression | K-3, K-4 | Haiku | ~1h |
+| K-4 | `leafblower-pcs9.4` | Cell-compressed CP with bounds_mode dispatch | K-2, K-3 | Opus | ~4h |
+| K-5 | `leafblower-pcs9.5` | Test suite tests/testthat/test-cp.R T1-T7 + T2b (8 tests) + full regression | K-3, K-4 | Haiku | ~1h |
 | K-6 | `leafblower-pcs9.6` | NEWS.md additive + harvest.Rd regen + harvest.R docstring | K-5 | Haiku | ~30min |
 | K-7 | `leafblower-pcs9.7` | Code-review-gate (3 adversarial reviewers) + cleanup commit | K-6 | Opus | ~1h |
 
-**Dependency graph (acyclic):**
+**Dependency graph (acyclic; rev 3 sequential — K-3 → K-4):**
 ```
-K-1 ──► K-2 ──► K-3 ──► K-5 ──► K-6 ──► K-7
-            │           ▲
-            └─► K-4 ────┘
+K-1 ──► K-2 ──► K-3 ──► K-4 ──► K-5 ──► K-6 ──► K-7
 ```
 
-K-3 + K-4 both depend on K-2; K-5 depends on both. K-3 and K-4 may run in parallel (different model assignments) since both depend only on K-2 and edit different src/cp_calib.cpp regions.
+Per spec rev 6 region-partition decision: K-3 modifies cp_calibrate Algorithm 2 dispatch INSIDE the function body; K-4 wraps cp_calibrate's body in cell/obs dispatch at TOP-OF-FUNCTION and routes obs-path to K-3's modified code. Sequential ordering eliminates the merge-conflict risk of rev 2's parallel claim.
 
-**Total wall:** ~13–14h sequential; ~10–11h with K-3 ∥ K-4 parallel.
+**Total wall:** ~13–14h sequential.
 
 **Subagent routing**: Gemini for mechanical port + bench (K-1, K-2). Opus for algorithm correctness + cell compression + final review (K-3, K-4, K-7). Haiku for tests + docs (K-5, K-6). Per memory rule: avoid Sonnet; use Gemini for Tier-2 delegated work, Opus for Tier-3 design/review, Haiku for Tier-1 mechanical.
 

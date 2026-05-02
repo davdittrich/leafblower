@@ -1,13 +1,22 @@
-# Epic-K: stepstone-CP Productionization — Design (rev 5)
+# Epic-K: stepstone-CP Productionization — Design (rev 6)
 
-**Date:** 2026-05-02 (initial); 2026-05-03 (rev 4 + rev 5)
-**Status:** Design — pre-plan; design-review-gate APPROVED iter 3 (4/5 with CTO textual override → rev 4); plan-review-gate iter 1 Feasibility FAIL on T2 confounder → rev 5 closes via re-labeled quality-at-budget gate + T2b walltime ceiling + honest NEWS framing.
+**Date:** 2026-05-02 (initial); 2026-05-03 (revs 4-6)
+**Status:** Design — pre-plan; design-review-gate APPROVED iter 3 (4/5 with CTO textual override → rev 4); plan-review-gate iter 1 Feasibility FAIL → rev 5; plan-review-gate iter 2 Feasibility+Completeness 4 blockers → rev 6 closes via wall_time_ms plumbing (slot 46 + std::chrono in cp_calib + CpCalibResult field), T2b codification as 8th test_that block in K-5, K-3/K-4 region partition documented, K-6 NEWS draft pinned to rev 5.
 **Predecessor:** Epic-J (`leafblower-y2ls`) FAIL verdict on kk1204 + side-finding CP wins stepstone (parity 0.45 vs `ieppa+sraa` baseline 1.13e-4)
 **Investigation report:** `docs/investigations/2026-05-02-ylsy-cp-ipm-spike-result.md` Sec 2 + Sec 6 (Side-finding)
 **Revision history:**
 - rev 1 → rev 2: closes 8 blockers from design-review-gate iter 1 (Architect: dispatch line refs, harvest.R line refs, accelerate default mechanism. Designer: same accelerate mechanism, alg_name ternary chain, kAlgMap entry, result field SEXP-pack indices, status_code R-side semantics).
 - rev 2 → rev 3: closes 4 blockers from design-review-gate iter 2 (Designer: warning EMIT SITE in harvest.R not C++; status_code=3 returns init-clamped weights not all-1.0. CTO: rate-fit exponents are spike-only diagnostic, not production-exposed; production CP stores NO per-iter trace — diagnostics are final-iteration scalars only). Folds Architect/Designer/Security/CTO/PM suggestions where high-value (T6 threshold tighten, T7 fallback test, NEWS.md bullet draft, K-7 reviewer set, R16 comment header step, include-guard rename).
 - rev 3 → rev 4: closes 6 textual-consistency blockers from design-review-gate iter 3 CTO review (T-count "6"→"7" globally; K-3 gate adds T7 + drops T6-as-K-3-gate (T6 belongs to K-2 only); K-5 gate "all 6"→"all 7"; K-6 markdown code fence properly closed before K-7 row; K-1 step 10 smoke test uses accelerate=FALSE since Alg 2 lands in K-3). PM/Architect/Designer/Security all APPROVED iter 3.
+- rev 5 → rev 6: closes 4 plan-review-gate iter 2 blockers (Feasibility 1: K-6 ticket NEWS draft drift to rev 4 wording; Completeness 3: wall_time_ms not plumbed, K-5 T2b codification undefined, K-3/K-4 region partition undocumented). Rev 6 fixes:
+  - SEXP-pack slot 46 ADDED: `wall_time_ms` REALSXP scalar (result list grows from 46 to 47 elements).
+  - CpCalibResult adds `double wall_time_ms` field.
+  - cp_calibrate captures wall time via `auto t0 = std::chrono::steady_clock::now()` at entry; `res.wall_time_ms = std::chrono::duration<double, std::milli>(t1 - t0).count()` at exit (matches existing solver pattern in src/ — verify newton_calib.cpp).
+  - K-1 sub-step 7 updated: VECSXP allocation 37→47 elements (was 46); names allocation likewise; slot 46 = wall_time_ms.
+  - K-4 ticket T2b inline test verified to read attr(r, "result")$wall_time_ms (now plumbed).
+  - K-5 ticket EXTENDED: codifies T2b as 8th test_that block ("T1-T7 + T2b"); test count = 8 instead of 7 (UPDATE Sec 1 close criteria + Sec 7 K-5 row + plan §Decision Rule).
+  - K-3 + K-4 region partition documented: K-3 edits Algorithm 2 dispatch block INSIDE cp_calibrate (specifically: γ-strong-convexity check + adaptive step-size loop replacing K-1's transient stub); K-4 edits TOP-OF-FUNCTION cell-compression preflight (decides cell vs obs path) + cell-branch implementation. Plan §Work Units changes K-3 ∥ K-4 from "parallel-suggested" to "sequential-recommended" (K-3 lands first; K-4 wraps cp_calibrate body in cell/obs dispatch and routes to K-3's modified obs path). Total wall: ~13-14h sequential (no parallel speedup).
+  - K-6 ticket Step 2 + Step 3 updated to "Use spec rev 5 (or later) Sec 7 K-6 draft text VERBATIM" — pins to rev 5+ wording (current rev 6 retains rev 5's NEWS text unchanged).
 - rev 4 → rev 5: closes 1 plan-review-gate iter 1 Feasibility blocker on T2 confounder (cp max_iter=5000 vs ieppa max_iter=200 = budget asymmetry making T2 structurally non-falsifiable). Rev 5 fixes:
   - T2 explicitly re-labeled "quality-at-budget (NOT wall-fair)" with rationale (cp's O(1/k) rate is structurally slower per-iter; ieppa+sraa converges to bounded fixed point ~4.39e-4; T2 verifies cp can beat that fixed point given proportional budget — locks Epic-J spike result at the documented budget ratio).
   - NEW T2b walltime ceiling: cp stepstone wall_time_ms < 90000 (90s; 73% headroom over spike 52s). Sanity check, NOT wall-fairness gate.
@@ -37,7 +46,7 @@ Ship `harvest(method="cp", ...)` as production solver:
 
 ### Decision criteria for Epic-K close
 
-- All 7 tests in `tests/testthat/test-cp.R` PASS.
+- All 8 tests in `tests/testthat/test-cp.R` PASS (T1-T7 + T2b walltime sanity).
 - `R CMD INSTALL --preclean .` clean.
 - `harvest.Rd` + `NEWS.md` updated.
 - AUTO routing untouched (existing `test-algo-selection.R` regression PASS).
@@ -62,7 +71,7 @@ tools/
                                         Keep ipm_solve_R, ipm_calibrate (still research-only — Epic-J FAIL).
 
 tests/testthat/
-└── test-cp.R                         ← NEW (7 tests: T1-T7)
+└── test-cp.R                         ← NEW (8 tests: T1-T7 + T2b)
 
 man/harvest.Rd                        ← regenerate via devtools::document()
 NEWS.md                               ← additive entry under "## New features"
@@ -120,6 +129,7 @@ enum rk_algorithm_t {
 - `double final_theta` — accelerated_pdhg only, last θ_k (NaN if pdhg)
 - `double final_tau`, `final_sigma` — accelerated_pdhg only (NaN if pdhg)
 - `bool fell_back_to_pdhg` — true iff `algorithm_requested != algorithm_used`
+- `double wall_time_ms` — solver wall time milliseconds (captured via `std::chrono::steady_clock` at cp_calibrate entry/exit; matches existing newton_calib pattern). Required by T2b walltime sanity gate.
 
 ### Result SEXP-pack (R-side surfacing)
 
@@ -136,8 +146,9 @@ Mirror NewtonCalibResult precedent (Epic-Dβ + Epic-H WH-d): r_bridge.cpp surfac
 | 43 | `final_tau` | REALSXP scalar (NA_real_ if pdhg) |
 | 44 | `final_sigma` | REALSXP scalar (NA_real_ if pdhg) |
 | 45 | `fell_back_to_pdhg` | LGLSXP scalar |
+| 46 | `wall_time_ms` | REALSXP scalar (rev 6 added — required by T2b walltime sanity gate) |
 
-Result list size grows from 37 elements (slots 0-36) to 46 elements (slots 0-45). Update both the `Rf_allocVector(VECSXP, ...)` call site and the names STRSXP allocation accordingly.
+Result list size grows from 37 elements (slots 0-36) to 47 elements (slots 0-46). Update both the `Rf_allocVector(VECSXP, ...)` call site and the names STRSXP allocation accordingly. Non-CP solvers populate slot 46 as `NA_REAL` via default-init (matches slots 37-45 NA-default convention).
 
 **Population mechanism**: `pack_solver_result` is a generic lambda in r_bridge.cpp (~line 407) that touches only `res.base.*` shared fields — it does NOT dispatch on result type. CP-specific scalars (`n_cells`, `algorithm_used`, etc.) are captured in the CP dispatch arm (mirroring how the newton_kl arm captures `res_n_projected_dims` and `res_lm_mu_final` at r_bridge.cpp:608-609), then SEXP-pack writes slots 37-45 unconditionally. Non-CP solvers leave the C++ scalars at default-init values: `int = 0`, `double = NA_REAL`, `bool = FALSE`, `std::string = ""`. R-side these surface as `attr(result, "result")$n_cells`, etc. Empty/NA values for non-CP solvers are documented in `harvest.Rd` `@return` section.
 
@@ -279,7 +290,7 @@ Final: clamp to [ℓ + δ, u - δ]
 
 ## 4. Test Suite
 
-`tests/testthat/test-cp.R` — 7 tests:
+`tests/testthat/test-cp.R` — 8 tests:
 
 | Test | Purpose |
 |---|---|
@@ -316,7 +327,7 @@ kk1204 NOT a CP test fixture (spike showed CP fails kk1204; out of scope).
 | R2 | Algorithm 2 step-size adaptation unstable on ill-conditioned A | M | M | Fallback to Alg 1 if θ_k underflows; diagnostic `final_theta` |
 | R3 | `u_max = Inf` violates γ > 0 precondition | L | M | Auto-fallback to PDHG; verbose log; `algorithm_used="pdhg"`, `fell_back_to_pdhg=true` |
 | R4 | r_bridge dispatch arm wires wrong field set | L | M | Mirror `newton_kl` dispatch arm; spec reviewer audits |
-| R5 | harvest.R `match.arg` whitelist drift | L | H | T1-T7 use `method="cp"`; whitelist drift → all tests fail |
+| R5 | harvest.R `match.arg` whitelist drift | L | H | T1-T7 + T2b use `method="cp"`; whitelist drift → all tests fail |
 | R6 | NEWS.md bullet under wrong section | L | L | Place under `## New features`; reviewer audits |
 | R7 | rk_algorithm_t enum collision | L | H | Verify before adding; 12 currently free |
 | R8 | A_cell construction differs from obs-level A | M | H | T3 direct comparison + assertion `sum(A_cell.x) == M_cell * K` |
@@ -348,13 +359,13 @@ One bd ticket per WU. Sequential per `superpowers:subagent-driven-development`.
 2. `git mv research/cp_calib.hpp src/cp_calib.hpp` and `git mv research/cp_calib.cpp src/cp_calib.cpp` (preserves history). Then add fossil-pointer header comment to `research/cp_calib.hpp`: `// Epic-K: MOVED TO src/cp_calib.hpp; this copy retained for Epic-J spike traceability only — DO NOT EDIT`.
 3. Refactor `src/cp_calib.hpp`: rename include guard `LEAFBLOWER_RESEARCH_CP_CALIB_HPP_` → `LEAFBLOWER_CP_CALIB_HPP_`. Replace standalone signature `cp_calibrate(int n_row, int n_col, ...)` with `lbw::CpCalibResult lbw::cp_calibrate(lbw::CalibState& st)` matching newton_calib.hpp pattern.
 4. Add OpenMP/thread-safety comment header to top of `src/cp_calib.cpp`: `// Single-threaded solver; cell-table build inherits ieppa OpenMP behavior unchanged.` (R16 mitigation).
-5. Update `src/cp_calib.cpp` body: read inputs from CalibState (replace raw pointer args), construct `CpCalibResult` with `CalibResult base + n_cells + algorithm_requested + algorithm_used + A_norm_estimate + n_power_iter + final_theta + final_tau + final_sigma + fell_back_to_pdhg`. NO per-iter trace storage (production diagnostics = final-iteration scalars only).
+5. Update `src/cp_calib.cpp` body: read inputs from CalibState (replace raw pointer args), construct `CpCalibResult` with `CalibResult base + n_cells + algorithm_requested + algorithm_used + A_norm_estimate + n_power_iter + final_theta + final_tau + final_sigma + fell_back_to_pdhg + wall_time_ms`. NO per-iter trace storage (production diagnostics = final-iteration scalars only). Wall-time capture: `auto t0 = std::chrono::steady_clock::now();` at function entry; `res.wall_time_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();` at all return paths. Include `<chrono>` header. Mirror existing solver pattern (verify by `grep std::chrono src/newton_calib.cpp` or other src/*.cpp).
 6. `src/leafblower.h`: add `RK_ALG_CP = 12,` to `rk_algorithm_t` enum.
 7. `src/r_bridge.cpp`:
    - Line 25-37: insert `{"cp", RK_ALG_CP}` after `{"newton_kl", RK_ALG_NEWTON_KL}`.
    - Line ~617 (after newton_kl arm, before catch-all else block at 618): insert new `else if (strcmp(method_str, "cp") == 0) { ... }` arm following the newton_kl pattern, packing CpCalibResult fields into res_n_cells, res_algorithm_used, etc.
    - Line ~709-718: insert `(res_alg_used == static_cast<int>(RK_ALG_CP)) ? "cp"` before `: "iEPPA"` fallback.
-   - Result list size: extend `Rf_allocVector(VECSXP, ...)` from 37 to 46 elements; extend names allocation; populate slots 37-45 per Sec 2 Result SEXP-pack table.
+   - Result list size: extend `Rf_allocVector(VECSXP, ...)` from 37 to 47 elements; extend names allocation; populate slots 37-46 per Sec 2 Result SEXP-pack table (slot 46 = wall_time_ms REALSXP).
 8. `R/harvest.R`:
    - Line ~318 (BEFORE line 319): insert `accelerate_explicit <- !missing(accelerate)`.
    - Line ~318 (BEFORE line 322): insert `if (method == "cp" && !accelerate_explicit) accelerate <- TRUE`.
@@ -365,9 +376,9 @@ One bd ticket per WU. Sequential per `superpowers:subagent-driven-development`.
 9. `R CMD INSTALL --preclean .` → exit 0; pre-commit isolation gate green (cp_* now allowed in src/leafblower.so).
 10. Smoke test (Algorithm 1 only — Alg 2 lands in K-3): `Rscript -e 'library(leafblower); set.seed(1); df <- data.frame(x=factor(sample(c("a","b","c"), 100, TRUE))); tgt <- list(x=c(a=0.4, b=0.4, c=0.2)); r <- harvest(df, tgt, method="cp", accelerate=FALSE, max_weight=5); res <- attr(r, "result"); stopifnot(res$status == 0L, attr(r, "algorithm") == "cp", res$algorithm_used == "pdhg")'`. K-1 ships only Algorithm 1 obs-level (refactored from research/cp_calib); accelerate=TRUE will fall back to Algorithm 1 with verbose log because Algorithm 2 (γ-strong-convexity dispatch + adaptive step sizes) is NOT yet wired — that is K-3's deliverable. Document this transient state in K-1 commit message: "Algorithm 2 dispatch returns Algorithm 1 with verbose log + fell_back_to_pdhg=true; full Alg 2 implementation in K-3."
 | **K-2** | Algorithm 1 obs-level production parity (port spike with src/ conventions) | K-1 | Gemini | ~2h | T1 + T6 PASS; T5 PASS (KL form distinct from greg) |
-| **K-3** | Algorithm 2 accelerated variant + fallback when u_max=Inf or θ_k underflow | K-2 | Opus | ~3h | T1 PASS (no regression); T6 PASS (Alg 1 path not broken); T7 PASS (Alg 2 → PDHG fallback verified); default accelerate=TRUE produces stepstone max_err tighter than Alg 1 reference. |
-| **K-4** | Cell compression with bounds_mode="cell" + obs-level fallback at M_cell/n > 0.9 + bounds_mode="unit" | K-2 | Opus | ~4h | T3 PASS (cell ≡ obs); T2 PASS (stepstone tighter than ieppa+sraa) |
-| **K-5** | Test suite tests/testthat/test-cp.R (T1-T7) | K-1, K-2, K-3, K-4 | Haiku | ~1h | All 7 PASS via `devtools::test()`; full regression FAIL=0 outside Epic-Dβ T2 documented basin |
+| **K-3** | Algorithm 2 accelerated variant + fallback when u_max=Inf or θ_k underflow | K-2 | Opus | ~3h | T1 PASS (no regression); T6 PASS (Alg 1 path not broken); T7 PASS (Alg 2 → PDHG fallback verified); default accelerate=TRUE produces stepstone max_err tighter than Alg 1 reference. **Region partition (rev 6)**: K-3 edits the Algorithm 2 dispatch block INSIDE cp_calibrate (specifically: γ-strong-convexity check + adaptive step-size loop replacing K-1's transient stub). Lands BEFORE K-4. |
+| **K-4** | Cell compression with bounds_mode="cell" + obs-level fallback at M_cell/n > 0.9 + bounds_mode="unit" | K-2, K-3 | Opus | ~4h | T3 PASS (cell ≡ obs); T2 PASS (stepstone tighter than ieppa+sraa); T2b PASS (cp wall_time_ms < 90000). **Region partition (rev 6)**: K-4 wraps cp_calibrate body in cell/obs dispatch at TOP-OF-FUNCTION (cell-compression preflight decides cell vs obs path) + cell-branch implementation. Routes to K-3's modified obs path for obs-level. K-4 lands AFTER K-3 (sequential, no parallel). |
+| **K-5** | Test suite tests/testthat/test-cp.R (T1-T7 + T2b = 8 tests) | K-1, K-2, K-3, K-4 | Haiku | ~1h | All 8 PASS via `devtools::test()` (rev 6: T2b codified as 8th test_that block reading attr(r, "result")$wall_time_ms < 90000 on stepstone fixture); full regression FAIL=0 outside Epic-Dβ T2 documented basin. |
 | **K-6** | NEWS.md additive bullet + harvest.Rd regen + harvest.R docstring | K-5 | Haiku | ~30min | `devtools::document()` clean; `R CMD check` no NOTES related to cp; NEWS.md bullet text matches draft below |
 
 **K-6 NEWS.md draft text** (place under `## New features` of the development version section):
