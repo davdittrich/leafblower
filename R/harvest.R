@@ -316,10 +316,14 @@ harvest <- function(
   }
 
   sor_cfg <- parse_sor(sor)
-  if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft"))
-    warning("accelerate=TRUE is only supported for method='raking', 'greenkhorn', 'ieppa', or 'ieppa_soft'; ignoring for method='",
+  # Epic-K K-1: cp defaults accelerate=TRUE (Algorithm 2 path; transient fallback
+  # to Algorithm 1 with fell_back_to_pdhg=true until K-3 ships full Alg 2).
+  accelerate_explicit <- !missing(accelerate)
+  if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft", "cp"))
+    warning("accelerate=TRUE is only supported for method='raking', 'greenkhorn', 'ieppa', 'ieppa_soft', or 'cp'; ignoring for method='",
             method, "'", call. = FALSE)
-  accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft")
+  if (method == "cp" && !accelerate_explicit) accelerate <- TRUE
+  accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft", "cp")
 
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
   if (!is.null(design_weights)) {
@@ -456,10 +460,13 @@ harvest <- function(
 
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
-  if (calib_result$status == 2L)
+  # Epic-K K-1: CP overrides this contract \u2014 cp returns init-clamp weights on
+  # status 2/3 (per spec Sec 2 R-side warning table); R-side surfaces a warning
+  # below rather than stop().
+  if (calib_result$status == 2L && method != "cp")
     stop("leafblower: ", if (nchar(calib_result$message) > 0) calib_result$message
          else "infeasible problem")
-  if (calib_result$status == 3L)
+  if (calib_result$status == 3L && method != "cp")
     stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 
   # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp,
@@ -484,8 +491,27 @@ harvest <- function(
   if (calib_result$status == 5L && !isTRUE(accelerate_bool))
     warning("leafblower: loss function plateau — at constrained optimum given bounds; ",
             "weights are valid; no further improvement is achievable")
-  if (calib_result$status == 1L)
+  if (calib_result$status == 1L && method != "cp")
     warning("leafblower: did not converge (legacy status code from solver not yet updated)")
+
+  # Epic-K K-1: CP-specific status_code → warning() dispatch (per spec Sec 2 R-side
+  # warning table). status=0 silent. CP overrides legacy status=1 message above.
+  if (method == "cp") {
+    if (calib_result$status == 1L)
+      warning(sprintf(
+        "leafblower cp: max_iterations reached at iter=%d, max_error=%.2e; consider increasing max_iterations or trying method='ieppa'",
+        calib_result$iterations, calib_result$max_error), call. = FALSE)
+    if (calib_result$status == 2L)
+      warning(sprintf(
+        "leafblower cp: NaN/Inf detected at iter=%d; weights truncated; consider tightening max_weight or trying method='ieppa'",
+        calib_result$iterations), call. = FALSE)
+    if (calib_result$status == 3L)
+      warning("leafblower cp: infeasible bounds (lo[i] >= hi[i] - 2e-8 for some i); returning init-clamp weights",
+              call. = FALSE)
+    if (calib_result$status == 4L)
+      warning("leafblower cp: power-iteration on ||A|| did not converge; aborted before solver started; report a bug",
+              call. = FALSE)
+  }
 
   # Stall detection: PCT converged (status=0) but max_error >> pct_tol
   # signals infeasible problem. Threshold: 10x pct_tol.
@@ -514,11 +540,19 @@ harvest <- function(
       calib_result$n_bounds_clamped, min_weight, max_weight))
   }
 
-  # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7(deprecated), IEPPA_SOFT=8
-  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "", "ieppa_soft", "greenkhorn", "logit", "newton_kl")
+  # Enum: RK_ALG_AUTO=0, IEPPA=1, LBFGSB=2, RAKING=3, SINKHORN=4, CHEBYSHEV=5, GREG=6, GRAKE=7(deprecated), IEPPA_SOFT=8, GREENKHORN=9, LOGIT=10, NEWTON_KL=11, CP=12
+  alg_names <- c("", "ieppa", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "", "ieppa_soft", "greenkhorn", "logit", "newton_kl", "cp")
   alg_used  <- alg_names[calib_result$algorithm_used + 1L]
   # Make algorithm_used human-readable string (attr(r,"result")$algorithm_used == "greenkhorn")
   calib_result$algorithm_used <- alg_used
+  # Epic-K K-1: for method="cp", slot 39 holds the CP-internal algorithm name
+  # ("pdhg" or "accelerated_pdhg" after possible fallback). Promote it onto
+  # $algorithm_used so callers see CP's actual variant; keep $algorithm at the
+  # solver-name level via attr(r, "algorithm") = "cp".
+  if (identical(alg_used, "cp") && !is.null(calib_result$algorithm_used_cp)) {
+    calib_result$algorithm_used    <- calib_result$algorithm_used_cp
+    calib_result$algorithm_used_cp <- NULL
+  }
 
   # Quality-check warning: greg may be unreliable when max_err > 5%
   if (alg_used == "greg" &&
@@ -587,7 +621,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
     method <- "lbfgsb"
   }
-  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"))
+  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl", "cp"))
 }
 
 parse_convergence <- function(convergence) {

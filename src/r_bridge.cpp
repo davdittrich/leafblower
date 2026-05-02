@@ -20,6 +20,7 @@
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
+#include "cp_calib.hpp"
 
 namespace {
 const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
@@ -34,6 +35,7 @@ const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
     {"greenkhorn", RK_ALG_GREENKHORN},
     {"logit",      RK_ALG_LOGIT},
     {"newton_kl",  RK_ALG_NEWTON_KL},
+    {"cp",         RK_ALG_CP},
 };
 } // anonymous namespace
 
@@ -401,6 +403,17 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     int    res_n_projected_dims        = 0;
     /* Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
     double res_lm_mu_final             = 0.0;
+    /* Chambolle-Pock diagnostics (Epic-K K-1; defaults surface as NA on R-side for non-CP solvers) */
+    int    res_cp_n_cells              = 0;
+    std::string res_cp_algorithm_requested;
+    std::string res_cp_algorithm_used;
+    double res_cp_A_norm_estimate      = std::numeric_limits<double>::quiet_NaN();
+    int    res_cp_n_power_iter         = 0;
+    double res_cp_final_theta          = std::numeric_limits<double>::quiet_NaN();
+    double res_cp_final_tau            = std::numeric_limits<double>::quiet_NaN();
+    double res_cp_final_sigma          = std::numeric_limits<double>::quiet_NaN();
+    bool   res_cp_fell_back_to_pdhg    = false;
+    double res_cp_wall_time_ms         = std::numeric_limits<double>::quiet_NaN();
     std::vector<double> res_best_weights;  // obs-level, length n
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
@@ -609,6 +622,27 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             res_best_weights = std::move(res.base.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
+    } else if (strcmp(method_str, "cp") == 0) {
+        auto res = lbw::cp_calibrate(st);
+        pack_solver_result(res);
+        res_status     = res.base.status;
+        res_iterations = res.base.iterations;
+        res_max_error  = res.base.max_error;
+        res_alg_used   = (int)RK_ALG_CP;
+        res_cp_n_cells               = res.n_cells;
+        res_cp_algorithm_requested   = res.algorithm_requested;
+        res_cp_algorithm_used        = res.algorithm_used;
+        res_cp_A_norm_estimate       = res.A_norm_estimate;
+        res_cp_n_power_iter          = res.n_power_iter;
+        res_cp_final_theta           = res.final_theta;
+        res_cp_final_tau             = res.final_tau;
+        res_cp_final_sigma           = res.final_sigma;
+        res_cp_fell_back_to_pdhg     = res.fell_back_to_pdhg;
+        res_cp_wall_time_ms          = res.wall_time_ms;
+        if (!res.base.best_weights.empty())
+            res_best_weights = std::move(res.base.best_weights);
+        else
+            res_best_weights.assign(st.n, 0.0);
     } else {
         // Dispatch for chebyshev, ieppa_soft, and default ieppa.
 
@@ -714,6 +748,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                          : (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN))      ? "greenkhorn"
                          : (res_alg_used == static_cast<int>(RK_ALG_LOGIT))           ? "logit"
                          : (res_alg_used == static_cast<int>(RK_ALG_NEWTON_KL))      ? "newton_kl"
+                         : (res_alg_used == static_cast<int>(RK_ALG_CP))             ? "cp"
                          : "iEPPA";
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
                   alg_name, res_iterations, res_max_error);
@@ -731,8 +766,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  37));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic
-    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  37));
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  47));  // 37 prior + 10 CP diagnostics (Epic-K K-1)
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  47));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
@@ -822,6 +857,27 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     /* Element 36: Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
     SET_STRING_ELT(res_names, 36, Rf_mkChar("lm_mu_final"));
     SET_VECTOR_ELT(res_list,  36, Rf_ScalarReal(res_lm_mu_final));
+    /* Elements 37-46: Chambolle-Pock diagnostics (Epic-K K-1; CP-only — non-CP solvers surface defaults: int=0, double=NA_real_, bool=FALSE, string="") */
+    SET_STRING_ELT(res_names, 37, Rf_mkChar("n_cells"));
+    SET_VECTOR_ELT(res_list,  37, Rf_ScalarInteger(res_cp_n_cells));
+    SET_STRING_ELT(res_names, 38, Rf_mkChar("algorithm_requested"));
+    SET_VECTOR_ELT(res_list,  38, Rf_mkString(res_cp_algorithm_requested.c_str()));
+    SET_STRING_ELT(res_names, 39, Rf_mkChar("algorithm_used_cp"));
+    SET_VECTOR_ELT(res_list,  39, Rf_mkString(res_cp_algorithm_used.c_str()));
+    SET_STRING_ELT(res_names, 40, Rf_mkChar("A_norm_estimate"));
+    SET_VECTOR_ELT(res_list,  40, Rf_ScalarReal(res_cp_A_norm_estimate));
+    SET_STRING_ELT(res_names, 41, Rf_mkChar("n_power_iter"));
+    SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(res_cp_n_power_iter));
+    SET_STRING_ELT(res_names, 42, Rf_mkChar("final_theta"));
+    SET_VECTOR_ELT(res_list,  42, Rf_ScalarReal(res_cp_final_theta));
+    SET_STRING_ELT(res_names, 43, Rf_mkChar("final_tau"));
+    SET_VECTOR_ELT(res_list,  43, Rf_ScalarReal(res_cp_final_tau));
+    SET_STRING_ELT(res_names, 44, Rf_mkChar("final_sigma"));
+    SET_VECTOR_ELT(res_list,  44, Rf_ScalarReal(res_cp_final_sigma));
+    SET_STRING_ELT(res_names, 45, Rf_mkChar("fell_back_to_pdhg"));
+    SET_VECTOR_ELT(res_list,  45, Rf_ScalarLogical(res_cp_fell_back_to_pdhg ? TRUE : FALSE));
+    SET_STRING_ELT(res_names, 46, Rf_mkChar("wall_time_ms"));
+    SET_VECTOR_ELT(res_list,  46, Rf_ScalarReal(res_cp_wall_time_ms));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

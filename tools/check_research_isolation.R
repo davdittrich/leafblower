@@ -7,7 +7,7 @@ if (!file.exists("src/leafblower.so")) {
 }
 
 syms <- system2("nm", c("-D", "src/leafblower.so"), stdout = TRUE)
-forbidden <- c("cp_solve_R", "ipm_solve_R", "cp_calibrate", "ipm_calibrate")
+forbidden <- c("ipm_solve_R", "ipm_calibrate")
 hits <- sapply(forbidden, function(s) any(grepl(s, syms, fixed = TRUE)))
 
 if (any(hits)) {
