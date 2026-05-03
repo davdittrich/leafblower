@@ -230,7 +230,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             const int* codes = INTEGER(col);
             for (int i = 0; i < n; i++) {
                 if (codes[i] == NA_INTEGER) { gids_storage[k][i] = -1; continue; }
-                const char* lv = CHAR(STRING_ELT(flevels, codes[i] - 1));
+                int code = codes[i] - 1;
+                if (code < 0 || code >= LENGTH(flevels))
+                    Rf_error("leafblower: corrupt factor in column %d: code %d out of range [0, %d)",
+                             k, codes[i], (int)LENGTH(flevels));
+                const char* lv = CHAR(STRING_ELT(flevels, code));
                 auto it = level_to_idx.find(lv);
                 gids_storage[k][i] = (it != level_to_idx.end()) ? it->second : -1;
             }
