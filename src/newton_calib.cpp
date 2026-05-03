@@ -510,19 +510,65 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             }
 
             // δᵀ H_pre δ using pre-damp (PSD) Hessian for the gain-ratio denominator.
-            // Clamp ≥ 0: under severe rank deficiency (severe-skew K=20, many empty
-            // cells), Schur-complement subtraction can produce tiny-negative diagonal
-            // due to FP rounding. PSD is the mathematical truth; clamping avoids
-            // contaminating ρ with spurious numerical violations.
+            // PSD is the mathematical truth; under severe rank deficiency (severe-skew
+            // K=20, many empty cells), Schur-complement subtraction can produce
+            // tiny-negative results from FP rounding — those we clamp to 0. But a
+            // genuinely negative δᵀHδ (D3) means the model predicts ascent at this δ;
+            // reject the step and shrink the trust region instead of pretending it's 0.
             double delta_H_delta = 0.0;
             for (int a = 0; a < n_lam; ++a)
                 for (int b = 0; b < n_lam; ++b)
                     delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
-            if (delta_H_delta < 0.0) delta_H_delta = 0.0;
 
             // G·δ = G^T H_damp^{-1} G ≥ 0 (descent curvature).
             double g_dot_d = 0.0;
             for (int a = 0; a < n_lam; ++a) g_dot_d += G[a] * delta[a];
+
+            // D3: distinguish FP rounding noise (~|g_dot_d|·eps) from true ascent.
+            // If genuinely negative, skip the step and shrink trust region — do NOT
+            // mask the issue by clamping to zero.
+            if (delta_H_delta < -1e-10 * std::fabs(g_dot_d)) {
+                if (trust_step_taken) delta_radius *= 0.25;
+                lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
+                if (++consecutive_failed >= 3) {
+                    res.base.status = RK_ERR_NOCONV;
+                    res.lm_mu_final = lm_mu;
+                    break;
+                }
+                continue;  // re-enter iter without updating λ
+            }
+            // Tiny-negative-from-rounding only: clamp to 0 for ρ denominator.
+            if (delta_H_delta < 0.0) delta_H_delta = 0.0;
+
+            // D4: Armijo descent guard. δ from PSD H_damp⁻¹ G satisfies G·δ ≥ 0
+            // (descent for λ ← λ − α·δ); but TSVD truncation, Steihaug early-stop,
+            // or null-space projection (n_keep == 0 → δ = 0) can yield a direction
+            // with G·δ ≤ 0, in which case the Armijo test g_trial ≤ g_curr − c1·α·G·δ
+            // degenerates (RHS ≥ g_curr). Fall back to steepest descent: δ = G,
+            // G·δ = ||G||² > 0 (gap-test above already returned for ||G||_∞ < tol).
+            const double g_norm_sq = [&]{
+                double s = 0.0;
+                for (int a = 0; a < n_lam; ++a) s += G[a] * G[a];
+                return s;
+            }();
+            double delta_norm = 0.0;
+            for (int a = 0; a < n_lam; ++a) delta_norm += delta[a] * delta[a];
+            delta_norm = std::sqrt(delta_norm);
+            const double g_norm = std::sqrt(g_norm_sq);
+            if (g_dot_d <= 1e-12 * g_norm * delta_norm) {
+                std::copy(G.begin(), G.end(), delta.begin());
+                g_dot_d = g_norm_sq;
+                // Recompute δᵀHδ for the steepest-descent direction so ρ is honest.
+                delta_H_delta = 0.0;
+                for (int a = 0; a < n_lam; ++a)
+                    for (int b = 0; b < n_lam; ++b)
+                        delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
+                if (delta_H_delta < 0.0) delta_H_delta = 0.0;
+                // Steepest-descent direction did not come from the trust path —
+                // ρ_trust below would compare against a stale m_pred_dec_for_trust;
+                // disable trust-region update for this iteration.
+                trust_step_taken = false;
+            }
 
             // 5i. Armijo backtracking line search.
             // Sufficient decrease: g(λ - α·δ) ≤ g(λ) - c1·α·(G·δ).
