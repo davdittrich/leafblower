@@ -706,17 +706,29 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         Rf_error("leafblower: internal solver error — unknown exception type");
     }
 
-    const char* alg_name = (res_alg_used == (int)RK_ALG_LBFGSB)                       ? "L-BFGS-B"
-                         : (res_alg_used == (int)RK_ALG_RAKING)                       ? "raking"
-                         : (res_alg_used == static_cast<int>(RK_ALG_SINKHORN))        ? "sinkhorn"
-                         : (res_alg_used == static_cast<int>(RK_ALG_GREG))            ? "greg"
-                         : (res_alg_used == static_cast<int>(RK_ALG_CHEBYSHEV))       ? "chebyshev"
-                         : (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN))      ? "greenkhorn"
-                         : (res_alg_used == static_cast<int>(RK_ALG_LOGIT))           ? "logit"
-                         : (res_alg_used == static_cast<int>(RK_ALG_NEWTON_KL))      ? "newton_kl"
-                         : "iEPPA";
+    // Single source of truth for rk_algorithm_t → R-visible name.
+    // Indices match enum values in leafblower.h. Update both together.
+    static const char* kAlgNames[] = {
+        "",           // 0 = RK_ALG_AUTO
+        "ieppa",      // 1 = RK_ALG_IEPPA
+        "L-BFGS-B",   // 2 = RK_ALG_LBFGSB   (keep exact existing name)
+        "raking",     // 3 = RK_ALG_RAKING
+        "sinkhorn",   // 4 = RK_ALG_SINKHORN
+        "chebyshev",  // 5 = RK_ALG_CHEBYSHEV
+        "greg",       // 6 = RK_ALG_GREG
+        "",           // 7 = deprecated GRAKE
+        "ieppa_soft", // 8 = RK_ALG_IEPPA_SOFT
+        "greenkhorn", // 9 = RK_ALG_GREENKHORN
+        "logit",      // 10 = RK_ALG_LOGIT
+        "newton_kl",  // 11 = RK_ALG_NEWTON_KL
+    };
+    static const int kAlgNamesLen = 12;
+    static_assert(RK_ALG_NEWTON_KL == 11, "kAlgNames table needs update on enum change");
+    const char* alg_name_cstr = (res_alg_used >= 0 && res_alg_used < kAlgNamesLen)
+        ? kAlgNames[res_alg_used]
+        : "unknown";
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
-                  alg_name, res_iterations, res_max_error);
+                  alg_name_cstr, res_iterations, res_max_error);
 
     // greenkhorn and logit do not modify st.weights in-place; copy calibrated
     // weights into the weights vector so raw$weights in harvest.R is correct.
@@ -747,7 +759,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SET_VECTOR_ELT(res_list, 0, Rf_ScalarInteger(res_status));
     SET_VECTOR_ELT(res_list, 1, Rf_ScalarInteger(res_iterations));
     SET_VECTOR_ELT(res_list, 2, Rf_ScalarReal(res_max_error));
-    SET_VECTOR_ELT(res_list, 3, Rf_ScalarInteger(res_alg_used));
+    SET_VECTOR_ELT(res_list, 3, Rf_mkString(alg_name_cstr));
     SET_VECTOR_ELT(res_list, 4, Rf_mkString(res_message));
     SET_VECTOR_ELT(res_list, 5, Rf_ScalarInteger(res_n_xcur_writes));
     SET_VECTOR_ELT(res_list, 6, Rf_ScalarReal(res_min_alpha));
