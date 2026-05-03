@@ -241,7 +241,7 @@ ChebyshevResult chebyshev_ipm(
         // can produce NaN X values; saving NaN as best would corrupt the final result.
         if (cm.errRp < best_errRp && std::isfinite(cm.errRp)) {
             bool x_ok = true;
-            for (int c = 0; c < ct.M_cell && x_ok; c++) x_ok = std::isfinite(X[c]);
+            for (int c = 0; c < ct.M_cell && x_ok; c++) x_ok = x_ok && std::isfinite(X[c]);
             if (x_ok) { best_errRp = cm.errRp; res.base.best_iter = iter+1; X_best = X; }
         }
         // If X has gone NaN (numerical drift in ill-conditioned system), stop iterating.
@@ -475,7 +475,7 @@ ChebyshevResult chebyshev_ipm(
             // (alpha_aff → 0 when primal is near-optimal → sigma → 1 → stall)
             double ratio = (mu > 1e-300) ? (mu_aff / mu) : 1.0;
             double sigma = std::clamp(ratio*ratio*ratio, 1e-8, 1.0);
-            if (alpha_aff < 1e-4) sigma = std::min(sigma, kSigma);  // predictor stall guard
+            if (alpha_aff < 1e-4) sigma = std::max(sigma, kSigma);  // predictor stall guard
             sigma_mu = sigma * mu;
 
             // ── Phase B: corrector (centering + second-order) ─────────────────────

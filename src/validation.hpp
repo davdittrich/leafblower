@@ -57,7 +57,7 @@ inline int validate_calibrate_inputs(int n, int K,
             return err("cat_counts[k] > n: more categories than observations");
         total_cats += (size_t)cat_counts[k];
     }
-    if ((size_t)n * total_cats > SIZE_MAX / 2)
+    if (total_cats > 0 && (size_t)n > SIZE_MAX / 2 / (size_t)total_cats)
         return err("problem too large for platform size_t");
 
     // Initial weight checks
