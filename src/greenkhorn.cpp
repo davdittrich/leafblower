@@ -62,11 +62,13 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     };
     for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
 
-    // Best-iterate tracking
-    double best_errRp = *std::max_element(errRp.begin(), errRp.end());
-    res.base.best_error = best_errRp;
-    res.base.best_iter  = 0;
-    std::vector<double> X_best = X;
+    // G8c: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
+    // greenkhorn does not minimise KL directly, so best_objective stays ∞.
+    BestIterTracker best;
+    {
+        double init_errRp = *std::max_element(errRp.begin(), errRp.end());
+        best.update(init_errRp, std::numeric_limits<double>::infinity(), 0, X);
+    }
 
     // Convergence state
     std::vector<double> bucket_scratch(max_cats, 0.0);
@@ -174,15 +176,13 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
 
         // Best-iterate
         double curr_max = *std::max_element(errRp.begin(), errRp.end());
-        if (curr_max < best_errRp) {
-            best_errRp = curr_max;
-            res.base.best_error = best_errRp;
-            res.base.best_iter  = res.base.iterations;
-            X_best = X;
+        if (curr_max < best.best_metric) {
+            best.update(curr_max, std::numeric_limits<double>::infinity(),
+                        res.base.iterations, X);
         } else if (st.accelerate && K > 0 &&
-                   curr_max > best_errRp * (1.0 + lbw::kSRAAOuterSlack)) {
+                   curr_max > best.best_metric * (1.0 + lbw::kSRAAOuterSlack)) {
             if (++outer_stall_count >= lbw::kSRAAOuterStallWindow) {
-                X = X_best;                   // revert to outer-quality best
+                X = best.best_weights;        // revert to outer-quality best
                 grk_sraa.clear();             // restart AA history
                 outer_stall_count = 0;
                 // Rebuild W, S_flat, errRp from reverted X
@@ -196,7 +196,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
                     }
                 }
                 for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
-                best_errRp = *std::max_element(errRp.begin(), errRp.end());
+                // After revert to best, errRp matches best.best_metric — no update needed.
             }
         } else { outer_stall_count = 0; }
 
@@ -208,15 +208,20 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
             if (converged) {
                 lbw::mark_converged(res, cfg, res.base.iterations);
-                // B7: only overwrite X_best if convergence X is actually better
-                if (current_errRp < best_errRp) {
-                    X_best = X;
-                    best_errRp = current_errRp;
+                // B7: only overwrite best if convergence X is actually better
+                if (current_errRp < best.best_metric) {
+                    best.update(current_errRp, std::numeric_limits<double>::infinity(),
+                                res.base.iterations, X);
                 }
                 break;
             }
         }
     }
+
+    // G8c: write best-iterate fields from tracker.
+    res.base.convergence_solver_objective = best.best_objective;  // ∞ for greenkhorn
+    res.base.best_error = best.best_metric;
+    res.base.best_iter  = best.best_iter;
 
     // Post-loop status
     if (res.base.status == RK_ERR_NOCONV) {
@@ -230,15 +235,15 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             res.base.iterations, res.base.best_error);
     }
 
-    // Weight reconstruction from X_best
+    // Weight reconstruction from best.best_weights (cell-level X snapshot at best iter)
     res.base.best_weights.resize(st.n);
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
         res.base.best_weights[i] = (X_init[c] > 0.0)
-            ? st.weights[i] * X_best[c] / X_init[c]
+            ? st.weights[i] * best.best_weights[c] / X_init[c]
             : st.weights[i];
     }
-    res.base.max_error = best_errRp;
+    res.base.max_error = best.best_metric;
 
     return res;
 }

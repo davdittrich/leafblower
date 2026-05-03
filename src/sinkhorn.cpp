@@ -117,10 +117,10 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
     int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
 
-    double best_metric_seen    = std::numeric_limits<double>::infinity();
-    double best_objective_seen = 0.0;  // weight KL at best_iter (A1 fix)
-    int    best_iter_val    = 0;
-    std::vector<double> W_best(ct.M_cell, 0.0);
+    // G8c: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
+    // Fixes 0.0 sentinel bug: best_objective_seen was init'd to 0.0, making
+    // "no best recorded" indistinguishable from "objective == 0".
+    BestIterTracker best;
 
     // Scratch buffers for compute_weight_kl.
     std::vector<double> kl_ratio_buf(ct.M_cell);
@@ -212,13 +212,11 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
             const double curr_best = lbw::select_metric(
                 st.convergence_cfg.metric, m);
-            if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
-                // === BEST-ITER UPDATE ===
-                best_metric_seen    = curr_best;
-                best_iter_val       = iter;
-                best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data());
-                W_best              = X;
-                // === END BEST-ITER UPDATE ===
+            if (std::isfinite(curr_best) && curr_best < best.best_metric) {
+                best.update(curr_best,
+                            lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n,
+                                                   kl_ratio_buf.data(), kl_weight_buf.data()),
+                            iter, X);
             }
 
             if (lbw::check_convergence(st.convergence_cfg, m, prev_metric_for_rule, st.tol_abs)) {
@@ -228,23 +226,25 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         }
     }
 
-    res.base.convergence_solver_objective = best_objective_seen;
+    // G8c: write best-iterate fields from tracker.
+    res.base.convergence_solver_objective = best.best_objective;
     res.base.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
-    res.base.best_error = best_metric_seen;
-    res.base.best_iter  = best_iter_val;
+    res.base.best_error = best.best_metric;
+    res.base.best_iter  = best.best_iter;
 
-    if (std::isfinite(best_metric_seen)) {
+    if (best.has_best()) {
+        std::vector<double> w_snap = best.best_weights;  // cell-level X snapshot
         double s = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) s += W_best[c];
+        for (int c = 0; c < ct.M_cell; c++) s += w_snap[c];
         if (s > 0.0) {
             const double sc = static_cast<double>(st.n) / s;
-            for (int c = 0; c < ct.M_cell; c++) W_best[c] *= sc;
+            for (int c = 0; c < ct.M_cell; c++) w_snap[c] *= sc;
         }
         res.base.best_weights.resize(st.n);
         const double hi_obs = lbw::resolve_hi(st);
         for (int i = 0; i < st.n; i++) {
             int c = ct.cell_of[i];
-            double mult = (X_init[c] > 0.0) ? W_best[c] / X_init[c] : 1.0;
+            double mult = (X_init[c] > 0.0) ? w_snap[c] / X_init[c] : 1.0;
             res.base.best_weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
         }
     } else {
