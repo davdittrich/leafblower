@@ -177,7 +177,9 @@ PYBIND11_MODULE(_leafblower, m) {
             result_dict["convergence_metric"]  = result.convergence_metric;
             result_dict["convergence_rule"]    = result.convergence_rule;
             result_dict["convergence_tol"]     = result.convergence_tol;
-            result_dict["convergence_iter"]    = result.convergence_iter;
+            result_dict["convergence_iter"]               = result.convergence_iter;
+            result_dict["convergence_solver_objective"]   = result.convergence_solver_objective;
+            result_dict["convergence_minimized_metric"]   = result.convergence_minimized_metric;
             result_dict["best_error"]          = result.best_error;
             result_dict["best_iter"]           = result.best_iter;
             result_dict["sor_min_omega"]       = result.sor_min_omega;

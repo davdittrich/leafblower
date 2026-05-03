@@ -323,7 +323,7 @@ def harvest(
         "rule":          _RULE_NAMES[result_dict.get("convergence_rule", 1)],
         "tol":           result_dict.get("convergence_tol", 0.001),
         "fired_at_iter": result_dict.get("convergence_iter", -1),
-        "objective":         result_dict.get("convergence_objective", float("inf")),
+        "objective":         result_dict.get("convergence_solver_objective", float("inf")),
         "minimized_metric":  _METRIC_NAMES[result_dict.get("convergence_minimized_metric", 0)],
     }
 
