@@ -1,31 +1,27 @@
 
-# Git worktrees
-.worktrees/
-
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
+# Added by code-review-graph
 .beads-credential-key
-
-# Python build artifacts
-python/leafblower/*.so
-python/leafblower/*.pyd
-
-# R build artifacts
-*.o
-*.so
+# Beads / Dolt files (added by bd init)
+.code-review-graph/
+*.db
 *.dll
-src/*.o
-src/leafblower.so
-
-# R CMD check output
+.dolt/
+# Git worktrees
+# Graphify cache (large, auto-regenerated)
+graphify-out/cache/
+*.o
+# Python build artifacts
+python/leafblower/*.pyd
+python/leafblower/*.so
+# R build artifacts
+*.Rcheck/
 ..Rcheck/
-
+# R CMD check output
+*.so
+src/leafblower.so
+src/*.o
 # Test failure tracking
 tests/testthat/_problems/
 tests/testthat/testthat-problems.rds
-
-# Graphify cache (large, auto-regenerated)
-graphify-out/cache/
-# Added by code-review-graph
-.code-review-graph/
+.wolf/backups/
+.worktrees/
