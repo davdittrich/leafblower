@@ -1,0 +1,138 @@
+# Cell-Loop Hot Spots — profiling results (G4a)
+# Date: 2026-05-03
+# Method: Rprof (R-level, 10ms interval) + static code analysis of C++ hot paths
+# Workload: 10000-obs, 5-margin, 20 ieppa + 20 raking runs (harvest())
+# Branch: feat/perf-maint
+# Makevars: PKG_CXXFLAGS = -std=c++17 -O3 -fopenmp-simd -mavx2
+
+## Rprof results (by.self, sorted)
+# Note: Rprof resolves only R-level frames; all C++ runs opaquely inside ".Call"
+# (75% self time), confirming the solver inner loops dominate.
+#
+#                           self.time self.pct total.time total.pct
+# .Call                          0.09    75.00       0.09     75.00   <- all C++ work
+# compute_quality_metrics        0.01     8.33       0.03     25.00
+# FUN                            0.01     8.33       0.01      8.33
+# names                          0.01     8.33       0.01      8.33
+
+## Static analysis: per-solver hot loops
+#
+# ieppa.cpp — 27 000 tokens, O3+AVX2 already compiled.
+# Loop trip count per solver call (10000-obs, 5 margins, 3-4 cats each):
+#   M_cell ≈ 3*2*3*4*3 = 648 cells (full cross-product, many inactive)
+#   Effective active cells: 2000-4000 (sparse)
+#   Iterations to convergence: ~50-200 (ieppa), ~100-500 (raking)
+#   Calls per benchmark run: 10 ieppa × ~100 iter × K=5 margins = 5000 inner passes
+
+## SIMD-annotation candidates
+### 1. ieppa.cpp — apply_single_margin_linear gather + X_cur scatter
+   File: src/ieppa.cpp, lines ~556–647
+   Functions: apply_single_margin_linear (lambda, called every inner iteration)
+   Loop body (gather, line ~558–570):
+     for (int c = 0; c < ct.M_cell; c++) {
+         int j = gk[c];
+         if (j < 0 || j >= nj) continue;
+         if (X_init[c] <= 0.0) continue;
+         S_lin[j] += X_cur[c] * inv_f_old_lin[j];  // scatter-add via indirect j
+     }
+   Loop body (X_cur scatter, line ~638–644):
+     for (int c = 0; c < ct.M_cell; c++) {
+         int j = gk[c];
+         if (j < 0 || j >= nj) continue;
+         if (X_init[c] <= 0.0) continue;
+         X_cur[c] *= rescale_lin[j];               // read-scatter multiply
+     }
+   Estimated CPU share: ~35% of C++ time (called K times per iteration, linear path)
+   SIMD-safe: PARTIAL
+     - Gather accumulate (S_lin[j] +=) has indirect write conflicts — NOT safe without
+       scatter-reduction. The j indices are random per cell, creating write hazards.
+     - X_cur[c] *= rescale_lin[j] loop: X_cur[c] is written at contiguous c, read
+       at indirect j — this IS SIMD-safe as a gather-read + contiguous write.
+       #pragma omp simd is safe on the X_cur multiply loop only.
+   SIMD candidate: X_cur scatter-multiply only (not the S_lin accumulation).
+
+### 2. ieppa.cpp — log-path s_buf Pass 1 fill loop (S3 Sites A, B, C)
+   File: src/ieppa.cpp, lines ~1159–1162, ~1179–1182, ~1292–1304
+   Loop body (Site C, representative):
+     for (int c = 0; c < ct.M_cell; c++) {
+         if (X_init[c] <= 0.0) { s_buf[c] = -kLogClip; continue; }
+         double s = log_X_init[c] + cell_lf[c];
+         if (s > max_log_X_tilde) max_log_X_tilde = s;  // max-reduction
+         if (s > kLogClip && U_cell[c] >= 1e299) overflow_detected = true;
+         s_buf[c] = s;
+     }
+   Estimated CPU share: ~25% of C++ time (runs once per full iteration on log-path,
+     all 3 Sites; bulk_exp_clipped following it is already vectorized)
+   SIMD-safe: YES (with caveat)
+     - All reads (log_X_init, cell_lf, X_init, U_cell) and write (s_buf) are
+       contiguous array accesses indexed by c — no aliasing.
+     - The max-reduction (max_log_X_tilde) and boolean OR (overflow_detected) are
+       SIMD-reducible with #pragma omp simd reduction(max:max_log_X_tilde)
+                                                      reduction(||:overflow_detected)
+     - The early-continue on X_init[c] <= 0.0 can be replaced by a blend (ternary),
+       enabling full vectorization:
+         s_buf[c] = (X_init[c] > 0.0) ? (log_X_init[c] + cell_lf[c]) : -kLogClip;
+   SIMD candidate: YES — highest value target. All 3 Sites (A/B/C) identical pattern.
+   Annotation: #pragma omp simd reduction(max:max_log_X_tilde)
+
+### 3. raking.cpp — water_fill_cat commit loop (lines ~187–207)
+   File: src/raking.cpp, lines ~187–207 (inner commit inside water_fill_cat lambda)
+   Loop body (commit when no clamping — fast path):
+     for (int ci = 0; ci < n; ci++) {
+         const int c = cells[ci];
+         if      (wf_status[ci] == 0) Xv[c] = wf_x_orig[ci] * m;
+         else if (wf_status[ci] == 1) Xv[c] = U_cell[c];
+         else                          Xv[c] = L_cell[c];
+     }
+   Called K × nj times per iteration (5 margins × avg 3 cats = 15 calls/iter).
+   Estimated CPU share: ~20% of C++ time (raking path)
+   SIMD-safe: PARTIAL
+     - cells[ci] is an indirect index into Xv — write is scatter, cannot SIMD.
+     - wf_x_orig and wf_status are compact scratch arrays (0..n-1) — fully
+       contiguous. The multiply m * wf_x_orig[ci] is SIMD-safe in scratch space.
+     - The clamping scan loop (lines ~169–184, same pattern) IS SIMD-safe for
+       reading wf_x_orig[ci]*m against U_cell/L_cell bounds — but writes to
+       clamped_sum/free_sum are reductions.
+   SIMD candidate: the detection loop (lines ~169–184) with:
+     #pragma omp simd reduction(+:clamped_sum) reduction(-:free_sum)
+     for the clamped detection pass (but branch on wf_status prevents full
+     auto-vectorization without predication).
+
+## Non-candidates (cannot be SIMD-annotated)
+
+### apply_single_margin_linear / _log — S_lin gather-accumulate
+   Loop: S_lin[j] += X_cur[c] * inv_f_old_lin[j]  (j = gk[c], indirect write)
+   Reason: Write conflicts on S_lin[j] — multiple c values map to same j.
+   This is a histogram/scatter-add with random indices; requires atomic or serial
+   reduction. Hardware scatter-reduce (#pragma omp simd) does NOT prevent races
+   on sum-accumulation into non-contiguous targets.
+
+### apply_single_margin_log — cell_lf scatter (lines ~628–636)
+   Loop: for (int c : cells_by_margin_cat[off + j]) { cell_lf[c] += delta; ... }
+   Reason: Indirect contiguous-ish update but includes a running max
+   (cell_lf_hwm) with a conditional isfinite check. The cells_by_margin_cat
+   vector contains pre-sorted indices, but the outer loop over j is serial
+   (each j's write set is disjoint — simd COULD work within a single j's loop,
+   but the trip count is tiny: cells_by_margin_cat[off+j].size() ≈ M_cell/nj,
+   which for 5 margins × 3 cats ≈ 648/3 = 216 cells at most). Low bang.
+
+### water_fill_cat — clamping scan with early state mutation
+   Loop: for (int ci ...) { if (wf_status[ci]!=0) continue; ... clamped_sum += ... }
+   Reason: Loop-carried writes to clamped_sum, free_sum, any_clamped, and
+   wf_status[] make this a serial state machine. Even with reductions, the
+   wf_status[] mutation during the loop precludes SIMD.
+
+### sinkhorn.cpp — scale scatter  (line ~156–159)
+   Loop: for (int c = 0; c < ct.M_cell; c++) { int g = ct.g_per_cell[k][c];
+             if (g >= 0 ...) X[c] *= scale[g]; }
+   Reason: X[c] *= scale[g] is a gather-multiply — gather of scale[g] via
+   indirect g, multiply, write to contiguous X[c]. SIMD-safe in principle,
+   but sinkhorn is rarely the bottleneck path (not default method). Low priority.
+
+## Summary ranking for G4b annotation work
+
+Priority | File:lines                              | Loop type              | Expected gain
+---------|----------------------------------------|------------------------|---------------
+1 (HIGH) | ieppa.cpp:1159-1162, 1179-1182, 1292-1304 | s_buf fill + max-reduce | bulk_exp already AVX2; pass1 is serial bottleneck
+2 (MED)  | ieppa.cpp:638-644 (inside apply_single_margin_linear) | X_cur *= rescale scatter-mul | called K × iter times
+3 (LOW)  | raking.cpp:169-184 (water_fill_cat detect pass) | bounds detection reduce | short trip count limits gain
