@@ -171,7 +171,13 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                 res.base.status = RK_ERR_INFEAS;
                 break;
             }
-            // Dykstra correction: accumulate log-space adjustment
+            // Dykstra correction: accumulate log-space adjustment.
+            // Sign convention: a[] is added INSIDE the bisection eval (X*exp(a+mu)),
+            // so a[] must store log(X_pre/X_post) so that next iter's X*exp(a) reconstructs
+            // the pre-clamp value the previous bisection saw. exp(+a) un-projects;
+            // hence log(X) - log(X_proj), the OPPOSITE of the textbook
+            // a += log(X_proj) - log(X) form (which assumes exp(-a) un-projects).
+            // Verified by fixed-point trace: at convergence the update yields zero. (B11)
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X[c] > 1e-300 && X_proj[c] > 1e-300)
                     a[c] += std::log(X[c]) - std::log(X_proj[c]);
