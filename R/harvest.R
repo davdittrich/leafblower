@@ -534,26 +534,38 @@ harvest <- function(
   }
 
   # Tier-1/2 calibration quality metrics.
-  # Computed post-solver at O(nK) cost; guards protect against degenerate states.
-  # Tier 1: margin_kl (KL divergence of calibrated marginals from targets),
-  #         wall_time_ms (not computed here — see $wall_time_ms from C bridge).
-  # Tier 2: weight_kl (KL of normalized weights from uniform),
-  #         design_effect (DEFF = n * sum(w^2) / sum(w)^2),
-  #         effective_observations (n_eff = sum(w)^2 / sum(w^2)).
-  if (length(weights) > 0L && is.finite(sum(weights)) && sum(weights) > 0) {
-    .Z  <- sum(weights)
-    .n  <- length(weights)
-    .wn <- weights * .n / .Z                         # normalize to mean=1
-    calib_result$design_effect          <- .n * sum(weights^2) / .Z^2
-    calib_result$effective_observations <- .Z^2 / sum(weights^2)
-    calib_result$weight_kl              <- sum(.wn * log(pmax(.wn, 1e-15))) / .n
+  # Computed post-solver at O(nK) cost.
+  # Tier 1: margin_kl = KL(T_kj || W_kj) summed over all margins k and levels j,
+  #         where W_kj = sum of calibrated weights on category j / total weight.
+  # Tier 2: weight_kl  = KL(w/Z || 1/n) = mean(wn * log(wn)) where wn = n*w/Z,
+  #         design_effect   = n * sum(w^2) / sum(w)^2 (DEFF),
+  #         effective_observations = sum(w)^2 / sum(w^2) (Kish n_eff).
+  if (length(weights) > 0L && length(target) > 0L &&
+      is.finite(sum(weights)) && sum(weights) > 0) {
+    Z  <- sum(weights)
+    n  <- length(weights)
+    wn <- weights * n / Z                         # normalize to mean=1
+    deff <- n * sum(weights^2) / Z^2
+    calib_result$design_effect          <- deff
+    calib_result$effective_observations <- if (is.finite(deff) && deff > 0) n / deff else NA_real_
+    calib_result$weight_kl              <- sum(wn * log(pmax(wn, 1e-15))) / n
     calib_result$margin_kl              <- tryCatch(
       sum(sapply(names(target), function(k) {
-        T_k <- target[[k]]
-        W_k <- tapply(weights, data[[k]], sum) / .Z
-        T_k <- T_k[names(W_k)]
-        sum(pmax(T_k, 1e-15) * log(pmax(T_k, 1e-15) / pmax(W_k, 1e-15)), na.rm = TRUE)
-      })),
+        T_k   <- target[[k]]
+        obs_k <- data[[k]]
+        valid <- !is.na(obs_k)                    # exclude NA-coded observations
+        w_v   <- weights[valid]
+        Z_k   <- sum(w_v)
+        if (Z_k == 0) return(NA_real_)
+        W_k <- tapply(w_v, droplevels(obs_k[valid]), sum) / Z_k
+        # categories in T_k with T_k > 0 but absent from W_k → infeasible margin
+        if (any(T_k[setdiff(names(T_k), names(W_k))] > 0)) return(Inf)
+        common <- intersect(names(T_k), names(W_k))
+        T_sub  <- T_k[common]; W_sub <- W_k[common]
+        pos    <- T_sub > 0                       # limit: 0 * log(0/W) = 0
+        if (!any(pos)) return(0)
+        sum(T_sub[pos] * log(T_sub[pos] / pmax(W_sub[pos], 1e-15)))
+      }), na.rm = FALSE),
       error = function(e) NA_real_
     )
   } else {
