@@ -147,7 +147,7 @@ def harvest(
     weight_column : name of the weights column (default "weights")
     convergence : dict controlling the stopping criterion. Keys:
         "metric" (str) — one of "max_err" (default), "mean_err", "kl", "chi2",
-            "grake_norm", "l1_weight".
+            "grake_norm", "l1_weight", "marginal_kl".
         "rule" (str) — one of "improvement" (default), "threshold", "plateau".
         "tol" (float) — tolerance value (default 0.001).
         "pct" (float) — shorthand: activates l1_weight + plateau rule.
