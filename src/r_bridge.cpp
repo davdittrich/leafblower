@@ -429,12 +429,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_best_iter                = res.base.best_iter;
     };
 
-    // RAII-safe error capture: collect any error message into a plain std::string,
-    // then call Rf_error AFTER this scope closes so all std::vector destructors run
-    // before longjmp. Rf_error inside this scope is UB (longjmp past C++ dtors).
     std::string solver_error;
-    bool solver_failed = false;
-    {
+    {  // Rf_error longjmp skips C++ dtors; destroy all RAII objects before calling it (R-exts §5.5)
     try {
     if (strcmp(method_str, "lbfgsb") == 0) {
         auto res = lbw::lbfgsb_solve(st);
@@ -713,26 +709,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         }
     }
     } catch (const std::exception& e) {
-        // Capture into plain std::string; defer Rf_error until ALL RAII objects
-        // in this scope (res, weights_copy, st_warm, w_warm_obs, weights_backup,
-        // res_best_weights moves, etc.) have been destroyed. Rf_error here would
-        // longjmp past every active C++ destructor — UB per R-exts §5.5.
         solver_error = e.what();
-        solver_failed = true;
     } catch (...) {
-        // Catch non-std::exception throws (raw types, third-party exceptions).
-        solver_error = "unknown exception type";
-        solver_failed = true;
+        solver_error = "unknown exception";
     }
-    }  // RAII scope: all solver-locals (res, weights_copy, st_warm, etc.) destroyed here.
-
-    // Now safe to fire Rf_error w.r.t. the dispatch-block RAII objects: every
-    // std::vector created inside the dispatch try{} block has been destroyed.
-    // Outer std::vectors (gids_storage, weights, ...) and solver_error itself
-    // are still live; they were live before this fix too — addressing them is
-    // out of scope for A1 (would require restructuring all of C_rk_calibrate's
-    // input-parsing path, including pre-dispatch Rf_error sites).
-    if (solver_failed) {
+    }
+    if (!solver_error.empty()) {
         Rf_error("leafblower: internal solver error \xe2\x80\x94 %s",
                  solver_error.c_str());
     }
