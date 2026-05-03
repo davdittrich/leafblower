@@ -140,7 +140,13 @@ RakingResult raking_solve(CalibState& st) {
         const int n = static_cast<int>(cells.size());
         if (n == 0) return;
         if (bucket_j < kAbsoluteZeroThreshold) {
-            if (T_kj > 0.0) is_infeasible = true;
+            if (T_kj > 0.0) {
+                is_infeasible = true;
+                // Zero cells to lower bounds — do not leave stale values that
+                // survive post-normalization and silently violate the constraint.
+                for (int ci = 0; ci < n; ++ci)
+                    Xv[cells[ci]] = L_cell[cells[ci]];
+            }
             return;
         }
 
@@ -248,7 +254,14 @@ RakingResult raking_solve(CalibState& st) {
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 double Tkj = st.targets[k][j] * W_total;
                 if (bucket[j] < kRelativeZeroFraction * W_total) {
-                    if (Tkj > 0.0) is_infeasible = true;
+                    if (Tkj > 0.0) {
+                        is_infeasible = true;
+                        // Clamp cells to lower bounds — stale Xv values would survive
+                        // the post-normalization step and silently violate the margin.
+                        const auto& cells_kj = cells_per_cat[k][j];
+                        for (int ci = 0; ci < (int)cells_kj.size(); ++ci)
+                            Xv[cells_kj[ci]] = L_cell[cells_kj[ci]];
+                    }
                     continue;
                 }
                 if (eff_omega != 1.0) {
