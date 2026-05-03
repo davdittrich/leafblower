@@ -95,6 +95,9 @@ typedef struct {
     double          newton_tsvd_ratio;  /* newton_kl TSVD truncation ratio (Epic-H WH-e); default 1e-8.
                                           * Eigenvalues with λ_i < ratio*λ_max are dropped from the
                                           * pseudoinverse. <=0.0 falls back to internal default 1e-8. */
+    int             accelerate;         /* opt-in to SRAA Anderson acceleration; 0=off (default), 1=on */
+    int             _pad_accelerate;    /* alignment padding */
+    double          alm_penalty;        /* ALM penalty coefficient (st.alm.mu); 0.0 = inactive */
 } rk_params_t;
 
 /* ── Result ── */
@@ -193,8 +196,9 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  *   sor_burnin (int, 4B) + 4B pad
  * T4 (2026-04-29): capacity_penalty (double, 8B) after sor_burnin;
  * ztid.7 (2026-04-30): removed enabled int from rk_homotopy_cfg_t; total: 224B.
- * 8aex.3 (2026-05-02): added newton_tsvd_ratio (double) for Epic-H WH-e; +8B → 232B. */
-#define EXPECTED_RK_PARAMS_BYTES 232
+ * 8aex.3 (2026-05-02): added newton_tsvd_ratio (double) for Epic-H WH-e; +8B → 232B.
+ * PY-2 (2026-05-03): added accelerate (int) + _pad (int) + alm_penalty (double); +16B → 248B. */
+#define EXPECTED_RK_PARAMS_BYTES 248
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

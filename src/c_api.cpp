@@ -268,6 +268,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         // Epic-H WH-g: severe-skew K≥5 AUTO routes to ieppa with SRAA enabled.
         st.accelerate = true;
     }
+    if (p->accelerate)                  /* PY-2: explicit opt-in to SRAA */
+        st.accelerate = true;
+    if (p->alm_penalty > 0.0)           /* PY-2: ALM penalty coefficient */
+        st.alm.mu = p->alm_penalty;
     // Only the auto-fallback path needs this; skip O(n) copy for explicit method calls.
     const std::vector<double> weights_backup = (p->algorithm == RK_ALG_AUTO)
         ? std::vector<double>(weights, weights + n)

@@ -125,6 +125,8 @@ def harvest(
     eta_schedule_power: float = 0.5,
     capacity_penalty: Optional[float] = None,
     newton_tsvd_ratio: float = 1e-8,
+    accelerate: bool = False,
+    alm_penalty: Optional[float] = None,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -300,9 +302,13 @@ def harvest(
         "eta_schedule_power":    eta_schedule_power,
         # Method-specific (PY-1)
         "newton_tsvd_ratio":     newton_tsvd_ratio,
+        # SRAA / ALM (PY-2)
+        "accelerate":            int(accelerate),
     }
     if capacity_penalty is not None:
         params["capacity_penalty"] = capacity_penalty
+    if alm_penalty is not None and alm_penalty > 0.0:
+        params["alm_penalty"] = alm_penalty
 
     log_fn = print if verbose > 0 else None
 

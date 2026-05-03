@@ -134,6 +134,11 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.capacity_penalty = params_dict["capacity_penalty"].cast<double>();
             if (params_dict.contains("newton_tsvd_ratio"))
                 p.newton_tsvd_ratio = params_dict["newton_tsvd_ratio"].cast<double>();
+            // SRAA / ALM (PY-2)
+            if (params_dict.contains("accelerate"))
+                p.accelerate = params_dict["accelerate"].cast<int>();
+            if (params_dict.contains("alm_penalty"))
+                p.alm_penalty = params_dict["alm_penalty"].cast<double>();
 
             // Wire log callback if verbose and callable provided
             PyObject* callable_ptr = nullptr;
