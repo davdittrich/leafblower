@@ -3,7 +3,11 @@
 // Used by greenkhorn.cpp and raking.cpp to replace SQUAREM CBB acceleration.
 #include "calib_linalg.hpp"
 #include "lbw_config.h"
-#include <R.h>
+#ifndef LBW_NO_R
+#  include <R.h>
+#else
+#  include <stdexcept>
+#endif
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -46,8 +50,13 @@ struct SRAAState {
     double prev_resid_norm = 0.0;  // read only when has_prev=true
 
     void init(int M_cell, int window) {
-        if (window > kSRAAMaxM)
+        if (window > kSRAAMaxM) {
+#ifndef LBW_NO_R
             Rf_error("SRAA window %d exceeds kSRAAMaxM=%d", window, kSRAAMaxM);
+#else
+            throw std::runtime_error("SRAA window exceeds kSRAAMaxM");
+#endif
+        }
         M = M_cell; m = window;
         try {
             dX_buf.assign((size_t)m * M, 0.0);
@@ -55,8 +64,12 @@ struct SRAAState {
             R_prev.assign(M, 0.0); X_prev.assign(M, 0.0);
             F_cur.assign(M, 0.0);  scratch.assign(M, 0.0);
         } catch (std::bad_alloc&) {
+#ifndef LBW_NO_R
             Rf_error("SRAA: out of memory allocating %.0f MB (m=%d, M=%d)",
                      (2.0*m + 4.0) * M * 8.0 / 1e6, m, M);
+#else
+            throw std::runtime_error("SRAA: out of memory");
+#endif
         }
         clear();
     }

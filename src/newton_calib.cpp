@@ -4,11 +4,24 @@
 #include "calib_linalg.hpp"
 #include "cell_table.hpp"
 #include "calib_validate.hpp"
-#include <R_ext/Lapack.h>
-#include <R_ext/Print.h>  // Rprintf (Epic-H WH-e diagnostics)
-#include <R_ext/RS.h>   // F77_CALL
-#ifndef FCONE
-# define FCONE
+#ifndef LBW_NO_R
+#  include <R_ext/Lapack.h>
+#  include <R_ext/Print.h>  // Rprintf (Epic-H WH-e diagnostics)
+#  include <R_ext/RS.h>     // F77_CALL
+#  ifndef FCONE
+#    define FCONE
+#  endif
+#else
+#  include <cstdio>
+// System LAPACK declarations for Python build
+extern "C" {
+    void dsyevd_(const char* jobz, const char* uplo, int* n, double* A, int* lda,
+                 double* w, double* work, int* lwork, int* iwork,
+                 int* liwork, int* info);
+}
+#  define F77_CALL(x) x ## _
+#  define Rprintf(...) fprintf(stderr, __VA_ARGS__)
+#  define FCONE
 #endif
 #include <cmath>
 #include <algorithm>

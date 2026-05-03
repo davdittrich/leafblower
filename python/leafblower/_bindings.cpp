@@ -109,6 +109,31 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.sor_omega_fixed = params_dict["sor_omega_fixed"].cast<double>();
             if (params_dict.contains("sor_burnin"))
                 p.sor_burnin = params_dict["sor_burnin"].cast<int>();
+            // Homotopy (PY-1)
+            if (params_dict.contains("homotopy_levels"))
+                p.homotopy.n_levels = params_dict["homotopy_levels"].cast<int>();
+            if (params_dict.contains("homotopy_start_factor"))
+                p.homotopy.start_factor = params_dict["homotopy_start_factor"].cast<double>();
+            if (params_dict.contains("homotopy_end_factor"))
+                p.homotopy.end_factor = params_dict["homotopy_end_factor"].cast<double>();
+            if (params_dict.contains("homotopy_budget_p"))
+                p.homotopy.budget_split_p = params_dict["homotopy_budget_p"].cast<double>();
+            // Scheduler / eta (PY-1)
+            if (params_dict.contains("scheduler"))
+                p.scheduler = (rk_scheduler_t)params_dict["scheduler"].cast<int>();
+            if (params_dict.contains("eta_mode"))
+                p.eta_mode = (rk_eta_mode_t)params_dict["eta_mode"].cast<int>();
+            if (params_dict.contains("eta_start"))
+                p.eta_start = params_dict["eta_start"].cast<double>();
+            if (params_dict.contains("eta_end"))
+                p.eta_end = params_dict["eta_end"].cast<double>();
+            if (params_dict.contains("eta_schedule_power"))
+                p.eta_schedule_power = params_dict["eta_schedule_power"].cast<double>();
+            // Method-specific (PY-1)
+            if (params_dict.contains("capacity_penalty"))
+                p.capacity_penalty = params_dict["capacity_penalty"].cast<double>();
+            if (params_dict.contains("newton_tsvd_ratio"))
+                p.newton_tsvd_ratio = params_dict["newton_tsvd_ratio"].cast<double>();
 
             // Wire log callback if verbose and callable provided
             PyObject* callable_ptr = nullptr;

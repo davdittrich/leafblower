@@ -11,11 +11,19 @@ find_package(pybind11 2.11 REQUIRED)
 # Sources: all src/*.cpp EXCEPT r_bridge.cpp (includes Rinternals.h unavailable here)
 set(CORE_SOURCES
     ../src/c_api.cpp
-    ../src/logit.cpp
-    ../src/lbfgsb_solver.cpp
-    ../src/ieppa.cpp
-    ../src/raking.cpp
+    ../src/calib_linalg.cpp
+    ../src/calib_validate.cpp
     ../src/cell_table.cpp
+    ../src/chebyshev.cpp
+    ../src/greenkhorn.cpp
+    ../src/greg.cpp
+    ../src/ieppa.cpp
+    ../src/lbfgsb_solver.cpp
+    ../src/logit.cpp
+    ../src/logit_calib.cpp
+    ../src/newton_calib.cpp
+    ../src/raking.cpp
+    ../src/sinkhorn.cpp
 )
 
 pybind11_add_module(_leafblower
@@ -25,6 +33,8 @@ pybind11_add_module(_leafblower
 
 target_include_directories(_leafblower PRIVATE ../src)
 target_compile_definitions(_leafblower PRIVATE LBW_NO_R)
+find_package(LAPACK REQUIRED)
+target_link_libraries(_leafblower PRIVATE ${LAPACK_LIBRARIES})
 # -mavx2 required: lbfgsb_solver.cpp uses _mm256_* intrinsics via
 # bulk_scaled_exp when LBW_HAS_GLIBC_MVEC=1 (default in lbw_config.h).
 # Without it, gcc errors "inlining failed in call to 'always_inline'

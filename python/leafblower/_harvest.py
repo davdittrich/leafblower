@@ -114,6 +114,17 @@ def harvest(
     convergence: Optional[Dict] = None,
     sor: Optional[Dict] = None,
     bounds_mode: str = "cell",
+    homotopy_levels: int = 1,
+    homotopy_start_factor: float = 1.0,
+    homotopy_end_factor: float = 1.0,
+    homotopy_budget_p: float = 0.5,
+    scheduler: str = "round_robin",
+    eta_schedule: str = "fixed",
+    eta_start: float = 1.0,
+    eta_end: float = 1.0,
+    eta_schedule_power: float = 0.5,
+    capacity_penalty: Optional[float] = None,
+    newton_tsvd_ratio: float = 1e-8,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -126,7 +137,7 @@ def harvest(
     min_weight : float, lower bound on weights (default 0 = no bound)
     max_weight : float, upper bound on weights (default 5)
     method : str, one of "ieppa" (default), "lbfgsb", "raking", "sinkhorn",
-        "chebyshev", "greg", "grake"
+        "chebyshev", "greg", "ieppa_soft", "greenkhorn", "logit", "newton_kl"
     verbose : int, 0=silent, 1=progress, 2=debug
     max_iterations : int, inner BCD max sweeps per outer iter (default 500)
     start_weights : optional 1D float64 array of initial weights
@@ -181,8 +192,9 @@ def harvest(
 
     alg_map = {
         "ieppa": 1, "lbfgsb": 2, "raking": 3,
-        "sinkhorn": 4, "chebyshev": 5, "greg": 6, "grake": 7,
-    }  # "auto" (0) removed from Python user API
+        "sinkhorn": 4, "chebyshev": 5, "greg": 6,
+        "ieppa_soft": 8, "greenkhorn": 9, "logit": 10, "newton_kl": 11,
+    }  # "auto" (0) removed from Python user API; "grake" (7) removed — enum gap
     if method_lc not in alg_map:
         raise ValueError(f"method must be one of {list(alg_map)}")
     alg_int = alg_map[method_lc]
@@ -190,6 +202,18 @@ def harvest(
     if bounds_mode not in ("cell", "unit"):
         raise ValueError(f"bounds_mode must be 'cell' or 'unit', got {bounds_mode!r}")
     _bounds_mode_int = {"cell": 0, "unit": 1}[bounds_mode]
+
+    # scheduler: str → int
+    _scheduler_map = {"round_robin": 0, "greedy": 1}
+    if scheduler not in _scheduler_map:
+        raise ValueError(f"scheduler must be 'round_robin' or 'greedy', got {scheduler!r}")
+    _scheduler_int = _scheduler_map[scheduler]
+
+    # eta_schedule: str → int (maps to C field eta_mode)
+    _eta_map = {"fixed": 0, "tang_dynamic": 1}
+    if eta_schedule not in _eta_map:
+        raise ValueError(f"eta_schedule must be 'fixed' or 'tang_dynamic', got {eta_schedule!r}")
+    _eta_mode_int = _eta_map[eta_schedule]
 
     # Build group_ids and validate targets
     K = len(targets)
@@ -263,7 +287,22 @@ def harvest(
         "sor_omega_min":  sor_omega_min,
         "sor_omega_fixed": sor_omega_fixed,
         "sor_burnin":     sor_burnin,
+        # Homotopy config (PY-1)
+        "homotopy_levels":       homotopy_levels,
+        "homotopy_start_factor": homotopy_start_factor,
+        "homotopy_end_factor":   homotopy_end_factor,
+        "homotopy_budget_p":     homotopy_budget_p,
+        # Scheduler / eta (PY-1)
+        "scheduler":             _scheduler_int,
+        "eta_mode":              _eta_mode_int,
+        "eta_start":             eta_start,
+        "eta_end":               eta_end,
+        "eta_schedule_power":    eta_schedule_power,
+        # Method-specific (PY-1)
+        "newton_tsvd_ratio":     newton_tsvd_ratio,
     }
+    if capacity_penalty is not None:
+        params["capacity_penalty"] = capacity_penalty
 
     log_fn = print if verbose > 0 else None
 

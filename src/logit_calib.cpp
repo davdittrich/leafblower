@@ -9,6 +9,11 @@
 #include <cstring>
 #include <limits>
 #include <numeric>
+#ifndef LBW_NO_R
+#  include <R_ext/Print.h>
+#else
+#  define Rprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 namespace lbw {
 

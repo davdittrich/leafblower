@@ -1,15 +1,29 @@
 #include "calib_linalg.hpp"
 #include "leafblower.h"
-#include <R_ext/Error.h>
-#include <R_ext/Lapack.h>
-#include <R_ext/RS.h>   // F77_CALL
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <stdexcept>
 
-#ifndef FCONE
-# define FCONE
+#ifndef LBW_NO_R
+#  include <R_ext/Error.h>
+#  include <R_ext/Lapack.h>
+#  include <R_ext/RS.h>   // F77_CALL
+#  ifndef FCONE
+#    define FCONE
+#  endif
+#else
+// System LAPACK declarations for Python build
+extern "C" {
+    void dpotrf_(char* uplo, int* n, double* A, int* lda, int* info);
+    void dpotrs_(char* uplo, int* n, int* nrhs, double* A, int* lda,
+                 double* B, int* ldb, int* info);
+}
+#  define F77_CALL(x) x ## _
+#  ifndef FCONE
+#    define FCONE
+#  endif
 #endif
 
 namespace lbw {
@@ -150,7 +164,11 @@ void ldlt_solve(const double* A, size_t n, double* b)
     double* A_mut = const_cast<double*>(A);
     F77_CALL(dpotrs)(&uplo, &n_int, &nrhs, A_mut, &n_int, b, &n_int, &info FCONE);
     if (info != 0) {
+#ifndef LBW_NO_R
         Rf_error("leafblower: dpotrs failed with info=%d", info);
+#else
+        throw std::runtime_error("leafblower: dpotrs failed");
+#endif
     }
 }
 
