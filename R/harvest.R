@@ -484,10 +484,37 @@ harvest <- function(
         mstr, e_final, b_iter, iters, stall_ratio),
         call. = FALSE)
     } else {
-      warning(sprintf(
-        "leafblower: budget exhausted — %s=%.2e at %d iters. weights reflect best iterate; increase max_iterations.",
-        mstr, e_final %||% NaN, iters),
-        call. = FALSE)
+      # True budget: solver still converging when iterations ran out.
+      # Use asymptotic rate from last check interval if available.
+      e_prev    <- calib_result$metric_prev_check
+      prev_iter <- calib_result$prev_check_iter
+      interval  <- b_iter - prev_iter
+      has_prev  <- is.numeric(e_prev) && is.finite(e_prev) &&
+                   is.numeric(e_final) && is.finite(e_final) &&
+                   e_prev > e_final && e_final > 0 &&
+                   interval > 0L && is.numeric(tol_used) && tol_used > 0
+
+      if (has_prev) {
+        r_est  <- (e_final / e_prev)^(1 / interval)
+        if (is.finite(r_est) && r_est > 0 && r_est < 1) {
+          n_more  <- ceiling(log(tol_used / e_final) / log(r_est))
+          n_total <- b_iter + n_more
+          warning(sprintf(
+            "leafblower: budget exhausted — %s=%.2e at %d iters. Asymptotic rate r=%.4f (last %d iters): ~%.0f total iterations needed.",
+            mstr, e_final, iters, r_est, interval, n_total),
+            call. = FALSE)
+        } else {
+          warning(sprintf(
+            "leafblower: budget exhausted — %s=%.2e at %d iters. Increase max_iterations.",
+            mstr, e_final %||% NaN, iters),
+            call. = FALSE)
+        }
+      } else {
+        warning(sprintf(
+          "leafblower: budget exhausted — %s=%.2e at %d iters. Increase max_iterations.",
+          mstr, e_final %||% NaN, iters),
+          call. = FALSE)
+      }
     }
   }
   if (calib_result$status == 5L && isTRUE(accelerate_bool))
