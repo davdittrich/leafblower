@@ -3,13 +3,13 @@
   "started": "2026-05-03T08:15:52.644Z",
   "files_read": {
     "/home/dd/Gemini/leafblower/graphify-out/GRAPH_REPORT.md": {
-      "count": 2,
+      "count": 3,
       "tokens": 0,
       "first_read": "2026-05-03T08:18:47.109Z"
     },
     "/home/dd/Gemini/leafblower/src/types.hpp": {
-      "count": 3,
-      "tokens": 0,
+      "count": 5,
+      "tokens": 1523,
       "first_read": "2026-05-03T08:19:46.808Z"
     },
     "/home/dd/Gemini/leafblower/src/lbfgsb_solver.hpp": {
@@ -128,8 +128,8 @@
       "first_read": "2026-05-03T08:20:03.899Z"
     },
     "/home/dd/Gemini/leafblower/src/ieppa.cpp": {
-      "count": 25,
-      "tokens": 27293,
+      "count": 40,
+      "tokens": 27551,
       "first_read": "2026-05-03T08:20:08.641Z"
     },
     "/home/dd/Gemini/leafblower/src/newton_calib.cpp": {
@@ -368,8 +368,8 @@
       "first_read": "2026-05-03T14:34:46.715Z"
     },
     "/home/dd/Gemini/leafblower/R/harvest.R": {
-      "count": 9,
-      "tokens": 10508,
+      "count": 11,
+      "tokens": 10586,
       "first_read": "2026-05-03T14:34:50.104Z"
     },
     "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py": {
@@ -433,9 +433,34 @@
       "first_read": "2026-05-03T17:15:22.212Z"
     },
     "/home/dd/Gemini/leafblower/src/r_bridge.cpp": {
-      "count": 5,
-      "tokens": 0,
+      "count": 9,
+      "tokens": 12856,
       "first_read": "2026-05-03T21:17:16.069Z"
+    },
+    "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T22:08:48.039Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/types.hpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T22:12:50.146Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/ieppa.cpp": {
+      "count": 16,
+      "tokens": 27724,
+      "first_read": "2026-05-03T22:12:50.714Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/r_bridge.cpp": {
+      "count": 3,
+      "tokens": 0,
+      "first_read": "2026-05-03T22:15:54.836Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/bwarn/R/harvest.R": {
+      "count": 2,
+      "tokens": 10446,
+      "first_read": "2026-05-03T22:18:53.054Z"
     }
   },
   "files_written": [
@@ -1650,6 +1675,252 @@
       "action": "edit",
       "tokens": 38,
       "at": "2026-05-03T21:23:18.749Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
+      "action": "edit",
+      "tokens": 55,
+      "at": "2026-05-03T21:30:44.302Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 151,
+      "at": "2026-05-03T21:31:38.750Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 66,
+      "at": "2026-05-03T21:32:14.779Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 135,
+      "at": "2026-05-03T21:32:22.419Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 133,
+      "at": "2026-05-03T21:32:36.002Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 74,
+      "at": "2026-05-03T21:32:59.546Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 47,
+      "at": "2026-05-03T21:33:17.188Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 39,
+      "at": "2026-05-03T21:33:23.484Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 12,
+      "at": "2026-05-03T21:33:35.960Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 125,
+      "at": "2026-05-03T21:33:48.104Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/R/harvest.R",
+      "action": "edit",
+      "tokens": 181,
+      "at": "2026-05-03T21:34:03.123Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 65,
+      "at": "2026-05-03T21:35:36.700Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 128,
+      "at": "2026-05-03T21:35:46.602Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 103,
+      "at": "2026-05-03T21:35:53.524Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/R/harvest.R",
+      "action": "edit",
+      "tokens": 156,
+      "at": "2026-05-03T21:36:05.844Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
+      "action": "edit",
+      "tokens": 50,
+      "at": "2026-05-03T21:41:07.700Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 54,
+      "at": "2026-05-03T21:41:11.908Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 132,
+      "at": "2026-05-03T21:41:17.082Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 53,
+      "at": "2026-05-03T21:41:20.966Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 55,
+      "at": "2026-05-03T21:41:25.349Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 150,
+      "at": "2026-05-03T21:41:39.580Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md",
+      "action": "create",
+      "tokens": 5220,
+      "at": "2026-05-03T21:46:23.436Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md",
+      "action": "edit",
+      "tokens": 1254,
+      "at": "2026-05-03T21:47:45.638Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md",
+      "action": "edit",
+      "tokens": 158,
+      "at": "2026-05-03T21:47:54.364Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md",
+      "action": "edit",
+      "tokens": 45,
+      "at": "2026-05-03T21:47:59.711Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 122,
+      "at": "2026-05-03T21:59:50.875Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md",
+      "action": "create",
+      "tokens": 3283,
+      "at": "2026-05-03T22:09:53.417Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md",
+      "action": "edit",
+      "tokens": 371,
+      "at": "2026-05-03T22:10:47.752Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/types.hpp",
+      "action": "edit",
+      "tokens": 79,
+      "at": "2026-05-03T22:13:32.182Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 77,
+      "at": "2026-05-03T22:13:36.779Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 182,
+      "at": "2026-05-03T22:13:44.426Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 139,
+      "at": "2026-05-03T22:13:53.937Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 68,
+      "at": "2026-05-03T22:14:02.677Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 190,
+      "at": "2026-05-03T22:14:10.695Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 174,
+      "at": "2026-05-03T22:14:23.552Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 60,
+      "at": "2026-05-03T22:16:00.275Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 59,
+      "at": "2026-05-03T22:16:04.558Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 97,
+      "at": "2026-05-03T22:16:10.748Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 136,
+      "at": "2026-05-03T22:16:16.403Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/R/harvest.R",
+      "action": "edit",
+      "tokens": 306,
+      "at": "2026-05-03T22:19:08.004Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/bwarn/R/harvest.R",
+      "action": "edit",
+      "tokens": 418,
+      "at": "2026-05-03T22:25:39.309Z"
     }
   ],
   "edit_counts": {
@@ -1696,7 +1967,7 @@
     ".worktrees/perf-maint/src/greenkhorn.cpp": 8,
     ".worktrees/perf-maint/src/newton_calib.cpp": 5,
     ".worktrees/perf-maint/src/types.hpp": 1,
-    "src/ieppa.cpp": 11,
+    "src/ieppa.cpp": 24,
     ".worktrees/py-parity/python/leafblower/_harvest.py": 8,
     ".worktrees/py-parity/python/leafblower/_bindings.cpp": 2,
     ".worktrees/py-parity/src/sraa.hpp": 3,
@@ -1706,16 +1977,21 @@
     ".worktrees/py-parity/src/logit_calib.cpp": 1,
     ".worktrees/py-parity/src/leafblower.h": 2,
     ".worktrees/py-parity/src/c_api.cpp": 1,
-    "benchmarks/allmethod_bench.R": 18,
+    "benchmarks/allmethod_bench.R": 19,
     "benchmarks/allmethod_bench.py": 3,
     "src/newton_calib.cpp": 2,
-    "src/types.hpp": 1,
-    "src/r_bridge.cpp": 4,
-    "R/harvest.R": 3
+    "src/types.hpp": 3,
+    "src/r_bridge.cpp": 8,
+    "R/harvest.R": 5,
+    "tasks/IMPR-BUDGET-WARN-skmo.md": 6,
+    ".worktrees/bwarn/src/types.hpp": 1,
+    ".worktrees/bwarn/src/ieppa.cpp": 6,
+    ".worktrees/bwarn/src/r_bridge.cpp": 4,
+    ".worktrees/bwarn/R/harvest.R": 2
   },
   "anatomy_hits": 4,
-  "anatomy_misses": 83,
-  "repeated_reads_warned": 220,
+  "anatomy_misses": 88,
+  "repeated_reads_warned": 263,
   "cerebrum_warnings": 0,
-  "stop_count": 53
+  "stop_count": 60
 }

@@ -48,3 +48,11 @@
 [2026-05-03T16:00:00.875Z] [INFO] Executing task: Full anatomy rescan
 [2026-05-03T16:00:00.980Z] [ERROR] Task Full anatomy rescan failed (attempt 7): Cannot read properties of undefined (reading 'push')
 [2026-05-03T16:00:00.980Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-05-03T22:00:00.069Z] [INFO] Executing task: Full anatomy rescan
+[2026-05-03T22:00:00.157Z] [ERROR] Task Full anatomy rescan failed (attempt 8): Cannot read properties of undefined (reading 'push')
+[2026-05-03T22:00:00.157Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-05-03T22:00:00.157Z] [INFO] Executing task: Token audit report
+[2026-05-03T22:00:00.234Z] [ERROR] Task Token audit report failed (attempt 1): Cannot read properties of undefined (reading 'push')
+[2026-05-03T22:00:00.235Z] [INFO] Retrying Token audit report in 60000ms
+[2026-05-03T22:01:00.235Z] [INFO] Executing task: Token audit report
+[2026-05-03T22:01:00.364Z] [ERROR] Task Token audit report failed (attempt 2): Cannot read properties of undefined (reading 'push')

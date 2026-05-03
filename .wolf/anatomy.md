@@ -1,6 +1,6 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-05-03T21:23:18.740Z
+> Auto-maintained by OpenWolf. Last scanned: 2026-05-03T22:25:39.300Z
 > Files: 539 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ..Rcheck/
@@ -136,7 +136,7 @@
 
 ## ./
 
-- `.gitignore` — Git ignore rules (~126 tok)
+- `.gitignore` — Git ignore rules (~131 tok)
 - `.mcp.json` (~50 tok)
 - `.Rbuildignore` (~88 tok)
 - `.tldrignore` — TLDR ignore patterns (gitignore syntax) (~280 tok)
@@ -167,8 +167,8 @@
 - `.local_version` (~2 tok)
 - `config.yaml` — Beads Configuration File (~597 tok)
 - `export-state.json` (~38 tok)
-- `interactions.jsonl` — Declares guards (~11374 tok)
-- `last-touched` (~5 tok)
+- `interactions.jsonl` — Declares guards (~13177 tok)
+- `last-touched` (~6 tok)
 - `metadata.json` (~46 tok)
 - `README.md` — Project documentation (~562 tok)
 
@@ -717,16 +717,16 @@
 - `logit.cpp` — include "logit.hpp" (~112 tok)
 - `logit.hpp` — pragma once (~921 tok)
 
-## R/
+## .worktrees/bwarn/R/
 
-- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~10516 tok)
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~10775 tok)
 
-## benchmarks/
+## .worktrees/bwarn/src/
 
-- `allmethod_bench.R` — benchmarks/allmethod_bench.R (~1352 tok)
+- `ieppa.cpp` — include "lbw_config.h" (~27817 tok)
+- `r_bridge.cpp` — include "leafblower.h" (~12913 tok)
+- `types.hpp` — pragma once (~1536 tok)
 
-## src/
+## tasks/
 
-- `ieppa.cpp` — include "lbw_config.h" (~27432 tok)
-- `r_bridge.cpp` — include "leafblower.h" (~12758 tok)
-- `types.hpp` — pragma once (~1492 tok)
+- `IMPR-BUDGET-WARN-skmo.md` — IMPR-BUDGET-WARN (leafblower-skmo) — Stall Detection + Last-Interval Rate (Revised) (~3020 tok)

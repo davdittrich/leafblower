@@ -5280,6 +5280,86 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-05-03T21:23:18.751Z"
+    },
+    {
+      "id": "bug-331",
+      "timestamp": "2026-05-03T21:32:59.548Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 5→3 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-03T21:32:59.548Z"
+    },
+    {
+      "id": "bug-332",
+      "timestamp": "2026-05-03T21:35:53.526Z",
+      "error_message": "Wrong condition in logic",
+      "file": "src/ieppa.cpp",
+      "root_cause": "Condition was: if (iter == 1 && res.base.metric_first_check == std::n)",
+      "fix": "Changed to: if (res.base.metric_first_check == std::numeric_limits)",
+      "tags": [
+        "auto-detected",
+        "logic-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-03T21:35:53.526Z"
+    },
+    {
+      "id": "bug-333",
+      "timestamp": "2026-05-03T21:47:54.367Z",
+      "error_message": "Incorrect value in code",
+      "file": "tasks/IMPR-BUDGET-WARN-skmo.md",
+      "root_cause": "Had 's check fires every iter (no kErrCheckInterval ga",
+      "fix": "Changed to 's check IS gated by `",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-03T21:47:54.368Z"
+    },
+    {
+      "id": "bug-334",
+      "timestamp": "2026-05-03T21:59:50.877Z",
+      "error_message": "Significant refactor of ",
+      "file": "benchmarks/allmethod_bench.R",
+      "root_cause": "4 lines replaced/restructured",
+      "fix": "Rewrote 4→6 lines (4 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-03T21:59:50.877Z"
+    },
+    {
+      "id": "bug-335",
+      "timestamp": "2026-05-03T22:10:47.754Z",
+      "error_message": "Incorrect value in code",
+      "file": "tasks/IMPR-BUDGET-WARN-skmo.md",
+      "root_cause": "Had `R/harvest.R`",
+      "fix": "Changed to `best_iter`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-03T22:10:47.754Z"
     }
   ]
 }

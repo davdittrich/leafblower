@@ -69,10 +69,12 @@ run <- function(label, conv, ...) {
              stringsAsFactors=FALSE)
 }
 
-KL   <- list(metric="marginal_kl", rule="threshold", tol=TOL)
-MERR <- list(metric="max_err",     rule="threshold", tol=TOL)
-WKL  <- list(metric="kl",         rule="threshold", tol=TOL)
-CHI  <- list(metric="chi2",       rule="threshold", tol=TOL)
+# Use the natural convergence rule for each method (improvement = stall detection)
+# Threshold bypasses stall detection and forces budget exhaustion; not appropriate here.
+KL   <- list(metric="marginal_kl", rule="improvement", tol=TOL)
+MERR <- list(metric="max_err",     rule="improvement", tol=TOL)
+WKL  <- list(metric="kl",         rule="improvement", tol=TOL)
+CHI  <- list(metric="chi2",       rule="improvement", tol=TOL)
 
 cfg <- list(
   list("ieppa",                  KL,   method="ieppa"),

@@ -1126,3 +1126,51 @@
 | 23:19 | Edited R/harvest.R | added 2 condition(s) | ~347 |
 | 23:22 | Edited R/harvest.R | 3→3 lines | ~66 |
 | 23:23 | Edited R/harvest.R | added 1 condition(s) | ~35 |
+| 23:27 | Session end: 202 writes across 44 files (g1_desc.md, g2_desc.md, g3_desc.md, g4_desc.md, g5_desc.md) | 87 reads | ~277160 tok |
+| 23:30 | Edited src/types.hpp | 1→2 lines | ~51 |
+| 23:31 | Edited src/ieppa.cpp | added 1 condition(s) | ~141 |
+| 23:32 | Edited src/ieppa.cpp | 2→3 lines | ~62 |
+| 23:32 | Edited src/ieppa.cpp | 5→6 lines | ~126 |
+| 23:32 | Edited src/ieppa.cpp | added 1 condition(s) | ~124 |
+| 23:32 | Edited src/ieppa.cpp | modified if() | ~69 |
+| 23:33 | Edited src/r_bridge.cpp | 1→2 lines | ~44 |
+| 23:33 | Edited src/r_bridge.cpp | 1→2 lines | ~36 |
+| 23:33 | Edited src/r_bridge.cpp | 38 → 39 | ~11 |
+| 23:33 | Edited src/r_bridge.cpp | 3→6 lines | ~116 |
+| 23:34 | Edited R/harvest.R | added 1 condition(s) | ~169 |
+| 23:35 | Edited src/ieppa.cpp | modified if() | ~60 |
+| 23:35 | Edited src/ieppa.cpp | added 1 condition(s) | ~119 |
+| 23:35 | Edited src/ieppa.cpp | added 1 condition(s) | ~96 |
+| 23:36 | Edited R/harvest.R | modified kErrCheckInterval() | ~146 |
+| 23:41 | Edited src/types.hpp | 1→2 lines | ~46 |
+| 23:41 | Edited src/ieppa.cpp | modified if() | ~50 |
+| 23:41 | Edited src/ieppa.cpp | added 1 condition(s) | ~124 |
+| 23:41 | Edited src/ieppa.cpp | 2→3 lines | ~50 |
+| 23:41 | Edited src/ieppa.cpp | modified if() | ~51 |
+| 23:41 | Edited src/ieppa.cpp | added 1 condition(s) | ~140 |
+| 23:46 | Created tasks/IMPR-BUDGET-WARN-skmo.md | — | ~4872 |
+| 23:47 | Edited tasks/IMPR-BUDGET-WARN-skmo.md | expanded (+36 lines) | ~1170 |
+| 23:47 | Edited tasks/IMPR-BUDGET-WARN-skmo.md | "s check fires every iter " → "s check IS gated by " | ~147 |
+| 23:47 | Edited tasks/IMPR-BUDGET-WARN-skmo.md | inline fix | ~42 |
+| 23:50 | Session end: 227 writes across 45 files (g1_desc.md, g2_desc.md, g3_desc.md, g4_desc.md, g5_desc.md) | 87 reads | ~300516 tok |
+| 23:57 | Session end: 227 writes across 45 files (g1_desc.md, g2_desc.md, g3_desc.md, g4_desc.md, g5_desc.md) | 87 reads | ~300516 tok |
+| 23:59 | Edited benchmarks/allmethod_bench.R | 4→6 lines | ~114 |
+| 00:01 | Session end: 228 writes across 45 files (g1_desc.md, g2_desc.md, g3_desc.md, g4_desc.md, g5_desc.md) | 87 reads | ~300638 tok |
+| 00:04 | Session end: 228 writes across 45 files (g1_desc.md, g2_desc.md, g3_desc.md, g4_desc.md, g5_desc.md) | 87 reads | ~300638 tok |
+| 00:09 | Created tasks/IMPR-BUDGET-WARN-skmo.md | — | ~3064 |
+| 00:10 | Edited tasks/IMPR-BUDGET-WARN-skmo.md | modified rationale() | ~346 |
+| 00:11 | Session end: 230 writes across 45 files (g1_desc.md, g2_desc.md, g3_desc.md, g4_desc.md, g5_desc.md) | 88 reads | ~304292 tok |
+| 00:13 | Edited .worktrees/bwarn/src/types.hpp | 2→4 lines | ~74 |
+| 00:13 | Edited .worktrees/bwarn/src/ieppa.cpp | modified if() | ~72 |
+| 00:13 | Edited .worktrees/bwarn/src/ieppa.cpp | added 1 condition(s) | ~170 |
+| 00:13 | Edited .worktrees/bwarn/src/ieppa.cpp | modified if() | ~130 |
+| 00:14 | Edited .worktrees/bwarn/src/ieppa.cpp | modified if() | ~63 |
+| 00:14 | Edited .worktrees/bwarn/src/ieppa.cpp | added 1 condition(s) | ~178 |
+| 00:14 | Edited .worktrees/bwarn/src/ieppa.cpp | added 1 condition(s) | ~163 |
+| 00:16 | Edited .worktrees/bwarn/src/r_bridge.cpp | 1→3 lines | ~56 |
+| 00:16 | Edited .worktrees/bwarn/src/r_bridge.cpp | 2→4 lines | ~55 |
+| 00:16 | Edited .worktrees/bwarn/src/r_bridge.cpp | 2→2 lines | ~90 |
+| 00:16 | Edited .worktrees/bwarn/src/r_bridge.cpp | 3→7 lines | ~127 |
+| 00:19 | Edited .worktrees/bwarn/R/harvest.R | modified if() | ~286 |
+| 00:25 | Edited .worktrees/bwarn/R/harvest.R | added 2 condition(s) | ~390 |
+| 00:29 | Session end: 243 writes across 45 files (g1_desc.md, g2_desc.md, g3_desc.md, g4_desc.md, g5_desc.md) | 92 reads | ~344447 tok |
