@@ -18,6 +18,11 @@
 
 ## Breaking changes
 
+* `harvest()` parameter `jacobi_sweep` removed. The parameter has been
+  C++-inert since its introduction (the underlying sweep order is always
+  Gauss-Seidel). Callers passing `jacobi_sweep=` will have it silently
+  absorbed by `...` (no behavior change vs prior silent no-op).
+
 * `harvest(method="greenkhorn", accelerate=TRUE)` and `harvest(method="raking", accelerate=TRUE)`:
   calibrated weights will differ from previous versions. The prior SQUAREM/CBB
   acceleration overshot the bounded optimum (greenkhorn: 35% worse quality than plain).

@@ -90,12 +90,6 @@
 #' @param error_function Ignored.
 #' @param adaptive_order Ignored.
 #' @param enforce_mean Ignored (retained for compatibility).
-#' @param jacobi_sweep Logical. Use Jacobi (frozen cell_lf snapshot) instead of
-#'   Gauss-Seidel (incremental cell_lf updates) for the iEPPA log-path margin sweep.
-#'   Default \code{FALSE} (Gauss-Seidel). May improve wall-time at very large
-#'   \code{M_cell} (>1M unique cells) where scattered GS writes exceed last-level
-#'   cache capacity. No benefit observed at M_cell < 100K. Ignored for linear-path
-#'   problems (\code{n/M_cell < 2}).
 #' @param accelerate Logical. Enable Safeguarded Regularized Anderson Acceleration
 #'   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
 #'   \code{"ieppa"}, and \code{"ieppa_soft"}. Default \code{FALSE}.
@@ -239,7 +233,6 @@ harvest <- function(
   collapse_vars    = NULL,
   target_map       = NULL,
   design_weights   = NULL,
-  jacobi_sweep     = FALSE,
   newton_tsvd_ratio = 1e-8,
   ...
 ) {
@@ -400,8 +393,6 @@ harvest <- function(
                as.integer(sor_cfg$burnin),
                ## SRAA-m accelerate flag
                as.integer(accelerate_bool),
-               ## Jacobi log-path sweep flag
-               as.integer(isTRUE(jacobi_sweep)),
                ## Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8)
                as.double(newton_tsvd_ratio),
                PACKAGE = "leafblower")

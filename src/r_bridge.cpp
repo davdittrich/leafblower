@@ -44,13 +44,64 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
 // R log trampoline: forwards CalibState.log() calls to Rprintf
 static void r_log_trampoline(const char* msg, void* /*ctx*/) {
     Rprintf("[leafblower] %s\n", msg);
+}
+
+// Initialize CalibState from rk_params_t plus pre-built data buffers.
+// Replaces the field-by-field copy block; encapsulates the rk_params_t -> CalibState
+// projection contract so it lives in one named place.
+static void init_calib_state(lbw::CalibState& st,
+                             int n, int K,
+                             const rk_params_t& p,
+                             std::vector<double>& weights,
+                             std::vector<const int32_t*>& group_ids,
+                             std::vector<int>& cat_counts,
+                             std::vector<const double*>& targets) {
+    st.n = n; st.K = K;
+    st.weights = weights.data();
+    st.group_ids = const_cast<const int32_t**>(group_ids.data());
+    st.cat_counts = cat_counts.data();
+    st.targets = const_cast<const double**>(targets.data());
+    st.min_weight    = p.min_weight;
+    st.max_weight    = p.max_weight;
+    st.tol_abs       = p.tol_abs;
+    st.inner_max_iter = p.inner_max_iter;
+    st.outer_max_iter = p.outer_max_iter;
+    st.lbfgs_m       = p.lbfgs_m;
+    st.verbose       = p.verbose;
+    st.bounds_mode   = p.bounds_mode;
+    st.log_fn        = p.log_fn;
+    st.log_ctx       = p.log_ctx;
+    st.homotopy.n_levels        = p.homotopy.n_levels;
+    st.homotopy.start_factor    = p.homotopy.start_factor;
+    st.homotopy.end_factor      = p.homotopy.end_factor;
+    st.homotopy.budget_split_p  = p.homotopy.budget_split_p;
+    st.scheduler.mode           = (p.scheduler == RK_SCHED_GREEDY)
+                                    ? lbw::SchedulerMode::GREEDY
+                                    : lbw::SchedulerMode::ROUND_ROBIN;
+    st.eta_schedule.mode        = (p.eta_mode == RK_ETA_TANG_DYNAMIC)
+                                    ? lbw::EtaScheduleMode::TANG_DYNAMIC
+                                    : lbw::EtaScheduleMode::FIXED;
+    st.eta_schedule.eta_start     = p.eta_start;
+    st.eta_schedule.eta_end       = p.eta_end;
+    st.eta_schedule.schedule_power = p.eta_schedule_power;
+    st.convergence_cfg.pct_tol      = p.pct_tol;
+    st.convergence_cfg.absolute_tol = p.absolute_tol;
+    st.convergence_cfg.metric       = static_cast<lbw::CalibMetric>(p.metric);
+    st.convergence_cfg.rule         = static_cast<lbw::CalibRule>(p.rule);
+    st.convergence_cfg.stop_when    = static_cast<lbw::CalibStopWhen>(p.stop_when);
+    st.sor_cfg.enabled              = (p.sor_enabled != 0);
+    st.sor_cfg.auto_adapt           = (p.sor_auto != 0);
+    st.sor_cfg.omega_init           = p.sor_omega_init;
+    st.sor_cfg.omega_min            = p.sor_omega_min;
+    st.sor_cfg.omega_fixed          = p.sor_omega_fixed;
+    st.sor_cfg.burnin               = p.sor_burnin;
 }
 
 extern "C" {
@@ -60,7 +111,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       35},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       34},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -126,13 +177,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP sor_omega_fixed_sexp, SEXP sor_burnin_sexp,
                     /* SQUAREM */
                     SEXP accelerate_sexp,
-                    /* Jacobi log-path sweep flag (passed by R harvest(); currently unused in
-                     * bridge but consumed by R registry to keep positional alignment with newer
-                     * args appended below). */
-                    SEXP jacobi_sweep_sexp,
                     /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
                     SEXP newton_tsvd_ratio_sexp) {
-    (void)jacobi_sweep_sexp;  // Silenced: already-existing pass-through, no consumer yet.
     int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
@@ -282,45 +328,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     // WU-E: call C++ solvers directly (bypasses flat C ABI) to access best_weights vector.
     // Build CalibState mirroring c_api.cpp:rk_calibrate() setup.
     lbw::CalibState st;
-    st.n = n; st.K = K;
-    st.weights = weights.data();
-    st.group_ids = const_cast<const int32_t**>(group_ids.data());
-    st.cat_counts = cat_counts.data();
-    st.targets = const_cast<const double**>(targets.data());
-    st.min_weight    = p.min_weight;
-    st.max_weight    = p.max_weight;
-    st.tol_abs       = p.tol_abs;
-    st.inner_max_iter = p.inner_max_iter;
-    st.outer_max_iter = p.outer_max_iter;
-    st.lbfgs_m       = p.lbfgs_m;
-    st.verbose       = p.verbose;
-    st.bounds_mode   = p.bounds_mode;
-    st.log_fn        = p.log_fn;
-    st.log_ctx       = p.log_ctx;
-    st.homotopy.n_levels        = p.homotopy.n_levels;
-    st.homotopy.start_factor    = p.homotopy.start_factor;
-    st.homotopy.end_factor      = p.homotopy.end_factor;
-    st.homotopy.budget_split_p  = p.homotopy.budget_split_p;
-    st.scheduler.mode           = (p.scheduler == RK_SCHED_GREEDY)
-                                    ? lbw::SchedulerMode::GREEDY
-                                    : lbw::SchedulerMode::ROUND_ROBIN;
-    st.eta_schedule.mode        = (p.eta_mode == RK_ETA_TANG_DYNAMIC)
-                                    ? lbw::EtaScheduleMode::TANG_DYNAMIC
-                                    : lbw::EtaScheduleMode::FIXED;
-    st.eta_schedule.eta_start     = p.eta_start;
-    st.eta_schedule.eta_end       = p.eta_end;
-    st.eta_schedule.schedule_power = p.eta_schedule_power;
-    st.convergence_cfg.pct_tol      = p.pct_tol;
-    st.convergence_cfg.absolute_tol = p.absolute_tol;
-    st.convergence_cfg.metric       = static_cast<lbw::CalibMetric>(p.metric);
-    st.convergence_cfg.rule         = static_cast<lbw::CalibRule>(p.rule);
-    st.convergence_cfg.stop_when    = static_cast<lbw::CalibStopWhen>(p.stop_when);
-    st.sor_cfg.enabled              = (p.sor_enabled != 0);
-    st.sor_cfg.auto_adapt           = (p.sor_auto != 0);
-    st.sor_cfg.omega_init           = p.sor_omega_init;
-    st.sor_cfg.omega_min            = p.sor_omega_min;
-    st.sor_cfg.omega_fixed          = p.sor_omega_fixed;
-    st.sor_cfg.burnin               = p.sor_burnin;
+    init_calib_state(st, n, K, p, weights, group_ids, cat_counts, targets);
     // Epic-H WH-e: newton_kl TSVD truncation ratio. <=0 falls back to internal default 1e-8.
     st.newton_tsvd_ratio = REAL(newton_tsvd_ratio_sexp)[0];
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly

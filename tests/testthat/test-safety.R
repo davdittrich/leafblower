@@ -62,8 +62,7 @@ test_that("B7: C_rk_calibrate start_weights length mismatch produces error", {
           as.double(1.0),              # 31: sor omega_fixed
           as.integer(0L),              # 32: sor burnin
           as.integer(0L),              # 33: accelerate_bool
-          as.integer(0L),              # 34: jacobi_sweep
-          as.double(1e-8)              # 35: newton_tsvd_ratio (Epic-H WH-e)
+          as.double(1e-8)              # 34: newton_tsvd_ratio (Epic-H WH-e)
     ),
     regexp = "start_weights length"
   )
