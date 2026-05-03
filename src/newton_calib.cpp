@@ -527,9 +527,10 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                     } else {
                         res.base.iterations = iter + 1;
                     }
+                    res.base.best_error = best_gap;
+                    res.base.best_iter  = best_iter_id;
                     res.base.convergence_solver_objective =
-                        best.has_best() ? best.best_objective
-                                        : std::numeric_limits<double>::infinity();
+                        best.has_best() ? best.best_objective : best_gap;
                     return false;
                 }
             }
@@ -693,11 +694,12 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         }
 
         res.lm_mu_final = lm_mu;
-        // G8d: populate convergence_solver_objective from BestIterTracker.
-        // dual_gap at best iter is the Newton solver's mathematical objective.
+        // best_error = best dual gap seen (Newton's objective); best_iter = that iteration.
+        res.base.best_error = best_gap;
+        res.base.best_iter  = best_iter_id;
         res.base.convergence_solver_objective =
             best.has_best() ? best.best_objective
-                            : std::numeric_limits<double>::infinity();
+                            : best_gap;  // fall back to dual-gap tracker
         return res.base.status == RK_OK;
     };
 
