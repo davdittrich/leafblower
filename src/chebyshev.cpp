@@ -179,6 +179,7 @@ ChebyshevResult chebyshev_ipm(
     // Hoisted work vectors
     const int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
     std::vector<double> D_eff(ct.M_cell), D_marg(nct);
+    std::vector<bool> locked(ct.M_cell, false);  // cells with inv_D≈0: step forced to 0
 
     // Reduced normal equations + reduced Newton vectors (reference-cat elim → schur_nu > 0)
     std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
@@ -292,7 +293,13 @@ ChebyshevResult chebyshev_ipm(
                     inv_D += y_up[m]/s_up[m] + y_dn[m]/s_dn[m];
                 }
             }
-            D_eff[c] = (inv_D > 1e-300) ? 1.0/inv_D : 1e300;
+            if (inv_D > 1e-300) {
+                D_eff[c]  = 1.0 / inv_D;
+                locked[c] = false;
+            } else {
+                D_eff[c]  = 0.0;   // locked: cell cannot move this iteration
+                locked[c] = true;
+            }
         }
 
         // D_marg[m] = effective margin weight after Schur complement
@@ -413,6 +420,7 @@ ChebyshevResult chebyshev_ipm(
             // dX_A from dlambda_A_red + Δν · D_eff
             std::fill(dX_A.begin(), dX_A.end(), 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
+                if (locked[c]) continue;  // D_eff[c]==0: step stays 0 to avoid explosion
                 double sum_dlam = 0.0;
                 for (int k = 0; k < st.K; k++) {
                     int g = ct.g_per_cell[k][c];
@@ -528,6 +536,7 @@ ChebyshevResult chebyshev_ipm(
             // dX_B from dlambda_B_red + Δν · D_eff
             std::fill(dX_B.begin(), dX_B.end(), 0.0);
             for (int c = 0; c < ct.M_cell; c++) {
+                if (locked[c]) continue;  // D_eff[c]==0: step stays 0 to avoid explosion
                 double sum_dlam = 0.0;
                 for (int k = 0; k < st.K; k++) {
                     int g = ct.g_per_cell[k][c];

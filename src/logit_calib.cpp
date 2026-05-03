@@ -136,6 +136,25 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             D_eff[c] = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
         }
 
+        // Early-exit: if >50% of cells saturated (|z|>650), lambda is too large to recover
+        if (iter == 0) {
+            int n_saturated = 0;
+            for (int c = 0; c < M; c++) {
+                double z = 0.0;
+                for (int k = 0; k < K; k++) {
+                    int g = ct.g_per_cell[k][c];
+                    if (g >= 0 && g < st.cat_counts[k]) z += lambda[cat_offset[k] + g];
+                }
+                if (std::fabs(z) > 650.0) ++n_saturated;
+            }
+            if (n_saturated > M / 2) {
+                res.base.status = RK_ERR_NOCONV;
+                std::snprintf(res.message, sizeof(res.message),
+                    "logit: >50%% of cells saturated (|z|>650) — lambda too large; reduce bounds");
+                return res;
+            }
+        }
+
         // (2) Residuals b[cat_offset[k]+j] = tau*n - sum_{c in bucket} w[c]
         std::fill(b.begin(), b.end(), 0.0);
         for (int k = 0; k < K; k++) {
