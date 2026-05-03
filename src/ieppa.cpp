@@ -807,7 +807,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         const std::vector<double> dummy_L;
         const std::vector<double> dummy_U;
         int sraa_outer_stall_count = 0;
-        double sraa_best_errRp     = std::numeric_limits<double>::infinity();
         if (sraa_active_lvl) {
             ieppa_sraa.init(total_cats, lbw::kSRAAm);
             lf_flat.assign(total_cats, 0.0);
@@ -894,7 +893,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         sraa_outer_stall_count = 0;
                     }
                 } else {
-                    sraa_best_errRp = std::min(sraa_best_errRp, r.err_result);
                     sraa_outer_stall_count = 0;
                 }
 
