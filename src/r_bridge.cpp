@@ -4,6 +4,7 @@
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
 #include <cstring>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -428,6 +429,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_best_iter                = res.base.best_iter;
     };
 
+    // RAII-safe error capture: collect any error message into a plain std::string,
+    // then call Rf_error AFTER this scope closes so all std::vector destructors run
+    // before longjmp. Rf_error inside this scope is UB (longjmp past C++ dtors).
+    std::string solver_error;
+    bool solver_failed = false;
+    {
     try {
     if (strcmp(method_str, "lbfgsb") == 0) {
         auto res = lbw::lbfgsb_solve(st);
@@ -582,7 +589,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     } else if (strcmp(method_str, "greenkhorn") == 0) {
         // validate: min_weight < max_weight
         if (st.min_weight >= st.max_weight && st.max_weight > 0.0)
-            Rf_error("leafblower: greenkhorn requires min_weight < max_weight");
+            throw std::runtime_error("greenkhorn requires min_weight < max_weight");
         auto res = lbw::greenkhorn_solve(st);
         pack_solver_result(res);
         res_status     = res.base.status;
@@ -706,12 +713,28 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         }
     }
     } catch (const std::exception& e) {
-        // N=0 PROTECTs before this try block — no UNPROTECT needed.
-        // Rf_error longjmps; must not be inside a try that owns RAII objects.
-        Rf_error("leafblower: internal solver error — %s", e.what());
+        // Capture into plain std::string; defer Rf_error until ALL RAII objects
+        // in this scope (res, weights_copy, st_warm, w_warm_obs, weights_backup,
+        // res_best_weights moves, etc.) have been destroyed. Rf_error here would
+        // longjmp past every active C++ destructor — UB per R-exts §5.5.
+        solver_error = e.what();
+        solver_failed = true;
     } catch (...) {
         // Catch non-std::exception throws (raw types, third-party exceptions).
-        Rf_error("leafblower: internal solver error — unknown exception type");
+        solver_error = "unknown exception type";
+        solver_failed = true;
+    }
+    }  // RAII scope: all solver-locals (res, weights_copy, st_warm, etc.) destroyed here.
+
+    // Now safe to fire Rf_error w.r.t. the dispatch-block RAII objects: every
+    // std::vector created inside the dispatch try{} block has been destroyed.
+    // Outer std::vectors (gids_storage, weights, ...) and solver_error itself
+    // are still live; they were live before this fix too — addressing them is
+    // out of scope for A1 (would require restructuring all of C_rk_calibrate's
+    // input-parsing path, including pre-dispatch Rf_error sites).
+    if (solver_failed) {
+        Rf_error("leafblower: internal solver error \xe2\x80\x94 %s",
+                 solver_error.c_str());
     }
 
     // Single source of truth for rk_algorithm_t → R-visible name.
