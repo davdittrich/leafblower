@@ -116,6 +116,41 @@ struct CellMetrics {
     double l1         = 0.0;
 };
 
+/// Unified best-iterate tracker shared across all solvers.
+/// Each solver maintains one instance and calls update() every iteration.
+/// Replaces ad-hoc best_metric_seen / best_iter_val / best_objective_seen
+/// variables that were duplicated (with inconsistent init semantics) across
+/// ieppa, raking, sinkhorn, greenkhorn, and newton_calib.
+struct BestIterTracker {
+    double best_metric    = std::numeric_limits<double>::infinity();
+    double best_objective = std::numeric_limits<double>::infinity(); // weight-KL at best iter
+    int    best_iter      = -1;
+    std::vector<double> best_weights;
+
+    /// Returns true if this is a new best (metric strictly improved).
+    bool update(double metric, double objective, int iter,
+                const std::vector<double>& weights) {
+        if (metric < best_metric) {
+            best_metric    = metric;
+            best_objective = objective;
+            best_iter      = iter;
+            best_weights   = weights;
+            return true;
+        }
+        return false;
+    }
+
+    /// Reset for SRAA path restarts (ieppa calls this mid-run).
+    void reset() {
+        best_metric    = std::numeric_limits<double>::infinity();
+        best_objective = std::numeric_limits<double>::infinity();
+        best_iter      = -1;
+        best_weights.clear();
+    }
+
+    bool has_best() const { return best_iter >= 0; }
+};
+
 /// Convenience overload: select the convergence metric value from a CellMetrics struct.
 /// marginal_kl defaults to 0.0 (not tracked in CellMetrics).
 inline double select_metric(CalibMetric metric, const CellMetrics& m) noexcept {
