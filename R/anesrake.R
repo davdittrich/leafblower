@@ -7,7 +7,8 @@
 #' @param caseid Ignored (row label not used by calibration).
 #' @param pctlim Deprecated; maps to \code{convergence["pct"]}.
 #' @param cap Upper weight cap; maps to \code{max_weight}.
-#' @param choosemethod "rake" or "nrake"; maps to \code{method="lbfgsb"} with warning.
+#' @param choosemethod Algorithm; \code{"rake"} and \code{"nrake"} are silently
+#'   remapped to \code{"ieppa"} (the recommended method).
 #' @param type Ignored.
 #' @param nlim Max iterations; maps to \code{max_iterations}.
 #' @param iterate Ignored (always iterates).
@@ -25,17 +26,24 @@ anesrake <- function(inputter, targets, weightvec = NULL, caseid = NULL,
             paste(names(dots), collapse = ", "))
   if (!is.null(caseid))
     message("anesrake: caseid is ignored (not used by leafblower calibration)")
-  if (!is.null(pctlim))
-    warning("anesrake: pctlim=", pctlim, " is ignored ",
-            "(pct-based tolerance is not implemented in leafblower). ",
-            "The default tol_abs=1e-6 is used. ",
-            "Pass convergence=list(absolute=...) to harvest() to control tolerance.")
+
+  # F6: map pctlim → convergence[["pct"]] instead of silently dropping it
+  convergence <- list()
+  if (!missing(pctlim) && !is.null(pctlim)) {
+    warning("anesrake: 'pctlim' is deprecated; use convergence = list(pct = pctlim)")
+    convergence[["pct"]] <- pctlim
+  }
+
+  # F7: silently remap legacy "rake"/"nrake" to "ieppa" — avoids deprecation warning
+  if (choosemethod %in% c("rake", "nrake")) choosemethod <- "ieppa"
+
   harvest(
     data           = inputter,
     target         = targets,
     start_weights  = weightvec,
     max_weight     = cap,
     method         = choosemethod,
-    max_iterations = as.integer(nlim)
+    max_iterations = as.integer(nlim),
+    convergence    = convergence
   )
 }

@@ -1,5 +1,7 @@
 # leafblower (development version)
 
+* `anesrake()` now defaults to `choosemethod = "ieppa"` (was `"rake"` which triggered a deprecation warning).
+
 ## Newton-KL calibration
 
 * Epic-Dβ verdict: **PARTIAL** — Newton-KL pipeline shipped with LM scale-invariant

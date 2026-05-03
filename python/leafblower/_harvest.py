@@ -14,6 +14,8 @@ except ImportError:
 
 from ._leafblower import calibrate
 
+_TARGET_SUM_TOL = 5e-7  # matches R harvest() tolerance for target proportions summing to 1
+
 _METRIC_MAP = {
     "max_err": 0, "mean_err": 1, "kl": 2, "chi2": 3,
     "grake_norm": 4, "l1_weight": 5, "marginal_kl": 6,
@@ -200,7 +202,7 @@ def harvest(
         tgt_dict = targets[varname]
         levels = list(tgt_dict.keys())
         props = list(tgt_dict.values())
-        if abs(sum(props) - 1.0) > 1e-8:
+        if abs(sum(props) - 1.0) > _TARGET_SUM_TOL:
             raise ValueError(f"targets['{varname}'] does not sum to 1 (sum={sum(props):.8f})")
 
         col = data[varname]
