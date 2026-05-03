@@ -34,16 +34,22 @@ static std::vector<int> build_offsets(const CalibState& st) {
     return off;
 }
 
-// Compute u_i = sum_k lambda[offset[k] + group_ids[k][i]]  (skip NA: g==-1).
-static void compute_u(const CalibState& st, const std::vector<int>& off,
-                       const std::vector<double>& lam, std::vector<double>& u) {
-    std::fill(u.begin(), u.end(), 0.0);
+// G5: shared helper — out[i] = sum_k src[off[k] + group_ids[k][i]]  (skip NA: g==-1).
+static inline void obs_from_margin(const CalibState& st, const std::vector<int>& off,
+                                    const std::vector<double>& src, std::vector<double>& out) {
+    std::fill(out.begin(), out.end(), 0.0);
     for (int k = 0; k < st.K; k++) {
         for (int i = 0; i < st.n; i++) {
             int g = st.group_ids[k][i];
-            if (g >= 0) u[i] += lam[off[k] + g];
+            if (g >= 0) out[i] += src[off[k] + g];
         }
     }
+}
+
+// Compute u_i = sum_k lambda[offset[k] + group_ids[k][i]]  (skip NA: g==-1).
+static void compute_u(const CalibState& st, const std::vector<int>& off,
+                       const std::vector<double>& lam, std::vector<double>& u) {
+    obs_from_margin(st, off, lam, u);
 }
 
 // phi_from_u: evaluate objective and gradient given pre-computed u.
@@ -111,13 +117,7 @@ static void compute_du(const CalibState& st,
                         const std::vector<int>& off,
                         const std::vector<double>& dir,
                         std::vector<double>& du) {
-    std::fill(du.begin(), du.end(), 0.0);
-    for (int k = 0; k < st.K; k++) {
-        for (int i = 0; i < st.n; i++) {
-            int g = st.group_ids[k][i];
-            if (g >= 0) du[i] += dir[off[k] + g];
-        }
-    }
+    obs_from_margin(st, off, dir, du);
 }
 
 static double maxAbs(const std::vector<double>& v) {
