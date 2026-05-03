@@ -22,6 +22,20 @@
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
 
+static inline double scalar_real(SEXP x, const char* name) {
+    if (TYPEOF(x) != REALSXP || LENGTH(x) != 1)
+        Rf_error("leafblower: '%s' must be a length-1 numeric (got type %s length %d)",
+                 name, Rf_type2char(TYPEOF(x)), (int)LENGTH(x));
+    return REAL(x)[0];
+}
+static inline int scalar_int(SEXP x, const char* name) {
+    if (TYPEOF(x) != INTSXP || LENGTH(x) != 1)
+        Rf_error("leafblower: '%s' must be a length-1 integer (got type %s length %d)",
+                 name, Rf_type2char(TYPEOF(x)), (int)LENGTH(x));
+    return INTEGER(x)[0];
+}
+
+
 namespace {
 const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
     {"ieppa",      RK_ALG_IEPPA},
@@ -122,16 +136,16 @@ void R_init_leafblower(DllInfo* dll) {
 
 // Test bridge: return F(0) for given L, U
 SEXP C_logit_F_at_zero(SEXP Lsxp, SEXP Usxp) {
-    double L = REAL(Lsxp)[0];
-    double U = REAL(Usxp)[0];
+    double L = scalar_real(Lsxp, "L");
+    double U = scalar_real(Usxp, "U");
     lbw::LinkFn fn(L, U);
     return Rf_ScalarReal(fn.F(0.0));
 }
 
 // Test bridge: return F(u) for a vector of u values
 SEXP C_logit_range_check(SEXP Lsxp, SEXP Usxp, SEXP usxp) {
-    double L = REAL(Lsxp)[0];
-    double U = REAL(Usxp)[0];
+    double L = scalar_real(Lsxp, "L");
+    double U = scalar_real(Usxp, "U");
     int n = LENGTH(usxp);
     SEXP out = PROTECT(Rf_allocVector(REALSXP, n));
     lbw::LinkFn fn(L, U);
@@ -144,9 +158,9 @@ SEXP C_logit_range_check(SEXP Lsxp, SEXP Usxp, SEXP usxp) {
 
 // Test bridge: return |H'(u0) - F(u0)| via numerical diff (step 1e-7)
 SEXP C_logit_Hprime_check(SEXP Lsxp, SEXP Usxp, SEXP u0sxp) {
-    double L = REAL(Lsxp)[0];
-    double U = REAL(Usxp)[0];
-    double u0 = REAL(u0sxp)[0];
+    double L = scalar_real(Lsxp, "L");
+    double U = scalar_real(Usxp, "U");
+    double u0 = scalar_real(u0sxp, "u0");
     double h = 1e-7;
     lbw::LinkFn fn(L, U);
     double Hprime_numerical = (fn.H(u0 + h) - fn.H(u0 - h)) / (2.0 * h);
@@ -286,22 +300,22 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     // Set calibration params
     rk_params_t p;
     rk_params_init(&p);
-    p.min_weight     = REAL(min_weight_sexp)[0];
-    p.max_weight     = REAL(max_weight_sexp)[0];
-    p.verbose        = INTEGER(verbose_sexp)[0];
-    p.inner_max_iter = INTEGER(inner_max_iter_sexp)[0];
+    p.min_weight     = scalar_real(min_weight_sexp, "min_weight");
+    p.max_weight     = scalar_real(max_weight_sexp, "max_weight");
+    p.verbose        = scalar_int(verbose_sexp, "verbose");
+    p.inner_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
     // outer_max_iter = max_iterations: user controls both iEPPA inner BCD and L-BFGS-B
     // outer step budget via the same parameter. With the O(n) Wolfe inner loop, 500
     // outer steps costs ~500 O(K*n) grad evals — acceptable; typical convergence is <50.
-    p.outer_max_iter = INTEGER(inner_max_iter_sexp)[0];
-    p.tol_abs        = REAL(tol_abs_sexp)[0];
-    p.bounds_mode    = (rk_bounds_mode_t) INTEGER(bounds_mode_sexp)[0];
+    p.outer_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
+    p.tol_abs        = scalar_real(tol_abs_sexp, "tol_abs");
+    p.bounds_mode    = (rk_bounds_mode_t) scalar_int(bounds_mode_sexp, "bounds_mode");
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
     /* Overlay knobs */
-    p.homotopy.n_levels        = INTEGER(homotopy_levels_sexp)[0];
-    p.homotopy.start_factor    = REAL(homotopy_start_factor_sexp)[0];
-    p.homotopy.end_factor      = REAL(homotopy_end_factor_sexp)[0];
-    p.homotopy.budget_split_p  = REAL(homotopy_budget_p_sexp)[0];
+    p.homotopy.n_levels        = scalar_int(homotopy_levels_sexp, "homotopy_levels");
+    p.homotopy.start_factor    = scalar_real(homotopy_start_factor_sexp, "homotopy_start_factor");
+    p.homotopy.end_factor      = scalar_real(homotopy_end_factor_sexp, "homotopy_end_factor");
+    p.homotopy.budget_split_p  = scalar_real(homotopy_budget_p_sexp, "homotopy_budget_p");
     {
         const char* sched_str = CHAR(STRING_ELT(scheduler_sexp, 0));
         p.scheduler = (strcmp(sched_str, "greedy") == 0) ? RK_SCHED_GREEDY : RK_SCHED_ROUND_ROBIN;
@@ -310,22 +324,22 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         const char* eta_str = CHAR(STRING_ELT(eta_schedule_sexp, 0));
         p.eta_mode = (strcmp(eta_str, "tang_dynamic") == 0) ? RK_ETA_TANG_DYNAMIC : RK_ETA_FIXED;
     }
-    p.eta_start           = REAL(eta_start_sexp)[0];
-    p.eta_end             = REAL(eta_end_sexp)[0];
-    p.eta_schedule_power  = REAL(eta_schedule_power_sexp)[0];
+    p.eta_start           = scalar_real(eta_start_sexp, "eta_start");
+    p.eta_end             = scalar_real(eta_end_sexp, "eta_end");
+    p.eta_schedule_power  = scalar_real(eta_schedule_power_sexp, "eta_schedule_power");
     /* Convergence config (WU-A) */
-    p.pct_tol             = REAL(pct_tol_sexp)[0];
-    p.absolute_tol        = REAL(absolute_tol_sexp)[0];
-    p.metric              = INTEGER(metric_sexp)[0];
-    p.rule                = INTEGER(rule_sexp)[0];
-    p.stop_when           = INTEGER(stop_when_sexp)[0];
+    p.pct_tol             = scalar_real(pct_tol_sexp, "pct_tol");
+    p.absolute_tol        = scalar_real(absolute_tol_sexp, "absolute_tol");
+    p.metric              = scalar_int(metric_sexp, "metric");
+    p.rule                = scalar_int(rule_sexp, "rule");
+    p.stop_when           = scalar_int(stop_when_sexp, "stop_when");
     /* SOR config (WU-A) */
-    p.sor_enabled         = INTEGER(sor_enabled_sexp)[0];
-    p.sor_auto            = INTEGER(sor_auto_sexp)[0];
-    p.sor_omega_init      = REAL(sor_omega_init_sexp)[0];
-    p.sor_omega_min       = REAL(sor_omega_min_sexp)[0];
-    p.sor_omega_fixed     = REAL(sor_omega_fixed_sexp)[0];
-    p.sor_burnin          = INTEGER(sor_burnin_sexp)[0];
+    p.sor_enabled         = scalar_int(sor_enabled_sexp, "sor_enabled");
+    p.sor_auto            = scalar_int(sor_auto_sexp, "sor_auto");
+    p.sor_omega_init      = scalar_real(sor_omega_init_sexp, "sor_omega_init");
+    p.sor_omega_min       = scalar_real(sor_omega_min_sexp, "sor_omega_min");
+    p.sor_omega_fixed     = scalar_real(sor_omega_fixed_sexp, "sor_omega_fixed");
+    p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin");
 
     if (pre_error.empty() && LENGTH(method_sexp) != 1)
         pre_error = "method must be a length-1 character string";
@@ -359,11 +373,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     lbw::CalibState st;
     init_calib_state(st, n, K, p, weights, group_ids, cat_counts, targets);
     // Epic-H WH-e: newton_kl TSVD truncation ratio. <=0 falls back to internal default 1e-8.
-    st.newton_tsvd_ratio = REAL(newton_tsvd_ratio_sexp)[0];
+    st.newton_tsvd_ratio = scalar_real(newton_tsvd_ratio_sexp, "newton_tsvd_ratio");
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;
-    st.accelerate = (INTEGER(accelerate_sexp)[0] != 0);
+    st.accelerate = (scalar_int(accelerate_sexp, "accelerate") != 0);
 
     // Resolve capacity_mu for ieppa_soft: build cell table to obtain auto value.
     // Done here (not inside solver) so r_bridge.cpp controls the resolution contract.
@@ -901,7 +915,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
 
 // test-only: exposes CellTable internals for unit tests
 extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
-    int n = INTEGER(r_n)[0];
+    int n = scalar_int(r_n, "r_n");
     int K = Rf_length(r_group_ids_list);
     if (K > lbw::K_MAX) {
         Rf_error("K (%d) exceeds K_MAX (%d)", K, lbw::K_MAX);
