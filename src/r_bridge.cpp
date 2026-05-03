@@ -452,6 +452,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     int    res_n_projected_dims        = 0;
     /* Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
     double res_lm_mu_final             = 0.0;
+    double res_metric_first_check      = std::numeric_limits<double>::infinity();
     std::vector<double> res_best_weights;  // obs-level, length n
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
@@ -469,6 +470,7 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         res_chi2                     = res.base.chi2;
         res_best_error               = res.base.best_error;
         res_best_iter                = res.base.best_iter;
+        res_metric_first_check       = res.base.metric_first_check;
     };
 
     std::string solver_error;
@@ -808,8 +810,8 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    constexpr int N_RESULT_FIELDS = 37;
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic
+    constexpr int N_RESULT_FIELDS = 38;
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  N_RESULT_FIELDS));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
@@ -900,6 +902,9 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     /* Element 36: Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
     SET_STRING_ELT(res_names, 36, Rf_mkChar("lm_mu_final"));
     SET_VECTOR_ELT(res_list,  36, Rf_ScalarReal(res_lm_mu_final));
+    /* Element 37: first-check metric value (ieppa only; Inf elsewhere) */
+    SET_STRING_ELT(res_names, 37, Rf_mkChar("metric_first_check"));
+    SET_VECTOR_ELT(res_list,  37, Rf_ScalarReal(res_metric_first_check));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

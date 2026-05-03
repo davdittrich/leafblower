@@ -95,6 +95,7 @@ struct CalibResult {
     int    convergence_iter    = -1;
     double best_error          = std::numeric_limits<double>::infinity();
     int    best_iter           = 0;
+    double metric_first_check  = std::numeric_limits<double>::infinity();
     std::vector<double> best_weights;
     double convergence_solver_objective = std::numeric_limits<double>::infinity();
     int    convergence_minimized_metric = 0;

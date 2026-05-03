@@ -910,6 +910,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         // lf_best captured at check intervals only — correct: marginal_kl
                         // unavailable between checks. Fewer compute_weight_kl calls than errRp path.
                         const double nat_metric = lbw::select_metric(sraa_cfg.metric, cm);
+                        if (res.base.metric_first_check == std::numeric_limits<double>::infinity())
+                            res.base.metric_first_check = nat_metric;
                         if (std::isfinite(nat_metric) && nat_metric < best.best_metric) {
                             std::vector<double> w_ratio(ct.M_cell);
                             for (int c = 0; c < ct.M_cell; c++)
@@ -1458,6 +1460,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             // BLOCK 1b — MARGINAL_KL best-iterate (marg_kl always valid alongside errRp).
             // Tracks min marginal KL when MARGINAL_KL is active.
             if (st.convergence_cfg.metric == lbw::CalibMetric::MARGINAL_KL) {
+                if (iter == 1 && res.base.metric_first_check == std::numeric_limits<double>::infinity())
+                    res.base.metric_first_check = res.marginal_kl_at_iter;
                 if (res.marginal_kl_at_iter < best.best_metric) {
                     std::vector<double> w_ratio(ct.M_cell);
                     for (int c = 0; c < ct.M_cell; c++)
@@ -1574,6 +1578,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     const double curr_best = lbw::select_metric(
                         st.convergence_cfg.metric,
                         errRp, mean_err_blk2, kl_max, chi2_total, grake_norm, l1_weight);
+                    if (iter == 1 && res.base.metric_first_check == std::numeric_limits<double>::infinity())
+                        res.base.metric_first_check = curr_best;
                     if (std::isfinite(curr_best) && curr_best < best.best_metric) {
                         std::vector<double> w_ratio(ct.M_cell);
                         for (int c = 0; c < ct.M_cell; c++)

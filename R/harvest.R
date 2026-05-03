@@ -468,9 +468,32 @@ harvest <- function(
   # is the invariant that preserves calibration. See
   # tests/testthat/test-ieppa-nonuniform-d.R.
 
-  if (calib_result$status == 4L)
-    warning("leafblower: budget exhausted — weights reflect best iterate; ",
-            "increase max_iterations if further improvement is needed")
+  if (calib_result$status == 4L) {
+    e_final  <- calib_result$best_error
+    e_first  <- calib_result$metric_first_check
+    b_iter   <- calib_result$best_iter
+    iters    <- calib_result$iterations
+    mstr     <- calib_result$convergence_used$metric
+    tol_used <- if (conv$absolute_tol > 0) conv$absolute_tol else conv$pct_tol
+    if (is.numeric(e_final) && is.numeric(e_first) && is.finite(e_first) &&
+        is.finite(e_final) && e_final > tol_used && e_first > e_final && b_iter > 10) {
+      r_est  <- (e_final / e_first)^(1 / max(1L, b_iter - 10L))
+      if (is.finite(r_est) && r_est > 0 && r_est < 1) {
+        n_more  <- ceiling(log(tol_used / e_final) / log(r_est))
+        n_total <- b_iter + n_more
+        warning(sprintf(
+          "leafblower: budget exhausted — %s=%.2e at %.0f iters (%.0f× above tol=%.0e). Spectral rate r≈%.4f requires ~%.0f total iterations.",
+          mstr, e_final, iters, e_final/tol_used, tol_used, r_est, n_total),
+          call. = FALSE)
+      } else {
+        warning("leafblower: budget exhausted — weights reflect best iterate; increase max_iterations or check problem feasibility.",
+                call. = FALSE)
+      }
+    } else {
+      warning("leafblower: budget exhausted — weights reflect best iterate; increase max_iterations.",
+              call. = FALSE)
+    }
+  }
   if (calib_result$status == 5L && isTRUE(accelerate_bool))
     warning("leafblower: SRAA-m weight-change plateau — at constrained optimum; ",
             "weights are valid; no further improvement is achievable")
