@@ -4,6 +4,28 @@ import os
 import tempfile
 import shutil
 
+# F3 derivation trace (verified 2026-05-03 against phi_from_u canonical reference):
+#
+#   phi(lam) = T·lam − Σ_i d_i·H(u_i) + lam_reg·r(lam) + (mu/2)·r(lam)^2
+#   where r(lam) = Σ_i d_i·F(u_i) − n     (ALM constraint residual)
+#         F = H'                          (logit.hpp: H is antiderivative of F)
+#         u_i(lam)  = Σ_k lam[off[k]+g_k(i)]
+#         du_i/dα  = du[i]                (precomputed via compute_du)
+#
+# Directional derivative along search dir:
+#   dr/dα      = Σ_i d_i · F'(u_i) · du[i] = Σ_i d_i · fn.dF(u_i) · du[i]   ≡ sum_dw
+#   d/dα[lam_reg·r + (mu/2)·r^2] = (lam_reg + mu·r) · dr/dα = alm_scale · sum_dw
+#
+# Sign: phi is MAXIMIZED (slope_0 > 0). The non-ALM loop computes
+#   slope -= d[i] * F_i * du[i]   (negative because phi has − Σ d·H term)
+# The ALM penalty is ADDED to phi (line 87 of phi_from_u: obj += λ·r + (μ/2)·r²),
+# so its directional derivative ADDS to slope:
+#   slope += alm_scale * sum_dw
+# This matches phi_from_u's gradient assembly at line 84:
+#   grad[off[k]+g] += alm_scale * d[i] * fn.dF(u[i])
+# (directional derivative = grad · dir collapses to alm_scale · Σ d_i · dF · du_i).
+# Verdict: arithmetic CORRECT in sign and units.
+
 target_file = 'src/lbfgsb_solver.cpp'
 
 with open(target_file, 'r') as f:
