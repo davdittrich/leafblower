@@ -71,6 +71,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // Convergence state
     std::vector<double> bucket_scratch(max_cats, 0.0);
     double prev_metric = std::numeric_limits<double>::infinity();
+    double first_errRp = -1.0;  // B5: captured at first convergence check for stall/budget classify
     const CalibConvergenceCfg& cfg = st.convergence_cfg;
     constexpr int    kErrCheckInterval   = 10;
     constexpr double kEmptyBucketThreshold = 1e-15;
@@ -163,7 +164,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
                 }
             }
             for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
-            res.base.iterations += K * (r.aa_accepted ? 2 : 1);
+            res.base.iterations += K * r.f_evals;  // B6: f_evals=1 (plain) or 2 (AA attempted)
         } else {
             // Pure Greenkhorn: single margin per step
             int k_star = (int)(std::max_element(errRp.begin(), errRp.end()) - errRp.begin());
@@ -202,10 +203,16 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         // Convergence check every kErrCheckInterval iters
         if ((iter + 1) % kErrCheckInterval == 0 || iter == st.inner_max_iter - 1) {
             lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, X, W, bucket_scratch);
+            double current_errRp = *std::max_element(errRp.begin(), errRp.end());
+            if (first_errRp < 0.0) first_errRp = current_errRp;  // B5: capture at first check
             bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
             if (converged) {
                 lbw::mark_converged(res, cfg, res.base.iterations);
-                X_best = X;
+                // B7: only overwrite X_best if convergence X is actually better
+                if (current_errRp < best_errRp) {
+                    X_best = X;
+                    best_errRp = current_errRp;
+                }
                 break;
             }
         }
@@ -214,7 +221,9 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // Post-loop status
     if (res.base.status == RK_ERR_NOCONV) {
         double final_errRp = *std::max_element(errRp.begin(), errRp.end());
-        res.base.status = (final_errRp < prev_metric * 0.999) ? RK_ERR_BUDGET : RK_ERR_STALL;
+        // B5: compare against first_errRp (initial error), not prev_metric (last update = final error)
+        res.base.status = (first_errRp > 0.0 && final_errRp < first_errRp * 0.999)
+            ? RK_ERR_BUDGET : RK_ERR_STALL;
         std::snprintf(res.message, sizeof(res.message),
             "greenkhorn: %s after %d steps; best max_err=%.4e",
             res.base.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",
