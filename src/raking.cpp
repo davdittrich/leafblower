@@ -339,7 +339,12 @@ RakingResult raking_solve(CalibState& st) {
         int rk_outer_stall_count = 0;
         while (f_evals_used + 1 <= f_eval_budget) {
             rk_sraa.F_cur = X;  // seed F_cur with current X before each sraa_step call
+            // B3 fix: save metrics before sraa_step — if AA is attempted then rejected,
+            // the second f_eval(X_AA) overwrites last_F_metrics with the rejected iterate.
+            // Restore on rejection so convergence check uses metrics from accepted X_k.
+            lbw::CellMetrics saved_metrics = last_F_metrics;
             auto r = lbw::sraa_step(F_eval, X, L_cell, U_cell, rk_sraa);
+            if (!r.aa_accepted && r.f_evals == 2) last_F_metrics = saved_metrics;
             f_evals_used += r.f_evals;
             res.base.max_error  = r.err_result;
             res.base.iterations = f_evals_used;
