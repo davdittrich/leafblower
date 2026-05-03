@@ -185,7 +185,10 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         // projected iterations is valid history; zeroing would corrupt subsequent bisect_capacity calls.
 
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
-            const double W = W_total;  // preserved by Sinkhorn sweeps + bisection
+            // B10: recompute W after sweeps+bisection — X mass may have shifted
+            double W_current = 0.0;
+            for (int c = 0; c < ct.M_cell; ++c) W_current += X[c];
+            const double W = W_current;
             auto m = lbw::compute_cell_metrics(st, ct, X, W, bucket);
 
             double l1_sum = 0.0;
