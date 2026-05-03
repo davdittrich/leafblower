@@ -14,7 +14,7 @@
 
 **Signature locked:** formal parameters MUST be named `target_list` (not `target` — avoids shadowing the parent-scope `target` variable) and `df` (not `data` — avoids collision with base R `data()` function). This is a DoD requirement.
 
-**Pre-extraction snapshot (required before B1 commit):** Add to `tests/testthat/test-metrics.R` (new file): `test_that("compute_quality_metrics values match inline implementation", { ... })` capturing expected metric values from `attr(r_before, "result")` on stepstone. This test must PASS BEFORE and AFTER B1, proving extraction is value-identical. Commit the test file in the SAME commit as the extraction.
+**Pre-extraction snapshot (required before B1 commit):** Extend existing `tests/testthat/test-quality-metrics.R` (already exists — DO NOT create new file) with a new `test_that("compute_quality_metrics extraction: values identical to inline", { ... })` block that captures expected metric values from `attr(r, "result")` on the T1 fixture. This test must PASS before the extraction commit AND after. Commit the test extension in the SAME commit as the extraction.
 
 Caller in harvest.R body: `qm <- compute_quality_metrics(weights, target, data); calib_result[names(qm)] <- qm`.
 
@@ -39,7 +39,29 @@ The `interaction()`-based approach is BLOCKED due to two issues:
 
 2. **Dispatch guard**: `anyNA(df[names(target)])` checks ALL target columns for any NA. When TRUE → K-pass (semantically correct, per per-margin NA exclusion). When FALSE AND K ≥ 5 → single-pass.
 
-3. **Single-pass via paste+rowsum**: `cell_key <- do.call(paste, c(df[names(target)], list(sep="\x01"))); W_cell <- rowsum(weights, cell_key, na.action=NULL)`. NA keys treated as their own level — safe because dispatch ensures no NAs reach this path. Suppress the rowsum "missing values for group" warning via targeted handler: `withCallingHandlers(rowsum(...), warning = function(w) { if (grepl("missing values", conditionMessage(w))) invokeRestart("muffleWarning"); w })`.
+3. **Single-pass via paste+rowsum with per-margin projection**: 
+   ```r
+   cell_key <- do.call(paste, c(df[names(target)], list(sep = "\x01")))
+   W_cell   <- rowsum(weights, cell_key, na.action = NULL)  # named vector: cell → w_sum
+   Z        <- sum(weights)
+   # Project back to per-margin W_kj: for each margin k, sum W_cell entries
+   # whose cell_key has obs_k == level_j. Efficient via split on margin k alone.
+   margin_kl_single <- sum(sapply(names(target), function(k) {
+     T_k   <- target[[k]]
+     # Aggregate: for each level j of margin k, sum W_cell over all cells with obs[k]==j
+     key_k_only <- df[[k]]   # factor; maps obs → level of margin k
+     W_k   <- tapply(as.numeric(W_cell[cell_key]), key_k_only, sum, na.rm = TRUE) / Z
+     # (tapply on cell_key subset — still 1 hash over cells not obs)
+     # NB: this is NOT 1 hash per margin; it's 1 hash per margin-level group.
+     # TRUE single-pass would use pre-aggregated W_cell to avoid per-margin tapply.
+     # Implement as: W_k <- vapply(split(W_cell, tapply(seq_along(cell_key), key_k_only, identity)), sum, 0)
+     common <- intersect(names(T_k), names(W_k))
+     if (any(T_k[setdiff(names(T_k), names(W_k))] > 0)) return(Inf)
+     pos <- T_k[common] > 0
+     sum(T_k[common][pos] * log(T_k[common][pos] / pmax(W_k[common][pos], 1e-15)))
+   }))
+   ```
+   The full projection algorithm is: (1) cell-aggregate weights via paste-rowsum once; (2) per margin k, group cell-level weights by margin-k level to get W_kj. Step 2 is K tapply-over-M_cell (not K tapply-over-n) — the speedup is O(M_cell × K) vs O(n × K) where M_cell << n (but M_cell ≈ n on zero-compression fixtures). Speedup only materializes when M_cell/n < 0.5; profile gate below. NA keys treated as their own level — safe because dispatch ensures no NAs reach this path. Suppress the rowsum "missing values for group" warning via targeted handler: `withCallingHandlers(rowsum(...), warning = function(w) { if (grepl("missing values", conditionMessage(w))) invokeRestart("muffleWarning"); w })`.
 
 4. **STOP RULE**: After single-pass implementation, profile again: `benchmarks/results/margin_kl_profile_single_pass.txt`. If median speedup on stepstone < 1.5×, REVERT implementation, close B2 DEFERRED with profile evidence, do NOT commit single-pass code.
 
@@ -47,7 +69,7 @@ The `interaction()`-based approach is BLOCKED due to two issues:
 
 6. **muffleWarning test (DoD requirement)**: `test_that("B2 muffleWarning: suppresses rowsum warning; passes other warnings", ...)` — verifies targeted handler fires only on "missing values" text.
 
-**NA fixture spec (DoD requirement):** Synthetic fixture in B2 test — `n=500, K=3, inject_na_fraction=0.05` per target column — must verify K-pass output matches B2 dispatch output byte-for-byte.
+**NA fixture spec (DoD requirement):** Synthetic fixture in B2 test — `set.seed(42L); n <- 500L; K <- 3L; df_na <- data.frame(a=factor(sample(c("x","y","z"), n, TRUE)), b=factor(sample(c("M","F"), n, TRUE)), c=factor(sample(c("1","2","3"), n, TRUE))); df_na$a[sample(n, 25L)] <- NA; tgt_na <- list(a=c(x=0.5,y=0.3,z=0.2), b=c(M=0.6,F=0.4), c=c("1"=0.4,"2"=0.4,"3"=0.2))`. Verify K-pass output matches dispatch output byte-for-byte.
 
 **Audit:** `all.equal(margin_kl_old, margin_kl_new, tolerance = 1e-10)` on stepstone (no NAs) + NA fixture (must fall back → identical to K-pass baseline).
 
