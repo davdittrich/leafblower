@@ -703,28 +703,73 @@ compute_quality_metrics <- function(weights, target_list, df) {
   n  <- length(weights)
   wn <- weights * n / Z                         # normalize to mean=1
   deff <- n * sum(weights^2) / Z^2
-  list(
-    design_effect = deff,
-    effective_observations = if (is.finite(deff) && deff > 0) n / deff else NA_real_,
-    weight_kl = sum(wn * log(pmax(wn, 1e-15))) / n,
-    margin_kl = tryCatch(
-      sum(sapply(names(target_list), function(k) {
+
+  # Per-margin KL helper: shared finalization across both single-pass and K-pass.
+  # Inputs: T_k (named target probs), W_k (named observed probs aligned to a level set).
+  margin_kl_one <- function(T_k, W_k) {
+    if (any(T_k[setdiff(names(T_k), names(W_k))] > 0)) return(Inf)
+    common <- intersect(names(T_k), names(W_k))
+    T_sub  <- T_k[common]; W_sub <- W_k[common]
+    pos    <- T_sub > 0                          # limit: 0 * log(0/W) = 0
+    if (!any(pos)) return(0)
+    sum(T_sub[pos] * log(T_sub[pos] / pmax(W_sub[pos], 1e-15)))
+  }
+
+  # B2 dispatch: single-pass cell-key aggregation when no NA in margin cols
+  # AND K >= 3 (paste/rowsum overhead unprofitable for K < 3) AND all margin
+  # cols are factors (precondition for integer-radix key encoding).
+  margin_cols <- names(target_list)
+  use_single_pass <- length(target_list) >= 3L &&
+    !anyNA(df[margin_cols]) &&
+    all(vapply(margin_cols, function(k) is.factor(df[[k]]), logical(1)))
+
+  margin_kl_value <- tryCatch({
+    if (use_single_pass) {
+      # Build integer cell-key by mixed-radix encoding of factor codes.
+      # Faster than paste() for many-K, large-n: avoids string allocation.
+      # rowsum() then aggregates weights to unique cells in one pass.
+      key <- numeric(n)
+      multiplier <- 1
+      for (k in margin_cols) {
+        key <- key + (as.integer(df[[k]]) - 1L) * multiplier
+        multiplier <- multiplier * nlevels(df[[k]])
+      }
+      w_cell <- withCallingHandlers(
+        rowsum(weights, key, na.action = NULL, reorder = TRUE),
+        warning = function(w) {
+          if (grepl("missing values", conditionMessage(w))) invokeRestart("muffleWarning")
+        }
+      )
+      # Map each unique cell back to a representative row (for level lookup).
+      cell_to_row <- match(as.numeric(rownames(w_cell)), key)
+      vec_w_cell  <- as.vector(w_cell)
+      sum(vapply(margin_cols, function(k) {
+        T_k <- target_list[[k]]
+        # Aggregate cell-level weights to margin-k levels.
+        cell_levels_k <- df[[k]][cell_to_row]
+        W_k <- tapply(vec_w_cell, cell_levels_k, sum) / Z
+        margin_kl_one(T_k, W_k)
+      }, numeric(1)))
+    } else {
+      # K-pass fallback: handles NA in margin cols (per-margin valid mask) and
+      # K < 3 (where single-pass overhead is unprofitable).
+      sum(sapply(margin_cols, function(k) {
         T_k   <- target_list[[k]]
         obs_k <- df[[k]]
-        valid <- !is.na(obs_k)                    # exclude NA-coded observations
+        valid <- !is.na(obs_k)                  # exclude NA-coded observations
         w_v   <- weights[valid]
         Z_k   <- sum(w_v)
         if (Z_k == 0) return(NA_real_)
         W_k <- tapply(w_v, droplevels(obs_k[valid]), sum) / Z_k
-        # categories in T_k with T_k > 0 but absent from W_k → infeasible margin
-        if (any(T_k[setdiff(names(T_k), names(W_k))] > 0)) return(Inf)
-        common <- intersect(names(T_k), names(W_k))
-        T_sub  <- T_k[common]; W_sub <- W_k[common]
-        pos    <- T_sub > 0                       # limit: 0 * log(0/W) = 0
-        if (!any(pos)) return(0)
-        sum(T_sub[pos] * log(T_sub[pos] / pmax(W_sub[pos], 1e-15)))
-      }), na.rm = FALSE),
-      error = function(e) NA_real_
-    )
+        margin_kl_one(T_k, W_k)
+      }), na.rm = FALSE)
+    }
+  }, error = function(e) NA_real_)
+
+  list(
+    design_effect = deff,
+    effective_observations = if (is.finite(deff) && deff > 0) n / deff else NA_real_,
+    weight_kl = sum(wn * log(pmax(wn, 1e-15))) / n,
+    margin_kl = margin_kl_value
   )
 }

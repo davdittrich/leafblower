@@ -100,6 +100,76 @@ test_that("a0gk: metrics finite at exit with MAX_ERR criterion (gated path)", {
   expect_true(result$iterations < 100)
 })
 
+test_that("B2 dispatch: NA data uses K-pass (not single-pass), no crash", {
+  # K=3 with NA in margin col → !anyNA fails → fallback to K-pass.
+  set.seed(42L); n <- 500L
+  df_na <- data.frame(
+    a = factor(sample(c("x","y","z"), n, TRUE)),
+    b = factor(sample(c("M","F"), n, TRUE)),
+    c = factor(sample(c("1","2","3"), n, TRUE))
+  )
+  df_na$a[sample(n, 25L)] <- NA
+  tgt_na <- list(
+    a = c(x=0.5, y=0.3, z=0.2),
+    b = c(M=0.6, F=0.4),
+    c = c("1"=0.4, "2"=0.4, "3"=0.2)
+  )
+  w_na <- rep(1, n)
+  qm <- leafblower:::compute_quality_metrics(w_na, tgt_na, df_na)
+  # Dispatch to K-pass must succeed without error and return finite/Inf
+  expect_true(is.finite(qm$margin_kl) || is.infinite(qm$margin_kl))
+  expect_true(is.finite(qm$design_effect))
+  expect_true(is.finite(qm$weight_kl))
+})
+
+test_that("B2 values: single-pass equals K-pass on no-NA K>=3 data", {
+  # K=3 no-NA → single-pass path. Verify numerical equivalence vs K-pass.
+  set.seed(42L); n <- 500L
+  df_clean <- data.frame(
+    a = factor(sample(c("x","y","z"), n, TRUE)),
+    b = factor(sample(c("M","F"), n, TRUE)),
+    c = factor(sample(c("1","2","3"), n, TRUE))
+  )
+  tgt_c <- list(
+    a = c(x=0.5, y=0.3, z=0.2),
+    b = c(M=0.6, F=0.4),
+    c = c("1"=0.4, "2"=0.4, "3"=0.2)
+  )
+  w_c <- runif(n, 0.5, 2.0)
+  qm <- leafblower:::compute_quality_metrics(w_c, tgt_c, df_clean)
+
+  # Reference: K-pass computation inline (mirrors fallback branch)
+  Z <- sum(w_c)
+  ref_margin_kl <- sum(sapply(names(tgt_c), function(k) {
+    T_k <- tgt_c[[k]]
+    obs_k <- df_clean[[k]]
+    valid <- !is.na(obs_k)
+    Z_k <- sum(w_c[valid])
+    W_k <- tapply(w_c[valid], droplevels(obs_k[valid]), sum) / Z_k
+    if (any(T_k[setdiff(names(T_k), names(W_k))] > 0)) return(Inf)
+    common <- intersect(names(T_k), names(W_k))
+    T_sub <- T_k[common]; W_sub <- W_k[common]
+    pos <- T_sub > 0
+    if (!any(pos)) return(0)
+    sum(T_sub[pos] * log(T_sub[pos] / pmax(W_sub[pos], 1e-15)))
+  }))
+  expect_equal(qm$margin_kl, ref_margin_kl, tolerance = 1e-12)
+  expect_true(is.finite(qm$margin_kl))
+})
+
+test_that("B2 dispatch: K<3 uses K-pass (single-pass overhead unprofitable)", {
+  # K=2 → length(target_list) >= 3 fails → fallback to K-pass.
+  set.seed(43L); n <- 300L
+  df_k2 <- data.frame(
+    a = factor(sample(c("x","y","z"), n, TRUE)),
+    b = factor(sample(c("M","F"), n, TRUE))
+  )
+  tgt_k2 <- list(a = c(x=0.4, y=0.35, z=0.25), b = c(M=0.5, F=0.5))
+  w_k2 <- rep(1, n)
+  qm <- leafblower:::compute_quality_metrics(w_k2, tgt_k2, df_k2)
+  expect_true(is.finite(qm$margin_kl) && qm$margin_kl >= 0)
+})
+
 test_that("B1: compute_quality_metrics extraction: values identical to inline", {
   # Snapshot test capturing expected values from inline block (lines 536-575)
   # before extraction to helper. After extraction, verify helper produces identical results.
