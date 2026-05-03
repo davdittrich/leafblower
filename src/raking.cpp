@@ -451,8 +451,10 @@ RakingResult raking_solve(CalibState& st) {
                 // Weight KL stall: monotone for water-filling IPF (Csiszar-Tusnady).
                 // KL plateau ↔ constrained KL minimum — correct stall signal.
                 // Guard: wkl ≤ tol_abs means effectively at optimum → converged (not stalled).
+                // Only applies when KL is the active convergence metric; other metrics (e.g.
+                // MAX_ERR) must converge via the outer check_convergence path above.
                 const double wkl_flat = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
-                if (wkl_flat <= st.tol_abs) {
+                if (st.convergence_cfg.metric == lbw::CalibMetric::KL && wkl_flat <= st.tol_abs) {
                     res.base.status = RK_OK; res.base.convergence_iter = iter; break;
                 }
                 if (!std::isfinite(min_loss_window)) {
