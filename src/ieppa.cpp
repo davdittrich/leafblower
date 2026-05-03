@@ -808,6 +808,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         const std::vector<double> dummy_U;
         int sraa_outer_stall_count = 0;
         double sraa_best_errRp     = std::numeric_limits<double>::infinity();
+        double nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
+        int    nat_iter_prev_sraa   = -1;
         if (sraa_active_lvl) {
             ieppa_sraa.init(total_cats, lbw::kSRAAm);
             lf_flat.assign(total_cats, 0.0);
@@ -912,6 +914,12 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         const double nat_metric = lbw::select_metric(sraa_cfg.metric, cm);
                         if (res.base.metric_first_check == std::numeric_limits<double>::infinity())
                             res.base.metric_first_check = nat_metric;
+                        if (std::isfinite(nat_metric_prev_sraa)) {
+                            res.base.metric_prev_check = nat_metric_prev_sraa;
+                            res.base.prev_check_iter   = nat_iter_prev_sraa;
+                        }
+                        nat_metric_prev_sraa = nat_metric;
+                        nat_iter_prev_sraa   = res.base.iterations;
                         if (std::isfinite(nat_metric) && nat_metric < best.best_metric) {
                             std::vector<double> w_ratio(ct.M_cell);
                             for (int c = 0; c < ct.M_cell; c++)
@@ -960,6 +968,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             }
         }
 
+        double nat_metric_prev_nonavec = std::numeric_limits<double>::infinity();
+        int    nat_iter_prev_nonavec   = -1;
         if (!sraa_active_lvl) {
         for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
@@ -1143,7 +1153,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
                 // Reset best-iterate: pre-fallback snapshot from degenerate linear-space
                 best.reset();
-                sraa_best_errRp = std::numeric_limits<double>::infinity();
+                sraa_best_errRp     = std::numeric_limits<double>::infinity();
+                nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
+                nat_iter_prev_sraa   = -1;
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 }
@@ -1462,6 +1474,12 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             if (st.convergence_cfg.metric == lbw::CalibMetric::MARGINAL_KL) {
                 if (iter == 1 && res.base.metric_first_check == std::numeric_limits<double>::infinity())
                     res.base.metric_first_check = res.marginal_kl_at_iter;
+                if (std::isfinite(nat_metric_prev_nonavec)) {
+                    res.base.metric_prev_check = nat_metric_prev_nonavec;
+                    res.base.prev_check_iter   = nat_iter_prev_nonavec;
+                }
+                nat_metric_prev_nonavec = res.marginal_kl_at_iter;
+                nat_iter_prev_nonavec   = iter;
                 if (res.marginal_kl_at_iter < best.best_metric) {
                     std::vector<double> w_ratio(ct.M_cell);
                     for (int c = 0; c < ct.M_cell; c++)
@@ -1580,6 +1598,12 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         errRp, mean_err_blk2, kl_max, chi2_total, grake_norm, l1_weight);
                     if (iter == 1 && res.base.metric_first_check == std::numeric_limits<double>::infinity())
                         res.base.metric_first_check = curr_best;
+                    if (std::isfinite(nat_metric_prev_nonavec)) {
+                        res.base.metric_prev_check = nat_metric_prev_nonavec;
+                        res.base.prev_check_iter   = nat_iter_prev_nonavec;
+                    }
+                    nat_metric_prev_nonavec = curr_best;
+                    nat_iter_prev_nonavec   = iter;
                     if (std::isfinite(curr_best) && curr_best < best.best_metric) {
                         std::vector<double> w_ratio(ct.M_cell);
                         for (int c = 0; c < ct.M_cell; c++)
