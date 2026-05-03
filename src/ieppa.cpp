@@ -638,11 +638,13 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     }
                 }
             }
+            // X_cur scatter-multiply: contiguous write, gather read — SIMD-safe.
+            // Guards converted to blend to avoid branch in vectorized loop.
+#pragma omp simd
             for (int c = 0; c < ct.M_cell; c++) {
-                int j = gk[c];
-                if (j < 0 || j >= nj) continue;
-                if (X_init[c] <= 0.0) continue;
-                X_cur[c] *= rescale_lin[j];
+                const int j = gk[c];
+                if (j >= 0 && j < nj && X_init[c] > 0.0)
+                    X_cur[c] *= rescale_lin[j];
             }
             return false;
         };
@@ -1157,6 +1159,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // Rebuild X_tilde from current lf for residual scoring.
                 if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
                 // S3 Site A: vectorized X_tilde rebuild via bulk_exp_clipped.
+#pragma omp simd
                 for (int c = 0; c < ct.M_cell; c++)
                     s_buf[c] = (X_init[c] <= 0.0) ? -kLogClip : log_X_init[c] + cell_lf[c];
                 lbw::bulk_exp_clipped(s_buf.data(), X_tilde.data(), ct.M_cell, kLogClip);
@@ -1177,6 +1180,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     (void) apply_single_margin_log(k_star);
                     res.greedy_sweeps_taken++;
                     // S3 Site B: vectorized X_tilde refresh via bulk_exp_clipped.
+#pragma omp simd
                     for (int c = 0; c < ct.M_cell; c++)
                         s_buf[c] = (X_init[c] <= 0.0) ? -kLogClip : log_X_init[c] + cell_lf[c];
                     lbw::bulk_exp_clipped(s_buf.data(), X_tilde.data(), ct.M_cell, kLogClip);
@@ -1289,15 +1293,15 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             bool overflow_detected = false;
             double max_log_X_tilde = -std::numeric_limits<double>::infinity();
             if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
-            // S3 Site C: Pass 1 — scalar, fill s_buf, track overflow/max.
+            // S3 Site C: Pass 1 — SIMD, fill s_buf, track overflow/max.
+            // continue replaced by ternary blend; reductions declared for vectorizer.
+#pragma omp simd reduction(max:max_log_X_tilde) reduction(||:overflow_detected)
             for (int c = 0; c < ct.M_cell; c++) {
-                if (X_init[c] <= 0.0) { s_buf[c] = -kLogClip; continue; }
                 // T2.A: single-stream exp via cell_lf (was K=20 DRAM streams)
-                double s = log_X_init[c] + cell_lf[c];
-                if (s > max_log_X_tilde) max_log_X_tilde = s;
-                if (s > kLogClip && U_cell[c] >= 1e299) {
-                    overflow_detected = true;
-                }
+                const bool active = (X_init[c] > 0.0);
+                const double s = active ? (log_X_init[c] + cell_lf[c]) : -kLogClip;
+                if (active && s > max_log_X_tilde) max_log_X_tilde = s;
+                if (active && s > kLogClip && U_cell[c] >= 1e299) overflow_detected = true;
                 s_buf[c] = s;
             }
             // Pass 2: vectorized exp with clipping.
