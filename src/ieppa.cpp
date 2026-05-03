@@ -404,13 +404,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     // Initialized to +∞ so first check never triggers convergence.
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
-    // WU-E: best-iterate tracking (cell-level W snapshot at min observed active metric).
-    // Tracks the active convergence metric so best_weights minimizes the user's chosen objective.
-    // W_best is initialized to all-zeros; best_metric_seen = ∞ ensures first check triggers copy.
-    double best_metric_seen    = std::numeric_limits<double>::infinity();
-    double best_objective_seen = 0.0;  // weight KL at best_iter (A1 fix)
-    int    best_iter_val   = 0;
-    std::vector<double> W_best(ct.M_cell, 0.0);
+    // WU-E / G8b: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
+    // best.best_weights stores cell-level W ratio (X/X_init) at the best observed metric.
+    BestIterTracker best;
 
     // SOR adaptive under-relaxation state (iEPPA-only).
     // Per-margin omega[k] starts at omega_init (1.0 = no damping = fast path).
@@ -871,25 +867,24 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
 
                 // Best-iterate tracking — mirrors raking.cpp pattern but uses
                 // X_cur (the SRAA working state) and saves lf_flat for revert.
-                if (r.err_result < best_metric_seen) {
-                    best_metric_seen = r.err_result;
-                    for (int c = 0; c < ct.M_cell; c++) {
-                        W_best[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
-                    }
-                    lf_best             = lf_flat;
-                    // WI-1: mirror best-iterate lf into the function-scope
-                    // snapshot consumed by lf_capture_guard on solve exit.
-                    lf_best_snap        = lf_flat;
-                    lf_best_snap_set    = true;
-                    best_iter_val       = res.base.iterations;
-                    best_objective_seen = lbw::compute_weight_kl(
+                if (r.err_result < best.best_metric) {
+                    std::vector<double> w_ratio(ct.M_cell);
+                    for (int c = 0; c < ct.M_cell; c++)
+                        w_ratio[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
+                    const double obj = lbw::compute_weight_kl(
                         X_cur, X_init, ct.M_cell, st.n,
                         kl_ratio_buf.data(), kl_weight_buf.data());
+                    best.update(r.err_result, obj, res.base.iterations, w_ratio);
+                    lf_best          = lf_flat;
+                    // WI-1: mirror best-iterate lf into the function-scope
+                    // snapshot consumed by lf_capture_guard on solve exit.
+                    lf_best_snap     = lf_flat;
+                    lf_best_snap_set = true;
                 }
 
                 // Outer stall guard — revert lf to lf_best and clear AA history
                 // when the metric degrades for kSRAAOuterStallWindow steps.
-                if (r.err_result > best_metric_seen * (1.0 + lbw::kSRAAOuterSlack)) {
+                if (r.err_result > best.best_metric * (1.0 + lbw::kSRAAOuterSlack)) {
                     if (++sraa_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
                         lf_flat = lf_best;
                         unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
@@ -1143,10 +1138,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 iter_in_lvl = 0;
                 // reset X_prev after fallback — X semantics changed (log-path).
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
-                // Reset best-iterate: pre-fallback W_best from degenerate linear-space
-                best_metric_seen = std::numeric_limits<double>::infinity();
-                W_best.assign(ct.M_cell, 0.0);
-                best_iter_val    = 0;
+                // Reset best-iterate: pre-fallback snapshot from degenerate linear-space
+                best.reset();
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 }
@@ -1451,27 +1444,25 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
             // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
             if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
-                if (errRp < best_metric_seen) {
-                    // === BEST-ITER UPDATE (metric, iter, objective MUST stay co-located) ===
-                    best_metric_seen    = errRp;
-                    best_iter_val       = iter;
-                    best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data());
+                if (errRp < best.best_metric) {
+                    std::vector<double> w_ratio(ct.M_cell);
                     for (int c = 0; c < ct.M_cell; c++)
-                        W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
-                    // === END BEST-ITER UPDATE ===
+                        w_ratio[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                    best.update(errRp,
+                                lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data()),
+                                iter, w_ratio);
                 }
             }
             // BLOCK 1b — MARGINAL_KL best-iterate (marg_kl always valid alongside errRp).
             // Tracks min marginal KL when MARGINAL_KL is active.
             if (st.convergence_cfg.metric == lbw::CalibMetric::MARGINAL_KL) {
-                if (res.marginal_kl_at_iter < best_metric_seen) {
-                    // === BEST-ITER UPDATE ===
-                    best_metric_seen    = res.marginal_kl_at_iter;
-                    best_iter_val       = iter;
-                    best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data());
+                if (res.marginal_kl_at_iter < best.best_metric) {
+                    std::vector<double> w_ratio(ct.M_cell);
                     for (int c = 0; c < ct.M_cell; c++)
-                        W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
-                    // === END BEST-ITER UPDATE ===
+                        w_ratio[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                    best.update(res.marginal_kl_at_iter,
+                                lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data()),
+                                iter, w_ratio);
                 }
             }
 
@@ -1581,14 +1572,13 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     const double curr_best = lbw::select_metric(
                         st.convergence_cfg.metric,
                         errRp, mean_err_blk2, kl_max, chi2_total, grake_norm, l1_weight);
-                    if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
-                        // === BEST-ITER UPDATE ===
-                        best_metric_seen    = curr_best;
-                        best_iter_val       = iter;
-                        best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data());
+                    if (std::isfinite(curr_best) && curr_best < best.best_metric) {
+                        std::vector<double> w_ratio(ct.M_cell);
                         for (int c = 0; c < ct.M_cell; c++)
-                            W_best[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
-                        // === END BEST-ITER UPDATE ===
+                            w_ratio[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
+                        best.update(curr_best,
+                                    lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_buf.data(), kl_weight_buf.data()),
+                                    iter, w_ratio);
                     }
                 }
             }
@@ -1751,7 +1741,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     // RK_ERR_BUDGET (4): metric improved at some point → increase max_iterations.
     // RK_ERR_STALL  (5): metric never improved from initial → at constrained optimum.
     if (res.base.status == RK_ERR_NOCONV) {
-        res.base.status = std::isfinite(best_metric_seen) ? RK_ERR_BUDGET : RK_ERR_STALL;
+        res.base.status = best.has_best() ? RK_ERR_BUDGET : RK_ERR_STALL;
     }
 
     // PCT stall detection: pct_change < pct_tol (PCT converged) but max_error >> pct_tol
@@ -1781,19 +1771,19 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     res.base.convergence_tol = absolute_tol_fired
         ? st.convergence_cfg.absolute_tol : st.convergence_cfg.pct_tol;
     res.base.convergence_iter               = (res.base.status == RK_OK) ? res.base.iterations : -1;
-    res.base.convergence_solver_objective   = best_objective_seen;
+    res.base.convergence_solver_objective   = best.best_objective;
     res.base.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
 
-    // WU-E: expand W_best (cell-level snapshot) to obs-level best_weights.
+    // WU-E / G8b: expand best.best_weights (cell-level W ratio snapshot) to obs-level.
     // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.
     // NO water-fill, NO bounds-clamping — this is a mid-loop snapshot.
-    // If best_metric_seen == ∞ (solver exited before first check), best_weights is all zeros.
-    res.base.best_error = best_metric_seen;
-    res.base.best_iter  = best_iter_val;
-    if (std::isfinite(best_metric_seen)) {
+    // If best.has_best() is false (solver exited before first check), best_weights is all zeros.
+    res.base.best_error = best.best_metric;
+    res.base.best_iter  = best.best_iter;
+    if (best.has_best()) {
         std::vector<double> best_weights_obs(st.n);
         for (int i = 0; i < st.n; i++) {
-            best_weights_obs[i] = st.weights[i] * W_best[ct.cell_of[i]];
+            best_weights_obs[i] = st.weights[i] * best.best_weights[ct.cell_of[i]];
         }
         // Sum-normalize to n (scalar mult + sum-normalize only, per spec).
         double s = 0.0;

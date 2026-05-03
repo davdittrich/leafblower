@@ -95,11 +95,9 @@ RakingResult raking_solve(CalibState& st) {
     // Convergence rule state
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
 
-    // Best-iterate tracking (cell-level snapshot)
-    double best_metric_seen    = std::numeric_limits<double>::infinity();
-    double best_objective_seen = 0.0;  // weight KL at best_iter (A1 fix)
-    int    best_iter_val    = 0;
-    std::vector<double> W_best(ct.M_cell, 0.0);
+    // G8b: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
+    // best.best_weights stores cell-level X snapshot at the best observed metric.
+    BestIterTracker best;
 
     // Scratch buffers for compute_weight_kl vectorized log path.
     std::vector<double> kl_ratio_scratch(ct.M_cell, 0.0);
@@ -350,19 +348,18 @@ RakingResult raking_solve(CalibState& st) {
             res.base.iterations = f_evals_used;
 
             // Best-iterate tracking
-            if (r.err_result < best_metric_seen) {
-                best_metric_seen    = r.err_result;
-                best_iter_val       = f_evals_used;
-                best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
-                W_best              = X;
+            if (r.err_result < best.best_metric) {
+                best.update(r.err_result,
+                            lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data()),
+                            f_evals_used, X);
             }
 
             // Outer revert: if quality has degraded significantly, revert to best
             {
                 double curr_quality_rk = r.err_result;
-                if (curr_quality_rk > best_metric_seen * (1.0 + lbw::kSRAAOuterSlack)) {
+                if (curr_quality_rk > best.best_metric * (1.0 + lbw::kSRAAOuterSlack)) {
                     if (++rk_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
-                        X = W_best;               // revert; no S_flat rebuild — F_eval handles it
+                        X = best.best_weights;    // revert; no S_flat rebuild — F_eval handles it
                         rk_sraa.clear();
                         rk_outer_stall_count = 0;
                     }
@@ -399,11 +396,10 @@ RakingResult raking_solve(CalibState& st) {
 
                 // Best-iterate tracking (MAX_ERR metric)
                 if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
-                    if (errRp < best_metric_seen) {
-                        best_metric_seen    = errRp;
-                        best_iter_val       = iter;
-                        best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
-                        W_best              = X;
+                    if (errRp < best.best_metric) {
+                        best.update(errRp,
+                                    lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data()),
+                                    iter, X);
                     }
                 }
 
@@ -434,11 +430,10 @@ RakingResult raking_solve(CalibState& st) {
                         grake_norm = m.grake_norm;
                         if (metric != lbw::CalibMetric::MAX_ERR) {
                             const double curr_best = lbw::select_metric(metric, m);
-                            if (std::isfinite(curr_best) && curr_best < best_metric_seen) {
-                                best_metric_seen    = curr_best;
-                                best_iter_val       = iter;
-                                best_objective_seen = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
-                                W_best              = X;
+                            if (std::isfinite(curr_best) && curr_best < best.best_metric) {
+                                best.update(curr_best,
+                                            lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data()),
+                                            iter, X);
                             }
                         }
                     }
@@ -523,23 +518,25 @@ RakingResult raking_solve(CalibState& st) {
         }
     }
 
-    // Best-iterate: normalize cell snapshot, then expand to obs.
-    res.base.convergence_solver_objective = best_objective_seen;
+    // G8b: expand best.best_weights (cell-level X snapshot) to obs-level.
+    res.base.convergence_solver_objective = best.best_objective;
     res.base.convergence_minimized_metric = static_cast<int>(st.convergence_cfg.metric);
-    res.base.best_error = best_metric_seen;
-    res.base.best_iter  = best_iter_val;
-    if (std::isfinite(best_metric_seen)) {
+    res.base.best_error = best.best_metric;
+    res.base.best_iter  = best.best_iter;
+    if (best.has_best()) {
+        // Normalize cell snapshot, then expand to obs.
+        std::vector<double> w_snap = best.best_weights;  // copy — normalize in place
         double s = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) s += W_best[c];
+        for (int c = 0; c < ct.M_cell; c++) s += w_snap[c];
         if (s > 0.0) {
             const double sc = static_cast<double>(st.n) / s;
-            for (int c = 0; c < ct.M_cell; c++) W_best[c] *= sc;
+            for (int c = 0; c < ct.M_cell; c++) w_snap[c] *= sc;
         }
         res.base.best_weights.resize(st.n);
         const double hi_obs = lbw::resolve_hi(st);
         for (int i = 0; i < st.n; i++) {
             int c = ct.cell_of[i];
-            double mult = (X_init[c] > 0.0) ? W_best[c] / X_init[c] : 1.0;
+            double mult = (X_init[c] > 0.0) ? w_snap[c] / X_init[c] : 1.0;
             res.base.best_weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
         }
     } else {
