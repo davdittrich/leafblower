@@ -10,7 +10,13 @@
 
 ### B1 — extract compute_quality_metrics + table-drive convergence_reason
 
-**Extraction:** Move R/harvest.R:536-575 (fixed metric block from 51d3ed3) to a new helper `compute_quality_metrics <- function(weights, target_list, df)` in the `# --- Helpers ---` section. Parameters named `target_list` (not `target` — avoids shadowing) and `df` (not `data` — avoids collision with base `data()`). Caller in harvest.R body: `qm <- compute_quality_metrics(weights, target, data); calib_result[names(qm)] <- qm`.
+**Extraction:** Move R/harvest.R:536-575 (fixed metric block from 51d3ed3) to a new helper `compute_quality_metrics <- function(weights, target_list, df)` in the `# --- Helpers ---` section.
+
+**Signature locked:** formal parameters MUST be named `target_list` (not `target` — avoids shadowing the parent-scope `target` variable) and `df` (not `data` — avoids collision with base R `data()` function). This is a DoD requirement.
+
+**Pre-extraction snapshot (required before B1 commit):** Add to `tests/testthat/test-metrics.R` (new file): `test_that("compute_quality_metrics values match inline implementation", { ... })` capturing expected metric values from `attr(r_before, "result")` on stepstone. This test must PASS BEFORE and AFTER B1, proving extraction is value-identical. Commit the test file in the SAME commit as the extraction.
+
+Caller in harvest.R body: `qm <- compute_quality_metrics(weights, target, data); calib_result[names(qm)] <- qm`.
 
 **convergence_reason:** Current code (harvest.R:438-447) has a 6-branch if/else + else = 7 outcomes on `(s, accelerate_bool)`. Table-drive via a 2-column lookup (status int → reason string), with the `s==5L && accelerate_bool` distinction handled by a pre-check before the lookup. Simpler refactor: use `switch(as.character(s), "0"="criterion", "2"="infeasible", "3"="error", "4"="budget", "5"=..., "1"="legacy", "legacy")` with the accelerate_bool modifier applied after. Block shrinks from 12 lines to ~6.
 
@@ -27,13 +33,23 @@ The `interaction()`-based approach is BLOCKED due to two issues:
 2. **Combinatorial explosion**: for K=9 margins with L levels each, `interaction()` produces `prod(L_k)` factor levels. For stepstone K=9 × ~10 levels = 10^9 potential cells — O(n log n) sort vs K×O(n) hash is not obviously faster.
 
 **Revised B2 mechanism (conservative approach):**
-- Profile first: `microbenchmark::microbenchmark(compute_quality_metrics(w, tgt, df_sub), times=20)` on stepstone.
-- If any column has NAs (`anyNA(df[names(target)])`): use per-margin K-pass (existing) — semantics correct.
-- If no NAs AND K ≥ 5: try `rowsum(weights, do.call(paste, c(df[names(target)], sep="\x01")))` approach — single string-concatenation hash instead of K factor hashes. Reduces K hash builds to 1 string pass. Profile: speedup must exceed 1.5×.
-- Suppress `rowsum` NA-group warning via `withCallingHandlers(..., warning = function(w) if (grepl("missing values", conditionMessage(w))) invokeRestart("muffleWarning") else w)` (not blanket `suppressWarnings`).
-- **STOP rule**: if measured speedup < 1.5× on stepstone, revert B2 entirely and close with DEFERRED note. Do NOT force.
+**Steps (locked contract):**
 
-**Audit:** `all.equal(margin_kl_old, margin_kl_new, tolerance = 1e-10)` on stepstone (no NAs) AND on a synthetic fixture with 5% NA observations (must fall back to K-pass, yielding identical output to K-pass baseline).
+1. **Profile baseline first** (no code changes): `Rscript -e 'library(microbenchmark); library(leafblower); source("benchmarks/profile_margin_kl.R"); print(mb)' 2>&1 | tee benchmarks/results/margin_kl_profile_baseline.txt`. Commit `benchmarks/profile_margin_kl.R` script and `benchmarks/results/margin_kl_profile_baseline.txt`. This output is the STOP RULE gate.
+
+2. **Dispatch guard**: `anyNA(df[names(target)])` checks ALL target columns for any NA. When TRUE → K-pass (semantically correct, per per-margin NA exclusion). When FALSE AND K ≥ 5 → single-pass.
+
+3. **Single-pass via paste+rowsum**: `cell_key <- do.call(paste, c(df[names(target)], list(sep="\x01"))); W_cell <- rowsum(weights, cell_key, na.action=NULL)`. NA keys treated as their own level — safe because dispatch ensures no NAs reach this path. Suppress the rowsum "missing values for group" warning via targeted handler: `withCallingHandlers(rowsum(...), warning = function(w) { if (grepl("missing values", conditionMessage(w))) invokeRestart("muffleWarning"); w })`.
+
+4. **STOP RULE**: After single-pass implementation, profile again: `benchmarks/results/margin_kl_profile_single_pass.txt`. If median speedup on stepstone < 1.5×, REVERT implementation, close B2 DEFERRED with profile evidence, do NOT commit single-pass code.
+
+5. **Dispatch test (DoD requirement)**: `test_that("B2 dispatch: NA data uses K-pass", { ... stopifnot(!environment_was_single_pass) ... })` — add to `tests/testthat/test-metrics.R`. Verify single-pass branch NOT taken when data has NAs (use mockery or spy on environment variable set in single-pass branch).
+
+6. **muffleWarning test (DoD requirement)**: `test_that("B2 muffleWarning: suppresses rowsum warning; passes other warnings", ...)` — verifies targeted handler fires only on "missing values" text.
+
+**NA fixture spec (DoD requirement):** Synthetic fixture in B2 test — `n=500, K=3, inject_na_fraction=0.05` per target column — must verify K-pass output matches B2 dispatch output byte-for-byte.
+
+**Audit:** `all.equal(margin_kl_old, margin_kl_new, tolerance = 1e-10)` on stepstone (no NAs) + NA fixture (must fall back → identical to K-pass baseline).
 
 ## Work Units
 
