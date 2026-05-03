@@ -723,6 +723,16 @@ compute_quality_metrics <- function(weights, target_list, df) {
     !anyNA(df[margin_cols]) &&
     all(vapply(margin_cols, function(k) is.factor(df[[k]]), logical(1)))
 
+  # Guard: radix key must stay within 2^53 double-precision mantissa.
+  # With K>=10 margins x ~50 levels, prod(nlevels) can exceed 2^53,
+  # causing integer-key collisions and silent KL corruption.
+  if (use_single_pass) {
+    max_cells <- prod(vapply(margin_cols, function(k) nlevels(df[[k]]), integer(1)))
+    if (max_cells > .Machine$double.xmax || max_cells > 2^53) {
+      use_single_pass <- FALSE
+    }
+  }
+
   margin_kl_value <- tryCatch({
     if (use_single_pass) {
       # Build integer cell-key by mixed-radix encoding of factor codes.
