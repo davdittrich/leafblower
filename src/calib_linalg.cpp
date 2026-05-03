@@ -30,12 +30,13 @@ int compute_normal_equations(const CellTable& ct,
             if (j1 < 0) continue;
             size_t row = static_cast<size_t>(cat_offset[k1]) +
                          static_cast<size_t>(j1);
+            // G2: only fill lower triangle (row >= col); dpotrf(uplo='L') reads lower only.
             for (int k2 = 0; k2 < K; k2++) {
                 int j2 = ct.g_per_cell[k2][c];
                 if (j2 < 0) continue;
                 size_t col = static_cast<size_t>(cat_offset[k2]) +
                              static_cast<size_t>(j2);
-                N[row * n_cats_total + col] += D[c];
+                if (row >= col) N[row * n_cats_total + col] += D[c];
             }
         }
     }

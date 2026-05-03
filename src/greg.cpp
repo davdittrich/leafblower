@@ -43,8 +43,8 @@ GregResult greg_solve(CalibState& st) {
     // Hoist per-iteration work vectors to avoid heap churn (D_eff/N/b reused each Newton step)
     std::vector<double> bucket_b(max_cats);
     std::vector<double> D_eff(ct.M_cell);
-    std::vector<double> N(static_cast<size_t>(n_cats_total) * static_cast<size_t>(n_cats_total));
-    std::vector<double> N_factored(N.size()); // cached factored normal-equations matrix
+    // G3: compute normal equations directly into N_factored; eliminate the N copy.
+    std::vector<double> N_factored(static_cast<size_t>(n_cats_total) * static_cast<size_t>(n_cats_total));
     std::vector<double> b(static_cast<size_t>(n_cats_total));
     const double n_total = static_cast<double>(st.n);
 
@@ -63,12 +63,11 @@ GregResult greg_solve(CalibState& st) {
                 if (!fixed_lo[c] && !fixed_hi[c] && X_init[c] > kEps)
                     D_eff[c] = X_init[c];
 
-            if (compute_normal_equations(ct, D_eff.data(), N.data(),
+            if (compute_normal_equations(ct, D_eff.data(), N_factored.data(),
                                          cat_offset.data(), st.K,
                                          static_cast<size_t>(n_cats_total)) != RK_OK) {
                 res.base.status = RK_ERR_BADARG; return res;
             }
-            N_factored = N; // cache pre-factored N for potential future use
             if (ldlt_factor_inplace(N_factored.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
                 res.base.status = RK_ERR_BADARG; return res;
             }
