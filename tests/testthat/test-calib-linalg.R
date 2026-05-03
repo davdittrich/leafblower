@@ -76,6 +76,56 @@ test_that("calib_linalg: LDLT on 2-margin balanced problem", {
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Gill-Murray-Wright (1981) column-norm bound on LDLT (C1 fix)
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("calib_linalg: GMW bound prevents L blow-up on nearly-singular margins", {
+  # Construct a problem where the unmodified LDLT would form L[i,j] = s/d_j
+  # with d_j ~= 0 and s ~= O(1), producing huge L entries (>1e6) that
+  # corrupt back-substitution. With the GMW column-norm bound,
+  #   d_j >= theta_j^2 / beta^2,
+  # so |L[i,j]| <= sqrt(beta^2) <= sqrt(gamma * sqrt(n^2-1)) -- bounded by O(1).
+  #
+  # We verify the bound indirectly: greg on a nearly-singular system must
+  # produce finite weights of moderate magnitude (no >1e6 entries) and
+  # bounded margin error. Pre-fix this would either NaN or yield wild weights.
+  set.seed(2024)
+  n <- 400L
+  # Two near-collinear margins: cell counts for category combinations are
+  # heavily skewed, making the normal-equation matrix nearly singular.
+  data <- data.frame(
+    a = factor(sample(c("1", "2"), n, replace = TRUE, prob = c(0.999, 0.001))),
+    b = factor(sample(c("1", "2"), n, replace = TRUE, prob = c(0.999, 0.001)))
+  )
+  target <- list(
+    a = c("1" = 0.5, "2" = 0.5),
+    b = c("1" = 0.5, "2" = 0.5)
+  )
+
+  w <- tryCatch(
+    harvest(data, target, method = "greg",
+            convergence = list(absolute = 1e-6),
+            attach_weights = FALSE),
+    error = function(e) e
+  )
+
+  # Either greg detects singularity and errors cleanly (C2 guard), or it
+  # produces finite, bounded weights (C1 GMW bound). Both are acceptable —
+  # the previous behaviour (silent NaN / 1e10-magnitude weights) is not.
+  if (inherits(w, "error")) {
+    expect_match(conditionMessage(w),
+                 "LDLT singular|singular|cell|infeasible|underdetermined",
+                 ignore.case = TRUE,
+                 info = "near-singular problem must error with a meaningful message, not crash silently")
+  } else {
+    expect_true(all(is.finite(w)),
+                info = "GMW bound: no NaN/Inf weights from near-singular N")
+    expect_lt(max(abs(w)), 1e6,
+              label = "GMW bound: weights must be bounded (pre-fix would give ~1e10)")
+  }
+})
+
+# ──────────────────────────────────────────────────────────────────────────────
 # chebyshev nu-fix: reference elimination makes schur_nu > 0
 # ──────────────────────────────────────────────────────────────────────────────
 
