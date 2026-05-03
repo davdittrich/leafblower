@@ -807,6 +807,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         const std::vector<double> dummy_L;
         const std::vector<double> dummy_U;
         int sraa_outer_stall_count = 0;
+        double sraa_best_errRp     = std::numeric_limits<double>::infinity();
         if (sraa_active_lvl) {
             ieppa_sraa.init(total_cats, lbw::kSRAAm);
             lf_flat.assign(total_cats, 0.0);
@@ -864,26 +865,12 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     sor_prev_errRp[0]      = curr_errRp;
                 }
 
-                // Best-iterate tracking — mirrors raking.cpp pattern but uses
-                // X_cur (the SRAA working state) and saves lf_flat for revert.
-                if (r.err_result < best.best_metric) {
-                    std::vector<double> w_ratio(ct.M_cell);
-                    for (int c = 0; c < ct.M_cell; c++)
-                        w_ratio[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
-                    const double obj = lbw::compute_weight_kl(
-                        X_cur, X_init, ct.M_cell, st.n,
-                        kl_ratio_buf.data(), kl_weight_buf.data());
-                    best.update(r.err_result, obj, res.base.iterations, w_ratio);
-                    lf_best          = lf_flat;
-                    // WI-1: mirror best-iterate lf into the function-scope
-                    // snapshot consumed by lf_capture_guard on solve exit.
-                    lf_best_snap     = lf_flat;
-                    lf_best_snap_set = true;
-                }
-
                 // Outer stall guard — revert lf to lf_best and clear AA history
-                // when the metric degrades for kSRAAOuterStallWindow steps.
-                if (r.err_result > best.best_metric * (1.0 + lbw::kSRAAOuterSlack)) {
+                // when errRp degrades for kSRAAOuterStallWindow steps.
+                // Uses errRp (not best.best_metric) since best-iterate now tracks
+                // marginal_kl on the kErrCheckInterval gate, not errRp per-step.
+                sraa_best_errRp = std::min(sraa_best_errRp, r.err_result);
+                if (r.err_result > sraa_best_errRp * (1.0 + lbw::kSRAAOuterSlack)) {
                     if (++sraa_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
                         lf_flat = lf_best;
                         unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
@@ -919,6 +906,22 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         converged = lbw::check_convergence(sraa_cfg, cm,
                                                            prev_metric_for_rule,
                                                            st.tol_abs);
+                        // Natural-metric best-iterate update (inside W_total > 0 block).
+                        // lf_best captured at check intervals only — correct: marginal_kl
+                        // unavailable between checks. Fewer compute_weight_kl calls than errRp path.
+                        const double nat_metric = lbw::select_metric(sraa_cfg.metric, cm);
+                        if (std::isfinite(nat_metric) && nat_metric < best.best_metric) {
+                            std::vector<double> w_ratio(ct.M_cell);
+                            for (int c = 0; c < ct.M_cell; c++)
+                                w_ratio[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
+                            best.update(nat_metric,
+                                        lbw::compute_weight_kl(X_cur, X_init, ct.M_cell, st.n,
+                                                               kl_ratio_buf.data(), kl_weight_buf.data()),
+                                        res.base.iterations, w_ratio);
+                            lf_best          = lf_flat;
+                            lf_best_snap     = lf_flat;
+                            lf_best_snap_set = true;
+                        }
                     }
                 }
 
@@ -1138,6 +1141,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
                 // Reset best-iterate: pre-fallback snapshot from degenerate linear-space
                 best.reset();
+                sraa_best_errRp = std::numeric_limits<double>::infinity();
                 if (st.verbose >= 1) {
                     st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
                 }
