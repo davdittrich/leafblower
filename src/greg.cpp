@@ -113,6 +113,18 @@ GregResult greg_solve(CalibState& st) {
         prev_fixed_lo = fixed_lo;
         prev_fixed_hi = fixed_hi;
 
+        // C6: KKT release pass — drop constraints whose multiplier has wrong sign
+        for (int c = 0; c < ct.M_cell; ++c) {
+            if (X_init[c] <= 1e-10) continue;
+            double grad_c = (X[c] - X_init[c]) / X_init[c];
+            if (fixed_lo[c] && grad_c < -1e-8) {
+                fixed_lo[c] = false; need_refactor = true; any_clamped = true;
+            }
+            if (fixed_hi[c] && grad_c > 1e-8) {
+                fixed_hi[c] = false; need_refactor = true; any_clamped = true;
+            }
+        }
+
         if (!any_clamped) {
             res.base.status = RK_OK;
             res.base.convergence_iter = newton_iter + 1;
@@ -122,7 +134,7 @@ GregResult greg_solve(CalibState& st) {
 
     if (res.base.status == RK_ERR_NOCONV) {
         std::snprintf(res.message, sizeof(res.message),
-                      "greg: no convergence after %d Newton steps; active set still cycling",
+                      "greg: no convergence after %d Newton steps; active set budget exceeded",
                       kMaxNewtonIters);
     }
 
