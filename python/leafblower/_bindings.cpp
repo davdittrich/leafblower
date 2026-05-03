@@ -184,6 +184,11 @@ PYBIND11_MODULE(_leafblower, m) {
             result_dict["best_iter"]           = result.best_iter;
             result_dict["sor_min_omega"]       = result.sor_min_omega;
             result_dict["sor_n_damped"]        = result.sor_n_damped;
+            // ALM diagnostic fields (PYR-T2)
+            result_dict["alm_capacity_mu_final"] = result.alm_capacity_mu_final;
+            result_dict["alm_n_growth_events"]   = result.alm_n_growth_events;
+            result_dict["alm_max_dual_norm"]     = result.alm_max_dual_norm;
+            result_dict["alm_sum_drift"]         = result.alm_sum_drift;
 
             return py::make_tuple(rc, weights_out, result_dict);
         },
