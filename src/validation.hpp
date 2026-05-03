@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <vector>
 
 namespace lbw {
 

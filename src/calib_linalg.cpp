@@ -1,10 +1,16 @@
 #include "calib_linalg.hpp"
 #include "leafblower.h"
 #include <R_ext/Error.h>
+#include <R_ext/Lapack.h>
+#include <R_ext/RS.h>   // F77_CALL
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
+
+#ifndef FCONE
+# define FCONE
+#endif
 
 namespace lbw {
 
@@ -66,14 +72,39 @@ int compute_normal_equations_reduced(const CellTable& ct,
     return RK_OK;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// G1: LAPACK Cholesky factor + solve.
+//
+// Replaces the prior O(n^3) scalar LDLT with BLAS-3 dpotrf/dpotrs.
+//
+// Storage convention:
+//   The matrix A is symmetric and is written full by compute_normal_equations*.
+//   The buffer is row-major in C++; LAPACK reads it as column-major. Because A
+//   is symmetric, A_rowmajor == A_colmajor, so the factorization is correct
+//   regardless. We use uplo='L' for both factor and solve so dpotrs reads the
+//   same triangle dpotrf wrote. The factor (Cholesky L in column-major) lives
+//   in the row-major upper triangle of the buffer — irrelevant to callers, who
+//   only ever pass the buffer back into ldlt_solve.
+//
+// GMW dependency:
+//   dpotrf requires positive-definite input. C1 introduced the Gill-Murray-
+//   Wright column-norm bound; G1 preserves PD by perturbing the diagonal up-
+//   front using a single bump derived from the same gamma/xi scale, plus the
+//   caller-supplied eps_perturb floor. We do not retry dpotrf on info>0:
+//   dpotrf overwrites the lower triangle in place, so a retry would need a
+//   full copy. Instead we pre-bump aggressively (max(eps_perturb,
+//   sqrt(eps_machine) * (gamma+beta2))) which is safe relative to numerical
+//   noise yet small enough to preserve solution accuracy. Truly indefinite
+//   inputs return RK_ERR_BADARG and the caller falls back to its error path.
+// ─────────────────────────────────────────────────────────────────────────────
 int ldlt_factor_inplace(double* A, size_t n, double eps_perturb)
 {
     if (n > static_cast<size_t>(kNCatsTotalMax)) return RK_ERR_BADARG;
+    if (n == 0) return RK_OK;
 
-    // Gill-Murray-Wright (1981) bound parameter:
+    // Gill-Murray-Wright bound parameter (same definition as the C1 fix):
     //   beta^2 = max(gamma, xi / sqrt(n^2 - 1), DBL_EPSILON)
-    // where gamma = max |A_ii|, xi = max |A_ij| for i != j.
-    // The off-diagonal scan reads the strict lower triangle (A is symmetric).
+    // gamma = max |A_ii|, xi = max |A_ij| for i != j.
     double gamma = 0.0, xi = 0.0;
     for (size_t i = 0; i < n; ++i) {
         gamma = std::max(gamma, std::abs(A[i * n + i]));
@@ -87,60 +118,38 @@ int ldlt_factor_inplace(double* A, size_t n, double eps_perturb)
         std::numeric_limits<double>::epsilon()
     });
 
-    for (size_t j = 0; j < n; j++) {
-        // Compute diagonal d_j = A[j,j] - sum_{k<j} d_k * L[j,k]^2
-        double d_j = A[j * n + j];
-        for (size_t k = 0; k < j; k++) {
-            double l_jk = A[j * n + k];
-            d_j -= A[k * n + k] * l_jk * l_jk;
-        }
+    // Up-front diagonal bump. We use sqrt(machine_eps) ~ 1.49e-8 as the relative
+    // floor, scaled by (gamma + beta2) which captures the matrix's dominant
+    // magnitude. This is large enough to absorb roundoff on PSD inputs that
+    // sit at the edge of indefiniteness, but small enough not to perturb the
+    // solution beyond solver tolerances (kEpsLdlt = 1e-10 is a typical caller
+    // floor; we honor that as a lower bound).
+    const double sqrt_eps = std::sqrt(std::numeric_limits<double>::epsilon());
+    const double bump = std::max(eps_perturb, sqrt_eps * (gamma + beta2));
+    for (size_t i = 0; i < n; ++i) A[i * n + i] += bump;
 
-        // Compute the unscaled column entries s_ij = A[i,j] - sum_{k<j} d_k L[i,k] L[j,k]
-        // and track theta_j = max_{i>j} |s_ij| in the same pass (no extra read).
-        // We stash s_ij into A[i*n+j] temporarily; the final L[i,j] = s_ij / d_j is
-        // assigned below once d_j has been bounded.
-        double theta_j = 0.0;
-        for (size_t i = j + 1; i < n; i++) {
-            double s = A[i * n + j];
-            for (size_t k = 0; k < j; k++)
-                s -= A[k * n + k] * A[i * n + k] * A[j * n + k];
-            A[i * n + j] = s;
-            theta_j = std::max(theta_j, std::abs(s));
-        }
+    char uplo = 'L';
+    int n_int = static_cast<int>(n);
+    int info = 0;
 
-        // Gill-Murray-Wright modified LDLT: bound d_j by max(|d_j|, theta_j^2 / beta^2, eps_perturb).
-        // The theta_j^2 / beta^2 term prevents L[i,j] = s_ij / d_j from blowing up when
-        // a small d_j coincides with O(1) off-diagonal entries.
-        d_j = std::max({std::abs(d_j), (theta_j * theta_j) / beta2, eps_perturb});
-        A[j * n + j] = d_j;
+    F77_CALL(dpotrf)(&uplo, &n_int, A, &n_int, &info FCONE);
 
-        // Finalize column j of L: L[i,j] = s_ij / d_j (s_ij currently stored at A[i,j]).
-        for (size_t i = j + 1; i < n; i++)
-            A[i * n + j] /= d_j;
-    }
+    if (info != 0) return RK_ERR_BADARG;
     return RK_OK;
 }
 
 void ldlt_solve(const double* A, size_t n, double* b)
 {
-    // Forward substitution: L y = b  (L is unit lower triangular)
-    for (size_t i = 1; i < n; i++)
-        for (size_t j = 0; j < i; j++)
-            b[i] -= A[i * n + j] * b[j];
+    if (n == 0) return;
+    char uplo = 'L';
+    int n_int = static_cast<int>(n);
+    int nrhs = 1, info = 0;
 
-    // Diagonal scaling: D z = y
-    for (size_t i = 0; i < n; i++) {
-        if (std::fabs(A[i * n + i]) < 1e-300)
-            Rf_error("leafblower: LDLT singular at index %d", static_cast<int>(i));
-        b[i] /= A[i * n + i];
-    }
-
-    // Backward substitution: L^T x = z
-    // Use signed int to avoid size_t underflow when decrementing past 0
-    for (int i = static_cast<int>(n) - 1; i >= 0; i--) {
-        for (int j = i + 1; j < static_cast<int>(n); j++)
-            b[i] -= A[static_cast<size_t>(j) * n +
-                      static_cast<size_t>(i)] * b[j];
+    // dpotrs requires a non-const pointer for A; the call does not modify A.
+    double* A_mut = const_cast<double*>(A);
+    F77_CALL(dpotrs)(&uplo, &n_int, &nrhs, A_mut, &n_int, b, &n_int, &info FCONE);
+    if (info != 0) {
+        Rf_error("leafblower: dpotrs failed with info=%d", info);
     }
 }
 
