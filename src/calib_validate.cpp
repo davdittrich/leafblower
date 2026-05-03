@@ -38,7 +38,15 @@ int calib_validate_preentry(const CellTable& ct,
         double L_c = lo * ct.n_per_cell[c];
         double U_c = hi * ct.n_per_cell[c];
 
-        // 2. L_c <= U_c
+        // 2a. Empty cell guard
+        if (ct.n_per_cell[c] == 0) {
+            char msg[256];
+            std::snprintf(msg, sizeof(msg),
+                "cell %d has n_per_cell=0 — cannot calibrate an empty cell", c);
+            return fail(RK_ERR_BADARG, msg);
+        }
+
+        // 2b. L_c <= U_c
         if (L_c > U_c + 1e-12) {
             char msg[256];
             std::snprintf(msg, sizeof(msg),
@@ -46,7 +54,16 @@ int calib_validate_preentry(const CellTable& ct,
             return fail(RK_ERR_BADARG, msg);
         }
 
-        // 3. X_init[c]==0 && L_c>0 → structural infeasibility
+        // 3a. X_init[c] negative — must catch before the zero-cell check below
+        if (X_init != nullptr && X_init[c] < 0.0) {
+            char msg[256];
+            std::snprintf(msg, sizeof(msg),
+                "X_init[c=%d]=%.6g is negative — initial weights must be non-negative",
+                c, X_init[c]);
+            return fail(RK_ERR_BADARG, msg);
+        }
+
+        // 3b. X_init[c]==0 && L_c>0 → structural infeasibility
         if (X_init != nullptr && X_init[c] <= 0.0 && L_c > 1e-12) {
             char msg[256];
             std::snprintf(msg, sizeof(msg),

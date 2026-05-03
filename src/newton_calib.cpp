@@ -625,7 +625,10 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         return res.base.status == RK_OK;
     };
 
-    run_newton_inner(T, max_iter);
+    bool ok = run_newton_inner(T, max_iter);
+    if (!ok && res.base.status == RK_ERR_BADARG) {
+        return res;  // do not proceed to weight recovery on bad state
+    }
 
     // ── 6. Recover obs weights via stable form ─────────────────────────────
     // w_i = d_i · exp(u_i) / Z_real · n
