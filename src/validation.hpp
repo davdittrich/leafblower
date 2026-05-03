@@ -98,13 +98,19 @@ inline int validate_calibrate_inputs(int n, int K,
     }
 
     // B13: NA-only category with positive target → structural INFEAS.
+    // O(n×K) two-pass bitmap: replaces O(K×ΣC×n) triple-nested scan.
+    // Pass 1: mark which (k,j) combinations appear in data — O(n×K)
+    std::vector<std::vector<bool>> seen(K);
+    for (int k = 0; k < K; k++) seen[k].assign(cat_counts[k], false);
+    for (int i = 0; i < n; i++)
+        for (int k = 0; k < K; k++) {
+            int g = group_ids[k][i];
+            if (g >= 0 && g < cat_counts[k]) seen[k][g] = true;
+        }
+    // Pass 2: check targeted but not-in-data categories — O(K×max_cats)
     for (int k = 0; k < K; k++) {
         for (int j = 0; j < cat_counts[k]; j++) {
-            if (targets[k][j] <= 0.0) continue;
-            int count = 0;
-            for (int i = 0; i < n; i++)
-                if (group_ids[k][i] == j) count++;
-            if (count == 0) {
+            if (!seen[k][j] && targets[k][j] > 1e-12) {
                 char msg[256];
                 std::snprintf(msg, sizeof(msg),
                     "margin %d, category %d: target=%.6g but 0 observations assigned "
