@@ -646,7 +646,8 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         if (w_i > st.max_weight || w_i < st.min_weight) ++n_violated;
     }
 
-    // 5% bounds-violation fallback.
+    // Always surface violation count; 5% threshold gates status change only.
+    res.n_bounds_violated = n_violated;
     const double frac_violated = static_cast<double>(n_violated) / n;
     if (frac_violated > 0.05) {
         res.base.status = RK_ERR_NOCONV;

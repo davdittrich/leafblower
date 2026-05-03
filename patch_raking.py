@@ -1,4 +1,5 @@
 import re
+import sys
 
 with open("src/raking.cpp", "r") as f:
     text = f.read()
