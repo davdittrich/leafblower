@@ -1075,7 +1075,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             if (!overflow_trip && cell_lf_hwm >= kLogOverflowThreshold) {
                 double shift = cell_lf_hwm - kLogOverflowThreshold;
                 double lf_correction = -shift / static_cast<double>(st.K);
-                double x_scale = std::exp(-shift);
                 // j <= cat_counts[k]: include NA bucket (cat_offset has +1 per margin).
                 // Without NA shift, cells NA for a margin would have cell_lf decremented
                 // by full shift but lf[k][NA] unchanged — invariant violated.
@@ -1083,10 +1082,19 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     for (int j = 0; j <= st.cat_counts[k]; j++)
                         lf[cat_offset[k] + j] += lf_correction;
                 lbw::bulk_scaled_exp(1.0, lf.data(), f_lin.data(), total_cats);
-                // X_cur *= exp(-shift): maintains X_cur = X_init × W × Π f_lin.
+                // B8: per-cell K_active scaling. cell_lf[c] sums lf entries only over
+                // active (g_per_cell[k][c] >= 0) margins. After lf[k][·] += lf_correction
+                // for all k (including NA bucket), cell_lf[c] decreased by exactly
+                // K_active(c) * |lf_correction| = (K_active/K) * shift, NOT shift.
+                // Likewise X_cur[c] = X_init[c] * Π_{active k} f_lin[k][g_k(c)] scales
+                // by exp(K_active * lf_correction), not exp(-shift).
                 for (int c = 0; c < ct.M_cell; c++) {
-                    cell_lf[c] -= shift;
-                    X_cur[c] *= x_scale;
+                    int K_active = 0;
+                    for (int k = 0; k < st.K; k++)
+                        if (ct.g_per_cell[k][c] >= 0) K_active++;
+                    const double cell_corr = static_cast<double>(K_active) * lf_correction;
+                    cell_lf[c] += cell_corr;
+                    X_cur[c]   *= std::exp(cell_corr);
                 }
                 // Reset to lowest so hwm repopulates honestly from next positive delta,
                 // avoiding spurious re-trigger when true max is exactly at threshold.
@@ -1908,8 +1916,15 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         res.n_bounds_clamped = total_clamped;
     }
 
+    // B9: structural infeasibility must override RK_OK as well. SRAA convergence
+    // (line ~1684) and the post-loop classifier (NOCONV→BUDGET/STALL above)
+    // can each leave a "success" status set even though structural_infeas_pairs
+    // is non-empty — those pairs are buckets that can never be satisfied.
     if (!structural_infeas_pairs.empty() &&
-        (res.base.status == RK_ERR_NOCONV || res.base.status == RK_ERR_BUDGET || res.base.status == RK_ERR_STALL)) {
+        (res.base.status == RK_OK ||
+         res.base.status == RK_ERR_NOCONV ||
+         res.base.status == RK_ERR_BUDGET ||
+         res.base.status == RK_ERR_STALL)) {
         res.base.status = RK_ERR_INFEAS;
     }
 
