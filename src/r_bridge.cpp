@@ -184,6 +184,11 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
     int K = LENGTH(target_sexp);
 
+    // pre_error: collects validation messages from the pre-dispatch RAII block below.
+    // Rf_error longjmps past C++ dtors (R-exts §5.5); fire it only after all
+    // std::vectors are destroyed.
+    std::string pre_error;
+
     // Build group_ids and targets from data.frame factor/character columns
     std::vector<std::vector<int32_t>> gids_storage(K);
     std::vector<const int32_t*> group_ids(K);
@@ -199,12 +204,14 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     for (int c = 0; c < LENGTH(col_names); c++)
         col_map[CHAR(STRING_ELT(col_names, c))] = c;
 
-    for (int k = 0; k < K; k++) {
+    for (int k = 0; k < K && pre_error.empty(); k++) {
         const char* varname = CHAR(STRING_ELT(target_names, k));
         // Find column in data frame
         auto col_it = col_map.find(varname);
-        if (col_it == col_map.end())
-            Rf_error("Variable '%s' not found in data", varname);
+        if (col_it == col_map.end()) {
+            pre_error = std::string("Variable '") + varname + "' not found in data";
+            break;
+        }
         int col_idx = col_it->second;
 
         SEXP col     = VECTOR_ELT(data_sexp, col_idx);
@@ -228,12 +235,17 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
         if (Rf_isFactor(col)) {
             SEXP flevels = Rf_getAttrib(col, R_LevelsSymbol);
             const int* codes = INTEGER(col);
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n && pre_error.empty(); i++) {
                 if (codes[i] == NA_INTEGER) { gids_storage[k][i] = -1; continue; }
                 int code = codes[i] - 1;
-                if (code < 0 || code >= LENGTH(flevels))
-                    Rf_error("leafblower: corrupt factor in column %d: code %d out of range [0, %d)",
-                             k, codes[i], (int)LENGTH(flevels));
+                if (code < 0 || code >= LENGTH(flevels)) {
+                    char buf[128];
+                    std::snprintf(buf, sizeof(buf),
+                        "leafblower: corrupt factor in column %d: code %d out of range [0, %d)",
+                        k, codes[i], (int)LENGTH(flevels));
+                    pre_error = buf;
+                    break;
+                }
                 const char* lv = CHAR(STRING_ELT(flevels, code));
                 auto it = level_to_idx.find(lv);
                 gids_storage[k][i] = (it != level_to_idx.end()) ? it->second : -1;
@@ -246,22 +258,30 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                 gids_storage[k][i] = (it != level_to_idx.end()) ? it->second : -1;
             }
         } else {
-            Rf_error("Column '%s' must be a factor or character vector", varname);
+            pre_error = std::string("Column '") + varname + "' must be a factor or character vector";
+            break;
         }
         group_ids[k] = gids_storage[k].data();
     }
 
     // Build weights (start_weights already normalized to mean=1 by R layer)
     std::vector<double> weights(n);
+    if (pre_error.empty()) {
     if (Rf_isNull(start_weights_sexp)) {
         for (int i = 0; i < n; i++) weights[i] = 1.0;
     } else {
-        if (LENGTH(start_weights_sexp) != n)
-            Rf_error("leafblower: start_weights length %d != n=%d",
-                     (int)LENGTH(start_weights_sexp), n);
-        const double* sw = REAL(start_weights_sexp);
-        for (int i = 0; i < n; i++) weights[i] = sw[i];
+        if (LENGTH(start_weights_sexp) != n) {
+            char buf[128];
+            std::snprintf(buf, sizeof(buf),
+                "leafblower: start_weights length %d != n=%d",
+                (int)LENGTH(start_weights_sexp), n);
+            pre_error = buf;
+        } else {
+            const double* sw = REAL(start_weights_sexp);
+            for (int i = 0; i < n; i++) weights[i] = sw[i];
+        }
     }
+    } // if (pre_error.empty())
 
     // Set calibration params
     rk_params_t p;
@@ -307,14 +327,15 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     p.sor_omega_fixed     = REAL(sor_omega_fixed_sexp)[0];
     p.sor_burnin          = INTEGER(sor_burnin_sexp)[0];
 
-    if (LENGTH(method_sexp) != 1)
-        Rf_error("method must be a length-1 character string");
-    const char* method_str = CHAR(STRING_ELT(method_sexp, 0));
-    const auto alg_it = kAlgMap.find(method_str);
-    p.algorithm = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_IEPPA;
+    if (pre_error.empty() && LENGTH(method_sexp) != 1)
+        pre_error = "method must be a length-1 character string";
+    const char* method_str = pre_error.empty() ? CHAR(STRING_ELT(method_sexp, 0)) : "";
+    const auto alg_it = pre_error.empty() ? kAlgMap.find(method_str) : kAlgMap.end();
+    if (pre_error.empty())
+        p.algorithm = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_IEPPA;
 
     // Full input validation — shared with c_api.cpp path via validation.hpp.
-    {
+    if (pre_error.empty()) {
         rk_result_t validation_result;
         rk_result_init(&validation_result);
         rk_algorithm_t alg_for_validation = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_RAKING;
@@ -325,9 +346,12 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
             cat_counts.data(),
             const_cast<const double**>(targets.data()),
             &p, &validation_result, alg_for_validation);
-        if (vrc != RK_OK)
-            Rf_error("leafblower: invalid arguments \342\200\224 %s",
-                     validation_result.message);
+        if (vrc != RK_OK) {
+            char buf[300];
+            std::snprintf(buf, sizeof(buf),
+                "leafblower: invalid arguments \342\200\224 %s", validation_result.message);
+            pre_error = buf;
+        }
     }
 
     // WU-E: call C++ solvers directly (bypasses flat C ABI) to access best_weights vector.
@@ -436,6 +460,10 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     std::string solver_error;
     {  // Rf_error longjmp skips C++ dtors; destroy all RAII objects before calling it (R-exts §5.5)
     try {
+    // A1b: pre-dispatch validation errors are deferred to here so all std::vectors
+    // above are still in scope; throw converts them into solver_error and they are
+    // destroyed at '}' below before Rf_error fires (R-exts §5.5).
+    if (!pre_error.empty()) throw std::runtime_error(pre_error);
     if (strcmp(method_str, "lbfgsb") == 0) {
         auto res = lbw::lbfgsb_solve(st);
         res_status     = res.base.status;
@@ -720,8 +748,13 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
     }
     }
     if (!solver_error.empty()) {
-        Rf_error("leafblower: internal solver error \xe2\x80\x94 %s",
-                 solver_error.c_str());
+        // pre_error messages are already fully-qualified; solver errors get the
+        // "internal solver error" prefix so callers can distinguish the two.
+        if (!pre_error.empty())
+            Rf_error("%s", solver_error.c_str());
+        else
+            Rf_error("leafblower: internal solver error \xe2\x80\x94 %s",
+                     solver_error.c_str());
     }
 
     // Single source of truth for rk_algorithm_t → R-visible name.
