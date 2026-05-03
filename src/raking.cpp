@@ -194,9 +194,12 @@ RakingResult raking_solve(CalibState& st) {
             }
         }
         // All passes exhausted (infeasible category) — commit best-effort values
+        if (free_sum <= 0.0) {
+            is_infeasible = true;
+            return;  // cannot redistribute — leave cells at bounds
+        }
         const double T_final = T_kj - clamped_sum;
-        const double m_final = (free_sum > kAbsoluteZeroThreshold && T_final > 0.0)
-                               ? T_final / free_sum : 0.0;
+        const double m_final = (T_final > 0.0) ? T_final / free_sum : 0.0;
         for (int ci = 0; ci < n; ci++) {
             const int c = cells[ci];
             if      (wf_status[ci] == 0) Xv[c] = wf_x_orig[ci] * m_final;

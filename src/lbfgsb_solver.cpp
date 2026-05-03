@@ -144,11 +144,8 @@ static void lbfgs_direction(const std::deque<std::vector<double>>& svec,
     int D = (int)g.size();
     dir = g;
 
-    // Per-thread scratch, grown once per thread. m ≤ st.lbfgs_m (default 10,
-    // runtime-configurable via leafblower.h:38). thread_local avoids a heap
-    // alloc every outer iteration without capping m at a hard-coded bound.
-    thread_local std::vector<double> alpha;
-    if ((int)alpha.size() < m) alpha.resize(m);
+    // Local per call; thread_local was unsafe for re-entrant callbacks.
+    std::vector<double> alpha(m);
     for (int i = m - 1; i >= 0; i--) {
         alpha[i] = rho[i] * dot(svec[i], dir);
         for (int j = 0; j < D; j++) dir[j] -= alpha[i] * yvec[i][j];
