@@ -99,3 +99,30 @@ test_that("a0gk: metrics finite at exit with MAX_ERR criterion (gated path)", {
   # Convergence must have fired (not budget exhaustion) to exercise the gate path
   expect_true(result$iterations < 100)
 })
+
+test_that("B1: compute_quality_metrics extraction: values identical to inline", {
+  # Snapshot test capturing expected values from inline block (lines 536-575)
+  # before extraction to helper. After extraction, verify helper produces identical results.
+  set.seed(11L)
+  n <- 1000L
+  df_t <- data.frame(
+    a = factor(sample(c("x","y","z"), n, TRUE, prob = c(0.5, 0.3, 0.2))),
+    b = factor(sample(c("M","F"), n, TRUE, prob = c(0.55, 0.45)))
+  )
+  tgt_t <- list(a = c(x=0.4, y=0.35, z=0.25), b = c(M=0.5, F=0.5))
+  r_base <- leafblower::harvest(df_t, tgt_t, method = "ieppa", max_weight = 5,
+                                max_iterations = 50L, attach_weights = FALSE)
+  w <- r_base
+  res <- attr(r_base, "result")
+  expected_margin_kl <- res$margin_kl
+  expected_deff <- res$design_effect
+  expected_weight_kl <- res$weight_kl
+  expected_eff_obs <- res$effective_observations
+
+  # Call extracted helper and verify identical values
+  qm <- leafblower:::compute_quality_metrics(w, tgt_t, df_t)
+  expect_equal(qm$margin_kl, expected_margin_kl, tolerance = 1e-10)
+  expect_equal(qm$design_effect, expected_deff, tolerance = 1e-10)
+  expect_equal(qm$weight_kl, expected_weight_kl, tolerance = 1e-10)
+  expect_equal(qm$effective_observations, expected_eff_obs, tolerance = 1e-10)
+})
