@@ -1,14 +1,19 @@
 import re
 import sys
+import os
+import tempfile
+import shutil
 
-with open("src/raking.cpp", "r") as f:
+target_file = "src/raking.cpp"
+
+with open(target_file, "r") as f:
     text = f.read()
 
-# 1. Add include
+# 1. Add include (idempotent: only insert if absent)
 if '#include "cell_table.hpp"' not in text:
     text = text.replace('#include "raking.hpp"', '#include "raking.hpp"\n#include "cell_table.hpp"')
 
-# 2. Add compute_errRp_ct
+# 2. Add compute_errRp_ct (idempotent: only insert if absent)
 if 'compute_errRp_ct' not in text:
     err_ct = """
 // Cell-table errRp: O(K * M_cell). bucket pre-allocated to max_cats.
@@ -38,7 +43,7 @@ static double compute_errRp_ct(const CalibState& st,
     if match:
         text = text[:match.end()] + "\n" + err_ct + text[match.end():]
 
-# 3. Replace raking_solve
+# 3. Replace raking_solve via re.subn — idempotent + exact-match guard
 new_solve = """RakingResult raking_solve(CalibState& st) {
     static constexpr double kEmptyBucketThreshold = 1e-15;
     static constexpr int    kErrCheckInterval     = 10;
@@ -365,14 +370,24 @@ new_solve = """RakingResult raking_solve(CalibState& st) {
 }"""
 
 # Replace between "RakingResult raking_solve(CalibState& st) {" and "} // namespace lbw"
-match = re.search(r'RakingResult raking_solve\(CalibState& st\) \{.*?\n\}(?=\s*// namespace lbw)', text, re.DOTALL)
-if match:
-    text = text[:match.start()] + new_solve + "\n" + text[match.end():]
-else:
-    print("Could not find raking_solve to replace")
+# Use re.subn for idempotency: exactly 1 match required.
+old_pattern = r'RakingResult raking_solve\(CalibState& st\) \{.*?\n\}(?=\s*// namespace lbw)'
+new_content, n_subs = re.subn(old_pattern, new_solve, text, flags=re.DOTALL)
+
+if n_subs == 0:
+    print(f"ERROR: pattern not found in {target_file} — already patched or source changed",
+          file=sys.stderr)
+    sys.exit(1)
+if n_subs > 1:
+    print(f"ERROR: pattern matched {n_subs} times — ambiguous patch, refusing to apply",
+          file=sys.stderr)
     sys.exit(1)
 
-with open("src/raking.cpp", "w") as f:
-    f.write(text)
+# Atomic write via temp file + rename
+dirpath = os.path.dirname(os.path.abspath(target_file))
+with tempfile.NamedTemporaryFile(mode='w', dir=dirpath, delete=False, suffix='.tmp') as tmp:
+    tmp.write(new_content)
+    tmp_path = tmp.name
 
-print("Replaced raking_solve successfully.")
+shutil.move(tmp_path, target_file)
+print(f"Patched {target_file} (1 substitution)")
