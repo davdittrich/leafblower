@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-04-27T09:03:03.022Z",
+  "achievements": [
+    "P1.1 3→1 pass fuse on linear path: FAIL=0 PASS=184, kk1204 2.09x speedup (commit c8c2acf)",
+    "Full convergence system redesign: max_err/l1_weight_change criteria, best-iterate tracking, calib_dispatch.hpp unified dispatch layer",
+    "4 new calibration solvers landed in src/: sinkhorn (KL Bregman Dykstra), greg (Newton QP chi2), chebyshev (Mehrotra IPM), grake (stub)",
+    "calib_linalg: LDLT factorization + compute_normal_equations_reduced for chebyshev reference-category elimination",
+    "iEPPA linear overflow fix: spec + TDD plan complete, RED test committed (T1.A trip at ~88 iters)"
+  ],
+  "improvements": [
+    "grake.cpp is a 6-token stub — solver exposed in API but unimplemented; remove from method enum or implement",
+    "cell_table_92c4f45.cpp / ieppa_92c4f45.cpp in repo root are artifact leftovers — delete or gitignore",
+    "security-review-2026-04-27-ieppa.json committed to root — belongs in docs/ or should be gitignored",
+    "chebyshev.cpp is 6982 tokens with 50+ edits this week — high cyclomatic complexity, needs complexity audit before merge",
+    "Multiple session-end log spam in memory.md (dozens of identical repeated entries) — daemon consolidation not running"
+  ],
+  "next_tasks": [
+    "Implement iEPPA overflow fix (T1.A guard at line 711, kLinearOverflowThreshold, log-path fallback) — plan: 2026-04-27-ieppa-overflow-fix.md, RED test already in place",
+    "Plan B: raking cell-table migration — plan: 2026-04-26-calibration-solvers-B-raking-cell-table.md",
+    "Implement grake solver body or remove from public API to avoid silent no-op",
+    "Merge/close outstanding worktrees — confirm which branches are stale vs. active",
+    "Hit P1.5x speedup gate: requires P2.1+P2.2 (currently HALTED at 2.09x, gate needs aggregate)"
+  ],
+  "risks": [
+    "T1.A overflow RED test is committed but not GREEN — overflow bug unresolved in ieppa.cpp:711 area",
+    "grake exposed to users via method= parameter but src/grake.cpp is empty — silent failure risk",
+    "chebyshev IPM correctness uncertain: ν reference-elimination is new math, no adversarial numerical validation against ground truth",
+    "P1.5x aggregate gate still HALTED — kk1204 at 2.09x but plan gate requires P2.1+P2.2 combined",
+    "No worktrees directory visible — merged worktrees may have left divergent histories; verify master contains all solver code"
+  ]
+}

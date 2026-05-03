@@ -1,1186 +1,1721 @@
 {
-  "session_id": "session-2026-04-30-0919",
-  "started": "2026-04-30T07:19:45.128Z",
+  "session_id": "session-2026-05-03-1015",
+  "started": "2026-05-03T08:15:52.644Z",
   "files_read": {
-    "/home/dd/Gemini/leafblower/src/lbw_math.hpp": {
-      "count": 3,
+    "/home/dd/Gemini/leafblower/graphify-out/GRAPH_REPORT.md": {
+      "count": 2,
       "tokens": 0,
-      "first_read": "2026-04-30T07:24:41.162Z"
+      "first_read": "2026-05-03T08:18:47.109Z"
     },
     "/home/dd/Gemini/leafblower/src/types.hpp": {
-      "count": 9,
-      "tokens": 1090,
-      "first_read": "2026-04-30T07:24:41.822Z"
-    },
-    "/home/dd/Gemini/leafblower/src/lbw_config.h": {
-      "count": 1,
+      "count": 3,
       "tokens": 0,
-      "first_read": "2026-04-30T07:24:42.001Z"
-    },
-    "/home/dd/Gemini/leafblower/src/validation.hpp": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:42.540Z"
-    },
-    "/home/dd/Gemini/leafblower/src/calib_validate.hpp": {
-      "count": 2,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:45.935Z"
-    },
-    "/home/dd/Gemini/leafblower/src/calib_validate.cpp": {
-      "count": 2,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:46.694Z"
-    },
-    "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp": {
-      "count": 13,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:47.096Z"
-    },
-    "/home/dd/Gemini/leafblower/src/calib_linalg.hpp": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:47.444Z"
-    },
-    "/home/dd/Gemini/leafblower/src/calib_linalg.cpp": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:50.288Z"
-    },
-    "/home/dd/Gemini/leafblower/src/cell_table.hpp": {
-      "count": 2,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:50.943Z"
-    },
-    "/home/dd/Gemini/leafblower/src/cell_table.cpp": {
-      "count": 2,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:51.030Z"
-    },
-    "/home/dd/Gemini/leafblower/src/chebyshev.cpp": {
-      "count": 20,
-      "tokens": 11741,
-      "first_read": "2026-04-30T07:24:53.936Z"
-    },
-    "/home/dd/Gemini/leafblower/src/sinkhorn.cpp": {
-      "count": 12,
-      "tokens": 3173,
-      "first_read": "2026-04-30T07:24:54.230Z"
-    },
-    "/home/dd/Gemini/leafblower/src/greg.cpp": {
-      "count": 6,
-      "tokens": 1978,
-      "first_read": "2026-04-30T07:24:58.088Z"
-    },
-    "/home/dd/Gemini/leafblower/src/greenkhorn.cpp": {
-      "count": 5,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:24:58.473Z"
-    },
-    "/home/dd/Gemini/leafblower/src/raking.cpp": {
-      "count": 9,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:25:01.689Z"
-    },
-    "/home/dd/Gemini/leafblower/src/ieppa.cpp": {
-      "count": 46,
-      "tokens": 21083,
-      "first_read": "2026-04-30T07:25:01.980Z"
-    },
-    "/home/dd/Gemini/leafblower/src/c_api.cpp": {
-      "count": 9,
-      "tokens": 5256,
-      "first_read": "2026-04-30T07:25:07.293Z"
-    },
-    "/home/dd/Gemini/leafblower/src/r_bridge.cpp": {
-      "count": 13,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:25:07.601Z"
-    },
-    "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp": {
-      "count": 24,
-      "tokens": 8343,
-      "first_read": "2026-04-30T07:25:34.658Z"
-    },
-    "/home/dd/Gemini/leafblower/src/sraa.hpp": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:25:45.073Z"
-    },
-    "/home/dd/Gemini/leafblower/src/logit_calib.cpp": {
-      "count": 8,
-      "tokens": 3901,
-      "first_read": "2026-04-30T07:26:08.818Z"
-    },
-    "/home/dd/Gemini/leafblower/src/ieppa.hpp": {
-      "count": 5,
-      "tokens": 795,
-      "first_read": "2026-04-30T07:28:44.882Z"
-    },
-    "/home/dd/.agents/skills/planning-with-beads/templates/task_template.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:33:32.582Z"
-    },
-    "/home/dd/.agents/skills/planning-with-beads/templates/epic_template.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:33:32.911Z"
-    },
-    "/home/dd/Gemini/leafblower/src/leafblower.h": {
-      "count": 4,
-      "tokens": 0,
-      "first_read": "2026-04-30T07:54:55.896Z"
-    },
-    "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md": {
-      "count": 10,
-      "tokens": 6740,
-      "first_read": "2026-04-30T08:00:32.036Z"
-    },
-    "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md": {
-      "count": 11,
-      "tokens": 10279,
-      "first_read": "2026-04-30T08:00:32.457Z"
-    },
-    "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md": {
-      "count": 15,
-      "tokens": 10383,
-      "first_read": "2026-04-30T08:00:34.369Z"
-    },
-    "/home/dd/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/implementer-prompt.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:19:48.562Z"
-    },
-    "/home/dd/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/spec-reviewer-prompt.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:19:48.870Z"
-    },
-    "/home/dd/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/code-quality-reviewer-prompt.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:19:49.340Z"
-    },
-    "/home/dd/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/subagent-driven-development/implementer-prompt.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:20:00.849Z"
-    },
-    "/home/dd/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/subagent-driven-development/spec-reviewer-prompt.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:20:01.242Z"
-    },
-    "/home/dd/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/subagent-driven-development/code-quality-reviewer-prompt.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:20:01.791Z"
-    },
-    "/home/dd/Gemini/leafblower/tests/testthat/test-harvest.R": {
-      "count": 5,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:25:35.795Z"
-    },
-    "/home/dd/Gemini/leafblower/tests/testthat/test-rk-params-passthrough.R": {
-      "count": 1,
-      "tokens": 427,
-      "first_read": "2026-04-30T08:26:57.534Z"
-    },
-    "/home/dd/Gemini/leafblower/tests/testthat/test-homotopy.R": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:32:39.426Z"
-    },
-    "/home/dd/Gemini/leafblower/R/harvest.R": {
-      "count": 2,
-      "tokens": 0,
-      "first_read": "2026-04-30T08:34:34.276Z"
-    },
-    "/home/dd/Gemini/leafblower/tests/testthat/test-homotopy-enabled-field.R": {
-      "count": 1,
-      "tokens": 236,
-      "first_read": "2026-04-30T09:07:11.908Z"
-    },
-    "/home/dd/Gemini/leafblower/tests/testthat/test-ieppa-faithful.R": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T09:09:39.180Z"
-    },
-    "/home/dd/Gemini/leafblower/src/Makevars.in": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T09:13:59.913Z"
-    },
-    "/home/dd/Gemini/leafblower/tests/testthat/test-method-dispatch.R": {
-      "count": 1,
-      "tokens": 309,
-      "first_read": "2026-04-30T09:45:41.603Z"
-    },
-    "/home/dd/Gemini/leafblower/tests/testthat/test-calibration-solvers.R": {
-      "count": 2,
-      "tokens": 0,
-      "first_read": "2026-04-30T09:47:38.182Z"
-    },
-    "/home/dd/Gemini/leafblower/src/raking.hpp": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T09:56:52.457Z"
+      "first_read": "2026-05-03T08:19:46.808Z"
     },
     "/home/dd/Gemini/leafblower/src/lbfgsb_solver.hpp": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-04-30T09:57:04.479Z"
+      "first_read": "2026-05-03T08:19:47.220Z"
     },
-    "/home/dd/Gemini/leafblower/src/greenkhorn.hpp": {
+    "/home/dd/Gemini/leafblower/src/lbw_config.h": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-04-30T09:57:14.967Z"
+      "first_read": "2026-05-03T08:19:47.622Z"
+    },
+    "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:47.676Z"
+    },
+    "/home/dd/Gemini/leafblower/src/calib_linalg.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:47.989Z"
+    },
+    "/home/dd/Gemini/leafblower/src/lbw_math.hpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:48.039Z"
+    },
+    "/home/dd/Gemini/leafblower/src/calib_linalg.cpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:48.289Z"
+    },
+    "/home/dd/Gemini/leafblower/src/sraa.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:48.574Z"
+    },
+    "/home/dd/Gemini/leafblower/src/ieppa.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:51.476Z"
+    },
+    "/home/dd/Gemini/leafblower/src/calib_validate.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:51.796Z"
+    },
+    "/home/dd/Gemini/leafblower/src/raking.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:52.220Z"
+    },
+    "/home/dd/Gemini/leafblower/src/calib_validate.cpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:52.278Z"
     },
     "/home/dd/Gemini/leafblower/src/sinkhorn.hpp": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-04-30T09:57:26.114Z"
-    },
-    "/home/dd/Gemini/leafblower/src/greg.hpp": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-04-30T09:57:47.863Z"
+      "first_read": "2026-05-03T08:19:52.605Z"
     },
     "/home/dd/Gemini/leafblower/src/chebyshev.hpp": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-04-30T09:58:05.121Z"
+      "first_read": "2026-05-03T08:19:52.987Z"
     },
-    "/home/dd/Gemini/leafblower/src/logit_calib.hpp": {
+    "/home/dd/Gemini/leafblower/src/greenkhorn.hpp": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-04-30T09:58:22.638Z"
+      "first_read": "2026-05-03T08:19:53.004Z"
     },
-    "/home/dd/Gemini/leafblower/python/leafblower/_bindings.cpp": {
+    "/home/dd/Gemini/leafblower/src/chebyshev.cpp": {
+      "count": 3,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:53.118Z"
+    },
+    "/home/dd/Gemini/leafblower/src/newton_calib.hpp": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-04-30T10:04:14.653Z"
+      "first_read": "2026-05-03T08:19:53.473Z"
+    },
+    "/home/dd/Gemini/leafblower/src/sinkhorn.cpp": {
+      "count": 4,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:55.875Z"
+    },
+    "/home/dd/Gemini/leafblower/src/greg.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:56.930Z"
+    },
+    "/home/dd/Gemini/leafblower/src/greg.cpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:57.318Z"
+    },
+    "/home/dd/Gemini/leafblower/src/raking.cpp": {
+      "count": 3,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:19:59.239Z"
+    },
+    "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp": {
+      "count": 4,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:20:01.397Z"
+    },
+    "/home/dd/Gemini/leafblower/src/validation.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:20:02.378Z"
+    },
+    "/home/dd/Gemini/leafblower/src/greenkhorn.cpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:20:03.899Z"
+    },
+    "/home/dd/Gemini/leafblower/src/ieppa.cpp": {
+      "count": 25,
+      "tokens": 27293,
+      "first_read": "2026-05-03T08:20:08.641Z"
+    },
+    "/home/dd/Gemini/leafblower/src/newton_calib.cpp": {
+      "count": 8,
+      "tokens": 10014,
+      "first_read": "2026-05-03T08:20:26.429Z"
+    },
+    "/home/dd/.agents/skills/planning-with-beads/templates/task_template.md": {
+      "count": 10,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:29:30.669Z"
+    },
+    "/home/dd/.agents/skills/planning-with-beads/templates/epic_template.md": {
+      "count": 9,
+      "tokens": 0,
+      "first_read": "2026-05-03T08:29:30.702Z"
+    },
+    "/home/dd/Gemini/leafblower/DESCRIPTION": {
+      "count": 1,
+      "tokens": 228,
+      "first_read": "2026-05-03T08:43:49.748Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp": {
+      "count": 28,
+      "tokens": 12357,
+      "first_read": "2026-05-03T09:00:42.629Z"
+    },
+    "/home/dd/Gemini/leafblower/.git/hooks/pre-commit": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T09:10:24.264Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/raking.cpp": {
+      "count": 9,
+      "tokens": 6989,
+      "first_read": "2026-05-03T09:45:28.786Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/types.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T09:45:30.000Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp": {
+      "count": 7,
+      "tokens": 1667,
+      "first_read": "2026-05-03T09:53:06.082Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/tests/testthat/test-calib-linalg.R": {
+      "count": 2,
+      "tokens": 2056,
+      "first_read": "2026-05-03T10:52:41.800Z"
+    },
+    "/home/dd/.claude/projects/-home-dd-Gemini-leafblower/db6ff002-e384-4252-9b86-75d586867a1e/tool-results/mcp-plugin_context-mode_context-mode-ctx_batch_execute-1777805728597.txt": {
+      "count": 3,
+      "tokens": 0,
+      "first_read": "2026-05-03T10:55:39.614Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp": {
+      "count": 12,
+      "tokens": 9499,
+      "first_read": "2026-05-03T10:56:58.358Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_dispatch.hpp": {
+      "count": 3,
+      "tokens": 3723,
+      "first_read": "2026-05-03T10:57:15.584Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/validation.hpp": {
+      "count": 9,
+      "tokens": 1549,
+      "first_read": "2026-05-03T10:57:21.976Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/Makevars": {
+      "count": 2,
+      "tokens": 96,
+      "first_read": "2026-05-03T10:57:57.463Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/newton_calib.cpp": {
+      "count": 5,
+      "tokens": 9578,
+      "first_read": "2026-05-03T11:15:22.135Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_validate.cpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:15:22.558Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/patch_raking.py": {
+      "count": 2,
+      "tokens": 4573,
+      "first_read": "2026-05-03T11:17:47.694Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/newton_calib.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:17:48.050Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/R/harvest.R": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:17:51.912Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greenkhorn.cpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:20:22.183Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/sinkhorn.cpp": {
+      "count": 2,
+      "tokens": 2799,
+      "first_read": "2026-05-03T11:20:55.054Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/ieppa.cpp": {
+      "count": 7,
+      "tokens": 27195,
+      "first_read": "2026-05-03T11:22:30.897Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/lbfgsb_solver.cpp": {
+      "count": 5,
+      "tokens": 8388,
+      "first_read": "2026-05-03T11:29:37.847Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/NEWS.md": {
+      "count": 2,
+      "tokens": 1489,
+      "first_read": "2026-05-03T11:29:38.680Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/python/leafblower/_harvest.py": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:29:45.464Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/R/anesrake.R": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:30:05.784Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/logit_calib.cpp": {
+      "count": 4,
+      "tokens": 3827,
+      "first_read": "2026-05-03T11:32:39.193Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/sraa.hpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:34:50.722Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/patch_wolfe.py": {
+      "count": 3,
+      "tokens": 903,
+      "first_read": "2026-05-03T11:37:15.416Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greg.cpp": {
+      "count": 5,
+      "tokens": 1820,
+      "first_read": "2026-05-03T11:38:00.990Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:40:52.831Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/tests/testthat/test-calibration-solvers.R": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:45:59.348Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/logit.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:54:54.554Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T11:55:00.631Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/calib_dispatch.hpp": {
+      "count": 6,
+      "tokens": 4105,
+      "first_read": "2026-05-03T12:31:22.962Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp": {
+      "count": 17,
+      "tokens": 27173,
+      "first_read": "2026-05-03T12:46:04.585Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/raking.cpp": {
+      "count": 9,
+      "tokens": 6940,
+      "first_read": "2026-05-03T12:46:09.371Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.cpp": {
+      "count": 3,
+      "tokens": 2943,
+      "first_read": "2026-05-03T13:41:52.343Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp": {
+      "count": 2,
+      "tokens": 2842,
+      "first_read": "2026-05-03T13:42:00.421Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/r_bridge.cpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:02:11.502Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/R/harvest.R": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:02:26.232Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.cpp": {
+      "count": 10,
+      "tokens": 9756,
+      "first_read": "2026-05-03T14:06:55.115Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/leafblower.h": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:07:38.073Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:07:52.323Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/types.hpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:12:30.431Z"
+    },
+    "/home/dd/Gemini/leafblower/src/leafblower.h": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:34:46.715Z"
+    },
+    "/home/dd/Gemini/leafblower/R/harvest.R": {
+      "count": 9,
+      "tokens": 10508,
+      "first_read": "2026-05-03T14:34:50.104Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py": {
+      "count": 5,
+      "tokens": 5402,
+      "first_read": "2026-05-03T14:40:33.241Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_bindings.cpp": {
+      "count": 2,
+      "tokens": 2613,
+      "first_read": "2026-05-03T14:40:33.969Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/sraa.hpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:41:39.493Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/lbw_config.h": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:41:43.636Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/calib_linalg.cpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:42:35.575Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/newton_calib.cpp": {
+      "count": 2,
+      "tokens": 10004,
+      "first_read": "2026-05-03T14:43:06.016Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/CMakeLists.txt": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:43:29.310Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/CMakeLists.txt": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:43:34.877Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/logit_calib.cpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:44:01.771Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/leafblower.h": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:46:54.354Z"
+    },
+    "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/c_api.cpp": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T14:47:02.841Z"
+    },
+    "/home/dd/Gemini/leafblower/data-raw/gen_ieppa_kl_ref.R": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-03T17:15:22.212Z"
+    },
+    "/home/dd/Gemini/leafblower/src/r_bridge.cpp": {
+      "count": 5,
+      "tokens": 0,
+      "first_read": "2026-05-03T21:17:16.069Z"
     }
   },
   "files_written": [
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
+      "file": "/home/dd/Gemini/leafblower/.beads/g1_desc.md",
       "action": "create",
-      "tokens": 6490,
-      "at": "2026-04-30T07:57:13.293Z"
+      "tokens": 767,
+      "at": "2026-05-03T08:39:22.351Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
+      "file": "/home/dd/Gemini/leafblower/.beads/g2_desc.md",
       "action": "create",
-      "tokens": 9386,
-      "at": "2026-04-30T07:58:44.030Z"
+      "tokens": 521,
+      "at": "2026-05-03T08:39:38.185Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.beads/g3_desc.md",
       "action": "create",
-      "tokens": 10470,
-      "at": "2026-04-30T07:59:45.159Z"
+      "tokens": 430,
+      "at": "2026-05-03T08:39:48.828Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
+      "file": "/home/dd/Gemini/leafblower/.beads/g4_desc.md",
+      "action": "create",
+      "tokens": 537,
+      "at": "2026-05-03T08:40:02.571Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.beads/g5_desc.md",
+      "action": "create",
+      "tokens": 538,
+      "at": "2026-05-03T08:40:14.232Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.beads/g6_desc.md",
+      "action": "create",
+      "tokens": 585,
+      "at": "2026-05-03T08:40:27.279Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.beads/g7_desc.md",
+      "action": "create",
+      "tokens": 304,
+      "at": "2026-05-03T08:40:36.713Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.beads/g8_desc.md",
+      "action": "create",
+      "tokens": 681,
+      "at": "2026-05-03T08:40:49.629Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/gates/cr-e-plan-review.md",
+      "action": "create",
+      "tokens": 2777,
+      "at": "2026-05-03T08:46:27.195Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/tasks/gates/cr-f-plan-review.md",
+      "action": "create",
+      "tokens": 3998,
+      "at": "2026-05-03T08:48:38.615Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 600,
-      "at": "2026-04-30T08:06:29.391Z"
+      "tokens": 107,
+      "at": "2026-05-03T09:01:22.116Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 728,
-      "at": "2026-04-30T08:06:50.575Z"
+      "tokens": 86,
+      "at": "2026-05-03T09:01:28.807Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 89,
-      "at": "2026-04-30T08:06:53.463Z"
+      "tokens": 658,
+      "at": "2026-05-03T09:01:48.182Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 100,
-      "at": "2026-04-30T08:07:05.051Z"
+      "tokens": 201,
+      "at": "2026-05-03T09:02:10.344Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 111,
-      "at": "2026-04-30T08:07:06.645Z"
+      "tokens": 36,
+      "at": "2026-05-03T09:02:25.036Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 380,
-      "at": "2026-04-30T08:07:19.788Z"
+      "tokens": 38,
+      "at": "2026-05-03T09:23:43.670Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 416,
-      "at": "2026-04-30T08:07:24.092Z"
+      "tokens": 85,
+      "at": "2026-05-03T09:23:53.416Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 79,
-      "at": "2026-04-30T08:07:30.634Z"
+      "tokens": 143,
+      "at": "2026-05-03T09:38:37.136Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/raking.cpp",
       "action": "edit",
-      "tokens": 152,
-      "at": "2026-04-30T08:07:41.234Z"
+      "tokens": 225,
+      "at": "2026-05-03T09:45:48.639Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/raking.cpp",
       "action": "edit",
-      "tokens": 174,
-      "at": "2026-04-30T08:07:52.236Z"
+      "tokens": 122,
+      "at": "2026-05-03T09:49:28.095Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/raking.cpp",
       "action": "edit",
-      "tokens": 112,
-      "at": "2026-04-30T08:08:00.199Z"
+      "tokens": 173,
+      "at": "2026-05-03T09:49:36.020Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
       "action": "edit",
-      "tokens": 105,
-      "at": "2026-04-30T08:08:06.025Z"
+      "tokens": 44,
+      "at": "2026-05-03T09:53:12.712Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
       "action": "edit",
-      "tokens": 652,
-      "at": "2026-04-30T08:08:15.500Z"
+      "tokens": 662,
+      "at": "2026-05-03T09:53:34.224Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
       "action": "edit",
-      "tokens": 206,
-      "at": "2026-04-30T08:08:15.962Z"
+      "tokens": 68,
+      "at": "2026-05-03T09:53:41.652Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/tests/testthat/test-calib-linalg.R",
       "action": "edit",
-      "tokens": 818,
-      "at": "2026-04-30T08:08:43.633Z"
+      "tokens": 705,
+      "at": "2026-05-03T10:53:02.120Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
       "action": "edit",
-      "tokens": 787,
-      "at": "2026-04-30T08:08:44.477Z"
+      "tokens": 27,
+      "at": "2026-05-03T10:57:30.547Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
       "action": "edit",
-      "tokens": 235,
-      "at": "2026-04-30T08:08:55.725Z"
+      "tokens": 33,
+      "at": "2026-05-03T10:57:36.448Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/validation.hpp",
       "action": "edit",
-      "tokens": 350,
-      "at": "2026-04-30T08:08:57.974Z"
+      "tokens": 38,
+      "at": "2026-05-03T10:57:41.384Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_dispatch.hpp",
       "action": "edit",
-      "tokens": 657,
-      "at": "2026-04-30T08:09:15.734Z"
+      "tokens": 11,
+      "at": "2026-05-03T10:57:48.084Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
-      "action": "edit",
-      "tokens": 818,
-      "at": "2026-04-30T08:09:15.734Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 449,
-      "at": "2026-04-30T08:09:33.846Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 230,
-      "at": "2026-04-30T08:09:45.663Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
-      "action": "edit",
-      "tokens": 347,
-      "at": "2026-04-30T08:13:38.875Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
-      "action": "edit",
-      "tokens": 66,
-      "at": "2026-04-30T08:13:47.006Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
-      "action": "edit",
-      "tokens": 58,
-      "at": "2026-04-30T08:13:48.748Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
-      "action": "edit",
-      "tokens": 76,
-      "at": "2026-04-30T08:13:55.118Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
-      "action": "edit",
-      "tokens": 110,
-      "at": "2026-04-30T08:13:55.290Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
-      "action": "edit",
-      "tokens": 321,
-      "at": "2026-04-30T08:14:06.773Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
-      "action": "edit",
-      "tokens": 89,
-      "at": "2026-04-30T08:14:09.433Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
-      "action": "edit",
-      "tokens": 98,
-      "at": "2026-04-30T08:14:16.839Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 190,
-      "at": "2026-04-30T08:14:19.634Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-reuse-dedup.md",
-      "action": "edit",
-      "tokens": 132,
-      "at": "2026-04-30T08:14:25.355Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-quality-fixes.md",
-      "action": "edit",
-      "tokens": 845,
-      "at": "2026-04-30T08:14:29.906Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 150,
-      "at": "2026-04-30T08:14:30.335Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 458,
-      "at": "2026-04-30T08:14:46.584Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 266,
-      "at": "2026-04-30T08:15:01.211Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 621,
-      "at": "2026-04-30T08:15:19.039Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-30-efficiency-hotpath.md",
-      "action": "edit",
-      "tokens": 136,
-      "at": "2026-04-30T08:15:28.124Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.hpp",
-      "action": "edit",
-      "tokens": 178,
-      "at": "2026-04-30T08:21:05.769Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/Makevars",
       "action": "edit",
       "tokens": 26,
-      "at": "2026-04-30T08:21:06.909Z"
+      "at": "2026-05-03T10:58:02.292Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
-      "action": "edit",
-      "tokens": 14,
-      "at": "2026-04-30T08:21:07.339Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
       "action": "edit",
       "tokens": 26,
-      "at": "2026-04-30T08:21:08.421Z"
+      "at": "2026-05-03T11:11:50.011Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
       "action": "edit",
-      "tokens": 16,
-      "at": "2026-04-30T08:21:09.096Z"
+      "tokens": 27,
+      "at": "2026-05-03T11:11:52.918Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 25,
-      "at": "2026-04-30T08:21:09.657Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/validation.hpp",
       "action": "edit",
       "tokens": 21,
-      "at": "2026-04-30T08:22:35.133Z"
+      "at": "2026-05-03T11:11:56.102Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_dispatch.hpp",
       "action": "edit",
-      "tokens": 31,
-      "at": "2026-04-30T08:22:35.704Z"
+      "tokens": 15,
+      "at": "2026-05-03T11:11:58.959Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/tools/check_research_isolation.R",
+      "action": "create",
+      "tokens": 59,
+      "at": "2026-05-03T11:13:33.667Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/newton_calib.cpp",
       "action": "edit",
-      "tokens": 11,
-      "at": "2026-04-30T08:22:35.797Z"
+      "tokens": 72,
+      "at": "2026-05-03T11:15:27.985Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_validate.cpp",
       "action": "edit",
-      "tokens": 16,
-      "at": "2026-04-30T08:22:35.908Z"
+      "tokens": 381,
+      "at": "2026-05-03T11:15:38.942Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/patch_raking.py",
       "action": "edit",
-      "tokens": 19,
-      "at": "2026-04-30T08:22:36.850Z"
+      "tokens": 6,
+      "at": "2026-05-03T11:17:57.952Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/newton_calib.hpp",
       "action": "edit",
-      "tokens": 20,
-      "at": "2026-04-30T08:22:37.369Z"
+      "tokens": 65,
+      "at": "2026-05-03T11:18:03.394Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/newton_calib.cpp",
       "action": "edit",
-      "tokens": 24,
-      "at": "2026-04-30T08:22:39.668Z"
+      "tokens": 63,
+      "at": "2026-05-03T11:18:08.348Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 25,
-      "at": "2026-04-30T08:22:40.650Z"
+      "tokens": 68,
+      "at": "2026-05-03T11:18:14.552Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/R/harvest.R",
       "action": "edit",
-      "tokens": 20,
-      "at": "2026-04-30T08:22:41.359Z"
+      "tokens": 298,
+      "at": "2026-05-03T11:18:30.877Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greenkhorn.cpp",
       "action": "edit",
-      "tokens": 20,
-      "at": "2026-04-30T08:22:41.791Z"
+      "tokens": 87,
+      "at": "2026-05-03T11:20:30.206Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 14,
-      "at": "2026-04-30T08:22:42.428Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 18,
-      "at": "2026-04-30T08:22:43.050Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 19,
-      "at": "2026-04-30T08:22:43.496Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 19,
-      "at": "2026-04-30T08:22:44.073Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 25,
-      "at": "2026-04-30T08:22:47.600Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 24,
-      "at": "2026-04-30T08:22:48.730Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 22,
-      "at": "2026-04-30T08:22:49.607Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greenkhorn.cpp",
       "action": "edit",
       "tokens": 28,
-      "at": "2026-04-30T08:22:50.668Z"
+      "at": "2026-05-03T11:20:34.051Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greenkhorn.cpp",
       "action": "edit",
-      "tokens": 25,
-      "at": "2026-04-30T08:22:51.345Z"
+      "tokens": 248,
+      "at": "2026-05-03T11:20:41.234Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greenkhorn.cpp",
       "action": "edit",
-      "tokens": 11,
-      "at": "2026-04-30T08:22:51.970Z"
+      "tokens": 88,
+      "at": "2026-05-03T11:20:46.332Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/sinkhorn.cpp",
       "action": "edit",
-      "tokens": 16,
-      "at": "2026-04-30T08:22:52.410Z"
+      "tokens": 109,
+      "at": "2026-05-03T11:20:58.673Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/ieppa.cpp",
       "action": "edit",
-      "tokens": 23,
-      "at": "2026-04-30T08:22:54.282Z"
+      "tokens": 230,
+      "at": "2026-05-03T11:22:49.444Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 169,
+      "at": "2026-05-03T11:23:04.864Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 472,
+      "at": "2026-05-03T11:23:46.631Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 165,
+      "at": "2026-05-03T11:23:56.593Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 995,
+      "at": "2026-05-03T11:25:10.810Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/python/leafblower/_harvest.py",
+      "action": "edit",
+      "tokens": 37,
+      "at": "2026-05-03T11:29:48.883Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/python/leafblower/_harvest.py",
+      "action": "edit",
+      "tokens": 15,
+      "at": "2026-05-03T11:29:51.946Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/R/anesrake.R",
+      "action": "edit",
+      "tokens": 457,
+      "at": "2026-05-03T11:30:14.574Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/NEWS.md",
+      "action": "edit",
+      "tokens": 42,
+      "at": "2026-05-03T11:30:18.411Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/lbfgsb_solver.cpp",
+      "action": "edit",
+      "tokens": 31,
+      "at": "2026-05-03T11:30:25.094Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/raking.cpp",
+      "action": "edit",
+      "tokens": 181,
+      "at": "2026-05-03T11:30:35.143Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
+      "action": "edit",
+      "tokens": 41,
+      "at": "2026-05-03T11:33:03.452Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
+      "action": "edit",
+      "tokens": 74,
+      "at": "2026-05-03T11:33:07.622Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
+      "action": "edit",
+      "tokens": 190,
+      "at": "2026-05-03T11:33:14.718Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/chebyshev.cpp",
+      "action": "edit",
+      "tokens": 190,
+      "at": "2026-05-03T11:33:21.158Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/logit_calib.cpp",
+      "action": "edit",
+      "tokens": 237,
+      "at": "2026-05-03T11:33:31.141Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/logit_calib.cpp",
+      "action": "edit",
+      "tokens": 84,
+      "at": "2026-05-03T11:33:50.982Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/validation.hpp",
+      "action": "edit",
+      "tokens": 354,
+      "at": "2026-05-03T11:35:10.827Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/raking.cpp",
+      "action": "edit",
+      "tokens": 190,
+      "at": "2026-05-03T11:35:33.903Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 354,
+      "at": "2026-05-03T11:37:34.768Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 36,
+      "at": "2026-05-03T11:37:39.700Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 40,
+      "at": "2026-05-03T11:37:43.435Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 52,
+      "at": "2026-05-03T11:37:47.683Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 214,
+      "at": "2026-05-03T11:37:57.071Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 106,
+      "at": "2026-05-03T11:38:01.992Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 306,
+      "at": "2026-05-03T11:38:10.526Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 85,
+      "at": "2026-05-03T11:38:16.532Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 33,
+      "at": "2026-05-03T11:38:20.801Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greg.cpp",
+      "action": "edit",
+      "tokens": 502,
+      "at": "2026-05-03T11:38:26.782Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/patch_raking.py",
+      "action": "create",
+      "tokens": 4764,
+      "at": "2026-05-03T11:38:31.777Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/sinkhorn.cpp",
+      "action": "edit",
+      "tokens": 234,
+      "at": "2026-05-03T11:38:48.762Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/patch_wolfe.py",
+      "action": "create",
+      "tokens": 1168,
+      "at": "2026-05-03T11:38:49.027Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/validation.hpp",
+      "action": "edit",
+      "tokens": 42,
+      "at": "2026-05-03T11:39:05.060Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 1216,
+      "at": "2026-05-03T11:41:02.643Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 353,
+      "at": "2026-05-03T11:41:14.822Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
+      "action": "edit",
+      "tokens": 77,
+      "at": "2026-05-03T11:41:35.732Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 139,
+      "at": "2026-05-03T11:41:39.010Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/r_bridge.cpp",
+      "action": "edit",
+      "tokens": 118,
+      "at": "2026-05-03T11:41:47.737Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
+      "action": "edit",
+      "tokens": 1143,
+      "at": "2026-05-03T11:42:20.217Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greg.cpp",
+      "action": "edit",
+      "tokens": 224,
+      "at": "2026-05-03T11:43:14.007Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greg.cpp",
+      "action": "edit",
+      "tokens": 28,
+      "at": "2026-05-03T11:43:17.830Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
+      "action": "edit",
+      "tokens": 1049,
+      "at": "2026-05-03T11:45:07.501Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
+      "action": "edit",
+      "tokens": 264,
+      "at": "2026-05-03T11:54:55.102Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/calib_linalg.cpp",
+      "action": "edit",
+      "tokens": 231,
+      "at": "2026-05-03T11:55:05.246Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greg.cpp",
+      "action": "edit",
+      "tokens": 67,
+      "at": "2026-05-03T11:55:10.671Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/patch_wolfe.py",
+      "action": "edit",
+      "tokens": 366,
+      "at": "2026-05-03T11:55:11.915Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/greg.cpp",
+      "action": "edit",
+      "tokens": 119,
+      "at": "2026-05-03T11:55:17.203Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/lbfgsb_solver.cpp",
+      "action": "edit",
+      "tokens": 221,
+      "at": "2026-05-03T11:55:37.372Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/fix-cr-epics/src/lbfgsb_solver.cpp",
+      "action": "edit",
+      "tokens": 118,
+      "at": "2026-05-03T11:55:43.474Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/benchmarks/profile_run.R",
+      "action": "create",
+      "tokens": 238,
+      "at": "2026-05-03T12:15:30.096Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/benchmarks/results/simd_profile_findings.txt",
+      "action": "create",
+      "tokens": 2228,
+      "at": "2026-05-03T12:16:22.622Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/calib_dispatch.hpp",
+      "action": "edit",
+      "tokens": 476,
+      "at": "2026-05-03T12:31:35.251Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 69,
+      "at": "2026-05-03T12:46:18.429Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 72,
+      "at": "2026-05-03T12:46:22.625Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 205,
+      "at": "2026-05-03T12:46:31.188Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 117,
+      "at": "2026-05-03T12:46:37.082Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 58,
+      "at": "2026-05-03T13:28:24.706Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 284,
+      "at": "2026-05-03T13:28:34.254Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 60,
+      "at": "2026-05-03T13:28:40.816Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 34,
+      "at": "2026-05-03T13:28:47.256Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 375,
+      "at": "2026-05-03T13:28:59.096Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 156,
+      "at": "2026-05-03T13:29:09.149Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 21,
+      "at": "2026-05-03T13:29:15.053Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 364,
+      "at": "2026-05-03T13:29:27.438Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/raking.cpp",
+      "action": "edit",
+      "tokens": 54,
+      "at": "2026-05-03T13:29:37.162Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/raking.cpp",
+      "action": "edit",
+      "tokens": 264,
+      "at": "2026-05-03T13:29:46.757Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/raking.cpp",
+      "action": "edit",
+      "tokens": 130,
+      "at": "2026-05-03T13:29:55.189Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/raking.cpp",
+      "action": "edit",
+      "tokens": 159,
+      "at": "2026-05-03T13:29:59.919Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/raking.cpp",
+      "action": "edit",
+      "tokens": 325,
+      "at": "2026-05-03T13:30:12.579Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.cpp",
+      "action": "edit",
+      "tokens": 113,
+      "at": "2026-05-03T13:42:29.125Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.cpp",
+      "action": "edit",
+      "tokens": 127,
+      "at": "2026-05-03T13:42:33.988Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.cpp",
+      "action": "edit",
+      "tokens": 301,
+      "at": "2026-05-03T13:42:44.271Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 99,
+      "at": "2026-05-03T13:42:55.182Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 383,
+      "at": "2026-05-03T13:43:07.590Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 124,
+      "at": "2026-05-03T13:43:12.901Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 357,
+      "at": "2026-05-03T13:43:25.484Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.cpp",
+      "action": "edit",
+      "tokens": 113,
+      "at": "2026-05-03T13:54:59.493Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.cpp",
+      "action": "edit",
+      "tokens": 127,
+      "at": "2026-05-03T13:55:05.093Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.cpp",
+      "action": "edit",
+      "tokens": 301,
+      "at": "2026-05-03T13:55:14.752Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 99,
+      "at": "2026-05-03T13:55:20.263Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 383,
+      "at": "2026-05-03T13:55:32.438Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 124,
+      "at": "2026-05-03T13:55:37.405Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.cpp",
+      "action": "edit",
+      "tokens": 357,
+      "at": "2026-05-03T13:55:49.351Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 43,
+      "at": "2026-05-03T14:08:05.677Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 240,
+      "at": "2026-05-03T14:08:15.363Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 156,
+      "at": "2026-05-03T14:08:21.429Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 222,
+      "at": "2026-05-03T14:08:40.456Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 129,
+      "at": "2026-05-03T14:08:45.060Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/perf-maint/src/types.hpp",
+      "action": "edit",
+      "tokens": 24,
+      "at": "2026-05-03T14:12:42.027Z"
     },
     {
       "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
       "action": "edit",
       "tokens": 12,
-      "at": "2026-04-30T08:23:00.470Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
-      "action": "edit",
-      "tokens": 30,
-      "at": "2026-04-30T08:24:41.321Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-rk-params-passthrough.R",
-      "action": "create",
-      "tokens": 488,
-      "at": "2026-04-30T08:25:46.391Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-rk-params-passthrough.R",
-      "action": "edit",
-      "tokens": 34,
-      "at": "2026-04-30T08:26:07.828Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-rk-params-passthrough.R",
-      "action": "edit",
-      "tokens": 34,
-      "at": "2026-04-30T08:26:09.777Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-rk-params-passthrough.R",
-      "action": "edit",
-      "tokens": 120,
-      "at": "2026-04-30T08:26:22.275Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-rk-params-passthrough.R",
-      "action": "edit",
-      "tokens": 121,
-      "at": "2026-04-30T08:26:26.451Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 324,
-      "at": "2026-04-30T08:29:02.735Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 24,
-      "at": "2026-04-30T08:29:05.121Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 28,
-      "at": "2026-04-30T08:29:07.549Z"
+      "at": "2026-05-03T14:20:49.033Z"
     },
     {
       "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 219,
-      "at": "2026-04-30T08:29:15.611Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 103,
-      "at": "2026-04-30T08:29:20.140Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 66,
-      "at": "2026-04-30T08:29:25.659Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 66,
-      "at": "2026-04-30T08:29:28.299Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
-      "action": "edit",
-      "tokens": 169,
-      "at": "2026-04-30T08:29:33.257Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/logit_calib.cpp",
-      "action": "edit",
-      "tokens": 186,
-      "at": "2026-04-30T08:29:39.098Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/logit_calib.cpp",
-      "action": "edit",
-      "tokens": 140,
-      "at": "2026-04-30T08:29:42.768Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
-      "action": "edit",
-      "tokens": 113,
-      "at": "2026-04-30T08:32:57.091Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/leafblower.h",
-      "action": "edit",
-      "tokens": 79,
-      "at": "2026-04-30T08:33:03.432Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/leafblower.h",
       "action": "edit",
       "tokens": 26,
-      "at": "2026-04-30T08:33:11.473Z"
+      "at": "2026-05-03T14:20:49.830Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/leafblower.h",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
       "action": "edit",
-      "tokens": 247,
-      "at": "2026-04-30T08:33:29.913Z"
+      "tokens": 250,
+      "at": "2026-05-03T14:40:43.233Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/c_api.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
       "action": "edit",
-      "tokens": 43,
-      "at": "2026-04-30T08:33:36.596Z"
+      "tokens": 44,
+      "at": "2026-05-03T14:40:47.604Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/c_api.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
       "action": "edit",
-      "tokens": 68,
-      "at": "2026-04-30T08:33:43.603Z"
+      "tokens": 76,
+      "at": "2026-05-03T14:40:52.510Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
+      "action": "edit",
+      "tokens": 222,
+      "at": "2026-05-03T14:40:59.623Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
+      "action": "edit",
+      "tokens": 276,
+      "at": "2026-05-03T14:41:06.477Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_bindings.cpp",
+      "action": "edit",
+      "tokens": 526,
+      "at": "2026-05-03T14:41:14.941Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/sraa.hpp",
+      "action": "edit",
+      "tokens": 41,
+      "at": "2026-05-03T14:42:43.038Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/sraa.hpp",
+      "action": "edit",
+      "tokens": 64,
+      "at": "2026-05-03T14:42:47.110Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/sraa.hpp",
       "action": "edit",
       "tokens": 78,
-      "at": "2026-04-30T08:33:49.470Z"
+      "at": "2026-05-03T14:42:52.079Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/calib_linalg.cpp",
       "action": "edit",
-      "tokens": 66,
-      "at": "2026-04-30T08:33:55.168Z"
+      "tokens": 182,
+      "at": "2026-05-03T14:42:59.206Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-homotopy-enabled-field.R",
-      "action": "create",
-      "tokens": 214,
-      "at": "2026-04-30T08:34:14.614Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-homotopy-enabled-field.R",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/calib_linalg.cpp",
       "action": "edit",
-      "tokens": 218,
-      "at": "2026-04-30T08:34:45.392Z"
+      "tokens": 53,
+      "at": "2026-05-03T14:43:02.812Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-homotopy-enabled-field.R",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/newton_calib.cpp",
       "action": "edit",
-      "tokens": 144,
-      "at": "2026-04-30T08:35:16.163Z"
+      "tokens": 201,
+      "at": "2026-05-03T14:43:11.446Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-homotopy-enabled-field.R",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 28,
+      "at": "2026-05-03T14:43:16.182Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/CMakeLists.txt",
+      "action": "edit",
+      "tokens": 130,
+      "at": "2026-05-03T14:43:38.714Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/CMakeLists.txt",
+      "action": "edit",
+      "tokens": 59,
+      "at": "2026-05-03T14:43:43.392Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/logit_calib.cpp",
+      "action": "edit",
+      "tokens": 102,
+      "at": "2026-05-03T14:44:13.791Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 59,
+      "at": "2026-05-03T14:44:18.816Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/leafblower.h",
+      "action": "edit",
+      "tokens": 169,
+      "at": "2026-05-03T14:47:10.662Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/leafblower.h",
       "action": "edit",
       "tokens": 86,
-      "at": "2026-04-30T09:07:15.535Z"
+      "at": "2026-05-03T14:47:16.631Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/src/c_api.cpp",
       "action": "edit",
-      "tokens": 170,
-      "at": "2026-04-30T09:08:39.560Z"
+      "tokens": 129,
+      "at": "2026-05-03T14:47:22.765Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_bindings.cpp",
       "action": "edit",
-      "tokens": 19,
-      "at": "2026-04-30T09:08:43.035Z"
+      "tokens": 142,
+      "at": "2026-05-03T14:47:26.967Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
       "action": "edit",
-      "tokens": 6,
-      "at": "2026-04-30T09:08:49.317Z"
+      "tokens": 62,
+      "at": "2026-05-03T14:47:34.244Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
       "action": "edit",
-      "tokens": 3,
-      "at": "2026-04-30T09:08:52.559Z"
+      "tokens": 102,
+      "at": "2026-05-03T14:47:38.775Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "file": "/home/dd/Gemini/leafblower/.worktrees/py-parity/python/leafblower/_harvest.py",
       "action": "edit",
-      "tokens": 14,
-      "at": "2026-04-30T09:08:59.577Z"
+      "tokens": 38,
+      "at": "2026-05-03T14:52:49.288Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
-      "action": "edit",
-      "tokens": 148,
-      "at": "2026-04-30T09:09:04.544Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/c_api.cpp",
-      "action": "edit",
-      "tokens": 89,
-      "at": "2026-04-30T09:09:11.518Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
-      "action": "edit",
-      "tokens": 3,
-      "at": "2026-04-30T09:09:25.764Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp",
-      "action": "edit",
-      "tokens": 4,
-      "at": "2026-04-30T09:09:28.113Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-alm-config-grouping.R",
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
       "action": "create",
-      "tokens": 261,
-      "at": "2026-04-30T09:09:47.781Z"
+      "tokens": 958,
+      "at": "2026-05-03T15:10:21.190Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-alm-config-grouping.R",
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.py",
+      "action": "create",
+      "tokens": 1244,
+      "at": "2026-05-03T15:10:39.436Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.py",
+      "action": "create",
+      "tokens": 1208,
+      "at": "2026-05-03T15:11:28.304Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
       "action": "edit",
-      "tokens": 184,
-      "at": "2026-04-30T09:10:34.384Z"
+      "tokens": 81,
+      "at": "2026-05-03T15:11:56.526Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 31,
+      "at": "2026-05-03T15:12:13.529Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 23,
+      "at": "2026-05-03T15:12:18.795Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 41,
+      "at": "2026-05-03T15:12:56.301Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 23,
+      "at": "2026-05-03T15:13:24.488Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "create",
+      "tokens": 1282,
+      "at": "2026-05-03T15:21:27.816Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.py",
+      "action": "create",
+      "tokens": 1518,
+      "at": "2026-05-03T15:21:49.350Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 68,
+      "at": "2026-05-03T15:22:05.978Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 13,
+      "at": "2026-05-03T15:22:10.365Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 2,
+      "at": "2026-05-03T15:22:15.280Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 121,
+      "at": "2026-05-03T15:32:48.519Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/newton_calib.cpp",
+      "action": "edit",
+      "tokens": 79,
+      "at": "2026-05-03T15:33:00.275Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "create",
+      "tokens": 1681,
+      "at": "2026-05-03T15:51:15.994Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
       "action": "edit",
       "tokens": 20,
-      "at": "2026-04-30T09:13:00.273Z"
+      "at": "2026-05-03T16:23:46.409Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
       "action": "edit",
-      "tokens": 63,
-      "at": "2026-04-30T09:14:05.506Z"
+      "tokens": 55,
+      "at": "2026-05-03T16:23:53.289Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
       "action": "edit",
-      "tokens": 150,
-      "at": "2026-04-30T09:14:12.369Z"
+      "tokens": 51,
+      "at": "2026-05-03T16:24:18.355Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "create",
+      "tokens": 1416,
+      "at": "2026-05-03T16:28:26.126Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 32,
+      "at": "2026-05-03T16:29:11.390Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 43,
+      "at": "2026-05-03T17:48:57.996Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 137,
+      "at": "2026-05-03T17:49:11.132Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 420,
+      "at": "2026-05-03T17:49:20.472Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 56,
+      "at": "2026-05-03T17:49:25.254Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 32,
+      "at": "2026-05-03T20:19:47.689Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R",
+      "action": "edit",
+      "tokens": 54,
+      "at": "2026-05-03T20:26:44.476Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 159,
+      "at": "2026-05-03T20:56:16.775Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 55,
+      "at": "2026-05-03T20:58:05.762Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
+      "action": "edit",
+      "tokens": 53,
+      "at": "2026-05-03T21:18:33.937Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 100,
+      "at": "2026-05-03T21:18:38.577Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 93,
+      "at": "2026-05-03T21:18:42.793Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "action": "edit",
+      "tokens": 133,
+      "at": "2026-05-03T21:18:47.333Z"
     },
     {
       "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
       "action": "edit",
       "tokens": 37,
-      "at": "2026-04-30T09:14:19.067Z"
+      "at": "2026-05-03T21:18:51.612Z"
     },
     {
       "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 41,
-      "at": "2026-04-30T09:14:24.674Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-method-dispatch.R",
-      "action": "create",
-      "tokens": 255,
-      "at": "2026-04-30T09:14:34.506Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-method-dispatch.R",
-      "action": "edit",
-      "tokens": 168,
-      "at": "2026-04-30T09:15:04.139Z"
+      "tokens": 56,
+      "at": "2026-05-03T21:18:55.781Z"
     },
     {
       "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 24,
-      "at": "2026-04-30T09:45:49.611Z"
+      "tokens": 85,
+      "at": "2026-05-03T21:19:02.221Z"
     },
     {
       "file": "/home/dd/Gemini/leafblower/src/r_bridge.cpp",
       "action": "edit",
-      "tokens": 160,
-      "at": "2026-04-30T09:45:53.902Z"
+      "tokens": 114,
+      "at": "2026-05-03T21:19:07.766Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-method-dispatch.R",
+      "file": "/home/dd/Gemini/leafblower/R/harvest.R",
       "action": "edit",
-      "tokens": 113,
-      "at": "2026-04-30T09:45:58.106Z"
+      "tokens": 371,
+      "at": "2026-05-03T21:19:18.453Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
+      "file": "/home/dd/Gemini/leafblower/R/harvest.R",
       "action": "edit",
-      "tokens": 171,
-      "at": "2026-04-30T09:47:46.565Z"
+      "tokens": 70,
+      "at": "2026-05-03T21:22:08.368Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
+      "file": "/home/dd/Gemini/leafblower/R/harvest.R",
       "action": "edit",
-      "tokens": 8,
-      "at": "2026-04-30T09:47:57.435Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
-      "action": "edit",
-      "tokens": 190,
-      "at": "2026-04-30T09:48:02.787Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
-      "action": "edit",
-      "tokens": 16,
-      "at": "2026-04-30T09:48:06.007Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/sinkhorn.cpp",
-      "action": "edit",
-      "tokens": 30,
-      "at": "2026-04-30T09:48:13.309Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-select-metric-struct.R",
-      "action": "create",
-      "tokens": 183,
-      "at": "2026-04-30T09:48:46.801Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-select-metric-struct.R",
-      "action": "edit",
-      "tokens": 48,
-      "at": "2026-04-30T09:49:04.077Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/raking.cpp",
-      "action": "edit",
-      "tokens": 127,
-      "at": "2026-04-30T09:50:58.072Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 158,
-      "at": "2026-04-30T09:50:59.480Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
-      "action": "edit",
-      "tokens": 34,
-      "at": "2026-04-30T09:56:37.381Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/types.hpp",
-      "action": "edit",
-      "tokens": 402,
-      "at": "2026-04-30T09:56:48.052Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/raking.hpp",
-      "action": "create",
-      "tokens": 88,
-      "at": "2026-04-30T09:56:56.047Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/lbfgsb_solver.hpp",
-      "action": "create",
-      "tokens": 93,
-      "at": "2026-04-30T09:57:08.329Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/greenkhorn.hpp",
-      "action": "edit",
-      "tokens": 108,
-      "at": "2026-04-30T09:57:23.036Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/sinkhorn.hpp",
-      "action": "edit",
-      "tokens": 137,
-      "at": "2026-04-30T09:57:44.884Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/greg.hpp",
-      "action": "edit",
-      "tokens": 250,
-      "at": "2026-04-30T09:58:02.250Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.hpp",
-      "action": "edit",
-      "tokens": 307,
-      "at": "2026-04-30T09:58:19.144Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/logit_calib.hpp",
-      "action": "edit",
-      "tokens": 383,
-      "at": "2026-04-30T09:58:35.305Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.hpp",
-      "action": "edit",
-      "tokens": 422,
-      "at": "2026-04-30T09:58:54.953Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/sinkhorn.cpp",
-      "action": "edit",
-      "tokens": 86,
-      "at": "2026-04-30T10:02:12.858Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/greg.cpp",
-      "action": "edit",
-      "tokens": 190,
-      "at": "2026-04-30T10:02:22.135Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 137,
-      "at": "2026-04-30T10:02:29.209Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/logit_calib.cpp",
-      "action": "edit",
-      "tokens": 208,
-      "at": "2026-04-30T10:02:37.579Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-calib-result-consolidation.R",
-      "action": "create",
-      "tokens": 360,
-      "at": "2026-04-30T10:06:21.987Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/tests/testthat/test-calib-result-consolidation.R",
-      "action": "edit",
-      "tokens": 88,
-      "at": "2026-04-30T10:06:36.400Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
-      "action": "edit",
-      "tokens": 297,
-      "at": "2026-04-30T10:10:17.846Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 51,
-      "at": "2026-04-30T10:10:22.115Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 90,
-      "at": "2026-04-30T10:10:27.426Z"
+      "tokens": 38,
+      "at": "2026-05-03T21:23:18.749Z"
     }
   ],
   "edit_counts": {
-    "docs/superpowers/plans/2026-04-30-reuse-dedup.md": 12,
-    "docs/superpowers/plans/2026-04-30-efficiency-hotpath.md": 13,
-    "docs/superpowers/plans/2026-04-30-quality-fixes.md": 16,
-    "src/ieppa.hpp": 2,
-    "src/lbfgsb_solver.cpp": 12,
-    "src/ieppa.cpp": 26,
-    "tests/testthat/test-rk-params-passthrough.R": 5,
-    "src/chebyshev.cpp": 7,
-    "src/logit_calib.cpp": 3,
-    "src/types.hpp": 5,
-    "src/leafblower.h": 3,
-    "src/c_api.cpp": 3,
-    "src/r_bridge.cpp": 11,
-    "tests/testthat/test-homotopy-enabled-field.R": 4,
-    "tests/testthat/test-alm-config-grouping.R": 2,
-    "tests/testthat/test-method-dispatch.R": 3,
-    "src/calib_dispatch.hpp": 5,
-    "src/sinkhorn.cpp": 2,
-    "tests/testthat/test-select-metric-struct.R": 2,
-    "src/raking.cpp": 1,
-    "src/raking.hpp": 1,
-    "src/lbfgsb_solver.hpp": 1,
-    "src/greenkhorn.hpp": 1,
-    "src/sinkhorn.hpp": 1,
-    "src/greg.hpp": 1,
-    "src/chebyshev.hpp": 1,
-    "src/logit_calib.hpp": 1,
-    "src/greg.cpp": 1,
-    "tests/testthat/test-calib-result-consolidation.R": 2
+    ".beads/g1_desc.md": 1,
+    ".beads/g2_desc.md": 1,
+    ".beads/g3_desc.md": 1,
+    ".beads/g4_desc.md": 1,
+    ".beads/g5_desc.md": 1,
+    ".beads/g6_desc.md": 1,
+    ".beads/g7_desc.md": 1,
+    ".beads/g8_desc.md": 1,
+    "tasks/gates/cr-e-plan-review.md": 1,
+    "tasks/gates/cr-f-plan-review.md": 1,
+    ".worktrees/fix-cr-epics/src/r_bridge.cpp": 22,
+    ".worktrees/fix-cr-epics/src/raking.cpp": 5,
+    ".worktrees/fix-cr-epics/src/calib_linalg.cpp": 8,
+    ".worktrees/fix-cr-epics/tests/testthat/test-calib-linalg.R": 1,
+    ".worktrees/fix-cr-epics/src/chebyshev.cpp": 8,
+    ".worktrees/fix-cr-epics/src/validation.hpp": 4,
+    ".worktrees/fix-cr-epics/src/calib_dispatch.hpp": 2,
+    ".worktrees/fix-cr-epics/src/Makevars": 1,
+    ".worktrees/fix-cr-epics/tools/check_research_isolation.R": 1,
+    ".worktrees/fix-cr-epics/src/newton_calib.cpp": 3,
+    ".worktrees/fix-cr-epics/src/calib_validate.cpp": 1,
+    ".worktrees/fix-cr-epics/patch_raking.py": 2,
+    ".worktrees/fix-cr-epics/src/newton_calib.hpp": 1,
+    ".worktrees/fix-cr-epics/R/harvest.R": 1,
+    ".worktrees/fix-cr-epics/src/greenkhorn.cpp": 4,
+    ".worktrees/fix-cr-epics/src/sinkhorn.cpp": 2,
+    ".worktrees/fix-cr-epics/src/ieppa.cpp": 4,
+    ".worktrees/fix-cr-epics/python/leafblower/_harvest.py": 2,
+    ".worktrees/fix-cr-epics/R/anesrake.R": 1,
+    ".worktrees/fix-cr-epics/NEWS.md": 1,
+    ".worktrees/fix-cr-epics/src/lbfgsb_solver.cpp": 3,
+    ".worktrees/fix-cr-epics/src/logit_calib.cpp": 2,
+    ".worktrees/fix-cr-epics/src/greg.cpp": 5,
+    ".worktrees/fix-cr-epics/patch_wolfe.py": 2,
+    ".worktrees/perf-maint/benchmarks/profile_run.R": 1,
+    ".worktrees/perf-maint/benchmarks/results/simd_profile_findings.txt": 1,
+    ".worktrees/perf-maint/src/calib_dispatch.hpp": 1,
+    ".worktrees/perf-maint/src/ieppa.cpp": 12,
+    ".worktrees/perf-maint/src/raking.cpp": 5,
+    ".worktrees/perf-maint/src/sinkhorn.cpp": 6,
+    ".worktrees/perf-maint/src/greenkhorn.cpp": 8,
+    ".worktrees/perf-maint/src/newton_calib.cpp": 5,
+    ".worktrees/perf-maint/src/types.hpp": 1,
+    "src/ieppa.cpp": 11,
+    ".worktrees/py-parity/python/leafblower/_harvest.py": 8,
+    ".worktrees/py-parity/python/leafblower/_bindings.cpp": 2,
+    ".worktrees/py-parity/src/sraa.hpp": 3,
+    ".worktrees/py-parity/src/calib_linalg.cpp": 2,
+    ".worktrees/py-parity/src/newton_calib.cpp": 3,
+    ".worktrees/py-parity/python/CMakeLists.txt": 2,
+    ".worktrees/py-parity/src/logit_calib.cpp": 1,
+    ".worktrees/py-parity/src/leafblower.h": 2,
+    ".worktrees/py-parity/src/c_api.cpp": 1,
+    "benchmarks/allmethod_bench.R": 18,
+    "benchmarks/allmethod_bench.py": 3,
+    "src/newton_calib.cpp": 2,
+    "src/types.hpp": 1,
+    "src/r_bridge.cpp": 4,
+    "R/harvest.R": 3
   },
-  "anatomy_hits": 6,
-  "anatomy_misses": 46,
-  "repeated_reads_warned": 214,
+  "anatomy_hits": 4,
+  "anatomy_misses": 83,
+  "repeated_reads_warned": 220,
   "cerebrum_warnings": 0,
-  "stop_count": 2
+  "stop_count": 53
 }

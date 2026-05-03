@@ -1,0 +1,222 @@
+* using log directory ‘/home/dd/Gemini/leafblower/perf-maint.Rcheck’
+* using R version 4.6.0 (2026-04-24)
+* using platform: x86_64-pc-linux-gnu
+* R was compiled by
+    gcc (GCC) 15.2.1 20260209
+    GNU Fortran (GCC) 15.2.1 20260209
+* running under: Arch Linux
+* using session charset: UTF-8
+* current time: 2026-05-03 14:14:00 UTC
+* using options ‘--no-manual --no-vignettes’
+* checking for file ‘perf-maint/DESCRIPTION’ ... OK
+* this is package ‘leafblower’ version ‘0.1.0’
+* package encoding: UTF-8
+* checking package namespace information ... OK
+* checking package dependencies ... INFO
+Package suggested but not available for checking: ‘survey’
+* checking if this is a source package ... WARNING
+Subdirectory ‘leafblower/src’ contains apparent object files/libraries
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/c_api.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/calib_linalg.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/calib_validate.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/cell_table.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/chebyshev.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greenkhorn.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/greg.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/ieppa.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/lbfgsb_solver.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/leafblower.so
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/logit.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/logit_calib.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/newton_calib.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/r_bridge.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/raking.o
+  /home/dd/Gemini/leafblower/.worktrees/perf-maint/src/sinkhorn.o
+Object files/libraries should not be included in a source package.
+
+In addition to the above warning(s), found the following notes:
+
+Found the following apparent object files/libraries:
+  leafblower.Rcheck/00_pkg_src/leafblower/src/c_api.o
+  leafblower.Rcheck/00_pkg_src/leafblower/src/cell_table.o
+  leafblower.Rcheck/00_pkg_src/leafblower/src/ieppa.o
+  leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.o
+  leafblower.Rcheck/00_pkg_src/leafblower/src/leafblower.so
+  leafblower.Rcheck/00_pkg_src/leafblower/src/logit.o
+  leafblower.Rcheck/00_pkg_src/leafblower/src/r_bridge.o
+  leafblower.Rcheck/00_pkg_src/leafblower/src/raking.o
+  leafblower.Rcheck/leafblower/libs/leafblower.so
+Object files/libraries should not be included in a source package.
+
+Subdirectory ‘leafblower.Rcheck/leafblower’ seems to contain an installed version of the package.
+* checking if there is a namespace ... OK
+* checking for executable files ... OK
+* checking for hidden files and directories ... NOTE
+Found the following hidden files and directories:
+  .beads/.gitignore
+  .code-review-graph/.gitignore
+  .git
+  .gitignore
+  .mcp.json
+  .tldrignore
+  docs/superpowers/plans/.Rhistory
+  graphify-out/.graphify_python
+  graphify-out/.graphify_root
+  leafblower.Rcheck/00_pkg_src/leafblower/.tldrignore
+  src/.gitignore
+  ..Rcheck
+  .beads
+  .claude
+  .code-review-graph
+  .gemini
+  .gemini-bridge
+  .tldr
+  .wolf
+  .wolf/backups/2026-04-24T1319/.claude
+  leafblower.Rcheck/00_pkg_src/leafblower/.gemini-bridge
+  leafblower.Rcheck/00_pkg_src/leafblower/.pytest_cache
+  leafblower.Rcheck/00_pkg_src/leafblower/.tldr
+These were most likely included in error. See section ‘Package
+structure’ in the ‘Writing R Extensions’ manual.
+* checking for portable file names ... OK
+* checking for sufficient/correct file permissions ... OK
+* checking whether package ‘leafblower’ can be installed ... OK
+* used C++ compiler: ‘g++ (GCC) 16.1.1 20260430’
+* checking C++ specification ... INFO
+  specified C++17
+* checking installed package size ... OK
+* checking package directory ... OK
+* checking DESCRIPTION meta-information ... NOTE
+Checking should be performed on sources prepared by ‘R CMD build’.
+* checking top-level files ... OK
+* checking for left-over files ... OK
+* checking index information ... OK
+* checking package subdirectories ... WARNING
+Found the following directories with names of check directories:
+  ./..Rcheck
+  ./leafblower.Rcheck
+Most likely, these were included erroneously.
+Problems with news in ‘NEWS.md’:
+No news entries found.
+* checking code files for non-ASCII characters ... WARNING
+Found the following file with non-ASCII characters:
+  R/harvest.R
+Portable packages must use only ASCII characters in their R code and
+NAMESPACE directives, except perhaps in comments.
+Use \uxxxx escapes for other characters.
+Function ‘tools::showNonASCIIfile’ can help in finding non-ASCII
+characters in files.
+* checking R files for syntax errors ... OK
+* checking whether the package can be loaded ... OK
+* checking whether the package can be loaded with stated dependencies ... OK
+* checking whether the package can be unloaded cleanly ... OK
+* checking whether the namespace can be loaded with stated dependencies ... OK
+* checking whether the namespace can be unloaded cleanly ... OK
+* checking loading without being on the library search path ... OK
+* checking whether startup messages can be suppressed ... OK
+* checking dependencies in R code ... OK
+* checking S3 generic/method consistency ... OK
+* checking replacement functions ... OK
+* checking foreign function calls ... OK
+* checking R code for possible problems ... OK
+* checking Rd files ... OK
+* checking Rd metadata ... OK
+* checking Rd cross-references ... OK
+* checking for missing documentation entries ... WARNING
+Undocumented code objects:
+  ‘parse_bounds_mode’
+All user-level objects in a package should have documentation entries.
+See chapter ‘Writing R documentation files’ in the ‘Writing R
+Extensions’ manual.
+* checking for code/documentation mismatches ... WARNING
+Codoc mismatches from Rd file 'harvest.Rd':
+harvest
+  Code: function(data, target, min_weight = 0, max_weight = 5,
+                 capacity_penalty = NULL, alm_penalty = NULL, method =
+                 "ieppa", verbose = 0, max_iterations = 500,
+                 start_weights = NULL, attach_weights = TRUE,
+                 weight_column = "weights", convergence = list(), sor =
+                 list(auto = TRUE, omega_min = 0.3), bounds_mode =
+                 "cell", homotopy_levels = 1L, homotopy_start_factor =
+                 1, homotopy_end_factor = 1, homotopy_budget_p = 0.5,
+                 scheduler = c("round_robin", "greedy"), eta_schedule =
+                 c("fixed", "tang_dynamic"), eta_start = 1, eta_end =
+                 1, eta_schedule_power = 0.5, select_params = NULL,
+                 select_function = NULL, error_function = NULL,
+                 adaptive_order = NULL, enforce_mean = TRUE, accelerate
+                 = FALSE, add_na_proportion = FALSE, auto_collapse =
+                 FALSE, collapse_vars = NULL, target_map = NULL,
+                 design_weights = NULL, newton_tsvd_ratio = 1e-08, ...)
+  Docs: function(data, target, min_weight = 0, max_weight = 5,
+                 capacity_penalty = NULL, alm_penalty = NULL, method =
+                 "ieppa", verbose = 0, max_iterations = 500,
+                 start_weights = NULL, attach_weights = TRUE,
+                 weight_column = "weights", convergence = list(), sor =
+                 list(auto = TRUE, omega_min = 0.3), bounds_mode =
+                 "cell", homotopy_levels = 1L, homotopy_start_factor =
+                 1, homotopy_end_factor = 1, homotopy_budget_p = 0.5,
+                 scheduler = c("round_robin", "greedy"), eta_schedule =
+                 c("fixed", "tang_dynamic"), eta_start = 1, eta_end =
+                 1, eta_schedule_power = 0.5, select_params = NULL,
+                 select_function = NULL, error_function = NULL,
+                 adaptive_order = NULL, enforce_mean = TRUE, accelerate
+                 = FALSE, add_na_proportion = FALSE, auto_collapse =
+                 FALSE, collapse_vars = NULL, target_map = NULL,
+                 design_weights = NULL, jacobi_sweep = FALSE,
+                 newton_tsvd_ratio = 1e-08, ...)
+  Argument names in docs not in code:
+    jacobi_sweep
+  Mismatches in argument names:
+    Position: 36 Code: newton_tsvd_ratio Docs: jacobi_sweep
+    Position: 37 Code: ... Docs: newton_tsvd_ratio
+
+* checking Rd \usage sections ... WARNING
+Undocumented arguments in Rd file 'harvest.Rd'
+  ‘alm_penalty’ ‘newton_tsvd_ratio’
+
+Functions with \usage entries need to have the appropriate \alias
+entries, and all their arguments documented.
+The \usage entries must correspond to syntactically valid R code.
+See chapter ‘Writing R documentation files’ in the ‘Writing R
+Extensions’ manual.
+* checking Rd contents ... OK
+* checking for unstated dependencies in examples ... OK
+* checking line endings in shell scripts ... OK
+* checking line endings in C/C++/Fortran sources/headers ... NOTE
+Found the following sources/headers not terminated with a newline:
+  src/lbfgsb_solver.cpp
+Some compilers warn on such files.
+* checking line endings in Makefiles ... OK
+* checking compilation flags in Makevars ... NOTE
+Package has both ‘src/Makevars.in’ and ‘src/Makevars’.
+Installation with --no-configure' is unlikely to work.  If you intended
+‘src/Makevars’ to be used on Windows, rename it to ‘src/Makevars.win’
+otherwise remove it.  If ‘configure’ created ‘src/Makevars’, you need a
+‘cleanup’ script.
+* checking for GNU extensions in Makefiles ... OK
+* checking for portable use of $(BLAS_LIBS) and $(LAPACK_LIBS) ... OK
+* checking use of PKG_*FLAGS in Makefiles ... OK
+* checking compiled code ... OK
+* checking examples ... OK
+* checking for unstated dependencies in ‘tests’ ... OK
+* checking tests ... ERROR
+  Running ‘testthat.R’
+Running the tests in ‘tests/testthat.R’ failed.
+Last 13 lines of output:
+  27: withRestarts(tryCatch(withCallingHandlers({    eval(code, test_env)    new_expectations <- the$test_expectations > starting_expectations    if (snapshot_skipped) {        skip("On CRAN")    }    else if (!new_expectations && skip_on_empty) {        skip_empty()    }}, expectation = handle_expectation, packageNotFoundError = function(e) {    if (on_cran()) {        skip(paste0("{", e$package, "} is not installed."))    }}, snapshot_on_cran = function(cnd) {    snapshot_skipped <<- TRUE    invokeRestart("muffle_cran_snapshot")}, skip = handle_skip, warning = handle_warning, message = handle_message,     error = handle_error, interrupt = handle_interrupt), error = handle_fatal),     end_test = function() {    })
+  28: test_code(code = exprs, env = env, reporter = get_reporter() %||%     StopReporter$new())
+  29: source_file(path, env = env(env), desc = desc, shuffle = shuffle,     error_call = error_call)
+  30: FUN(X[[i]], ...)
+  31: lapply(test_paths, test_one_file, env = env, desc = desc, shuffle = shuffle,     error_call = error_call)
+  32: doTryCatch(return(expr), name, parentenv, handler)
+  33: tryCatchOne(expr, names, parentenv, handlers[[1L]])
+  34: tryCatchList(expr, classes, parentenv, handlers)
+  35: tryCatch(code, testthat_abort_reporter = function(cnd) {    cat(conditionMessage(cnd), "\n")    NULL})
+  36: with_reporter(reporters$multi, lapply(test_paths, test_one_file,     env = env, desc = desc, shuffle = shuffle, error_call = error_call))
+  37: test_files_serial(test_dir = test_dir, test_package = test_package,     test_paths = test_paths, load_helpers = load_helpers, reporter = reporter,     env = env, stop_on_failure = stop_on_failure, stop_on_warning = stop_on_warning,     desc = desc, load_package = load_package, shuffle = shuffle,     error_call = error_call)
+  38: test_files(test_dir = path, test_paths = test_paths, test_package = package,     reporter = reporter, load_helpers = load_helpers, env = env,     stop_on_failure = stop_on_failure, stop_on_warning = stop_on_warning,     load_package = load_package, parallel = parallel, shuffle = shuffle)
+  39: test_dir("testthat", package = package, reporter = reporter,     ..., load_package = "installed")
+  40: test_check("leafblower")
+  An irrecoverable exception occurred. R is aborting now ...
+* DONE
+Status: 1 ERROR, 6 WARNINGs, 4 NOTEs

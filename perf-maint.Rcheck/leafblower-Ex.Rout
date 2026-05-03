@@ -1,0 +1,66 @@
+
+R version 4.6.0 (2026-04-24) -- "Because it was There"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> pkgname <- "leafblower"
+> source(file.path(R.home("share"), "R", "examples-header.R"))
+> options(warn = 1)
+> library('leafblower')
+> 
+> base::assign(".oldSearch", base::search(), pos = 'CheckExEnv')
+> base::assign(".old_wd", base::getwd(), pos = 'CheckExEnv')
+> cleanEx()
+> nameEx("harvest")
+> ### * harvest
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: harvest
+> ### Title: Generate calibrated weights (drop-in for autumn::harvest)
+> ### Aliases: harvest
+> 
+> ### ** Examples
+> 
+> ## Not run: 
+> ##D df  <- data.frame(sex = factor(sample(c("M","F"), 500, TRUE)))
+> ##D tgt <- list(sex = c(M = 0.5, F = 0.5))
+> ##D 
+> ##D # Greenkhorn (greedy coordinate-descent IPF)
+> ##D r_grk <- harvest(df, tgt, method = "greenkhorn")
+> ##D 
+> ##D # Logit-distance Newton calibration (Deville-Sarndal 1992)
+> ##D r_logit <- harvest(df, tgt, method = "logit")
+> ## End(Not run)
+> 
+> 
+> 
+> ### * <FOOTER>
+> ###
+> cleanEx()
+> options(digits = 7L)
+> base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
+Time elapsed:  0.046 0.005 0.051 0 0 
+> grDevices::dev.off()
+null device 
+          1 
+> ###
+> ### Local variables: ***
+> ### mode: outline-minor ***
+> ### outline-regexp: "\\(> \\)?### [*]+" ***
+> ### End: ***
+> quit('no')

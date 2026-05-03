@@ -1,0 +1,72 @@
+
+R version 4.6.0 (2026-04-24) -- "Because it was There"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # This file is part of the R package leafblower.
+> # See the file LICENSE in the package root for license information.
+> 
+> library(testthat)
+> library(leafblower)
+> 
+> test_check("leafblower")
+Saving _problems/test-auto-routing-severe-skew-63.R
+Saving _problems/test-calibration-solvers-253.R
+
+ *** caught segfault ***
+address (nil), cause 'memory not mapped'
+
+Traceback:
+ 1: harvest(df, target = list(g = c(`1` = 0.9, `2` = 0.9)), method = "chebyshev",     max_iterations = 50L)
+ 2: doTryCatch(return(expr), name, parentenv, handler)
+ 3: tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 4: tryCatchList(expr, classes, parentenv, handlers)
+ 5: tryCatch(harvest(df, target = list(g = c(`1` = 0.9, `2` = 0.9)),     method = "chebyshev", max_iterations = 50L), error = function(e) e)
+ 6: eval(code, test_env)
+ 7: eval(code, test_env)
+ 8: withCallingHandlers({    eval(code, test_env)    new_expectations <- the$test_expectations > starting_expectations    if (snapshot_skipped) {        skip("On CRAN")    }    else if (!new_expectations && skip_on_empty) {        skip_empty()    }}, expectation = handle_expectation, packageNotFoundError = function(e) {    if (on_cran()) {        skip(paste0("{", e$package, "} is not installed."))    }}, snapshot_on_cran = function(cnd) {    snapshot_skipped <<- TRUE    invokeRestart("muffle_cran_snapshot")}, skip = handle_skip, warning = handle_warning, message = handle_message,     error = handle_error, interrupt = handle_interrupt)
+ 9: doTryCatch(return(expr), name, parentenv, handler)
+10: tryCatchOne(expr, names, parentenv, handlers[[1L]])
+11: tryCatchList(expr, classes, parentenv, handlers)
+12: tryCatch(withCallingHandlers({    eval(code, test_env)    new_expectations <- the$test_expectations > starting_expectations    if (snapshot_skipped) {        skip("On CRAN")    }    else if (!new_expectations && skip_on_empty) {        skip_empty()    }}, expectation = handle_expectation, packageNotFoundError = function(e) {    if (on_cran()) {        skip(paste0("{", e$package, "} is not installed."))    }}, snapshot_on_cran = function(cnd) {    snapshot_skipped <<- TRUE    invokeRestart("muffle_cran_snapshot")}, skip = handle_skip, warning = handle_warning, message = handle_message,     error = handle_error, interrupt = handle_interrupt), error = handle_fatal)
+13: doWithOneRestart(return(expr), restart)
+14: withOneRestart(expr, restarts[[1L]])
+15: withRestarts(tryCatch(withCallingHandlers({    eval(code, test_env)    new_expectations <- the$test_expectations > starting_expectations    if (snapshot_skipped) {        skip("On CRAN")    }    else if (!new_expectations && skip_on_empty) {        skip_empty()    }}, expectation = handle_expectation, packageNotFoundError = function(e) {    if (on_cran()) {        skip(paste0("{", e$package, "} is not installed."))    }}, snapshot_on_cran = function(cnd) {    snapshot_skipped <<- TRUE    invokeRestart("muffle_cran_snapshot")}, skip = handle_skip, warning = handle_warning, message = handle_message,     error = handle_error, interrupt = handle_interrupt), error = handle_fatal),     end_test = function() {    })
+16: test_code(code, parent.frame())
+17: test_that("B1: chebyshev with infeasible target (sum>1) returns infeasible status",     {        n <- 50L        df <- data.frame(g = sample(1:2, n, replace = TRUE))        res <- tryCatch(harvest(df, target = list(g = c(`1` = 0.9,             `2` = 0.9)), method = "chebyshev", max_iterations = 50L),             error = function(e) e)        ok <- inherits(res, "error") || isTRUE(grepl("infeasible|INFEAS",             conditionMessage(res), ignore.case = TRUE)) || (!is.null(attr(res,             "result")) && attr(res, "result")$status == 2L)        expect_true(ok, info = paste("unexpected result; class:",             class(res)[1]))    })
+18: eval(code, test_env)
+19: eval(code, test_env)
+20: withCallingHandlers({    eval(code, test_env)    new_expectations <- the$test_expectations > starting_expectations    if (snapshot_skipped) {        skip("On CRAN")    }    else if (!new_expectations && skip_on_empty) {        skip_empty()    }}, expectation = handle_expectation, packageNotFoundError = function(e) {    if (on_cran()) {        skip(paste0("{", e$package, "} is not installed."))    }}, snapshot_on_cran = function(cnd) {    snapshot_skipped <<- TRUE    invokeRestart("muffle_cran_snapshot")}, skip = handle_skip, warning = handle_warning, message = handle_message,     error = handle_error, interrupt = handle_interrupt)
+21: doTryCatch(return(expr), name, parentenv, handler)
+22: tryCatchOne(expr, names, parentenv, handlers[[1L]])
+23: tryCatchList(expr, classes, parentenv, handlers)
+24: tryCatch(withCallingHandlers({    eval(code, test_env)    new_expectations <- the$test_expectations > starting_expectations    if (snapshot_skipped) {        skip("On CRAN")    }    else if (!new_expectations && skip_on_empty) {        skip_empty()    }}, expectation = handle_expectation, packageNotFoundError = function(e) {    if (on_cran()) {        skip(paste0("{", e$package, "} is not installed."))    }}, snapshot_on_cran = function(cnd) {    snapshot_skipped <<- TRUE    invokeRestart("muffle_cran_snapshot")}, skip = handle_skip, warning = handle_warning, message = handle_message,     error = handle_error, interrupt = handle_interrupt), error = handle_fatal)
+25: doWithOneRestart(return(expr), restart)
+26: withOneRestart(expr, restarts[[1L]])
+27: withRestarts(tryCatch(withCallingHandlers({    eval(code, test_env)    new_expectations <- the$test_expectations > starting_expectations    if (snapshot_skipped) {        skip("On CRAN")    }    else if (!new_expectations && skip_on_empty) {        skip_empty()    }}, expectation = handle_expectation, packageNotFoundError = function(e) {    if (on_cran()) {        skip(paste0("{", e$package, "} is not installed."))    }}, snapshot_on_cran = function(cnd) {    snapshot_skipped <<- TRUE    invokeRestart("muffle_cran_snapshot")}, skip = handle_skip, warning = handle_warning, message = handle_message,     error = handle_error, interrupt = handle_interrupt), error = handle_fatal),     end_test = function() {    })
+28: test_code(code = exprs, env = env, reporter = get_reporter() %||%     StopReporter$new())
+29: source_file(path, env = env(env), desc = desc, shuffle = shuffle,     error_call = error_call)
+30: FUN(X[[i]], ...)
+31: lapply(test_paths, test_one_file, env = env, desc = desc, shuffle = shuffle,     error_call = error_call)
+32: doTryCatch(return(expr), name, parentenv, handler)
+33: tryCatchOne(expr, names, parentenv, handlers[[1L]])
+34: tryCatchList(expr, classes, parentenv, handlers)
+35: tryCatch(code, testthat_abort_reporter = function(cnd) {    cat(conditionMessage(cnd), "\n")    NULL})
+36: with_reporter(reporters$multi, lapply(test_paths, test_one_file,     env = env, desc = desc, shuffle = shuffle, error_call = error_call))
+37: test_files_serial(test_dir = test_dir, test_package = test_package,     test_paths = test_paths, load_helpers = load_helpers, reporter = reporter,     env = env, stop_on_failure = stop_on_failure, stop_on_warning = stop_on_warning,     desc = desc, load_package = load_package, shuffle = shuffle,     error_call = error_call)
+38: test_files(test_dir = path, test_paths = test_paths, test_package = package,     reporter = reporter, load_helpers = load_helpers, env = env,     stop_on_failure = stop_on_failure, stop_on_warning = stop_on_warning,     load_package = load_package, parallel = parallel, shuffle = shuffle)
+39: test_dir("testthat", package = package, reporter = reporter,     ..., load_package = "installed")
+40: test_check("leafblower")
+An irrecoverable exception occurred. R is aborting now ...
