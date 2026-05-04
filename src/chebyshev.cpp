@@ -672,7 +672,6 @@ ChebyshevResult chebyshev_ipm(
             }
 
             if (delta < best_delta) { best_delta = delta; }
-            if (delta < best_delta) { best_delta = delta; }
         }  // end Mehrotra predictor-corrector block
     }
 

@@ -971,7 +971,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         double nat_metric_prev_nonavec = std::numeric_limits<double>::infinity();
         int    nat_iter_prev_nonavec   = -1;
         if (!sraa_active_lvl) {
-        double nat_metric_prev_nonavec = std::numeric_limits<double>::infinity();
         for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
         res.base.iterations = iter;

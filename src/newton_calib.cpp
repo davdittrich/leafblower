@@ -554,7 +554,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             // If genuinely negative, skip the step and shrink trust region — do NOT
             // mask the issue by clamping to zero.
             if (delta_H_delta < -1e-10 * std::fabs(g_dot_d)) {
-                if (trust_step_taken) delta_radius *= 0.25;
+                delta_radius *= 0.25;
                 lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
                 if (++consecutive_failed >= 3) {
                     res.base.status = RK_ERR_NOCONV;
