@@ -40,7 +40,7 @@ typedef struct {
 typedef enum {
     RK_ALG_AUTO   = 0,
     RK_ALG_IEPPA  = 1,
-    RK_ALG_LBFGSB = 2,
+    /* 2 = removed (was RK_ALG_LBFGSB) */
     RK_ALG_RAKING    = 3,
     RK_ALG_SINKHORN  = 4,
     RK_ALG_CHEBYSHEV = 5,
@@ -56,16 +56,16 @@ typedef struct {
     double          min_weight;      /* default 0.0 */
     double          max_weight;      /* default 5.0 */
     int             inner_max_iter;  /* inner BCD cap per outer iter, default 500 */
-    int             outer_max_iter;  /* outer EPP / L-BFGS max iters, default 50.
+    int             outer_max_iter;  /* outer EPP max iters, default 50.
                                        * Note: R bridge sets outer_max_iter = inner_max_iter;
                                        * independent control requires direct C API use. */
     double          tol_abs;         /* convergence tolerance, default 1e-6.
                                        * iEPPA: max absolute primal error max_k max_j |S_kj/W - tau_kj|.
-                                       * L-BFGS-B: normalized dual gradient norm maxAbs(grad)/W. */
+                                       * (L-BFGS-B reference removed) */
     rk_algorithm_t  algorithm;       /* default RK_ALG_AUTO */
     int             verbose;         /* 0=silent, 1=progress, 2=debug */
     double          epsilon;         /* deprecated: no longer read by any solver; kept for ABI compat */
-    int             lbfgs_m;         /* L-BFGS history size, default 10 */
+    int             _reserved_lbfgs_m; /* was lbfgs_m; kept for ABI compat; ignored */
     void            (*log_fn)(const char* msg, void* ctx);
     void*           log_ctx;
     rk_bounds_mode_t bounds_mode;  /* default RK_BOUNDS_CELL */
@@ -83,7 +83,7 @@ typedef struct {
     int    metric;           /* CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT */
     int    rule;             /* CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU */
     int    stop_when;        /* 0=ANY 1=ALL */
-    /* ── SOR config (iEPPA only; ignored by raking/lbfgsb) ── */
+    /* ── SOR config (iEPPA only) ── */
     int    sor_enabled;
     int    sor_auto;
     double sor_omega_init;

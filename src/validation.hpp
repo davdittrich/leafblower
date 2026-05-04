@@ -37,18 +37,6 @@ inline int validate_calibrate_inputs(int n, int K,
     if (p->min_weight >= p->max_weight)
         return err("min_weight must be strictly less than max_weight");
 
-    // Logit singularity guard — only applies to L-BFGS-B.
-    // iEPPA uses multiplicative IPF scaling; no logit link, no singularity.
-    // logit_scale = (U-L)/((U-1)*(1-L)); denominator → 0 when L or U near 1,
-    // producing logit_scale ~1/eps → overflow/cancellation in L-BFGS-B.
-    if (alg == RK_ALG_LBFGSB) {
-        const double kSingularityEps = 1e-6;
-        if (std::fabs(p->min_weight - 1.0) < kSingularityEps)
-            return err("logit link undefined: min_weight near 1 makes denominator (1-L)~0");
-        if (std::fabs(p->max_weight - 1.0) < kSingularityEps)
-            return err("logit link undefined: max_weight near 1 makes denominator (U-1)~0");
-    }
-
     // cat_counts checks + overflow guard
     size_t total_cats = 0;
     for (int k = 0; k < K; k++) {

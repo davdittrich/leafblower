@@ -116,7 +116,6 @@ struct CalibState {
     double tol_abs;
     int inner_max_iter;
     int outer_max_iter;
-    int lbfgs_m;
     int verbose;
     bool ieppa_auto_selected  = false;  // true iff AUTO routing selected iEPPA; used for verbose prefix
     bool use_admm_capacity    = false;  // ieppa_soft: ADMM P1.1; default false = hard clamp
