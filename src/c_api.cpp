@@ -67,6 +67,9 @@ static void pack_lbfgsb_result(rk_result_t* dst, const lbw::LBFGSResult& src) no
     dst->convergence_minimized_metric = src.base.convergence_minimized_metric;
     dst->best_error                   = src.base.best_error;
     dst->best_iter                    = src.base.best_iter;
+    dst->metric_first_check           = src.base.metric_first_check;
+    dst->metric_prev_check            = src.base.metric_prev_check;
+    dst->prev_check_iter              = src.base.prev_check_iter;
     /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
 }
 
@@ -315,6 +318,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
             result->best_error          = res.base.best_error;
             result->best_iter           = res.base.best_iter;
+            result->metric_first_check  = res.base.metric_first_check;
+            result->metric_prev_check   = res.base.metric_prev_check;
+            result->prev_check_iter     = res.base.prev_check_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
         }
     } else if (alg == RK_ALG_SINKHORN) {
@@ -356,6 +362,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->best_error          = nkr.base.best_error;
             result->best_iter           = nkr.base.best_iter;
             result->algorithm_used      = RK_ALG_NEWTON_KL;
+            result->metric_first_check  = nkr.base.metric_first_check;
+            result->metric_prev_check   = nkr.base.metric_prev_check;
+            result->prev_check_iter     = nkr.base.prev_check_iter;
             std::strncpy(result->message, nkr.message, sizeof(result->message) - 1);
         }
         for (int i = 0; i < n; i++) weights[i] = st.weights[i];
@@ -404,6 +413,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
                 result->best_error          = res.base.best_error;
                 result->best_iter           = res.base.best_iter;
+                result->metric_first_check  = res.base.metric_first_check;
+                result->metric_prev_check   = res.base.metric_prev_check;
+                result->prev_check_iter     = res.base.prev_check_iter;
                 result->sor_min_omega       = res.sor_min_omega;
                 result->sor_n_damped        = res.sor_n_damped;
             }
@@ -437,6 +449,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
             result->best_error          = res.base.best_error;
             result->best_iter           = res.base.best_iter;
+            result->metric_first_check  = res.base.metric_first_check;
+            result->metric_prev_check   = res.base.metric_prev_check;
+            result->prev_check_iter     = res.base.prev_check_iter;
             result->sor_min_omega       = res.sor_min_omega;
             result->sor_n_damped        = res.sor_n_damped;
         }
