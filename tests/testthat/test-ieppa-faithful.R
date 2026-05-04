@@ -245,9 +245,9 @@ test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused b
                  convergence = list(absolute = 1e-300),
                  attach_weights = FALSE)
   result_info <- attr(res, "result")
-  expect_true(!is.null(result_info$n_xcur_writes_per_iter_linear))
+  expect_true(!is.null(result_info$n_xcur_writes_per_iter_last))
   stopifnot(result_info$iterations > 0)
-  writes_per_iter <- result_info$n_xcur_writes_per_iter_linear / result_info$iterations
+  writes_per_iter <- result_info$n_xcur_writes_per_iter_last / result_info$iterations
   # M_cell via probe. All 9 cells populated with high certainty at n=100k.
   gid_list <- lapply(names(targets), function(nm) {
     lv <- names(targets[[nm]])
