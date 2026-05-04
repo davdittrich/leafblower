@@ -335,6 +335,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure min_weight < max_weight. */
         auto res = lbw::greenkhorn_solve(st);
+        // Solver stores calibrated weights only in best_weights, not in st.weights.
+        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors r_bridge.cpp:806-810.
         if (!res.base.best_weights.empty() &&
             static_cast<int>(res.base.best_weights.size()) == n)
             std::copy(res.base.best_weights.begin(),
@@ -348,6 +350,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure max_weight is finite and > min_weight. */
         auto res = lbw::logit_calibrate(st);
+        // Solver stores calibrated weights only in best_weights, not in st.weights.
+        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors r_bridge.cpp:806-810.
         if (!res.base.best_weights.empty() &&
             static_cast<int>(res.base.best_weights.size()) == n)
             std::copy(res.base.best_weights.begin(),
