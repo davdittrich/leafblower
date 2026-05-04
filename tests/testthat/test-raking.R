@@ -3,7 +3,7 @@ test_that("iEPPA converges: 1 margin, 2 cats, no bounds", {
   n   <- 100L
   df  <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE, prob=c(0.7,0.3))))
   tgt <- list(x = c(a=0.5, b=0.5))
-  result <- harvest(df, tgt, method = "raking", convergence = list(absolute = 1e-6))
+  result <- leafblower::harvest(df, tgt, method = "raking", convergence = list(absolute = 1e-6))
   expect_true(attr(result, "algorithm") == "raking")
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
@@ -22,7 +22,7 @@ test_that("iEPPA respects max_weight=2 on tight bounds", {
     sex = c(M=0.50, F=0.50),
     edu = c(HS=0.35, Col=0.45, Grad=0.20)
   )
-  result <- harvest(df, tgt, method = "raking", max_weight=2, convergence = list(absolute = 1e-6))
+  result <- leafblower::harvest(df, tgt, method = "raking", max_weight=2, convergence = list(absolute = 1e-6))
   expect_true(max(result$weights) <= 2.0 + 1e-10)
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
@@ -35,7 +35,7 @@ test_that("iEPPA respects min_weight=0.5", {
     x = factor(sample(c("a","b","c","d","e"), n, replace=TRUE))
   )
   tgt <- list(x = c(a=0.2, b=0.2, c=0.2, d=0.2, e=0.2))
-  result <- harvest(df, tgt, method = "raking", min_weight=0.5, max_weight=5, convergence = list(absolute = 1e-6))
+  result <- leafblower::harvest(df, tgt, method = "raking", min_weight=0.5, max_weight=5, convergence = list(absolute = 1e-6))
   expect_true(min(result$weights) >= 0.5 - 1e-10)
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
@@ -73,7 +73,7 @@ test_that("descent monitor aborts early on stalled errRp trajectory", {
   t0 <- Sys.time()
   msgs <- capture.output(
     tryCatch(
-      suppressWarnings(harvest(df, tgt, method = "raking",
+      suppressWarnings(leafblower::harvest(df, tgt, method = "raking",
                                 max_weight = 1.2,
                                 max_iterations = 500,
                                 verbose = 1L,
@@ -100,7 +100,7 @@ test_that("raking with binding capacity constraints returns best achievable resu
   # Correct behavior: return the best achievable constrained optimum (STALL or BUDGET),
   # not INFEAS. INFEAS is reserved for lower-bound violations (min_weight sum > target).
   result <- suppressWarnings(
-    harvest(data.frame(x = factor(c(rep("a", 2L), rep("b", 18L)))),
+    leafblower::harvest(data.frame(x = factor(c(rep("a", 2L), rep("b", 18L)))),
             target = list(x = c(a=0.9, b=0.1)),
             method = "raking",
             min_weight = 0.5, max_weight = 1.5,
@@ -116,7 +116,7 @@ test_that("raking with binding capacity constraints returns best achievable resu
 })
 
 test_that("B16: SQUAREM stall detection does not fire spuriously after fallback", {
-  result <- harvest(
+  result <- leafblower::harvest(
     data.frame(x = rep(c("A","B"), 50), w=1),
     target = list(x = c(A=0.5, B=0.5)),
     method = "raking",
@@ -130,7 +130,7 @@ test_that("B16: SQUAREM stall detection does not fire spuriously after fallback"
 
 test_that("R8: accelerate=TRUE with greedy scheduler runs without error", {
   expect_no_error({
-    result <- harvest(
+    result <- leafblower::harvest(
       data.frame(x = rep(c("A","B"), 25)),
       target = list(x = c(A=0.5, B=0.5)),
       method = "raking",

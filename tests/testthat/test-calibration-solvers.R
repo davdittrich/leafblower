@@ -541,7 +541,8 @@ test_that("status-stall: wkl plateau emits status=5 with convergence_reason='sta
     v2 = c("1"=0.5,"2"=0.3,"3"=0.2)
   )
   r <- leafblower::harvest(df, tgt, method = "raking", accelerate = FALSE,
-    max_weight = 2, max_iterations = 1000L, attach_weights = FALSE)
+    max_weight = 1.5, max_iterations = 1000L, attach_weights = FALSE,
+    convergence = list(metric = "kl", absolute = 1e-8))
   res <- attr(r, "result")
   expect_equal(res$status, 5L,
                label = "KL plateau must return status=5 (RK_ERR_STALL)")
