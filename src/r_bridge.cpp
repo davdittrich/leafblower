@@ -198,7 +198,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
                     SEXP newton_tsvd_ratio_sexp) {
     int K = LENGTH(group_ids_sexp);
-    int n = INTEGER(n_obs_sexp)[0];
+    int n = scalar_int(n_obs_sexp, "n_obs");
 
     std::string pre_error;
 
