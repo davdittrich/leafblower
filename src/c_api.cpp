@@ -418,6 +418,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 result->prev_check_iter     = res.base.prev_check_iter;
                 result->sor_min_omega       = res.sor_min_omega;
                 result->sor_n_damped        = res.sor_n_damped;
+                result->alm_capacity_mu_final = res.alm_capacity_mu_final;
+                result->alm_n_growth_events   = res.alm_n_growth_events;
+                result->alm_max_dual_norm     = res.alm_max_dual_norm;
+                result->alm_sum_drift         = res.alm_sum_drift;
             }
         } else {
             // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
@@ -454,6 +458,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->prev_check_iter     = res.base.prev_check_iter;
             result->sor_min_omega       = res.sor_min_omega;
             result->sor_n_damped        = res.sor_n_damped;
+            result->alm_capacity_mu_final = res.alm_capacity_mu_final;
+            result->alm_n_growth_events   = res.alm_n_growth_events;
+            result->alm_max_dual_norm     = res.alm_max_dual_norm;
+            result->alm_sum_drift         = res.alm_sum_drift;
         }
         }
     }
