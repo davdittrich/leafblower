@@ -465,19 +465,19 @@ RakingResult raking_solve(CalibState& st) {
                     break;
                 }
 
-                // Weight KL stall: monotone for water-filling IPF (Csiszar-Tusnady).
-                // KL plateau ↔ constrained KL minimum — correct stall signal.
-                // Guard: wkl ≤ tol_abs means effectively at optimum → converged (not stalled).
-                // Only applies when KL is the active convergence metric; other metrics (e.g.
-                // MAX_ERR) must converge via the outer check_convergence path above.
+                // Stall detection: track the active convergence metric (not always wkl).
+                // wkl is monotone for KL-configured runs (Csiszar-Tusnady); for other metrics
+                // (MAX_ERR, MEAN_ERR, etc.) use select_metric so stall detection matches the
+                // user's convergence criterion.
                 const double wkl_flat = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
                 if (st.convergence_cfg.metric == lbw::CalibMetric::KL && wkl_flat <= st.tol_abs) {
                     res.base.status = RK_OK; res.base.convergence_iter = iter; break;
                 }
+                const double active_metric = lbw::select_metric(st.convergence_cfg.metric, m_conv);
                 if (!std::isfinite(min_loss_window)) {
-                    min_loss_window = wkl_flat; n_no_improve = 0;
-                } else if (wkl_flat < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
-                    min_loss_window = wkl_flat; n_no_improve = 0;
+                    min_loss_window = active_metric; n_no_improve = 0;
+                } else if (active_metric < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
+                    min_loss_window = active_metric; n_no_improve = 0;
                 } else {
                     n_no_improve++;
                 }
@@ -487,9 +487,9 @@ RakingResult raking_solve(CalibState& st) {
                     if (st.verbose >= 1) {
                         char msg[256];
                         std::snprintf(msg, 256,
-                            "raking: errRp stalled for %d consecutive checks "
-                            "(wkl=%.2e); aborting at iter %d.",
-                            n_no_improve, wkl_flat, iter);
+                            "raking: stalled for %d consecutive checks "
+                            "(metric=%.2e); aborting at iter %d.",
+                            n_no_improve, active_metric, iter);
                         st.log(msg);
                     }
                     break;

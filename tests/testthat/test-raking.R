@@ -88,7 +88,7 @@ test_that("descent monitor aborts early on stalled errRp trajectory", {
   expect_lt(elapsed, 5)
   # Monitor message matches the exact phrase emitted by src/raking.cpp.
   probe <- paste(msgs, collapse = "\n")
-  expect_match(probe, "errRp stalled for [0-9]+ consecutive checks",
+  expect_match(probe, "stalled for [0-9]+ consecutive checks",
                info = paste("expected descent-monitor message; got:", probe))
 })
 
