@@ -32,7 +32,7 @@ anesrake(
 
 \item{cap}{Upper weight cap; maps to \code{max_weight}.}
 
-\item{choosemethod}{"rake" or "nrake"; maps to \code{method="lbfgsb"} with warning.}
+\item{choosemethod}{"rake" or "nrake"; maps to \code{method="raking"} with warning.}
 
 \item{type}{Ignored.}
 

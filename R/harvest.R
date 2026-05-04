@@ -18,8 +18,7 @@
 #'   \code{"ieppa_soft"} (iEPPA with augmented Lagrangian soft capacity enforcement;
 #'   better than \code{"ieppa"} on tight-bounds problems where cells hit
 #'   \code{max_weight}),
-#'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
-#'   (L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
+#'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"sinkhorn"} (KL Bregman Dykstra),
 #'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
 #'   (L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
 #'   picks the single hardest margin per step; supports \code{accelerate=TRUE} for
@@ -61,7 +60,7 @@
 #'
 #'   \strong{chi2 cross-solver note:} chi2 is not directly comparable
 #'   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
-#'   raking and lbfgsb use \code{n}. Use chi2 as a convergence criterion
+#'   raking uses \code{n}. Use chi2 as a convergence criterion
 #'   within one method; do not compare values across methods.
 #' @param sor Named list for SOR adaptive under-relaxation (iEPPA and raking).
 #'   \code{NULL} disables SOR. Keys:
@@ -492,8 +491,8 @@ harvest <- function(
   if (calib_result$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 
-  # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp,
-  # src/lbfgsb_solver.cpp per user directive 2026-04-24). No wrapper-level
+  # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp).
+  # No wrapper-level
   # normalization — removing it preserves the bounds_mode="unit" strict-bounds
   # guarantee (ieppa's water-fill clamps are final; not re-pushed by post-scale).
 
@@ -501,7 +500,7 @@ harvest <- function(
   # here would break sum(weights * d) == target totals when per-cell mixing
   # parameters d are non-uniform: individual weights may legitimately exceed
   # per-cell bounds after expansion even when cell aggregates are in range.
-  # The iEPPA/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
+  # The iEPPA/raking solvers enforce bounds on the cell aggregate X[c], which
   # is the invariant that preserves calibration. See
   # tests/testthat/test-ieppa-nonuniform-d.R.
 
@@ -660,13 +659,13 @@ parse_bounds_mode <- function(x = c("cell", "unit")) {
 map_method <- function(method, verbose = 0) {
   method <- tolower(method)
   if (method %in% c("rake", "nrake")) {
-    warning("method='", method, "' (IPF) not implemented; using L-BFGS-B")
-    method <- "lbfgsb"
+    warning("method='", method, "' (IPF); using raking", call. = FALSE)
+    method <- "raking"
   } else if (method == "nr") {
-    warning("method='nr' (Newton-Raphson) not implemented; using L-BFGS-B")
-    method <- "lbfgsb"
+    warning("method='nr' (Newton-Raphson); using newton_kl", call. = FALSE)
+    method <- "newton_kl"
   }
-  match.arg(method, c("auto", "ieppa", "ieppa_soft", "lbfgsb", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"))
+  match.arg(method, c("auto", "ieppa", "ieppa_soft", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"))
 }
 
 parse_convergence <- function(convergence) {
