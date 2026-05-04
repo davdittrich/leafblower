@@ -383,7 +383,23 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         return nkr.base.status;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
-            auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV);
+            // ieppa warm-start; mirrors r_bridge.cpp:628-657.
+            std::vector<double> w_warm;
+            double delta_warm = -1.0;
+            {   // scoped: weights_copy must not outlive st_warm (dangling ptr)
+                std::vector<double> weights_copy(weights, weights + n);
+                lbw::CalibState st_warm = st;
+                st_warm.weights = weights_copy.data();
+                st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
+                auto ieppa_res = lbw::ieppa_solve(st_warm);
+                if (!ieppa_res.base.best_weights.empty() &&
+                    static_cast<int>(ieppa_res.base.best_weights.size()) == n &&
+                    std::isfinite(ieppa_res.base.max_error)) {
+                    w_warm     = std::move(ieppa_res.base.best_weights);
+                    delta_warm = ieppa_res.base.max_error * 1.5;
+                }
+            }
+            auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV, w_warm, delta_warm);
             pack_solver_result(result, r, alg);
             return r.base.status;
         } else if (alg == RK_ALG_IEPPA_SOFT) {
