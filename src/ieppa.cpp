@@ -1095,9 +1095,16 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // j <= cat_counts[k]: include NA bucket (cat_offset has +1 per margin).
                 // Without NA shift, cells NA for a margin would have cell_lf decremented
                 // by full shift but lf[k][NA] unchanged — invariant violated.
-                for (int k = 0; k < st.K; k++)
+                for (int k = 0; k < st.K; k++) {
                     for (int j = 0; j <= st.cat_counts[k]; j++)
                         lf[cat_offset[k] + j] += lf_correction;
+                    if (st.verbose >= 2) {
+                        char lf_msg[128];
+                        std::snprintf(lf_msg, sizeof(lf_msg),
+                            "T1B lf_correction[%d]=%.6f iter=%d", k, lf_correction, iter);
+                        st.log(lf_msg);
+                    }
+                }
                 lbw::bulk_scaled_exp(1.0, lf.data(), f_lin.data(), total_cats);
                 // B8: per-cell K_active scaling. cell_lf[c] sums lf entries only over
                 // active (g_per_cell[k][c] >= 0) margins. After lf[k][·] += lf_correction
