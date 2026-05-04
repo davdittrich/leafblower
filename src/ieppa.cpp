@@ -1807,8 +1807,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     res.base.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
 
     // WU-E / G8b: expand best.best_weights (cell-level W ratio snapshot) to obs-level.
-    // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n.
-    // NO water-fill, NO bounds-clamping — this is a mid-loop snapshot.
+    // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n,
+    // then clamped to [min_weight, max_weight].
+    // NO water-fill — this is a mid-loop snapshot.
     // If best.has_best() is false (solver exited before first check), best_weights is all zeros.
     res.base.best_error = best.best_metric;
     res.base.best_iter  = best.best_iter;
@@ -1823,6 +1824,12 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         if (s > 0.0) {
             const double scale = static_cast<double>(st.n) / s;
             for (int i = 0; i < st.n; i++) best_weights_obs[i] *= scale;
+        }
+        // Clamp best-iterate weights to [min_weight, max_weight].
+        // Post-normalization can push weights beyond bounds on infeasible problems.
+        for (int i = 0; i < st.n; i++) {
+            best_weights_obs[i] = std::max(st.min_weight,
+                                  std::min(st.max_weight, best_weights_obs[i]));
         }
         res.base.best_weights = std::move(best_weights_obs);
     } else {

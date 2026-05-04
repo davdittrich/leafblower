@@ -307,10 +307,11 @@ ChebyshevResult chebyshev_ipm(
             D_marg[m] = 1.0 / (y_up[m]/s_up[m] + y_dn[m]/s_dn[m] + 1e-300);
 
         // δ stationarity residual (centering-independent part)
-        double r_delta_stat = 1.0;
-        r_delta_stat -= y_delta;
+        // r_delta_stat: invariant across Phase A/B — no dual update between phases.
+        double r_delta_stat_acc = 1.0 - y_delta;
         for (int m = 0; m < nct; m++)
-            r_delta_stat -= w_kj[m]*(y_up[m]+y_dn[m]);
+            r_delta_stat_acc -= w_kj[m]*(y_up[m]+y_dn[m]);
+        const double r_delta_stat = r_delta_stat_acc;
 
         // Sherman-Morrison: u_red[nr]=w_kj[red_to_full[nr]] (pre-filled); Theta = 1/alpha_sm
         double Theta = y_delta / s_delta;
@@ -487,6 +488,7 @@ ChebyshevResult chebyshev_ipm(
             sigma_mu = sigma * mu;
 
             // ── Phase B: corrector (centering + second-order) ─────────────────────
+            // r_delta_stat cached at iter top; duals not mutated since Phase A.
             // RHS_B (reduced rows only — reference categories dropped)
             for (int nr = 0; nr < nct_red; nr++) {
                 int m = red_to_full[nr];
