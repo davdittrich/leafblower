@@ -20,6 +20,8 @@
 #include "leafblower.h"
 #include "types.hpp"
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include "cell_table.hpp"
 #include "calib_validate.hpp"
@@ -165,7 +167,7 @@ inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
     switch (alg_id) {
     case RK_ALG_GREG:      return m.chi2;
     case RK_ALG_CHEBYSHEV: return m.errRp;
-    default:               __builtin_unreachable();
+    default:               std::fprintf(stderr, "internal: unknown alg_id %d\n", alg_id); std::abort();
     }
 }
 

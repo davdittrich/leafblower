@@ -18,12 +18,7 @@
 #include <limits>
 #include <algorithm>
 
-// C++17 [[nodiscard]] on rk_calibrate — silently ignored on C++14
-#if __cplusplus >= 201703L
-  #define LBW_NODISCARD [[nodiscard]]
-#else
-  #define LBW_NODISCARD
-#endif
+#define LBW_NODISCARD [[nodiscard]]
 
 template <typename R>
 static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t alg) noexcept {
@@ -368,7 +363,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                     delta_warm = ieppa_res.base.max_error * 1.5;
                 }
             }
-            auto r = lbw::chebyshev_ipm(st, lbw::LpVariant::CHEBYSHEV, w_warm, delta_warm);
+            auto r = lbw::chebyshev_ipm(st, w_warm, delta_warm);
             pack_solver_result(result, r, alg);
             return r.base.status;
         } else if (alg == RK_ALG_IEPPA_SOFT) {
@@ -388,7 +383,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             max_error = res.base.max_error;
             used = RK_ALG_IEPPA_SOFT;
             if (result) {
-                result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
+                result->n_xcur_writes_per_iter_last = res.n_xcur_writes_per_iter_last;
                 result->min_alpha_seen  = res.min_alpha_seen;
                 result->final_alpha     = res.final_alpha;
                 result->n_bounds_violated = res.n_bounds_violated;
@@ -428,7 +423,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             max_error = res.base.max_error;
             used = RK_ALG_IEPPA;
         if (result) {
-            result->n_xcur_writes_per_iter_linear = res.n_xcur_writes_per_iter_linear;
+            result->n_xcur_writes_per_iter_last = res.n_xcur_writes_per_iter_last;
             result->min_alpha_seen  = res.min_alpha_seen;
             result->final_alpha     = res.final_alpha;
             result->n_bounds_violated = res.n_bounds_violated;

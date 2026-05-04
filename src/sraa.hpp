@@ -16,7 +16,7 @@
 
 namespace lbw {
 
-static constexpr int    kSRAAMaxM         = 10;    // stack array bound; init() enforces window <= this
+static constexpr int    kSRAAMaxM         = 5;     // stack array bound; init() enforces window <= this
 static constexpr int    kSRAAm            = 5;     // default window: ~176 MB at stepstone scale
 static constexpr int    kSRAAMinCount     = 2;     // min DX/DR pairs before AA fires
 static constexpr double kSRAAdeltaReg     = 1e-10; // relative Tikhonov on Gram matrix

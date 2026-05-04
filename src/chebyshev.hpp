@@ -5,8 +5,6 @@
 
 namespace lbw {
 
-enum class LpVariant { CHEBYSHEV };
-
 struct ChebyshevResult {
     CalibResult base;
     // ── Chebyshev-specific extras ──
@@ -22,13 +20,12 @@ struct ChebyshevResult {
 
 ChebyshevResult chebyshev_ipm(
     CalibState& st,
-    LpVariant   variant,
     const std::vector<double>& w_warm_obs = {},  // obs-level warm weights; empty=cold start
     double      delta_warm = -1.0                // ieppa_max_err*1.5; -1=use default 1.0
 );
 
 inline ChebyshevResult chebyshev_solve(CalibState& st) {
-    return chebyshev_ipm(st, LpVariant::CHEBYSHEV);
+    return chebyshev_ipm(st);
 }
 
 } // namespace lbw

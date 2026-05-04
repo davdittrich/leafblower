@@ -476,7 +476,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_iterations = res.base.iterations;
                 res_max_error  = res.base.max_error;
                 res_alg_used   = (int)RK_ALG_IEPPA;
-                res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+                res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
                 res_min_alpha             = res.min_alpha_seen;
                 res_final_alpha           = res.final_alpha;
                 res_n_bounds_violated     = res.n_bounds_violated;
@@ -524,7 +524,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_IEPPA;
-            res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+            res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
             res_min_alpha             = res.min_alpha_seen;
             res_final_alpha           = res.final_alpha;
             res_n_bounds_violated     = res.n_bounds_violated;
@@ -644,10 +644,10 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             }
         }
 
-        auto dispatch_cheb = [&](lbw::LpVariant variant, int alg_code) {
+        auto dispatch_cheb = [&](int alg_code) {
             const std::vector<double>& warm_ref = w_warm_obs;
             const double d_warm = delta_warm;
-            auto res = lbw::chebyshev_ipm(st, variant, warm_ref, d_warm);
+            auto res = lbw::chebyshev_ipm(st, warm_ref, d_warm);
             pack_solver_result(res);
             res_status     = res.base.status;
             res_iterations = res.base.iterations;
@@ -659,7 +659,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_best_weights.assign(st.n, 0.0);
         };
         if (strcmp(method_str, "chebyshev") == 0) {
-            dispatch_cheb(lbw::LpVariant::CHEBYSHEV, static_cast<int>(RK_ALG_CHEBYSHEV));
+            dispatch_cheb(static_cast<int>(RK_ALG_CHEBYSHEV));
         } else if (strcmp(method_str, "ieppa_soft") == 0) {
             st.ieppa_auto_selected = false;
             st.use_admm_capacity   = true;
@@ -668,7 +668,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_IEPPA_SOFT;
-            res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+            res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
             res_min_alpha             = res.min_alpha_seen;
             res_final_alpha           = res.final_alpha;
             res_n_bounds_violated     = res.n_bounds_violated;
@@ -695,7 +695,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_IEPPA;
-            res_n_xcur_writes         = res.n_xcur_writes_per_iter_linear;
+            res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
             res_min_alpha             = res.min_alpha_seen;
             res_final_alpha           = res.final_alpha;
             res_n_bounds_violated     = res.n_bounds_violated;
@@ -773,7 +773,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SET_STRING_ELT(res_names, 2, Rf_mkChar("max_error"));
     SET_STRING_ELT(res_names, 3, Rf_mkChar("algorithm_used"));
     SET_STRING_ELT(res_names, 4, Rf_mkChar("message"));
-    SET_STRING_ELT(res_names, 5, Rf_mkChar("n_xcur_writes_per_iter_linear"));
+    SET_STRING_ELT(res_names, 5, Rf_mkChar("n_xcur_writes_per_iter_last"));
     SET_STRING_ELT(res_names, 6, Rf_mkChar("min_alpha_seen"));
     SET_STRING_ELT(res_names, 7, Rf_mkChar("final_alpha"));
     SET_STRING_ELT(res_names, 8, Rf_mkChar("n_bounds_violated"));

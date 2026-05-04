@@ -18,6 +18,7 @@
 
 namespace lbw {
 
+#ifdef LBW_DEBUG_TRAJECTORY
 static std::vector<int> parse_trajectory_iters() {
     const char* s = std::getenv("LBW_TRAJECTORY_AT");
     if (!s || !*s) return {};
@@ -54,6 +55,7 @@ static void write_trajectory_csv(
     for (const auto& p : samples)
         f << p.first << "," << p.second << "\n";
 }
+#endif // LBW_DEBUG_TRAJECTORY
 
 // Log-space algBCD at C=0 — see design spec §2.3, §8 for math.
 // lf[k][j]: log Sinkhorn factor (per margin k, category j)
@@ -142,7 +144,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     res.base.max_error = 1.0;
     res.M_cell = 0;
     res.n_cap_active = 0;
-    res.n_xcur_writes_per_iter_linear = 0;
+    res.n_xcur_writes_per_iter_last = 0;
     res.min_alpha_seen = 1.0;
     res.final_alpha = 1.0;
     res.n_bounds_violated = 0;
@@ -393,9 +395,11 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
 
     // Trajectory probe state (internal-only; driven by LBW_TRAJECTORY_AT env var).
     // Probe deque + samples are shared across homotopy levels so iter counts are global.
+#ifdef LBW_DEBUG_TRAJECTORY
     const std::vector<int> probe_targets = parse_trajectory_iters();
     std::deque<int> probe_queue(probe_targets.begin(), probe_targets.end());
     std::vector<std::pair<int,double>> probe_samples;
+#endif
 
     // X_prev tracks X[c] at the last convergence check for pct_change computation.
     // Initialized from X_init (uniform W[c]=1 at entry, X[c] = X_init[c]).
@@ -1268,7 +1272,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     double xc = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
                     X[c] = xc; W[c] = xc / X_tilde_c; X_cur[c] = xc;
                 }
-                res.n_xcur_writes_per_iter_linear++;
+                res.n_xcur_writes_per_iter_last++;
                 if (X[c] != X_tilde_c) n_cap++;
             }
             res.n_cap_active = n_cap;
@@ -1285,7 +1289,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 std::fill(f_lin.begin(),   f_lin.end(),   1.0);
                 std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
                 if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
-                res.n_xcur_writes_per_iter_linear = 0;
+                res.n_xcur_writes_per_iter_last = 0;
                 use_linear = false;
                 // SRAA history from linear path is stale after path flip.
                 if (sraa_active_lvl && !lf_flat.empty()) {
@@ -1634,6 +1638,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             // Trajectory probe: capture at requested iterations (captured on the
             // nearest check-interval iter >= requested iter, since errRp is only
             // computed at kErrCheckInterval boundaries, iter==1, and last iter).
+#ifdef LBW_DEBUG_TRAJECTORY
             if (!probe_queue.empty() && iter >= probe_queue.front()) {
                 bool first_write = true;
                 while (!probe_queue.empty() && iter >= probe_queue.front()) {
@@ -1644,6 +1649,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     probe_queue.pop_front();
                 }
             }
+#endif
             if (st.verbose >= 1) {
                 char msg[256];
                 // Per design §8b: verbose=1 reports only errRp; n_cap lives in verbose=2.
@@ -2018,7 +2024,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     res.sor_min_omega = sor_min_omega;
     res.sor_n_damped  = sor_n_damped;
 
+#ifdef LBW_DEBUG_TRAJECTORY
     write_trajectory_csv(probe_samples);
+#endif
     return res;
 }
 

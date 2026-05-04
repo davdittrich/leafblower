@@ -9,7 +9,7 @@ struct IEPPAResult {
     // ── iEPPA-specific extras ──
     int    M_cell                       = 0;   // compression info
     int    n_cap_active                 = 0;   // cells with W[c] != 1 at convergence
-    int    n_xcur_writes_per_iter_linear = 0;  // 0 outside linear path; counter for P1.1 RED test
+    int    n_xcur_writes_per_iter_last = 0;  // 0 outside linear path; counter for P1.1 RED test
     double min_alpha_seen               = 1.0; // min alpha over all sweeps
     double final_alpha                  = 1.0; // alpha at solver exit
     int    n_bounds_violated            = 0;   // cell-mode diagnostic: count of w_i outside bounds

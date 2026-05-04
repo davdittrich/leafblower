@@ -13,7 +13,6 @@ namespace lbw {
 
 ChebyshevResult chebyshev_ipm(
     CalibState& st,
-    LpVariant   variant,
     const std::vector<double>& w_warm_obs,
     double      delta_warm)
 {
@@ -29,7 +28,6 @@ ChebyshevResult chebyshev_ipm(
     static constexpr double kWarmStartRelEps       = 1e-8;   // fractional shift off bound for strict-interior warm start
     static constexpr double kWarmStartAbsEps        = 1e-10; // absolute floor when gap is tiny
     static constexpr double kPrimalMachinePrecConv  = 1e-8;  // Mehrotra: accept when best errRp at machine precision
-    (void)variant;  // GRAKE removed; parameter retained for ABI stability
     ChebyshevResult res;
     // Chebyshev defaults differ from CalibResult — override here to preserve existing behavior.
     res.base.status                       = RK_ERR_NOCONV;
