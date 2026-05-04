@@ -59,7 +59,7 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -126,7 +126,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       34},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       36},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -169,10 +169,13 @@ SEXP C_logit_Hprime_check(SEXP Lsxp, SEXP Usxp, SEXP u0sxp) {
 }
 
 // Main calibration bridge.
-// data_sexp: data.frame with factor/character columns
-// target_sexp: named list of named numeric vectors (variable -> proportions)
+// group_ids_sexp: VECSXP of K pre-encoded INTSXP (0-indexed, -1=OOV/NA)
+// cat_counts_sexp: INTSXP of length K (category counts)
+// targets_sexp: VECSXP of K REALSXP (proportions)
+// n_obs_sexp: INTSXP scalar (number of observations)
 // Returns: list(weights=double[n], result=list(status, iterations, max_error, algorithm_used, message))
-SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
+SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
+                    SEXP targets_sexp,   SEXP n_obs_sexp,
                     SEXP min_weight_sexp, SEXP max_weight_sexp,
                     SEXP method_sexp, SEXP verbose_sexp,
                     SEXP inner_max_iter_sexp, SEXP start_weights_sexp,
@@ -194,88 +197,34 @@ SEXP C_rk_calibrate(SEXP data_sexp, SEXP target_sexp,
                     SEXP accelerate_sexp,
                     /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
                     SEXP newton_tsvd_ratio_sexp) {
-    int n = Rf_nrows(VECTOR_ELT(data_sexp, 0));
-    SEXP target_names = Rf_getAttrib(target_sexp, R_NamesSymbol);
-    int K = LENGTH(target_sexp);
+    int K = LENGTH(group_ids_sexp);
+    int n = INTEGER(n_obs_sexp)[0];
 
-    // pre_error: collects validation messages from the pre-dispatch RAII block below.
-    // Rf_error longjmps past C++ dtors (R-exts §5.5); fire it only after all
-    // std::vectors are destroyed.
     std::string pre_error;
 
-    // Build group_ids and targets from data.frame factor/character columns
     std::vector<std::vector<int32_t>> gids_storage(K);
     std::vector<const int32_t*> group_ids(K);
     std::vector<int> cat_counts(K);
     std::vector<std::vector<double>> tgt_storage(K);
     std::vector<const double*> targets(K);
 
-    SEXP col_names = Rf_getAttrib(data_sexp, R_NamesSymbol);
-
-    // Build column name → index map once (O(C)) for O(1) per-margin lookup.
-    std::unordered_map<std::string, int> col_map;
-    col_map.reserve(LENGTH(col_names));
-    for (int c = 0; c < LENGTH(col_names); c++)
-        col_map[CHAR(STRING_ELT(col_names, c))] = c;
-
-    for (int k = 0; k < K && pre_error.empty(); k++) {
-        const char* varname = CHAR(STRING_ELT(target_names, k));
-        // Find column in data frame
-        auto col_it = col_map.find(varname);
-        if (col_it == col_map.end()) {
-            pre_error = std::string("Variable '") + varname + "' not found in data";
-            break;
-        }
-        int col_idx = col_it->second;
-
-        SEXP col     = VECTOR_ELT(data_sexp, col_idx);
-        SEXP tgt_vec = VECTOR_ELT(target_sexp, k);
-        SEXP tgt_names = Rf_getAttrib(tgt_vec, R_NamesSymbol);
-        int ncat = LENGTH(tgt_vec);
-        cat_counts[k] = ncat;
-
-        tgt_storage[k].resize(ncat);
-        for (int j = 0; j < ncat; j++) tgt_storage[k][j] = REAL(tgt_vec)[j];
-        targets[k] = tgt_storage[k].data();
-
-        // O(1) level-name -> index map
-        std::unordered_map<std::string, int> level_to_idx;
-        level_to_idx.reserve(ncat);
-        for (int j = 0; j < ncat; j++)
-            level_to_idx[CHAR(STRING_ELT(tgt_names, j))] = j;
-
-        // Encode factor/character -> 0-indexed int (NA -> -1, OOV -> -1)
-        gids_storage[k].resize(n);
-        if (Rf_isFactor(col)) {
-            SEXP flevels = Rf_getAttrib(col, R_LevelsSymbol);
-            const int* codes = INTEGER(col);
-            for (int i = 0; i < n && pre_error.empty(); i++) {
-                if (codes[i] == NA_INTEGER) { gids_storage[k][i] = -1; continue; }
-                int code = codes[i] - 1;
-                if (code < 0 || code >= LENGTH(flevels)) {
-                    char buf[128];
-                    std::snprintf(buf, sizeof(buf),
-                        "leafblower: corrupt factor in column %d: code %d out of range [0, %d)",
-                        k, codes[i], (int)LENGTH(flevels));
-                    pre_error = buf;
-                    break;
-                }
-                const char* lv = CHAR(STRING_ELT(flevels, code));
-                auto it = level_to_idx.find(lv);
-                gids_storage[k][i] = (it != level_to_idx.end()) ? it->second : -1;
+    {
+        const int* cc = INTEGER(cat_counts_sexp);
+        for (int k = 0; k < K && pre_error.empty(); k++) {
+            cat_counts[k] = cc[k];
+            SEXP gid_vec = VECTOR_ELT(group_ids_sexp, k);
+            if (LENGTH(gid_vec) != n) {
+                pre_error = "group_ids[[" + std::to_string(k + 1) + "]] length != n";
+                break;
             }
-        } else if (TYPEOF(col) == STRSXP) {
-            for (int i = 0; i < n; i++) {
-                if (STRING_ELT(col, i) == NA_STRING) { gids_storage[k][i] = -1; continue; }
-                const char* lv = CHAR(STRING_ELT(col, i));
-                auto it = level_to_idx.find(lv);
-                gids_storage[k][i] = (it != level_to_idx.end()) ? it->second : -1;
-            }
-        } else {
-            pre_error = std::string("Column '") + varname + "' must be a factor or character vector";
-            break;
+            const int* gp = INTEGER(gid_vec);
+            gids_storage[k].assign(gp, gp + n);
+            group_ids[k] = gids_storage[k].data();
+            SEXP tgt_vec = VECTOR_ELT(targets_sexp, k);
+            const double* tp = REAL(tgt_vec);
+            tgt_storage[k].assign(tp, tp + cat_counts[k]);
+            targets[k] = tgt_storage[k].data();
         }
-        group_ids[k] = gids_storage[k].data();
     }
 
     // Build weights (start_weights already normalized to mean=1 by R layer)
