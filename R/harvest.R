@@ -157,6 +157,11 @@
 #'         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
 #'         \item \code{alm_max_dual_norm}: max absolute Lagrange dual at solver exit.
 #'         \item \code{alm_sum_drift}: \code{|sum(weights) - n|} after final projection (bounded by \code{1e-6 * n}).
+#'         \item \code{sraa_demoted}: logical; \code{TRUE} iff SRAA-m
+#'           acceleration was requested with \code{scheduler="greedy"} and the
+#'           greedy scheduler was demoted to round-robin (greedy is incompatible
+#'           with SRAA's fixed-point geometry). \code{FALSE} for non-ieppa /
+#'           non-raking solvers and whenever no demotion occurred.
 #'       }
 #'     }
 #'     \item{\code{algorithm}}{Character name of the solver used.}

@@ -1035,6 +1035,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
         if (st.accelerate && use_greedy) {
             use_greedy = false;
+            res.sraa_demoted = true;
             if (st.verbose >= 1)
                 st.log("[ieppa] greedy scheduler disabled under SRAA-m; using round_robin");
         }

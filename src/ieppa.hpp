@@ -32,6 +32,11 @@ struct IEPPAResult {
     int    alm_n_growth_events          = 0;
     double alm_max_dual_norm            = 0.0;
     double alm_sum_drift                = 0.0;
+    // ── SRAA scheduler-demotion flag ──
+    // Set TRUE iff SRAA-m acceleration was requested (st.accelerate) AND
+    // greedy scheduler was demoted to round-robin (greedy is incompatible
+    // with SRAA's fixed-point geometry). FALSE in all other cases.
+    bool   sraa_demoted                 = false;
     // ── End iEPPA-specific extras ──
 };
 

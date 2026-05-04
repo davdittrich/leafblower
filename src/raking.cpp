@@ -124,6 +124,7 @@ RakingResult raking_solve(CalibState& st) {
     bool use_greedy_effective = use_greedy;
     if (st.accelerate && use_greedy_effective) {
         use_greedy_effective = false;
+        res.sraa_demoted = true;
         st.log("[raking] greedy scheduler disabled under SRAA-m acceleration; using round_robin");
     }
 

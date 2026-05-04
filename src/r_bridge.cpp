@@ -393,6 +393,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     double res_alm_sum_drift           = 0.0;
     /* Acceleration (SRAA) diagnostic (ieppa/ieppa_soft only; zero elsewhere) */
     int    res_aa_accepted_count       = 0;
+    /* SRAA scheduler-demotion flag (ieppa/raking only; FALSE elsewhere).
+       TRUE iff accelerate=TRUE AND greedy scheduler was demoted to round_robin. */
+    int    res_sraa_demoted            = 0;
     /* Newton-KL TSVD diagnostic (Epic-Dβ WL-1; non-zero only for newton_kl) */
     int    res_n_projected_dims        = 0;
     /* Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
@@ -436,6 +439,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_max_error  = res.base.max_error;
         res_alg_used   = (int)RK_ALG_RAKING;
         pack_solver_result(res);
+        res_sraa_demoted = res.sraa_demoted ? 1 : 0;
         res_best_weights = std::move(res.base.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
         // AUTO routing (Epic-H WH-g):
@@ -485,6 +489,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_sor_min_omega    = res.sor_min_omega;
                 res_sor_n_damped     = res.sor_n_damped;
                 res_aa_accepted_count     = res.aa_accepted_count;
+                res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
                 res_best_weights = std::move(res.base.best_weights);
             } else {
                 auto res = lbw::newton_calibrate(st);
@@ -509,6 +514,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_RAKING;
             pack_solver_result(res);
+            res_sraa_demoted = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         } else {
             // Compressed regime: iEPPA (any K)
@@ -531,6 +537,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
             res_aa_accepted_count     = res.aa_accepted_count;
+            res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         }
         // Auto-fallback: if primary solver NOCONVs or exhausts budget (still
@@ -678,6 +685,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_alm_max_dual_norm     = res.alm_max_dual_norm;
             res_alm_sum_drift         = res.alm_sum_drift;
             res_aa_accepted_count     = res.aa_accepted_count;
+            res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         } else {
             // Default / ieppa
@@ -700,6 +708,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sor_min_omega    = res.sor_min_omega;
             res_sor_n_damped     = res.sor_n_damped;
             res_aa_accepted_count     = res.aa_accepted_count;
+            res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         }
     }
@@ -756,8 +765,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    constexpr int N_RESULT_FIELDS = 40;
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter
+    constexpr int N_RESULT_FIELDS = 41;
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  N_RESULT_FIELDS));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
@@ -855,6 +864,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SET_VECTOR_ELT(res_list,  38, Rf_ScalarReal(res_metric_prev_check));
     SET_STRING_ELT(res_names, 39, Rf_mkChar("prev_check_iter"));
     SET_VECTOR_ELT(res_list,  39, Rf_ScalarInteger(res_prev_check_iter));
+    /* Element 40: SRAA scheduler-demotion flag (ieppa/raking only; FALSE elsewhere) */
+    SET_STRING_ELT(res_names, 40, Rf_mkChar("sraa_demoted"));
+    SET_VECTOR_ELT(res_list,  40, Rf_ScalarLogical(res_sraa_demoted));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));
