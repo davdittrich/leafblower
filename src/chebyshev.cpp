@@ -77,9 +77,11 @@ ChebyshevResult chebyshev_ipm(
     std::vector<double> T_flat(nct);
     for (int m = 0; m < nct; m++) T_flat[m] = Tgt[m] / n_d;
 
-    // Reference category elimination: drop last category per multi-cat margin
-    // to break the normalization degeneracy (schur_nu=0 for sum-to-1 targets).
-    // Used only for the verbose schur_nu diagnostic at verbose >= 2, iter == 0.
+    // Reference category elimination: drop first category (j=0) per multi-cat
+    // margin to break the normalization degeneracy (schur_nu=0 for sum-to-1
+    // targets). Used only for the verbose schur_nu diagnostic at verbose >= 2,
+    // iter == 0.
+    // Reference category = j=0 (first) per ANOVA convention; matches newton_calib.
     int nct_red_count = 0;
     for (int k = 0; k < st.K; k++)
         if (st.cat_counts[k] >= 2) nct_red_count++;
@@ -91,7 +93,7 @@ ChebyshevResult chebyshev_ipm(
         for (int k = 0; k < st.K; k++)
             for (int j = 0; j < st.cat_counts[k]; j++) {
                 int m = cat_offset[k] + j;
-                if (!(st.cat_counts[k] >= 2 && j == st.cat_counts[k]-1))
+                if (!(st.cat_counts[k] >= 2 && j == 0))
                     full_to_red[m] = nr++;
             }
     }
