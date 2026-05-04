@@ -68,7 +68,7 @@ GregResult greg_solve(CalibState& st) {
                                          static_cast<size_t>(n_cats_total)) != RK_OK) {
                 res.base.status = RK_ERR_BADARG; return res;
             }
-            if (ldlt_factor_inplace(N_factored.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
+            if (cholesky_factor_inplace(N_factored.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
                 res.base.status = RK_ERR_BADARG; return res;
             }
         }
@@ -82,7 +82,7 @@ GregResult greg_solve(CalibState& st) {
         }
 
         // LDLT solve using cached factored matrix (recomputed only on active-set change)
-        ldlt_solve(N_factored.data(), static_cast<size_t>(n_cats_total), b.data());
+        cholesky_solve(N_factored.data(), static_cast<size_t>(n_cats_total), b.data());
         const std::vector<double>& lambda = b;
 
         // Newton update: X_new[c] = X_init[c] * (1 + sum_k lambda[k, g_k[c]])
@@ -98,9 +98,10 @@ GregResult greg_solve(CalibState& st) {
                     sum_lam += lambda[static_cast<size_t>(cat_offset[k]) + static_cast<size_t>(g)];
             }
             double X_new = X_init[c] * (1.0 + sum_lam);
-            if (X_new < L_cell[c] - 1e-10) {
+            const double cell_tol = 1e-10 * std::max(1.0, X_init[c]);
+            if (X_new < L_cell[c] - cell_tol) {
                 X[c] = L_cell[c]; fixed_lo[c] = true; any_clamped = true;
-            } else if (X_new > U_cell[c] + 1e-10) {
+            } else if (X_new > U_cell[c] + cell_tol) {
                 X[c] = U_cell[c]; fixed_hi[c] = true; any_clamped = true;
             } else {
                 X[c] = std::clamp(X_new, L_cell[c], U_cell[c]);
