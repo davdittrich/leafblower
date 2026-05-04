@@ -498,6 +498,10 @@ RakingResult raking_solve(CalibState& st) {
         }
     }  // end else flat loop
 
+    // leafblower-236s: propagate chi2 from last full-metrics eval.
+    // need_extra gate excludes MAX_ERR metric on non-final iters.
+    if (best.has_best()) res.base.chi2 = last_F_metrics.chi2;
+
     // Water-filling detects partial infeasibility (some categories can't reach targets
     // within bounds). With Dykstra this was silently masked by bound violations.
     // For stalled iterations: return STALL (status=5) + best weights rather than
