@@ -139,7 +139,7 @@ def harvest(
     targets : dict of dicts, e.g. {"age": {"18-34": 0.3, "35+": 0.7}}
     min_weight : float, lower bound on weights (default 0 = no bound)
     max_weight : float, upper bound on weights (default 5)
-    method : str, one of "ieppa" (default), "lbfgsb", "raking", "sinkhorn",
+    method : str, one of "ieppa" (default), "raking", "sinkhorn",
         "chebyshev", "greg", "ieppa_soft", "greenkhorn", "logit", "newton_kl"
     verbose : int, 0=silent, 1=progress, 2=debug
     max_iterations : int, inner BCD max sweeps per outer iter (default 500)
@@ -186,18 +186,12 @@ def harvest(
 
     # Method mapping
     method_lc = method.lower()
-    if method_lc in ("rake", "nrake"):
-        warnings.warn(f"method='{method_lc}' (IPF) not implemented; using L-BFGS-B", UserWarning, stacklevel=2)
-        method_lc = "lbfgsb"
-    elif method_lc == "nr":
-        warnings.warn("method='nr' not implemented; using L-BFGS-B", UserWarning, stacklevel=2)
-        method_lc = "lbfgsb"
 
     alg_map = {
-        "ieppa": 1, "lbfgsb": 2, "raking": 3,
+        "ieppa": 1, "raking": 3,
         "sinkhorn": 4, "chebyshev": 5, "greg": 6,
         "ieppa_soft": 8, "greenkhorn": 9, "logit": 10, "newton_kl": 11,
-    }  # "auto" (0) removed from Python user API; "grake" (7) removed — enum gap
+    }  # "auto" (0) removed from Python user API; "grake" (7) removed; "lbfgsb" (2) removed — enum gap
     if method_lc not in alg_map:
         raise ValueError(f"method must be one of {list(alg_map)}")
     alg_int = alg_map[method_lc]
@@ -275,7 +269,6 @@ def harvest(
         "verbose":        verbose,
         "algorithm":      alg_int,
         "epsilon":        0.05,
-        "lbfgs_m":        10,
         "bounds_mode":    _bounds_mode_int,
         # Convergence config (WU-G)
         "pct_tol":        pct_tol,

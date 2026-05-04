@@ -18,7 +18,6 @@ set(CORE_SOURCES
     ../src/greenkhorn.cpp
     ../src/greg.cpp
     ../src/ieppa.cpp
-    ../src/lbfgsb_solver.cpp
     ../src/logit.cpp
     ../src/logit_calib.cpp
     ../src/newton_calib.cpp
