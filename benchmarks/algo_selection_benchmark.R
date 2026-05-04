@@ -121,10 +121,10 @@ time_cell <- function(log_complexity, log_tol, K = 9L, seed_extra = 0L) {
   }
 
   t_ieppa  <- time_algo("ieppa")
-  t_lbfgsb <- time_algo("lbfgsb")
+  # lbfgsb removed — strictly dominated by newton_kl
   # Floor at 0.1ms to guard against proc.time() resolution yielding exact zeros.
   t_min <- 1e-4
-  log(max(t_ieppa, t_min) / max(t_lbfgsb, t_min))
+  log(max(t_ieppa, t_min) / t_min)  # placeholder: lbfgsb no longer exists
 }
 
 # ── fit_gp ────────────────────────────────────────────────────────────────────

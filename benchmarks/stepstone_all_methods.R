@@ -82,7 +82,7 @@ r_sinkhorn     <- run("sinkhorn",    max_iterations = ITERS)
 r_greenkhorn   <- run("greenkhorn",  max_iterations = ITERS)
 r_grk_sraa     <- run("greenkhorn",  label = "greenkhorn+sraa",  max_iterations = ITERS, accelerate = TRUE)
 r_logit        <- run("logit",       max_iterations = ITERS)
-r_lbfgsb       <- run("lbfgsb",      max_iterations = ITERS)
+# lbfgsb removed — strictly dominated by newton_kl
 r_greg         <- run("greg",        max_iterations = ITERS)
 r_cheby        <- run("chebyshev",   max_iterations = ITERS)
 
@@ -109,7 +109,7 @@ pairs <- list(
   greenkhorn    = "greenkhorn",
   grk_sraa      = "greenkhorn+sraa",
   logit         = "logit",
-  lbfgsb        = "lbfgsb",
+  # lbfgsb removed — strictly dominated by newton_kl
   greg          = "greg",
   cheby         = "chebyshev",
   autumn        = "autumn"

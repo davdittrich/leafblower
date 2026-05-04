@@ -37,10 +37,10 @@ make_plots <- function(state, candidates, threshold, out_dir = "benchmarks") {
     ggplot2::geom_point(data  = pt_df,
                         ggplot2::aes(shape = type),
                         colour = "white", size = 2) +
-    ggplot2::scale_fill_viridis_c(name = "log(t_iEPPA/t_LBFGSB)") +
+    ggplot2::scale_fill_viridis_c(name = "log(t_iEPPA/baseline)") +
     ggplot2::scale_shape_manual(values = c(LHC = 16L, Adaptive = 4L)) +
     ggplot2::labs(
-      title   = "GP posterior mean - red line = 1.2x contour (L-BFGS-B wins above)",
+      title   = "GP posterior mean - red line = 1.2x contour",
       x       = "log10(complexity = n x sum(cat_counts))",
       y       = "log10(tol_abs)",
       shape   = "Design point"
