@@ -54,6 +54,8 @@ def _r_weights(data_csv, targets_json, method, out_csv, max_iter=1000):
          str(data_csv), str(targets_json), method, str(out_csv), str(max_iter)],
         capture_output=True, text=True, timeout=120,
     )
+    if result.returncode == 2:
+        pytest.skip(f"R package not available: {result.stderr.strip()}")
     if result.returncode != 0:
         raise RuntimeError(f"Rscript failed:\n{result.stderr}")
     return pd.read_csv(out_csv)["weight"].to_numpy()

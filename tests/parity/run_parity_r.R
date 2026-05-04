@@ -1,8 +1,14 @@
 #!/usr/bin/env Rscript
-suppressPackageStartupMessages({
-  library(leafblower)
-  library(jsonlite)
-})
+tryCatch(
+  suppressPackageStartupMessages({
+    library(leafblower)
+    library(jsonlite)
+  }),
+  error = function(e) {
+    cat("SKIP:", conditionMessage(e), "\n", file=stderr())
+    quit(status=2, save="no")
+  }
+)
 args <- commandArgs(trailingOnly=TRUE)
 df  <- read.csv(args[1], stringsAsFactors=FALSE)
 tgt <- fromJSON(args[2])
