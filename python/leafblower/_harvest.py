@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 import warnings
 import numpy as np
 from typing import TYPE_CHECKING, Dict, Optional
@@ -350,7 +351,6 @@ def harvest(
     elif result_dict["status"] == 3:
         raise ValueError(f"leafblower: invalid arguments — {result_dict['message']}")
     if result_dict["status"] == 4:  # RK_ERR_BUDGET
-        import math
         e_final   = result_dict.get("best_error", float("nan"))
         b_iter    = result_dict.get("best_iter", 0)
         iters     = result_dict.get("iterations", 0)
