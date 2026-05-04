@@ -201,6 +201,11 @@ ChebyshevResult chebyshev_ipm(
     // Pre-fill u_red[nr] = w_kj[red_to_full[nr]] (constant across iterations: w_kj[m] = n_d)
     for (int nr = 0; nr < nct_red; nr++) u_red[nr] = w_kj[red_to_full[nr]];
 
+    // w_kj[m] = n_d (margin denominator) is constant per IPM run; precompute squares
+    // to avoid recomputation in the Theta accumulation each iteration.
+    std::vector<double> w_kj_sq(nct);
+    for (int m = 0; m < nct; m++) w_kj_sq[m] = w_kj[m] * w_kj[m];
+
     static constexpr double kSchurNuMin = 1e-8;  // tight; D_nu = O(n_d·M_cell)
 
     // Full-nct outputs (unchanged: duals, slacks, primal step on cells/δ)
@@ -316,9 +321,10 @@ ChebyshevResult chebyshev_ipm(
         const double r_delta_stat = r_delta_stat_acc;
 
         // Sherman-Morrison: u_red[nr]=w_kj[red_to_full[nr]] (pre-filled); Theta = 1/alpha_sm
+        // w_kj_sq[m] = w_kj[m]^2 precomputed before IPM loop (w_kj[m]=n_d constant per run).
         double Theta = y_delta / s_delta;
         for (int m = 0; m < nct; m++)
-            Theta += w_kj[m]*w_kj[m] * (y_up[m]/s_up[m] + y_dn[m]/s_dn[m]);
+            Theta += w_kj_sq[m] * (y_up[m]/s_up[m] + y_dn[m]/s_dn[m]);
         double alpha_sm = (Theta > 1e-300) ? 1.0/Theta : 0.0;
 
         // N_red = A_red * D_eff * A_red^T (reduced nct_red×nct_red) — rebuilt fresh each iteration
