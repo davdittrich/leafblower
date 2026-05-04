@@ -560,11 +560,11 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                                                      lm_mu * d_floor);
                     }
                     std::copy(G.begin(), G.end(), delta.begin());
-                    if (ldlt_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
+                    if (cholesky_factor_inplace(H.data(), static_cast<size_t>(n_lam), 1e-12) != RK_OK) {
                         lm_mu = std::min(lm_mu_max, lm_mu * 10.0);
                         continue;
                     }
-                    ldlt_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
+                    cholesky_solve(H.data(), static_cast<size_t>(n_lam), delta.data());
                     solve_ok = true;
                 }
                 if (!solve_ok) {

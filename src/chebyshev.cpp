@@ -23,7 +23,7 @@ ChebyshevResult chebyshev_ipm(
     static constexpr double kSigma     = 0.1;    // centering parameter
     static constexpr double kTolMu     = 1e-6;   // complementarity gap convergence threshold
     static constexpr double kEps       = 1e-14;  // strict interior buffer
-    static constexpr double kEpsLdlt   = 1e-10;  // LDLT perturbation
+    static constexpr double kEpsCholesky   = 1e-10;  // LDLT perturbation
     static constexpr double kStepScale = 0.99;   // line search safety factor
     static constexpr int    kInfeasPersistence = 5;  // consecutive negative-slack iters before INFEAS
     static constexpr double kWarmStartRelEps       = 1e-8;   // fractional shift off bound for strict-interior warm start
@@ -337,7 +337,7 @@ ChebyshevResult chebyshev_ipm(
                 N_red[(size_t)i*nct_red+j] *= D_jac_red[i] * D_jac_red[j];
 
         // LDLT factor scaled N_red once per iteration
-        if (ldlt_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsLdlt) != RK_OK) {
+        if (cholesky_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsCholesky) != RK_OK) {
             res.base.status = RK_ERR_BADARG; return res;
         }
         res.n_factorizations++;
@@ -377,12 +377,12 @@ ChebyshevResult chebyshev_ipm(
 
             // Solve N_red · dlambda_A_red = rhs_A_red (Jacobi-scaled)
             for (int nr = 0; nr < nct_red; nr++) rhs_A_red[nr] *= D_jac_red[nr];
-            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), rhs_A_red.data());
+            cholesky_solve(N_red.data(), static_cast<size_t>(nct_red), rhs_A_red.data());
             for (int nr = 0; nr < nct_red; nr++) dlambda_A_red[nr] = D_jac_red[nr] * rhs_A_red[nr];
 
             // δ-SM correction on dlambda_A_red (first SM)
             for (int nr = 0; nr < nct_red; nr++) tmp_red[nr] = D_jac_red[nr] * u_red[nr];
-            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
+            cholesky_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
             for (int nr = 0; nr < nct_red; nr++) v_red[nr] = D_jac_red[nr] * tmp_red[nr];
             double utv = 0.0, utw_A = 0.0;
             for (int nr = 0; nr < nct_red; nr++) {
@@ -395,7 +395,7 @@ ChebyshevResult chebyshev_ipm(
 
             // ── ν correction (Phase A): third back-solve + Schur Δν ─────────────
             for (int nr = 0; nr < nct_red; nr++) tmp_red[nr] = D_jac_red[nr] * e_red[nr];
-            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
+            cholesky_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
             for (int nr = 0; nr < nct_red; nr++) w_e_red[nr] = D_jac_red[nr] * tmp_red[nr];
             double ute_A = 0.0;
             for (int nr = 0; nr < nct_red; nr++) ute_A += u_red[nr] * w_e_red[nr];
@@ -516,7 +516,7 @@ ChebyshevResult chebyshev_ipm(
 
             // Solve in reduced space — REUSE factored N_red (no refactor)
             for (int nr = 0; nr < nct_red; nr++) rhs_B_red[nr] *= D_jac_red[nr];
-            ldlt_solve(N_red.data(), static_cast<size_t>(nct_red), rhs_B_red.data());
+            cholesky_solve(N_red.data(), static_cast<size_t>(nct_red), rhs_B_red.data());
             for (int nr = 0; nr < nct_red; nr++) dlambda_B_red[nr] = D_jac_red[nr] * rhs_B_red[nr];
 
             // δ-SM correction on dlambda_B_red (same v_red and sm_denom from Phase A)

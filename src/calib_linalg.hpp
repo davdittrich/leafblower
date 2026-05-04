@@ -40,13 +40,13 @@ int compute_normal_equations_reduced(
  * eps_perturb: minimum diagonal value after factorization (Gill-Murray stability).
  * Returns RK_OK or RK_ERR_BADARG if n > kNCatsTotalMax.
  */
-int ldlt_factor_inplace(double* A, size_t n, double eps_perturb);
+int cholesky_factor_inplace(double* A, size_t n, double eps_perturb);
 
 /**
  * Solve A×x = b using a previously LDLT-factored matrix (in-place combined storage).
- * A is the factored matrix from ldlt_factor_inplace: lower triangle holds L,
+ * A is the factored matrix from cholesky_factor_inplace: lower triangle holds L,
  * diagonal holds d.  Overwrites b with the solution.
  */
-void ldlt_solve(const double* A, size_t n, double* b);
+void cholesky_solve(const double* A, size_t n, double* b);
 
 } // namespace lbw

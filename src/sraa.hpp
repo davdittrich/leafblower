@@ -166,13 +166,13 @@ SRAAStepResult sraa_step(
             G[i * n + j] = state.gram[i * kSRAAMaxM + j];
     for (int i = 0; i < n; i++) G[i * n + i] += eps;
 
-    if (lbw::ldlt_factor_inplace(G, (size_t)n, 0.0) != RK_OK) {
+    if (lbw::cholesky_factor_inplace(G, (size_t)n, 0.0) != RK_OK) {
         state.clear();
         std::swap(X, state.F_cur);
         return {false, 1, err_plain};
     }
     for (int i = 0; i < n; i++) state.gamma_[i] = state.rhs[i];
-    lbw::ldlt_solve(G, (size_t)n, state.gamma_);
+    lbw::cholesky_solve(G, (size_t)n, state.gamma_);
 
     // --- Step 8: Extrapolate + clamp into scratch ---
     // scratch currently holds R_k; overwrite in-place with X_AA

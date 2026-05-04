@@ -99,7 +99,7 @@ int compute_normal_equations_reduced(const CellTable& ct,
 //   regardless. We use uplo='L' for both factor and solve so dpotrs reads the
 //   same triangle dpotrf wrote. The factor (Cholesky L in column-major) lives
 //   in the row-major upper triangle of the buffer — irrelevant to callers, who
-//   only ever pass the buffer back into ldlt_solve.
+//   only ever pass the buffer back into cholesky_solve.
 //
 // GMW dependency:
 //   dpotrf requires positive-definite input. C1 introduced the Gill-Murray-
@@ -112,7 +112,7 @@ int compute_normal_equations_reduced(const CellTable& ct,
 //   noise yet small enough to preserve solution accuracy. Truly indefinite
 //   inputs return RK_ERR_BADARG and the caller falls back to its error path.
 // ─────────────────────────────────────────────────────────────────────────────
-int ldlt_factor_inplace(double* A, size_t n, double eps_perturb)
+int cholesky_factor_inplace(double* A, size_t n, double eps_perturb)
 {
     if (n > static_cast<size_t>(kNCatsTotalMax)) return RK_ERR_BADARG;
     if (n == 0) return RK_OK;
@@ -137,7 +137,7 @@ int ldlt_factor_inplace(double* A, size_t n, double eps_perturb)
     // floor, scaled by (gamma + beta2) which captures the matrix's dominant
     // magnitude. This is large enough to absorb roundoff on PSD inputs that
     // sit at the edge of indefiniteness, but small enough not to perturb the
-    // solution beyond solver tolerances (kEpsLdlt = 1e-10 is a typical caller
+    // solution beyond solver tolerances (kEpsCholesky = 1e-10 is a typical caller
     // floor; we honor that as a lower bound).
     const double sqrt_eps = std::sqrt(std::numeric_limits<double>::epsilon());
     const double bump = std::max(eps_perturb, sqrt_eps * (gamma + beta2));
@@ -153,7 +153,7 @@ int ldlt_factor_inplace(double* A, size_t n, double eps_perturb)
     return RK_OK;
 }
 
-void ldlt_solve(const double* A, size_t n, double* b)
+void cholesky_solve(const double* A, size_t n, double* b)
 {
     if (n == 0) return;
     char uplo = 'L';

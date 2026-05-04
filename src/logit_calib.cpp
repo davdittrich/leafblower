@@ -107,8 +107,8 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         std::vector<double> N_init(nct * nct, 0.0);
         if (compute_normal_equations(ct, D_ones.data(), N_init.data(),
                                      cat_offset.data(), K, (size_t)nct) == RK_OK &&
-            ldlt_factor_inplace(N_init.data(), (size_t)nct, 1e-10) == RK_OK) {
-            ldlt_solve(N_init.data(), (size_t)nct, b_init.data());
+            cholesky_factor_inplace(N_init.data(), (size_t)nct, 1e-10) == RK_OK) {
+            cholesky_solve(N_init.data(), (size_t)nct, b_init.data());
             // Sanity: ill-conditioned AA^T (redundant margins) can produce huge lambda_0
             // which saturates all cells and makes the main Newton step degenerate.
             // Reject if any component exceeds 10 (z_c shifts >10*K would saturate sigma).
@@ -181,7 +181,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             res.base.best_iter = iter + 1;
         }
 
-        // Capture ||b_current||² before ldlt_solve overwrites b with delta_lambda
+        // Capture ||b_current||² before cholesky_solve overwrites b with delta_lambda
         double resid_sq_0 = 0.0;
         double max_b_mag  = 0.0;
         for (double bj : b) { resid_sq_0 += bj * bj; max_b_mag = std::max(max_b_mag, std::abs(bj)); }
@@ -201,17 +201,17 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         // Choosing eps = max_b / kMaxDeltaZ ensures null-space components of delta_lambda
         // remain O(kMaxDeltaZ), keeping alpha_max bounded away from zero.
         double eps_ldlt = std::max(1e-10, max_b_mag / kMaxDeltaZ);
-        if (ldlt_factor_inplace(N.data(), static_cast<size_t>(nct), eps_ldlt) != RK_OK) {
+        if (cholesky_factor_inplace(N.data(), static_cast<size_t>(nct), eps_ldlt) != RK_OK) {
             res.base.status = RK_ERR_INFEAS;
             std::snprintf(res.message, sizeof(res.message),
                 "logit: LDLT factorization failed (degenerate bounds)");
             break;
         }
-        ldlt_solve(N.data(), static_cast<size_t>(nct), b.data());  // b = delta_lambda
+        cholesky_solve(N.data(), static_cast<size_t>(nct), b.data());  // b = delta_lambda
 
         // (4) Armijo line search with step-norm guard
         // Norm guard: cap alpha so no cell z-coord shifts more than kMaxDeltaZ
-        // (b = delta_lambda after ldlt_solve)
+        // (b = delta_lambda after cholesky_solve)
         double max_delta_z = 0.0;
         for (int c = 0; c < M; c++) {
             double dz = 0.0;
