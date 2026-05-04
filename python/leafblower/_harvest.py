@@ -349,6 +349,50 @@ def harvest(
         )
     elif result_dict["status"] == 3:
         raise ValueError(f"leafblower: invalid arguments — {result_dict['message']}")
+    if result_dict["status"] == 4:  # RK_ERR_BUDGET
+        import math
+        e_final   = result_dict.get("best_error", float("nan"))
+        b_iter    = result_dict.get("best_iter", 0)
+        iters     = result_dict.get("iterations", 0)
+        mstr      = result_dict.get("convergence_used", {}).get("metric", "metric")
+        tol_used  = absolute_tol if absolute_tol > 0.0 else pct_tol
+
+        stall_ratio = (b_iter / iters) if iters > 0 else 1.0
+        if stall_ratio < 0.5 and math.isfinite(e_final):
+            warnings.warn(
+                f"leafblower: fixed point at {mstr}={e_final:.2e} "
+                f"(best at iter {b_iter} of {iters}, ratio={stall_ratio:.2f}). "
+                f"More iterations will not improve calibration. "
+                f"Try: accelerate=True, method='newton_kl', or method='ieppa+accel'.",
+                UserWarning, stacklevel=2)
+        else:
+            e_prev    = result_dict.get("metric_prev_check", float("inf"))
+            prev_iter = result_dict.get("prev_check_iter", -1)
+            interval  = b_iter - prev_iter
+            has_prev  = (math.isfinite(e_prev) and math.isfinite(e_final) and
+                         e_prev > e_final > 0 and
+                         interval > 0 and
+                         math.isfinite(tol_used) and tol_used > 0)
+            if has_prev:
+                r_est = (e_final / e_prev) ** (1.0 / interval)
+                if 0 < r_est < 1:
+                    n_more  = math.ceil(math.log(tol_used / e_final) / math.log(r_est))
+                    n_total = b_iter + n_more
+                    warnings.warn(
+                        f"leafblower: budget exhausted — {mstr}={e_final:.2e} "
+                        f"at {iters} iters. Asymptotic rate r={r_est:.4f} "
+                        f"(last {interval} iters): ~{n_total:.0f} total iterations needed.",
+                        UserWarning, stacklevel=2)
+                else:
+                    warnings.warn(
+                        f"leafblower: budget exhausted — {mstr}={e_final:.2e} "
+                        f"at {iters} iters. Increase max_iterations.",
+                        UserWarning, stacklevel=2)
+            else:
+                warnings.warn(
+                    f"leafblower: budget exhausted — {mstr}={e_final:.2e} "
+                    f"at {iters} iters. Increase max_iterations.",
+                    UserWarning, stacklevel=2)
 
     # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp,
     # src/lbfgsb_solver.cpp per user directive 2026-04-24). No wrapper-level
