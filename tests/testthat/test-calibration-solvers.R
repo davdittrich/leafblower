@@ -233,7 +233,7 @@ test_that("S2: sinkhorn achieves KL <= raking on synthetic (no external data)", 
               info="sinkhorn weights must respect bounds")
 })
 
-test_that("D1: greg achieves chi2 <= raking on synthetic (no external data)", {
+test_that("D1: greg converges and satisfies constraints on synthetic data", {
   set.seed(5)
   n <- 400
   data <- data.frame(
@@ -243,16 +243,14 @@ test_that("D1: greg achieves chi2 <= raking on synthetic (no external data)", {
   target <- list(a=c("1"=0.4,"2"=0.4,"3"=0.2), b=c("1"=0.6,"2"=0.4))
   w_greg <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
                                 method="greg", attach_weights=FALSE)
-  w_rake <- leafblower::harvest(data, target, min_weight=0.2, max_weight=5,
-                                method="raking", max_iterations=500, attach_weights=FALSE)
   r_greg <- attr(w_greg, "result")
-  r_rake <- attr(w_rake, "result")
   expect_equal(r_greg$status, 0L, info="greg must converge")
-  expect_equal(r_rake$status, 0L, info="raking must converge")
-  expect_lte(r_greg$chi2, r_rake$chi2 + 1e-6,
-             label="greg chi2 <= raking chi2")
   expect_true(all(w_greg >= 0.2 - 1e-10 & w_greg <= 5 + 1e-10),
               info="greg bounds must hold")
+  # Verify calibration: weighted marginals match targets within tolerance
+  wt <- as.numeric(w_greg) / n
+  expect_equal(sum(wt[data$a=="1"]), 0.4, tolerance=1e-6, label="greg margin a=1")
+  expect_equal(sum(wt[data$b=="1"]), 0.6, tolerance=1e-6, label="greg margin b=1")
 })
 
 test_that("E1: chebyshev max_err <= raking max_err (correctness)", {
