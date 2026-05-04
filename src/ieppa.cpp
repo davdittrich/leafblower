@@ -18,7 +18,6 @@
 
 namespace lbw {
 
-#ifdef LBW_DEBUG_TRAJECTORY
 static std::vector<int> parse_trajectory_iters() {
     const char* s = std::getenv("LBW_TRAJECTORY_AT");
     if (!s || !*s) return {};
@@ -55,7 +54,6 @@ static void write_trajectory_csv(
     for (const auto& p : samples)
         f << p.first << "," << p.second << "\n";
 }
-#endif // LBW_DEBUG_TRAJECTORY
 
 // Log-space algBCD at C=0 — see design spec §2.3, §8 for math.
 // lf[k][j]: log Sinkhorn factor (per margin k, category j)
@@ -395,11 +393,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
 
     // Trajectory probe state (internal-only; driven by LBW_TRAJECTORY_AT env var).
     // Probe deque + samples are shared across homotopy levels so iter counts are global.
-#ifdef LBW_DEBUG_TRAJECTORY
     const std::vector<int> probe_targets = parse_trajectory_iters();
     std::deque<int> probe_queue(probe_targets.begin(), probe_targets.end());
     std::vector<std::pair<int,double>> probe_samples;
-#endif
 
     // X_prev tracks X[c] at the last convergence check for pct_change computation.
     // Initialized from X_init (uniform W[c]=1 at entry, X[c] = X_init[c]).
@@ -1645,7 +1641,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             // Trajectory probe: capture at requested iterations (captured on the
             // nearest check-interval iter >= requested iter, since errRp is only
             // computed at kErrCheckInterval boundaries, iter==1, and last iter).
-#ifdef LBW_DEBUG_TRAJECTORY
             if (!probe_queue.empty() && iter >= probe_queue.front()) {
                 bool first_write = true;
                 while (!probe_queue.empty() && iter >= probe_queue.front()) {
@@ -1656,7 +1651,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     probe_queue.pop_front();
                 }
             }
-#endif
             if (st.verbose >= 1) {
                 char msg[256];
                 // Per design §8b: verbose=1 reports only errRp; n_cap lives in verbose=2.
@@ -2031,9 +2025,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     res.sor_min_omega = sor_min_omega;
     res.sor_n_damped  = sor_n_damped;
 
-#ifdef LBW_DEBUG_TRAJECTORY
     write_trajectory_csv(probe_samples);
-#endif
     return res;
 }
 
