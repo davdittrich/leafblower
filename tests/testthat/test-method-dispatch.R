@@ -1,6 +1,6 @@
 library(leafblower)
 
-methods_to_test <- c("ieppa", "ieppa_soft", "lbfgsb", "raking", "greg",
+methods_to_test <- c("ieppa", "ieppa_soft", "raking", "greg",
                      "chebyshev", "sinkhorn", "auto", "greenkhorn", "logit")
 
 for (m in methods_to_test) {
@@ -17,6 +17,28 @@ for (m in methods_to_test) {
     })
   })
 }
+
+test_that("lbfgsb method is rejected with match.arg error", {
+  df  <- data.frame(a = factor(c("x","y","x"), levels = c("x","y")))
+  tgt <- list(a = c(x = 0.6, y = 0.4))
+  expect_error(harvest(df, tgt, method = "lbfgsb"))
+})
+
+test_that("AUTO path completes quickly on hard input (no lbfgsb hang)", {
+  # Severe skew: data is 95% x but target is 90% y — hard for primary solver
+  df  <- data.frame(
+    a = factor(rep(c("x","y"), c(950, 50)), levels = c("x","y"))
+  )
+  tgt <- list(a = c(x = 0.1, y = 0.9))
+  t0      <- proc.time()["elapsed"]
+  r       <- suppressWarnings(
+    harvest(df, tgt, method = "auto", max_iterations = 10L, verbose = 0L)
+  )
+  elapsed <- proc.time()["elapsed"] - t0
+  expect_lt(elapsed, 15.0)
+  alg     <- attr(r, "result")$algorithm
+  expect_true(alg %in% c("ieppa", "newton_kl", "raking"))
+})
 
 test_that("unknown method rejected by R layer (C++ kAlgMap fallback not reachable via harvest)", {
   # harvest.R validates method via match.arg before reaching C++.

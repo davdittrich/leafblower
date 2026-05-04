@@ -48,8 +48,8 @@ test_that("WH-g: AUTO keeps moderate-skew K>=5 on newton_kl", {
 test_that("WH-g: AUTO with min_target=0 takes severe-skew branch (no div-by-zero)", {
   df <- make_zero_compress_df(seed = 3L)
   # min target == 0: floor at 1e-12 forces target_skew large -> severe-skew
-  # branch. ieppa may NOCONV on infeasible target; auto-fallback -> lbfgsb.
-  # Either path is acceptable; the test checks NO CRASH and NOT-newton_kl.
+  # branch. ieppa may NOCONV on infeasible target; auto-fallback -> newton_kl.
+  # Either path is acceptable; the test checks NO CRASH and NOT-raking.
   tgt <- lapply(df, function(f) {
     p <- c(0.55, 0.30, 0.10, 0.05, 0.0)
     setNames(p, levels(f))
@@ -58,7 +58,7 @@ test_that("WH-g: AUTO with min_target=0 takes severe-skew branch (no div-by-zero
     max_weight = 10, min_weight = 0,
     max_iterations = 300L, attach_weights = FALSE, verbose = 0L))
   alg <- attr(r, "algorithm")
-  expect_true(alg %in% c("ieppa", "lbfgsb"),
-    label = sprintf("WH-g zero-min-target: must not crash and not route newton_kl; got %s",
+  expect_true(alg %in% c("ieppa", "newton_kl"),
+    label = sprintf("WH-g zero-min-target: must not crash and not route raking; got %s",
                     alg))
 })

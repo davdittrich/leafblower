@@ -40,23 +40,6 @@ test_that("A7: all 5 quality metrics present in calib_result for raking", {
   expect_true(is.finite(result$l1_weight_change))
 })
 
-test_that("A7: all 5 quality metrics present in calib_result for lbfgsb", {
-  set.seed(44)
-  n <- 1000
-  data <- data.frame(
-    a = factor(sample(c("1","2"), n, replace = TRUE)),
-    b = factor(sample(c("1","2","3"), n, replace = TRUE))
-  )
-  target <- list(a = c("1"=0.5,"2"=0.5), b = c("1"=1/3,"2"=1/3,"3"=1/3))
-  w <- leafblower::harvest(data, target, max_weight = 5, method = "lbfgsb",
-                           max_iterations = 500,
-                           convergence = list(absolute = 1e-6),
-                           attach_weights = FALSE)
-  result <- attr(w, "result")
-  for (nm in c("max_error", "mean_error", "kl", "chi2", "l1_weight_change"))
-    expect_true(nm %in% names(result))
-  expect_true(is.finite(result$mean_error))
-})
 
 test_that("A7: metrics non-zero after max_iter exit (solver exits before kErrCheckInterval)", {
   # Use max_iterations=1 to force exit after 1 iteration, likely before kErrCheckInterval.
