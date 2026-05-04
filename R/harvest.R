@@ -366,9 +366,20 @@ harvest <- function(
     stop("leafblower: variable(s) not found in data: ",
          paste(missing_vars, collapse = ", "), call. = FALSE)
 
+  margins      <- names(target)
+  group_ids_r  <- lapply(margins, function(v) {
+    idx <- match(as.character(data[[v]]), names(target[[v]]))
+    as.integer(ifelse(is.na(idx), -1L, idx - 1L))
+  })
+  cat_counts_r <- vapply(target, length, integer(1L))
+  targets_r    <- lapply(target, function(t) as.double(unname(t)))
+  n_obs        <- nrow(data)
+
   raw <- .Call("C_rk_calibrate",
-               data,
-               target,
+               group_ids_r,
+               cat_counts_r,
+               targets_r,
+               as.integer(n_obs),
                as.double(min_weight),
                as.double(max_weight),
                as.character(method),

@@ -335,6 +335,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure min_weight < max_weight. */
         auto res = lbw::greenkhorn_solve(st);
+        if (!res.base.best_weights.empty() &&
+            static_cast<int>(res.base.best_weights.size()) == n)
+            std::copy(res.base.best_weights.begin(),
+                      res.base.best_weights.end(), weights);
         pack_solver_result(result, res, alg);
         used = RK_ALG_GREENKHORN;
         status = res.base.status;
@@ -344,6 +348,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure max_weight is finite and > min_weight. */
         auto res = lbw::logit_calibrate(st);
+        if (!res.base.best_weights.empty() &&
+            static_cast<int>(res.base.best_weights.size()) == n)
+            std::copy(res.base.best_weights.begin(),
+                      res.base.best_weights.end(), weights);
         pack_solver_result(result, res, alg);
         used = RK_ALG_LOGIT;
         status = res.base.status;
