@@ -105,7 +105,7 @@ cfg = [
     # chi2 family (R benchmark: chebyshev ~17s, greg ~3s)
     ("chebyshev",              CHI,  {"method": "chebyshev"}),
     ("greg",                   CHI,  {"method": "greg"}),
-    ## lbfgsb omitted — >1min on 1.58M
+    ## lbfgsb removed — strictly dominated by newton_kl (O(n) vs O(M_cell) per iter)
 ]
 
 results = []

@@ -1,16 +1,16 @@
 "method","loss_fn","time_ms","status","iterations","algorithm","max_err","marginal_kl","kl","chi2"
-"ieppa","marginal_kl",2968,"converged",50,"ieppa",0.002231,0.004974,0.3484,0.007184
-"ieppa + accel","marginal_kl",3124,"converged",20,"ieppa",0.01359,0.01143,0.2923,0.01836
-"ieppa + greedy","marginal_kl",3242,"converged",20,"ieppa",0.003727,0.01073,0.2974,0.01767
-"ieppa + greedy + accel","marginal_kl",3191,"converged",20,"ieppa",0.01359,0.01143,0.2923,0.01836
-"ieppa_soft (auto cp)","marginal_kl",3138,"converged",110,"ieppa_soft",0.003209,0.005064,0.3465,0.007262
-"ieppa_soft + accel","marginal_kl",2784,"converged",20,"ieppa_soft",0.01431,0.01241,0.2898,0.01983
-"raking","max_err",2992,"stall",50,"raking",0.001723,0.00518,0.3519,0.00766
-"greenkhorn","max_err",3613,"converged",1030,"greenkhorn",0.001536,0.007706,0.3447,13150
-"greenkhorn + greedy","max_err",3777,"converged",1030,"greenkhorn",0.001536,0.007706,0.3447,13150
-"greenkhorn + accel","max_err",3177,"converged",270,"greenkhorn",0.001536,0.007706,0.3447,13150
-"sinkhorn","kl",3253,"converged",90,"sinkhorn",0.005999,0.00671,0.3432,52210
-"chebyshev","chi2",28932,"no_conv",500,"chebyshev",0.1394,0.7456,6.421e-12,66150
-"greg","chi2",3574,"no_conv",50,"greg",0.4921,16.51,0.5553,76160
-"logit","max_err",3152,"converged",2,"logit",0.1396,0.7465,1.493e-07,66130
-"newton_kl","kl",19383,"converged",7,"newton_kl",0.002546,0.0009711,0.3497,1411
+"ieppa","marginal_kl",2556,"converged",50,"ieppa",0.002231,0.004974,0.3484,0.007184
+"ieppa + accel","marginal_kl",2248,"converged",20,"ieppa",0.01359,0.01143,0.2923,0.01836
+"ieppa + greedy","marginal_kl",2487,"converged",20,"ieppa",0.003727,0.01073,0.2974,0.01767
+"ieppa + greedy + accel","marginal_kl",2441,"converged",20,"ieppa",0.01359,0.01143,0.2923,0.01836
+"ieppa_soft (auto cp)","marginal_kl",2692,"converged",110,"ieppa_soft",0.003209,0.005064,0.3465,0.007262
+"ieppa_soft + accel","marginal_kl",2298,"converged",20,"ieppa_soft",0.01431,0.01241,0.2898,0.01983
+"raking","max_err",2348,"stall",50,"raking",0.001723,0.00518,0.3519,0.00766
+"greenkhorn","max_err",2707,"converged",1030,"greenkhorn",0.001536,0.007706,0.3447,13150
+"greenkhorn + greedy","max_err",2727,"converged",1030,"greenkhorn",0.001536,0.007706,0.3447,13150
+"greenkhorn + accel","max_err",2154,"converged",270,"greenkhorn",0.001536,0.007706,0.3447,13150
+"sinkhorn","kl",2519,"converged",90,"sinkhorn",0.005999,0.00671,0.3432,52210
+"chebyshev","chi2",15518,"no_conv",500,"chebyshev",0.1394,0.7456,6.421e-12,66150
+"greg","chi2",2668,"no_conv",50,"greg",0.4921,16.51,0.5553,76160
+"logit","max_err",2180,"converged",2,"logit",0.1396,0.7465,1.493e-07,66130
+"newton_kl","kl",14822,"converged",7,"newton_kl",0.002546,0.0009711,0.3497,1411
