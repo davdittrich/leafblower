@@ -78,6 +78,8 @@ def test_weight_parity(method, tmp_path):
 
     w_r = _r_weights(data_csv, targets_json, method, out_csv)
 
+    assert len(w_r) == len(w_py), (
+        f"{method}: weight vector length mismatch — R={len(w_r)}, Python={len(w_py)}")
     diff = np.max(np.abs(w_py - w_r))
     print(f"\n  {method}: max|w_py - w_r| = {diff:.2e}")
     assert diff < 1e-10, (
