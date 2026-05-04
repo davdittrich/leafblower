@@ -314,6 +314,10 @@ harvest <- function(
             method, "'", call. = FALSE)
   accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft")
 
+  # Validate data: must be a non-empty data.frame
+  if (!is.data.frame(data) || nrow(data) == 0L)
+    stop("leafblower: 'data' must be a non-empty data.frame", call. = FALSE)
+
   # design_weights: used as start_weights when supplied (normalized to mean=1 by normalize_start_weights)
   if (!is.null(design_weights)) {
     if (!is.null(start_weights))
@@ -355,6 +359,12 @@ harvest <- function(
   # CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU
   rule_int      <- c(threshold = 0L, improvement = 1L, plateau = 2L)
   stop_when_int <- c(any = 0L, all = 1L)
+
+  # Validate all target variables exist in data
+  missing_vars <- setdiff(names(target), names(data))
+  if (length(missing_vars) > 0L)
+    stop("leafblower: variable(s) not found in data: ",
+         paste(missing_vars, collapse = ", "), call. = FALSE)
 
   margins      <- names(target)
   group_ids_r  <- lapply(margins, function(v) {
