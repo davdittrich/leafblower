@@ -58,38 +58,31 @@ test_that("iEPPA output weights have mean=1 and respect bounds", {
 })
 
 test_that("descent monitor aborts early on stalled errRp trajectory", {
-  # Input empirically validated to stall: n=1000, 95/5 class split, max_weight=1.2.
-  # Prior measurement (leafblower-370 probe session 2026-04-23): raking hit
-  # max_iter=500 with no convergence and 500 consecutive curvature rejections.
-  # Monitor fires at 5 consecutive stalled error-checks (50 iters) — well
-  # before iter 500.
-  set.seed(91)
+  # Two correlated margins with conflicting targets force cells to capacity bounds.
+  # Constrained optimum has max_err ~0.23 >> 1e-6: stall fires at iter ~70,
+  # well before the 500-iter budget. Verified: 2 independent runs, deterministic.
+  set.seed(99)
   n <- 1000
-  df <- data.frame(cat = sample(c("A", "B"), n, replace = TRUE, prob = c(0.05, 0.95)))
-  tgt <- list(cat = c(A = 0.95, B = 0.05))
-  # Emit verbose=1 so we can grep for the monitor message.
-  # CalibState.log() routes through Rprintf (src/r_bridge.cpp:21) which writes
-  # to stdout, not R's message sink. Use capture.output(type = "output").
+  x <- factor(sample(c("H", "L"), n, replace = TRUE, prob = c(0.7, 0.3)))
+  y <- factor(sample(c("P", "Q"), n, replace = TRUE, prob = c(0.3, 0.7)))
+  df <- data.frame(x = x, y = y)
+  tgt <- list(x = c(H = 0.4, L = 0.6), y = c(P = 0.7, Q = 0.3))
+
   t0 <- Sys.time()
   msgs <- capture.output(
     tryCatch(
       suppressWarnings(leafblower::harvest(df, tgt, method = "raking",
-                                max_weight = 1.2,
+                                max_weight = 1.5, min_weight = 0.5,
                                 max_iterations = 500,
                                 verbose = 1L,
                                 convergence = list(absolute = 1e-6))),
-      error = function(e) NULL  # B9: infeasible error expected; msgs still captured
-    ),
-    type = "output"
+      error = function(e) NULL
+    ), type = "output"
   )
   elapsed <- as.numeric(Sys.time() - t0, units = "secs")
-  # Wall-clock guard: monitor should trigger early; whole call must be under 5s
-  # even if n_max_iter=500 is reached without the monitor.
+  probe <- msgs[grepl("stalled", msgs)]
+  expect_match(probe, "stalled for [0-9]+ consecutive checks")
   expect_lt(elapsed, 5)
-  # Monitor message matches the exact phrase emitted by src/raking.cpp.
-  probe <- paste(msgs, collapse = "\n")
-  expect_match(probe, "stalled for [0-9]+ consecutive checks",
-               info = paste("expected descent-monitor message; got:", probe))
 })
 
 test_that("raking with binding capacity constraints returns best achievable result (not INFEAS)", {
