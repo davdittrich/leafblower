@@ -1,15 +1,15 @@
-test_that("method='rake' emits warning about L-BFGS-B", {
+test_that("method='rake' emits deprecation warning routing to raking", {
   set.seed(1)
   df  <- data.frame(x = factor(sample(c("a","b"), 200, replace=TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5))
-  expect_warning(harvest(df, tgt, method="rake", convergence = list(absolute = 1e-6)), regexp = "L-BFGS-B")
+  expect_warning(leafblower::harvest(df, tgt, method="rake", convergence = list(absolute = 1e-6)), regexp = "IPF.*using raking")
 })
 
-test_that("method='nr' emits warning about L-BFGS-B", {
+test_that("method='nr' emits deprecation warning routing to newton_kl", {
   set.seed(1)
   df  <- data.frame(x = factor(sample(c("a","b"), 200, replace=TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5))
-  expect_warning(harvest(df, tgt, method="nr", convergence = list(absolute = 1e-6)), regexp = "L-BFGS-B")
+  expect_warning(leafblower::harvest(df, tgt, method="nr", convergence = list(absolute = 1e-6)), regexp = "Newton-Raphson.*newton_kl")
 })
 
 test_that("default routing selects iEPPA for large complexity", {
