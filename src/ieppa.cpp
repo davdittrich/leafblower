@@ -1976,6 +1976,10 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 for (int i = 0; i < st.n; i++) st.weights[i] *= renorm;
             }
         }
+        // Clamp post-renorm: renorm can push water-fill-clamped obs above max_weight.
+        for (int i = 0; i < st.n; i++) {
+            st.weights[i] = std::max(st.min_weight, std::min(st.max_weight, st.weights[i]));
+        }
     }
 
     // B9: structural infeasibility must override RK_OK as well. SRAA convergence
