@@ -584,7 +584,7 @@ ChebyshevResult chebyshev_ipm(
             }
             for (int c = 0; c < ct.M_cell; c++) {
                 double corr_lo = y_lo[c]*dX_A[c] + y_lo[c]*dX_A[c]*dX_A[c]/s_lo[c];
-                double corr_hi = y_hi[c]*dX_A[c] + y_hi[c]*dX_A[c]*dX_A[c]/s_hi[c];
+                double corr_hi = -y_hi[c]*dX_A[c] + y_hi[c]*dX_A[c]*dX_A[c]/s_hi[c];
                 // Δs_lo = +ΔX (primal slack increases with X), Δs_hi = -ΔX
                 double rmu_lo_B = sigma_mu - s_lo[c]*y_lo[c] + corr_lo;
                 double rmu_hi_B = sigma_mu - s_hi[c]*y_hi[c] + corr_hi;
