@@ -69,8 +69,7 @@ raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
 \code{"ieppa_soft"} (iEPPA with augmented Lagrangian soft capacity enforcement;
 better than \code{"ieppa"} on tight-bounds problems where cells hit
 \code{max_weight}),
-\code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"lbfgsb"}
-(L-BFGS-B on concave dual), \code{"sinkhorn"} (KL Bregman Dykstra),
+\code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"sinkhorn"} (KL Bregman Dykstra),
 \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
 (L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
 picks the single hardest margin per step; supports \code{accelerate=TRUE} for
@@ -118,7 +117,7 @@ equivalent to \code{autumn::calibrate()}).}
 
   \strong{chi2 cross-solver note:} chi2 is not directly comparable
   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
-  raking and lbfgsb use \code{n}. Use chi2 as a convergence criterion
+  raking uses \code{n}. Use chi2 as a convergence criterion
   within one method; do not compare values across methods.}
 
 \item{sor}{Named list for SOR adaptive under-relaxation (iEPPA and raking).
@@ -225,8 +224,7 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
         \item \code{iterations}: number of outer iterations completed.
         \item \code{max_error}: maximum marginal error at the returned weights.
         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
-          For \code{method="lbfgsb"} this is start-to-final (batch solver);
-          for iEPPA and raking it is iteration-to-iteration.
+          For iEPPA and raking it is iteration-to-iteration.
         \item \code{grake_norm}: survey-grake normalized residual
           max_k|misfit|/(1+|pop|).
         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},

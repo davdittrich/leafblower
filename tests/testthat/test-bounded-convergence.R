@@ -15,21 +15,3 @@ test_that("iEPPA converges on bound-hitting problem (max_weight=5, skewed sample
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
-
-test_that("L-BFGS-B converges on bound-hitting problem (max_weight=5, skewed sample)", {
-  set.seed(42); n <- 2000L
-  df <- data.frame(
-    age = factor(sample(c("18-34","35-54","55+"), n, replace=TRUE,
-                        prob=c(0.60,0.30,0.10))),
-    sex = factor(sample(c("M","F"), n, replace=TRUE, prob=c(0.70,0.30)))
-  )
-  tgt <- list(age=c("18-34"=0.33,"35-54"=0.40,"55+"=0.27),
-              sex=c(M=0.49,F=0.51))
-  expect_no_warning(
-    result <- harvest(df, tgt, method="lbfgsb", max_weight=5,
-                      convergence = list(absolute = 1e-6))
-  )
-  expect_true(max(result$weights) <= 5.0 + 1e-10)
-  diag <- diagnose_weights(result, tgt, result$weights)
-  expect_true(all(abs(diag$error_weighted) < 1e-6))
-})

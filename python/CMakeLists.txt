@@ -18,7 +18,6 @@ set(CORE_SOURCES
     ../src/greenkhorn.cpp
     ../src/greg.cpp
     ../src/ieppa.cpp
-    ../src/lbfgsb_solver.cpp
     ../src/logit.cpp
     ../src/logit_calib.cpp
     ../src/newton_calib.cpp
@@ -35,8 +34,8 @@ target_include_directories(_leafblower PRIVATE ../src)
 target_compile_definitions(_leafblower PRIVATE LBW_NO_R)
 find_package(LAPACK REQUIRED)
 target_link_libraries(_leafblower PRIVATE ${LAPACK_LIBRARIES})
-# -mavx2 required: lbfgsb_solver.cpp uses _mm256_* intrinsics via
-# bulk_scaled_exp when LBW_HAS_GLIBC_MVEC=1 (default in lbw_config.h).
+# -mavx2 required: ieppa.cpp, sinkhorn.cpp, chebyshev.cpp use _mm256_* intrinsics
+# via bulk_scaled_exp when LBW_HAS_GLIBC_MVEC=1 (default in lbw_config.h).
 # Without it, gcc errors "inlining failed in call to 'always_inline'
 # '_mm256_set1_pd': target specific option mismatch".
 target_compile_options(_leafblower PRIVATE -O3 -mavx2)

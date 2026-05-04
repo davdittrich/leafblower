@@ -200,37 +200,3 @@ test_that("default method (no method arg) routes to ieppa", {
   expect_equal(attr(res, "algorithm"), "ieppa")
 })
 
-test_that("method='lbfgsb' with max_weight routes to lbfgsb", {
-  set.seed(1L)
-  n  <- 500L
-  df <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))
-  tgt <- list(x = c(a = 0.5, b = 0.5))
-  res <- leafblower::harvest(df, tgt, method = "lbfgsb", max_weight = 5)
-  expect_equal(attr(res, "algorithm"), "lbfgsb")
-})
-
-test_that("method='lbfgsb' output weights satisfy max_weight/min_weight", {
-  set.seed(2L)
-  n   <- 500L
-  df  <- data.frame(x = factor(sample(c("a", "b", "c"), n, replace = TRUE)))
-  tgt <- list(x = c(a = 0.5, b = 0.3, c = 0.2))
-  res <- leafblower::harvest(df, tgt, method = "lbfgsb",
-                              max_weight = 1.5, min_weight = 0.2)
-  expect_true(max(res$weights) <= 1.5 + 1e-6)
-  expect_true(min(res$weights) >= 0.2 - 1e-6)
-})
-
-test_that("auto: falls back to lbfgsb after primary NOCONV at 1 iter", {
-  set.seed(77L)
-  n <- 200L
-  data <- data.frame(
-    a = factor(sample(1:3, n, TRUE)),
-    b = factor(sample(1:2, n, TRUE))
-  )
-  target <- list(a = c("1" = 0.4, "2" = 0.4, "3" = 0.2),
-                 b = c("1" = 0.6, "2" = 0.4))
-  r <- leafblower::harvest(data, target, method = "auto", max_iterations = 1L,
-                           verbose = 0)
-  # max_iterations=1 forces primary solver NOCONV; fallback should fire
-  expect_equal(attr(r, "algorithm"), "lbfgsb")
-})

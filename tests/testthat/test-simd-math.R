@@ -20,17 +20,6 @@ test_that("S4: sinkhorn produces same result after bisect_capacity_fast", {
   expect_lt(attr(res,"result")$max_error, 0.01)
 })
 
-test_that("S6: lbfgsb produces same result after log vectorization", {
-  set.seed(42)
-  n <- 300L
-  df <- data.frame(x = factor(sample(c("a","b","c"), n, replace=TRUE)))
-  tgt <- list(x = c(a=1/3, b=1/3, c=1/3))
-  res <- harvest(df, target=tgt, method="lbfgsb", max_weight=5,
-                 convergence=list(pct=1e-4))
-  # Status 0 (converged) or 5 (plateau/constrained optimum) are both valid;
-  # the essential check is that calibration error is within tolerance.
-  expect_lt(attr(res,"result")$max_error, 1e-3)
-})
 
 test_that("bulk_log correctness: ieppa output matches task2_ieppa_ref within 1e-12", {
   # Verifies that log-vectorization does not change solver output.

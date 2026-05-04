@@ -17,7 +17,6 @@
 #include "sinkhorn.hpp"
 #include "greg.hpp"
 #include "chebyshev.hpp"
-#include "lbfgsb_solver.hpp"
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
@@ -40,7 +39,6 @@ namespace {
 const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
     {"ieppa",      RK_ALG_IEPPA},
     {"ieppa_soft", RK_ALG_IEPPA_SOFT},
-    {"lbfgsb",     RK_ALG_LBFGSB},
     {"raking",     RK_ALG_RAKING},
     {"greg",       RK_ALG_GREG},
     {"chebyshev",  RK_ALG_CHEBYSHEV},
@@ -88,7 +86,6 @@ static void init_calib_state(lbw::CalibState& st,
     st.tol_abs       = p.tol_abs;
     st.inner_max_iter = p.inner_max_iter;
     st.outer_max_iter = p.outer_max_iter;
-    st.lbfgs_m       = p.lbfgs_m;
     st.verbose       = p.verbose;
     st.bounds_mode   = p.bounds_mode;
     st.log_fn        = p.log_fn;
@@ -253,9 +250,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.max_weight     = scalar_real(max_weight_sexp, "max_weight");
     p.verbose        = scalar_int(verbose_sexp, "verbose");
     p.inner_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
-    // outer_max_iter = max_iterations: user controls both iEPPA inner BCD and L-BFGS-B
-    // outer step budget via the same parameter. With the O(n) Wolfe inner loop, 500
-    // outer steps costs ~500 O(K*n) grad evals — acceptable; typical convergence is <50.
+    // outer_max_iter = max_iterations: user controls iEPPA inner BCD outer step budget
+    // via the same parameter.
     p.outer_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
     p.tol_abs        = scalar_real(tol_abs_sexp, "tol_abs");
     p.bounds_mode    = (rk_bounds_mode_t) scalar_int(bounds_mode_sexp, "bounds_mode");
@@ -433,15 +429,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // above are still in scope; throw converts them into solver_error and they are
     // destroyed at '}' below before Rf_error fires (R-exts §5.5).
     if (!pre_error.empty()) throw std::runtime_error(pre_error);
-    if (strcmp(method_str, "lbfgsb") == 0) {
-        auto res = lbw::lbfgsb_solve(st);
-        res_status     = res.base.status;
-        res_iterations = res.base.iterations;
-        res_max_error  = res.base.max_error;
-        res_alg_used   = (int)RK_ALG_LBFGSB;
-        pack_solver_result(res);
-        res_best_weights = std::move(res.base.best_weights);
-    } else if (strcmp(method_str, "raking") == 0) {
+    if (strcmp(method_str, "raking") == 0) {
         auto res = lbw::raking_solve(st);
         res_status     = res.base.status;
         res_iterations = res.base.iterations;
@@ -546,21 +534,26 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_best_weights = std::move(res.base.best_weights);
         }
         // Auto-fallback: if primary solver NOCONVs or exhausts budget (still
-        // improving), retry with L-BFGS-B.  STALL(5) is excluded: the solver
+        // improving), retry with newton_kl.  STALL(5) is excluded: the solver
         // is at the constrained optimum and fallback cannot improve it.
         if (res_status == RK_ERR_NOCONV || res_status == RK_ERR_BUDGET) {
             if (st.verbose >= 1)
-                st.log("auto: primary solver NOCONV/BUDGET; retrying with L-BFGS-B");
+                st.log("auto: primary solver NOCONV/BUDGET; retrying with newton_kl");
             // Restore original weights (only mutated field in CalibState)
             std::copy(weights_backup.begin(), weights_backup.end(), weights.begin());
             st.ieppa_auto_selected = false;
-            auto fb = lbw::lbfgsb_solve(st);
+            auto fb = lbw::newton_calibrate(st);
             res_status     = fb.base.status;
             res_iterations = fb.base.iterations;
             res_max_error  = fb.base.max_error;
-            res_alg_used   = (int)RK_ALG_LBFGSB;
+            res_alg_used   = (int)RK_ALG_NEWTON_KL;
+            res_n_projected_dims = fb.n_projected_dims;
+            res_lm_mu_final      = fb.lm_mu_final;
             pack_solver_result(fb);
-            res_best_weights = std::move(fb.base.best_weights);
+            if (!fb.base.best_weights.empty())
+                res_best_weights = std::move(fb.base.best_weights);
+            else
+                res_best_weights.assign(st.n, 0.0);
         }
     } else if (strcmp(method_str, "sinkhorn") == 0) {
         auto res = lbw::sinkhorn_solve(st);
@@ -731,7 +724,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     static const char* kAlgNames[] = {
         "",           // 0 = RK_ALG_AUTO
         "ieppa",      // 1 = RK_ALG_IEPPA
-        "L-BFGS-B",   // 2 = RK_ALG_LBFGSB   (keep exact existing name)
+        "",           // 2 = (removed lbfgsb slot)
         "raking",     // 3 = RK_ALG_RAKING
         "sinkhorn",   // 4 = RK_ALG_SINKHORN
         "chebyshev",  // 5 = RK_ALG_CHEBYSHEV
@@ -752,7 +745,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
 
     // greenkhorn and logit do not modify st.weights in-place; copy calibrated
     // weights into the weights vector so raw$weights in harvest.R is correct.
-    // (raking/ieppa/lbfgsb already write to st.weights in-place — don't copy.)
+    // (raking/ieppa already write to st.weights in-place — don't copy.)
     if (!res_best_weights.empty() && (int)res_best_weights.size() == n &&
         (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN) ||
          res_alg_used == static_cast<int>(RK_ALG_LOGIT))) {

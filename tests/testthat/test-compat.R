@@ -1,15 +1,3 @@
-test_that("anesrake wraps harvest with rake->lbfgsb warning", {
-  set.seed(42)
-  n <- 100L
-  df <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE)))
-  tgt <- list(x = c(a=0.5, b=0.5))
-  expect_warning(
-    result <- anesrake(df, tgt, choosemethod="rake"),
-    regexp = "not implemented"
-  )
-  expect_true(is.numeric(result$weights))
-  expect_equal(length(result$weights), n)
-})
 
 test_that("get_current_miss returns max calibration error", {
   set.seed(1)

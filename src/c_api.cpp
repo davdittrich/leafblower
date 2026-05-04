@@ -1,7 +1,6 @@
 #include "leafblower.h"
 #include "validation.hpp"
 #include "types.hpp"
-#include "lbfgsb_solver.hpp"
 #include "ieppa.hpp"      // faithful (new)
 #include "raking.hpp"     // renamed hybrid
 #include "sinkhorn.hpp"   // KL Bregman Dykstra
@@ -52,27 +51,6 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
 }
 
-static void pack_lbfgsb_result(rk_result_t* dst, const lbw::LBFGSResult& src) noexcept {
-    if (!dst) return;
-    dst->mean_error                   = src.base.mean_error;
-    dst->kl                           = src.base.kl;
-    dst->chi2                         = src.base.chi2;
-    dst->l1_weight_change             = src.base.l1_weight_change;
-    dst->grake_norm                   = src.base.grake_norm;
-    dst->convergence_metric           = src.base.convergence_metric;
-    dst->convergence_rule             = src.base.convergence_rule;
-    dst->convergence_tol              = src.base.convergence_tol;
-    dst->convergence_iter             = src.base.convergence_iter;
-    dst->convergence_solver_objective        = src.base.convergence_solver_objective;
-    dst->convergence_minimized_metric = src.base.convergence_minimized_metric;
-    dst->best_error                   = src.base.best_error;
-    dst->best_iter                    = src.base.best_iter;
-    dst->metric_first_check           = src.base.metric_first_check;
-    dst->metric_prev_check            = src.base.metric_prev_check;
-    dst->prev_check_iter              = src.base.prev_check_iter;
-    /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
-}
-
 extern "C" {
 
 void rk_params_init(rk_params_t* p) {
@@ -86,7 +64,7 @@ void rk_params_init(rk_params_t* p) {
     p->algorithm     = RK_ALG_AUTO;
     p->verbose       = 0;
     p->epsilon       = 0.0;   /* deprecated: not read by any solver; see leafblower.h */
-    p->lbfgs_m       = 10;
+    p->_reserved_lbfgs_m = 0;
     p->log_fn        = nullptr;
     p->log_ctx       = nullptr;
     p->bounds_mode   = RK_BOUNDS_CELL;  /* explicit for clarity; memset=0 already gives this */
@@ -144,7 +122,7 @@ static int validate_inputs(int n, int K,
 // Return contract: on RK_OK or RK_ERR_NOCONV, the output weight vector
 // satisfies Σ weights[i] = n (where n = number of observations). Solvers
 // enforce this invariant internally at exit (see src/ieppa.cpp,
-// src/raking.cpp, src/lbfgsb_solver.cpp post-exit normalize blocks).
+// src/raking.cpp post-exit normalize blocks).
 // Third-party callers should NOT apply their own sum/mean normalization —
 // doing so silently invalidates bounds_mode="unit" strict-bounds guarantees,
 // because ieppa's water-fill clamps would be re-pushed above max_weight.
@@ -172,7 +150,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     bool wh_g_severe_skew_accelerate = false;  // Epic-H WH-g: AUTO target-skew gate
     if (cat_counts && K > 0 && n > 0) {
         switch (p->algorithm) {
-            case RK_ALG_LBFGSB:   alg = RK_ALG_LBFGSB; break;
             case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
             case RK_ALG_IEPPA:      alg = RK_ALG_IEPPA;      break;
             case RK_ALG_IEPPA_SOFT: alg = RK_ALG_IEPPA_SOFT; break;
@@ -241,7 +218,6 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.tol_abs       = p->tol_abs;
     st.inner_max_iter = p->inner_max_iter;
     st.outer_max_iter = p->outer_max_iter;
-    st.lbfgs_m       = p->lbfgs_m;
     st.verbose       = p->verbose;
     st.ieppa_auto_selected = auto_selected;  // read by ieppa_solve for verbose prefix
     st.bounds_mode   = p->bounds_mode;
@@ -290,14 +266,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     double max_error;
     rk_algorithm_t used;
 
-    if (alg == RK_ALG_LBFGSB) {
-        auto res = lbw::lbfgsb_solve(st);
-        status = res.base.status;
-        iterations = res.base.iterations;
-        max_error = res.base.max_error;
-        used = RK_ALG_LBFGSB;
-        pack_lbfgsb_result(result, res);
-    } else if (alg == RK_ALG_RAKING) {
+    if (alg == RK_ALG_RAKING) {
         // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
         auto res = lbw::raking_solve(st);
         status = res.base.status;
@@ -494,19 +463,37 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         }
     }
 
-    // Auto-fallback: if primary solver NOCONVs, retry with L-BFGS-B
+    // Auto-fallback: if primary solver NOCONVs, retry with newton_kl
     if (status == RK_ERR_NOCONV && p->algorithm == RK_ALG_AUTO) {
         if (p->verbose >= 1)
-            st.log("auto: primary solver NOCONV; retrying with L-BFGS-B");
-        // Restore original weights (only mutated field in CalibState)
+            st.log("auto: primary NOCONV; retrying with newton_kl");
         std::copy(weights_backup.begin(), weights_backup.end(), weights);
-        auto fb = lbw::lbfgsb_solve(st);
+        auto fb = lbw::newton_calibrate(st);
         status     = fb.base.status;
         iterations = fb.base.iterations;
         max_error  = fb.base.max_error;
-        used       = RK_ALG_LBFGSB;
-        pack_lbfgsb_result(result, fb);
-        /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
+        used       = RK_ALG_NEWTON_KL;
+        if (result) {
+            result->status            = fb.base.status;
+            result->iterations        = fb.base.iterations;
+            result->max_error         = fb.base.max_error;
+            result->algorithm_used    = RK_ALG_NEWTON_KL;
+            result->convergence_metric = fb.base.convergence_metric;
+            result->convergence_rule   = fb.base.convergence_rule;
+            result->convergence_tol    = fb.base.convergence_tol;
+            result->convergence_iter   = fb.base.convergence_iter;
+            result->best_error         = fb.base.best_error;
+            result->best_iter          = fb.base.best_iter;
+            result->metric_first_check = fb.base.metric_first_check;
+            result->metric_prev_check  = fb.base.metric_prev_check;
+            result->prev_check_iter    = fb.base.prev_check_iter;
+            result->mean_error         = fb.base.mean_error;
+            result->kl                 = fb.base.kl;
+            result->chi2               = fb.base.chi2;
+            result->l1_weight_change   = fb.base.l1_weight_change;
+            std::strncpy(result->message, fb.message, sizeof(result->message)-1);
+        }
+        for (int i = 0; i < n; i++) weights[i] = st.weights[i];
     }
 
     if (result) {
@@ -515,11 +502,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         result->max_error = max_error;
         result->algorithm_used = used;
         if (result->message[0] == '\0') {
-            const char* name = (used == RK_ALG_LBFGSB)      ? "L-BFGS-B"
-                             : (used == RK_ALG_RAKING)      ? "raking"
+            const char* name = (used == RK_ALG_RAKING)      ? "raking"
                              : (used == RK_ALG_IEPPA_SOFT)  ? "iEPPA-soft"
                              : (used == RK_ALG_GREENKHORN)  ? "greenkhorn"
                              : (used == RK_ALG_LOGIT)        ? "logit"
+                             : (used == RK_ALG_NEWTON_KL)   ? "newton_kl"
                              : "iEPPA";
             snprintf(result->message, 256, "%s: %d iters, max_error=%.2e",
                      name, iterations, max_error);

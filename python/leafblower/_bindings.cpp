@@ -81,8 +81,6 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.algorithm = (rk_algorithm_t)params_dict["algorithm"].cast<int>();
             if (params_dict.contains("epsilon"))
                 p.epsilon = params_dict["epsilon"].cast<double>();
-            if (params_dict.contains("lbfgs_m"))
-                p.lbfgs_m = params_dict["lbfgs_m"].cast<int>();
             if (params_dict.contains("bounds_mode"))
                 p.bounds_mode = (rk_bounds_mode_t)params_dict["bounds_mode"].cast<int>();
             // Convergence config (WU-G)
