@@ -359,7 +359,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 std::vector<double> weights_copy(weights, weights + n);
                 lbw::CalibState st_warm = st;
                 st_warm.weights = weights_copy.data();
-                st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
+                st_warm.inner_max_iter = std::max(50, std::min(100, st.inner_max_iter / 10));
                 auto ieppa_res = lbw::ieppa_solve(st_warm);
                 if (!ieppa_res.base.best_weights.empty() &&
                     static_cast<int>(ieppa_res.base.best_weights.size()) == n &&

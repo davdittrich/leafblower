@@ -1887,7 +1887,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         std::vector<std::vector<int>> cells_of_obs(ct.M_cell);
         for (int i = 0; i < st.n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
 
-        constexpr int kWaterFillMaxIter = 50;
+        const int kWaterFillMaxIter = std::max(50, st.K * 10);
         int total_clamped = 0;
         for (int c = 0; c < ct.M_cell; c++) {
             const auto& idxs = cells_of_obs[c];
