@@ -311,28 +311,54 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             // 5b. LSE prep: scan u_max once, then accumulate using exp(u_i − u_max).
             // u_max factor cancels in all ratios (G/Z, H/Z) so this is a pure
             // numerical-stability shift. Cost: one extra O(n·K) pass per Newton iter.
+            //
+            // dk9l.1: hoist per-obs quantities out of inner K×K Hessian loop.
+            //   - active_a[]: per-obs list of active dual-variable indices a =
+            //     lam_off[k] + j - 1 for margins where j > 0 (j == 0 is the
+            //     reference category, λ fixed to 0).
+            //   - Built once per obs in increasing-k order. Since lam_off is
+            //     strictly increasing across margins (disjoint index ranges),
+            //     active_a is sorted ⇒ p1 ≤ p2 ⇒ active_a[p1] < active_a[p2],
+            //     so no min/max needed for upper-triangle storage.
+            //   - Reused for both gradient and Hessian accumulation.
+            //   - Eliminates redundant group_ids[k2][i] re-fetch and skips
+            //     inactive (j == 0) margins entirely. Drops the inner-loop
+            //     work from O(n·K²) to O(n·K_active²).
+            //   - u (sum of active λ entries) is accumulated in the same pass
+            //     instead of via compute_u() (which iterates k=0..K again).
             const double u_max_step = compute_u_max(lam);
+            std::vector<int> active_a;
+            active_a.reserve(K);
             for (int i = 0; i < n; ++i) {
-                const double u = compute_u(lam, i);
+                // Per-obs hoist: active dual-index list and u in one pass.
+                double u = 0.0;
+                active_a.clear();
+                for (int k = 0; k < K; ++k) {
+                    const int j = st.group_ids[k][i];
+                    if (j > 0) {
+                        const int a_k = lam_off[k] + j - 1;
+                        u += lam[a_k];
+                        active_a.push_back(a_k);
+                    }
+                }
                 const double f_i = st.weights[i] * std::exp(u - u_max_step);
                 Z += f_i;
 
-                // Gradient accumulation
-                for (int k = 0; k < K; ++k) {
-                    const int j = st.group_ids[k][i];
-                    if (j > 0) G[lam_off[k] + j - 1] += f_i;
+                const int n_active = static_cast<int>(active_a.size());
+
+                // Gradient accumulation (active margins only).
+                for (int p = 0; p < n_active; ++p) {
+                    G[active_a[p]] += f_i;
                 }
 
-                // Hessian accumulation (upper triangle only)
-                for (int k1 = 0; k1 < K; ++k1) {
-                    const int j1 = st.group_ids[k1][i];
-                    if (j1 <= 0) continue;
-                    const int a = lam_off[k1] + j1 - 1;
-                    for (int k2 = k1; k2 < K; ++k2) {
-                        const int j2 = st.group_ids[k2][i];
-                        if (j2 <= 0) continue;
-                        const int b = lam_off[k2] + j2 - 1;
-                        H[a * n_lam + b] += f_i;
+                // Hessian accumulation (upper triangle, active×active only).
+                // active_a is strictly increasing in p ⇒ a1 < a2 for p1 < p2.
+                for (int p1 = 0; p1 < n_active; ++p1) {
+                    const int a1 = active_a[p1];
+                    H[a1 * n_lam + a1] += f_i;  // diagonal
+                    const size_t row_off = static_cast<size_t>(a1) * n_lam;
+                    for (int p2 = p1 + 1; p2 < n_active; ++p2) {
+                        H[row_off + active_a[p2]] += f_i;
                     }
                 }
             }
