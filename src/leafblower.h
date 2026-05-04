@@ -138,6 +138,10 @@ typedef struct {
     int             alm_n_growth_events;    /* adaptive growth fire count; 0 if not ieppa_soft */
     double          alm_max_dual_norm;      /* max |lambda_cell[c]| at solver exit */
     double          alm_sum_drift;          /* |sum(X) - n| after final projection */
+    /* ── Convergence health checks ── */
+    double          metric_first_check;  /* calibration metric at first kErrCheckInterval; Inf if not set */
+    double          metric_prev_check;   /* calibration metric at second-to-last check; Inf if not set */
+    int             prev_check_iter;     /* iteration at which metric_prev_check was captured; -1 if not set */
     /* ── End extended quality metrics ── */
 } rk_result_t;
 
@@ -180,8 +184,8 @@ int rk_calibrate(
  * update this value after auditing ABI consumers. */
 #ifdef __cplusplus
 static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
-/* rk_result_t tripwire. Linux x86_64, verified 2026-04-29: 480 bytes. */
-#define EXPECTED_RK_RESULT_BYTES 480
+/* rk_result_t tripwire. Linux x86_64, verified 2026-05-03: 504 bytes. */
+#define EXPECTED_RK_RESULT_BYTES 504
 static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
     "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");
 /* ABI layout (2026-04-24): added overlay fields after bounds_mode.

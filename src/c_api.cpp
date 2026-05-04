@@ -46,6 +46,9 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     dst->grake_norm                   = src.base.grake_norm;
     dst->l1_weight_change             = src.base.l1_weight_change;
     dst->algorithm_used               = alg;
+    dst->metric_first_check           = src.base.metric_first_check;
+    dst->metric_prev_check            = src.base.metric_prev_check;
+    dst->prev_check_iter              = src.base.prev_check_iter;
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
 }
 
@@ -117,6 +120,9 @@ void rk_result_init(rk_result_t* r) {
     r->convergence_tol                  = 0.001;
     r->convergence_iter                 = -1;     /* -1 = did not converge */
     r->convergence_minimized_metric     = 0;
+    r->metric_first_check  = std::numeric_limits<double>::infinity();  /* Inf sentinel: not yet captured */
+    r->metric_prev_check   = std::numeric_limits<double>::infinity();  /* Inf sentinel: not yet captured */
+    r->prev_check_iter     = -1;                                       /* -1: not yet captured */
 }
 
 static int validate_inputs(int n, int K,

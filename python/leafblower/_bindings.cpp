@@ -189,6 +189,10 @@ PYBIND11_MODULE(_leafblower, m) {
             result_dict["alm_n_growth_events"]   = result.alm_n_growth_events;
             result_dict["alm_max_dual_norm"]     = result.alm_max_dual_norm;
             result_dict["alm_sum_drift"]         = result.alm_sum_drift;
+            // Convergence health check fields (PYR-T3)
+            result_dict["metric_first_check"]  = result.metric_first_check;
+            result_dict["metric_prev_check"]   = result.metric_prev_check;
+            result_dict["prev_check_iter"]     = result.prev_check_iter;
 
             return py::make_tuple(rc, weights_out, result_dict);
         },
