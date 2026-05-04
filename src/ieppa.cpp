@@ -331,9 +331,11 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     for (int c = 0; c < ct.M_cell; c++) {
         if (X_init[c] > max_X_init_val) max_X_init_val = X_init[c];
     }
-    const double kLinearOverflowTrip = std::pow(
-        std::numeric_limits<double>::max() / (2.0 * max_X_init_val),
-        1.0 / static_cast<double>(st.K));
+    const double kLinearOverflowTrip = std::min(
+        std::pow(
+            std::numeric_limits<double>::max() / (2.0 * max_X_init_val),
+            1.0 / static_cast<double>(st.K)),
+        1e15);
     // Renorm threshold: halfway in log-space before the trip.
     // At this point, f_lin geometric mean = sqrt(trip); product f_lin^K = trip^(K/2),
     // leaving sqrt(trip) multiplicative headroom before the trip fires.
@@ -1458,11 +1460,14 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             res.marginal_kl_at_iter = marg_kl;
             res.base.max_error = errRp;
 
+            // w_ratio: hoisted outside best-iterate gates to avoid repeated heap allocation.
+            // Populated lazily inside each gate only when a new best is found.
+            std::vector<double> w_ratio(ct.M_cell);
+
             // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
             // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
             if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
                 if (errRp < best.best_metric) {
-                    std::vector<double> w_ratio(ct.M_cell);
                     for (int c = 0; c < ct.M_cell; c++)
                         w_ratio[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
                     best.update(errRp,
@@ -1482,7 +1487,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 nat_metric_prev_nonavec = res.marginal_kl_at_iter;
                 nat_iter_prev_nonavec   = iter;
                 if (res.marginal_kl_at_iter < best.best_metric) {
-                    std::vector<double> w_ratio(ct.M_cell);
                     for (int c = 0; c < ct.M_cell; c++)
                         w_ratio[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
                     best.update(res.marginal_kl_at_iter,
@@ -1606,7 +1610,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     nat_metric_prev_nonavec = curr_best;
                     nat_iter_prev_nonavec   = iter;
                     if (std::isfinite(curr_best) && curr_best < best.best_metric) {
-                        std::vector<double> w_ratio(ct.M_cell);
                         for (int c = 0; c < ct.M_cell; c++)
                             w_ratio[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
                         best.update(curr_best,
