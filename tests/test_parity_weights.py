@@ -4,7 +4,6 @@ for all methods when both call the same C++ solver with identical input."""
 import json
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 import numpy as np
