@@ -1948,6 +1948,24 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             }
         }
         res.n_bounds_clamped = total_clamped;
+
+        // gbib.1: water-fill preserves Σ weights = n in the redistribute branch
+        // (factor = 1 + excess/free_sum exactly absorbs `excess`), but the
+        // pathological n_free==0 / free_sum<=0 break path (lines ~1930) leaves
+        // the cell sum off by `excess` (all violators pinned at bounds, no free
+        // obs to absorb). Likewise, kWaterFillMaxIter exhaustion can leave a
+        // residual. Restore Σ=n (contract; see test-ieppa-bounds-mode L143).
+        // Bounds may be re-broken by this rescale on STALL/BUDGET paths, but
+        // that condition was already pathologically infeasible — Σ=n is the
+        // stronger contract.
+        double total_after = 0.0;
+        for (int i = 0; i < st.n; i++) total_after += st.weights[i];
+        if (std::isfinite(total_after) && total_after > 0.0) {
+            const double renorm = static_cast<double>(st.n) / total_after;
+            if (std::fabs(renorm - 1.0) > 1e-15) {
+                for (int i = 0; i < st.n; i++) st.weights[i] *= renorm;
+            }
+        }
     }
 
     // B9: structural infeasibility must override RK_OK as well. SRAA convergence
