@@ -256,6 +256,41 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         double best_u_max   = u_max_curr;
         int    best_iter_id = 0;
         BestIterTracker best;
+
+        // dk9l.2: hoist dsyevd workspace query + allocation outside iter loop.
+        // Workspace sizes depend only on n_lam (constant per solve), so the
+        // lwork=-1 query and work/iwork vector allocations are invariant.
+        // The actual eigendecomposition still runs every iter (eigvals/vecs
+        // change with H — must recompute). dsyevd writes work[0]/iwork[0] on
+        // query; do query against a scratch buffer (matrix not needed for query).
+        int dsy_lwork_cache = -1, dsy_liwork_cache = -1;
+        std::vector<double> dsy_work;
+        std::vector<int>    dsy_iwork;
+        {
+            int dsy_n_q = n_lam, dsy_lda_q = n_lam, dsy_info_q = 0;
+            int q_lwork = -1, q_liwork = -1;
+            double work_query = 0.0;
+            int    iwork_query = 0;
+            std::vector<double> H_query_scratch(static_cast<size_t>(n_lam) * n_lam, 0.0);
+            std::vector<double> eigvals_query_scratch(n_lam, 0.0);
+            F77_CALL(dsyevd)("V", "U", &dsy_n_q, H_query_scratch.data(), &dsy_lda_q,
+                             eigvals_query_scratch.data(),
+                             &work_query, &q_lwork, &iwork_query, &q_liwork,
+                             &dsy_info_q FCONE FCONE);
+            if (dsy_info_q == 0) {
+                dsy_lwork_cache  = static_cast<int>(work_query);
+                dsy_liwork_cache = iwork_query;
+            } else {
+                // Workspace query failed — pick safe upper bounds per LAPACK doc:
+                //   lwork  >= 1 + 6N + 2N²   (jobz='V')
+                //   liwork >= 3 + 5N
+                dsy_lwork_cache  = 1 + 6 * n_lam + 2 * n_lam * n_lam;
+                dsy_liwork_cache = 3 + 5 * n_lam;
+            }
+            dsy_work.resize(std::max(1, dsy_lwork_cache));
+            dsy_iwork.resize(std::max(1, dsy_liwork_cache));
+        }
+
         int iter = 0;
         for (iter = 0; iter < max_iter_inner; ++iter) {
 
@@ -375,23 +410,17 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             std::vector<double> eigvals(n_lam, 0.0);
 
             int dsy_n = n_lam, dsy_lda = n_lam, dsy_info = 0;
-            int dsy_lwork = -1, dsy_liwork = -1;
-            double work_query = 0.0;
-            int    iwork_query = 0;
+            // dk9l.2: workspace hoisted out of iter loop — query + allocation
+            // ran every iter despite depending only on n_lam. Reuse cached
+            // dsy_lwork_cache/dsy_liwork_cache and dsy_work/dsy_iwork buffers.
+            int dsy_lwork  = dsy_lwork_cache;
+            int dsy_liwork = dsy_liwork_cache;
             F77_CALL(dsyevd)("V", "U", &dsy_n, H_eigvecs.data(), &dsy_lda, eigvals.data(),
-                             &work_query, &dsy_lwork, &iwork_query, &dsy_liwork, &dsy_info FCONE FCONE);
+                             dsy_work.data(), &dsy_lwork, dsy_iwork.data(), &dsy_liwork,
+                             &dsy_info FCONE FCONE);
 
             bool tsvd_used = false;   // if false → fall back to LDLT path below
             int  n_keep    = 0;
-
-            if (dsy_info == 0) {
-                dsy_lwork  = static_cast<int>(work_query);
-                dsy_liwork = iwork_query;
-                std::vector<double> work(std::max(1, dsy_lwork));
-                std::vector<int>    iwork(std::max(1, dsy_liwork));
-                F77_CALL(dsyevd)("V", "U", &dsy_n, H_eigvecs.data(), &dsy_lda, eigvals.data(),
-                                 work.data(), &dsy_lwork, iwork.data(), &dsy_liwork, &dsy_info FCONE FCONE);
-            }
 
             if (dsy_info == 0) {
                 // dsyevd returns eigvals in ascending order; λ_max = eigvals[n_lam-1].
