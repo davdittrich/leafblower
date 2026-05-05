@@ -378,6 +378,12 @@ static void ieppa_finalize(
             }
         }
         // Clamp post-renorm: renorm can push water-fill-clamped obs above max_weight.
+        // Drift invariant: after this clamp, Σweights may be slightly < n in the
+        // pathological n_free==0 case (all weights pinned to bounds). The drift is
+        // bounded by O(ε × n_pinned × max_weight) where ε = |renorm - 1|, typically
+        // < 1e-10 × n. A second renorm after clamping is not applied — it would
+        // re-violate bounds for the pinned cells, creating an oscillating fix-up loop.
+        // Callers must tolerate Σ ≈ n (within double-precision rounding) in this path.
         for (int i = 0; i < st.n; i++) {
             st.weights[i] = std::max(st.min_weight, std::min(st.max_weight, st.weights[i]));
         }

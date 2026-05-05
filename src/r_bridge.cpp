@@ -252,7 +252,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.inner_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
     // newton_kl: 2nd-order outer loop defaults to 50 (see newton_calib.cpp:90).
     // Other solvers: outer = inner (outer_max_iter is ignored for non-newton_kl paths).
-    if (LENGTH(method_sexp) == 1 &&
+    if (LENGTH(method_sexp) == 1 && TYPEOF(method_sexp) == STRSXP &&
         strcmp(CHAR(STRING_ELT(method_sexp, 0)), "newton_kl") == 0) {
         p.outer_max_iter = 0;  // triggers C-side 50-default in newton_calib.cpp:90
     } else {
