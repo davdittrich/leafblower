@@ -395,12 +395,14 @@ RakingResult raking_solve(CalibState& st) {
             if (f_eval_full_metrics) {
                 res.base.max_error = errRp;
 
+                // 6uyk.2: compute wkl once per check iteration; reuse for best-iterate
+                // tracking (MAX_ERR and non-MAX_ERR branches) and KL stall detection.
+                const double wkl_flat = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
+
                 // Best-iterate tracking (MAX_ERR metric)
                 if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
                     if (errRp < best.best_metric) {
-                        best.update(errRp,
-                                    lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data()),
-                                    iter, X);
+                        best.update(errRp, wkl_flat, iter, X);
                     }
                 }
 
@@ -432,9 +434,7 @@ RakingResult raking_solve(CalibState& st) {
                         if (metric != lbw::CalibMetric::MAX_ERR) {
                             const double curr_best = lbw::select_metric(metric, m);
                             if (std::isfinite(curr_best) && curr_best < best.best_metric) {
-                                best.update(curr_best,
-                                            lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data()),
-                                            iter, X);
+                                best.update(curr_best, wkl_flat, iter, X);
                             }
                         }
                     }
@@ -469,7 +469,7 @@ RakingResult raking_solve(CalibState& st) {
                 // wkl is monotone for KL-configured runs (Csiszar-Tusnady); for other metrics
                 // (MAX_ERR, MEAN_ERR, etc.) use select_metric so stall detection matches the
                 // user's convergence criterion.
-                const double wkl_flat = lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data());
+                // wkl_flat already computed above (6uyk.2).
                 if (st.convergence_cfg.metric == lbw::CalibMetric::KL && wkl_flat <= st.tol_abs) {
                     res.base.status = RK_OK; res.base.convergence_iter = iter; break;
                 }
