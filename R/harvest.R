@@ -815,7 +815,7 @@ compute_quality_metrics <- function(weights, target_list, df) {
   # causing integer-key collisions and silent KL corruption.
   if (use_single_pass) {
     max_cells <- prod(vapply(margin_cols, function(k) nlevels(df[[k]]), integer(1)))
-    if (max_cells > .Machine$double.xmax || max_cells > 2^53) {
+    if (max_cells > 2^53) {
       use_single_pass <- FALSE
     }
   }
@@ -861,7 +861,7 @@ compute_quality_metrics <- function(weights, target_list, df) {
         margin_kl_one(T_k, W_k)
       }), na.rm = FALSE)
     }
-  }, error = function(e) NA_real_)
+  }, error = function(e) { warning(paste0("margin_kl: ", conditionMessage(e))); NA_real_ })
 
   list(
     design_effect = deff,
