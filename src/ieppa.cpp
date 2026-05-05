@@ -812,6 +812,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         double sraa_best_errRp     = std::numeric_limits<double>::infinity();
         double nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
         int    nat_iter_prev_sraa   = -1;
+        // ════════════════════ SRAA-m accelerated path ════════════════════
         if (sraa_active_lvl) {
             ieppa_sraa.init(total_cats, lbw::kSRAAm);
             lf_flat.assign(total_cats, 0.0);
@@ -972,6 +973,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
 
         double nat_metric_prev_nonavec = std::numeric_limits<double>::infinity();
         int    nat_iter_prev_nonavec   = -1;
+        // ════════════════════ Non-accelerated flat BCD path ════════════════════
         if (!sraa_active_lvl) {
         for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
@@ -1747,6 +1749,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         }
     }  // end homotopy level loop
 
+    // ════════════════════ Post-loop: ALM projection + obs expansion + bounds ════════════════════
     // ALM final projection: hard-clamp X[c] into [L_cell, U_cell], then a small
     // bounded rescale loop to recover sum(X)=n while staying within bounds.
     if (alm_active) {
