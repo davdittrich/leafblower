@@ -51,7 +51,7 @@ inline void bulk_log(const double* __restrict__ in,
         __m256d v = _mm256_loadu_pd(out + i);
         _mm256_storeu_pd(out + i, _ZGVdN4v_log(v));
     }
-    for (; i < n; ++i) out[i] = std::log(out[i]);
+    for (; i < n; ++i) out[i] = std::log(in[i] > 0.0 ? in[i] : 1e-300);
 #else
     for (int i = 0; i < n; ++i) out[i] = std::log(in[i] > 0.0 ? in[i] : 1e-300);
 #endif

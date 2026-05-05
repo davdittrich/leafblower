@@ -861,7 +861,7 @@ compute_quality_metrics <- function(weights, target_list, df) {
         margin_kl_one(T_k, W_k)
       }), na.rm = FALSE)
     }
-  }, error = function(e) { warning(paste0("margin_kl: ", conditionMessage(e))); NA_real_ })
+  }, error = function(e) { warning("margin_kl: ", conditionMessage(e), call. = FALSE); NA_real_ })
 
   list(
     design_effect = deff,
