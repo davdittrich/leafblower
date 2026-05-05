@@ -167,7 +167,9 @@ inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
     switch (alg_id) {
     case RK_ALG_GREG:      return m.chi2;
     case RK_ALG_CHEBYSHEV: return m.errRp;
-    default:               std::fprintf(stderr, "internal: unknown alg_id %d\n", alg_id); std::abort();
+    default:
+        std::fprintf(stderr, "internal: unknown alg_id %d in select_solver_objective\n", alg_id);
+        return std::numeric_limits<double>::quiet_NaN();
     }
 }
 

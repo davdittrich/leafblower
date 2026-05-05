@@ -33,18 +33,27 @@ inline void bulk_scaled_exp(double scale,
 }
 
 // bulk_log: out[i] = log(in[i]) for i in [0, n). in[i] must be > 0.
+// Guard: non-positive values are clamped to 1e-300 floor (log(1e-300) ≈ -690,
+// finite) to prevent NaN/-Inf from propagating into convergence logic.
 inline void bulk_log(const double* __restrict__ in,
                      double*       __restrict__ out,
                      int n) {
 #if LBW_HAS_GLIBC_MVEC
+    // MVEC path: pre-scan scalar to clamp non-positives before SIMD log.
+    // Avoid a separate clamped copy — write clamped values into out[], then
+    // log in-place via the scalar tail. For the SIMD body, any non-positive
+    // input would produce -Inf from _ZGVdN4v_log; scalar pre-scan avoids it.
+    for (int i = 0; i < n; ++i) {
+        out[i] = (in[i] > 0.0) ? in[i] : 1e-300;
+    }
     int i = 0;
     for (; i + 4 <= n; i += 4) {
-        __m256d v = _mm256_loadu_pd(in + i);
+        __m256d v = _mm256_loadu_pd(out + i);
         _mm256_storeu_pd(out + i, _ZGVdN4v_log(v));
     }
-    for (; i < n; ++i) out[i] = std::log(in[i]);
+    for (; i < n; ++i) out[i] = std::log(out[i]);
 #else
-    for (int i = 0; i < n; ++i) out[i] = std::log(in[i]);
+    for (int i = 0; i < n; ++i) out[i] = std::log(in[i] > 0.0 ? in[i] : 1e-300);
 #endif
 }
 
