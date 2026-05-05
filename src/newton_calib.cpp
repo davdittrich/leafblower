@@ -616,10 +616,21 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             // tiny-negative results from FP rounding — those we clamp to 0. But a
             // genuinely negative δᵀHδ (D3) means the model predicts ascent at this δ;
             // reject the step and shrink the trust region instead of pretending it's 0.
+            //
+            // lqex.2: O(n_keep) shortcut when TSVD path was used.
+            // δ = Σ_{kp} V[:,keep_idx[kp]] · delta_keep[kp] (back-projected), so:
+            //   δᵀ H_pre δ = Σ_{kp} eigvals[keep_idx[kp]] · delta_keep[kp]²
+            // (null-space components carry zero eigenvalue contribution). O(n_keep)
+            // vs O(n_lam²) dense matvec. LDLT fallback path uses dense form unchanged.
             double delta_H_delta = 0.0;
-            for (int a = 0; a < n_lam; ++a)
-                for (int b = 0; b < n_lam; ++b)
-                    delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
+            if (tsvd_used && n_keep > 0) {
+                for (int kp = 0; kp < n_keep; ++kp)
+                    delta_H_delta += eigvals[keep_idx[kp]] * delta_keep[kp] * delta_keep[kp];
+            } else {
+                for (int a = 0; a < n_lam; ++a)
+                    for (int b = 0; b < n_lam; ++b)
+                        delta_H_delta += delta[a] * H_pre[a * n_lam + b] * delta[b];
+            }
 
             // G·δ = G^T H_damp^{-1} G ≥ 0 (descent curvature).
             double g_dot_d = 0.0;
