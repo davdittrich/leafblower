@@ -291,6 +291,22 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             dsy_iwork.resize(std::max(1, dsy_liwork_cache));
         }
 
+        // lqex.1: hoist per-iter vector allocations outside Newton loop.
+        // H_pre, H_eigvecs, eigvals, active_a, keep_idx, g_keep,
+        // lambda_damped, delta_keep_pinv, delta_keep, lam_trial declared
+        // inside the loop — reallocation every iter at O(n_lam^2) cost.
+        // Declared here; resize/assign at iter start. Results bit-identical.
+        std::vector<double> H_pre(static_cast<size_t>(n_lam) * n_lam);
+        std::vector<double> H_eigvecs(static_cast<size_t>(n_lam) * n_lam);
+        std::vector<double> eigvals(n_lam);
+        std::vector<int>    active_a;    active_a.reserve(K);
+        std::vector<int>    keep_idx;    keep_idx.reserve(n_lam);
+        std::vector<double> g_keep;      g_keep.reserve(n_lam);
+        std::vector<double> lambda_damped; lambda_damped.reserve(n_lam);
+        std::vector<double> delta_keep_pinv; delta_keep_pinv.reserve(n_lam);
+        std::vector<double> delta_keep;  delta_keep.reserve(n_lam);
+        std::vector<double> lam_trial(n_lam);
+
         int iter = 0;
         for (iter = 0; iter < max_iter_inner; ++iter) {
 
@@ -327,8 +343,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             //   - u (sum of active λ entries) is accumulated in the same pass
             //     instead of via compute_u() (which iterates k=0..K again).
             const double u_max_step = compute_u_max(lam);
-            std::vector<int> active_a;
-            active_a.reserve(K);
+            // active_a hoisted pre-loop (lqex.1); capacity already reserved.
             for (int i = 0; i < n; ++i) {
                 // Per-obs hoist: active dual-index list and u in one pass.
                 double u = 0.0;
@@ -428,12 +443,14 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             //     LM-LDLT path; n_projected_dims = n_λ.
             //   • dsyevd info ≠ 0: same fallback.
             //   • n_keep == n_λ: equivalent to plain LDLT (no truncation).
-            std::vector<double> H_pre(H);  // n_lam×n_lam copy — ≤80×80 doubles = trivial.
+            // H_pre hoisted pre-loop (lqex.1); assign from H each iter.
+            H_pre.assign(H.begin(), H.end());  // n_lam×n_lam copy
 
             // Epic-H WH-e: user-tunable TSVD truncation ratio; <=0 falls back to internal default 1e-8.
             const double ratio_tsvd = st.newton_tsvd_ratio > 0.0 ? st.newton_tsvd_ratio : 1e-8;
-            std::vector<double> H_eigvecs(H_pre);  // dsyevd overwrites in place with V (column-major)
-            std::vector<double> eigvals(n_lam, 0.0);
+            // H_eigvecs, eigvals hoisted pre-loop (lqex.1); reinit each iter.
+            H_eigvecs.assign(H_pre.begin(), H_pre.end());  // dsyevd overwrites in place with V (column-major)
+            eigvals.assign(n_lam, 0.0);
 
             int dsy_n = n_lam, dsy_lda = n_lam, dsy_info = 0;
             // dk9l.2: workspace hoisted out of iter loop — query + allocation
@@ -482,10 +499,12 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                         //   ||·||₂ ≤ Δ  → fast path: δ_keep = δ_keep_pinv
                         //   ||·||₂ >  Δ → Steihaug-CG on diagonal Λ_damped to trust boundary
                         // Then back-project δ_keep into ambient space.
-                        std::vector<int>    keep_idx;        keep_idx.reserve(n_keep);
-                        std::vector<double> g_keep(n_keep);
-                        std::vector<double> lambda_damped(n_keep);
-                        std::vector<double> delta_keep_pinv(n_keep);
+                        // keep_idx, g_keep, lambda_damped, delta_keep_pinv hoisted
+                        // pre-loop (lqex.1); resize to actual n_keep each iter.
+                        keep_idx.clear();
+                        g_keep.resize(n_keep);
+                        lambda_damped.resize(n_keep);
+                        delta_keep_pinv.resize(n_keep);
                         int kp = 0;
                         for (int i = 0; i < n_lam; ++i) {
                             if (eigvals[i] < thresh) continue;
@@ -506,7 +525,8 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                             pinv_norm_sq += delta_keep_pinv[i] * delta_keep_pinv[i];
                         const double pinv_norm = std::sqrt(pinv_norm_sq);
 
-                        std::vector<double> delta_keep(n_keep);
+                        // delta_keep hoisted pre-loop (lqex.1); resize to n_keep.
+                        delta_keep.resize(n_keep);
                         if (pinv_norm <= delta_radius) {
                             // Fast path: pinv step inside trust region — use it directly.
                             delta_keep = delta_keep_pinv;
@@ -654,7 +674,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             // 5i. Armijo backtracking line search.
             // Sufficient decrease: g(λ - α·δ) ≤ g(λ) - c1·α·(G·δ).
             double alpha = 1.0;
-            std::vector<double> lam_trial(n_lam);
+            // lam_trial hoisted pre-loop (lqex.1); no resize needed (n_lam fixed).
             double Z_trial = 0.0, g_trial = 0.0, u_max_trial = 0.0;
             constexpr double c1 = 1e-4;
             bool accepted = false;
