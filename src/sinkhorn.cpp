@@ -164,6 +164,10 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     std::vector<double> X_proj(ct.M_cell);
     std::vector<double> X_prev(X);
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
+    // j98p.1: track whether Dykstra accumulator a[] is still all-zero.
+    // Short-circuit is only safe when a[] is zero; non-zero a[] means bisection
+    // must run even when X is in bounds to maintain the fixed-point invariant.
+    bool a_is_zero = true;
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.base.iterations = iter;
@@ -186,16 +190,24 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             }
         }
 
-        double target_mass = 0.0;
-        for (int c = 0; c < ct.M_cell; c++) target_mass += X[c];
+        // j98p.2: target_mass must be st.n, not Σ X[c]. Post-sweep X[c] values
+        // drift below n when capacity bounds clamp cells; using Σ X[c] as the
+        // bisection target propagates that drift into mu, corrupting subsequent
+        // Bregman projections. When no clamping occurs Σ X[c] == n exactly, so
+        // this fix is a no-op on the unclamped path.
+        const double target_mass = static_cast<double>(st.n);
 
-        // Short-circuit: if X already within capacity bounds, bisection is a no-op
-        // (projection is identity; Dykstra correction adds 0).
-        bool needs_projection = false;
-        for (int c = 0; c < ct.M_cell; c++) {
-            if (X[c] < L_cell[c] - 1e-12 || X[c] > U_cell[c] + 1e-12) {
-                needs_projection = true;
-                break;
+        // Short-circuit: if X already within capacity bounds AND a[] is all-zero,
+        // bisection is a no-op (projection is identity; Dykstra correction adds 0).
+        // j98p.1: when a[] carries accumulated corrections the bisection still
+        // needs to run even when X is in bounds, to maintain the fixed-point.
+        bool needs_projection = !a_is_zero;
+        if (!needs_projection) {
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X[c] < L_cell[c] - 1e-12 || X[c] > U_cell[c] + 1e-12) {
+                    needs_projection = true;
+                    break;
+                }
             }
         }
         double mu = 0.0;
@@ -216,6 +228,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                     a[c] += std::log(X[c]) - std::log(X_proj[c]);
                 a[c] = std::clamp(a[c], -kAmax, kAmax);
             }
+            a_is_zero = false;  // j98p.1: a[] now carries non-zero corrections
             lbw::bulk_scaled_exp(1.0, a.data(), exp_a.data(), ct.M_cell);
             // 773f.5: apply projection result to X only on projection path. No-op copy eliminated.
             for (int c = 0; c < ct.M_cell; c++) X[c] = X_proj[c];
