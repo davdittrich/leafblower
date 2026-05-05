@@ -250,9 +250,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.max_weight     = scalar_real(max_weight_sexp, "max_weight");
     p.verbose        = scalar_int(verbose_sexp, "verbose");
     p.inner_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
-    // outer_max_iter = max_iterations: user controls iEPPA inner BCD outer step budget
-    // via the same parameter.
-    p.outer_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
+    // newton_kl: 2nd-order outer loop defaults to 50 (see newton_calib.cpp:90).
+    // Other solvers: outer = inner (outer_max_iter is ignored for non-newton_kl paths).
+    if (LENGTH(method_sexp) == 1 &&
+        strcmp(CHAR(STRING_ELT(method_sexp, 0)), "newton_kl") == 0) {
+        p.outer_max_iter = 0;  // triggers C-side 50-default in newton_calib.cpp:90
+    } else {
+        p.outer_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
+    }
     p.tol_abs        = scalar_real(tol_abs_sexp, "tol_abs");
     p.bounds_mode    = (rk_bounds_mode_t) scalar_int(bounds_mode_sexp, "bounds_mode");
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
