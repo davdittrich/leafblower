@@ -1,0 +1,8 @@
+n,method,phase,R_ms,Py_ms,gap_ms,notes
+10000,ieppa,total,74.0,61.4,12.6,R median 5 reps; Py median 5 reps; same small fixture
+10000,raking,total,57.0,NA,NA,R median 5 reps; Python raking not benchmarked
+10000,ieppa,solver_C++,67.3,NA,NA,from Rprof: .Call = 90.99% of 74ms
+10000,ieppa,R_preprocess,4.3,10.1,NA,"R: lapply group_ids (FUN 5.86%); Py: encoding median 100 reps"
+10000,ieppa,R_droplevels,0.7,0.0,NA,R only; Python has no equivalent
+10000,ieppa,R_other,1.7,NA,NA,withCallingHandlers + tolower + misc
+10000,ieppa,R_bridge_total,6.7,NA,NA,all R overhead outside .Call
