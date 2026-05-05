@@ -251,25 +251,32 @@ harvest <- function(
   target  <- parse_target(target, target_map)
   method  <- map_method(method, verbose)
   conv    <- parse_convergence(convergence)
-  # iEPPA only: marginal_kl is the calibration-quality loss (best_iter criterion).
-  # Raking and other solvers keep their own defaults — raking minimizes weight KL
-  # via IPF, not marginal KL.
-  if (method %in% c("ieppa", "ieppa_soft") &&
-      is.null(convergence[["metric"]]) &&
-      is.null(convergence[["criterion"]]) &&
-      is.null(convergence[["improvement"]]) &&
-      is.null(convergence[["pct"]]) &&
-      is.null(convergence[["absolute"]])) {
-    conv$metric <- "marginal_kl"
-  }
-  # Sinkhorn minimizes weight KL — override default metric when user hasn't specified one.
-  if (method == "sinkhorn" &&
-      is.null(convergence[["metric"]]) &&
-      is.null(convergence[["criterion"]]) &&
-      is.null(convergence[["improvement"]]) &&
-      is.null(convergence[["pct"]]) &&
-      is.null(convergence[["absolute"]])) {
-    conv$metric <- "kl"
+  # Per-method default convergence metric: use the solver's natural objective.
+  # Only applied when the user has not explicitly specified any metric or tol shorthand.
+  # User-provided metric/criterion/improvement/pct/absolute always take precedence.
+  .no_explicit_metric <-
+    is.null(convergence[["metric"]])      &&
+    is.null(convergence[["criterion"]])   &&
+    is.null(convergence[["improvement"]]) &&
+    is.null(convergence[["pct"]])         &&
+    is.null(convergence[["absolute"]])
+  if (.no_explicit_metric) {
+    conv$metric <- switch(method,
+      # KL minimizers — marginal_kl is monotone across full sweeps (Csiszar-Tusnady).
+      "ieppa"       = "marginal_kl",
+      "ieppa_soft"  = "marginal_kl",
+      "auto"        = "marginal_kl",  # auto routes to ieppa in most cases
+      # Weight-KL minimizers — kl monotone by Csiszar-Tusnady; marginal_kl not
+      # computed in raking/greenkhorn need_extra gate so cannot be used.
+      "raking"      = "kl",
+      "greenkhorn"  = "kl",
+      "sinkhorn"    = "kl",
+      "newton_kl"   = "kl",
+      # chi2 minimizer — use its actual objective.
+      "greg"        = "chi2",
+      # Remaining (chebyshev minimizes L-inf = max_err; logit has no natural KL):
+      conv$metric   # keep max_err default
+    )
   }
   if (!is.null(capacity_penalty)) {
     if (!is.numeric(capacity_penalty) || length(capacity_penalty) != 1L ||

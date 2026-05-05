@@ -456,8 +456,10 @@ test_that("squarem-ac3: accelerate=FALSE matches pre-SQUAREM baseline to 1e-14",
   df  <- data.frame(v1 = factor(sample(3L, n, TRUE)), v2 = factor(sample(2L, n, TRUE)))
   tgt <- list(v1=c("1"=0.5,"2"=0.3,"3"=0.2), v2=c("1"=0.6,"2"=0.4))
 
+  # Explicit metric to match baseline fixture (generated with max_err default).
   r <- leafblower::harvest(df, tgt, method="raking",
-    accelerate=FALSE, max_weight=5, max_iterations=500L, attach_weights=FALSE)
+    accelerate=FALSE, max_weight=5, max_iterations=500L,
+    convergence=list(metric="max_err"), attach_weights=FALSE)
   w <- as.numeric(r)
   w_ref <- readRDS(ref_path)
 
@@ -518,8 +520,11 @@ test_that("status-budget: budget exhausted emits status=4, not status=1", {
     v2 = setNames(c(0.4, 0.3, 0.2, 0.1), as.character(1:4)),
     v3 = setNames(c(0.5, 0.3, 0.2), as.character(1:3))
   )
+  # Explicit max_err so budget fires before kl-based convergence (default kl
+  # converges within 5 iters on this well-conditioned problem).
   r <- leafblower::harvest(df, tgt, method = "raking", accelerate = FALSE,
-    max_weight = 5, max_iterations = 5L, attach_weights = FALSE)
+    max_weight = 5, max_iterations = 5L,
+    convergence = list(metric = "max_err"), attach_weights = FALSE)
   expect_equal(attr(r, "result")$status, 4L,
                label = "budget exhausted must return status=4 (RK_ERR_BUDGET)")
 })
@@ -1019,10 +1024,17 @@ test_that("T_sraa_grk: greenkhorn+AA max_err <= plain and converges faster", {
                     y=factor(sample(c("M","F"),n,TRUE)))
   tgt <- list(x=c(a=0.3,b=0.4,c=0.3), y=c(M=0.5,F=0.5))
   K_exp <- 2L
+  # Explicit max_err: this test compares iteration counts (AA vs plain), not the
+  # convergence metric choice. max_err is the natural stopping criterion for
+  # greenkhorn's per-margin argmax selection.
   r_aa    <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=TRUE,
-                                       max_iterations=500L, attach_weights=FALSE))
+                                       max_iterations=500L,
+                                       convergence=list(metric="max_err"),
+                                       attach_weights=FALSE))
   r_plain <- suppressWarnings(harvest(df, tgt, method="greenkhorn", accelerate=FALSE,
-                                       max_iterations=500L, attach_weights=FALSE))
+                                       max_iterations=500L,
+                                       convergence=list(metric="max_err"),
+                                       attach_weights=FALSE))
   me_aa    <- attr(r_aa,    "result")$max_error
   me_plain <- attr(r_plain, "result")$max_error
   iters_aa    <- attr(r_aa,    "result")$iterations
