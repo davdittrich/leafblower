@@ -169,3 +169,33 @@ def test_per_method_default_metric():
         assert captured.get("metric") == _METRIC_MAP["kl"], (
             f"explicit metric='kl' overridden for method={method!r}: got {captured.get('metric')}"
         )
+
+
+def test_compute_sparseness_diag_na_bin():
+    """NA-bin level must not be falsely reported as sparse when add_na_proportion=True."""
+    import pandas as pd
+    import numpy as np
+    from leafblower._harvest import _compute_sparseness_diag
+
+    n = 200
+    rng = np.random.default_rng(99)
+    # 40% NaN — well above obs_threshold=30
+    mask = rng.random(n) < 0.4
+    strs = rng.choice(["A", "B"], n)
+    v1 = pd.array([None if m else s for m, s in zip(mask, strs)], dtype=object)
+    df = pd.DataFrame({"v1": v1, "v2": rng.choice(["X", "Y"], n)})
+
+    # Simulate what add_na_proportion=True injects
+    na_frac = float(pd.isna(df["v1"]).mean())
+    tgt = {
+        "v1": {"A": (1 - na_frac) * 0.5, "B": (1 - na_frac) * 0.5, "NA": na_frac},
+        "v2": {"X": 0.5, "Y": 0.5},
+    }
+
+    result = _compute_sparseness_diag(df, tgt, cat_threshold=0.01, obs_threshold=30)
+
+    # v1 "NA" bin has ~40% of 200 = ~80 obs — must NOT be sparse
+    v1_sparse_levels = [r["level"] for r in result.get("v1", [])]
+    assert "NA" not in v1_sparse_levels, (
+        f"NA-bin falsely flagged sparse: {result.get('v1', [])}"
+    )

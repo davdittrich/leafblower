@@ -39,7 +39,12 @@ def _compute_sparseness_diag(df, targets, cat_threshold=0.01, obs_threshold=30):
             continue
         counts = df[v].astype(str).value_counts(dropna=True)
         for level, T_kj in tgt.items():
-            n_kj = int(counts.get(str(level), 0))
+            lv_str = str(level)
+            if lv_str == "NA":
+                # NA-bin: astype(str) converts NaN → "nan" not "NA"; count directly
+                n_kj = int(pd.isna(df[v]).sum())
+            else:
+                n_kj = int(counts.get(lv_str, 0))
             if T_kj < cat_threshold or n_kj < obs_threshold:
                 sparse_cats.setdefault(v, []).append(
                     {"level": level, "T_kj": T_kj, "n_kj": n_kj}
