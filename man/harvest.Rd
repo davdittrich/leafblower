@@ -18,7 +18,7 @@ harvest(
   attach_weights = TRUE,
   weight_column = "weights",
   convergence = list(),
-  sor = list(auto = TRUE, omega_min = 0.3),
+  sor = NULL,
   bounds_mode = "cell",
   homotopy_levels = 1L,
   homotopy_start_factor = 1,
@@ -29,19 +29,14 @@ harvest(
   eta_start = 1,
   eta_end = 1,
   eta_schedule_power = 0.5,
-  select_params = NULL,
-  select_function = NULL,
-  error_function = NULL,
-  adaptive_order = NULL,
-  enforce_mean = TRUE,
   accelerate = FALSE,
   add_na_proportion = FALSE,
   auto_collapse = FALSE,
   collapse_vars = NULL,
   target_map = NULL,
   design_weights = NULL,
-  jacobi_sweep = FALSE,
   newton_tsvd_ratio = 1e-08,
+  ridge_lambda = 0,
   ...
 )
 }
@@ -121,7 +116,7 @@ equivalent to \code{autumn::calibrate()}).}
   within one method; do not compare values across methods.}
 
 \item{sor}{Named list for SOR adaptive under-relaxation (iEPPA and raking).
-\code{NULL} disables SOR. Keys:
+Default \code{NULL} disables SOR. Keys:
 \itemize{
   \item \code{auto}: logical, default \code{TRUE}.
   \item \code{omega_min}: lower bound on relaxation factor, default \code{0.3}.
@@ -152,16 +147,6 @@ across n levels.}
 \item{eta_end}{Ending ALM penalty multiplier (default 1.0).}
 
 \item{eta_schedule_power}{Power for Tang-eta schedule interpolation (default 0.5).}
-
-\item{select_params}{Ignored with verbose >= 2 note.}
-
-\item{select_function}{Ignored.}
-
-\item{error_function}{Ignored.}
-
-\item{adaptive_order}{Ignored.}
-
-\item{enforce_mean}{Ignored (retained for compatibility).}
 
 \item{accelerate}{Logical. Enable Safeguarded Regularized Anderson Acceleration
   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
@@ -201,12 +186,10 @@ across n levels.}
 \code{start_weights} is NULL, used as starting weights (normalized to
 mean=1). Length must equal \code{nrow(data)}.}
 
-\item{jacobi_sweep}{Logical. Use Jacobi (frozen cell_lf snapshot) instead of
-Gauss-Seidel (incremental cell_lf updates) for the iEPPA log-path margin sweep.
-Default \code{FALSE} (Gauss-Seidel). May improve wall-time at very large
-\code{M_cell} (>1M unique cells) where scattered GS writes exceed last-level
-cache capacity. No benefit observed at M_cell < 100K. Ignored for linear-path
-problems (\code{n/M_cell < 2}).}
+\item{ridge_lambda}{Tikhonov ridge penalty on the dual lambda (default 0.0 = off).
+Adds \code{ridge_lambda} to the diagonal of the Hessian (newton_kl) or
+normal-equations matrix (greg) before factorization. Hardens near-singular
+systems from cell-level sparseness. Ignored by all other solvers.}
 
 \item{...}{Additional arguments ignored.}
 }
@@ -224,7 +207,8 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
         \item \code{iterations}: number of outer iterations completed.
         \item \code{max_error}: maximum marginal error at the returned weights.
         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
-          For iEPPA and raking it is iteration-to-iteration.
+          For \code{method="lbfgsb"} this is start-to-final (batch solver);
+          for iEPPA and raking it is iteration-to-iteration.
         \item \code{grake_norm}: survey-grake normalized residual
           max_k|misfit|/(1+|pop|).
         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},
@@ -245,6 +229,11 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
         \item \code{alm_max_dual_norm}: max absolute Lagrange dual at solver exit.
         \item \code{alm_sum_drift}: \code{|sum(weights) - n|} after final projection (bounded by \code{1e-6 * n}).
+        \item \code{sraa_demoted}: logical; \code{TRUE} iff SRAA-m
+          acceleration was requested with \code{scheduler="greedy"} and the
+          greedy scheduler was demoted to round-robin (greedy is incompatible
+          with SRAA's fixed-point geometry). \code{FALSE} for non-ieppa /
+          non-raking solvers and whenever no demotion occurred.
       }
     }
     \item{\code{algorithm}}{Character name of the solver used.}

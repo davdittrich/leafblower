@@ -115,7 +115,7 @@ def _resolve_sor(sor):
 
 def _parse_sor(sor):
     """Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed, burnin)."""
-    if not sor:  # empty dict = disabled (from _resolve_sor(False))
+    if not sor:  # empty dict = disabled (from _resolve_sor(None) or _resolve_sor(False))
         return 0, 0, 1.0, 0.3, -1.0, 20
     enabled = 1
     auto = 1 if sor.get("auto", True) else 0
