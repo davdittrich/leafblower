@@ -63,7 +63,7 @@
 #'   raking uses \code{n}. Use chi2 as a convergence criterion
 #'   within one method; do not compare values across methods.
 #' @param sor Named list for SOR adaptive under-relaxation (iEPPA and raking).
-#'   \code{NULL} disables SOR. Keys:
+#'   Default \code{NULL} disables SOR. Keys:
 #'   \itemize{
 #'     \item \code{auto}: logical, default \code{TRUE}.
 #'     \item \code{omega_min}: lower bound on relaxation factor, default \code{0.3}.
@@ -212,7 +212,7 @@ harvest <- function(
   attach_weights   = TRUE,
   weight_column    = "weights",
   convergence      = list(),
-  sor              = list(auto = TRUE, omega_min = 0.3),
+  sor              = NULL,
   bounds_mode      = "cell",
   # --- new overlay knobs (all default off / identity) ---
   homotopy_levels       = 1L,

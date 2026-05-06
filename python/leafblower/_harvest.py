@@ -105,9 +105,9 @@ def _parse_convergence(conv):
 
 
 def _resolve_sor(sor):
-    """Map sor=None to R default (auto-enabled). sor=False/sor={} = explicit disable."""
+    """sor=None disables SOR (matches R default sor=NULL). sor=False/sor={} = explicit disable."""
     if sor is None:
-        return {"auto": True, "omega_min": 0.3}  # R default: list(auto=TRUE, omega_min=0.3)
+        return {}  # R default: sor=NULL (disabled)
     if sor is False:
         return {}  # explicit disable
     return sor  # passthrough dict

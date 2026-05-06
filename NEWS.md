@@ -1,5 +1,12 @@
 # leafblower (development version)
 
+## Breaking changes
+
+* `harvest()` default changed: `sor` is now `NULL` (disabled) instead of
+  `list(auto = TRUE, omega_min = 0.3)`. SOR caused 2–3× slowdowns at loose
+  bounds (`max_weight ≥ 5`, `K ≤ 3`) — the common calibration scenario.
+  To opt in: `harvest(..., sor = list(auto = TRUE))`.
+
 * `anesrake()` now defaults to `choosemethod = "ieppa"` (was `"rake"` which triggered a deprecation warning).
 
 ## Newton-KL calibration

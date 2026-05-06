@@ -120,10 +120,12 @@ test_that("g4oj: best_iter tracks active metric (kl vs max_err differ)", {
     w_kl <- leafblower::harvest(data, target, max_weight = 5, method = "raking",
                                 max_iterations = 3,
                                 convergence = list(metric="kl", rule="improvement", tol=1e-15),
+                                sor = list(auto = TRUE, omega_min = 0.3),
                                 attach_weights = FALSE)
     w_me <- leafblower::harvest(data, target, max_weight = 5, method = "raking",
                                 max_iterations = 3,
                                 convergence = list(metric="max_err", rule="improvement", tol=1e-15),
+                                sor = list(auto = TRUE, omega_min = 0.3),
                                 attach_weights = FALSE)
   })
   r_kl <- attr(w_kl, "result")
