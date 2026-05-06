@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-05-03T22:25:39.300Z
-> Files: 539 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-05-06T11:44:56.128Z
+> Files: 542 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ..Rcheck/
 
@@ -144,7 +144,7 @@
 - `baseline_bench.R` (~191 tok)
 - `cell_table_92c4f45.cpp` — include "lbw_config.h" (~1375 tok)
 - `cell_table_92c4f45.hpp` — pragma once (~285 tok)
-- `CLAUDE.md` — OpenWolf (~1167 tok)
+- `CLAUDE.md` — OpenWolf (~1659 tok)
 - `cleanup` (~8 tok)
 - `code-review-findings.md` — Code Review: C++ Source Files (cell_table, chebyshev, sinkhorn, grake, greg) (~1627 tok)
 - `configure` — Detect C++17 support. (~1050 tok)
@@ -167,8 +167,8 @@
 - `.local_version` (~2 tok)
 - `config.yaml` — Beads Configuration File (~597 tok)
 - `export-state.json` (~38 tok)
-- `interactions.jsonl` — Declares guards (~13177 tok)
-- `last-touched` (~6 tok)
+- `interactions.jsonl` — Declares guards (~23715 tok)
+- `last-touched` (~5 tok)
 - `metadata.json` (~46 tok)
 - `README.md` — Project documentation (~562 tok)
 
@@ -206,7 +206,7 @@
 ## .claude/
 
 - `settings.json` (~748 tok)
-- `settings.local.json` (~1204 tok)
+- `settings.local.json` (~1315 tok)
 
 ## .claude/rules/
 
@@ -717,16 +717,28 @@
 - `logit.cpp` — include "logit.hpp" (~112 tok)
 - `logit.hpp` — pragma once (~921 tok)
 
-## .worktrees/bwarn/R/
+## .worktrees/fix-bench-timing/benchmarks/
 
-- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~10775 tok)
+- `allmethod_bench.py` — benchmarks/allmethod_bench.py (~1807 tok)
+- `allmethod_bench.R` — benchmarks/allmethod_bench.R (~1465 tok)
+- `run_allmethod.sh` (~45 tok)
 
-## .worktrees/bwarn/src/
+## .worktrees/fix-bench-timing/python/leafblower/
 
-- `ieppa.cpp` — include "lbw_config.h" (~27817 tok)
-- `r_bridge.cpp` — include "leafblower.h" (~12913 tok)
-- `types.hpp` — pragma once (~1536 tok)
+- `_bindings.cpp` — include <pybind11/pybind11.h> (~2957 tok)
 
-## tasks/
+## .worktrees/fix-r-bench-parity/R/
 
-- `IMPR-BUDGET-WARN-skmo.md` — IMPR-BUDGET-WARN (leafblower-skmo) — Stall Detection + Last-Interval Rate (Revised) (~3020 tok)
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~12205 tok)
+
+## .worktrees/fix-r-bench-parity/benchmarks/
+
+- `allmethod_bench.R` — benchmarks/allmethod_bench.R (~1410 tok)
+
+## R/
+
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~12205 tok)
+
+## benchmarks/
+
+- `allmethod_bench.R` — benchmarks/allmethod_bench.R (~1404 tok)

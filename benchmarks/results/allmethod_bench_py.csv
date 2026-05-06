@@ -1,16 +1,16 @@
-method,loss_fn,time_ms,status,iterations,algorithm,marginal_kl,max_err
-ieppa,marginal_kl,1940,converged,50,ieppa,0.004978,0.002856
-ieppa + accel,marginal_kl,1840,converged,20,ieppa,0.011435,0.013591
-ieppa + greedy,marginal_kl,1887,converged,20,ieppa,0.010734,0.003727
-ieppa + greedy+accel,marginal_kl,1903,converged,20,ieppa,0.011435,0.013591
-ieppa_soft (auto cp),marginal_kl,2074,converged,50,ieppa_soft,0.005055,0.003009
-ieppa_soft + accel,marginal_kl,1924,converged,20,ieppa_soft,0.012408,0.014305
-raking,max_err,1965,stall,50,raking,0.006275,0.001561
-greenkhorn,max_err,2389,converged,1030,greenkhorn,0.007706,0.001536
-greenkhorn + greedy,max_err,2348,converged,1030,greenkhorn,0.007706,0.001536
-greenkhorn + accel,max_err,2001,converged,270,greenkhorn,0.007706,0.001536
-sinkhorn,kl,1981,converged,90,sinkhorn,0.00671,0.005999
-newton_kl,kl,10894,converged,7,newton_kl,0.000971,0.002546
-logit,max_err,1970,converged,2,logit,0.746451,0.139551
-chebyshev,chi2,13288,no_conv,500,chebyshev,0.745615,0.139391
-greg,chi2,3081,no_conv,50,greg,16.505333,0.492119
+method,loss_fn,time_ms,status,iterations,algorithm,marginal_kl,max_err,kl
+ieppa,marginal_kl,4636,converged,550,ieppa,0.00516,0.003503,0.344626
+ieppa + accel,marginal_kl,2409,converged,20,ieppa,0.011435,0.013591,0.292313
+ieppa + greedy,marginal_kl,2479,converged,20,ieppa,0.010734,0.003727,0.297382
+ieppa + greedy+accel,marginal_kl,2479,converged,20,ieppa,0.011435,0.013591,0.292313
+ieppa_soft (auto cp),marginal_kl,2728,converged,80,ieppa_soft,0.005018,0.002526,0.34774
+ieppa_soft + accel,marginal_kl,2526,converged,20,ieppa_soft,0.012408,0.014305,0.289775
+raking,kl,2610,stall,50,raking,0.00518,0.001723,0.351867
+greenkhorn,kl,4105,budget,3000,greenkhorn,0.007706,0.001536,0.344738
+greenkhorn + greedy,kl,4028,budget,3000,greenkhorn,0.007706,0.001536,0.344738
+greenkhorn + accel,kl,6531,converged,5814,greenkhorn,0.007706,0.001536,0.344738
+sinkhorn,kl,2690,converged,170,sinkhorn,0.006664,0.005994,0.343285
+newton_kl,kl,102235,converged,7,newton_kl,0.000971,0.002546,0.349736
+logit,max_err,21714,stall,50,logit,0.766691,0.143275,8.9e-05
+chebyshev,chi2,157827,no_conv,500,chebyshev,0.584914,0.125015,0.015328
+greg,chi2,21939,no_conv,50,greg,16.505333,0.492119,0.555315

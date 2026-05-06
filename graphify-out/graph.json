@@ -9,7 +9,7 @@
       "source_file": "conftest.py",
       "source_location": "L1",
       "id": "conftest_py",
-      "community": 16,
+      "community": 17,
       "norm_label": "conftest.py"
     },
     {
@@ -17,7 +17,7 @@
       "file_type": "rationale",
       "source_file": "conftest.py",
       "source_location": "L1",
-      "community": 16,
+      "community": 17,
       "norm_label": "root conftest: remove python/ src tree from sys.path so the installed wheel is i",
       "id": "leafblower_conftest_rationale_1"
     },
@@ -27,26 +27,8 @@
       "source_file": "patch_wolfe.py",
       "source_location": "L1",
       "id": "patch_wolfe_py",
-      "community": 14,
+      "community": 23,
       "norm_label": "patch_wolfe.py"
-    },
-    {
-      "label": "patch_wolfe()",
-      "file_type": "code",
-      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "source_location": "L7",
-      "id": "leafblower_patch_wolfe_patch_wolfe",
-      "community": 14,
-      "norm_label": "patch_wolfe()"
-    },
-    {
-      "label": "patch_wolfe_line_search()",
-      "file_type": "code",
-      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "source_location": "L40",
-      "id": "leafblower_patch_wolfe_patch_wolfe_line_search",
-      "community": 14,
-      "norm_label": "patch_wolfe_line_search()"
     },
     {
       "label": "patch_raking.py",
@@ -54,7 +36,7 @@
       "source_file": "patch_raking.py",
       "source_location": "L1",
       "id": "patch_raking_py",
-      "community": 22,
+      "community": 24,
       "norm_label": "patch_raking.py"
     },
     {
@@ -63,7 +45,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L1",
       "id": "cell_table_92c4f45_cpp",
-      "community": 12,
+      "community": 11,
       "norm_label": "cell_table_92c4f45.cpp"
     },
     {
@@ -72,7 +54,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L11",
       "id": "leafblower_cell_table_92c4f45_bits_needed",
-      "community": 12,
+      "community": 11,
       "norm_label": "bits_needed()"
     },
     {
@@ -81,7 +63,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L22",
       "id": "leafblower_cell_table_92c4f45_pack_key_fits",
-      "community": 12,
+      "community": 11,
       "norm_label": "pack_key_fits()"
     },
     {
@@ -90,7 +72,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L32",
       "id": "leafblower_cell_table_92c4f45_pack_key_compute",
-      "community": 12,
+      "community": 11,
       "norm_label": "pack_key_compute()"
     },
     {
@@ -99,7 +81,7 @@
       "source_file": "cell_table_92c4f45.cpp",
       "source_location": "L47",
       "id": "leafblower_cell_table_92c4f45_build_cell_table",
-      "community": 12,
+      "community": 11,
       "norm_label": "build_cell_table()"
     },
     {
@@ -108,7 +90,7 @@
       "source_file": "cell_table_92c4f45.hpp",
       "source_location": "L1",
       "id": "cell_table_92c4f45_hpp",
-      "community": 23,
+      "community": 25,
       "norm_label": "cell_table_92c4f45.hpp"
     },
     {
@@ -117,7 +99,7 @@
       "source_file": "ieppa_92c4f45.cpp",
       "source_location": "L1",
       "id": "ieppa_92c4f45_cpp",
-      "community": 4,
+      "community": 5,
       "norm_label": "ieppa_92c4f45.cpp"
     },
     {
@@ -126,7 +108,7 @@
       "source_file": "ieppa_92c4f45.cpp",
       "source_location": "L22",
       "id": "leafblower_ieppa_92c4f45_ieppa_solve",
-      "community": 4,
+      "community": 5,
       "norm_label": "ieppa_solve()"
     },
     {
@@ -135,7 +117,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/master.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_master_m",
-      "community": 24,
+      "community": 26,
       "norm_label": "master.m"
     },
     {
@@ -144,7 +126,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/main/Gprocedure.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_main_gprocedure_m",
-      "community": 25,
+      "community": 27,
       "norm_label": "gprocedure.m"
     },
     {
@@ -153,7 +135,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/main/EPPA.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_main_eppa_m",
-      "community": 26,
+      "community": 28,
       "norm_label": "eppa.m"
     },
     {
@@ -162,7 +144,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/psnr2.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_psnr2_m",
-      "community": 27,
+      "community": 29,
       "norm_label": "psnr2.m"
     },
     {
@@ -171,7 +153,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/tableplot.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_tableplot_m",
-      "community": 28,
+      "community": 30,
       "norm_label": "tableplot.m"
     },
     {
@@ -180,7 +162,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/genCollectionA.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_gencollectiona_m",
-      "community": 29,
+      "community": 31,
       "norm_label": "gencollectiona.m"
     },
     {
@@ -189,7 +171,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/genData2D.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_gendata2d_m",
-      "community": 30,
+      "community": 32,
       "norm_label": "gendata2d.m"
     },
     {
@@ -198,7 +180,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/cellOnes1D.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_cellones1d_m",
-      "community": 31,
+      "community": 33,
       "norm_label": "cellones1d.m"
     },
     {
@@ -207,7 +189,7 @@
       "source_file": "docs/iEPPA/code/2Dtomography/tools/sumcell.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_2dtomography_tools_sumcell_m",
-      "community": 32,
+      "community": 34,
       "norm_label": "sumcell.m"
     },
     {
@@ -216,7 +198,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/run_cot_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_run_cot_2d_m",
-      "community": 33,
+      "community": 35,
       "norm_label": "run_cot_2d.m"
     },
     {
@@ -225,7 +207,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/run_cot_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_run_cot_3d_m",
-      "community": 34,
+      "community": 36,
       "norm_label": "run_cot_3d.m"
     },
     {
@@ -234,7 +216,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/stabilized_dykstra.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_stabilized_dykstra_m",
-      "community": 35,
+      "community": 37,
       "norm_label": "stabilized_dykstra.m"
     },
     {
@@ -243,7 +225,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ot_rounding_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ot_rounding_3d_m",
-      "community": 36,
+      "community": 38,
       "norm_label": "ot_rounding_3d.m"
     },
     {
@@ -252,7 +234,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/dykstra.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_dykstra_m",
-      "community": 37,
+      "community": 39,
       "norm_label": "dykstra.m"
     },
     {
@@ -261,7 +243,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ieppa_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ieppa_2d_m",
-      "community": 38,
+      "community": 40,
       "norm_label": "ieppa_2d.m"
     },
     {
@@ -270,7 +252,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ieppa_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ieppa_3d_m",
-      "community": 39,
+      "community": 41,
       "norm_label": "ieppa_3d.m"
     },
     {
@@ -279,7 +261,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/ot_rounding_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_ot_rounding_2d_m",
-      "community": 40,
+      "community": 42,
       "norm_label": "ot_rounding_2d.m"
     },
     {
@@ -288,7 +270,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bcd_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bcd_2d_m",
-      "community": 41,
+      "community": 43,
       "norm_label": "bcd_2d.m"
     },
     {
@@ -297,7 +279,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bregdist_2d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bregdist_2d_m",
-      "community": 42,
+      "community": 44,
       "norm_label": "bregdist_2d.m"
     },
     {
@@ -306,7 +288,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bregdist_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bregdist_3d_m",
-      "community": 43,
+      "community": 45,
       "norm_label": "bregdist_3d.m"
     },
     {
@@ -315,7 +297,7 @@
       "source_file": "docs/iEPPA/code/ExpSynthesisData/solvers/bcd_3d.m",
       "source_location": "L1",
       "id": "docs_ieppa_code_expsynthesisdata_solvers_bcd_3d_m",
-      "community": 44,
+      "community": 46,
       "norm_label": "bcd_3d.m"
     },
     {
@@ -396,7 +378,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L1",
       "id": "benchmarks_python_ipf_benchmark_py",
-      "community": 9,
+      "community": 8,
       "norm_label": "python_ipf_benchmark.py"
     },
     {
@@ -405,7 +387,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L14",
       "id": "benchmarks_python_ipf_benchmark_load_data",
-      "community": 9,
+      "community": 8,
       "norm_label": "load_data()"
     },
     {
@@ -414,7 +396,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L31",
       "id": "benchmarks_python_ipf_benchmark_compute_metrics",
-      "community": 9,
+      "community": 8,
       "norm_label": "compute_metrics()"
     },
     {
@@ -423,7 +405,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L61",
       "id": "benchmarks_python_ipf_benchmark_run_ipfn",
-      "community": 9,
+      "community": 8,
       "norm_label": "run_ipfn()"
     },
     {
@@ -432,7 +414,7 @@
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L122",
       "id": "benchmarks_python_ipf_benchmark_main",
-      "community": 9,
+      "community": 8,
       "norm_label": "main()"
     },
     {
@@ -440,7 +422,7 @@
       "file_type": "rationale",
       "source_file": "benchmarks/python_ipf_benchmark.py",
       "source_location": "L62",
-      "community": 9,
+      "community": 8,
       "norm_label": "ipfn.ipfn in dataframe mode on compressed cell table (28,905 cells).",
       "id": "benchmarks_python_ipf_benchmark_rationale_62"
     },
@@ -450,7 +432,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L1",
       "id": "benchmarks_stepstone_fulldata_benchmark_py",
-      "community": 10,
+      "community": 9,
       "norm_label": "stepstone_fulldata_benchmark.py"
     },
     {
@@ -459,7 +441,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L34",
       "id": "benchmarks_stepstone_fulldata_benchmark_load_data",
-      "community": 10,
+      "community": 9,
       "norm_label": "load_data()"
     },
     {
@@ -468,7 +450,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L50",
       "id": "benchmarks_stepstone_fulldata_benchmark_bench_harvest",
-      "community": 10,
+      "community": 9,
       "norm_label": "bench_harvest()"
     },
     {
@@ -477,7 +459,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L84",
       "id": "benchmarks_stepstone_fulldata_benchmark_design_effect",
-      "community": 10,
+      "community": 9,
       "norm_label": "design_effect()"
     },
     {
@@ -486,7 +468,7 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L89",
       "id": "benchmarks_stepstone_fulldata_benchmark_effective_sample_size",
-      "community": 10,
+      "community": 9,
       "norm_label": "effective_sample_size()"
     },
     {
@@ -495,89 +477,44 @@
       "source_file": "benchmarks/stepstone_fulldata_benchmark.py",
       "source_location": "L93",
       "id": "benchmarks_stepstone_fulldata_benchmark_main",
-      "community": 10,
+      "community": 9,
       "norm_label": "main()"
     },
     {
-      "label": "cp_calib.hpp",
+      "label": "allmethod_bench.py",
       "file_type": "code",
-      "source_file": "research/cp_calib.hpp",
+      "source_file": "benchmarks/allmethod_bench.py",
       "source_location": "L1",
-      "id": "research_cp_calib_hpp",
-      "community": 45,
-      "norm_label": "cp_calib.hpp"
+      "id": "benchmarks_allmethod_bench_py",
+      "community": 14,
+      "norm_label": "allmethod_bench.py"
     },
     {
-      "label": "ipm_calib.cpp",
+      "label": "post_hoc_mkl()",
       "file_type": "code",
-      "source_file": "research/ipm_calib.cpp",
-      "source_location": "L1",
-      "id": "research_ipm_calib_cpp",
-      "community": 8,
-      "norm_label": "ipm_calib.cpp"
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L42",
+      "id": "benchmarks_allmethod_bench_post_hoc_mkl",
+      "community": 14,
+      "norm_label": "post_hoc_mkl()"
     },
     {
-      "label": "ipm_calibrate()",
+      "label": "run()",
       "file_type": "code",
-      "source_file": "research/ipm_calib.cpp",
-      "source_location": "L24",
-      "id": "research_ipm_calib_ipm_calibrate",
-      "community": 8,
-      "norm_label": "ipm_calibrate()"
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L58",
+      "id": "benchmarks_allmethod_bench_run",
+      "community": 14,
+      "norm_label": "run()"
     },
     {
-      "label": "research_bridge.cpp",
-      "file_type": "code",
-      "source_file": "research/research_bridge.cpp",
-      "source_location": "L1",
-      "id": "research_research_bridge_cpp",
-      "community": 8,
-      "norm_label": "research_bridge.cpp"
-    },
-    {
-      "label": "cp_solve_R()",
-      "file_type": "code",
-      "source_file": "research/research_bridge.cpp",
-      "source_location": "L12",
-      "id": "research_research_bridge_cp_solve_r",
-      "community": 8,
-      "norm_label": "cp_solve_r()"
-    },
-    {
-      "label": "ipm_solve_R()",
-      "file_type": "code",
-      "source_file": "research/research_bridge.cpp",
-      "source_location": "L179",
-      "id": "research_research_bridge_ipm_solve_r",
-      "community": 8,
-      "norm_label": "ipm_solve_r()"
-    },
-    {
-      "label": "ipm_calib.hpp",
-      "file_type": "code",
-      "source_file": "research/ipm_calib.hpp",
-      "source_location": "L1",
-      "id": "research_ipm_calib_hpp",
-      "community": 46,
-      "norm_label": "ipm_calib.hpp"
-    },
-    {
-      "label": "cp_calib.cpp",
-      "file_type": "code",
-      "source_file": "research/cp_calib.cpp",
-      "source_location": "L1",
-      "id": "research_cp_calib_cpp",
-      "community": 8,
-      "norm_label": "cp_calib.cpp"
-    },
-    {
-      "label": "cp_calibrate()",
-      "file_type": "code",
-      "source_file": "research/cp_calib.cpp",
-      "source_location": "L7",
-      "id": "research_cp_calib_cp_calibrate",
-      "community": 8,
-      "norm_label": "cp_calibrate()"
+      "label": "Compute obs-level marginal_kl from returned weights via groupby.",
+      "file_type": "rationale",
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L43",
+      "id": "benchmarks_allmethod_bench_rationale_43",
+      "community": 14,
+      "norm_label": "compute obs-level marginal_kl from returned weights via groupby."
     },
     {
       "label": "conftest.py",
@@ -585,7 +522,7 @@
       "source_file": "python/conftest.py",
       "source_location": "L1",
       "id": "python_conftest_py",
-      "community": 17,
+      "community": 18,
       "norm_label": "conftest.py"
     },
     {
@@ -593,7 +530,7 @@
       "file_type": "rationale",
       "source_file": "python/conftest.py",
       "source_location": "L1",
-      "community": 17,
+      "community": 18,
       "norm_label": "ensure the installed wheel's leafblower package is found, not the local source t",
       "id": "python_conftest_rationale_1"
     },
@@ -763,7 +700,7 @@
       "label": "_parse_convergence()",
       "file_type": "code",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L31",
+      "source_location": "L34",
       "id": "leafblower_harvest_parse_convergence",
       "community": 0,
       "norm_label": "_parse_convergence()"
@@ -772,7 +709,7 @@
       "label": "_parse_sor()",
       "file_type": "code",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L88",
+      "source_location": "L91",
       "id": "leafblower_harvest_parse_sor",
       "community": 0,
       "norm_label": "_parse_sor()"
@@ -781,7 +718,7 @@
       "label": "harvest()",
       "file_type": "code",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L101",
+      "source_location": "L104",
       "id": "leafblower_harvest_harvest",
       "community": 0,
       "norm_label": "harvest()"
@@ -790,7 +727,7 @@
       "label": "diagnose_weights()",
       "file_type": "code",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L347",
+      "source_location": "L431",
       "id": "leafblower_harvest_diagnose_weights",
       "community": 0,
       "norm_label": "diagnose_weights()"
@@ -799,46 +736,46 @@
       "label": "Derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict.",
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L32",
+      "source_location": "L35",
+      "id": "leafblower_harvest_rationale_35",
       "community": 0,
-      "norm_label": "derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict.",
-      "id": "leafblower_harvest_rationale_32"
+      "norm_label": "derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict."
     },
     {
       "label": "Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed",
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L89",
+      "source_location": "L92",
+      "id": "leafblower_harvest_rationale_92",
       "community": 0,
-      "norm_label": "mirror r parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed",
-      "id": "leafblower_harvest_rationale_89"
+      "norm_label": "mirror r parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed"
     },
     {
       "label": "Calibrate survey weights. Drop-in for R leafblower::harvest().      Parameters",
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L117",
+      "source_location": "L133",
+      "id": "leafblower_harvest_rationale_133",
       "community": 0,
-      "norm_label": "calibrate survey weights. drop-in for r leafblower::harvest().      parameters",
-      "id": "leafblower_harvest_rationale_117"
+      "norm_label": "calibrate survey weights. drop-in for r leafblower::harvest().      parameters"
     },
     {
       "label": "Diagnose calibration quality (Python equivalent of R diagnose_weights()).      P",
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L348",
+      "source_location": "L432",
+      "id": "leafblower_harvest_rationale_432",
       "community": 0,
-      "norm_label": "diagnose calibration quality (python equivalent of r diagnose_weights()).      p",
-      "id": "leafblower_harvest_rationale_348"
+      "norm_label": "diagnose calibration quality (python equivalent of r diagnose_weights()).      p"
     },
     {
       "label": "# NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping",
       "file_type": "rationale",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L311",
+      "source_location": "L395",
+      "id": "leafblower_harvest_rationale_395",
       "community": 0,
-      "norm_label": "# note: no post-normalization clamp to [min_weight, max_weight]. clamping",
-      "id": "leafblower_harvest_rationale_311"
+      "norm_label": "# note: no post-normalization clamp to [min_weight, max_weight]. clamping"
     },
     {
       "label": "_bindings.cpp",
@@ -846,7 +783,7 @@
       "source_file": "python/leafblower/_bindings.cpp",
       "source_location": "L1",
       "id": "python_leafblower_bindings_cpp",
-      "community": 5,
+      "community": 1,
       "norm_label": "_bindings.cpp"
     },
     {
@@ -855,7 +792,7 @@
       "source_file": "python/leafblower/_bindings.cpp",
       "source_location": "L13",
       "id": "leafblower_bindings_py_log_trampoline",
-      "community": 5,
+      "community": 1,
       "norm_label": "py_log_trampoline()"
     },
     {
@@ -864,7 +801,7 @@
       "source_file": "python/leafblower/_bindings.cpp",
       "source_location": "L27",
       "id": "leafblower_bindings_pybind11_module",
-      "community": 5,
+      "community": 1,
       "norm_label": "pybind11_module()"
     },
     {
@@ -873,8 +810,26 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
-      "community": 14,
+      "community": 15,
       "norm_label": "patch_wolfe.py"
+    },
+    {
+      "label": "patch_wolfe()",
+      "file_type": "code",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "source_location": "L7",
+      "id": "leafblower_patch_wolfe_patch_wolfe",
+      "community": 15,
+      "norm_label": "patch_wolfe()"
+    },
+    {
+      "label": "patch_wolfe_line_search()",
+      "file_type": "code",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "source_location": "L40",
+      "id": "leafblower_patch_wolfe_patch_wolfe_line_search",
+      "community": 15,
+      "norm_label": "patch_wolfe_line_search()"
     },
     {
       "label": "c_api.cpp",
@@ -882,34 +837,34 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/c_api.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_c_api_cpp",
-      "community": 5,
+      "community": 1,
       "norm_label": "c_api.cpp"
     },
     {
       "label": "rk_params_init()",
       "file_type": "code",
       "source_file": "src/c_api.cpp",
-      "source_location": "L72",
+      "source_location": "L51",
       "id": "src_c_api_rk_params_init",
-      "community": 5,
+      "community": 1,
       "norm_label": "rk_params_init()"
     },
     {
       "label": "validate_inputs()",
       "file_type": "code",
       "source_file": "src/c_api.cpp",
-      "source_location": "L122",
+      "source_location": "L104",
       "id": "src_c_api_validate_inputs",
-      "community": 5,
+      "community": 1,
       "norm_label": "validate_inputs()"
     },
     {
       "label": "rk_calibrate()",
       "file_type": "code",
       "source_file": "src/c_api.cpp",
-      "source_location": "L143",
+      "source_location": "L125",
       "id": "src_c_api_rk_calibrate",
-      "community": 5,
+      "community": 1,
       "norm_label": "rk_calibrate()"
     },
     {
@@ -918,133 +873,133 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_lbfgsb_solver_cpp",
-      "community": 2,
+      "community": 4,
       "norm_label": "lbfgsb_solver.cpp"
     },
     {
       "label": "compute_targets_abs()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L16",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L15",
       "id": "src_lbfgsb_solver_compute_targets_abs",
-      "community": 2,
+      "community": 4,
       "norm_label": "compute_targets_abs()"
     },
     {
       "label": "build_offsets()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L31",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L30",
       "id": "src_lbfgsb_solver_build_offsets",
-      "community": 2,
+      "community": 4,
       "norm_label": "build_offsets()"
     },
     {
       "label": "compute_u()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L38",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L37",
       "id": "src_lbfgsb_solver_compute_u",
-      "community": 2,
+      "community": 4,
       "norm_label": "compute_u()"
     },
     {
       "label": "phi_from_u()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L51",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L50",
       "id": "src_lbfgsb_solver_phi_from_u",
-      "community": 2,
+      "community": 4,
       "norm_label": "phi_from_u()"
     },
     {
       "label": "phi_and_grad()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L96",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L95",
       "id": "src_lbfgsb_solver_phi_and_grad",
-      "community": 2,
+      "community": 4,
       "norm_label": "phi_and_grad()"
     },
     {
       "label": "compute_du()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L110",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L109",
       "id": "src_lbfgsb_solver_compute_du",
-      "community": 2,
+      "community": 4,
       "norm_label": "compute_du()"
     },
     {
       "label": "maxAbs()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L123",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L122",
       "id": "src_lbfgsb_solver_maxabs",
-      "community": 2,
+      "community": 4,
       "norm_label": "maxabs()"
     },
     {
       "label": "dot()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L129",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L128",
       "id": "src_lbfgsb_solver_dot",
-      "community": 2,
+      "community": 4,
       "norm_label": "dot()"
     },
     {
       "label": "lbfgs_direction()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L137",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L136",
       "id": "src_lbfgsb_solver_lbfgs_direction",
-      "community": 2,
+      "community": 4,
       "norm_label": "lbfgs_direction()"
     },
     {
       "label": "compute_final_weights_and_error()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L164",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L163",
       "id": "src_lbfgsb_solver_compute_final_weights_and_error",
-      "community": 2,
+      "community": 4,
       "norm_label": "compute_final_weights_and_error()"
     },
     {
       "label": "wolfe_zoom()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L341",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L221",
       "id": "src_lbfgsb_solver_wolfe_zoom",
-      "community": 2,
+      "community": 4,
       "norm_label": "wolfe_zoom()"
     },
     {
       "label": "wolfe_line_search()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L470",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L345",
       "id": "src_lbfgsb_solver_wolfe_line_search",
-      "community": 2,
+      "community": 4,
       "norm_label": "wolfe_line_search()"
     },
     {
       "label": "lbfgsb_solve_inner()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L607",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L477",
       "id": "src_lbfgsb_solver_lbfgsb_solve_inner",
-      "community": 2,
+      "community": 4,
       "norm_label": "lbfgsb_solve_inner()"
     },
     {
       "label": "lbfgsb_solve()",
       "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L696",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L564",
       "id": "src_lbfgsb_solver_lbfgsb_solve",
-      "community": 2,
+      "community": 4,
       "norm_label": "lbfgsb_solve()"
     },
     {
@@ -1071,7 +1026,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/logit.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_logit_hpp",
-      "community": 15,
+      "community": 16,
       "norm_label": "logit.hpp"
     },
     {
@@ -1080,7 +1035,7 @@
       "source_file": "src/logit.hpp",
       "source_location": "L15",
       "id": "src_logit_linkfn",
-      "community": 15,
+      "community": 16,
       "norm_label": "linkfn()"
     },
     {
@@ -1098,70 +1053,70 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/r_bridge.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_r_bridge_cpp",
-      "community": 7,
+      "community": 1,
       "norm_label": "r_bridge.cpp"
     },
     {
       "label": "r_log_trampoline()",
       "file_type": "code",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L52",
+      "source_location": "L65",
       "id": "src_r_bridge_r_log_trampoline",
-      "community": 7,
+      "community": 1,
       "norm_label": "r_log_trampoline()"
     },
     {
       "label": "R_init_leafblower()",
       "file_type": "code",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L58",
+      "source_location": "L121",
       "id": "src_r_bridge_r_init_leafblower",
-      "community": 7,
+      "community": 1,
       "norm_label": "r_init_leafblower()"
     },
     {
       "label": "C_logit_F_at_zero()",
       "file_type": "code",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L72",
+      "source_location": "L135",
       "id": "src_r_bridge_c_logit_f_at_zero",
-      "community": 7,
+      "community": 1,
       "norm_label": "c_logit_f_at_zero()"
     },
     {
       "label": "C_logit_range_check()",
       "file_type": "code",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L80",
+      "source_location": "L143",
       "id": "src_r_bridge_c_logit_range_check",
-      "community": 7,
+      "community": 1,
       "norm_label": "c_logit_range_check()"
     },
     {
       "label": "C_logit_Hprime_check()",
       "file_type": "code",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L94",
+      "source_location": "L157",
       "id": "src_r_bridge_c_logit_hprime_check",
-      "community": 7,
+      "community": 1,
       "norm_label": "c_logit_hprime_check()"
     },
     {
       "label": "C_rk_calibrate()",
       "file_type": "code",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L109",
+      "source_location": "L174",
       "id": "src_r_bridge_c_rk_calibrate",
-      "community": 5,
+      "community": 1,
       "norm_label": "c_rk_calibrate()"
     },
     {
       "label": "C_leafblower_cell_table_probe()",
       "file_type": "code",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L839",
+      "source_location": "L884",
       "id": "src_r_bridge_c_leafblower_cell_table_probe",
-      "community": 7,
+      "community": 1,
       "norm_label": "c_leafblower_cell_table_probe()"
     },
     {
@@ -1170,7 +1125,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbw_math.hpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_lbw_math_hpp",
-      "community": 11,
+      "community": 10,
       "norm_label": "lbw_math.hpp"
     },
     {
@@ -1179,7 +1134,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L17",
       "id": "src_lbw_math_bulk_scaled_exp",
-      "community": 11,
+      "community": 10,
       "norm_label": "bulk_scaled_exp()"
     },
     {
@@ -1215,7 +1170,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/raking.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_raking_cpp",
-      "community": 13,
+      "community": 12,
       "norm_label": "raking.cpp"
     },
     {
@@ -1224,7 +1179,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/raking.cpp",
       "source_location": "L14",
       "id": "src_raking_sum_weights_ilp",
-      "community": 13,
+      "community": 12,
       "norm_label": "sum_weights_ilp()"
     },
     {
@@ -1233,7 +1188,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/raking.cpp",
       "source_location": "L29",
       "id": "src_raking_compute_errrp",
-      "community": 13,
+      "community": 12,
       "norm_label": "compute_errrp()"
     },
     {
@@ -1242,7 +1197,7 @@
       "source_file": "src/raking.cpp",
       "source_location": "L38",
       "id": "src_raking_raking_solve",
-      "community": 13,
+      "community": 12,
       "norm_label": "raking_solve()"
     },
     {
@@ -1269,7 +1224,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/cell_table.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_cell_table_cpp",
-      "community": 4,
+      "community": 5,
       "norm_label": "cell_table.cpp"
     },
     {
@@ -1278,7 +1233,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L20",
       "id": "src_cell_table_pack_key_fits",
-      "community": 4,
+      "community": 5,
       "norm_label": "pack_key_fits()"
     },
     {
@@ -1287,7 +1242,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L30",
       "id": "src_cell_table_pack_key_compute",
-      "community": 4,
+      "community": 5,
       "norm_label": "pack_key_compute()"
     },
     {
@@ -1296,7 +1251,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L45",
       "id": "src_cell_table_build_cell_table",
-      "community": 4,
+      "community": 5,
       "norm_label": "build_cell_table()"
     },
     {
@@ -1305,7 +1260,7 @@
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/ieppa.cpp",
       "source_location": "L1",
       "id": "leafblower_rcheck_00_pkg_src_leafblower_src_ieppa_cpp",
-      "community": 4,
+      "community": 7,
       "norm_label": "ieppa.cpp"
     },
     {
@@ -1314,7 +1269,7 @@
       "source_file": "src/ieppa.cpp",
       "source_location": "L127",
       "id": "src_ieppa_ieppa_solve",
-      "community": 4,
+      "community": 7,
       "norm_label": "ieppa_solve()"
     },
     {
@@ -1332,44 +1287,26 @@
       "source_file": "src/c_api.cpp",
       "source_location": "L1",
       "id": "src_c_api_cpp",
-      "community": 5,
+      "community": 1,
       "norm_label": "c_api.cpp"
     },
     {
       "label": "pack_solver_result()",
       "file_type": "code",
       "source_file": "src/c_api.cpp",
-      "source_location": "L30",
+      "source_location": "L24",
       "id": "src_c_api_pack_solver_result",
-      "community": 5,
+      "community": 1,
       "norm_label": "pack_solver_result()"
-    },
-    {
-      "label": "pack_lbfgsb_result()",
-      "file_type": "code",
-      "source_file": "src/c_api.cpp",
-      "source_location": "L52",
-      "id": "src_c_api_pack_lbfgsb_result",
-      "community": 5,
-      "norm_label": "pack_lbfgsb_result()"
     },
     {
       "label": "rk_result_init()",
       "file_type": "code",
       "source_file": "src/c_api.cpp",
-      "source_location": "L110",
+      "source_location": "L89",
       "id": "src_c_api_rk_result_init",
-      "community": 5,
+      "community": 1,
       "norm_label": "rk_result_init()"
-    },
-    {
-      "label": "lbfgsb_solver.cpp",
-      "file_type": "code",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L1",
-      "id": "src_lbfgsb_solver_cpp",
-      "community": 2,
-      "norm_label": "lbfgsb_solver.cpp"
     },
     {
       "label": "calib_linalg.cpp",
@@ -1377,44 +1314,44 @@
       "source_file": "src/calib_linalg.cpp",
       "source_location": "L1",
       "id": "src_calib_linalg_cpp",
-      "community": 1,
+      "community": 2,
       "norm_label": "calib_linalg.cpp"
     },
     {
       "label": "compute_normal_equations()",
       "file_type": "code",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L9",
+      "source_location": "L31",
       "id": "src_calib_linalg_compute_normal_equations",
-      "community": 1,
+      "community": 2,
       "norm_label": "compute_normal_equations()"
     },
     {
       "label": "compute_normal_equations_reduced()",
       "file_type": "code",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L37",
+      "source_location": "L60",
       "id": "src_calib_linalg_compute_normal_equations_reduced",
-      "community": 1,
+      "community": 2,
       "norm_label": "compute_normal_equations_reduced()"
     },
     {
-      "label": "ldlt_factor_inplace()",
+      "label": "cholesky_factor_inplace()",
       "file_type": "code",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L67",
-      "id": "src_calib_linalg_ldlt_factor_inplace",
-      "community": 1,
-      "norm_label": "ldlt_factor_inplace()"
+      "source_location": "L115",
+      "id": "src_calib_linalg_cholesky_factor_inplace",
+      "community": 2,
+      "norm_label": "cholesky_factor_inplace()"
     },
     {
-      "label": "ldlt_solve()",
+      "label": "cholesky_solve()",
       "file_type": "code",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L91",
-      "id": "src_calib_linalg_ldlt_solve",
-      "community": 1,
-      "norm_label": "ldlt_solve()"
+      "source_location": "L156",
+      "id": "src_calib_linalg_cholesky_solve",
+      "community": 2,
+      "norm_label": "cholesky_solve()"
     },
     {
       "label": "validation.hpp",
@@ -1422,26 +1359,17 @@
       "source_file": "src/validation.hpp",
       "source_location": "L1",
       "id": "src_validation_hpp",
-      "community": 18,
+      "community": 19,
       "norm_label": "validation.hpp"
     },
     {
       "label": "validate_calibrate_inputs()",
       "file_type": "code",
       "source_file": "src/validation.hpp",
-      "source_location": "L15",
+      "source_location": "L16",
       "id": "src_validation_validate_calibrate_inputs",
-      "community": 18,
+      "community": 19,
       "norm_label": "validate_calibrate_inputs()"
-    },
-    {
-      "label": "lbfgsb_solver.hpp",
-      "file_type": "code",
-      "source_file": "src/lbfgsb_solver.hpp",
-      "source_location": "L1",
-      "id": "src_lbfgsb_solver_hpp",
-      "community": 56,
-      "norm_label": "lbfgsb_solver.hpp"
     },
     {
       "label": "lbw_config.h",
@@ -1449,7 +1377,7 @@
       "source_file": "src/lbw_config.h",
       "source_location": "L1",
       "id": "src_lbw_config_h",
-      "community": 57,
+      "community": 56,
       "norm_label": "lbw_config.h"
     },
     {
@@ -1476,7 +1404,7 @@
       "source_file": "src/chebyshev.cpp",
       "source_location": "L1",
       "id": "src_chebyshev_cpp",
-      "community": 1,
+      "community": 2,
       "norm_label": "chebyshev.cpp"
     },
     {
@@ -1485,7 +1413,7 @@
       "source_file": "src/chebyshev.cpp",
       "source_location": "L14",
       "id": "src_chebyshev_chebyshev_ipm",
-      "community": 1,
+      "community": 2,
       "norm_label": "chebyshev_ipm()"
     },
     {
@@ -1494,7 +1422,7 @@
       "source_file": "src/greenkhorn.cpp",
       "source_location": "L1",
       "id": "src_greenkhorn_cpp",
-      "community": 19,
+      "community": 20,
       "norm_label": "greenkhorn.cpp"
     },
     {
@@ -1503,7 +1431,7 @@
       "source_file": "src/greenkhorn.cpp",
       "source_location": "L16",
       "id": "src_greenkhorn_greenkhorn_solve",
-      "community": 19,
+      "community": 20,
       "norm_label": "greenkhorn_solve()"
     },
     {
@@ -1512,7 +1440,7 @@
       "source_file": "src/logit.hpp",
       "source_location": "L1",
       "id": "src_logit_hpp",
-      "community": 15,
+      "community": 16,
       "norm_label": "logit.hpp"
     },
     {
@@ -1521,7 +1449,7 @@
       "source_file": "src/leafblower.h",
       "source_location": "L1",
       "id": "src_leafblower_h",
-      "community": 58,
+      "community": 57,
       "norm_label": "leafblower.h"
     },
     {
@@ -1530,8 +1458,35 @@
       "source_file": "src/r_bridge.cpp",
       "source_location": "L1",
       "id": "src_r_bridge_cpp",
-      "community": 7,
+      "community": 1,
       "norm_label": "r_bridge.cpp"
+    },
+    {
+      "label": "scalar_real()",
+      "file_type": "code",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L24",
+      "id": "src_r_bridge_scalar_real",
+      "community": 1,
+      "norm_label": "scalar_real()"
+    },
+    {
+      "label": "scalar_int()",
+      "file_type": "code",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L30",
+      "id": "src_r_bridge_scalar_int",
+      "community": 1,
+      "norm_label": "scalar_int()"
+    },
+    {
+      "label": "init_calib_state()",
+      "file_type": "code",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L72",
+      "id": "src_r_bridge_init_calib_state",
+      "community": 1,
+      "norm_label": "init_calib_state()"
     },
     {
       "label": "greenkhorn.hpp",
@@ -1539,7 +1494,7 @@
       "source_file": "src/greenkhorn.hpp",
       "source_location": "L1",
       "id": "src_greenkhorn_hpp",
-      "community": 59,
+      "community": 58,
       "norm_label": "greenkhorn.hpp"
     },
     {
@@ -1548,7 +1503,7 @@
       "source_file": "src/logit_calib.hpp",
       "source_location": "L1",
       "id": "src_logit_calib_hpp",
-      "community": 60,
+      "community": 59,
       "norm_label": "logit_calib.hpp"
     },
     {
@@ -1557,7 +1512,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L1",
       "id": "src_lbw_math_hpp",
-      "community": 11,
+      "community": 10,
       "norm_label": "lbw_math.hpp"
     },
     {
@@ -1566,7 +1521,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L36",
       "id": "src_lbw_math_bulk_log",
-      "community": 11,
+      "community": 10,
       "norm_label": "bulk_log()"
     },
     {
@@ -1575,7 +1530,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L53",
       "id": "src_lbw_math_bulk_scaled_log",
-      "community": 11,
+      "community": 10,
       "norm_label": "bulk_scaled_log()"
     },
     {
@@ -1584,7 +1539,7 @@
       "source_file": "src/lbw_math.hpp",
       "source_location": "L72",
       "id": "src_lbw_math_bulk_exp_clipped",
-      "community": 11,
+      "community": 10,
       "norm_label": "bulk_exp_clipped()"
     },
     {
@@ -1593,7 +1548,7 @@
       "source_file": "src/newton_calib.hpp",
       "source_location": "L1",
       "id": "src_newton_calib_hpp",
-      "community": 61,
+      "community": 60,
       "norm_label": "newton_calib.hpp"
     },
     {
@@ -1602,7 +1557,7 @@
       "source_file": "src/types.hpp",
       "source_location": "L1",
       "id": "src_types_hpp",
-      "community": 62,
+      "community": 61,
       "norm_label": "types.hpp"
     },
     {
@@ -1611,7 +1566,7 @@
       "source_file": "src/logit.cpp",
       "source_location": "L1",
       "id": "src_logit_cpp",
-      "community": 63,
+      "community": 62,
       "norm_label": "logit.cpp"
     },
     {
@@ -1620,7 +1575,7 @@
       "source_file": "src/raking.hpp",
       "source_location": "L1",
       "id": "src_raking_hpp",
-      "community": 64,
+      "community": 63,
       "norm_label": "raking.hpp"
     },
     {
@@ -1629,7 +1584,7 @@
       "source_file": "src/raking.cpp",
       "source_location": "L1",
       "id": "src_raking_cpp",
-      "community": 13,
+      "community": 12,
       "norm_label": "raking.cpp"
     },
     {
@@ -1638,7 +1593,7 @@
       "source_file": "src/ieppa.hpp",
       "source_location": "L1",
       "id": "src_ieppa_hpp",
-      "community": 65,
+      "community": 64,
       "norm_label": "ieppa.hpp"
     },
     {
@@ -1647,16 +1602,16 @@
       "source_file": "src/newton_calib.cpp",
       "source_location": "L1",
       "id": "src_newton_calib_cpp",
-      "community": 1,
+      "community": 2,
       "norm_label": "newton_calib.cpp"
     },
     {
       "label": "newton_calibrate()",
       "file_type": "code",
       "source_file": "src/newton_calib.cpp",
-      "source_location": "L23",
+      "source_location": "L36",
       "id": "src_newton_calib_newton_calibrate",
-      "community": 1,
+      "community": 2,
       "norm_label": "newton_calibrate()"
     },
     {
@@ -1665,7 +1620,7 @@
       "source_file": "src/sinkhorn.cpp",
       "source_location": "L1",
       "id": "src_sinkhorn_cpp",
-      "community": 1,
+      "community": 2,
       "norm_label": "sinkhorn.cpp"
     },
     {
@@ -1674,25 +1629,25 @@
       "source_file": "src/sinkhorn.cpp",
       "source_location": "L16",
       "id": "src_sinkhorn_bisect_capacity",
-      "community": 1,
+      "community": 2,
       "norm_label": "bisect_capacity()"
     },
     {
       "label": "bisect_capacity_fast()",
       "file_type": "code",
       "source_file": "src/sinkhorn.cpp",
-      "source_location": "L53",
+      "source_location": "L72",
       "id": "src_sinkhorn_bisect_capacity_fast",
-      "community": 1,
+      "community": 2,
       "norm_label": "bisect_capacity_fast()"
     },
     {
       "label": "sinkhorn_solve()",
       "file_type": "code",
       "source_file": "src/sinkhorn.cpp",
-      "source_location": "L89",
+      "source_location": "L122",
       "id": "src_sinkhorn_sinkhorn_solve",
-      "community": 1,
+      "community": 2,
       "norm_label": "sinkhorn_solve()"
     },
     {
@@ -1701,16 +1656,16 @@
       "source_file": "src/logit_calib.cpp",
       "source_location": "L1",
       "id": "src_logit_calib_cpp",
-      "community": 1,
+      "community": 2,
       "norm_label": "logit_calib.cpp"
     },
     {
       "label": "logit_calibrate()",
       "file_type": "code",
       "source_file": "src/logit_calib.cpp",
-      "source_location": "L15",
+      "source_location": "L20",
       "id": "src_logit_calib_logit_calibrate",
-      "community": 1,
+      "community": 2,
       "norm_label": "logit_calibrate()"
     },
     {
@@ -1719,7 +1674,7 @@
       "source_file": "src/calib_validate.hpp",
       "source_location": "L1",
       "id": "src_calib_validate_hpp",
-      "community": 66,
+      "community": 65,
       "norm_label": "calib_validate.hpp"
     },
     {
@@ -1728,16 +1683,16 @@
       "source_file": "src/chebyshev.hpp",
       "source_location": "L1",
       "id": "src_chebyshev_hpp",
-      "community": 1,
+      "community": 2,
       "norm_label": "chebyshev.hpp"
     },
     {
       "label": "chebyshev_solve()",
       "file_type": "code",
       "source_file": "src/chebyshev.hpp",
-      "source_location": "L30",
+      "source_location": "L27",
       "id": "src_chebyshev_chebyshev_solve",
-      "community": 1,
+      "community": 2,
       "norm_label": "chebyshev_solve()"
     },
     {
@@ -1746,16 +1701,16 @@
       "source_file": "src/sraa.hpp",
       "source_location": "L1",
       "id": "src_sraa_hpp",
-      "community": 20,
+      "community": 21,
       "norm_label": "sraa.hpp"
     },
     {
       "label": "sraa_step()",
       "file_type": "code",
       "source_file": "src/sraa.hpp",
-      "source_location": "L75",
+      "source_location": "L88",
       "id": "src_sraa_sraa_step",
-      "community": 20,
+      "community": 21,
       "norm_label": "sraa_step()"
     },
     {
@@ -1764,7 +1719,7 @@
       "source_file": "src/cell_table.hpp",
       "source_location": "L1",
       "id": "src_cell_table_hpp",
-      "community": 21,
+      "community": 22,
       "norm_label": "cell_table.hpp"
     },
     {
@@ -1773,7 +1728,7 @@
       "source_file": "src/cell_table.hpp",
       "source_location": "L37",
       "id": "src_cell_table_build_cells_per_cat",
-      "community": 21,
+      "community": 22,
       "norm_label": "build_cells_per_cat()"
     },
     {
@@ -1782,7 +1737,7 @@
       "source_file": "src/sinkhorn.hpp",
       "source_location": "L1",
       "id": "src_sinkhorn_hpp",
-      "community": 67,
+      "community": 66,
       "norm_label": "sinkhorn.hpp"
     },
     {
@@ -1798,7 +1753,7 @@
       "label": "select_metric()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L38",
+      "source_location": "L40",
       "id": "src_calib_dispatch_select_metric",
       "community": 3,
       "norm_label": "select_metric()"
@@ -1807,7 +1762,7 @@
       "label": "apply_rule()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L66",
+      "source_location": "L68",
       "id": "src_calib_dispatch_apply_rule",
       "community": 3,
       "norm_label": "apply_rule()"
@@ -1816,7 +1771,7 @@
       "label": "select_solver_objective()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L129",
+      "source_location": "L166",
       "id": "src_calib_dispatch_select_solver_objective",
       "community": 3,
       "norm_label": "select_solver_objective()"
@@ -1825,7 +1780,7 @@
       "label": "check_convergence()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L139",
+      "source_location": "L176",
       "id": "src_calib_dispatch_check_convergence",
       "community": 3,
       "norm_label": "check_convergence()"
@@ -1834,7 +1789,7 @@
       "label": "aggregate_to_margin()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L160",
+      "source_location": "L197",
       "id": "src_calib_dispatch_aggregate_to_margin",
       "community": 3,
       "norm_label": "aggregate_to_margin()"
@@ -1843,7 +1798,7 @@
       "label": "compute_cell_metrics()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L176",
+      "source_location": "L213",
       "id": "src_calib_dispatch_compute_cell_metrics",
       "community": 3,
       "norm_label": "compute_cell_metrics()"
@@ -1852,16 +1807,16 @@
       "label": "apply_obs_expansion()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L212",
+      "source_location": "L249",
       "id": "src_calib_dispatch_apply_obs_expansion",
-      "community": 1,
+      "community": 2,
       "norm_label": "apply_obs_expansion()"
     },
     {
       "label": "resolve_hi()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L227",
+      "source_location": "L264",
       "id": "src_calib_dispatch_resolve_hi",
       "community": 3,
       "norm_label": "resolve_hi()"
@@ -1870,7 +1825,7 @@
       "label": "compute_cell_bounds()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L232",
+      "source_location": "L269",
       "id": "src_calib_dispatch_compute_cell_bounds",
       "community": 3,
       "norm_label": "compute_cell_bounds()"
@@ -1879,7 +1834,7 @@
       "label": "build_cat_offset()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L247",
+      "source_location": "L284",
       "id": "src_calib_dispatch_build_cat_offset",
       "community": 3,
       "norm_label": "build_cat_offset()"
@@ -1888,7 +1843,7 @@
       "label": "max_cats_count()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L257",
+      "source_location": "L294",
       "id": "src_calib_dispatch_max_cats_count",
       "community": 3,
       "norm_label": "max_cats_count()"
@@ -1897,16 +1852,16 @@
       "label": "mark_converged()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L267",
+      "source_location": "L304",
       "id": "src_calib_dispatch_mark_converged",
-      "community": 1,
+      "community": 2,
       "norm_label": "mark_converged()"
     },
     {
       "label": "solver_setup_ct()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L279",
+      "source_location": "L316",
       "id": "src_calib_dispatch_solver_setup_ct",
       "community": 3,
       "norm_label": "solver_setup_ct()"
@@ -1915,7 +1870,7 @@
       "label": "solver_setup_ct_base()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L313",
+      "source_location": "L350",
       "id": "src_calib_dispatch_solver_setup_ct_base",
       "community": 3,
       "norm_label": "solver_setup_ct_base()"
@@ -1924,7 +1879,7 @@
       "label": "compute_weight_kl()",
       "file_type": "code",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L336",
+      "source_location": "L373",
       "id": "src_calib_dispatch_compute_weight_kl",
       "community": 3,
       "norm_label": "compute_weight_kl()"
@@ -1935,7 +1890,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L1",
       "id": "src_cell_table_cpp",
-      "community": 4,
+      "community": 5,
       "norm_label": "cell_table.cpp"
     },
     {
@@ -1944,7 +1899,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L9",
       "id": "src_cell_table_bits_needed",
-      "community": 4,
+      "community": 5,
       "norm_label": "bits_needed()"
     },
     {
@@ -1953,7 +1908,7 @@
       "source_file": "src/cell_table.cpp",
       "source_location": "L145",
       "id": "src_cell_table_estimate_m_cell",
-      "community": 4,
+      "community": 5,
       "norm_label": "estimate_m_cell()"
     },
     {
@@ -1962,7 +1917,7 @@
       "source_file": "src/calib_linalg.hpp",
       "source_location": "L1",
       "id": "src_calib_linalg_hpp",
-      "community": 68,
+      "community": 67,
       "norm_label": "calib_linalg.hpp"
     },
     {
@@ -1971,7 +1926,7 @@
       "source_file": "src/greg.cpp",
       "source_location": "L1",
       "id": "src_greg_cpp",
-      "community": 1,
+      "community": 2,
       "norm_label": "greg.cpp"
     },
     {
@@ -1980,7 +1935,7 @@
       "source_file": "src/greg.cpp",
       "source_location": "L14",
       "id": "src_greg_greg_solve",
-      "community": 1,
+      "community": 2,
       "norm_label": "greg_solve()"
     },
     {
@@ -1989,7 +1944,7 @@
       "source_file": "src/ieppa.cpp",
       "source_location": "L1",
       "id": "src_ieppa_cpp",
-      "community": 4,
+      "community": 7,
       "norm_label": "ieppa.cpp"
     },
     {
@@ -1998,7 +1953,7 @@
       "source_file": "src/ieppa.cpp",
       "source_location": "L21",
       "id": "src_ieppa_parse_trajectory_iters",
-      "community": 4,
+      "community": 7,
       "norm_label": "parse_trajectory_iters()"
     },
     {
@@ -2007,7 +1962,7 @@
       "source_file": "src/ieppa.cpp",
       "source_location": "L45",
       "id": "src_ieppa_write_trajectory_csv",
-      "community": 4,
+      "community": 7,
       "norm_label": "write_trajectory_csv()"
     },
     {
@@ -2016,7 +1971,7 @@
       "source_file": "src/ieppa.cpp",
       "source_location": "L73",
       "id": "src_ieppa_pack_lf",
-      "community": 4,
+      "community": 7,
       "norm_label": "pack_lf()"
     },
     {
@@ -2025,8 +1980,98 @@
       "source_file": "src/ieppa.cpp",
       "source_location": "L87",
       "id": "src_ieppa_unpack_lf",
-      "community": 4,
+      "community": 7,
       "norm_label": "unpack_lf()"
+    },
+    {
+      "label": "test_parity_weights.py",
+      "file_type": "code",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L1",
+      "id": "tests_test_parity_weights_py",
+      "community": 13,
+      "norm_label": "test_parity_weights.py"
+    },
+    {
+      "label": "_make_synthetic()",
+      "file_type": "code",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L26",
+      "id": "tests_test_parity_weights_make_synthetic",
+      "community": 13,
+      "norm_label": "_make_synthetic()"
+    },
+    {
+      "label": "_r_weights()",
+      "file_type": "code",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L51",
+      "id": "tests_test_parity_weights_r_weights",
+      "community": 13,
+      "norm_label": "_r_weights()"
+    },
+    {
+      "label": "test_weight_parity()",
+      "file_type": "code",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L68",
+      "id": "tests_test_parity_weights_test_weight_parity",
+      "community": 13,
+      "norm_label": "test_weight_parity()"
+    },
+    {
+      "label": "Cross-language weight parity: R and Python must return identical weights for all",
+      "file_type": "rationale",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L1",
+      "id": "tests_test_parity_weights_rationale_1",
+      "community": 13,
+      "norm_label": "cross-language weight parity: r and python must return identical weights for all"
+    },
+    {
+      "label": "Derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict.",
+      "file_type": "rationale",
+      "source_file": "python/leafblower/_harvest.py",
+      "source_location": "L32",
+      "community": 68,
+      "norm_label": "derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict.",
+      "id": "leafblower_harvest_rationale_32"
+    },
+    {
+      "label": "Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed",
+      "file_type": "rationale",
+      "source_file": "python/leafblower/_harvest.py",
+      "source_location": "L89",
+      "community": 69,
+      "norm_label": "mirror r parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed",
+      "id": "leafblower_harvest_rationale_89"
+    },
+    {
+      "label": "Calibrate survey weights. Drop-in for R leafblower::harvest().      Parameters",
+      "file_type": "rationale",
+      "source_file": "python/leafblower/_harvest.py",
+      "source_location": "L117",
+      "community": 70,
+      "norm_label": "calibrate survey weights. drop-in for r leafblower::harvest().      parameters",
+      "id": "leafblower_harvest_rationale_117"
+    },
+    {
+      "label": "Diagnose calibration quality (Python equivalent of R diagnose_weights()).      P",
+      "file_type": "rationale",
+      "source_file": "python/leafblower/_harvest.py",
+      "source_location": "L348",
+      "community": 71,
+      "norm_label": "diagnose calibration quality (python equivalent of r diagnose_weights()).      p",
+      "id": "leafblower_harvest_rationale_348"
+    },
+    {
+      "label": "# NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping",
+      "file_type": "rationale",
+      "source_file": "python/leafblower/_harvest.py",
+      "source_location": "L311",
+      "community": 72,
+      "norm_label": "# note: no post-normalization clamp to [min_weight, max_weight]. clamping",
+      "id": "leafblower_harvest_rationale_311"
     }
   ],
   "links": [
@@ -2040,54 +2085,6 @@
       "_tgt": "conftest_py",
       "source": "conftest_py",
       "target": "leafblower_conftest_rationale_1",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "patch_wolfe.py",
-      "source_location": "L7",
-      "weight": 1.0,
-      "_src": "patch_wolfe_py",
-      "_tgt": "leafblower_patch_wolfe_patch_wolfe",
-      "source": "patch_wolfe_py",
-      "target": "leafblower_patch_wolfe_patch_wolfe",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "patch_wolfe.py",
-      "source_location": "L40",
-      "weight": 1.0,
-      "_src": "patch_wolfe_py",
-      "_tgt": "leafblower_patch_wolfe_patch_wolfe_line_search",
-      "source": "patch_wolfe_py",
-      "target": "leafblower_patch_wolfe_patch_wolfe_line_search",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "source_location": "L7",
-      "weight": 1.0,
-      "_src": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
-      "_tgt": "leafblower_patch_wolfe_patch_wolfe",
-      "source": "leafblower_patch_wolfe_patch_wolfe",
-      "target": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "source_location": "L40",
-      "weight": 1.0,
-      "_src": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
-      "_tgt": "leafblower_patch_wolfe_patch_wolfe_line_search",
-      "source": "leafblower_patch_wolfe_patch_wolfe_line_search",
-      "target": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
       "confidence_score": 1.0
     },
     {
@@ -2621,74 +2618,62 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "research/ipm_calib.cpp",
-      "source_location": "L24",
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L42",
       "weight": 1.0,
-      "_src": "research_ipm_calib_cpp",
-      "_tgt": "research_ipm_calib_ipm_calibrate",
-      "source": "research_ipm_calib_cpp",
-      "target": "research_ipm_calib_ipm_calibrate",
+      "_src": "benchmarks_allmethod_bench_py",
+      "_tgt": "benchmarks_allmethod_bench_post_hoc_mkl",
+      "source": "benchmarks_allmethod_bench_py",
+      "target": "benchmarks_allmethod_bench_post_hoc_mkl",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L58",
+      "weight": 1.0,
+      "_src": "benchmarks_allmethod_bench_py",
+      "_tgt": "benchmarks_allmethod_bench_run",
+      "source": "benchmarks_allmethod_bench_py",
+      "target": "benchmarks_allmethod_bench_run",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L74",
+      "weight": 1.0,
+      "_src": "benchmarks_allmethod_bench_run",
+      "_tgt": "benchmarks_allmethod_bench_post_hoc_mkl",
+      "source": "benchmarks_allmethod_bench_post_hoc_mkl",
+      "target": "benchmarks_allmethod_bench_run",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_src": "benchmarks_allmethod_bench_rationale_43",
+      "_tgt": "benchmarks_allmethod_bench_post_hoc_mkl",
+      "source": "benchmarks_allmethod_bench_post_hoc_mkl",
+      "target": "benchmarks_allmethod_bench_rationale_43",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
-      "source_file": "research/research_bridge.cpp",
-      "source_location": "L250",
+      "source_file": "benchmarks/allmethod_bench.py",
+      "source_location": "L61",
       "weight": 1.0,
-      "_src": "research_ipm_calib_ipm_calibrate",
-      "_tgt": "research_research_bridge_ipm_solve_r",
-      "source": "research_ipm_calib_ipm_calibrate",
-      "target": "research_research_bridge_ipm_solve_r"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "research/research_bridge.cpp",
-      "source_location": "L12",
-      "weight": 1.0,
-      "_src": "research_research_bridge_cpp",
-      "_tgt": "research_research_bridge_cp_solve_r",
-      "source": "research_research_bridge_cpp",
-      "target": "research_research_bridge_cp_solve_r",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "research/research_bridge.cpp",
-      "source_location": "L179",
-      "weight": 1.0,
-      "_src": "research_research_bridge_cpp",
-      "_tgt": "research_research_bridge_ipm_solve_r",
-      "source": "research_research_bridge_cpp",
-      "target": "research_research_bridge_ipm_solve_r",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
-      "source_file": "research/research_bridge.cpp",
-      "source_location": "L83",
-      "weight": 1.0,
-      "_src": "research_research_bridge_cp_solve_r",
-      "_tgt": "research_cp_calib_cp_calibrate",
-      "source": "research_research_bridge_cp_solve_r",
-      "target": "research_cp_calib_cp_calibrate"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "research/cp_calib.cpp",
-      "source_location": "L7",
-      "weight": 1.0,
-      "_src": "research_cp_calib_cpp",
-      "_tgt": "research_cp_calib_cp_calibrate",
-      "source": "research_cp_calib_cpp",
-      "target": "research_cp_calib_cp_calibrate",
-      "confidence_score": 1.0
+      "_src": "benchmarks_allmethod_bench_run",
+      "_tgt": "leafblower_harvest_harvest",
+      "source": "benchmarks_allmethod_bench_run",
+      "target": "leafblower_harvest_harvest"
     },
     {
       "relation": "rationale_for",
@@ -3018,7 +3003,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L31",
+      "source_location": "L34",
       "weight": 1.0,
       "_src": "python_leafblower_harvest_py",
       "_tgt": "leafblower_harvest_parse_convergence",
@@ -3030,7 +3015,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L88",
+      "source_location": "L91",
       "weight": 1.0,
       "_src": "python_leafblower_harvest_py",
       "_tgt": "leafblower_harvest_parse_sor",
@@ -3042,7 +3027,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L101",
+      "source_location": "L104",
       "weight": 1.0,
       "_src": "python_leafblower_harvest_py",
       "_tgt": "leafblower_harvest_harvest",
@@ -3054,7 +3039,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L347",
+      "source_location": "L431",
       "weight": 1.0,
       "_src": "python_leafblower_harvest_py",
       "_tgt": "leafblower_harvest_diagnose_weights",
@@ -3066,19 +3051,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L311",
+      "source_location": "L395",
       "weight": 1.0,
-      "_src": "leafblower_harvest_rationale_311",
+      "_src": "leafblower_harvest_rationale_395",
       "_tgt": "python_leafblower_harvest_py",
       "source": "python_leafblower_harvest_py",
-      "target": "leafblower_harvest_rationale_311",
+      "target": "leafblower_harvest_rationale_395",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L155",
+      "source_location": "L171",
       "weight": 1.0,
       "_src": "leafblower_harvest_harvest",
       "_tgt": "leafblower_harvest_parse_convergence",
@@ -3090,19 +3075,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L32",
+      "source_location": "L35",
       "weight": 1.0,
-      "_src": "leafblower_harvest_rationale_32",
+      "_src": "leafblower_harvest_rationale_35",
       "_tgt": "leafblower_harvest_parse_convergence",
       "source": "leafblower_harvest_parse_convergence",
-      "target": "leafblower_harvest_rationale_32",
+      "target": "leafblower_harvest_rationale_35",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L156",
+      "source_location": "L172",
       "weight": 1.0,
       "_src": "leafblower_harvest_harvest",
       "_tgt": "leafblower_harvest_parse_sor",
@@ -3114,36 +3099,48 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L89",
+      "source_location": "L92",
       "weight": 1.0,
-      "_src": "leafblower_harvest_rationale_89",
+      "_src": "leafblower_harvest_rationale_92",
       "_tgt": "leafblower_harvest_parse_sor",
       "source": "leafblower_harvest_parse_sor",
-      "target": "leafblower_harvest_rationale_89",
+      "target": "leafblower_harvest_rationale_92",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L117",
+      "source_location": "L133",
       "weight": 1.0,
-      "_src": "leafblower_harvest_rationale_117",
+      "_src": "leafblower_harvest_rationale_133",
       "_tgt": "leafblower_harvest_harvest",
       "source": "leafblower_harvest_harvest",
-      "target": "leafblower_harvest_rationale_117",
+      "target": "leafblower_harvest_rationale_133",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_src": "tests_test_parity_weights_test_weight_parity",
+      "_tgt": "leafblower_harvest_harvest",
+      "source": "leafblower_harvest_harvest",
+      "target": "tests_test_parity_weights_test_weight_parity"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "python/leafblower/_harvest.py",
-      "source_location": "L348",
+      "source_location": "L432",
       "weight": 1.0,
-      "_src": "leafblower_harvest_rationale_348",
+      "_src": "leafblower_harvest_rationale_432",
       "_tgt": "leafblower_harvest_diagnose_weights",
       "source": "leafblower_harvest_diagnose_weights",
-      "target": "leafblower_harvest_rationale_348",
+      "target": "leafblower_harvest_rationale_432",
       "confidence_score": 1.0
     },
     {
@@ -3197,6 +3194,30 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_src": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
+      "_tgt": "leafblower_patch_wolfe_patch_wolfe",
+      "source": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
+      "target": "leafblower_patch_wolfe_patch_wolfe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "source_location": "L40",
+      "weight": 1.0,
+      "_src": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
+      "_tgt": "leafblower_patch_wolfe_patch_wolfe_line_search",
+      "source": "leafblower_rcheck_00_pkg_src_leafblower_patch_wolfe_py",
+      "target": "leafblower_patch_wolfe_patch_wolfe_line_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/c_api.cpp",
       "source_location": "L21",
       "weight": 1.0,
@@ -3234,7 +3255,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L151",
+      "source_location": "L133",
       "weight": 1.0,
       "_src": "src_c_api_rk_calibrate",
       "_tgt": "src_c_api_rk_params_init",
@@ -3246,7 +3267,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L72",
+      "source_location": "L51",
       "weight": 1.0,
       "_src": "src_c_api_cpp",
       "_tgt": "src_c_api_rk_params_init",
@@ -3270,7 +3291,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L220",
+      "source_location": "L201",
       "weight": 1.0,
       "_src": "src_c_api_rk_calibrate",
       "_tgt": "src_c_api_validate_inputs",
@@ -3282,7 +3303,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L122",
+      "source_location": "L104",
       "weight": 1.0,
       "_src": "src_c_api_cpp",
       "_tgt": "src_c_api_validate_inputs",
@@ -3294,7 +3315,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L143",
+      "source_location": "L125",
       "weight": 1.0,
       "_src": "src_c_api_cpp",
       "_tgt": "src_c_api_rk_calibrate",
@@ -3306,7 +3327,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L155",
+      "source_location": "L137",
       "weight": 1.0,
       "_src": "src_c_api_rk_calibrate",
       "_tgt": "src_c_api_rk_result_init",
@@ -3318,19 +3339,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L286",
-      "weight": 1.0,
-      "_src": "src_c_api_rk_calibrate",
-      "_tgt": "src_c_api_pack_lbfgsb_result",
-      "source": "src_c_api_rk_calibrate",
-      "target": "src_c_api_pack_lbfgsb_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "src/c_api.cpp",
-      "source_location": "L312",
+      "source_location": "L292",
       "weight": 1.0,
       "_src": "src_c_api_rk_calibrate",
       "_tgt": "src_c_api_pack_solver_result",
@@ -3521,8 +3530,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L700",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L568",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve",
       "_tgt": "src_lbfgsb_solver_compute_targets_abs",
@@ -3531,22 +3540,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L16",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_compute_targets_abs",
-      "source": "src_lbfgsb_solver_compute_targets_abs",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L697",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L565",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve",
       "_tgt": "src_lbfgsb_solver_build_offsets",
@@ -3555,22 +3552,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L31",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_build_offsets",
-      "source": "src_lbfgsb_solver_build_offsets",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L104",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L103",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_phi_and_grad",
       "_tgt": "src_lbfgsb_solver_compute_u",
@@ -3581,25 +3566,13 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L689",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L557",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_compute_u",
       "source": "src_lbfgsb_solver_compute_u",
       "target": "src_lbfgsb_solver_lbfgsb_solve_inner",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L38",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_compute_u",
-      "source": "src_lbfgsb_solver_compute_u",
-      "target": "src_lbfgsb_solver_cpp",
       "confidence_score": 1.0
     },
     {
@@ -3617,8 +3590,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L105",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L104",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_phi_and_grad",
       "_tgt": "src_lbfgsb_solver_phi_from_u",
@@ -3629,8 +3602,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L463",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L338",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_wolfe_zoom",
       "_tgt": "src_lbfgsb_solver_phi_from_u",
@@ -3641,8 +3614,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L577",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L447",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_wolfe_line_search",
       "_tgt": "src_lbfgsb_solver_phi_from_u",
@@ -3651,22 +3624,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L51",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_phi_from_u",
-      "source": "src_lbfgsb_solver_phi_from_u",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L627",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L497",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_phi_and_grad",
@@ -3675,22 +3636,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L96",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_phi_and_grad",
-      "source": "src_lbfgsb_solver_phi_and_grad",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L649",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L517",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_compute_du",
@@ -3699,22 +3648,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L110",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_compute_du",
-      "source": "src_lbfgsb_solver_compute_du",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L637",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L505",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_maxabs",
@@ -3723,22 +3660,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L123",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_maxabs",
-      "source": "src_lbfgsb_solver_maxabs",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L153",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L152",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgs_direction",
       "_tgt": "src_lbfgsb_solver_dot",
@@ -3749,8 +3674,8 @@
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L646",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L514",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_dot",
@@ -3759,22 +3684,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L129",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_dot",
-      "source": "src_lbfgsb_solver_dot",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L643",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L511",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_lbfgs_direction",
@@ -3783,22 +3696,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L137",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_lbfgs_direction",
-      "source": "src_lbfgsb_solver_lbfgs_direction",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L693",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L561",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_compute_final_weights_and_error",
@@ -3807,22 +3708,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L164",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_compute_final_weights_and_error",
-      "source": "src_lbfgsb_solver_compute_final_weights_and_error",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L569",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L439",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_wolfe_line_search",
       "_tgt": "src_lbfgsb_solver_wolfe_zoom",
@@ -3831,22 +3720,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L341",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_wolfe_zoom",
-      "source": "src_lbfgsb_solver_wolfe_zoom",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L653",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L521",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "_tgt": "src_lbfgsb_solver_wolfe_line_search",
@@ -3855,51 +3732,15 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L470",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_wolfe_line_search",
-      "source": "src_lbfgsb_solver_wolfe_line_search",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L713",
+      "source_file": "leafblower.Rcheck/00_pkg_src/leafblower/src/lbfgsb_solver.cpp",
+      "source_location": "L581",
       "weight": 1.0,
       "_src": "src_lbfgsb_solver_lbfgsb_solve",
       "_tgt": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "source": "src_lbfgsb_solver_lbfgsb_solve_inner",
       "target": "src_lbfgsb_solver_lbfgsb_solve",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L607",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_lbfgsb_solve_inner",
-      "source": "src_lbfgsb_solver_lbfgsb_solve_inner",
-      "target": "src_lbfgsb_solver_cpp",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lbfgsb_solver.cpp",
-      "source_location": "L696",
-      "weight": 1.0,
-      "_src": "src_lbfgsb_solver_cpp",
-      "_tgt": "src_lbfgsb_solver_lbfgsb_solve",
-      "source": "src_lbfgsb_solver_lbfgsb_solve",
-      "target": "src_lbfgsb_solver_cpp",
       "confidence_score": 1.0
     },
     {
@@ -4014,7 +3855,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L52",
+      "source_location": "L65",
       "weight": 1.0,
       "_src": "src_r_bridge_cpp",
       "_tgt": "src_r_bridge_r_log_trampoline",
@@ -4026,7 +3867,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L58",
+      "source_location": "L121",
       "weight": 1.0,
       "_src": "src_r_bridge_cpp",
       "_tgt": "src_r_bridge_r_init_leafblower",
@@ -4038,7 +3879,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L72",
+      "source_location": "L135",
       "weight": 1.0,
       "_src": "src_r_bridge_cpp",
       "_tgt": "src_r_bridge_c_logit_f_at_zero",
@@ -4047,10 +3888,22 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L136",
+      "weight": 1.0,
+      "_src": "src_r_bridge_c_logit_f_at_zero",
+      "_tgt": "src_r_bridge_scalar_real",
+      "source": "src_r_bridge_c_logit_f_at_zero",
+      "target": "src_r_bridge_scalar_real",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L80",
+      "source_location": "L143",
       "weight": 1.0,
       "_src": "src_r_bridge_cpp",
       "_tgt": "src_r_bridge_c_logit_range_check",
@@ -4059,10 +3912,22 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L144",
+      "weight": 1.0,
+      "_src": "src_r_bridge_c_logit_range_check",
+      "_tgt": "src_r_bridge_scalar_real",
+      "source": "src_r_bridge_c_logit_range_check",
+      "target": "src_r_bridge_scalar_real",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L94",
+      "source_location": "L157",
       "weight": 1.0,
       "_src": "src_r_bridge_cpp",
       "_tgt": "src_r_bridge_c_logit_hprime_check",
@@ -4071,15 +3936,63 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L158",
+      "weight": 1.0,
+      "_src": "src_r_bridge_c_logit_hprime_check",
+      "_tgt": "src_r_bridge_scalar_real",
+      "source": "src_r_bridge_c_logit_hprime_check",
+      "target": "src_r_bridge_scalar_real",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L109",
+      "source_location": "L174",
       "weight": 1.0,
       "_src": "src_r_bridge_cpp",
       "_tgt": "src_r_bridge_c_rk_calibrate",
       "source": "src_r_bridge_c_rk_calibrate",
       "target": "src_r_bridge_cpp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L198",
+      "weight": 1.0,
+      "_src": "src_r_bridge_c_rk_calibrate",
+      "_tgt": "src_r_bridge_scalar_int",
+      "source": "src_r_bridge_c_rk_calibrate",
+      "target": "src_r_bridge_scalar_int",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L249",
+      "weight": 1.0,
+      "_src": "src_r_bridge_c_rk_calibrate",
+      "_tgt": "src_r_bridge_scalar_real",
+      "source": "src_r_bridge_c_rk_calibrate",
+      "target": "src_r_bridge_scalar_real",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L319",
+      "weight": 1.0,
+      "_src": "src_r_bridge_c_rk_calibrate",
+      "_tgt": "src_r_bridge_init_calib_state",
+      "source": "src_r_bridge_c_rk_calibrate",
+      "target": "src_r_bridge_init_calib_state",
       "confidence_score": 1.0
     },
     {
@@ -4110,12 +4023,24 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/r_bridge.cpp",
-      "source_location": "L839",
+      "source_location": "L884",
       "weight": 1.0,
       "_src": "src_r_bridge_cpp",
       "_tgt": "src_r_bridge_c_leafblower_cell_table_probe",
       "source": "src_r_bridge_c_leafblower_cell_table_probe",
       "target": "src_r_bridge_cpp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L885",
+      "weight": 1.0,
+      "_src": "src_r_bridge_c_leafblower_cell_table_probe",
+      "_tgt": "src_r_bridge_scalar_int",
+      "source": "src_r_bridge_c_leafblower_cell_table_probe",
+      "target": "src_r_bridge_scalar_int",
       "confidence_score": 1.0
     },
     {
@@ -4446,7 +4371,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/ieppa.cpp",
-      "source_location": "L394",
+      "source_location": "L396",
       "weight": 1.0,
       "_src": "src_ieppa_ieppa_solve",
       "_tgt": "src_ieppa_parse_trajectory_iters",
@@ -4482,7 +4407,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/ieppa.cpp",
-      "source_location": "L1951",
+      "source_location": "L2032",
       "weight": 1.0,
       "_src": "src_ieppa_ieppa_solve",
       "_tgt": "src_ieppa_write_trajectory_csv",
@@ -4494,7 +4419,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L30",
+      "source_location": "L24",
       "weight": 1.0,
       "_src": "src_c_api_cpp",
       "_tgt": "src_c_api_pack_solver_result",
@@ -4506,19 +4431,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/c_api.cpp",
-      "source_location": "L52",
-      "weight": 1.0,
-      "_src": "src_c_api_cpp",
-      "_tgt": "src_c_api_pack_lbfgsb_result",
-      "source": "src_c_api_cpp",
-      "target": "src_c_api_pack_lbfgsb_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/c_api.cpp",
-      "source_location": "L110",
+      "source_location": "L89",
       "weight": 1.0,
       "_src": "src_c_api_cpp",
       "_tgt": "src_c_api_rk_result_init",
@@ -4530,7 +4443,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L9",
+      "source_location": "L31",
       "weight": 1.0,
       "_src": "src_calib_linalg_cpp",
       "_tgt": "src_calib_linalg_compute_normal_equations",
@@ -4542,7 +4455,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L37",
+      "source_location": "L60",
       "weight": 1.0,
       "_src": "src_calib_linalg_cpp",
       "_tgt": "src_calib_linalg_compute_normal_equations_reduced",
@@ -4554,24 +4467,24 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L67",
+      "source_location": "L115",
       "weight": 1.0,
       "_src": "src_calib_linalg_cpp",
-      "_tgt": "src_calib_linalg_ldlt_factor_inplace",
+      "_tgt": "src_calib_linalg_cholesky_factor_inplace",
       "source": "src_calib_linalg_cpp",
-      "target": "src_calib_linalg_ldlt_factor_inplace",
+      "target": "src_calib_linalg_cholesky_factor_inplace",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_linalg.cpp",
-      "source_location": "L91",
+      "source_location": "L156",
       "weight": 1.0,
       "_src": "src_calib_linalg_cpp",
-      "_tgt": "src_calib_linalg_ldlt_solve",
+      "_tgt": "src_calib_linalg_cholesky_solve",
       "source": "src_calib_linalg_cpp",
-      "target": "src_calib_linalg_ldlt_solve",
+      "target": "src_calib_linalg_cholesky_solve",
       "confidence_score": 1.0
     },
     {
@@ -4603,11 +4516,11 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/chebyshev.cpp",
-      "source_location": "L330",
+      "source_location": "L344",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_factor_inplace",
-      "_tgt": "src_chebyshev_chebyshev_ipm",
-      "source": "src_calib_linalg_ldlt_factor_inplace",
+      "_src": "src_chebyshev_chebyshev_ipm",
+      "_tgt": "src_calib_linalg_cholesky_factor_inplace",
+      "source": "src_calib_linalg_cholesky_factor_inplace",
       "target": "src_chebyshev_chebyshev_ipm"
     },
     {
@@ -4615,11 +4528,11 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/newton_calib.cpp",
-      "source_location": "L486",
+      "source_location": "L563",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_factor_inplace",
-      "_tgt": "src_newton_calib_newton_calibrate",
-      "source": "src_calib_linalg_ldlt_factor_inplace",
+      "_src": "src_newton_calib_newton_calibrate",
+      "_tgt": "src_calib_linalg_cholesky_factor_inplace",
+      "source": "src_calib_linalg_cholesky_factor_inplace",
       "target": "src_newton_calib_newton_calibrate"
     },
     {
@@ -4627,11 +4540,11 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/logit_calib.cpp",
-      "source_location": "L105",
+      "source_location": "L110",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_factor_inplace",
-      "_tgt": "src_logit_calib_logit_calibrate",
-      "source": "src_calib_linalg_ldlt_factor_inplace",
+      "_src": "src_logit_calib_logit_calibrate",
+      "_tgt": "src_calib_linalg_cholesky_factor_inplace",
+      "source": "src_calib_linalg_cholesky_factor_inplace",
       "target": "src_logit_calib_logit_calibrate"
     },
     {
@@ -4639,11 +4552,11 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/greg.cpp",
-      "source_location": "L72",
+      "source_location": "L71",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_factor_inplace",
-      "_tgt": "src_greg_greg_solve",
-      "source": "src_calib_linalg_ldlt_factor_inplace",
+      "_src": "src_greg_greg_solve",
+      "_tgt": "src_calib_linalg_cholesky_factor_inplace",
+      "source": "src_calib_linalg_cholesky_factor_inplace",
       "target": "src_greg_greg_solve"
     },
     {
@@ -4651,11 +4564,11 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/chebyshev.cpp",
-      "source_location": "L370",
+      "source_location": "L384",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_solve",
-      "_tgt": "src_chebyshev_chebyshev_ipm",
-      "source": "src_calib_linalg_ldlt_solve",
+      "_src": "src_chebyshev_chebyshev_ipm",
+      "_tgt": "src_calib_linalg_cholesky_solve",
+      "source": "src_calib_linalg_cholesky_solve",
       "target": "src_chebyshev_chebyshev_ipm"
     },
     {
@@ -4663,11 +4576,11 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/newton_calib.cpp",
-      "source_location": "L490",
+      "source_location": "L567",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_solve",
-      "_tgt": "src_newton_calib_newton_calibrate",
-      "source": "src_calib_linalg_ldlt_solve",
+      "_src": "src_newton_calib_newton_calibrate",
+      "_tgt": "src_calib_linalg_cholesky_solve",
+      "source": "src_calib_linalg_cholesky_solve",
       "target": "src_newton_calib_newton_calibrate"
     },
     {
@@ -4675,11 +4588,11 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/logit_calib.cpp",
-      "source_location": "L106",
+      "source_location": "L111",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_solve",
-      "_tgt": "src_logit_calib_logit_calibrate",
-      "source": "src_calib_linalg_ldlt_solve",
+      "_src": "src_logit_calib_logit_calibrate",
+      "_tgt": "src_calib_linalg_cholesky_solve",
+      "source": "src_calib_linalg_cholesky_solve",
       "target": "src_logit_calib_logit_calibrate"
     },
     {
@@ -4687,18 +4600,18 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/greg.cpp",
-      "source_location": "L86",
+      "source_location": "L85",
       "weight": 1.0,
-      "_src": "src_calib_linalg_ldlt_solve",
-      "_tgt": "src_greg_greg_solve",
-      "source": "src_calib_linalg_ldlt_solve",
+      "_src": "src_greg_greg_solve",
+      "_tgt": "src_calib_linalg_cholesky_solve",
+      "source": "src_calib_linalg_cholesky_solve",
       "target": "src_greg_greg_solve"
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/validation.hpp",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0,
       "_src": "src_validation_hpp",
       "_tgt": "src_validation_validate_calibrate_inputs",
@@ -4769,6 +4682,42 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_src": "src_r_bridge_cpp",
+      "_tgt": "src_r_bridge_scalar_real",
+      "source": "src_r_bridge_cpp",
+      "target": "src_r_bridge_scalar_real",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_src": "src_r_bridge_cpp",
+      "_tgt": "src_r_bridge_scalar_int",
+      "source": "src_r_bridge_cpp",
+      "target": "src_r_bridge_scalar_int",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/r_bridge.cpp",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_src": "src_r_bridge_cpp",
+      "_tgt": "src_r_bridge_init_calib_state",
+      "source": "src_r_bridge_cpp",
+      "target": "src_r_bridge_init_calib_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "src/lbw_math.hpp",
       "source_location": "L36",
       "weight": 1.0,
@@ -4806,7 +4755,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/newton_calib.cpp",
-      "source_location": "L23",
+      "source_location": "L36",
       "weight": 1.0,
       "_src": "src_newton_calib_cpp",
       "_tgt": "src_newton_calib_newton_calibrate",
@@ -4854,7 +4803,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/sinkhorn.cpp",
-      "source_location": "L53",
+      "source_location": "L72",
       "weight": 1.0,
       "_src": "src_sinkhorn_cpp",
       "_tgt": "src_sinkhorn_bisect_capacity_fast",
@@ -4866,7 +4815,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/sinkhorn.cpp",
-      "source_location": "L89",
+      "source_location": "L122",
       "weight": 1.0,
       "_src": "src_sinkhorn_cpp",
       "_tgt": "src_sinkhorn_sinkhorn_solve",
@@ -4878,7 +4827,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/sinkhorn.cpp",
-      "source_location": "L170",
+      "source_location": "L203",
       "weight": 1.0,
       "_src": "src_sinkhorn_sinkhorn_solve",
       "_tgt": "src_sinkhorn_bisect_capacity_fast",
@@ -4902,7 +4851,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/logit_calib.cpp",
-      "source_location": "L15",
+      "source_location": "L20",
       "weight": 1.0,
       "_src": "src_logit_calib_cpp",
       "_tgt": "src_logit_calib_logit_calibrate",
@@ -4914,7 +4863,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/chebyshev.hpp",
-      "source_location": "L30",
+      "source_location": "L27",
       "weight": 1.0,
       "_src": "src_chebyshev_hpp",
       "_tgt": "src_chebyshev_chebyshev_solve",
@@ -4926,7 +4875,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/sraa.hpp",
-      "source_location": "L75",
+      "source_location": "L88",
       "weight": 1.0,
       "_src": "src_sraa_hpp",
       "_tgt": "src_sraa_sraa_step",
@@ -4950,7 +4899,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L121",
+      "source_location": "L158",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_select_metric",
@@ -4962,7 +4911,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L66",
+      "source_location": "L68",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_apply_rule",
@@ -4974,7 +4923,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L129",
+      "source_location": "L166",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_select_solver_objective",
@@ -4986,7 +4935,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L139",
+      "source_location": "L176",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_check_convergence",
@@ -4998,7 +4947,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L160",
+      "source_location": "L197",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_aggregate_to_margin",
@@ -5010,7 +4959,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L176",
+      "source_location": "L213",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_compute_cell_metrics",
@@ -5022,7 +4971,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L212",
+      "source_location": "L249",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_apply_obs_expansion",
@@ -5034,7 +4983,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L227",
+      "source_location": "L264",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_resolve_hi",
@@ -5046,7 +4995,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L232",
+      "source_location": "L269",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_compute_cell_bounds",
@@ -5058,7 +5007,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L247",
+      "source_location": "L284",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_build_cat_offset",
@@ -5070,7 +5019,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L257",
+      "source_location": "L294",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_max_cats_count",
@@ -5082,7 +5031,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L267",
+      "source_location": "L304",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_mark_converged",
@@ -5094,7 +5043,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L279",
+      "source_location": "L316",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_solver_setup_ct",
@@ -5106,7 +5055,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L313",
+      "source_location": "L350",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_solver_setup_ct_base",
@@ -5118,7 +5067,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L336",
+      "source_location": "L373",
       "weight": 1.0,
       "_src": "src_calib_dispatch_hpp",
       "_tgt": "src_calib_dispatch_compute_weight_kl",
@@ -5130,7 +5079,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L145",
+      "source_location": "L182",
       "weight": 1.0,
       "_src": "src_calib_dispatch_check_convergence",
       "_tgt": "src_calib_dispatch_select_metric",
@@ -5142,7 +5091,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L148",
+      "source_location": "L185",
       "weight": 1.0,
       "_src": "src_calib_dispatch_check_convergence",
       "_tgt": "src_calib_dispatch_apply_rule",
@@ -5154,7 +5103,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L188",
+      "source_location": "L225",
       "weight": 1.0,
       "_src": "src_calib_dispatch_compute_cell_metrics",
       "_tgt": "src_calib_dispatch_aggregate_to_margin",
@@ -5178,7 +5127,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L297",
+      "source_location": "L334",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct",
       "_tgt": "src_calib_dispatch_resolve_hi",
@@ -5190,7 +5139,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L328",
+      "source_location": "L365",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct_base",
       "_tgt": "src_calib_dispatch_resolve_hi",
@@ -5202,7 +5151,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L298",
+      "source_location": "L335",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct",
       "_tgt": "src_calib_dispatch_compute_cell_bounds",
@@ -5214,7 +5163,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L329",
+      "source_location": "L366",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct_base",
       "_tgt": "src_calib_dispatch_compute_cell_bounds",
@@ -5226,7 +5175,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "src/calib_dispatch.hpp",
-      "source_location": "L299",
+      "source_location": "L336",
       "weight": 1.0,
       "_src": "src_calib_dispatch_solver_setup_ct",
       "_tgt": "src_calib_dispatch_build_cat_offset",
@@ -5328,6 +5277,78 @@
       "_tgt": "src_ieppa_unpack_lf",
       "source": "src_ieppa_cpp",
       "target": "src_ieppa_unpack_lf",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_src": "tests_test_parity_weights_py",
+      "_tgt": "tests_test_parity_weights_make_synthetic",
+      "source": "tests_test_parity_weights_py",
+      "target": "tests_test_parity_weights_make_synthetic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L51",
+      "weight": 1.0,
+      "_src": "tests_test_parity_weights_py",
+      "_tgt": "tests_test_parity_weights_r_weights",
+      "source": "tests_test_parity_weights_py",
+      "target": "tests_test_parity_weights_r_weights",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L68",
+      "weight": 1.0,
+      "_src": "tests_test_parity_weights_py",
+      "_tgt": "tests_test_parity_weights_test_weight_parity",
+      "source": "tests_test_parity_weights_py",
+      "target": "tests_test_parity_weights_test_weight_parity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_src": "tests_test_parity_weights_rationale_1",
+      "_tgt": "tests_test_parity_weights_py",
+      "source": "tests_test_parity_weights_py",
+      "target": "tests_test_parity_weights_rationale_1",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_src": "tests_test_parity_weights_test_weight_parity",
+      "_tgt": "tests_test_parity_weights_make_synthetic",
+      "source": "tests_test_parity_weights_make_synthetic",
+      "target": "tests_test_parity_weights_test_weight_parity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_parity_weights.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_src": "tests_test_parity_weights_test_weight_parity",
+      "_tgt": "tests_test_parity_weights_r_weights",
+      "source": "tests_test_parity_weights_r_weights",
+      "target": "tests_test_parity_weights_test_weight_parity",
       "confidence_score": 1.0
     }
   ],

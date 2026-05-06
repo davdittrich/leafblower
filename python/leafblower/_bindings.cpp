@@ -8,8 +8,8 @@
 
 namespace py = pybind11;
 
-// GIL is held throughout rk_calibrate() call.
-// py_log_trampoline casts ctx to PyObject* (a callable) and invokes it.
+// GIL is RELEASED during rk_calibrate(); py_log_trampoline reacquires via
+// gil_scoped_acquire when the log callback fires.
 static void py_log_trampoline(const char* msg, void* ctx) {
     py::gil_scoped_acquire gil;
     PyObject* callable = reinterpret_cast<PyObject*>(ctx);

@@ -59,21 +59,40 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+R CMD INSTALL --preclean .                     # R build gate — use this, NOT devtools::install
+Rscript -e "devtools::test()"                  # R tests (testthat v3)
+cd python && pip install -e . && pytest        # Python parity tests (rtol=1e-6 vs R output)
 ```
 
-## Architecture Overview
+**Definition of Done:** R tests pass + Python parity tests pass + stepstone benchmark shows no regression.
 
-_Add a brief overview of your project architecture_
+## Architecture
 
-## Conventions & Patterns
+- Single C++17 core (`src/`). C API in `leafblower.h`. R bridge in `r_bridge.cpp`. Python via scikit-build + CMake.
+- `calib_dispatch.hpp` = canonical home for shared solver helpers. Do NOT add shared logic to individual solver files. CellTable-specific helpers → `cell_table.hpp`. Both use `lbw` namespace.
+- `CalibResult` fields live at `res.base.*` (not `res.*`) since ztid.4 — direct field access breaks silently.
+- Algorithm slot 2 is reserved (LBFGSB removed). Do not reuse in `rk_algorithm_t` enum.
+- `-O3` lives in `OPT_FLAGS` (set by `configure`), NOT `PKG_CXXFLAGS` — CRAN portability check rejects `-O` flags in `PKG_CXXFLAGS`.
 
-_Add your project-specific conventions here_
+## Conventions & Footguns
+
+**Adding a new solver — all 8 steps required:**
+1. `src/<name>.cpp` + `src/<name>.hpp` in `lbw` namespace
+2. Add enum value to `rk_algorithm_t` in `leafblower.h`
+3. Wire shared helpers through `calib_dispatch.hpp`
+4. R wrapper function + roxygen2 docs
+5. Python binding
+6. R test fixture (`.rds`)
+7. Python parity test in `python/parity/`
+8. Benchmark fixture for stepstone regression gate
+
+- **Version sync:** bump `DESCRIPTION` AND `python/pyproject.toml` manually — no automation.
+- **Output weights:** Σw=n enforced by solvers at exit. NEVER post-normalize — silently invalidates `bounds_mode="unit"` water-fill clamps.
+- **`bounds_mode`:** `"cell"` = cell-aggregate (default). `"unit"` = strict per-obs via iEPPA water-fill.
+- `homotopy_levels_used` returns `1` for `n_levels=1` (single-pass), not `0`. Struct comment is wrong.
+- SRAA best-iterate: use `select_metric(sraa_cfg.metric, cm)` at `kErrCheckInterval` — NOT `errRp` fast proxy. Bug has been re-introduced twice.
+- Lambda `[&]` in `raking.cpp`: declare bool guards BEFORE `auto F_eval = [&]` definition — `[&]` captures only vars in scope at definition site, not at call site.
 
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph

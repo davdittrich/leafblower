@@ -12,12 +12,12 @@
     "hash": "e78bc1e8c29c1472fdec9aa3b2a55d81"
   },
   "/home/dd/Gemini/leafblower/patch_wolfe.py": {
-    "mtime": 1776888063.6534991,
-    "hash": "2980cabebfb74b09859d4eef7bf29915"
+    "mtime": 1777809606.5145433,
+    "hash": "6e4c54f9756231c9ac77f28c972496ef"
   },
   "/home/dd/Gemini/leafblower/patch_raking.py": {
-    "mtime": 1777158200.2948344,
-    "hash": "54754d0fce3b5940fee7ce513319c0e8"
+    "mtime": 1777809606.5145433,
+    "hash": "bc316b32cc0860bf6970ebb0c8d563ea"
   },
   "/home/dd/Gemini/leafblower/cell_table_92c4f45.cpp": {
     "mtime": 1776953063.6047652,
@@ -124,8 +124,8 @@
     "hash": "1eac75454920ce7f23cec88ba516c7e7"
   },
   "/home/dd/Gemini/leafblower/benchmarks/algo_selection_benchmark.R": {
-    "mtime": 1776944841.943042,
-    "hash": "bf27bba76ec58963c8bbc28db1f6280e"
+    "mtime": 1777907008.5046198,
+    "hash": "c53dd23fbe25abeb3fc4f64783f119b8"
   },
   "/home/dd/Gemini/leafblower/benchmarks/probe_baseline.R": {
     "mtime": 1777073048.4883628,
@@ -136,8 +136,8 @@
     "hash": "3fd32ffa17b2093677673222eac0727d"
   },
   "/home/dd/Gemini/leafblower/benchmarks/plot_helpers.R": {
-    "mtime": 1776946747.753694,
-    "hash": "04593fabc6441315d4cf1b01f86fb0a3"
+    "mtime": 1777907011.7407026,
+    "hash": "eb9f16c0640adc77f6e8344a2eddd5ee"
   },
   "/home/dd/Gemini/leafblower/benchmarks/tsvd_T7_well_conditioned.R": {
     "mtime": 1777683199.2038145,
@@ -156,8 +156,8 @@
     "hash": "e85615bec5fc8c27b2de195a1bac3f7b"
   },
   "/home/dd/Gemini/leafblower/benchmarks/stepstone_all_methods.R": {
-    "mtime": 1777555568.228322,
-    "hash": "4393f6938569f7dea6470177cc4dc47e"
+    "mtime": 1777907010.3736675,
+    "hash": "591c3f0b802c7d75548b4c98091c50d9"
   },
   "/home/dd/Gemini/leafblower/benchmarks/tsvd_kk1204_K20.R": {
     "mtime": 1777684521.8667877,
@@ -191,6 +191,10 @@
     "mtime": 1777682507.0605178,
     "hash": "ad468ba69b916f75ebec7e18e2d8372a"
   },
+  "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.R": {
+    "mtime": 1777847391.8469982,
+    "hash": "e6375e06f696845d5343ac724206a07d"
+  },
   "/home/dd/Gemini/leafblower/benchmarks/make_stepstone_small_fixture.R": {
     "mtime": 1777073048.4883628,
     "hash": "2e8ca3303a8789331865600667e1ce5c"
@@ -207,6 +211,10 @@
     "mtime": 1777031185.8659136,
     "hash": "cffea35d43c86bdd97485b5646111a9d"
   },
+  "/home/dd/Gemini/leafblower/benchmarks/allmethod_bench.py": {
+    "mtime": 1777907006.55757,
+    "hash": "ea840a29fa33a4ae0809ab872041a133"
+  },
   "/home/dd/Gemini/leafblower/benchmarks/autumn_nr_benchmark.R": {
     "mtime": 1776598827.626778,
     "hash": "b3f109d60c2d8590ca67a7e479f043b0"
@@ -215,41 +223,25 @@
     "mtime": 1777073048.4883628,
     "hash": "eb3acd175b5d8b701b2fbe05854083d3"
   },
-  "/home/dd/Gemini/leafblower/benchmarks/research/ylsy_cp_bench.R": {
-    "mtime": 1777739418.1391792,
-    "hash": "d8cd5cfe947f5a6855e36ee5533b0d7e"
-  },
-  "/home/dd/Gemini/leafblower/benchmarks/research/utils.R": {
-    "mtime": 1777739404.465815,
-    "hash": "27a3ad465746206018f3e7b4f19f2b36"
-  },
-  "/home/dd/Gemini/leafblower/benchmarks/research/ylsy_ipm_bench.R": {
-    "mtime": 1777754311.2659001,
-    "hash": "c59e795667e2773bf942f79e5b52c4b3"
-  },
-  "/home/dd/Gemini/leafblower/benchmarks/research/sanity_t1_recovery.R": {
-    "mtime": 1777744041.2678638,
-    "hash": "5af78b9c1fae84ced90ecdffb78b2231"
-  },
-  "/home/dd/Gemini/leafblower/benchmarks/research/ylsy_compare.R": {
-    "mtime": 1777754548.434893,
-    "hash": "cf3744e7b097a5aff8b5d5ddff3d5d3a"
+  "/home/dd/Gemini/leafblower/benchmarks/profile_run.R": {
+    "mtime": 1777817687.1624997,
+    "hash": "f6d05e5e4ab524a5073b96f65579201f"
   },
   "/home/dd/Gemini/leafblower/R/weighted_pct.R": {
     "mtime": 1776521910.1195047,
     "hash": "ce01d3adca9b56ed7aae8401d1e6d557"
   },
   "/home/dd/Gemini/leafblower/R/anesrake.R": {
-    "mtime": 1776551666.0411916,
-    "hash": "fd85e13ce073bf2f11300d5d9361ef2e"
+    "mtime": 1777809606.5135431,
+    "hash": "9ddf8ea985c992cd84f3be2f9b02dd0d"
   },
   "/home/dd/Gemini/leafblower/R/zzz.R": {
     "mtime": 1776507016.965851,
     "hash": "13dace501915a3db48c501e0ce47f56e"
   },
   "/home/dd/Gemini/leafblower/R/harvest.R": {
-    "mtime": 1777728962.6473277,
-    "hash": "f84c33396a7f188c5e3aef68d21e9be2"
+    "mtime": 1777929846.7115386,
+    "hash": "584f801422986f255e2b392d5a67e85f"
   },
   "/home/dd/Gemini/leafblower/R/current_miss.R": {
     "mtime": 1776522581.670489,
@@ -275,26 +267,6 @@
     "mtime": 1777158103.60194,
     "hash": "0b1b4fcf14cae45bd013330e2325206c"
   },
-  "/home/dd/Gemini/leafblower/research/cp_calib.hpp": {
-    "mtime": 1777738795.779622,
-    "hash": "49fdb374ad883c436aa6e9b12cbe73c1"
-  },
-  "/home/dd/Gemini/leafblower/research/ipm_calib.cpp": {
-    "mtime": 1777743993.0735812,
-    "hash": "90a74e6f7596307c9c5fcfcc0753fae0"
-  },
-  "/home/dd/Gemini/leafblower/research/research_bridge.cpp": {
-    "mtime": 1777754254.5614681,
-    "hash": "45df0c0830924c2f8359147c0b1ee369"
-  },
-  "/home/dd/Gemini/leafblower/research/ipm_calib.hpp": {
-    "mtime": 1777743917.2035625,
-    "hash": "a1b7267533a370b861d4c2badc14f191"
-  },
-  "/home/dd/Gemini/leafblower/research/cp_calib.cpp": {
-    "mtime": 1777738795.7856045,
-    "hash": "c51711316c00037a643e75025fda1bef"
-  },
   "/home/dd/Gemini/leafblower/python/conftest.py": {
     "mtime": 1776529663.9752424,
     "hash": "cfcd6881d45823c7e7e45dbab9a363ad"
@@ -308,20 +280,440 @@
     "hash": "011460ce29c39360a5e77aa0fb51f89e"
   },
   "/home/dd/Gemini/leafblower/python/leafblower/_harvest.py": {
-    "mtime": 1777385129.4440026,
-    "hash": "91357fe6ba61b8020db9bc07523dd292"
+    "mtime": 1777907858.9626105,
+    "hash": "cf3b2e2419511a0371b837d2b6a0d660"
   },
   "/home/dd/Gemini/leafblower/python/leafblower/_bindings.cpp": {
-    "mtime": 1777547762.0637772,
-    "hash": "b2297d2bb0af9b58fb84779a0766e67e"
+    "mtime": 1777907858.9626105,
+    "hash": "92c9813a7f4e606a813e0425b3893220"
   },
   "/home/dd/Gemini/leafblower/tools/check_research_isolation.R": {
-    "mtime": 1777738020.0213213,
-    "hash": "c4a1c9f0b0bddd4ddd5ff1ddd9296382"
+    "mtime": 1777907858.9636104,
+    "hash": "f6b34a673fcbd6ba31d54b43cbd9f97a"
   },
-  "/home/dd/Gemini/leafblower/tools/compute_cp_verdict.R": {
-    "mtime": 1777743779.4748993,
-    "hash": "ab5b69ab097d927a549305e5ab0651fb"
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/leafblower-Ex.R": {
+    "mtime": 1777847311.2285044,
+    "hash": "d94a9121b13dbd65a9686f1c67268de1"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/startup.Rs": {
+    "mtime": 1777847311.5315342,
+    "hash": "14e3c5b3d49f164cf0bc8dcd3cf2fd78"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat.R": {
+    "mtime": 1777847311.4306524,
+    "hash": "7b4cbccf73ea87662d01d82528e19fa7"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-harvest.R": {
+    "mtime": 1777847311.4242141,
+    "hash": "250b1c58266a63102a986348a52dd992"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-best-iterate.R": {
+    "mtime": 1777847311.4242463,
+    "hash": "ea5072e3ded2410383c8e38d36f98e82"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa-sraa.R": {
+    "mtime": 1777847311.424265,
+    "hash": "e492ef6d50db990db04763f5ff4c8644"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-sraa-global.R": {
+    "mtime": 1777847311.4242826,
+    "hash": "62b5aab0d4d1f770087631c4274ca3ed"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-compare.R": {
+    "mtime": 1777847311.424303,
+    "hash": "7d3363e99b1a8516b2933bf573f550f9"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa-nonuniform-d.R": {
+    "mtime": 1777847311.4243174,
+    "hash": "ff027941a6a43b91a9df1c8a995f3378"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-newton-kl-tsvd-ratio.R": {
+    "mtime": 1777847311.4243321,
+    "hash": "bf9d484a4fec533d25f0bc030faa496e"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-select-metric-struct.R": {
+    "mtime": 1777847311.4243479,
+    "hash": "fc2f72a0e4ac73ecd724c4157ac571a9"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-design.R": {
+    "mtime": 1777847311.424363,
+    "hash": "2a3a7d86bd3aa78b82a065aa9eac2f21"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-homotopy-enabled-field.R": {
+    "mtime": 1777847311.4243777,
+    "hash": "a35ed6b9061c165d9e47b71b512e9078"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-eta-schedule.R": {
+    "mtime": 1777847311.4300961,
+    "hash": "9c947fbe07f8233cba58e303985af27a"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-logit.R": {
+    "mtime": 1777847311.4301088,
+    "hash": "d692f68692e9846be362d43c923bf39e"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-config-defaults.R": {
+    "mtime": 1777847311.4301214,
+    "hash": "17d48bdfd82a0b729d0c223c784c8e97"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-method-dispatch.R": {
+    "mtime": 1777847311.4301455,
+    "hash": "ec91f9baaf092185bc3568a7894cbe96"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-rk-params-passthrough.R": {
+    "mtime": 1777847311.4301574,
+    "hash": "29b9a5a1a7c047de15e85b1199ea3045"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-safety.R": {
+    "mtime": 1777847311.4301689,
+    "hash": "3109ac1b138fea717cbd32363d0c1ecf"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-quality-metrics.R": {
+    "mtime": 1777847311.430182,
+    "hash": "bf1ae5244434527d65b0137a2e527a47"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-compat.R": {
+    "mtime": 1777847311.430198,
+    "hash": "0e954bef810f9a5e12aafa59ca858b82"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-convergence-criteria.R": {
+    "mtime": 1777847311.4302127,
+    "hash": "1a5eb9f731ec13e066f3b1569aa45767"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-calibration-solvers.R": {
+    "mtime": 1777847311.4302344,
+    "hash": "3fdc2ca259aabeadd0fdb967901fdc07"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-convergence-trajectory.R": {
+    "mtime": 1777847311.4302588,
+    "hash": "e87d816709913b26f90a243c6fbbe1ad"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-newton-steihaug-cg.R": {
+    "mtime": 1777847311.4302716,
+    "hash": "5602f771b25ba68edfa19c7b2535af88"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-bench-gate.R": {
+    "mtime": 1777847311.4302864,
+    "hash": "40aac82dad945672443c6e45a91f3c7e"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-priority-sweep.R": {
+    "mtime": 1777847311.430299,
+    "hash": "c64680371d826f7e6eddbe5885245d93"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-auto-routing-severe-skew.R": {
+    "mtime": 1777847311.4303112,
+    "hash": "ce8e07f3b24edb6b4183b398e4b478d8"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa-sraa-sor.R": {
+    "mtime": 1777847311.430324,
+    "hash": "d5e4709347678d8377a8a22c178c35f6"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-newton-kl.R": {
+    "mtime": 1777847311.4303365,
+    "hash": "1e332eb388633c2e432315fafc9bdb6e"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-calib-linalg.R": {
+    "mtime": 1777847311.4303522,
+    "hash": "595e870135f9c7547c6721b972531971"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-raking.R": {
+    "mtime": 1777847311.430383,
+    "hash": "243b1bd1e446543b7ee30dce81fe54d4"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-calib-result-consolidation.R": {
+    "mtime": 1777847311.4303975,
+    "hash": "3fb5cc187b4215c0434e13b6e2b216c2"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-lbfgsb.R": {
+    "mtime": 1777847311.4304106,
+    "hash": "c3d48f91b76df2ecdacd36561af95931"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-homotopy.R": {
+    "mtime": 1777847311.4304252,
+    "hash": "ce1971e4f8b1894958d6685972eb2daa"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-chebyshev.R": {
+    "mtime": 1777847311.4304392,
+    "hash": "9bfec02b14ed8ac7ea68041d0e184376"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa-sraa-log-path.R": {
+    "mtime": 1777847311.4304538,
+    "hash": "7794f57dbe237eb8f8b7712b47482866"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-sor.R": {
+    "mtime": 1777847311.4304826,
+    "hash": "63e050390c33f08b64cb294c4372e992"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa-faithful.R": {
+    "mtime": 1777847311.4304965,
+    "hash": "33b932799e98c8802257420d2cd9744c"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa.R": {
+    "mtime": 1777847311.4305153,
+    "hash": "def414e4e96663918d24e7506b76c1ad"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-cell-table.R": {
+    "mtime": 1777847311.4305277,
+    "hash": "473120113bb1f59aac5f7c4ee7817894"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-newton-tsvd-projection.R": {
+    "mtime": 1777847311.43054,
+    "hash": "b51c2ee558f3c34294e890cdcd8d580c"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-simd-math.R": {
+    "mtime": 1777847311.430553,
+    "hash": "71a2db39c13a8146de1013cfe18e166e"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-bounded-convergence.R": {
+    "mtime": 1777847311.4305673,
+    "hash": "2ee6c7b8bd387ae019d56aecd164396d"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa-persistent-infeas.R": {
+    "mtime": 1777847311.4305804,
+    "hash": "12488892305d489bc803926cbe1d0034"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-ieppa-bounds-mode.R": {
+    "mtime": 1777847311.430595,
+    "hash": "91b7f231fe56897ec741bdda70a6a3b3"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-alm-config-grouping.R": {
+    "mtime": 1777847311.4306104,
+    "hash": "7b72b594d67a7488b3100b4eb3299952"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/test-algo-selection.R": {
+    "mtime": 1777847311.430624,
+    "hash": "9d9f72cae0fababe94ed8209ba77fbdf"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.R": {
+    "mtime": 1777847311.4263809,
+    "hash": "5b87a4445ae7c85a08d7637ac0cea9b3"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/fixtures/stepstone_verify.R": {
+    "mtime": 1777847311.43003,
+    "hash": "d09f9241d0799a2ddc030ac68b5c2912"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/fixtures/stepstone_reference_run.R": {
+    "mtime": 1777847311.4300747,
+    "hash": "9ae521c1c57f17cb1879b5b52cbbd1b1"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/_problems/test-auto-routing-severe-skew-63.R": {
+    "mtime": 1777847313.1606798,
+    "hash": "71a486e7a5bb6053b9445fa2a52f0e8c"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/_problems/test-calibration-solvers-253.R": {
+    "mtime": 1777847313.4393992,
+    "hash": "ed9eb8d4d2f95c99280ba726fca95b19"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/leafblower-Ex.R": {
+    "mtime": 1777820580.5724,
+    "hash": "d94a9121b13dbd65a9686f1c67268de1"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/startup.Rs": {
+    "mtime": 1777820580.8954113,
+    "hash": "14e3c5b3d49f164cf0bc8dcd3cf2fd78"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat.R": {
+    "mtime": 1777820580.7871742,
+    "hash": "7b4cbccf73ea87662d01d82528e19fa7"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-harvest.R": {
+    "mtime": 1777820580.7807877,
+    "hash": "250b1c58266a63102a986348a52dd992"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-best-iterate.R": {
+    "mtime": 1777820580.780815,
+    "hash": "ea5072e3ded2410383c8e38d36f98e82"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa-sraa.R": {
+    "mtime": 1777820580.7808342,
+    "hash": "e492ef6d50db990db04763f5ff4c8644"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-sraa-global.R": {
+    "mtime": 1777820580.7808518,
+    "hash": "62b5aab0d4d1f770087631c4274ca3ed"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-compare.R": {
+    "mtime": 1777820580.780869,
+    "hash": "7d3363e99b1a8516b2933bf573f550f9"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa-nonuniform-d.R": {
+    "mtime": 1777820580.7808833,
+    "hash": "ff027941a6a43b91a9df1c8a995f3378"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-newton-kl-tsvd-ratio.R": {
+    "mtime": 1777820580.7808971,
+    "hash": "bf9d484a4fec533d25f0bc030faa496e"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-select-metric-struct.R": {
+    "mtime": 1777820580.780911,
+    "hash": "fc2f72a0e4ac73ecd724c4157ac571a9"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-design.R": {
+    "mtime": 1777820580.7809567,
+    "hash": "2a3a7d86bd3aa78b82a065aa9eac2f21"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-homotopy-enabled-field.R": {
+    "mtime": 1777820580.7809808,
+    "hash": "a35ed6b9061c165d9e47b71b512e9078"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-eta-schedule.R": {
+    "mtime": 1777820580.7866042,
+    "hash": "9c947fbe07f8233cba58e303985af27a"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-logit.R": {
+    "mtime": 1777820580.7866173,
+    "hash": "d692f68692e9846be362d43c923bf39e"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-config-defaults.R": {
+    "mtime": 1777820580.7866335,
+    "hash": "17d48bdfd82a0b729d0c223c784c8e97"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-method-dispatch.R": {
+    "mtime": 1777820580.7866585,
+    "hash": "ec91f9baaf092185bc3568a7894cbe96"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-rk-params-passthrough.R": {
+    "mtime": 1777820580.7866716,
+    "hash": "29b9a5a1a7c047de15e85b1199ea3045"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-safety.R": {
+    "mtime": 1777820580.7866845,
+    "hash": "3109ac1b138fea717cbd32363d0c1ecf"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-quality-metrics.R": {
+    "mtime": 1777820580.7866988,
+    "hash": "bf1ae5244434527d65b0137a2e527a47"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-compat.R": {
+    "mtime": 1777820580.786716,
+    "hash": "0e954bef810f9a5e12aafa59ca858b82"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-convergence-criteria.R": {
+    "mtime": 1777820580.7867296,
+    "hash": "1a5eb9f731ec13e066f3b1569aa45767"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-calibration-solvers.R": {
+    "mtime": 1777820580.786752,
+    "hash": "3fdc2ca259aabeadd0fdb967901fdc07"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-convergence-trajectory.R": {
+    "mtime": 1777820580.7867765,
+    "hash": "e87d816709913b26f90a243c6fbbe1ad"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-newton-steihaug-cg.R": {
+    "mtime": 1777820580.7867892,
+    "hash": "5602f771b25ba68edfa19c7b2535af88"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-bench-gate.R": {
+    "mtime": 1777820580.786803,
+    "hash": "40aac82dad945672443c6e45a91f3c7e"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-priority-sweep.R": {
+    "mtime": 1777820580.7868152,
+    "hash": "c64680371d826f7e6eddbe5885245d93"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-auto-routing-severe-skew.R": {
+    "mtime": 1777820580.786827,
+    "hash": "ce8e07f3b24edb6b4183b398e4b478d8"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa-sraa-sor.R": {
+    "mtime": 1777820580.7868395,
+    "hash": "d5e4709347678d8377a8a22c178c35f6"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-newton-kl.R": {
+    "mtime": 1777820580.786851,
+    "hash": "1e332eb388633c2e432315fafc9bdb6e"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-calib-linalg.R": {
+    "mtime": 1777820580.7868648,
+    "hash": "595e870135f9c7547c6721b972531971"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-raking.R": {
+    "mtime": 1777820580.7868962,
+    "hash": "243b1bd1e446543b7ee30dce81fe54d4"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-calib-result-consolidation.R": {
+    "mtime": 1777820580.786912,
+    "hash": "3fb5cc187b4215c0434e13b6e2b216c2"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-lbfgsb.R": {
+    "mtime": 1777820580.7869303,
+    "hash": "c3d48f91b76df2ecdacd36561af95931"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-homotopy.R": {
+    "mtime": 1777820580.7869468,
+    "hash": "ce1971e4f8b1894958d6685972eb2daa"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-chebyshev.R": {
+    "mtime": 1777820580.7869594,
+    "hash": "9bfec02b14ed8ac7ea68041d0e184376"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa-sraa-log-path.R": {
+    "mtime": 1777820580.7869747,
+    "hash": "7794f57dbe237eb8f8b7712b47482866"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-sor.R": {
+    "mtime": 1777820580.7870035,
+    "hash": "63e050390c33f08b64cb294c4372e992"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa-faithful.R": {
+    "mtime": 1777820580.7870169,
+    "hash": "33b932799e98c8802257420d2cd9744c"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa.R": {
+    "mtime": 1777820580.787033,
+    "hash": "def414e4e96663918d24e7506b76c1ad"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-cell-table.R": {
+    "mtime": 1777820580.7870479,
+    "hash": "473120113bb1f59aac5f7c4ee7817894"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-newton-tsvd-projection.R": {
+    "mtime": 1777820580.7870612,
+    "hash": "b51c2ee558f3c34294e890cdcd8d580c"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-simd-math.R": {
+    "mtime": 1777820580.7870739,
+    "hash": "71a2db39c13a8146de1013cfe18e166e"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-bounded-convergence.R": {
+    "mtime": 1777820580.787086,
+    "hash": "2ee6c7b8bd387ae019d56aecd164396d"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa-persistent-infeas.R": {
+    "mtime": 1777820580.7870986,
+    "hash": "12488892305d489bc803926cbe1d0034"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-ieppa-bounds-mode.R": {
+    "mtime": 1777820580.7871199,
+    "hash": "91b7f231fe56897ec741bdda70a6a3b3"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-alm-config-grouping.R": {
+    "mtime": 1777820580.787135,
+    "hash": "7b72b594d67a7488b3100b4eb3299952"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/test-algo-selection.R": {
+    "mtime": 1777820580.7871473,
+    "hash": "9d9f72cae0fababe94ed8209ba77fbdf"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.R": {
+    "mtime": 1777820580.7829497,
+    "hash": "5b87a4445ae7c85a08d7637ac0cea9b3"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/fixtures/stepstone_verify.R": {
+    "mtime": 1777820580.7865405,
+    "hash": "d09f9241d0799a2ddc030ac68b5c2912"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/fixtures/stepstone_reference_run.R": {
+    "mtime": 1777820580.7865808,
+    "hash": "9ae521c1c57f17cb1879b5b52cbbd1b1"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/_problems/test-auto-routing-severe-skew-63.R": {
+    "mtime": 1777820582.4641669,
+    "hash": "71a486e7a5bb6053b9445fa2a52f0e8c"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/_problems/test-calibration-solvers-253.R": {
+    "mtime": 1777820582.7581246,
+    "hash": "ed9eb8d4d2f95c99280ba726fca95b19"
   },
   "/home/dd/Gemini/leafblower/leafblower.Rcheck/00_pkg_src/leafblower/configure": {
     "mtime": 1776947642.0,
@@ -535,57 +927,261 @@
     "mtime": 1776947720.6149704,
     "hash": "6ea0335603e28d6e83dee3d581feced5"
   },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/leafblower-Ex.R": {
+    "mtime": 1777883857.3028424,
+    "hash": "d94a9121b13dbd65a9686f1c67268de1"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/startup.Rs": {
+    "mtime": 1777883857.6287374,
+    "hash": "14e3c5b3d49f164cf0bc8dcd3cf2fd78"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat.R": {
+    "mtime": 1777883857.5207255,
+    "hash": "7b4cbccf73ea87662d01d82528e19fa7"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-harvest.R": {
+    "mtime": 1777883857.5094016,
+    "hash": "250b1c58266a63102a986348a52dd992"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-best-iterate.R": {
+    "mtime": 1777883857.5094328,
+    "hash": "ea5072e3ded2410383c8e38d36f98e82"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa-sraa.R": {
+    "mtime": 1777883857.5094533,
+    "hash": "e492ef6d50db990db04763f5ff4c8644"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-sraa-global.R": {
+    "mtime": 1777883857.5094717,
+    "hash": "62b5aab0d4d1f770087631c4274ca3ed"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-compare.R": {
+    "mtime": 1777883857.5094898,
+    "hash": "7d3363e99b1a8516b2933bf573f550f9"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa-nonuniform-d.R": {
+    "mtime": 1777883857.5095062,
+    "hash": "ff027941a6a43b91a9df1c8a995f3378"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-newton-kl-tsvd-ratio.R": {
+    "mtime": 1777883857.5095205,
+    "hash": "bf9d484a4fec533d25f0bc030faa496e"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-select-metric-struct.R": {
+    "mtime": 1777883857.5095348,
+    "hash": "fc2f72a0e4ac73ecd724c4157ac571a9"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-design.R": {
+    "mtime": 1777883857.5095491,
+    "hash": "2a3a7d86bd3aa78b82a065aa9eac2f21"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-homotopy-enabled-field.R": {
+    "mtime": 1777883857.509564,
+    "hash": "a35ed6b9061c165d9e47b71b512e9078"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-eta-schedule.R": {
+    "mtime": 1777883857.5201433,
+    "hash": "9c947fbe07f8233cba58e303985af27a"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-logit.R": {
+    "mtime": 1777883857.5201564,
+    "hash": "d692f68692e9846be362d43c923bf39e"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-config-defaults.R": {
+    "mtime": 1777883857.520168,
+    "hash": "17d48bdfd82a0b729d0c223c784c8e97"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-method-dispatch.R": {
+    "mtime": 1777883857.520192,
+    "hash": "ec91f9baaf092185bc3568a7894cbe96"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-rk-params-passthrough.R": {
+    "mtime": 1777883857.5202038,
+    "hash": "29b9a5a1a7c047de15e85b1199ea3045"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-safety.R": {
+    "mtime": 1777883857.5202157,
+    "hash": "3109ac1b138fea717cbd32363d0c1ecf"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-quality-metrics.R": {
+    "mtime": 1777883857.520228,
+    "hash": "bf1ae5244434527d65b0137a2e527a47"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-compat.R": {
+    "mtime": 1777883857.5202465,
+    "hash": "0e954bef810f9a5e12aafa59ca858b82"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-convergence-criteria.R": {
+    "mtime": 1777883857.5202608,
+    "hash": "1a5eb9f731ec13e066f3b1569aa45767"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-calibration-solvers.R": {
+    "mtime": 1777883857.520287,
+    "hash": "3fdc2ca259aabeadd0fdb967901fdc07"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-convergence-trajectory.R": {
+    "mtime": 1777883857.5203273,
+    "hash": "e87d816709913b26f90a243c6fbbe1ad"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-newton-steihaug-cg.R": {
+    "mtime": 1777883857.5203397,
+    "hash": "5602f771b25ba68edfa19c7b2535af88"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-bench-gate.R": {
+    "mtime": 1777883857.5203514,
+    "hash": "40aac82dad945672443c6e45a91f3c7e"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-priority-sweep.R": {
+    "mtime": 1777883857.520363,
+    "hash": "c64680371d826f7e6eddbe5885245d93"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-auto-routing-severe-skew.R": {
+    "mtime": 1777883857.5203745,
+    "hash": "ce8e07f3b24edb6b4183b398e4b478d8"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa-sraa-sor.R": {
+    "mtime": 1777883857.5203865,
+    "hash": "d5e4709347678d8377a8a22c178c35f6"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-newton-kl.R": {
+    "mtime": 1777883857.5203989,
+    "hash": "1e332eb388633c2e432315fafc9bdb6e"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-calib-linalg.R": {
+    "mtime": 1777883857.5204148,
+    "hash": "595e870135f9c7547c6721b972531971"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-raking.R": {
+    "mtime": 1777883857.520448,
+    "hash": "243b1bd1e446543b7ee30dce81fe54d4"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-calib-result-consolidation.R": {
+    "mtime": 1777883857.520463,
+    "hash": "3fb5cc187b4215c0434e13b6e2b216c2"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-lbfgsb.R": {
+    "mtime": 1777883857.5204759,
+    "hash": "c3d48f91b76df2ecdacd36561af95931"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-homotopy.R": {
+    "mtime": 1777883857.520491,
+    "hash": "ce1971e4f8b1894958d6685972eb2daa"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-chebyshev.R": {
+    "mtime": 1777883857.520503,
+    "hash": "9bfec02b14ed8ac7ea68041d0e184376"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa-sraa-log-path.R": {
+    "mtime": 1777883857.520526,
+    "hash": "7794f57dbe237eb8f8b7712b47482866"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-sor.R": {
+    "mtime": 1777883857.520558,
+    "hash": "63e050390c33f08b64cb294c4372e992"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa-faithful.R": {
+    "mtime": 1777883857.5205712,
+    "hash": "33b932799e98c8802257420d2cd9744c"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa.R": {
+    "mtime": 1777883857.520591,
+    "hash": "def414e4e96663918d24e7506b76c1ad"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-cell-table.R": {
+    "mtime": 1777883857.520603,
+    "hash": "473120113bb1f59aac5f7c4ee7817894"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-newton-tsvd-projection.R": {
+    "mtime": 1777883857.5206149,
+    "hash": "b51c2ee558f3c34294e890cdcd8d580c"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-simd-math.R": {
+    "mtime": 1777883857.5206268,
+    "hash": "71a2db39c13a8146de1013cfe18e166e"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-bounded-convergence.R": {
+    "mtime": 1777883857.5206387,
+    "hash": "2ee6c7b8bd387ae019d56aecd164396d"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa-persistent-infeas.R": {
+    "mtime": 1777883857.520651,
+    "hash": "12488892305d489bc803926cbe1d0034"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-ieppa-bounds-mode.R": {
+    "mtime": 1777883857.5206661,
+    "hash": "91b7f231fe56897ec741bdda70a6a3b3"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-alm-config-grouping.R": {
+    "mtime": 1777883857.5206835,
+    "hash": "7b72b594d67a7488b3100b4eb3299952"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/test-algo-selection.R": {
+    "mtime": 1777883857.5206962,
+    "hash": "9d9f72cae0fababe94ed8209ba77fbdf"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.R": {
+    "mtime": 1777883857.5131288,
+    "hash": "5b87a4445ae7c85a08d7637ac0cea9b3"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/fixtures/stepstone_verify.R": {
+    "mtime": 1777883857.5200694,
+    "hash": "d09f9241d0799a2ddc030ac68b5c2912"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/fixtures/stepstone_reference_run.R": {
+    "mtime": 1777883857.5201173,
+    "hash": "9ae521c1c57f17cb1879b5b52cbbd1b1"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/_problems/test-auto-routing-severe-skew-63.R": {
+    "mtime": 1777883859.278156,
+    "hash": "71a486e7a5bb6053b9445fa2a52f0e8c"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/_problems/test-calibration-solvers-253.R": {
+    "mtime": 1777883859.5823472,
+    "hash": "ed9eb8d4d2f95c99280ba726fca95b19"
+  },
   "/home/dd/Gemini/leafblower/src/greg.hpp": {
     "mtime": 1777547762.0647771,
     "hash": "14308e1ba8e8db67894bfc531d733523"
   },
   "/home/dd/Gemini/leafblower/src/c_api.cpp": {
-    "mtime": 1777732075.7616203,
-    "hash": "a118858d547aca6dcc276b2218debb04"
-  },
-  "/home/dd/Gemini/leafblower/src/lbfgsb_solver.cpp": {
-    "mtime": 1777547762.0647771,
-    "hash": "8d117bb989f83c85223e3f97551ed31e"
+    "mtime": 1777929961.2847068,
+    "hash": "2be9f95502c8b1292e7ef51ee8bdad5e"
   },
   "/home/dd/Gemini/leafblower/src/calib_linalg.cpp": {
-    "mtime": 1777547762.0637772,
-    "hash": "f3b52b72106b2c056bca69d2b6e34ed6"
+    "mtime": 1777929846.7125385,
+    "hash": "1639990cb34c2050b694637152deb4d0"
   },
   "/home/dd/Gemini/leafblower/src/validation.hpp": {
-    "mtime": 1777547762.0667772,
-    "hash": "0e0af3a6fa5608d43628c203263f698d"
-  },
-  "/home/dd/Gemini/leafblower/src/lbfgsb_solver.hpp": {
-    "mtime": 1777547762.0647771,
-    "hash": "7ef6e73244020455e0cbc2601a533520"
+    "mtime": 1777907858.9626105,
+    "hash": "dc9fd0e07bc0b392b23f8bfeaeedabb4"
   },
   "/home/dd/Gemini/leafblower/src/lbw_config.h": {
-    "mtime": 1777754134.8383737,
+    "mtime": 1777932126.9243371,
     "hash": "997eb74b112a64fb0f375869ee4d9538"
   },
   "/home/dd/Gemini/leafblower/src/calib_validate.cpp": {
-    "mtime": 1777628603.3522117,
-    "hash": "9ca8e676baef01753e7ebb9d7b3b0e8e"
+    "mtime": 1777809606.5145433,
+    "hash": "985a3b8c1de36dc9a98debcd2886d18b"
   },
   "/home/dd/Gemini/leafblower/src/chebyshev.cpp": {
-    "mtime": 1777636796.2039902,
-    "hash": "dabe359bdfe2fb8bdc71a70a9453c976"
+    "mtime": 1777929961.2847068,
+    "hash": "9d06c1443b6d6b9ed5d521dbd590ed44"
   },
   "/home/dd/Gemini/leafblower/src/greenkhorn.cpp": {
-    "mtime": 1777617142.5359347,
-    "hash": "5607d453c8e355ea880fc89e68006d47"
+    "mtime": 1777817687.1624997,
+    "hash": "3048435efc91808f9d511098392f069b"
   },
   "/home/dd/Gemini/leafblower/src/logit.hpp": {
     "mtime": 1776930927.5500243,
     "hash": "274546c93500d69532d2355454a03439"
   },
   "/home/dd/Gemini/leafblower/src/leafblower.h": {
-    "mtime": 1777728962.6473277,
-    "hash": "690c3e5790d174d251c4e2e4c4770eb2"
+    "mtime": 1777929961.285536,
+    "hash": "e0c93714ca540849a721207a8f80594d"
   },
   "/home/dd/Gemini/leafblower/src/r_bridge.cpp": {
-    "mtime": 1777732075.7616203,
-    "hash": "577a74c5366c8e741a9fe801a422badb"
+    "mtime": 1777929961.285536,
+    "hash": "46cc2be1ad7c2235ac3e7cd662ea35f1"
   },
   "/home/dd/Gemini/leafblower/src/greenkhorn.hpp": {
     "mtime": 1777547762.0647771,
@@ -600,52 +1196,52 @@
     "hash": "e7c44173f8f06a201c9fbed0759a98a9"
   },
   "/home/dd/Gemini/leafblower/src/newton_calib.hpp": {
-    "mtime": 1777728292.5990753,
-    "hash": "a0018eb614e59825f0cebce22b772039"
+    "mtime": 1777809606.5155432,
+    "hash": "eef9d3541f927ab48e39c66c3ff5d0d1"
   },
   "/home/dd/Gemini/leafblower/src/types.hpp": {
-    "mtime": 1777728962.6473277,
-    "hash": "037ed64df35a1ffc391956d9a4c35a8e"
+    "mtime": 1777907858.9626105,
+    "hash": "e829f1e42166a965d3f6cf28491388d1"
   },
   "/home/dd/Gemini/leafblower/src/logit.cpp": {
     "mtime": 1776551913.9605165,
     "hash": "604fc9aa11c2e11ffb6ab91344712785"
   },
   "/home/dd/Gemini/leafblower/src/raking.hpp": {
-    "mtime": 1777547762.0667772,
-    "hash": "19fbb9d08d71fab9bc2c962b7538c06a"
+    "mtime": 1777929846.7135384,
+    "hash": "98e098e99f4caf0fe31e3de6d52057b3"
   },
   "/home/dd/Gemini/leafblower/src/raking.cpp": {
-    "mtime": 1777628500.7913775,
-    "hash": "fe983e545e8ac00fe92f0b61d6db39ab"
+    "mtime": 1777929846.7135384,
+    "hash": "104b57ee832ad0a46d25caab75302564"
   },
   "/home/dd/Gemini/leafblower/src/ieppa.hpp": {
-    "mtime": 1777675796.0478654,
-    "hash": "c2805168f9ee4eff33b416756724bfa9"
+    "mtime": 1777929961.285536,
+    "hash": "117665386c5748e6cce9249e0d285f70"
   },
   "/home/dd/Gemini/leafblower/src/newton_calib.cpp": {
-    "mtime": 1777728962.6473277,
-    "hash": "5a52c787e812324e08351cd08d4a3235"
+    "mtime": 1777929846.7125385,
+    "hash": "87c2da5d448ba869f64e7d1fcec73701"
   },
   "/home/dd/Gemini/leafblower/src/sinkhorn.cpp": {
-    "mtime": 1777547762.0667772,
-    "hash": "9503c9f8a386c8769303a022e9bd41d0"
+    "mtime": 1777929846.7135384,
+    "hash": "fc042a5dbcd71b8da897158b385e700b"
   },
   "/home/dd/Gemini/leafblower/src/logit_calib.cpp": {
-    "mtime": 1777547762.0667772,
-    "hash": "855314a8c6aa0051b70d151273ffbcae"
+    "mtime": 1777929846.7125385,
+    "hash": "c94dcccc27cd4ef2078ed6b7b3de489b"
   },
   "/home/dd/Gemini/leafblower/src/calib_validate.hpp": {
     "mtime": 1777547762.0637772,
     "hash": "33686b4b29c0829b176848a50662ca27"
   },
   "/home/dd/Gemini/leafblower/src/chebyshev.hpp": {
-    "mtime": 1777547762.0647771,
-    "hash": "ecfe169327783cfc6ddf1d444e3de7b4"
+    "mtime": 1777929961.2847068,
+    "hash": "350be9164e2c04520c601403682fd6ea"
   },
   "/home/dd/Gemini/leafblower/src/sraa.hpp": {
-    "mtime": 1777589074.2006307,
-    "hash": "d0030c7a9f4ffd7bece5d15669e6776f"
+    "mtime": 1777929961.285536,
+    "hash": "01c5770a560b2db6c3ef70b6a0c3a74c"
   },
   "/home/dd/Gemini/leafblower/src/cell_table.hpp": {
     "mtime": 1777547762.0637772,
@@ -656,32 +1252,248 @@
     "hash": "f01bacb338c47ef35fcb5b2be9a72cfb"
   },
   "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp": {
-    "mtime": 1777547762.0637772,
-    "hash": "07223c04b3576ba9e54fde29d56d4ab1"
+    "mtime": 1777929961.2847068,
+    "hash": "713f03cc1adee495a15f1ffaee14a139"
   },
   "/home/dd/Gemini/leafblower/src/cell_table.cpp": {
     "mtime": 1777547762.0637772,
     "hash": "d991dc74e82e7843e2c03f8919bd92b2"
   },
   "/home/dd/Gemini/leafblower/src/calib_linalg.hpp": {
-    "mtime": 1777239715.4416652,
-    "hash": "6afc11e7c0e91501b9e26656410364f4"
+    "mtime": 1777929846.7125385,
+    "hash": "d804de875b412273817ea5eac6766b0c"
   },
   "/home/dd/Gemini/leafblower/src/greg.cpp": {
-    "mtime": 1777547762.0647771,
-    "hash": "ee0346c52b5e818e8e43241eaac11f53"
+    "mtime": 1777929846.7125385,
+    "hash": "7b4e0955c0cab378dcd710338490ad3a"
   },
   "/home/dd/Gemini/leafblower/src/ieppa.cpp": {
-    "mtime": 1777675796.0478654,
-    "hash": "48af7947faba57b36596718e0f56dce9"
+    "mtime": 1777933635.8620865,
+    "hash": "647897f8d04612bc18106f2cc6c2f9c4"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/leafblower-Ex.R": {
+    "mtime": 1777817649.2692432,
+    "hash": "d94a9121b13dbd65a9686f1c67268de1"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/startup.Rs": {
+    "mtime": 1777817649.589447,
+    "hash": "14e3c5b3d49f164cf0bc8dcd3cf2fd78"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat.R": {
+    "mtime": 1777817649.4860456,
+    "hash": "7b4cbccf73ea87662d01d82528e19fa7"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-harvest.R": {
+    "mtime": 1777817649.479361,
+    "hash": "250b1c58266a63102a986348a52dd992"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-best-iterate.R": {
+    "mtime": 1777817649.479385,
+    "hash": "ea5072e3ded2410383c8e38d36f98e82"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa-sraa.R": {
+    "mtime": 1777817649.479401,
+    "hash": "e492ef6d50db990db04763f5ff4c8644"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-sraa-global.R": {
+    "mtime": 1777817649.4794188,
+    "hash": "62b5aab0d4d1f770087631c4274ca3ed"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-compare.R": {
+    "mtime": 1777817649.4794333,
+    "hash": "7d3363e99b1a8516b2933bf573f550f9"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa-nonuniform-d.R": {
+    "mtime": 1777817649.4794455,
+    "hash": "ff027941a6a43b91a9df1c8a995f3378"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-newton-kl-tsvd-ratio.R": {
+    "mtime": 1777817649.4794574,
+    "hash": "bf9d484a4fec533d25f0bc030faa496e"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-select-metric-struct.R": {
+    "mtime": 1777817649.4794688,
+    "hash": "fc2f72a0e4ac73ecd724c4157ac571a9"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-design.R": {
+    "mtime": 1777817649.479481,
+    "hash": "2a3a7d86bd3aa78b82a065aa9eac2f21"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-homotopy-enabled-field.R": {
+    "mtime": 1777817649.479493,
+    "hash": "a35ed6b9061c165d9e47b71b512e9078"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-eta-schedule.R": {
+    "mtime": 1777817649.4854624,
+    "hash": "9c947fbe07f8233cba58e303985af27a"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-logit.R": {
+    "mtime": 1777817649.485475,
+    "hash": "d692f68692e9846be362d43c923bf39e"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-config-defaults.R": {
+    "mtime": 1777817649.4854877,
+    "hash": "17d48bdfd82a0b729d0c223c784c8e97"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-method-dispatch.R": {
+    "mtime": 1777817649.485511,
+    "hash": "ec91f9baaf092185bc3568a7894cbe96"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-rk-params-passthrough.R": {
+    "mtime": 1777817649.4855223,
+    "hash": "29b9a5a1a7c047de15e85b1199ea3045"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-safety.R": {
+    "mtime": 1777817649.4855342,
+    "hash": "3109ac1b138fea717cbd32363d0c1ecf"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-quality-metrics.R": {
+    "mtime": 1777817649.4855466,
+    "hash": "bf1ae5244434527d65b0137a2e527a47"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-compat.R": {
+    "mtime": 1777817649.4855626,
+    "hash": "0e954bef810f9a5e12aafa59ca858b82"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-convergence-criteria.R": {
+    "mtime": 1777817649.4855764,
+    "hash": "1a5eb9f731ec13e066f3b1569aa45767"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-calibration-solvers.R": {
+    "mtime": 1777817649.4855978,
+    "hash": "3fdc2ca259aabeadd0fdb967901fdc07"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-convergence-trajectory.R": {
+    "mtime": 1777817649.4856224,
+    "hash": "e87d816709913b26f90a243c6fbbe1ad"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-newton-steihaug-cg.R": {
+    "mtime": 1777817649.4856343,
+    "hash": "5602f771b25ba68edfa19c7b2535af88"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-bench-gate.R": {
+    "mtime": 1777817649.4856462,
+    "hash": "40aac82dad945672443c6e45a91f3c7e"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-priority-sweep.R": {
+    "mtime": 1777817649.4856582,
+    "hash": "c64680371d826f7e6eddbe5885245d93"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-auto-routing-severe-skew.R": {
+    "mtime": 1777817649.4856725,
+    "hash": "ce8e07f3b24edb6b4183b398e4b478d8"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa-sraa-sor.R": {
+    "mtime": 1777817649.4856844,
+    "hash": "d5e4709347678d8377a8a22c178c35f6"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-newton-kl.R": {
+    "mtime": 1777817649.4856968,
+    "hash": "1e332eb388633c2e432315fafc9bdb6e"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-calib-linalg.R": {
+    "mtime": 1777817649.4857116,
+    "hash": "595e870135f9c7547c6721b972531971"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-raking.R": {
+    "mtime": 1777817649.485744,
+    "hash": "243b1bd1e446543b7ee30dce81fe54d4"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-calib-result-consolidation.R": {
+    "mtime": 1777817649.485758,
+    "hash": "3fb5cc187b4215c0434e13b6e2b216c2"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-lbfgsb.R": {
+    "mtime": 1777817649.4857702,
+    "hash": "c3d48f91b76df2ecdacd36561af95931"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-homotopy.R": {
+    "mtime": 1777817649.485784,
+    "hash": "ce1971e4f8b1894958d6685972eb2daa"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-chebyshev.R": {
+    "mtime": 1777817649.4858267,
+    "hash": "9bfec02b14ed8ac7ea68041d0e184376"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa-sraa-log-path.R": {
+    "mtime": 1777817649.4858422,
+    "hash": "7794f57dbe237eb8f8b7712b47482866"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-sor.R": {
+    "mtime": 1777817649.485873,
+    "hash": "63e050390c33f08b64cb294c4372e992"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa-faithful.R": {
+    "mtime": 1777817649.4858863,
+    "hash": "33b932799e98c8802257420d2cd9744c"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa.R": {
+    "mtime": 1777817649.485902,
+    "hash": "def414e4e96663918d24e7506b76c1ad"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-cell-table.R": {
+    "mtime": 1777817649.4859164,
+    "hash": "473120113bb1f59aac5f7c4ee7817894"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-newton-tsvd-projection.R": {
+    "mtime": 1777817649.4859366,
+    "hash": "b51c2ee558f3c34294e890cdcd8d580c"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-simd-math.R": {
+    "mtime": 1777817649.4859498,
+    "hash": "71a2db39c13a8146de1013cfe18e166e"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-bounded-convergence.R": {
+    "mtime": 1777817649.4859626,
+    "hash": "2ee6c7b8bd387ae019d56aecd164396d"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa-persistent-infeas.R": {
+    "mtime": 1777817649.4859753,
+    "hash": "12488892305d489bc803926cbe1d0034"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-ieppa-bounds-mode.R": {
+    "mtime": 1777817649.4859903,
+    "hash": "91b7f231fe56897ec741bdda70a6a3b3"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-alm-config-grouping.R": {
+    "mtime": 1777817649.4860075,
+    "hash": "7b72b594d67a7488b3100b4eb3299952"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/test-algo-selection.R": {
+    "mtime": 1777817649.4860203,
+    "hash": "9d9f72cae0fababe94ed8209ba77fbdf"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.R": {
+    "mtime": 1777817649.4814873,
+    "hash": "5b87a4445ae7c85a08d7637ac0cea9b3"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/fixtures/stepstone_verify.R": {
+    "mtime": 1777817649.4853926,
+    "hash": "d09f9241d0799a2ddc030ac68b5c2912"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/fixtures/stepstone_reference_run.R": {
+    "mtime": 1777817649.4854352,
+    "hash": "9ae521c1c57f17cb1879b5b52cbbd1b1"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/_problems/test-auto-routing-severe-skew-63.R": {
+    "mtime": 1777817651.1710246,
+    "hash": "71a486e7a5bb6053b9445fa2a52f0e8c"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/_problems/test-calibration-solvers-253.R": {
+    "mtime": 1777817651.480342,
+    "hash": "ed9eb8d4d2f95c99280ba726fca95b19"
+  },
+  "/home/dd/Gemini/leafblower/tests/test_parity_weights.py": {
+    "mtime": 1777895275.5522065,
+    "hash": "45f6cd8fab0c65b7601536cd15772f62"
   },
   "/home/dd/Gemini/leafblower/tests/testthat.R": {
     "mtime": 1776513929.6734743,
     "hash": "7b4cbccf73ea87662d01d82528e19fa7"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-harvest.R": {
-    "mtime": 1777547762.0677774,
-    "hash": "250b1c58266a63102a986348a52dd992"
+    "mtime": 1777932121.0143754,
+    "hash": "df746caa96e6187d324fc9bbafca4b64"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-best-iterate.R": {
     "mtime": 1777147840.9077365,
@@ -696,8 +1508,8 @@
     "hash": "62b5aab0d4d1f770087631c4274ca3ed"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-compare.R": {
-    "mtime": 1777131258.6151743,
-    "hash": "7d3363e99b1a8516b2933bf573f550f9"
+    "mtime": 1777907858.9636104,
+    "hash": "e1c12bf24a604879a528168601db844e"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-ieppa-nonuniform-d.R": {
     "mtime": 1777131258.6151743,
@@ -732,32 +1544,32 @@
     "hash": "17d48bdfd82a0b729d0c223c784c8e97"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-method-dispatch.R": {
-    "mtime": 1777547762.0677774,
-    "hash": "ec91f9baaf092185bc3568a7894cbe96"
+    "mtime": 1777907858.9636104,
+    "hash": "ccd933059f16a9394aa8a1a70bcb7909"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-rk-params-passthrough.R": {
     "mtime": 1777547762.0677774,
     "hash": "29b9a5a1a7c047de15e85b1199ea3045"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-safety.R": {
-    "mtime": 1777728962.6473277,
-    "hash": "ba3eb186388169dde097ca68788a474b"
+    "mtime": 1777907718.5439584,
+    "hash": "2db0e9f11e3bfdcd81550b811bcd1052"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-quality-metrics.R": {
-    "mtime": 1777131258.6151743,
-    "hash": "8cf3b6c46b1b38eea17a9000ab50b3e3"
+    "mtime": 1777907858.9636104,
+    "hash": "3e3cad1e969eb37bd04f3b732459ec90"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-compat.R": {
-    "mtime": 1777131258.6151743,
-    "hash": "0e954bef810f9a5e12aafa59ca858b82"
+    "mtime": 1777907858.9636104,
+    "hash": "fdd37e77c46cd5daad93e2512007d0f8"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-convergence-criteria.R": {
     "mtime": 1777547762.0677774,
     "hash": "1a5eb9f731ec13e066f3b1569aa45767"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-calibration-solvers.R": {
-    "mtime": 1777589074.2016306,
-    "hash": "3fdc2ca259aabeadd0fdb967901fdc07"
+    "mtime": 1777933635.8620865,
+    "hash": "c86b311fa03faf7e4a8cb5b0e8b46c69"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-convergence-trajectory.R": {
     "mtime": 1777073048.493363,
@@ -776,32 +1588,28 @@
     "hash": "c64680371d826f7e6eddbe5885245d93"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-auto-routing-severe-skew.R": {
-    "mtime": 1777732075.7616203,
-    "hash": "ce8e07f3b24edb6b4183b398e4b478d8"
+    "mtime": 1777907858.9636104,
+    "hash": "776cf30155c97d3b41ce0af54b7de752"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-ieppa-sraa-sor.R": {
     "mtime": 1777629650.349857,
     "hash": "d5e4709347678d8377a8a22c178c35f6"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-newton-kl.R": {
-    "mtime": 1777728292.5990753,
-    "hash": "1e332eb388633c2e432315fafc9bdb6e"
+    "mtime": 1777932121.0143754,
+    "hash": "282121d64e6813d8d5940d514cd30602"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-calib-linalg.R": {
-    "mtime": 1777547762.0677774,
-    "hash": "55003afc46a39f25d3f851af114c5248"
+    "mtime": 1777809606.5155432,
+    "hash": "595e870135f9c7547c6721b972531971"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-raking.R": {
-    "mtime": 1777547762.0677774,
-    "hash": "243b1bd1e446543b7ee30dce81fe54d4"
+    "mtime": 1777933635.8630867,
+    "hash": "95b6352b1c8c92f82dcbdd9bd412530b"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-calib-result-consolidation.R": {
-    "mtime": 1777547762.0677774,
-    "hash": "3fb5cc187b4215c0434e13b6e2b216c2"
-  },
-  "/home/dd/Gemini/leafblower/tests/testthat/test-lbfgsb.R": {
-    "mtime": 1777547762.0677774,
-    "hash": "c3d48f91b76df2ecdacd36561af95931"
+    "mtime": 1777907858.9636104,
+    "hash": "74a333bc7d0946194aa05cc024e2ffb2"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-homotopy.R": {
     "mtime": 1777073048.493363,
@@ -820,8 +1628,8 @@
     "hash": "63e050390c33f08b64cb294c4372e992"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-ieppa-faithful.R": {
-    "mtime": 1777131258.6151743,
-    "hash": "33b932799e98c8802257420d2cd9744c"
+    "mtime": 1777929961.2875361,
+    "hash": "c93393cd02bfc791a96a9dfbde6fbb93"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-ieppa.R": {
     "mtime": 1777547762.0677774,
@@ -836,12 +1644,12 @@
     "hash": "b51c2ee558f3c34294e890cdcd8d580c"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-simd-math.R": {
-    "mtime": 1777547762.0677774,
-    "hash": "71a2db39c13a8146de1013cfe18e166e"
+    "mtime": 1777907858.9636104,
+    "hash": "faa4afe0912be3e157b75c474f649029"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-bounded-convergence.R": {
-    "mtime": 1777131258.6151743,
-    "hash": "2ee6c7b8bd387ae019d56aecd164396d"
+    "mtime": 1777907858.9636104,
+    "hash": "324e8847112d6bb6fefbdc2e10fb253d"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-ieppa-persistent-infeas.R": {
     "mtime": 1777547762.0677774,
@@ -856,12 +1664,8 @@
     "hash": "7b72b594d67a7488b3100b4eb3299952"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/test-algo-selection.R": {
-    "mtime": 1777223890.366548,
-    "hash": "9d9f72cae0fababe94ed8209ba77fbdf"
-  },
-  "/home/dd/Gemini/leafblower/tests/testthat/test-jacobi-log-sweep.R": {
-    "mtime": 1777655847.9357393,
-    "hash": "34172f400adcb9a247c8afeb1f351478"
+    "mtime": 1777907858.9636104,
+    "hash": "5f862f7e1ff8c1d98c665293925ef774"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/fixtures/stepstone_reference_diag.R": {
     "mtime": 1777027223.240344,
@@ -895,13 +1699,17 @@
     "mtime": 1777380127.713506,
     "hash": "712cfac07cfdff804d840223fe2a8914"
   },
+  "/home/dd/Gemini/leafblower/tests/parity/run_parity_r.R": {
+    "mtime": 1777893267.8384154,
+    "hash": "c295bcb83859dba2416914d86f9b3c38"
+  },
   "/home/dd/Gemini/leafblower/REVIEW_FINDINGS.md": {
     "mtime": 1777547762.0601234,
     "hash": "205cef5992b25d2418085883a67e9782"
   },
   "/home/dd/Gemini/leafblower/CLAUDE.md": {
-    "mtime": 1777547762.0601234,
-    "hash": "c2849c563e8a28a961884900b0a75cb6"
+    "mtime": 1777929792.241972,
+    "hash": "62796d998fd14e1915681f08f8dae3dd"
   },
   "/home/dd/Gemini/leafblower/code-review-findings.md": {
     "mtime": 1777547762.0601234,
@@ -916,8 +1724,8 @@
     "hash": "cc01fce8a955d3184e9cc80366972537"
   },
   "/home/dd/Gemini/leafblower/NEWS.md": {
-    "mtime": 1777732075.7616203,
-    "hash": "fc9192e586b4c4792f0e796418d632a0"
+    "mtime": 1777809606.5135431,
+    "hash": "212be66e0e069808f1fc3c1e67e14ccb"
   },
   "/home/dd/Gemini/leafblower/docs/ieppa_assessmen.md": {
     "mtime": 1776984035.0171332,
@@ -960,8 +1768,8 @@
     "hash": "683fe2c66dee71e4c57e0d503c12c0da"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-02-epic-k-cp-productionization-design.md": {
-    "mtime": 1777761601.593394,
-    "hash": "e91c1fb74338a1abdd3d2506680fb5d6"
+    "mtime": 1777763255.7275553,
+    "hash": "57c4bce2b840d60931037092288a74eb"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-29-sv89-logit-newton-fix.md": {
     "mtime": 1777547762.0627773,
@@ -1063,6 +1871,10 @@
     "mtime": 1777128451.9281843,
     "hash": "3d5b9773ba939acdc9905b5d2108fd73"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-qual-p2.md": {
+    "mtime": 1777910806.5606432,
+    "hash": "f3c27b26eca424e319dabf1080cf54e6"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-27-raking-bregman-dykstra.md": {
     "mtime": 1777385129.4440026,
     "hash": "7e5d560efe433001874746711f8a1283"
@@ -1075,9 +1887,21 @@
     "mtime": 1777593682.2493105,
     "hash": "01ac7fb3fd5c9f083d348ae06b496b46"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-investigate-d1-ieppa-soft.md": {
+    "mtime": 1777930839.0175562,
+    "hash": "05c519400dc800beee4107eb0919ab0c"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-d1-chi2-test.md": {
+    "mtime": 1777932689.0293055,
+    "hash": "873adbf66da4c316551b512ee3af649e"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-01-jacobi-log-sweep.md": {
     "mtime": 1777641206.7753801,
     "hash": "9bbf164a688390f0a137140197904229"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-raking-chi2.md": {
+    "mtime": 1777935155.6279576,
+    "hash": "eeb44015706fd8fcabba384f87008872"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-01-compute-errrp-ct-audit.md": {
     "mtime": 1777628131.6400752,
@@ -1102,6 +1926,10 @@
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-28-chebyshev-sinkhorn-greg-correctness.md": {
     "mtime": 1777547762.0607772,
     "hash": "2e24557cbf6426238ddac4f67e114918"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-stall-tests.md": {
+    "mtime": 1777930836.0964785,
+    "hash": "70d8cfd9ffde0c5588ac4af39ffaca5e"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-26-calibration-solvers-D-greg.md": {
     "mtime": 1777199851.721624,
@@ -1139,6 +1967,10 @@
     "mtime": 1776978548.7679863,
     "hash": "4b1aca79f30b00d2b98c3e2b66e10183"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-crit-ieppa.md": {
+    "mtime": 1777911455.0100186,
+    "hash": "f64e1a5797940cbce22f3fabb0c046ac"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-29-i0am-sraa-acceleration.md": {
     "mtime": 1777547762.061777,
     "hash": "f569a8956a198d175428cae0724a2b42"
@@ -1171,6 +2003,10 @@
     "mtime": 1777547762.061777,
     "hash": "92b051da6056048596f1fa02afd8d174"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-trajectory-ifdef.md": {
+    "mtime": 1777930765.4416037,
+    "hash": "500bed4ffd17aa323aa3b09fa667d353"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-28-safety-memory-fixes.md": {
     "mtime": 1777547762.0607772,
     "hash": "a33874ea1f7dc0c048c49247e8937d1f"
@@ -1183,6 +2019,10 @@
     "mtime": 1777566744.5931354,
     "hash": "25abe941aa9b1f4762a163cd8ec93478"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-03-epic-b-harvest-quality-plan.md": {
+    "mtime": 1777769515.677346,
+    "hash": "6da7dcfa9bc268f8142e484ef70d9d21"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-25-improvement-criterion.md": {
     "mtime": 1777117433.3472848,
     "hash": "f56280d61d68a0f9e9942259181b4bbc"
@@ -1191,13 +2031,21 @@
     "mtime": 1777547762.061777,
     "hash": "6a552c808b7636c3ac8e5d768b6212ca"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-gbib5b-closure.md": {
+    "mtime": 1777934739.1910286,
+    "hash": "a45105bb18a0ef954d4ed87dd3f3dbe3"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-24-move-normalization-to-solvers.md": {
     "mtime": 1777029723.3879673,
     "hash": "a1600413bc75aaade5afc010f7b751f8"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-02-epic-k-cp-productionization-plan.md": {
-    "mtime": 1777761728.4794672,
-    "hash": "7fb4d1494aea4cdee1ec71d66dc389b1"
+    "mtime": 1777763288.1033893,
+    "hash": "9e6ca69495b113c88510603562d46bdf"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-rake-warning-test.md": {
+    "mtime": 1777930795.9064102,
+    "hash": "0102bcc182caf373d4b29e05dd14189a"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-29-greenkhorn-logit-epic-c-logit.md": {
     "mtime": 1777547762.061777,
@@ -1227,6 +2075,10 @@
     "mtime": 1776512447.0169313,
     "hash": "6cfc1f391ab76b5624a5b724edf5ad8c"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-perf-newton.md": {
+    "mtime": 1777910836.1403785,
+    "hash": "07154985c597571907e7970a39571a8c"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-29-chebyshev-greg-fix.md": {
     "mtime": 1777547762.061777,
     "hash": "33bebbd77a2812c913374b8d3f0f292d"
@@ -1247,6 +2099,10 @@
     "mtime": 1777385129.4440026,
     "hash": "df922fa13e172576cf5ff84bca6e565d"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-delete-lbfgsb-test.md": {
+    "mtime": 1777930749.4431844,
+    "hash": "d6ba16fb464d1e9012669c71c662a82d"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-02-ylsy-cp-ipm-spike-plan.md": {
     "mtime": 1777737121.2756948,
     "hash": "8aaf4e2df7ac8ff60016b475de876201"
@@ -1254,6 +2110,14 @@
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-01-ieppa-sraa-sor.md": {
     "mtime": 1777628327.3895617,
     "hash": "904ac5a9c7b706f2ba63e4e0ec94c70d"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-crit-chebyshev.md": {
+    "mtime": 1777911298.7300358,
+    "hash": "cc42b138b61ab9cc94f9c64a162c352f"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-polish-p3.md": {
+    "mtime": 1777910787.1761625,
+    "hash": "74f748fd397724505ae439d9c9fa0446"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-26-calibration-solvers-E-chebyshev-grake.md": {
     "mtime": 1777204983.0682502,
@@ -1311,6 +2175,14 @@
     "mtime": 1777198416.867235,
     "hash": "932085e558da499042ba42401be850f8"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-03-epic-a-r-bridge-reliability-plan.md": {
+    "mtime": 1777769323.3321533,
+    "hash": "e0879f68a4f27986da20e50cf3d03fdb"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-ieppa-soft-bounds.md": {
+    "mtime": 1777932655.1284146,
+    "hash": "3ca22532890772fd5a72fc39863ff195"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-23-ieppa-review-fixes.md": {
     "mtime": 1776951510.7656665,
     "hash": "d12b0a81245a28d06f72f4a7488d36a5"
@@ -1334,6 +2206,10 @@
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-18-bounded-convergence-fix.md": {
     "mtime": 1776541752.203537,
     "hash": "cf7ca2dbff70d51b2be1da3dd495cef5"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-vz1s1-revised.md": {
+    "mtime": 1777933907.8002162,
+    "hash": "426d2e3d518a8a807176abdc43a32f99"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-24-fix-max-err-of-rerun-benchmark.md": {
     "mtime": 1777073048.4883628,
@@ -1395,6 +2271,10 @@
     "mtime": 1776930558.5471191,
     "hash": "8f185e0292900d6eb056eb22b98b9146"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-descent-monitor-test.md": {
+    "mtime": 1777932818.9617195,
+    "hash": "fca824ccc2446281085b8667427615c6"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-01-newton-kl-homotopy-plan.md": {
     "mtime": 1777665069.8298523,
     "hash": "ca478216564bbef8989406266d46d517"
@@ -1403,9 +2283,17 @@
     "mtime": 1777547762.061777,
     "hash": "e372d1cf4cdc34993e113937728d5ee9"
   },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-fix-newton-t2-threshold.md": {
+    "mtime": 1777931072.7067516,
+    "hash": "24f58619ffdc3640f96ed65fcd4d7526"
+  },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-26-calibration-solvers-B-raking-cell-table.md": {
     "mtime": 1777157992.2077582,
     "hash": "4f3bfd5b51f8d024a444482f62293c13"
+  },
+  "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-04-crit-sinkhorn.md": {
+    "mtime": 1777910738.4739573,
+    "hash": "a6823c37cbbb0256762442df48f6f2f5"
   },
   "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-04-25-best-iter-active-metric.md": {
     "mtime": 1777147491.656976,
@@ -1443,21 +2331,53 @@
     "mtime": 1777547762.0607772,
     "hash": "4c8c6f99cd47719802bd6b274ddaa85e"
   },
-  "/home/dd/Gemini/leafblower/benchmarks/research/results/r3_falsification.txt": {
-    "mtime": 1777755050.8119915,
-    "hash": "1116c35e1b2a4c0a088c53bde5537542"
-  },
-  "/home/dd/Gemini/leafblower/research/cp_verdict.txt": {
-    "mtime": 1777743783.4630053,
-    "hash": "075190a652000c19a0dbed6fe2308555"
+  "/home/dd/Gemini/leafblower/benchmarks/results/simd_profile_findings.txt": {
+    "mtime": 1777817687.1624997,
+    "hash": "3b70a7041e5433b23884aa1b72c1497f"
   },
   "/home/dd/Gemini/leafblower/python/CMakeLists.txt": {
-    "mtime": 1776953779.6693363,
-    "hash": "6c6bfb8ee7f7fffa340425309d528592"
+    "mtime": 1777907858.9626105,
+    "hash": "1ae29f18620485ea4409b0f44c8ca3d0"
   },
   "/home/dd/Gemini/leafblower/tasks/prd-leafblower-core.md": {
     "mtime": 1776945937.9280152,
     "hash": "ca85ee99e596eb9f2a7e3ed5ec6aeb55"
+  },
+  "/home/dd/Gemini/leafblower/tasks/py-r-parity-plan.md": {
+    "mtime": 1777848102.227362,
+    "hash": "977e8c7c8dd4e2c1e59f7250e3da13eb"
+  },
+  "/home/dd/Gemini/leafblower/tasks/python-r-parity-plan.md": {
+    "mtime": 1777847831.3339736,
+    "hash": "e6c310cecd3bb5e103a17132ff75a255"
+  },
+  "/home/dd/Gemini/leafblower/tasks/IMPR-BUDGET-WARN-skmo.md": {
+    "mtime": 1777846247.71289,
+    "hash": "3bb36f4f34f39213dd203ab4421cd24d"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/leafblower/NEWS.md": {
+    "mtime": 1777847306.753739,
+    "hash": "212be66e0e069808f1fc3c1e67e14ccb"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/leafblower/html/00Index.html": {
+    "mtime": 1777847307.4021256,
+    "hash": "b8ad1804b5461cdbd7290c62e3626b7a"
+  },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.txt": {
+    "mtime": 1777847311.4244318,
+    "hash": "2bba80e567340550d9f6a6eacd267b7f"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/leafblower/NEWS.md": {
+    "mtime": 1777820576.0736055,
+    "hash": "212be66e0e069808f1fc3c1e67e14ccb"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/leafblower/html/00Index.html": {
+    "mtime": 1777820576.7569067,
+    "hash": "b8ad1804b5461cdbd7290c62e3626b7a"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.txt": {
+    "mtime": 1777820580.7810388,
+    "hash": "2bba80e567340550d9f6a6eacd267b7f"
   },
   "/home/dd/Gemini/leafblower/leafblower.Rcheck/00_pkg_src/leafblower/NEWS.md": {
     "mtime": 1776945943.0,
@@ -1470,6 +2390,30 @@
   "/home/dd/Gemini/leafblower/leafblower.Rcheck/leafblower/html/00Index.html": {
     "mtime": 1776947655.0590909,
     "hash": "983b21a277fb21d933dc2b4ab04f0ea6"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/leafblower/NEWS.md": {
+    "mtime": 1777883852.598183,
+    "hash": "212be66e0e069808f1fc3c1e67e14ccb"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/leafblower/html/00Index.html": {
+    "mtime": 1777883853.427636,
+    "hash": "b8ad1804b5461cdbd7290c62e3626b7a"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.txt": {
+    "mtime": 1777883857.5096169,
+    "hash": "2bba80e567340550d9f6a6eacd267b7f"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/leafblower/NEWS.md": {
+    "mtime": 1777817644.842359,
+    "hash": "212be66e0e069808f1fc3c1e67e14ccb"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/leafblower/html/00Index.html": {
+    "mtime": 1777817645.5343952,
+    "hash": "b8ad1804b5461cdbd7290c62e3626b7a"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/tests/testthat/fixtures/stepstone_reference_diag.txt": {
+    "mtime": 1777817649.4795425,
+    "hash": "2bba80e567340550d9f6a6eacd267b7f"
   },
   "/home/dd/Gemini/leafblower/tests/testthat/fixtures/stepstone_reference_diag.txt": {
     "mtime": 1777027232.7940907,
@@ -1535,6 +2479,22 @@
     "mtime": 1776949071.0945318,
     "hash": "e378b5da4708942a339706038e7f6537"
   },
+  "/home/dd/Gemini/leafblower/bwarn.Rcheck/leafblower-Ex.pdf": {
+    "mtime": 1777847311.3795087,
+    "hash": "b4b9f9370a5cf2b7755c16553996ebf9"
+  },
+  "/home/dd/Gemini/leafblower/py-parity.Rcheck/leafblower-Ex.pdf": {
+    "mtime": 1777820580.7317772,
+    "hash": "a7de129be6b901dc9f899d800bdc1e82"
+  },
+  "/home/dd/Gemini/leafblower/py-r-parity.Rcheck/leafblower-Ex.pdf": {
+    "mtime": 1777883857.4627547,
+    "hash": "ec83892256cdbe0038f7c0dd37bdf9f3"
+  },
+  "/home/dd/Gemini/leafblower/perf-maint.Rcheck/leafblower-Ex.pdf": {
+    "mtime": 1777817649.4305427,
+    "hash": "bec978068ade43d7861edb8255acf0b8"
+  },
   "/home/dd/Gemini/leafblower/docs/iEPPA/arxiv.2011.14312/images/Hcap1.PNG": {
     "mtime": 1632444702.0,
     "hash": "8eb2c72948d3724ab596d2d8edfec331"
@@ -1566,13 +2526,5 @@
   "/home/dd/Gemini/leafblower/docs/iEPPA/code/2Dtomography/figures/2D_true4.png": {
     "mtime": 1672226768.0,
     "hash": "c49d94c1b4bf7797152c92ac1c6e8952"
-  },
-  "/home/dd/Gemini/leafblower/benchmarks/research/results/plots/stepstone_K9_trajectory.png": {
-    "mtime": 1777755050.8068817,
-    "hash": "a18111da71b0dda8cda047cd9912110c"
-  },
-  "/home/dd/Gemini/leafblower/benchmarks/research/results/plots/kk1204_K20_trajectory.png": {
-    "mtime": 1777755050.4928737,
-    "hash": "0f1c72ceec7bb8e8704c86beab6e1c78"
   }
 }

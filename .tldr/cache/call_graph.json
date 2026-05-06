@@ -1,34 +1,52 @@
 {
   "edges": [
     {
-      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "<module>",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": "tests/test_parity_weights.py",
+      "from_func": "test_weight_parity",
+      "to_file": "tests/test_parity_weights.py",
+      "to_func": "_make_synthetic"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
       "from_func": "main",
-      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
+      "to_func": "effective_sample_size"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
+      "to_func": "run_ipfn"
+    },
+    {
+      "from_file": "python/leafblower/test_python.py",
+      "from_func": "test_best_error_le_max_error",
+      "to_file": "python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
+      "from_func": "effective_sample_size",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
       "to_func": "bench_harvest"
     },
     {
       "from_file": "benchmarks/python_ipf_benchmark.py",
-      "from_func": "main",
+      "from_func": "<module>",
       "to_file": "benchmarks/python_ipf_benchmark.py",
-      "to_func": "load_data"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
-      "to_func": "patch_wolfe"
-    },
-    {
-      "from_file": "benchmarks/stepstone_benchmark.py",
-      "from_func": "<module>",
-      "to_file": "benchmarks/stepstone_benchmark.py",
       "to_func": "main"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
-      "to_func": "patch_wolfe_line_search"
     },
     {
       "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
@@ -37,34 +55,76 @@
       "to_func": "design_effect"
     },
     {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
       "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
       "to_func": "load_data"
     },
     {
       "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "<module>",
+      "from_func": "main",
       "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "main"
+      "to_func": "load_data"
+    },
+    {
+      "from_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "to_func": "patch_wolfe"
+    },
+    {
+      "from_file": "python/leafblower/test_python.py",
+      "from_func": "test_all_6_metrics_present",
+      "to_file": "python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": "tests/test_parity_weights.py",
+      "from_func": "test_weight_parity",
+      "to_file": "tests/test_parity_weights.py",
+      "to_func": "_r_weights"
     },
     {
       "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
-      "from_func": "main",
+      "from_func": "<module>",
       "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
-      "to_func": "run_ipfn"
+      "to_func": "main"
     },
     {
       "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
       "from_func": "main",
       "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "load_data"
+      "to_func": "effective_sample_size"
     },
     {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
       "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
       "to_func": "effective_sample_size"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
+      "from_func": "harvest",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
+      "to_func": "_parse_sor"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "<module>",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "bench_harvest"
     },
     {
       "from_file": ".claude/worktrees/agent-a060b207d4ea59804/patch_wolfe.py",
@@ -79,76 +139,34 @@
       "to_func": "bench_harvest"
     },
     {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": "python/leafblower/_harvest.py",
+      "from_func": "harvest",
+      "to_file": "python/leafblower/_harvest.py",
+      "to_func": "_parse_sor"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
       "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
       "from_func": "<module>",
       "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
       "to_func": "main"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
-      "to_func": "load_data"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "to_func": "bench_harvest"
-    },
-    {
-      "from_file": "benchmarks/stepstone_benchmark.py",
-      "from_func": "effective_sample_size",
-      "to_file": "benchmarks/stepstone_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
-      "from_func": "test_all_6_metrics_present",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
-      "from_func": "harvest",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
-      "to_func": "_parse_convergence"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
-      "from_func": "run_ipfn",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
-      "to_func": "compute_metrics"
-    },
-    {
-      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "load_data"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
-      "from_func": "harvest",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
-      "to_func": "_parse_sor"
-    },
-    {
-      "from_file": "benchmarks/python_ipf_benchmark.py",
-      "from_func": "run_ipfn",
-      "to_file": "benchmarks/python_ipf_benchmark.py",
-      "to_func": "compute_metrics"
-    },
-    {
-      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "bench_harvest"
     },
     {
       "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
@@ -157,34 +175,100 @@
       "to_func": "_make_fixture"
     },
     {
-      "from_file": "python/leafblower/test_python.py",
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
       "from_func": "test_best_error_le_max_error",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": "benchmarks/python_ipf_benchmark.py",
+      "from_func": "run_ipfn",
+      "to_file": "benchmarks/python_ipf_benchmark.py",
+      "to_func": "compute_metrics"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "<module>",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "python/leafblower/test_python.py",
+      "from_func": "test_default_convergence_is_max_err_improvement",
       "to_file": "python/leafblower/test_python.py",
       "to_func": "_make_fixture"
     },
     {
       "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "effective_sample_size",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "<module>",
-      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "main"
-    },
-    {
-      "from_file": "benchmarks/python_ipf_benchmark.py",
       "from_func": "main",
-      "to_file": "benchmarks/python_ipf_benchmark.py",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "effective_sample_size"
+    },
+    {
+      "from_file": "benchmarks/allmethod_bench.py",
+      "from_func": "run",
+      "to_file": "benchmarks/allmethod_bench.py",
+      "to_func": "post_hoc_mkl"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
       "to_func": "run_ipfn"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
+      "from_func": "harvest",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
+      "to_func": "_parse_sor"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
+      "to_func": "patch_wolfe_line_search"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "bench_harvest"
     },
     {
       "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
       "from_func": "<module>",
       "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
       "to_func": "main"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
+      "from_func": "run_ipfn",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
+      "to_func": "compute_metrics"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
+      "from_func": "<module>",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "design_effect"
     },
     {
       "from_file": ".claude/worktrees/agent-a060b207d4ea59804/patch_wolfe.py",
@@ -193,268 +277,16 @@
       "to_func": "patch_wolfe"
     },
     {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "effective_sample_size"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "to_func": "patch_wolfe_line_search"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "to_func": "load_data"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
-      "from_func": "test_default_convergence_is_max_err_improvement",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": "python/leafblower/test_python.py",
-      "from_func": "test_default_convergence_is_max_err_improvement",
-      "to_file": "python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "to_func": "load_data"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
-      "to_func": "run_ipfn"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
-      "from_func": "harvest",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
-      "to_func": "_parse_convergence"
-    },
-    {
-      "from_file": "python/leafblower/test_python.py",
-      "from_func": "test_all_metrics_in_result_pct_change_removed",
-      "to_file": "python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": "benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": "benchmarks/stepstone_benchmark.py",
-      "to_func": "effective_sample_size"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
-      "from_func": "harvest",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
-      "to_func": "_parse_sor"
-    },
-    {
-      "from_file": "patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": "patch_wolfe.py",
-      "to_func": "patch_wolfe_line_search"
-    },
-    {
-      "from_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "to_func": "patch_wolfe_line_search"
-    },
-    {
-      "from_file": "benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": "benchmarks/stepstone_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "to_func": "patch_wolfe"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/python_ipf_benchmark.py",
-      "to_func": "main"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "main"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "from_func": "effective_sample_size",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "to_func": "effective_sample_size"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
-      "from_func": "test_best_error_le_max_error",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "load_data"
-    },
-    {
-      "from_file": "python/leafblower/test_python.py",
-      "from_func": "test_all_6_metrics_present",
-      "to_file": "python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "to_func": "patch_wolfe"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "from_func": "effective_sample_size",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "bench_harvest"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "effective_sample_size"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "to_func": "patch_wolfe_line_search"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
-      "from_func": "test_all_6_metrics_present",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": "patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": "patch_wolfe.py",
-      "to_func": "patch_wolfe"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
-      "from_func": "test_all_metrics_in_result_pct_change_removed",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "from_func": "<module>",
-      "to_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
-      "to_func": "patch_wolfe"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
-      "from_func": "test_best_error_le_max_error",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
-      "to_func": "_make_fixture"
-    },
-    {
-      "from_file": "python/leafblower/_harvest.py",
-      "from_func": "harvest",
-      "to_file": "python/leafblower/_harvest.py",
-      "to_func": "_parse_convergence"
-    },
-    {
-      "from_file": "python/leafblower/_harvest.py",
-      "from_func": "harvest",
-      "to_file": "python/leafblower/_harvest.py",
-      "to_func": "_parse_sor"
-    },
-    {
-      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "to_func": "effective_sample_size"
-    },
-    {
-      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "effective_sample_size",
-      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
-      "to_func": "bench_harvest"
-    },
-    {
-      "from_file": "benchmarks/python_ipf_benchmark.py",
-      "from_func": "<module>",
-      "to_file": "benchmarks/python_ipf_benchmark.py",
-      "to_func": "main"
-    },
-    {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "from_func": "main",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
-      "to_func": "design_effect"
-    },
-    {
       "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
       "from_func": "test_all_metrics_in_result_pct_change_removed",
       "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
       "to_func": "_make_fixture"
     },
     {
-      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
-      "from_func": "<module>",
-      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
-      "to_func": "main"
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "effective_sample_size"
     },
     {
       "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/python_ipf_benchmark.py",
@@ -466,7 +298,163 @@
       "from_file": "benchmarks/stepstone_benchmark.py",
       "from_func": "main",
       "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "effective_sample_size"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "effective_sample_size",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
+      "from_func": "harvest",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/_harvest.py",
+      "to_func": "_parse_convergence"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "bench_harvest"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "bench_harvest"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_benchmark.py",
       "to_func": "load_data"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "<module>",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
+      "from_func": "test_best_error_le_max_error",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
+      "from_func": "effective_sample_size",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
+      "from_func": "test_all_metrics_in_result_pct_change_removed",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "python/leafblower/_harvest.py",
+      "from_func": "harvest",
+      "to_file": "python/leafblower/_harvest.py",
+      "to_func": "_parse_convergence"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
+      "from_func": "test_all_6_metrics_present",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": "benchmarks/python_ipf_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/python_ipf_benchmark.py",
+      "to_func": "run_ipfn"
+    },
+    {
+      "from_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": "leafblower.Rcheck/00_pkg_src/leafblower/patch_wolfe.py",
+      "to_func": "patch_wolfe_line_search"
+    },
+    {
+      "from_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "effective_sample_size",
+      "to_file": "benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "benchmarks/stepstone_benchmark.py",
+      "from_func": "effective_sample_size",
+      "to_file": "benchmarks/stepstone_benchmark.py",
+      "to_func": "design_effect"
+    },
+    {
+      "from_file": "benchmarks/python_ipf_benchmark.py",
+      "from_func": "main",
+      "to_file": "benchmarks/python_ipf_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/benchmarks/stepstone_fulldata_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": "python/leafblower/test_python.py",
+      "from_func": "test_all_metrics_in_result_pct_change_removed",
+      "to_file": "python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
+      "from_func": "<module>",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/patch_wolfe.py",
+      "to_func": "patch_wolfe"
+    },
+    {
+      "from_file": "benchmarks/allmethod_bench.py",
+      "from_func": "<module>",
+      "to_file": "benchmarks/allmethod_bench.py",
+      "to_func": "run"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
+      "from_func": "main",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/benchmarks/stepstone_benchmark.py",
+      "to_func": "load_data"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
+      "from_func": "test_all_6_metrics_present",
+      "to_file": ".claude/worktrees/agent-a060b207d4ea59804/python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
+      "from_func": "harvest",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/_harvest.py",
+      "to_func": "_parse_convergence"
+    },
+    {
+      "from_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
+      "from_func": "test_default_convergence_is_max_err_improvement",
+      "to_file": ".claude/worktrees/agent-a89447865866aab0c/python/leafblower/test_python.py",
+      "to_func": "_make_fixture"
     }
   ],
   "languages": [
@@ -476,5 +464,5 @@
     "python",
     "rust"
   ],
-  "timestamp": 1777796145.988246
+  "timestamp": 1777935533.877509
 }
