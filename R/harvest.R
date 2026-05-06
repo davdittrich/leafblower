@@ -239,6 +239,17 @@ harvest <- function(
     stop("collapse_vars is not supported in leafblower v1.")
 
   target  <- parse_target(target, target_map)
+
+  # --- c8w1: sparseness diagnostic (pre-solve) ---
+  sparse_diag <- compute_sparseness_diag(target, data,
+                                         cat_threshold = 0.01, obs_threshold = 30L)
+  if (length(sparse_diag) > 0) {
+    n_flagged <- sum(sapply(sparse_diag, length))
+    warning(sprintf(
+      "leafblower: %d sparse categories detected (T_kj < 1%% or n_kj < 30); see result$diagnostics$sparseness",
+      n_flagged), call. = FALSE)
+  }
+
   method  <- map_method(method, verbose)
   conv    <- parse_convergence(convergence)
   # Per-method default convergence metric: use the solver's natural objective.
@@ -605,6 +616,17 @@ harvest <- function(
   qm <- compute_quality_metrics(weights, target, data)
   calib_result[names(qm)] <- qm
 
+  # --- c8w1: attach sparseness diagnostics to result ---
+  calib_result$diagnostics <- list(
+    sparseness = list(
+      sparse_categories  = sparse_diag,
+      pct_bounds_clamped = if (!is.null(calib_result$n_bounds_clamped))
+                             calib_result$n_bounds_clamped / n_obs
+                           else 0,
+      thresholds         = list(target = 0.01, obs = 30L)
+    )
+  )
+
   if (!attach_weights) {
     attr(weights, "result")     <- calib_result
     attr(weights, "algorithm")  <- alg_used
@@ -621,6 +643,22 @@ harvest <- function(
 }
 
 # --- Helpers (each <= 15 lines, independently testable) ---
+
+compute_sparseness_diag <- function(target, data, cat_threshold = 0.01, obs_threshold = 30L) {
+  n <- nrow(data)
+  sparse_cats <- list()
+  for (v in names(target)) {
+    if (!v %in% names(data)) next
+    for (lv in names(target[[v]])) {
+      T_kj <- target[[v]][[lv]]
+      n_kj <- sum(data[[v]] == lv, na.rm = TRUE)
+      if (T_kj < cat_threshold || n_kj < obs_threshold) {
+        sparse_cats[[v]] <- c(sparse_cats[[v]], list(list(level = lv, T_kj = T_kj, n_kj = n_kj)))
+      }
+    }
+  }
+  sparse_cats
+}
 
 parse_target <- function(target, target_map) {
   if (!is.data.frame(target)) {

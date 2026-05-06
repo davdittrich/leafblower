@@ -31,6 +31,21 @@ _METRIC_NAMES = ["max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight",
 _RULE_NAMES   = ["threshold", "improvement", "plateau"]
 
 
+def _compute_sparseness_diag(df, targets, cat_threshold=0.01, obs_threshold=30):
+    """Flag categories where T_kj < cat_threshold or n_kj < obs_threshold."""
+    sparse_cats = {}
+    for v, tgt in targets.items():
+        if v not in df.columns:
+            continue
+        for level, T_kj in tgt.items():
+            n_kj = int((df[v].astype(str) == str(level)).sum())
+            if T_kj < cat_threshold or n_kj < obs_threshold:
+                sparse_cats.setdefault(v, []).append(
+                    {"level": level, "T_kj": T_kj, "n_kj": n_kj}
+                )
+    return sparse_cats
+
+
 def _parse_convergence(conv):
     """Derive pct_tol, absolute_tol, metric, rule, stop_when from convergence dict.
 
@@ -290,6 +305,16 @@ def harvest(
     # Convert DataFrame target to dict (mirrors R parse_target())
     targets = _parse_target(targets, target_map)
 
+    # c8w1: sparseness diagnostic (pre-solve)
+    _sparse_diag = _compute_sparseness_diag(data, targets, cat_threshold=0.01, obs_threshold=30)
+    if _sparse_diag:
+        n_flagged = sum(len(v) for v in _sparse_diag.values())
+        warnings.warn(
+            f"leafblower: {n_flagged} sparse categories detected "
+            f"(T_kj < 1% or n_kj < 30); see result['diagnostics']['sparseness']",
+            UserWarning, stacklevel=2,
+        )
+
     # Build group_ids and validate targets
     K = len(targets)
     group_ids_list = []
@@ -477,6 +502,16 @@ def harvest(
     # The iEPPA/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
     # is the invariant that preserves calibration. See
     # tests/testthat/test-ieppa-nonuniform-d.R.
+
+    # c8w1: attach sparseness diagnostics to result_dict
+    result_dict["diagnostics"] = {
+        "sparseness": {
+            "sparse_categories":  _sparse_diag,
+            "pct_bounds_clamped": (result_dict.get("n_bounds_clamped", 0) / n
+                                   if n > 0 else 0.0),
+            "thresholds": {"target": 0.01, "obs": 30},
+        }
+    }
 
     # weights_out is already a copy (contract from _bindings.cpp)
     if not attach_weights:
