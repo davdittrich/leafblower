@@ -1,10 +1,12 @@
 #pragma once
 #include "leafblower.h"
+#include "calib_dispatch.hpp"
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <climits>
+#include <cstring>
 #include <limits>
 #include <vector>
 
@@ -257,9 +259,23 @@ inline int validate_calibrate_inputs(int n, int K,
             }
         }
 
-        // Guard (13): Strategy B orthogonality — delegated to T-D validator.
-        // TODO(T-D): call validate_orthogonal_split(mask, K, cat_counts, result) here
-        // when mode==1. T-D adds the implementation; this call site is the hook.
+        // Guard (13): Strategy B orthogonality — only enforced for mode=1 (exact).
+        // Fine-margin levels must nest cleanly inside coarse cells; any level
+        // that spans two or more coarse cells violates the disturbance-free
+        // property required by Strategy B.
+        if (mode == 1) {
+            auto [orc, odiag] = lbw::validate_orthogonal_split(
+                group_ids, cat_counts, mask, K, n);
+            if (orc != RK_OK) {
+                if (result) {
+                    result->status = RK_ERR_BADARG;
+                    std::strncpy(result->message, odiag.c_str(),
+                                 sizeof(result->message) - 1);
+                    result->message[sizeof(result->message) - 1] = '\0';
+                }
+                return RK_ERR_BADARG;
+            }
+        }
     }
     // ── End T-E hierarchical validation ──────────────────────────────────────
 
