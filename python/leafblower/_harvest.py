@@ -110,6 +110,36 @@ def _parse_sor(sor):
     return enabled, auto, omega_init, omega_min, omega_fixed, burnin
 
 
+def _parse_target(target, target_map=None):
+    """Mirror R parse_target(): convert DataFrame target to dict. No normalization."""
+    if not (_PANDAS_AVAILABLE and isinstance(target, __import__("pandas").DataFrame)):
+        return target  # already dict or pandas not available
+    import pandas as pd
+    if target_map is not None:
+        vcol = target_map["variable"]
+        lcol = target_map["level"]
+        pcol = target_map["proportion"]
+    elif all(c in target.columns for c in ("variable", "level", "proportion")):
+        vcol, lcol, pcol = "variable", "level", "proportion"
+    elif target.shape[1] == 3:
+        raise ValueError(
+            "target DataFrame has 3 columns but no 'variable'/'level'/'proportion' names. "
+            "Add column names or pass target_map=dict(variable=..., level=..., proportion=...).")
+    else:
+        raise ValueError(
+            "Cannot determine variable/level/proportion columns in target DataFrame.")
+    result = {}
+    for v in target[vcol].unique():
+        sub = target[target[vcol] == v]
+        d = dict(zip(sub[lcol], sub[pcol]))
+        total = sum(d.values())
+        if abs(total - 1.0) > _TARGET_SUM_TOL:
+            raise ValueError(
+                f"target proportions for '{v}' sum to {total:.6f}, not 1.0")
+        result[v] = d
+    return result
+
+
 def harvest(
     data,
     targets: Dict[str, Dict[str, float]],
@@ -141,6 +171,7 @@ def harvest(
     auto_collapse: bool = False,
     collapse_vars=None,
     design_weights=None,
+    target_map=None,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -243,6 +274,9 @@ def harvest(
     if eta_schedule not in _eta_map:
         raise ValueError(f"eta_schedule must be 'fixed' or 'tang_dynamic', got {eta_schedule!r}")
     _eta_mode_int = _eta_map[eta_schedule]
+
+    # Convert DataFrame target to dict (mirrors R parse_target())
+    targets = _parse_target(targets, target_map)
 
     # Build group_ids and validate targets
     K = len(targets)
