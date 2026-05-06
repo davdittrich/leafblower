@@ -219,6 +219,18 @@ def harvest(
     if collapse_vars is not None:
         raise ValueError("collapse_vars is not supported in leafblower v1.")
 
+    # Removed autumn legacy params — raise TypeError with migration hint
+    _REMOVED_PARAMS = {
+        "select_params":  "use method= and scheduler= instead",
+        "select_function": "not supported in leafblower; use method=",
+        "error_function":  "not supported in leafblower",
+        "adaptive_order":  "use scheduler='greedy' instead",
+        "enforce_mean":    "leafblower always enforces sum(w)=n; param removed",
+    }
+    for _p, _hint in _REMOVED_PARAMS.items():
+        if _p in _kwargs:
+            raise TypeError(f"harvest() got removed autumn param '{_p}': {_hint}")
+
     # design_weights: alias for start_weights (mirrors R harvest.R lines 332-338)
     if design_weights is not None:
         if start_weights is not None:

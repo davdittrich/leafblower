@@ -84,11 +84,6 @@
 #' @param eta_start Starting ALM penalty multiplier (default 1.0).
 #' @param eta_end Ending ALM penalty multiplier (default 1.0).
 #' @param eta_schedule_power Power for Tang-eta schedule interpolation (default 0.5).
-#' @param select_params Ignored with verbose >= 2 note.
-#' @param select_function Ignored.
-#' @param error_function Ignored.
-#' @param adaptive_order Ignored.
-#' @param enforce_mean Ignored (retained for compatibility).
 #' @param accelerate Logical. Enable Safeguarded Regularized Anderson Acceleration
 #'   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
 #'   \code{"ieppa"}, and \code{"ieppa_soft"}. Default \code{FALSE}.
@@ -226,11 +221,6 @@ harvest <- function(
   eta_end               = 1.0,
   eta_schedule_power    = 0.5,
   # --- end new ---
-  select_params    = NULL,
-  select_function  = NULL,
-  error_function   = NULL,
-  adaptive_order   = NULL,
-  enforce_mean     = TRUE,
   accelerate       = FALSE,
   add_na_proportion = FALSE,
   auto_collapse    = FALSE,
@@ -353,14 +343,6 @@ harvest <- function(
     warning("capacity_penalty is only used by method='ieppa_soft'; ignored for method='",
             method, "'", call. = FALSE)
   }
-
-  # Ignored-param verbose notes
-  # enforce_mean is always TRUE: normalization is unconditional (line ~86).
-  ignored <- c("select_params", "select_function", "error_function",
-                "adaptive_order", "enforce_mean")
-  supplied_ignored <- intersect(ignored, names(match.call(expand.dots = FALSE)))
-  if (verbose >= 2 && length(supplied_ignored) > 0)
-    message("[leafblower] Ignoring autumn params: ", paste(supplied_ignored, collapse = ", "))
 
   # CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT 6=MARGINAL_KL
   metric_int    <- c(max_err = 0L, mean_err = 1L, kl = 2L, chi2 = 3L,
