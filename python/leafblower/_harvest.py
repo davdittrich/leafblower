@@ -37,8 +37,9 @@ def _compute_sparseness_diag(df, targets, cat_threshold=0.01, obs_threshold=30):
     for v, tgt in targets.items():
         if v not in df.columns:
             continue
+        counts = df[v].astype(str).value_counts(dropna=True)
         for level, T_kj in tgt.items():
-            n_kj = int((df[v].astype(str) == str(level)).sum())
+            n_kj = int(counts.get(str(level), 0))
             if T_kj < cat_threshold or n_kj < obs_threshold:
                 sparse_cats.setdefault(v, []).append(
                     {"level": level, "T_kj": T_kj, "n_kj": n_kj}
@@ -187,6 +188,7 @@ def harvest(
     collapse_vars=None,
     design_weights=None,
     target_map=None,
+    ridge_lambda: float = 0.0,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -288,6 +290,21 @@ def harvest(
 
     # Method mapping
     method_lc = method.lower()
+
+    # Mirror R harvest.R:308-331: per-method natural convergence objective.
+    # Only fires when user gave no explicit metric/improvement/pct/absolute.
+    _conv = convergence or {}
+    if not any(k in _conv for k in ("metric", "improvement", "pct", "absolute")):
+        _method_metric = {
+            "ieppa": "marginal_kl", "ieppa_soft": "marginal_kl",
+            "raking": "kl", "greenkhorn": "kl",
+            "sinkhorn": "kl", "newton_kl": "kl",
+            "greg": "chi2",
+            # chebyshev: omitted — max_err is its natural objective (L-inf)
+            # logit: omitted — no natural KL objective, keep max_err
+        }.get(method_lc)
+        if _method_metric is not None:
+            metric = _METRIC_MAP[_method_metric]
 
     alg_map = {
         "ieppa": 1, "raking": 3,
@@ -437,6 +454,7 @@ def harvest(
         "newton_tsvd_ratio":     newton_tsvd_ratio,
         # SRAA / ALM (PY-2)
         "accelerate":            int(accelerate),
+        "ridge_lambda":          ridge_lambda,
     }
     if capacity_penalty is not None:
         params["capacity_penalty"] = capacity_penalty
