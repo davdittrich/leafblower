@@ -140,6 +140,7 @@ def harvest(
     add_na_proportion: bool = False,
     auto_collapse: bool = False,
     collapse_vars=None,
+    design_weights=None,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -186,6 +187,15 @@ def harvest(
         raise ValueError("auto_collapse is not supported in leafblower v1.")
     if collapse_vars is not None:
         raise ValueError("collapse_vars is not supported in leafblower v1.")
+
+    # design_weights: alias for start_weights (mirrors R harvest.R lines 332-338)
+    if design_weights is not None:
+        if start_weights is not None:
+            warnings.warn(
+                "leafblower: both design_weights and start_weights supplied; design_weights ignored",
+                UserWarning, stacklevel=2)
+        else:
+            start_weights = design_weights
 
     # Parse convergence and SOR
     pct_tol, absolute_tol, metric, rule, stop_when = _parse_convergence(convergence)
