@@ -6,10 +6,13 @@
 suppressPackageStartupMessages({
   library(arrow); library(jsonlite); library(leafblower)
 })
+`%||%` <- function(a, b) if (!is.null(a)) a else b
 
 DATA    <- "benchmarks/stepstone_fulldata_bench_data.parquet"
 TARGETS <- "benchmarks/stepstone_fulldata_bench_targets.json"
-MAX_ITER <- 3000L; MAX_WT <- 5; TOL <- 1e-3
+MAX_ITER <- 3000L; MAX_WT <- 5; TOL <- 1e-4
+# Default convergence per method (tol only; metric set by harvest.R per-method defaults)
+DEF <- list(tol=TOL)  # uses each method's natural metric (harvest.R switch)
 
 cat("Loading data...\n")
 df_raw <- as.data.frame(read_parquet(DATA))
@@ -49,7 +52,8 @@ run <- function(label, conv, ...) {
   t0 <- proc.time()["elapsed"]
   res <- suppressWarnings(tryCatch(
     harvest(df, tgt, min_weight=0, max_weight=MAX_WT,
-            max_iterations=MAX_ITER, convergence=conv, verbose=0L, ...),
+            max_iterations=MAX_ITER, convergence=conv, verbose=0L,
+            attach_weights=FALSE, ...),
     error=function(e) structure(list(), class="error", message=e$message)
   ))
   elapsed <- round((proc.time()["elapsed"]-t0)*1000)
@@ -58,40 +62,37 @@ run <- function(label, conv, ...) {
     return(NULL)
   }
   ri  <- attr(res,"result")
-  w   <- res[["weights"]]  # harvest returns data.frame with appended weight column
+  w   <- res  # attach_weights=FALSE: harvest returns numeric weights vector directly
   m   <- compute_metrics(w, df, tgt)
   st  <- STATUS[as.character(ri$status)]
   if(is.na(st)) st <- as.character(ri$status)
-  data.frame(method=label, loss_fn=conv$metric, time_ms=elapsed, status=st,
+  # Use actual metric from result (handles per-method defaults where conv$metric is NULL)
+  loss_fn <- conv$metric %||% ri$convergence_used$metric %||% "default"
+  data.frame(method=label, loss_fn=loss_fn, time_ms=elapsed, status=st,
              iterations=ri$iterations, algorithm=ri$algorithm,
              max_err=signif(m["max_err"],4), marginal_kl=signif(m["marginal_kl"],4),
              kl=signif(m["kl"],4), chi2=signif(m["chi2"],4),
              stringsAsFactors=FALSE)
 }
 
-# Use the natural convergence rule for each method (improvement = stall detection)
-# Threshold bypasses stall detection and forces budget exhaustion; not appropriate here.
-KL   <- list(metric="marginal_kl", rule="improvement", tol=TOL)
-MERR <- list(metric="max_err",     rule="improvement", tol=TOL)
-WKL  <- list(metric="kl",         rule="improvement", tol=TOL)
-CHI  <- list(metric="chi2",       rule="improvement", tol=TOL)
-
+# Per-method natural default: metric set by harvest.R switch (1ab1165).
+# Only tol is set here; each method uses its solver-appropriate objective.
 cfg <- list(
-  list("ieppa",                  KL,   method="ieppa"),
-  list("ieppa + accel",          KL,   method="ieppa",      accelerate=TRUE),
-  list("ieppa + greedy",         KL,   method="ieppa",      scheduler="greedy"),
-  list("ieppa + greedy + accel", KL,   method="ieppa",      scheduler="greedy", accelerate=TRUE),
-  list("ieppa_soft (auto cp)",   KL,   method="ieppa_soft"),               # auto capacity_penalty = M_cell/n
-  list("ieppa_soft + accel",    KL,   method="ieppa_soft", accelerate=TRUE),
-  list("raking",                 MERR, method="raking"),   # raking minimizes weight-KL; conv check = max_err
-  list("greenkhorn",             MERR, method="greenkhorn"),
-  list("greenkhorn + greedy",    MERR, method="greenkhorn", scheduler="greedy"),
-  list("greenkhorn + accel",     MERR, method="greenkhorn", accelerate=TRUE),
-  list("sinkhorn",               WKL,  method="sinkhorn"),
-  list("chebyshev",              CHI,  method="chebyshev"),
-  list("greg",                   CHI,  method="greg"),
-  list("logit",                  MERR, method="logit"),
-  list("newton_kl",              WKL,  method="newton_kl")
+  list("ieppa",                  DEF, method="ieppa"),
+  list("ieppa + accel",          DEF, method="ieppa",      accelerate=TRUE),
+  list("ieppa + greedy",         DEF, method="ieppa",      scheduler="greedy"),
+  list("ieppa + greedy + accel", DEF, method="ieppa",      scheduler="greedy", accelerate=TRUE),
+  list("ieppa_soft (auto cp)",   DEF, method="ieppa_soft"),
+  list("ieppa_soft + accel",     DEF, method="ieppa_soft", accelerate=TRUE),
+  list("raking",                 DEF, method="raking"),
+  list("greenkhorn",             DEF, method="greenkhorn"),
+  list("greenkhorn + greedy",    DEF, method="greenkhorn", scheduler="greedy"),
+  list("greenkhorn + accel",     DEF, method="greenkhorn", accelerate=TRUE),
+  list("sinkhorn",               DEF, method="sinkhorn"),
+  list("chebyshev",              DEF, method="chebyshev"),
+  list("greg",                   DEF, method="greg"),
+  list("logit",                  DEF, method="logit"),
+  list("newton_kl",              DEF, method="newton_kl")
 )
 
 results <- vector("list", length(cfg))
