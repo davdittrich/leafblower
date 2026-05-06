@@ -36,6 +36,9 @@
 #include <cassert>
 #include <cstring>
 #include <unordered_map>
+#include <unordered_set>
+#include <string>
+#include <sstream>
 #include <numeric>
 #include "lbw_math.hpp"
 
@@ -570,6 +573,228 @@ inline bool enforce_sigmaw_eq_n(
     for (double w : weights) sum += w;
     const double tol = static_cast<double>(N) * 1e-12;
     return std::abs(sum - static_cast<double>(N)) < tol;
+}
+
+// ── Strategy A outer-iteration loop ─────────────────────────────────────────
+// Shared cadence constant — mirrors the per-solver kErrCheckInterval = 10.
+// Used only for best-iterate selection; NOT a convergence check cadence.
+inline constexpr int kOuterErrCheckInterval = 10;
+
+/// Diagnostic-only best-iterate tracking for the outer loop.
+/// Populated at kOuterErrCheckInterval cadence; NOT returned as the result.
+/// Caller may read for instrumentation; spec §6: last-iterate is the result.
+struct OuterBestIter {
+    int    iter_idx     = -1;            // -1 = not yet tracked
+    double residual     = std::numeric_limits<double>::infinity();
+};
+
+/// Return value of outer_iterate_strategy_a.
+struct OuterResult {
+    int    status;                       // RK_OK | RK_ERR_BUDGET
+    int    iterations_used;
+    double residual_final;
+    std::vector<double> last_iterate_weights;
+    // Diagnostic only (spec §6): NOT returned to caller as result weights.
+    OuterBestIter best;
+};
+
+/// Strategy A outer-iteration loop (P1 default mode = "refine").
+///
+/// Alternates Stage 1 (full-data, via fn(weights, -1)) and Stage 2
+/// (per non-sparse cell, via fn(weights, cell_id)) until coarse-margin
+/// residual drops below outer_tol or outer_iterations is exhausted.
+///
+/// WithinCellSolve callable contract:
+///   int fn(std::vector<double>& weights, int cell_id)
+///   cell_id == -1  → Stage-1 (full-data calibrate to coarse margins)
+///   cell_id >= 0   → Stage-2 (calibrate obs in that coarse cell only)
+///   Return value: RK_OK on success (non-RK_OK is ignored — outer loop
+///   continues regardless; callers may inspect via a side-channel if needed).
+///
+/// Residual is max absolute deviation of coarse-margin sums from N/K_cells
+/// (a simple proxy; full metric requires CalibState which is solver-specific).
+/// At kOuterErrCheckInterval cadence: track best-iterate via select_metric
+/// using the caller-supplied metric from cfg. Best-iterate is DIAGNOSTIC ONLY.
+///
+/// On RK_OK exit: enforce_sigmaw_eq_n is called; result.last_iterate_weights
+/// reflects the post-gate weights.
+/// On RK_ERR_BUDGET: last_iterate_weights = weights at budget exhaustion;
+/// enforce_sigmaw_eq_n is NOT called.
+///
+/// Lambda [&] guard: all bool guards declared before this function's lambdas
+/// (none here — outer loop has no lambdas). Callers with lambdas MUST declare
+/// bool guards before their own auto F = [&] definitions.
+template<class WithinCellSolve>
+inline OuterResult outer_iterate_strategy_a(
+    WithinCellSolve&            fn,
+    std::vector<double>&        weights,
+    const CellPartition&        partition,
+    const SparseMask&           sparse,
+    const std::vector<double>&  w_init,        // initial weights for sparse inheritance
+    const std::vector<double>&  stage1_multipliers, // per-cell Stage-1 multipliers (length n_cells_total)
+    const CalibConvergenceCfg&  cfg,
+    double                      outer_tol,      // shadows cfg.absolute_tol at outer level
+    int                         outer_iterations, // shadows cfg.max_iterations at outer level
+    int                         N) noexcept
+{
+    OuterResult out;
+    out.status          = RK_ERR_BUDGET;
+    out.iterations_used = 0;
+    out.residual_final  = std::numeric_limits<double>::infinity();
+
+    const int K_cells = partition.n_cells_total;
+
+    // Stage 1: initial full-data calibrate (iteration 0 pre-pass).
+    // Repairs coarse-margin sums before the per-cell Stage-2 loop.
+    fn(weights, -1);
+
+    for (int iter = 0; iter < outer_iterations; ++iter) {
+        // Stage 2: calibrate each non-sparse cell.
+        for (int c = 0; c < K_cells; ++c) {
+            if (sparse.is_sparse_cell[c]) continue;
+            fn(weights, c);
+        }
+        // Sparse cells inherit Stage-1 multipliers (per spec §6).
+        apply_sparse_inheritance(weights, w_init, partition, sparse, stage1_multipliers);
+
+        // Compute coarse-margin residual: max |Σw_cell[c]/N - 1/K_cells|
+        // (relative deviation from uniform target across cells; proxy residual
+        // adequate for outer convergence check without a full CalibState).
+        double residual = 0.0;
+        if (K_cells > 0) {
+            const double target_frac = 1.0 / static_cast<double>(K_cells);
+            const double inv_N       = (N > 0) ? 1.0 / static_cast<double>(N) : 0.0;
+            for (int c = 0; c < K_cells; ++c) {
+                double cell_sum = 0.0;
+                for (int i : partition.obs_indices_by_cell[c]) cell_sum += weights[i];
+                const double dev = std::fabs(cell_sum * inv_N - target_frac);
+                if (dev > residual) residual = dev;
+            }
+        }
+
+        // Track best-iterate at kOuterErrCheckInterval cadence.
+        // Uses select_metric via a CellMetrics proxy where errRp = residual.
+        // IMPORTANT: must use select_metric(cfg.metric, cm), NOT errRp directly.
+        if (iter % kOuterErrCheckInterval == 0) {
+            CellMetrics cm;
+            cm.errRp    = residual;
+            cm.mean_err = residual;
+            // Other metrics (kl, chi2, grake_norm, l1) remain 0.0 — outer loop
+            // does not have a full CalibState; errRp/mean_err proxy is adequate
+            // for diagnostic ranking. Caller may override via a richer fn().
+            const double m = select_metric(cfg.metric, cm);
+            if (m < out.best.residual) {
+                out.best.residual = m;
+                out.best.iter_idx = iter;
+            }
+        }
+
+        out.iterations_used = iter + 1;
+        out.residual_final  = residual;
+
+        // Convergence check: outer_tol shadows cfg.absolute_tol at outer level.
+        if (outer_tol > 0.0 && residual < outer_tol) {
+            // RK_OK: enforce Σw=n before returning.
+            enforce_sigmaw_eq_n(weights, N);  // gate; result ignored (spec §5)
+            out.status              = RK_OK;
+            out.last_iterate_weights = weights;
+            return out;
+        }
+
+        // Re-run Stage 1 to repair coarse-margin sums disturbed by Stage 2.
+        fn(weights, -1);
+    }
+
+    // Budget exhausted: return last-iterate weights (NOT best-iterate — spec §6).
+    out.status              = RK_ERR_BUDGET;
+    out.last_iterate_weights = weights;
+    return out;
+}
+
+// ── T-D: Strategy B orthogonality validator ───────────────────────────────
+/// Verify that no fine-margin level spans more than one coarse cell.
+/// Called from validate_calibrate_inputs when mode == 1 (exact).
+///
+/// Algorithm (O(N · K_fine)):
+///   For each fine margin f (coarse_mask[f] == 0):
+///     For each obs i: record coarse_cell_id[i] in level_to_cells[(f, group_ids[i][f])]
+///   If any set has cardinality > 1: BADARG + diagnostic.
+///
+/// @param group_ids   [K][N] encoded category indices (0-based, -1 = NA/OOV)
+/// @param cat_counts  [K] category count per margin
+/// @param coarse_mask [K] 1 = coarse margin, 0 = fine margin
+/// @param K           number of margins
+/// @param N           number of observations
+/// @return {RK_OK, ""} on pass; {RK_ERR_BADARG, diagnostic} on fail.
+///         Diagnostic is ≤ 256 chars and names the offending margin index,
+///         level value, and coarse cell IDs spanned.
+inline std::pair<int, std::string> validate_orthogonal_split(
+    const int32_t* const*    group_ids,
+    const int*               cat_counts,
+    const int*               coarse_mask,
+    int                      K,
+    int                      N) noexcept
+{
+    if (N <= 0 || K <= 0) return {RK_OK, ""};
+
+    // Step 1: compute coarse_cell_id per obs via build_cell_partition.
+    // min_cell_n=1 to avoid cap rejection on sparse splits.
+    lbw::CellPartition part;
+    {
+        int rc = lbw::build_cell_partition(N, K, group_ids, cat_counts,
+                                           coarse_mask, /*min_cell_n=*/1, part);
+        if (rc != RK_OK) {
+            // Cap exceeded or K_coarse > 64 — already diagnosed by Guard (12).
+            return {RK_OK, ""};
+        }
+    }
+
+    // Step 2: for each fine margin, map (f, level) -> set of coarse cell IDs.
+    // Key: (fine_margin_idx << 32) | uint32_t(level_value+1) to handle -1 (NA).
+    std::unordered_map<uint64_t, std::unordered_set<int>> level_to_cells;
+    level_to_cells.reserve(static_cast<size_t>(N));
+
+    for (int f = 0; f < K; f++) {
+        if (coarse_mask[f] != 0) continue;  // skip coarse margins
+        const int32_t* gf = group_ids[f];
+        for (int i = 0; i < N; i++) {
+            int32_t lv = gf[i];
+            // Encode level: shift NA (-1) to 0, others to lv+1.
+            uint64_t lv_enc = static_cast<uint64_t>(
+                (lv < 0) ? 0 : static_cast<uint32_t>(lv) + 1u);
+            uint64_t key = (static_cast<uint64_t>(f) << 32) | lv_enc;
+            level_to_cells[key].insert(part.cell_id_per_obs[i]);
+        }
+    }
+
+    // Step 3: scan for violations.
+    for (auto& [key, cells] : level_to_cells) {
+        if (cells.size() <= 1u) continue;
+        // Decode key.
+        int f              = static_cast<int>(key >> 32);
+        uint64_t lv_enc    = key & 0xFFFFFFFFULL;
+        int32_t  lv        = (lv_enc == 0u) ? -1
+                             : static_cast<int32_t>(lv_enc - 1u);
+
+        // Build "{id0, id1, ...}" string (sorted for determinism).
+        std::vector<int> sorted_cells(cells.begin(), cells.end());
+        std::sort(sorted_cells.begin(), sorted_cells.end());
+        std::ostringstream oss;
+        oss << "{";
+        for (size_t ci = 0; ci < sorted_cells.size(); ci++) {
+            if (ci > 0) oss << ", ";
+            oss << sorted_cells[ci];
+        }
+        oss << "}";
+
+        char msg[256];
+        std::snprintf(msg, sizeof(msg),
+            "Fine margin %d level %d spans coarse cells %s; require orthogonal split",
+            f, static_cast<int>(lv), oss.str().c_str());
+        return {RK_ERR_BADARG, std::string(msg)};
+    }
+
+    return {RK_OK, ""};
 }
 
 } // namespace lbw

@@ -67,6 +67,8 @@ SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 SEXP C_hier_partition_probe(SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_hier_inherit_probe(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_hier_sigmaw_probe(SEXP, SEXP);
+SEXP C_hier_outer_probe(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP C_hier_orthogonal_probe(SEXP, SEXP, SEXP, SEXP, SEXP);
 }
 
 // R log trampoline: forwards CalibState.log() calls to Rprintf
@@ -136,6 +138,8 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_hier_partition_probe",        (DL_FUNC)&C_hier_partition_probe,        5},
         {"C_hier_inherit_probe",          (DL_FUNC)&C_hier_inherit_probe,          6},
         {"C_hier_sigmaw_probe",           (DL_FUNC)&C_hier_sigmaw_probe,           2},
+        {"C_hier_outer_probe",            (DL_FUNC)&C_hier_outer_probe,           11},
+        {"C_hier_orthogonal_probe",       (DL_FUNC)&C_hier_orthogonal_probe,       5},
         {NULL, NULL, 0}
     };
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
@@ -1158,6 +1162,194 @@ extern "C" SEXP C_hier_sigmaw_probe(SEXP r_weights, SEXP r_N) {
     std::memcpy(w.data(), REAL(r_weights), (size_t)len * sizeof(double));
     bool ok = lbw::enforce_sigmaw_eq_n(w, N);
     return Rf_ScalarLogical(ok ? TRUE : FALSE);
+}
+
+// ── Strategy A outer-iteration probe (T-C) ──────────────────────────────────
+// C_hier_outer_probe(weights, group_ids_list, n, K, coarse_mask, min_cell_n,
+//                   stage1_mults, outer_tol, outer_iterations, N, fn_mode)
+// fn_mode: 0 = identity (mock: RK_OK, no weight change → converges),
+//          1 = perturb  (mock: adds eps each call → residual oscillates,
+//                        never converges → triggers RK_ERR_BUDGET)
+// Returns list(status, iterations_used, residual_final, last_iterate_weights,
+//              best_iter_idx, best_iter_residual).
+extern "C" SEXP C_hier_outer_probe(
+    SEXP r_weights,
+    SEXP r_group_ids_list, SEXP r_n, SEXP r_K,
+    SEXP r_coarse_mask, SEXP r_min_cell_n,
+    SEXP r_stage1_mults,
+    SEXP r_outer_tol, SEXP r_outer_iterations, SEXP r_N,
+    SEXP r_fn_mode)
+{
+    int n         = scalar_int(r_n,              "n");
+    int K         = scalar_int(r_K,              "K");
+    int min_cell_n= scalar_int(r_min_cell_n,     "min_cell_n");
+    int outer_iter= scalar_int(r_outer_iterations,"outer_iterations");
+    int N         = scalar_int(r_N,              "N");
+    int fn_mode   = scalar_int(r_fn_mode,        "fn_mode");
+    double outer_tol = REAL(r_outer_tol)[0];
+
+    // Decode coarse_mask (int vector length K, 0/1)
+    std::vector<int> coarse_mask(K);
+    for (int k = 0; k < K; ++k)
+        coarse_mask[k] = INTEGER(r_coarse_mask)[k];
+
+    // Decode group_ids_list (list of K integer vectors, each length n)
+    std::vector<std::vector<int32_t>> gids_storage(K);
+    std::vector<const int32_t*>       gids_ptr(K);
+    for (int k = 0; k < K; ++k) {
+        SEXP g = VECTOR_ELT(r_group_ids_list, k);
+        int  len = Rf_length(g);
+        gids_storage[k].resize(len);
+        for (int i = 0; i < len; ++i)
+            gids_storage[k][i] = static_cast<int32_t>(INTEGER(g)[i]);
+        gids_ptr[k] = gids_storage[k].data();
+    }
+
+    // Compute cat_counts: max group_id + 1 per margin (mirrors C_hier_partition_probe)
+    std::vector<int> cat_counts(K);
+    for (int k = 0; k < K; ++k) {
+        int max_g = -1;
+        for (int i = 0; i < n; ++i) {
+            int g = static_cast<int>(gids_storage[k][i]);
+            if (g > max_g) max_g = g;
+        }
+        cat_counts[k] = (max_g < 0) ? 1 : (max_g + 1);
+    }
+
+    // Build partition
+    lbw::CellPartition partition;
+    int rc = lbw::build_cell_partition(
+        n, K,
+        gids_ptr.data(),
+        cat_counts.data(),
+        coarse_mask.data(),
+        min_cell_n,
+        partition);
+    if (rc != RK_OK) {
+        Rf_warning("build_cell_partition failed: rc=%d", rc);
+        return R_NilValue;
+    }
+
+    // Build sparse mask
+    lbw::SparseMask sparse = lbw::build_sparse_mask(partition, min_cell_n);
+
+    // Weights (copy from R)
+    int wlen = Rf_length(r_weights);
+    std::vector<double> weights(wlen);
+    std::memcpy(weights.data(), REAL(r_weights), (size_t)wlen * sizeof(double));
+    std::vector<double> w_init = weights; // initial weights for inheritance
+
+    // stage1_multipliers (one per cell)
+    int smlen = Rf_length(r_stage1_mults);
+    std::vector<double> s1mults(smlen);
+    std::memcpy(s1mults.data(), REAL(r_stage1_mults), (size_t)smlen * sizeof(double));
+
+    // Convergence cfg (defaults — outer_tol/outer_iterations shadow these)
+    lbw::CalibConvergenceCfg cfg;
+    cfg.metric = lbw::CalibMetric::MAX_ERR;
+
+    // Mock WithinCellSolve
+    // fn_mode 0: identity — weights unchanged; coarse margins already sum correctly
+    //            → residual stays near 0 → converges immediately.
+    // fn_mode 1: perturb  — add a small cycling perturbation each call to ensure
+    //            the residual never drops below outer_tol.
+    int call_count = 0;  // bool guard declared BEFORE any lambda [&] — CLAUDE.md rule
+    auto fn = [&](std::vector<double>& w, int cell_id) -> int {
+        if (fn_mode == 1) {
+            // Cell-asymmetric perturbation: odd cells add eps, even subtract.
+            // Stage-1 pass (cell_id==-1): uses call_count parity.
+            // Asymmetry ensures cell sums diverge rather than cancel → coarse-
+            // margin residual stays persistently non-zero → no spurious convergence.
+            const bool odd_cell = (cell_id >= 0) ? (cell_id % 2 == 1)
+                                                  : (call_count % 2 == 1);
+            const double eps = odd_cell ? 1e-3 : -1e-3;
+            if (cell_id < 0) {
+                // Stage-1: perturb all obs
+                for (auto& v : w) v += eps;
+            } else {
+                // Stage-2: perturb only this cell's obs
+                const auto& K_cells_total = partition.n_cells_total;
+                if (cell_id < K_cells_total) {
+                    for (int idx : partition.obs_indices_by_cell[cell_id]) w[idx] += eps;
+                }
+            }
+        }
+        ++call_count;
+        return RK_OK;
+    };
+
+    lbw::OuterResult result = lbw::outer_iterate_strategy_a(
+        fn, weights, partition, sparse,
+        w_init, s1mults,
+        cfg, outer_tol, outer_iter, N);
+
+    // Pack result list
+    const int NFIELDS = 6;
+    SEXP ret  = PROTECT(Rf_allocVector(VECSXP,  NFIELDS));
+    SEXP nms  = PROTECT(Rf_allocVector(STRSXP,  NFIELDS));
+
+    SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(result.status));
+    SET_VECTOR_ELT(ret, 1, Rf_ScalarInteger(result.iterations_used));
+    SET_VECTOR_ELT(ret, 2, Rf_ScalarReal(result.residual_final));
+
+    SEXP wout = PROTECT(Rf_allocVector(REALSXP, (R_xlen_t)result.last_iterate_weights.size()));
+    std::memcpy(REAL(wout), result.last_iterate_weights.data(),
+                result.last_iterate_weights.size() * sizeof(double));
+    SET_VECTOR_ELT(ret, 3, wout);
+    UNPROTECT(1); // wout
+
+    SET_VECTOR_ELT(ret, 4, Rf_ScalarInteger(result.best.iter_idx));
+    SET_VECTOR_ELT(ret, 5, Rf_ScalarReal(result.best.residual));
+
+    SET_STRING_ELT(nms, 0, Rf_mkChar("status"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("iterations_used"));
+    SET_STRING_ELT(nms, 2, Rf_mkChar("residual_final"));
+    SET_STRING_ELT(nms, 3, Rf_mkChar("last_iterate_weights"));
+    SET_STRING_ELT(nms, 4, Rf_mkChar("best_iter_idx"));
+    SET_STRING_ELT(nms, 5, Rf_mkChar("best_iter_residual"));
+    Rf_setAttrib(ret, R_NamesSymbol, nms);
+    UNPROTECT(2); // ret, nms
+    return ret;
+}
+
+// C_hier_orthogonal_probe(group_ids_list, n, K, coarse_mask_int, cat_counts_int)
+//   -> list(rc, diagnostic)
+// Thin probe exposing lbw::validate_orthogonal_split to R tests.
+// group_ids_list: VECSXP of K INTSXP (0-indexed, -1=OOV/NA), each length n.
+// n, K: integer scalars.
+// coarse_mask_int: INTSXP length K.
+// cat_counts_int: INTSXP length K.
+extern "C" SEXP C_hier_orthogonal_probe(
+    SEXP r_group_ids_list, SEXP r_n, SEXP r_K,
+    SEXP r_coarse_mask, SEXP r_cat_counts)
+{
+    int n = scalar_int(r_n, "n");
+    int K = scalar_int(r_K, "K");
+
+    std::vector<const int32_t*> gid_ptrs(K);
+    for (int k = 0; k < K; k++)
+        gid_ptrs[k] = (const int32_t*) INTEGER(VECTOR_ELT(r_group_ids_list, k));
+
+    std::vector<int> cat_counts(K);
+    const int* cc = INTEGER(r_cat_counts);
+    for (int k = 0; k < K; k++) cat_counts[k] = cc[k];
+
+    std::vector<int> coarse_mask(K);
+    const int* cm = INTEGER(r_coarse_mask);
+    for (int k = 0; k < K; k++) coarse_mask[k] = cm[k];
+
+    auto [rc, diag] = lbw::validate_orthogonal_split(
+        gid_ptrs.data(), cat_counts.data(), coarse_mask.data(), K, n);
+
+    SEXP ret = PROTECT(Rf_allocVector(VECSXP, 2));
+    SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(rc));
+    SET_VECTOR_ELT(ret, 1, Rf_mkString(diag.c_str()));
+    SEXP nms = PROTECT(Rf_allocVector(STRSXP, 2));
+    SET_STRING_ELT(nms, 0, Rf_mkChar("rc"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("diagnostic"));
+    Rf_setAttrib(ret, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return ret;
 }
 
 } // extern "C"
