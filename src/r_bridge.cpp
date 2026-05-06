@@ -1,5 +1,8 @@
 #include "leafblower.h"
 #include "validation.hpp"
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
@@ -441,6 +444,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // above are still in scope; throw converts them into solver_error and they are
     // destroyed at '}' below before Rf_error fires (R-exts §5.5).
     if (!pre_error.empty()) throw std::runtime_error(pre_error);
+#ifdef __GLIBC__
+    malloc_trim(0);  // compact heap before solver — reduces fragmentation-induced LLC cache misses
+#endif
     if (strcmp(method_str, "raking") == 0) {
         auto res = lbw::raking_solve(st);
         res_status     = res.base.status;
