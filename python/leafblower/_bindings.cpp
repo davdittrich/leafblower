@@ -149,11 +149,16 @@ PYBIND11_MODULE(_leafblower, m) {
             }
 
             rk_result_t result;
-            int rc = rk_calibrate(n, K, weights_copy.data(),
+            std::memset(&result, 0, sizeof(result));
+            int rc;
+            {
+                py::gil_scoped_release release;
+                rc = rk_calibrate(n, K, weights_copy.data(),
                                   gid_ptrs.data(),
                                   cat_counts_list.data(),
                                   tgt_ptrs.data(),
                                   &p, &result);
+            }
 
             // Return (status, weights_out_copy, result_dict)
             // weights_out is a NEW ndarray — never a view into input
