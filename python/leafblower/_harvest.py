@@ -188,6 +188,7 @@ def harvest(
     collapse_vars=None,
     design_weights=None,
     target_map=None,
+    ridge_lambda: float = 0.0,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -453,6 +454,7 @@ def harvest(
         "newton_tsvd_ratio":     newton_tsvd_ratio,
         # SRAA / ALM (PY-2)
         "accelerate":            int(accelerate),
+        "ridge_lambda":          ridge_lambda,
     }
     if capacity_penalty is not None:
         params["capacity_penalty"] = capacity_penalty
