@@ -57,7 +57,7 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -123,7 +123,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       36},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       37},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -193,7 +193,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     /* SQUAREM */
                     SEXP accelerate_sexp,
                     /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
-                    SEXP newton_tsvd_ratio_sexp) {
+                    SEXP newton_tsvd_ratio_sexp,
+                    /* Tikhonov ridge on dual λ; 0.0 = off. */
+                    SEXP ridge_lambda_sexp) {
     int K = LENGTH(group_ids_sexp);
     int n = scalar_int(n_obs_sexp, "n_obs");
 
@@ -324,6 +326,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     init_calib_state(st, n, K, p, weights, group_ids, cat_counts, targets);
     // Epic-H WH-e: newton_kl TSVD truncation ratio. <=0 falls back to internal default 1e-8.
     st.newton_tsvd_ratio = scalar_real(newton_tsvd_ratio_sexp, "newton_tsvd_ratio");
+    // Tikhonov ridge on dual λ; 0.0 = off.
+    st.ridge_lambda = scalar_real(ridge_lambda_sexp, "ridge_lambda");
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;

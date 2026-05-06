@@ -109,6 +109,10 @@
 #'     \item SRAA history is reset at each homotopy level boundary and on
 #'       linear-to-log-path fallback.
 #'   }
+#' @param ridge_lambda Tikhonov ridge penalty on the dual lambda (default 0.0 = off).
+#'   Adds \code{ridge_lambda} to the diagonal of the Hessian (newton_kl) or
+#'   normal-equations matrix (greg) before factorization. Hardens near-singular
+#'   systems from cell-level sparseness. Ignored by all other solvers.
 #' @param add_na_proportion Not supported in v1; raises error if TRUE.
 #' @param auto_collapse Not supported in v1; raises error if TRUE.
 #' @param collapse_vars Not supported in v1; raises error if TRUE.
@@ -228,6 +232,7 @@ harvest <- function(
   target_map       = NULL,
   design_weights   = NULL,
   newton_tsvd_ratio = 1e-8,
+  ridge_lambda = 0.0,
   ...
 ) {
   # Not-in-v1 hard stops
@@ -483,6 +488,8 @@ harvest <- function(
                as.integer(accelerate_bool),
                ## Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8)
                as.double(newton_tsvd_ratio),
+               ## Tikhonov ridge on dual λ (default 0.0 = off)
+               as.double(ridge_lambda),
                PACKAGE = "leafblower")
 
   weights <- raw$weights

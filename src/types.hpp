@@ -130,6 +130,7 @@ struct CalibState {
     bool                 accelerate = false;  // SQUAREM outer loop for raking
     bool                 jacobi_log = false;  // log path: freeze cell_lf at iter start (Jacobi semantics)
     double               newton_tsvd_ratio = 1e-8;  // newton_kl: TSVD truncation ratio (Epic-H WH-e); <=0 falls back to 1e-8
+    double               ridge_lambda      = 0.0;   // Tikhonov ridge on dual λ: newton_kl H_pre[k,k]+=, greg N[j,j]+=; 0=off
     // ── End overlay config ──
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;

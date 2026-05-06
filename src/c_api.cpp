@@ -84,6 +84,7 @@ void rk_params_init(rk_params_t* p) {
     p->sor_omega_fixed         = -1.0;
     p->sor_burnin              = 20;
     p->newton_tsvd_ratio       = 1e-8;  /* Epic-H WH-e: newton_kl TSVD truncation default */
+    p->ridge_lambda            = 0.0;   /* Tikhonov ridge on dual λ; 0.0 = off */
 }
 
 void rk_result_init(rk_result_t* r) {
@@ -252,6 +253,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         st.accelerate = true;
     if (p->alm_penalty > 0.0)           /* PY-2: ALM penalty coefficient */
         st.alm.mu = p->alm_penalty;
+    st.ridge_lambda = p->ridge_lambda;  /* Tikhonov ridge on dual λ */
     // Only the auto-fallback path needs this; skip O(n) copy for explicit method calls.
     const std::vector<double> weights_backup = (p->algorithm == RK_ALG_AUTO)
         ? std::vector<double>(weights, weights + n)

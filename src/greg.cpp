@@ -68,6 +68,11 @@ GregResult greg_solve(CalibState& st) {
                                          static_cast<size_t>(n_cats_total)) != RK_OK) {
                 res.base.status = RK_ERR_BADARG; return res;
             }
+            // Tikhonov ridge: add τI to normal-equations matrix before Cholesky.
+            if (st.ridge_lambda > 0.0) {
+                for (size_t j = 0; j < static_cast<size_t>(n_cats_total); j++)
+                    N_factored[j * static_cast<size_t>(n_cats_total) + j] += st.ridge_lambda;
+            }
             if (cholesky_factor_inplace(N_factored.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
                 res.base.status = RK_ERR_BADARG; return res;
             }

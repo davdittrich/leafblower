@@ -445,6 +445,11 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             //   • n_keep == n_λ: equivalent to plain LDLT (no truncation).
             // H_pre hoisted pre-loop (lqex.1); assign from H each iter.
             H_pre.assign(H.begin(), H.end());  // n_lam×n_lam copy
+            // Tikhonov ridge: add τI to H_pre before LM damping and dsyevd.
+            if (st.ridge_lambda > 0.0) {
+                for (int k = 0; k < n_lam; k++)
+                    H_pre[k * n_lam + k] += st.ridge_lambda;
+            }
 
             // Epic-H WH-e: user-tunable TSVD truncation ratio; <=0 falls back to internal default 1e-8.
             const double ratio_tsvd = st.newton_tsvd_ratio > 0.0 ? st.newton_tsvd_ratio : 1e-8;
