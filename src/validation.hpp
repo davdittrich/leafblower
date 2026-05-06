@@ -4,8 +4,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <climits>
 #include <limits>
 #include <vector>
+
+// T-B owns canonical site; remove duplicate when T-B merges.
+// TODO(T-B): promote to calib_dispatch.hpp as LBW_MAX_HIER_CELLS
+#ifndef LBW_MAX_HIER_CELLS
+#  define LBW_MAX_HIER_CELLS 100000
+#endif
 
 namespace lbw {
 
@@ -124,6 +131,137 @@ inline int validate_calibrate_inputs(int n, int K,
         return err("rule out of range [0,2]: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU");
     if (p->stop_when < 0 || p->stop_when > 1)
         return err("stop_when out of range [0,1]: 0=ANY 1=ALL");
+
+    // ── T-E: Hierarchical 2-stage input validation ────────────────────────────
+    // Guard (1): early-out when hierarchical disabled.
+    if (p->hierarchical_enabled != 0) {
+        // Helpers
+        const int*  mask      = p->hierarchical_coarse_mask;
+        const int   min_cn    = p->hierarchical_min_cell_n;
+        const int   mode      = p->hierarchical_mode;
+        const double outer_tol= p->hierarchical_outer_tol;
+        const int   outer_it  = p->hierarchical_outer_iterations;
+        char buf[256];
+
+        // NOTE: coarse_mask length == K is checked in r_bridge.cpp (via SEXP
+        // LENGTH) before this function is called. The c_api.cpp caller must
+        // enforce length independently (it owns the array length contract).
+
+        // Guard (3): coarse_mask must be non-empty (at least one 1-bit).
+        {
+            int popcount = 0;
+            for (int k = 0; k < K; k++) popcount += (mask[k] != 0 ? 1 : 0);
+            if (popcount == 0)
+                return err("hierarchical: coarse_margins is empty (all mask values are 0)");
+
+            // Guard (4): coarse_mask must be a proper subset (not all K).
+            if (popcount == K) {
+                return err("hierarchical: coarse_margins == margins; nothing to refine "
+                           "-- disable hierarchical or exclude at least one margin");
+            }
+        }
+
+        // Guard (5): min_cell_n must be >= 1.
+        // Guard (6): min_cell_n > N emits a warning (not BADARG) — handled by the
+        // caller (r_bridge.cpp) via Rf_warning after this function returns RK_OK.
+        if (min_cn < 1) {
+            std::snprintf(buf, sizeof(buf),
+                "min_cell_n=%d invalid; must satisfy 1 <= min_cell_n <= N=%d",
+                min_cn, n);
+            return err(buf);
+        }
+
+        // Guard (7): mode ∈ {0 = refine, 1 = exact}.
+        if (mode < 0 || mode > 1) {
+            std::snprintf(buf, sizeof(buf),
+                "hierarchical_mode=%d invalid; must be 0 (refine) or 1 (exact)", mode);
+            return err(buf);
+        }
+
+        // Guard (8): outer_tol must be finite, positive, >= machine_eps * N.
+        {
+            const double machine_eps = std::numeric_limits<double>::epsilon();
+            const double min_tol     = machine_eps * static_cast<double>(n);
+            if (!std::isfinite(outer_tol) || outer_tol <= 0.0) {
+                std::snprintf(buf, sizeof(buf),
+                    "hierarchical_outer_tol=%.6g invalid; must be finite and positive",
+                    outer_tol);
+                return err(buf);
+            }
+            if (outer_tol < min_tol) {
+                std::snprintf(buf, sizeof(buf),
+                    "hierarchical_outer_tol=%.6g < machine_eps*N=%.6g; "
+                    "increase outer_tol to avoid infinite outer loops",
+                    outer_tol, min_tol);
+                return err(buf);
+            }
+        }
+
+        // Guard (9): outer_iterations in [1, 10000].
+        if (outer_it < 1 || outer_it > 10000) {
+            std::snprintf(buf, sizeof(buf),
+                "hierarchical_outer_iterations=%d invalid; must satisfy "
+                "1 <= outer_iterations <= 10000",
+                outer_it);
+            return err(buf);
+        }
+
+        // Guard (10): algorithm × mode constraint.
+        // P2 methods (LOGIT=10, GREG=6) cannot use mode=0 (refine) — Newton
+        // re-factorization per fine cell is cost-prohibitive.
+        if (mode == 0 &&
+            (alg == RK_ALG_LOGIT || alg == RK_ALG_GREG)) {
+            const char* alg_name = (alg == RK_ALG_LOGIT) ? "logit" : "greg";
+            std::snprintf(buf, sizeof(buf),
+                "algorithm '%s' cannot use mode='refine' (Newton re-factor cost "
+                "prohibitive); pass mode='exact' and ensure orthogonal coarse/fine split",
+                alg_name);
+            return err(buf);
+        }
+
+        // Guard (11): bounds_mode='unit' incompatible with hierarchical.
+        // Check fires AT validate entry, not at solver dispatch (per spec §V.4).
+        if (p->bounds_mode == RK_BOUNDS_UNIT) {
+            return err("bounds_mode='unit' incompatible with hierarchical calibration; "
+                       "use bounds_mode='cell' or disable hierarchical");
+        }
+
+        // Guard (12): preliminary cell-count cap.
+        // cells_estimated = product of cat_counts[k] for coarse dimensions only.
+        // Cap = min(N / min_cell_n, LBW_MAX_HIER_CELLS).
+        // Skip when min_cn > n: that case degenerates to single-stage (Guard 6 warning
+        // is emitted by r_bridge.cpp); integer division N/min_cn would floor to 0.
+        if (min_cn <= n) {
+            long long cells_est = 1LL;
+            bool overflow = false;
+            for (int k = 0; k < K; k++) {
+                if (mask[k] == 0) continue;
+                if (cells_est > (long long)LBW_MAX_HIER_CELLS) { overflow = true; break; }
+                cells_est *= (long long)cat_counts[k];
+                if (cells_est > (long long)LBW_MAX_HIER_CELLS) { overflow = true; break; }
+            }
+            // cap = min(N / min_cell_n, LBW_MAX_HIER_CELLS); always >= 1 since min_cn <= n.
+            long long cap = (long long)LBW_MAX_HIER_CELLS;
+            {
+                long long n_over_mincn = (long long)n / (long long)min_cn;
+                if (n_over_mincn < cap) cap = n_over_mincn;
+            }
+            if (overflow || cells_est > cap) {
+                long long ce = overflow ? (long long)LBW_MAX_HIER_CELLS + 1LL : cells_est;
+                std::snprintf(buf, sizeof(buf),
+                    "hierarchical: estimated coarse cells=%lld exceeds cap=%lld "
+                    "(N=%d, min_cell_n=%d, LBW_MAX_HIER_CELLS=%d); "
+                    "increase min_cell_n or reduce coarse_margins cardinality",
+                    (long long)ce, (long long)cap, n, min_cn, LBW_MAX_HIER_CELLS);
+                return err(buf);
+            }
+        }
+
+        // Guard (13): Strategy B orthogonality — delegated to T-D validator.
+        // TODO(T-D): call validate_orthogonal_split(mask, K, cat_counts, result) here
+        // when mode==1. T-D adds the implementation; this call site is the hook.
+    }
+    // ── End T-E hierarchical validation ──────────────────────────────────────
 
     return RK_OK;
 }

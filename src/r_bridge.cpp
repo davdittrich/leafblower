@@ -14,6 +14,7 @@
 #include <vector>
 #include "logit.hpp"
 #include "cell_table.hpp"
+#include "calib_dispatch.hpp"
 #include "types.hpp"
 #include "ieppa.hpp"
 #include "raking.hpp"
@@ -63,6 +64,9 @@ SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
+SEXP C_hier_partition_probe(SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP C_hier_inherit_probe(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP C_hier_sigmaw_probe(SEXP, SEXP);
 }
 
 // R log trampoline: forwards CalibState.log() calls to Rprintf
@@ -129,6 +133,9 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
         {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       42},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
+        {"C_hier_partition_probe",        (DL_FUNC)&C_hier_partition_probe,        5},
+        {"C_hier_inherit_probe",          (DL_FUNC)&C_hier_inherit_probe,          6},
+        {"C_hier_sigmaw_probe",           (DL_FUNC)&C_hier_sigmaw_probe,           2},
         {NULL, NULL, 0}
     };
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
@@ -310,7 +317,35 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     if (pre_error.empty())
         p.algorithm = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_IEPPA;
 
+    // T-E: Hierarchical marshalling — must occur BEFORE validate_calibrate_inputs so
+    // that p.hierarchical_* fields are populated when the validator runs.
+    // Coarse-mask length check uses SEXP LENGTH (only available in r_bridge.cpp).
+    if (Rf_isNull(hier_coarse_mask_sexp)) {
+        p.hierarchical_enabled      = 0;
+        p.hierarchical_coarse_mask  = nullptr;
+        p.hierarchical_min_cell_n   = 0;
+        p.hierarchical_mode         = 0;
+        p.hierarchical_outer_tol    = 0.0;
+        p.hierarchical_outer_iterations = 0;
+    } else {
+        // Length check: coarse_mask must have exactly K elements.
+        if (pre_error.empty() && LENGTH(hier_coarse_mask_sexp) != K) {
+            char buf[256];
+            std::snprintf(buf, sizeof(buf),
+                "hierarchical_coarse_mask length=%d != K=%d",
+                (int)LENGTH(hier_coarse_mask_sexp), K);
+            pre_error = buf;
+        }
+        p.hierarchical_enabled      = 1;
+        p.hierarchical_coarse_mask  = INTEGER(hier_coarse_mask_sexp);
+        p.hierarchical_min_cell_n   = scalar_int(hier_min_cell_n_sexp, "hier_min_cell_n");
+        p.hierarchical_mode         = scalar_int(hier_mode_sexp, "hier_mode");
+        p.hierarchical_outer_tol    = scalar_real(hier_outer_tol_sexp, "hier_outer_tol");
+        p.hierarchical_outer_iterations = scalar_int(hier_outer_iterations_sexp, "hier_outer_iterations");
+    }
+
     // Full input validation — shared with c_api.cpp path via validation.hpp.
+    // Hierarchical fields in p.* are now populated (moved above).
     if (pre_error.empty()) {
         rk_result_t validation_result;
         rk_result_init(&validation_result);
@@ -330,6 +365,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         }
     }
 
+    // T-E Guard (6): min_cell_n > N emits Rf_warning (NOT BADARG) — degenerate single-stage.
+    // validation.hpp only checks min_cell_n < 1 (BADARG); this warning fires post-validation.
+    if (pre_error.empty() && p.hierarchical_enabled &&
+        p.hierarchical_min_cell_n > n) {
+        Rf_warning("leafblower: hierarchical min_cell_n=%d > N=%d; "
+                   "calibration will degenerate to single-stage (all cells skipped)",
+                   p.hierarchical_min_cell_n, n);
+    }
+
     // WU-E: call C++ solvers directly (bypasses flat C ABI) to access best_weights vector.
     // Build CalibState mirroring c_api.cpp:rk_calibrate() setup.
     lbw::CalibState st;
@@ -338,23 +382,6 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     st.newton_tsvd_ratio = scalar_real(newton_tsvd_ratio_sexp, "newton_tsvd_ratio");
     // Tikhonov ridge on dual λ; 0.0 = off.
     st.ridge_lambda = scalar_real(ridge_lambda_sexp, "ridge_lambda");
-
-    // Hierarchical 2-stage (T-A): NULL mask = disabled; all fields zero-init via rk_params_init.
-    if (Rf_isNull(hier_coarse_mask_sexp)) {
-        p.hierarchical_enabled      = 0;
-        p.hierarchical_coarse_mask  = nullptr;
-        p.hierarchical_min_cell_n   = 0;
-        p.hierarchical_mode         = 0;
-        p.hierarchical_outer_tol    = 0.0;
-        p.hierarchical_outer_iterations = 0;
-    } else {
-        p.hierarchical_enabled      = 1;
-        p.hierarchical_coarse_mask  = INTEGER(hier_coarse_mask_sexp);
-        p.hierarchical_min_cell_n   = scalar_int(hier_min_cell_n_sexp, "hier_min_cell_n");
-        p.hierarchical_mode         = scalar_int(hier_mode_sexp, "hier_mode");
-        p.hierarchical_outer_tol    = scalar_real(hier_outer_tol_sexp, "hier_outer_tol");
-        p.hierarchical_outer_iterations = scalar_int(hier_outer_iterations_sexp, "hier_outer_iterations");
-    }
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;
@@ -975,6 +1002,162 @@ extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
     Rf_setAttrib(ret, R_NamesSymbol, names);
     UNPROTECT(4);  // ret + cell_of_sexp + npc + names
     return ret;
+}
+
+// ── Hierarchical 2-stage test probes (T-B) ───────────────────────────────
+// Expose build_cell_partition, build_sparse_mask, apply_sparse_inheritance,
+// and enforce_sigmaw_eq_n to R for unit testing from tests/testthat/.
+
+// C_hier_partition_probe(group_ids_list, n, K, coarse_mask_int, min_cell_n)
+//   -> list(rc, n_cells_total, n_cells_skipped, cell_id_per_obs, n_per_cell)
+extern "C" SEXP C_hier_partition_probe(
+    SEXP r_group_ids_list, SEXP r_n, SEXP r_K,
+    SEXP r_coarse_mask, SEXP r_min_cell_n)
+{
+    int n          = scalar_int(r_n, "n");
+    int K          = scalar_int(r_K, "K");
+    int min_cell_n = scalar_int(r_min_cell_n, "min_cell_n");
+
+    std::vector<const int32_t*> gid_ptrs(K);
+    std::vector<int> cat_counts(K);
+    for (int k = 0; k < K; k++) {
+        SEXP v = VECTOR_ELT(r_group_ids_list, k);
+        gid_ptrs[k] = (const int32_t*) INTEGER(v);
+        int max_g = -1;
+        for (int i = 0; i < n; i++) {
+            int g = gid_ptrs[k][i];
+            if (g > max_g) max_g = g;
+        }
+        cat_counts[k] = (max_g < 0) ? 1 : (max_g + 1);
+    }
+    std::vector<int> coarse_mask(K);
+    const int* cm = INTEGER(r_coarse_mask);
+    for (int k = 0; k < K; k++) coarse_mask[k] = cm[k];
+
+    lbw::CellPartition part;
+    int rc = lbw::build_cell_partition(n, K, gid_ptrs.data(),
+                                        cat_counts.data(), coarse_mask.data(),
+                                        min_cell_n, part);
+    // Build sparse mask so n_cells_skipped is populated (visible in return).
+    if (rc == RK_OK) lbw::build_sparse_mask(part, min_cell_n);
+
+    // Guard: on error, cell_id_per_obs is empty — memcpy below would be UB.
+    if (rc != RK_OK) {
+        SEXP ret = PROTECT(Rf_allocVector(VECSXP, 1));
+        SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(rc));
+        SEXP nms = PROTECT(Rf_allocVector(STRSXP, 1));
+        SET_STRING_ELT(nms, 0, Rf_mkChar("rc"));
+        Rf_setAttrib(ret, R_NamesSymbol, nms);
+        UNPROTECT(2);
+        return ret;
+    }
+
+    const int K_cells = part.n_cells_total;
+    SEXP ret = PROTECT(Rf_allocVector(VECSXP, 5));
+    SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(rc));
+    SET_VECTOR_ELT(ret, 1, Rf_ScalarInteger(K_cells));
+    SET_VECTOR_ELT(ret, 2, Rf_ScalarInteger(part.n_cells_skipped));
+    SEXP cio = PROTECT(Rf_allocVector(INTSXP, n));
+    std::memcpy(INTEGER(cio), part.cell_id_per_obs.data(), (size_t)n * sizeof(int));
+    SET_VECTOR_ELT(ret, 3, cio);
+    SEXP npc = PROTECT(Rf_allocVector(INTSXP, K_cells));
+    if (K_cells > 0)
+        std::memcpy(INTEGER(npc), part.n_per_cell.data(), (size_t)K_cells * sizeof(int));
+    SET_VECTOR_ELT(ret, 4, npc);
+    SEXP nms = PROTECT(Rf_allocVector(STRSXP, 5));
+    SET_STRING_ELT(nms, 0, Rf_mkChar("rc"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("n_cells_total"));
+    SET_STRING_ELT(nms, 2, Rf_mkChar("n_cells_skipped"));
+    SET_STRING_ELT(nms, 3, Rf_mkChar("cell_id_per_obs"));
+    SET_STRING_ELT(nms, 4, Rf_mkChar("n_per_cell"));
+    Rf_setAttrib(ret, R_NamesSymbol, nms);
+    UNPROTECT(4);
+    return ret;
+}
+
+
+// C_hier_inherit_probe(group_ids_list, n, K, coarse_mask, min_cell_n, stage1_mults)
+//   -> list(rc, weights_out, n_cells_total, n_cells_skipped)
+// Builds partition, builds sparse mask, applies inheritance with stage1_mults,
+// starting from uniform weights of 1.0.
+extern "C" SEXP C_hier_inherit_probe(
+    SEXP r_group_ids_list, SEXP r_n, SEXP r_K,
+    SEXP r_coarse_mask, SEXP r_min_cell_n, SEXP r_stage1_mults)
+{
+    int n          = scalar_int(r_n, "n");
+    int K          = scalar_int(r_K, "K");
+    int min_cell_n = scalar_int(r_min_cell_n, "min_cell_n");
+
+    std::vector<const int32_t*> gid_ptrs(K);
+    std::vector<int> cat_counts(K);
+    for (int k = 0; k < K; k++) {
+        SEXP v = VECTOR_ELT(r_group_ids_list, k);
+        gid_ptrs[k] = (const int32_t*) INTEGER(v);
+        int max_g = -1;
+        for (int i = 0; i < n; i++) {
+            int g = gid_ptrs[k][i];
+            if (g > max_g) max_g = g;
+        }
+        cat_counts[k] = (max_g < 0) ? 1 : (max_g + 1);
+    }
+    std::vector<int> coarse_mask(K);
+    const int* cm = INTEGER(r_coarse_mask);
+    for (int k = 0; k < K; k++) coarse_mask[k] = cm[k];
+
+    lbw::CellPartition part;
+    int rc = lbw::build_cell_partition(n, K, gid_ptrs.data(),
+                                        cat_counts.data(), coarse_mask.data(),
+                                        min_cell_n, part);
+    if (rc != RK_OK) {
+        SEXP ret = PROTECT(Rf_allocVector(VECSXP, 1));
+        SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(rc));
+        SEXP nms = PROTECT(Rf_allocVector(STRSXP, 1));
+        SET_STRING_ELT(nms, 0, Rf_mkChar("rc"));
+        Rf_setAttrib(ret, R_NamesSymbol, nms);
+        UNPROTECT(2);
+        return ret;
+    }
+
+    lbw::SparseMask mask = lbw::build_sparse_mask(part, min_cell_n);
+
+    // Extract stage1_mults (length = n_cells_total).
+    int K_cells = part.n_cells_total;
+    std::vector<double> stage1_mults(K_cells, 1.0);
+    if (r_stage1_mults != R_NilValue && Rf_length(r_stage1_mults) >= K_cells) {
+        const double* sm = REAL(r_stage1_mults);
+        for (int c = 0; c < K_cells; c++) stage1_mults[c] = sm[c];
+    }
+
+    std::vector<double> w_init(n, 1.0);
+    std::vector<double> weights(n, 1.0);
+    lbw::apply_sparse_inheritance(weights, w_init, part, mask, stage1_mults);
+
+    SEXP ret = PROTECT(Rf_allocVector(VECSXP, 4));
+    SET_VECTOR_ELT(ret, 0, Rf_ScalarInteger(rc));
+    SEXP wout = PROTECT(Rf_allocVector(REALSXP, n));
+    std::memcpy(REAL(wout), weights.data(), (size_t)n * sizeof(double));
+    SET_VECTOR_ELT(ret, 1, wout);
+    SET_VECTOR_ELT(ret, 2, Rf_ScalarInteger(part.n_cells_total));
+    SET_VECTOR_ELT(ret, 3, Rf_ScalarInteger(part.n_cells_skipped));
+    SEXP nms = PROTECT(Rf_allocVector(STRSXP, 4));
+    SET_STRING_ELT(nms, 0, Rf_mkChar("rc"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("weights_out"));
+    SET_STRING_ELT(nms, 2, Rf_mkChar("n_cells_total"));
+    SET_STRING_ELT(nms, 3, Rf_mkChar("n_cells_skipped"));
+    Rf_setAttrib(ret, R_NamesSymbol, nms);
+    UNPROTECT(3);
+    return ret;
+}
+
+// C_hier_sigmaw_probe(weights_real, N_int) -> logical(1)
+// Returns TRUE if |Σw − N| < N * 1e-12.
+extern "C" SEXP C_hier_sigmaw_probe(SEXP r_weights, SEXP r_N) {
+    int N = scalar_int(r_N, "N");
+    int len = Rf_length(r_weights);
+    std::vector<double> w(len);
+    std::memcpy(w.data(), REAL(r_weights), (size_t)len * sizeof(double));
+    bool ok = lbw::enforce_sigmaw_eq_n(w, N);
+    return Rf_ScalarLogical(ok ? TRUE : FALSE);
 }
 
 } // extern "C"

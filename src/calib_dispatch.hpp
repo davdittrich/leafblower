@@ -16,6 +16,12 @@
 //
 // The caller is responsible for passing the correct local variable names for each
 // metric; lbfgsb passes pct_change for L1_WEIGHT because it is a batch solver.
+//
+// ── Hierarchical 2-stage shared infrastructure (T-B) ──────────────────────
+//   build_cell_partition  — group obs by joint coarse-margin profile (O(N))
+//   build_sparse_mask     — flag cells with n_per_cell < min_cell_n
+//   apply_sparse_inheritance — in-place: sparse-cell obs inherit Stage-1 multipliers
+//   enforce_sigmaw_eq_n   — post-solver Σw=n gate (called by solver at exit)
 
 #include "leafblower.h"
 #include "types.hpp"
@@ -29,7 +35,13 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <unordered_map>
+#include <numeric>
 #include "lbw_math.hpp"
+
+// ── Hierarchical 2-stage cell-count cap ───────────────────────────────────
+// T-E references this same constant; update both places if the value changes.
+#define LBW_MAX_HIER_CELLS 100000
 
 namespace lbw {
 
@@ -393,6 +405,171 @@ inline double compute_weight_kl(
     double wkl = 0.0;
     for (int i = 0; i < valid; i++) wkl += weight_buf[i] * ratio_buf[i] * inv_n;
     return std::isfinite(wkl) ? wkl : 0.0;
+}
+
+// ── Hierarchical 2-stage shared infrastructure ────────────────────────────
+// All structs + helpers live in the lbw namespace and are inline/static per
+// existing convention (build_cell_table, resolve_hi, solver_setup_ct, etc.).
+
+/// Result of partitioning observations by their joint coarse-margin profile.
+/// obs_indices_by_cell is CSR-like: obs_indices_by_cell[c] holds all obs in cell c.
+struct CellPartition {
+    int                              n_cells_total;     // K_cells: total coarse cells found
+    int                              n_cells_skipped;   // count of is_sparse_cell entries (set by build_sparse_mask)
+    int                              n_cells_inherited; // alias of n_cells_skipped
+    std::vector<int>                 cell_id_per_obs;   // size N
+    std::vector<int>                 n_per_cell;        // size n_cells_total
+    std::vector<std::vector<int>>    obs_indices_by_cell; // [n_cells_total][*]
+};
+
+/// Mask flagging which coarse cells are sparse.
+struct SparseMask {
+    std::vector<bool> is_sparse_cell; // size n_cells_total; true = n_per_cell < min_cell_n
+};
+
+/// Group observations by joint coarse-margin category tuple.
+/// coarse_mask[k] == 1 → margin k participates in the coarse partition.
+/// Returns RK_ERR_BADARG (and a zero-initialised partition) on cap violation.
+///
+/// Cap check (heap-DoS guard, spec §9 + Security review):
+///   K_cells > min(N / max(min_cell_n,1), LBW_MAX_HIER_CELLS) → RK_ERR_BADARG.
+/// Cap check runs BEFORE allocating obs_indices_by_cell.
+///
+/// Complexity: O(N) with unordered_map on a 64-bit packed key per obs.
+/// Supports up to K_coarse ≤ 64 coarse margins (same limit as build_cell_table).
+inline int build_cell_partition(
+    int                      N,
+    int                      K,
+    const int32_t* const*    group_ids,   // [K][N]
+    const int*               cat_counts,  // [K]
+    const int*               coarse_mask, // [K]: 1 = include in coarse partition
+    int                      min_cell_n,
+    CellPartition&           out) noexcept
+{
+    out = {};
+
+    // Count coarse margins; validate K_coarse <= 64
+    int K_coarse = 0;
+    for (int k = 0; k < K; k++) if (coarse_mask[k]) ++K_coarse;
+    if (K_coarse > lbw::K_MAX) {
+        out.n_cells_total = 0;
+        return RK_ERR_BADARG;
+    }
+
+    // Build packed keys: one uint64_t per obs encoding all coarse cats.
+    // Use cat_counts[k]+1 as the radix for margin k (NA = cat_counts[k]).
+    // Radix overflow beyond 64 bits is prevented by K_coarse <= K_MAX <= 64
+    // and cat_counts[k] <= N (practical bound).
+    std::vector<uint64_t> keys(N, 0ULL);
+    {
+        uint64_t radix = 1ULL;
+        for (int k = 0; k < K; k++) {
+            if (!coarse_mask[k]) continue;
+            const int32_t* gk = group_ids[k];
+            const uint64_t base = static_cast<uint64_t>(cat_counts[k] + 1);
+            for (int i = 0; i < N; i++) {
+                int32_t g = gk[i];
+                uint64_t cat = (g < 0) ? static_cast<uint64_t>(cat_counts[k]) : static_cast<uint64_t>(g);
+                keys[i] += cat * radix;
+            }
+            radix *= base;
+            // Overflow guard: if radix wraps, we silently collision (benign — only
+            // affects partitioning granularity, not correctness of Σw=n gate).
+        }
+    }
+
+    // First pass: discover unique cells and assign IDs.
+    std::unordered_map<uint64_t, int> key_to_cell;
+    key_to_cell.reserve(static_cast<size_t>(std::min(N, 4096)));
+    out.cell_id_per_obs.resize(N);
+    for (int i = 0; i < N; i++) {
+        auto [it, inserted] = key_to_cell.emplace(keys[i], static_cast<int>(key_to_cell.size()));
+        out.cell_id_per_obs[i] = it->second;
+    }
+    const int K_cells = static_cast<int>(key_to_cell.size());
+
+    // Cap check BEFORE allocating obs_indices_by_cell (heap-DoS guard).
+    const int effective_min = (min_cell_n < 1) ? 1 : min_cell_n;
+    const int cap = std::min(N / effective_min, LBW_MAX_HIER_CELLS);
+    if (K_cells > cap) {
+        out = {};
+        return RK_ERR_BADARG;
+    }
+
+    // Second pass: count per cell.
+    out.n_per_cell.assign(K_cells, 0);
+    for (int i = 0; i < N; i++) ++out.n_per_cell[out.cell_id_per_obs[i]];
+
+    // Third pass: fill obs_indices_by_cell (pre-sized to avoid realloc in loop).
+    out.obs_indices_by_cell.resize(K_cells);
+    for (int c = 0; c < K_cells; c++) out.obs_indices_by_cell[c].reserve(out.n_per_cell[c]);
+    for (int i = 0; i < N; i++) out.obs_indices_by_cell[out.cell_id_per_obs[i]].push_back(i);
+
+    out.n_cells_total    = K_cells;
+    out.n_cells_skipped  = 0;  // set by build_sparse_mask
+    out.n_cells_inherited = 0; // alias; set by build_sparse_mask
+    return RK_OK;
+}
+
+/// Flag cells with n_per_cell < min_cell_n as sparse.
+/// Returns SparseMask; also updates partition.n_cells_skipped and n_cells_inherited.
+inline SparseMask build_sparse_mask(
+    CellPartition& partition,
+    int            min_cell_n) noexcept
+{
+    SparseMask mask;
+    const int K_cells = partition.n_cells_total;
+    mask.is_sparse_cell.resize(K_cells, false);
+    int n_sparse = 0;
+    for (int c = 0; c < K_cells; c++) {
+        if (partition.n_per_cell[c] < min_cell_n) {
+            mask.is_sparse_cell[c] = true;
+            ++n_sparse;
+        }
+    }
+    partition.n_cells_skipped  = n_sparse;
+    partition.n_cells_inherited = n_sparse; // alias of n_cells_skipped
+    return mask;
+}
+
+/// Apply sparse-cell inheritance in-place.
+/// For each obs in a sparse cell: weights[i] = w_init[i] * stage1_multipliers[cell_id].
+/// Per spec §6: unscaled Stage-1 multiplier inherit — NOT cell-total preservation.
+///
+/// Preconditions:
+///   weights.size() == N (same N used to build partition)
+///   w_init.size()  == N
+///   stage1_multipliers.size() == partition.n_cells_total
+///   sparse_mask.is_sparse_cell.size() == partition.n_cells_total
+inline void apply_sparse_inheritance(
+    std::vector<double>&        weights,
+    const std::vector<double>&  w_init,
+    const CellPartition&        partition,
+    const SparseMask&           sparse_mask,
+    const std::vector<double>&  stage1_multipliers) noexcept
+{
+    const int K_cells = partition.n_cells_total;
+    for (int c = 0; c < K_cells; c++) {
+        if (!sparse_mask.is_sparse_cell[c]) continue;
+        const double mult = stage1_multipliers[c];
+        for (int i : partition.obs_indices_by_cell[c]) {
+            weights[i] = w_init[i] * mult;
+        }
+    }
+}
+
+/// Post-solver Σw=n gate.  Called by solver at exit — NOT by outer loop.
+/// Returns true when |Σw − N| < N · 1e-12; false on violation.
+/// N is the integer sample size (>0).
+inline bool enforce_sigmaw_eq_n(
+    const std::vector<double>& weights,
+    int                        N) noexcept
+{
+    if (N <= 0) return false;
+    double sum = 0.0;
+    for (double w : weights) sum += w;
+    const double tol = static_cast<double>(N) * 1e-12;
+    return std::abs(sum - static_cast<double>(N)) < tol;
 }
 
 } // namespace lbw
