@@ -231,14 +231,31 @@ harvest <- function(
   ...
 ) {
   # Not-in-v1 hard stops
-  if (!isFALSE(add_na_proportion))
-    stop("add_na_proportion is not supported in leafblower v1.")
-  if (isTRUE(auto_collapse))
-    stop("auto_collapse is not supported in leafblower v1.")
-  if (!is.null(collapse_vars))
-    stop("collapse_vars is not supported in leafblower v1.")
-
   target  <- parse_target(target, target_map)
+
+  # --- yaye: add_na_proportion — encode NA observations as explicit "__NA__" bin ---
+  # Tracks which margins received a NA bin so group_ids encoding can use the
+  # character path (as.character(NA) == "NA") rather than the factor path which
+  # maps NA codes to -1L.
+  .na_margins <- character(0)
+  if (!isFALSE(add_na_proportion)) {
+    n_local <- nrow(data)
+    for (v in names(target)) {
+      if (!v %in% names(data)) next
+      na_frac <- mean(is.na(data[[v]]))
+      if (na_frac == 0) next
+      if (na_frac == 1)
+        stop(sprintf(
+          "add_na_proportion: all observations are NA for margin '%s'", v),
+          call. = FALSE)
+      # Renormalize existing targets by (1 - na_frac) then add NA bin
+      target[[v]] <- c(
+        lapply(target[[v]], function(t) t * (1 - na_frac)),
+        list("NA" = na_frac)
+      )
+      .na_margins <- c(.na_margins, v)
+    }
+  }
 
   # --- c8w1: sparseness diagnostic (pre-solve) ---
   sparse_diag <- compute_sparseness_diag(target, data,
@@ -378,7 +395,9 @@ harvest <- function(
   # Character path: fallback for non-factor columns via match().
   group_ids_r  <- lapply(margins, function(v) {
     col <- data[[v]]
-    if (is.factor(col)) {
+    # yaye: if this margin has a NA bin, always use character path so that
+    # as.character(NA) == "NA" matches the explicit "NA" bin in target[[v]].
+    if (is.factor(col) && !v %in% .na_margins) {
       lvl_map              <- match(levels(col), names(target[[v]])) - 1L
       lvl_map[is.na(lvl_map)] <- -1L          # OOV levels -> -1
       codes                <- as.integer(col)  # 1-indexed; NA -> NA_integer_

@@ -226,9 +226,6 @@ def harvest(
     -------
     pd.DataFrame (if attach_weights=True) or np.ndarray
     """
-    # Not-in-v1 hard stops (mirrors R harvest.R lines 244-249)
-    if add_na_proportion is not False:
-        raise ValueError("add_na_proportion is not supported in leafblower v1.")
     if auto_collapse is True:
         raise ValueError("auto_collapse is not supported in leafblower v1.")
     if collapse_vars is not None:
@@ -305,6 +302,23 @@ def harvest(
     # Convert DataFrame target to dict (mirrors R parse_target())
     targets = _parse_target(targets, target_map)
 
+    # yaye: add_na_proportion — renormalize targets and add explicit NA bin
+    _na_vars: set = set()
+    if add_na_proportion is not False:
+        for v in list(targets.keys()):
+            if v not in data.columns:
+                continue
+            na_frac = float(pd.isna(data[v]).mean())
+            if na_frac == 0.0:
+                continue
+            if na_frac == 1.0:
+                raise ValueError(
+                    f"add_na_proportion: all observations are NA for margin '{v}'"
+                )
+            targets[v] = {k: val * (1.0 - na_frac) for k, val in targets[v].items()}
+            targets[v]["NA"] = na_frac
+            _na_vars.add(v)
+
     # c8w1: sparseness diagnostic (pre-solve)
     _sparse_diag = _compute_sparseness_diag(data, targets, cat_threshold=0.01, obs_threshold=30)
     if _sparse_diag:
@@ -336,14 +350,21 @@ def harvest(
             # Vectorized encoding via pandas Categorical: O(n) in C, ~6x faster than
             # a Python for-loop. col.astype(str) handles mixed-type columns; pd.isna
             # entries map to codes=-1 automatically when observed=False.
-            cat = pd.Categorical(col.astype(str).where(~pd.isna(col), other=np.nan),
-                                 categories=[str(lv) for lv in levels])
+            # yaye: for NA-bin margins, fill NAs with "NA" so they map to the NA bin.
+            if varname in _na_vars:
+                col_enc = col.astype(str).where(~pd.isna(col), other="NA")
+            else:
+                col_enc = col.astype(str).where(~pd.isna(col), other=np.nan)
+            cat = pd.Categorical(col_enc, categories=[str(lv) for lv in levels])
             gid = cat.codes.astype(np.int32)  # -1 for NA/unknown levels
         else:
-            level_to_idx = {lv: j for j, lv in enumerate(levels)}
+            level_to_idx = {str(lv): j for j, lv in enumerate(levels)}
             gid = np.empty(n, dtype=np.int32)
             for i, val in enumerate(col):
-                if val is None or (isinstance(val, float) and np.isnan(val)):
+                is_na = val is None or (isinstance(val, float) and np.isnan(val))
+                if is_na and varname in _na_vars:
+                    gid[i] = level_to_idx.get("NA", -1)
+                elif is_na:
                     gid[i] = -1
                 else:
                     gid[i] = level_to_idx.get(str(val), -1)
