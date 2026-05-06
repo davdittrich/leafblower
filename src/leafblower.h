@@ -101,6 +101,16 @@ typedef struct {
     double          ridge_lambda;       /* Tikhonov ridge on dual λ; 0.0 = off.
                                           * newton_kl: H_pre[k,k] += ridge_lambda before LM damping + dsyevd.
                                           * greg: N_factored[j,j] += ridge_lambda before Cholesky. */
+    /* ── Hierarchical 2-stage params (T-A) ── */
+    int             hierarchical_enabled;        /* 0 = disabled (early-out, no allocation); default 0 */
+    int             _pad_hier;                   /* alignment padding before pointer */
+    const int*      hierarchical_coarse_mask;    /* [K] coarse-cell mask; NULL = disabled */
+    int             hierarchical_min_cell_n;     /* min obs per cell to skip refinement; default 0 */
+    int             hierarchical_mode;           /* 0 = refine, 1 = exact; default 0 */
+    double          hierarchical_outer_tol;      /* outer convergence tolerance; default 0.0 */
+    int             hierarchical_outer_iterations; /* max outer iterations; default 0 */
+    int             _pad_hier2;                  /* trailing alignment */
+    /* ── End hierarchical params ── */
 } rk_params_t;
 
 /* ── Result ── */
@@ -146,6 +156,15 @@ typedef struct {
     double          metric_prev_check;   /* calibration metric at second-to-last check; Inf if not set */
     int             prev_check_iter;     /* iteration at which metric_prev_check was captured; -1 if not set */
     /* ── End extended quality metrics ── */
+    /* ── Hierarchical 2-stage diagnostics (T-A) ── */
+    int             n_cells_total;           /* total cell count; 0 = hierarchical disabled */
+    int             n_cells_skipped;         /* cells inherited from coarse pass (not refined) */
+    int             n_cells_inherited;       /* alias of n_cells_skipped */
+    int             outer_iterations_used;   /* outer loop iterations taken; 0 = disabled */
+    double          outer_residual_final;    /* outer residual at exit; 0.0 = disabled */
+    int             hierarchical_levels_used; /* 0 = hierarchical disabled */
+    int             _pad_hier_result;        /* trailing alignment */
+    /* ── End hierarchical diagnostics ── */
 } rk_result_t;
 
 /* Fill *p with safe defaults */
@@ -187,8 +206,8 @@ int rk_calibrate(
  * update this value after auditing ABI consumers. */
 #ifdef __cplusplus
 static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
-/* rk_result_t tripwire. Linux x86_64, verified 2026-05-03: 504 bytes. */
-#define EXPECTED_RK_RESULT_BYTES 504
+/* rk_result_t tripwire. Linux x86_64, verified 2026-05-06: 536 bytes. */
+#define EXPECTED_RK_RESULT_BYTES 536
 static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
     "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");
 /* ABI layout (2026-04-24): added overlay fields after bounds_mode.
@@ -205,8 +224,11 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  * ztid.7 (2026-04-30): removed enabled int from rk_homotopy_cfg_t; total: 224B.
  * 8aex.3 (2026-05-02): added newton_tsvd_ratio (double) for Epic-H WH-e; +8B → 232B.
  * PY-2 (2026-05-03): added accelerate (int) + _pad (int) + alm_penalty (double); +16B → 248B.
- * ridge (2026-05-06): added ridge_lambda (double); +8B → 256B. */
-#define EXPECTED_RK_PARAMS_BYTES 256
+ * ridge (2026-05-06): added ridge_lambda (double); +8B → 256B.
+ * T-A (2026-05-06): hierarchical_enabled (int,4B) + _pad_hier (int,4B) + hierarchical_coarse_mask (ptr,8B)
+ *   + hierarchical_min_cell_n (int,4B) + hierarchical_mode (int,4B) + hierarchical_outer_tol (double,8B)
+ *   + hierarchical_outer_iterations (int,4B) + _pad_hier2 (int,4B); +40B → 296B. */
+#define EXPECTED_RK_PARAMS_BYTES 296
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

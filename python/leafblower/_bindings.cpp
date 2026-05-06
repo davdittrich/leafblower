@@ -198,6 +198,13 @@ PYBIND11_MODULE(_leafblower, m) {
             result_dict["metric_first_check"]  = result.metric_first_check;
             result_dict["metric_prev_check"]   = result.metric_prev_check;
             result_dict["prev_check_iter"]     = result.prev_check_iter;
+            // Hierarchical 2-stage diagnostics (T-A; zero when hierarchical disabled)
+            result_dict["n_cells_total"]           = result.n_cells_total;
+            result_dict["n_cells_skipped"]         = result.n_cells_skipped;
+            result_dict["n_cells_inherited"]       = result.n_cells_inherited;
+            result_dict["outer_iterations_used"]   = result.outer_iterations_used;
+            result_dict["outer_residual_final"]    = result.outer_residual_final;
+            result_dict["hierarchical_levels_used"] = result.hierarchical_levels_used;
 
             return py::make_tuple(rc, weights_out, result_dict);
         },

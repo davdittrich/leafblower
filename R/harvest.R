@@ -233,6 +233,7 @@ harvest <- function(
   design_weights   = NULL,
   newton_tsvd_ratio = 1e-8,
   ridge_lambda = 0.0,
+  hierarchical = NULL,
   ...
 ) {
   # Not-in-v1 hard stops
@@ -490,6 +491,12 @@ harvest <- function(
                as.double(newton_tsvd_ratio),
                ## Tikhonov ridge on dual λ (default 0.0 = off)
                as.double(ridge_lambda),
+               ## Hierarchical 2-stage (T-A): NULL mask = disabled
+               if (is.null(hierarchical)) NULL else as.integer(hierarchical$coarse_mask),
+               as.integer(if (is.null(hierarchical)) 0L else hierarchical$min_cell_n),
+               as.integer(if (is.null(hierarchical)) 0L else hierarchical$mode),
+               as.double(if (is.null(hierarchical)) 0.0 else hierarchical$outer_tol),
+               as.integer(if (is.null(hierarchical)) 0L else hierarchical$outer_iterations),
                PACKAGE = "leafblower")
 
   weights <- raw$weights

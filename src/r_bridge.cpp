@@ -60,7 +60,8 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+                    SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -126,7 +127,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       37},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       42},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {NULL, NULL, 0}
     };
@@ -198,7 +199,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
                     SEXP newton_tsvd_ratio_sexp,
                     /* Tikhonov ridge on dual λ; 0.0 = off. */
-                    SEXP ridge_lambda_sexp) {
+                    SEXP ridge_lambda_sexp,
+                    /* Hierarchical 2-stage (T-A): NULL mask = disabled */
+                    SEXP hier_coarse_mask_sexp,
+                    SEXP hier_min_cell_n_sexp,
+                    SEXP hier_mode_sexp,
+                    SEXP hier_outer_tol_sexp,
+                    SEXP hier_outer_iterations_sexp) {
     int K = LENGTH(group_ids_sexp);
     int n = scalar_int(n_obs_sexp, "n_obs");
 
@@ -331,6 +338,23 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     st.newton_tsvd_ratio = scalar_real(newton_tsvd_ratio_sexp, "newton_tsvd_ratio");
     // Tikhonov ridge on dual λ; 0.0 = off.
     st.ridge_lambda = scalar_real(ridge_lambda_sexp, "ridge_lambda");
+
+    // Hierarchical 2-stage (T-A): NULL mask = disabled; all fields zero-init via rk_params_init.
+    if (Rf_isNull(hier_coarse_mask_sexp)) {
+        p.hierarchical_enabled      = 0;
+        p.hierarchical_coarse_mask  = nullptr;
+        p.hierarchical_min_cell_n   = 0;
+        p.hierarchical_mode         = 0;
+        p.hierarchical_outer_tol    = 0.0;
+        p.hierarchical_outer_iterations = 0;
+    } else {
+        p.hierarchical_enabled      = 1;
+        p.hierarchical_coarse_mask  = INTEGER(hier_coarse_mask_sexp);
+        p.hierarchical_min_cell_n   = scalar_int(hier_min_cell_n_sexp, "hier_min_cell_n");
+        p.hierarchical_mode         = scalar_int(hier_mode_sexp, "hier_mode");
+        p.hierarchical_outer_tol    = scalar_real(hier_outer_tol_sexp, "hier_outer_tol");
+        p.hierarchical_outer_iterations = scalar_int(hier_outer_iterations_sexp, "hier_outer_iterations");
+    }
     st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;
@@ -780,8 +804,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    constexpr int N_RESULT_FIELDS = 41;
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted
+    constexpr int N_RESULT_FIELDS = 47;
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 41 prior + 6 hierarchical diagnostics (T-A)
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  N_RESULT_FIELDS));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
@@ -882,6 +906,19 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     /* Element 40: SRAA scheduler-demotion flag (ieppa/raking only; FALSE elsewhere) */
     SET_STRING_ELT(res_names, 40, Rf_mkChar("sraa_demoted"));
     SET_VECTOR_ELT(res_list,  40, Rf_ScalarLogical(res_sraa_demoted));
+    /* Elements 41-46: hierarchical 2-stage diagnostics (T-A; zero when hierarchical disabled) */
+    SET_STRING_ELT(res_names, 41, Rf_mkChar("n_cells_total"));
+    SET_STRING_ELT(res_names, 42, Rf_mkChar("n_cells_skipped"));
+    SET_STRING_ELT(res_names, 43, Rf_mkChar("n_cells_inherited"));
+    SET_STRING_ELT(res_names, 44, Rf_mkChar("outer_iterations_used"));
+    SET_STRING_ELT(res_names, 45, Rf_mkChar("outer_residual_final"));
+    SET_STRING_ELT(res_names, 46, Rf_mkChar("hierarchical_levels_used"));
+    SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(0));
+    SET_VECTOR_ELT(res_list,  42, Rf_ScalarInteger(0));
+    SET_VECTOR_ELT(res_list,  43, Rf_ScalarInteger(0));
+    SET_VECTOR_ELT(res_list,  44, Rf_ScalarInteger(0));
+    SET_VECTOR_ELT(res_list,  45, Rf_ScalarReal(0.0));
+    SET_VECTOR_ELT(res_list,  46, Rf_ScalarInteger(0));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));
