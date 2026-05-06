@@ -192,10 +192,27 @@ def test_compute_sparseness_diag_na_bin():
         "v2": {"X": 0.5, "Y": 0.5},
     }
 
-    result = _compute_sparseness_diag(df, tgt, cat_threshold=0.01, obs_threshold=30)
+    na_count = int(pd.isna(df["v1"]).sum())  # ~80 NaN rows
+    result = _compute_sparseness_diag(df, tgt, cat_threshold=0.01, obs_threshold=30,
+                                      na_injected={"v1"})
 
-    # v1 "NA" bin has ~40% of 200 = ~80 obs — must NOT be sparse
+    # NA-bin has ~80 obs — must NOT be sparse
     v1_sparse_levels = [r["level"] for r in result.get("v1", [])]
     assert "NA" not in v1_sparse_levels, (
         f"NA-bin falsely flagged sparse: {result.get('v1', [])}"
     )
+
+    # Validate n_kj: use low threshold to force the NA entry to appear, check count
+    result_strict = _compute_sparseness_diag(df, tgt, cat_threshold=0.99, obs_threshold=1,
+                                             na_injected={"v1"})
+    na_entries = [r for r in result_strict.get("v1", []) if r["level"] == "NA"]
+    assert na_entries, "NA entry should appear under low cat_threshold"
+    assert na_entries[0]["n_kj"] == na_count, (
+        f"n_kj={na_entries[0]['n_kj']} != actual NaN count {na_count}"
+    )
+
+    # Without na_injected, literal "NA" key uses value_counts (returns 0 for NaN column)
+    result_ungated = _compute_sparseness_diag(df, tgt, cat_threshold=0.01, obs_threshold=30)
+    ungated_na = [r for r in result_ungated.get("v1", []) if r["level"] == "NA"]
+    assert ungated_na, "Without na_injected, NA-bin should be flagged sparse (n_kj=0)"
+    assert ungated_na[0]["n_kj"] == 0, "Without na_injected, NA n_kj must be 0 (counts miss NaN)"

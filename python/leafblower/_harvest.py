@@ -31,8 +31,15 @@ _METRIC_NAMES = ["max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight",
 _RULE_NAMES   = ["threshold", "improvement", "plateau"]
 
 
-def _compute_sparseness_diag(df, targets, cat_threshold=0.01, obs_threshold=30):
-    """Flag categories where T_kj < cat_threshold or n_kj < obs_threshold."""
+def _compute_sparseness_diag(df, targets, cat_threshold=0.01, obs_threshold=30,
+                             na_injected=None):
+    """Flag categories where T_kj < cat_threshold or n_kj < obs_threshold.
+
+    na_injected: set of variable names that received an 'NA' bin from
+    add_na_proportion=True. For those variables, the 'NA' level is counted
+    via pd.isna() because value_counts(dropna=True) drops NaN/None entirely.
+    """
+    na_injected = na_injected or set()
     sparse_cats = {}
     for v, tgt in targets.items():
         if v not in df.columns:
@@ -40,8 +47,9 @@ def _compute_sparseness_diag(df, targets, cat_threshold=0.01, obs_threshold=30):
         counts = df[v].astype(str).value_counts(dropna=True)
         for level, T_kj in tgt.items():
             lv_str = str(level)
-            if lv_str == "NA":
-                # NA-bin: astype(str) converts NaN → "nan" not "NA"; count directly
+            if lv_str == "NA" and v in na_injected:
+                # NA-bin injected by add_na_proportion: value_counts(dropna=True)
+                # drops NaN/None so they never appear under any string key; count directly.
                 n_kj = int(pd.isna(df[v]).sum())
             else:
                 n_kj = int(counts.get(lv_str, 0))
@@ -357,7 +365,8 @@ def harvest(
             _na_vars.add(v)
 
     # c8w1: sparseness diagnostic (pre-solve)
-    _sparse_diag = _compute_sparseness_diag(data, targets, cat_threshold=0.01, obs_threshold=30)
+    _sparse_diag = _compute_sparseness_diag(data, targets, cat_threshold=0.01, obs_threshold=30,
+                                             na_injected=_na_vars)
     if _sparse_diag:
         n_flagged = sum(len(v) for v in _sparse_diag.values())
         warnings.warn(
