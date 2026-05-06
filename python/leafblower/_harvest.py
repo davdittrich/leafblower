@@ -88,9 +88,18 @@ def _parse_convergence(conv):
     return pct_tol, absolute_tol, _METRIC_MAP[metric_str], _RULE_MAP[rule_str], _STOP_WHEN_MAP[stop_when_str]
 
 
+def _resolve_sor(sor):
+    """Map sor=None to R default (auto-enabled). sor=False/sor={} = explicit disable."""
+    if sor is None:
+        return {"auto": True, "omega_min": 0.3}  # R default: list(auto=TRUE, omega_min=0.3)
+    if sor is False:
+        return {}  # explicit disable
+    return sor  # passthrough dict
+
+
 def _parse_sor(sor):
     """Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed, burnin)."""
-    if sor is None:
+    if not sor:  # empty dict = disabled (from _resolve_sor(False))
         return 0, 0, 1.0, 0.3, -1.0, 20
     enabled = 1
     auto = 1 if sor.get("auto", True) else 0
@@ -128,6 +137,9 @@ def harvest(
     newton_tsvd_ratio: float = 1e-8,
     accelerate: bool = False,
     alm_penalty: Optional[float] = None,
+    add_na_proportion: bool = False,
+    auto_collapse: bool = False,
+    collapse_vars=None,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -167,9 +179,19 @@ def harvest(
     -------
     pd.DataFrame (if attach_weights=True) or np.ndarray
     """
+    # Not-in-v1 hard stops (mirrors R harvest.R lines 244-249)
+    if add_na_proportion is not False:
+        raise ValueError("add_na_proportion is not supported in leafblower v1.")
+    if auto_collapse is True:
+        raise ValueError("auto_collapse is not supported in leafblower v1.")
+    if collapse_vars is not None:
+        raise ValueError("collapse_vars is not supported in leafblower v1.")
+
     # Parse convergence and SOR
     pct_tol, absolute_tol, metric, rule, stop_when = _parse_convergence(convergence)
-    sor_enabled, sor_auto, sor_omega_init, sor_omega_min, sor_omega_fixed, sor_burnin = _parse_sor(sor)
+    sor_enabled, sor_auto, sor_omega_init, sor_omega_min, sor_omega_fixed, sor_burnin = _parse_sor(
+        _resolve_sor(sor)
+    )
 
     # Convert dict data to DataFrame; validate input type.
     if isinstance(data, dict):
