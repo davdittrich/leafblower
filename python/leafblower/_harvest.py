@@ -290,6 +290,21 @@ def harvest(
     # Method mapping
     method_lc = method.lower()
 
+    # Mirror R harvest.R:308-331: per-method natural convergence objective.
+    # Only fires when user gave no explicit metric/improvement/pct/absolute.
+    _conv = convergence or {}
+    if not any(k in _conv for k in ("metric", "improvement", "pct", "absolute")):
+        _method_metric = {
+            "ieppa": "marginal_kl", "ieppa_soft": "marginal_kl",
+            "raking": "kl", "greenkhorn": "kl",
+            "sinkhorn": "kl", "newton_kl": "kl",
+            "greg": "chi2",
+            # chebyshev: omitted — max_err is its natural objective (L-inf)
+            # logit: omitted — no natural KL objective, keep max_err
+        }.get(method_lc)
+        if _method_metric is not None:
+            metric = _METRIC_MAP[_method_metric]
+
     alg_map = {
         "ieppa": 1, "raking": 3,
         "sinkhorn": 4, "chebyshev": 5, "greg": 6,
