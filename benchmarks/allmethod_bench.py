@@ -4,7 +4,7 @@
 # Uses improvement rule (stall detection) matching allmethod_bench.R.
 # Tier-1 metrics: marginal_kl + wall_time.
 
-import sys, time, json, math, csv
+import sys, time, json, math, csv, statistics
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +19,7 @@ TARGETS = repo / "benchmarks/stepstone_fulldata_bench_targets.json"
 MAX_IT  = 3000
 MAX_WT  = 5.0
 TOL     = 1e-3
+NREPS   = 3          # repetitions per method for median timing
 OUTFILE = repo / "benchmarks/results/allmethod_bench_py.csv"
 
 # Natural convergence per method — improvement rule (stall detection)
@@ -56,26 +57,33 @@ def post_hoc_mkl(w_arr, df, tgt):
 
 
 def run(label, conv, **kwargs):
-    t0 = time.perf_counter()
-    try:
-        res = harvest(df, tgt, min_weight=0.0, max_weight=MAX_WT,
-                      max_iterations=MAX_IT, convergence=conv,
-                      verbose=0, attach_weights=False, **kwargs)
-    except Exception as e:
-        elapsed = (time.perf_counter() - t0) * 1000
-        print(f"  ERROR: {e}")
-        return {"method": label, "loss_fn": conv.get("metric","?"),
-                "time_ms": round(elapsed), "status": "error",
-                "iterations": -1, "algorithm": "error",
-                "marginal_kl": float("nan"), "max_err": float("nan")}
-    elapsed = (time.perf_counter() - t0) * 1000
-    ri   = res["result"]
-    w_np = np.array(res["weights"])
+    times = []
+    res_last = None
+    for _ in range(NREPS):
+        t0 = time.perf_counter()
+        try:
+            res = harvest(df, tgt, min_weight=0.0, max_weight=MAX_WT,
+                          max_iterations=MAX_IT, convergence=conv,
+                          verbose=0, attach_weights=False, **kwargs)
+        except Exception as e:
+            elapsed = (time.perf_counter() - t0) * 1000
+            print(f"  ERROR: {e}")
+            return {"method": label, "loss_fn": conv.get("metric","?"),
+                    "median_ms": round(elapsed), "min_ms": round(elapsed), "max_ms": round(elapsed),
+                    "status": "error", "iterations": -1, "algorithm": "error",
+                    "marginal_kl": float("nan"), "max_err": float("nan")}
+        times.append((time.perf_counter() - t0) * 1000)
+        res_last = res
+    assert res_last is not None  # NREPS >= 1 guarantees assignment
+    ri   = res_last["result"]
+    w_np = np.array(res_last["weights"])
     mkl, merr = post_hoc_mkl(w_np, df, tgt)
     return {
         "method":      label,
         "loss_fn":     conv.get("metric", "?"),
-        "time_ms":     round(elapsed),
+        "median_ms":   round(statistics.median(times)),
+        "min_ms":      round(min(times)),
+        "max_ms":      round(max(times)),
         "status":      _STATUS.get(ri["status"], str(ri["status"])),
         "iterations":  ri["iterations"],
         "algorithm":   ri.get("algorithm_name", kwargs.get("method", "?")),
@@ -114,19 +122,19 @@ for i, (label, conv, kwargs) in enumerate(cfg, 1):
     r = run(label, conv, **kwargs)
     results.append(r)
     mkl = f"{r['marginal_kl']:.5f}" if math.isfinite(r['marginal_kl']) else "  NaN"
-    print(f"  {r['time_ms']:7d}ms  {r['status']:<10}  mkl={mkl}  iters={r['iterations']}")
+    print(f"  {r['median_ms']:7d}ms [{r['min_ms']}-{r['max_ms']}]  {r['status']:<10}  mkl={mkl}  iters={r['iterations']}")
 
-hdr = ["method","loss_fn","time_ms","status","iterations","algorithm","marginal_kl","max_err"]
-print("\n=== Python Results (sorted by time_ms) ===")
-col_w = [36, 12, 8, 11, 10, 14, 13, 10]
+hdr = ["method","loss_fn","median_ms","min_ms","max_ms","status","iterations","algorithm","marginal_kl","max_err"]
+print("\n=== Python Results (sorted by median_ms) ===")
+col_w = [36, 12, 10, 8, 8, 11, 10, 14, 13, 10]
 fmt = "".join(f"{{:<{w}}}" for w in col_w)
 print(fmt.format(*hdr))
 print("-" * sum(col_w))
-for r in sorted(results, key=lambda x: x["time_ms"]):
+for r in sorted(results, key=lambda x: x["median_ms"]):
     mkl = f"{r['marginal_kl']:.5f}" if math.isfinite(r.get('marginal_kl', float('nan'))) else "NaN"
     merr = f"{r['max_err']:.5f}" if math.isfinite(r.get('max_err', float('nan'))) else "NaN"
-    print(fmt.format(r["method"], r["loss_fn"], r["time_ms"], r["status"],
-                     r["iterations"], r["algorithm"], mkl, merr))
+    print(fmt.format(r["method"], r["loss_fn"], r["median_ms"], r["min_ms"], r["max_ms"],
+                     r["status"], r["iterations"], r["algorithm"], mkl, merr))
 
 OUTFILE.parent.mkdir(exist_ok=True)
 with open(OUTFILE, "w", newline="") as f:

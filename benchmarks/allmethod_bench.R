@@ -11,6 +11,7 @@ suppressPackageStartupMessages({
 DATA    <- "benchmarks/stepstone_fulldata_bench_data.parquet"
 TARGETS <- "benchmarks/stepstone_fulldata_bench_targets.json"
 MAX_ITER <- 3000L; MAX_WT <- 5; TOL <- 1e-4
+NREPS   <- 3L        # repetitions per method for median timing
 # Default convergence per method (tol only; metric set by harvest.R per-method defaults)
 DEF <- list(tol=TOL)  # uses each method's natural metric (harvest.R switch)
 
@@ -49,27 +50,32 @@ compute_metrics <- function(w, df, tgt) {
 }
 
 run <- function(label, conv, ...) {
-  t0 <- proc.time()["elapsed"]
-  res <- suppressWarnings(tryCatch(
-    harvest(df, tgt, min_weight=0, max_weight=MAX_WT,
-            max_iterations=MAX_ITER, convergence=conv, verbose=0L,
-            attach_weights=FALSE, ...),
-    error=function(e) structure(list(), class="error", message=e$message)
-  ))
-  elapsed <- round((proc.time()["elapsed"]-t0)*1000)
-  if(inherits(res,"error")) {
-    cat(sprintf("  ERROR: %s\n", attr(res,"message")))
+  times <- numeric(NREPS)
+  res_last <- NULL
+  for (rep in seq_len(NREPS)) {
+    t0 <- proc.time()["elapsed"]
+    res <- suppressWarnings(tryCatch(
+      harvest(df, tgt, min_weight=0, max_weight=MAX_WT,
+              max_iterations=MAX_ITER, convergence=conv, verbose=0L,
+              attach_weights=FALSE, ...),
+      error=function(e) structure(list(), class="error", message=e$message)
+    ))
+    times[rep] <- round((proc.time()["elapsed"]-t0)*1000)
+    res_last <- res
+  }
+  if(inherits(res_last,"error")) {
+    cat(sprintf("  ERROR: %s\n", attr(res_last,"message")))
     return(NULL)
   }
-  ri  <- attr(res,"result")
-  w   <- res  # attach_weights=FALSE: harvest returns numeric weights vector directly
+  ri  <- attr(res_last,"result")
+  w   <- res_last  # attach_weights=FALSE: harvest returns numeric weights vector directly
   m   <- compute_metrics(w, df, tgt)
   st  <- STATUS[as.character(ri$status)]
   if(is.na(st)) st <- as.character(ri$status)
-  # Use actual metric from result (handles per-method defaults where conv$metric is NULL)
   loss_fn <- conv$metric %||% ri$convergence_used$metric %||% "default"
-  data.frame(method=label, loss_fn=loss_fn, time_ms=elapsed, status=st,
-             iterations=ri$iterations, algorithm=ri$algorithm,
+  data.frame(method=label, loss_fn=loss_fn,
+             median_ms=median(times), min_ms=min(times), max_ms=max(times),
+             status=st, iterations=ri$iterations, algorithm=ri$algorithm,
              max_err=signif(m["max_err"],4), marginal_kl=signif(m["marginal_kl"],4),
              kl=signif(m["kl"],4), chi2=signif(m["chi2"],4),
              stringsAsFactors=FALSE)
@@ -102,16 +108,16 @@ for(i in seq_along(cfg)) {
   results[[i]] <- do.call(run, c(list(label=label,conv=conv),args))
   if(!is.null(results[[i]])) {
     r <- results[[i]]
-    cat(sprintf("  %7dms  %-10s  mkl=%.4f  max_err=%.4f  iters=%d\n",
-                r$time_ms, r$status, r$marginal_kl, r$max_err, r$iterations))
+    cat(sprintf("  %7dms [%d-%d]  %-10s  mkl=%.4f  max_err=%.4f  iters=%d\n",
+                r$median_ms, r$min_ms, r$max_ms, r$status, r$marginal_kl, r$max_err, r$iterations))
   }
 }
 
 tab <- do.call(rbind, Filter(Negate(is.null), results))
-tab_s <- tab[order(tab$time_ms),]
+tab_s <- tab[order(tab$median_ms),]
 
-cat("\n=== Results (sorted by time_ms) ===\n")
-print(tab_s[,c("method","loss_fn","time_ms","status","iterations",
+cat("\n=== Results (sorted by median_ms) ===\n")
+print(tab_s[,c("method","loss_fn","median_ms","min_ms","max_ms","status","iterations",
                "marginal_kl","max_err","kl","chi2","algorithm")],
       row.names=FALSE, digits=4)
 
