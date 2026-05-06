@@ -233,6 +233,34 @@ harvest <- function(
   # Not-in-v1 hard stops
   target  <- parse_target(target, target_map)
 
+  # --- 81bx: auto_collapse — merge rare categories into __other__ ---
+  if (isTRUE(auto_collapse) || (!is.null(collapse_vars) && !isFALSE(auto_collapse))) {
+    vars_to_collapse <- if (!is.null(collapse_vars)) collapse_vars else names(target)
+    data_modified    <- FALSE
+    data_local       <- data
+    for (v in intersect(vars_to_collapse, names(target))) {
+      rare <- names(which(
+        vapply(names(target[[v]]), function(lv) {
+          target[[v]][[lv]] < 0.01 ||
+          sum(data_local[[v]] == lv, na.rm = TRUE) < 30L
+        }, logical(1))
+      ))
+      rare <- setdiff(rare, "NA")   # never collapse the NA bin
+      if (length(rare) == 0L) next
+      other_mass <- sum(unlist(target[[v]][rare]))
+      target[[v]][rare] <- NULL
+      existing_other <- target[[v]][["__other__"]]
+      target[[v]][["__other__"]] <- (if (is.null(existing_other)) 0 else existing_other) +
+                                     other_mass
+      # Recode observations: rare values → "__other__"
+      col <- as.character(data_local[[v]])
+      col[col %in% rare] <- "__other__"
+      data_local[[v]] <- factor(col, levels = names(target[[v]]))
+      data_modified   <- TRUE
+    }
+    if (data_modified) data <- data_local
+  }
+
   # --- yaye: add_na_proportion — encode NA observations as explicit "__NA__" bin ---
   # Tracks which margins received a NA bin so group_ids encoding can use the
   # character path (as.character(NA) == "NA") rather than the factor path which

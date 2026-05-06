@@ -226,10 +226,25 @@ def harvest(
     -------
     pd.DataFrame (if attach_weights=True) or np.ndarray
     """
-    if auto_collapse is True:
-        raise ValueError("auto_collapse is not supported in leafblower v1.")
-    if collapse_vars is not None:
-        raise ValueError("collapse_vars is not supported in leafblower v1.")
+    # 81bx: auto_collapse — merge rare categories into __other__
+    if auto_collapse is True or (collapse_vars is not None and auto_collapse is not False):
+        vars_to_collapse = collapse_vars if collapse_vars is not None else list(targets.keys())
+        data = data.copy()  # avoid mutating caller's DataFrame
+        for v in vars_to_collapse:
+            if v not in targets:
+                continue
+            rare = [
+                lv for lv, t_kj in targets[v].items()
+                if (t_kj < 0.01 or int((data[v].astype(str) == str(lv)).sum()) < 30)
+                and str(lv) != "NA"
+            ]
+            if not rare:
+                continue
+            other_mass = sum(targets[v].pop(lv) for lv in rare)
+            targets[v]["__other__"] = targets[v].get("__other__", 0.0) + other_mass
+            rare_set = {str(lv) for lv in rare}
+            col = data[v].astype(str)
+            data[v] = col.where(~col.isin(rare_set), other="__other__")
 
     # Removed autumn legacy params — raise TypeError with migration hint
     _REMOVED_PARAMS = {
