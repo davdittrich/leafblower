@@ -4,6 +4,7 @@ Mirrors the R-side ``hierarchical`` list accepted by ``harvest(hierarchical=...)
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Literal
 
@@ -69,8 +70,8 @@ class HierarchicalConfig:
                 f"got {self.outer_iterations!r}"
             )
 
-        # outer_tol > 0
-        if not (self.outer_tol > 0):
+        # outer_tol must be finite and > 0 (mirrors R-side std::isfinite Guard 7)
+        if not (math.isfinite(self.outer_tol) and self.outer_tol > 0):
             raise ValueError(
-                f"HierarchicalConfig: outer_tol must be > 0, got {self.outer_tol!r}"
+                f"HierarchicalConfig: outer_tol must be finite and > 0, got {self.outer_tol!r}"
             )
