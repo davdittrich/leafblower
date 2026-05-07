@@ -592,6 +592,10 @@ RakingResult raking_solve_hierarchical(CalibState& st, const rk_params_t* p) {
     }
     lbw::SparseMask sparse = lbw::build_sparse_mask(partition, min_cell_n);
 
+    int max_n_per_cell = 0;
+    for (auto& v : partition.obs_indices_by_cell)
+        max_n_per_cell = std::max(max_n_per_cell, (int)v.size());
+
     // Identify fine margins (coarse_mask[k]==0) and coarse margins (coarse_mask[k]==1).
     std::vector<int> fine_idx;          // indices into [0..K) of fine margins
     std::vector<int> coarse_idx;        // indices into [0..K) of coarse margins
@@ -607,8 +611,8 @@ RakingResult raking_solve_hierarchical(CalibState& st, const rk_params_t* p) {
     // Per-cell fine-margin group_ids and targets pointers (cell-restricted copies).
     // Allocated once and reused per lambda call via shared buffers.
     // Buffer: fine group_ids per cell observation (size N × K_fine max).
-    std::vector<std::vector<int32_t>> fine_gids_buf(K_fine, std::vector<int32_t>(N));
-    std::vector<double>               fine_weights_buf(N);
+    std::vector<std::vector<int32_t>> fine_gids_buf(K_fine, std::vector<int32_t>(std::max(max_n_per_cell, 1)));
+    std::vector<double>               fine_weights_buf(std::max(max_n_per_cell, 1));
     std::vector<const int32_t*>       fine_gids_ptrs(K_fine);
     std::vector<const double*>        fine_tgt_ptrs(K_fine);
     for (int fi = 0; fi < K_fine; fi++)
