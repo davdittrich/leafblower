@@ -1,0 +1,65 @@
+=== Python param dump: harvest(method='chebyshev', convergence={'tol': 1e-4}, max_weight=5, max_iterations=3000) ===
+
+--- data/input args (positional, data-dependent; structural summary) ---
+  group_ids_r             = VECSXP[K]; each INTSXP len=n (0-idx codes, -1=NA). K=n_margins, n=nrow(data)
+  cat_counts_r            = INTSXP[K]; per-margin level counts. sum=total_cells
+  targets_r               = VECSXP[K]; each REALSXP len=cat_counts[k]. sum(targets[k])≈1
+  n_obs                   = INTSXP scalar = nrow(data)
+  sw_vec (start_weights)  = REALSXP len=n or NULL → uniform 1.0
+
+--- params dict (passed to C++ calibrate()) ---
+  min_weight                 = 0.0
+  max_weight                 = 5.0
+  inner_max_iter             = 3000
+  outer_max_iter             = 3000
+  tol_abs                    = 1e-06
+  verbose                    = 0
+  algorithm                  = 5
+  epsilon                    = 0.05
+  bounds_mode                = 0
+  pct_tol                    = 0.0001
+  absolute_tol               = 0.0
+  metric                     = 0
+  rule                       = 1
+  stop_when                  = 0
+  sor_enabled                = 0
+  sor_auto                   = 0
+  sor_omega_init             = 1.0
+  sor_omega_min              = 0.3
+  sor_omega_fixed            = -1.0
+  sor_burnin                 = 20
+  homotopy_levels            = 1
+  homotopy_start_factor      = 1.0
+  homotopy_end_factor        = 1.0
+  homotopy_budget_p          = 0.5
+  scheduler                  = 0
+  eta_mode                   = 0
+  eta_start                  = 1.0
+  eta_end                    = 1.0
+  eta_schedule_power         = 0.5
+  newton_tsvd_ratio          = 1e-08
+  accelerate                 = 0
+  ridge_lambda               = 0.0
+
+--- Keys OMITTED from params dict (capacity_penalty, alm_penalty) ---
+OMITTED_KEY: capacity_penalty | C_DEFAULT: 0.0 | CITATION: c_api.cpp:51
+OMITTED_KEY: alm_penalty | C_DEFAULT: 0.0 | CITATION: c_api.cpp:51
+
+--- Convergence resolution detail ---
+  convergence input      = {'tol': 0.0001}
+  pct_tol (resolved)     = 0.0001  (tol=1e-4 with rule=improvement)
+  absolute_tol           = 0.0
+  metric (int)           = 0  (max_err=0; chebyshev has no override — L-inf natural objective)
+  rule (int)             = 1  (improvement=1)
+  stop_when (int)        = 0  (any=0)
+
+--- SOR resolution ---
+  sor=None → _resolve_sor(None) → {} → _parse_sor({}): DISABLED
+  sor_enabled  = 0
+  sor_auto     = 0
+  sor_omega_init=1.0
+  sor_omega_min =0.3
+  sor_omega_fixed=-1.0
+  sor_burnin   = 20
+
+Done.
