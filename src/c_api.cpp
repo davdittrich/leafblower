@@ -264,8 +264,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     rk_algorithm_t used;
 
     if (alg == RK_ALG_RAKING) {
-        // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
-        auto res = lbw::raking_solve(st);
+        // Dispatch through hierarchical wrapper; falls through to raking_solve() when
+        // p->hierarchical_enabled == 0 (early-out, zero allocation overhead).
+        auto res = lbw::raking_solve_hierarchical(st, p);
         status = res.base.status;
         iterations = res.base.iterations;
         max_error = res.base.max_error;
@@ -288,6 +289,13 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->metric_prev_check   = res.base.metric_prev_check;
             result->prev_check_iter     = res.base.prev_check_iter;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
+            // Hierarchical diagnostics (zero when hierarchical_enabled == 0).
+            result->n_cells_total          = res.hier_n_cells_total;
+            result->n_cells_skipped        = res.hier_n_cells_skipped;
+            result->n_cells_inherited      = res.hier_n_cells_skipped;
+            result->outer_iterations_used  = res.hier_outer_iterations_used;
+            result->outer_residual_final   = res.hier_outer_residual_final;
+            result->hierarchical_levels_used = res.hier_levels_used;
         }
     } else if (alg == RK_ALG_SINKHORN) {
         auto sres = lbw::sinkhorn_solve(st);

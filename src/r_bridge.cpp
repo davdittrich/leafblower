@@ -471,6 +471,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     double res_metric_prev_check       = std::numeric_limits<double>::infinity();
     int    res_prev_check_iter         = -1;
     std::vector<double> res_best_weights;  // obs-level, length n
+    /* Hierarchical 2-stage diagnostics (elements 41-46; zero when disabled) */
+    int    res_n_cells_total           = 0;
+    int    res_n_cells_skipped         = 0;
+    int    res_n_cells_inherited       = 0;
+    int    res_outer_iterations_used   = 0;
+    double res_outer_residual_final    = 0.0;
+    int    res_hierarchical_levels     = 0;
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
     auto pack_solver_result = [&](const auto& res) {
@@ -503,10 +510,16 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     malloc_trim(0);  // compact heap before solver — reduces fragmentation-induced LLC cache misses
 #endif
     if (strcmp(method_str, "raking") == 0) {
-        auto res = lbw::raking_solve(st);
+        auto res = lbw::raking_solve_hierarchical(st, &p);
         res_status     = res.base.status;
         res_iterations = res.base.iterations;
         res_max_error  = res.base.max_error;
+        res_n_cells_total         = res.hier_n_cells_total;
+        res_n_cells_skipped       = res.hier_n_cells_skipped;
+        res_n_cells_inherited     = res.hier_n_cells_skipped;
+        res_outer_iterations_used = res.hier_outer_iterations_used;
+        res_outer_residual_final  = res.hier_outer_residual_final;
+        res_hierarchical_levels   = res.hier_levels_used;
         res_alg_used   = (int)RK_ALG_RAKING;
         pack_solver_result(res);
         res_sraa_demoted = res.sraa_demoted ? 1 : 0;
@@ -944,12 +957,12 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SET_STRING_ELT(res_names, 44, Rf_mkChar("outer_iterations_used"));
     SET_STRING_ELT(res_names, 45, Rf_mkChar("outer_residual_final"));
     SET_STRING_ELT(res_names, 46, Rf_mkChar("hierarchical_levels_used"));
-    SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(0));
-    SET_VECTOR_ELT(res_list,  42, Rf_ScalarInteger(0));
-    SET_VECTOR_ELT(res_list,  43, Rf_ScalarInteger(0));
-    SET_VECTOR_ELT(res_list,  44, Rf_ScalarInteger(0));
-    SET_VECTOR_ELT(res_list,  45, Rf_ScalarReal(0.0));
-    SET_VECTOR_ELT(res_list,  46, Rf_ScalarInteger(0));
+    SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(res_n_cells_total));
+    SET_VECTOR_ELT(res_list,  42, Rf_ScalarInteger(res_n_cells_skipped));
+    SET_VECTOR_ELT(res_list,  43, Rf_ScalarInteger(res_n_cells_inherited));
+    SET_VECTOR_ELT(res_list,  44, Rf_ScalarInteger(res_outer_iterations_used));
+    SET_VECTOR_ELT(res_list,  45, Rf_ScalarReal(res_outer_residual_final));
+    SET_VECTOR_ELT(res_list,  46, Rf_ScalarInteger(res_hierarchical_levels));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

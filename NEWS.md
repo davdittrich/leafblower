@@ -1,5 +1,14 @@
 # leafblower (development version)
 
+## Hierarchical calibration
+
+* `harvest()` gains `hierarchical = list(...)` for two-stage coarse-then-fine
+  calibration on RAKING. Coarse margins are calibrated globally (Stage 1); fine
+  margins are then calibrated within each coarse cell (Stage 2). Use
+  `mode = 0L` (refine, default) for iterative outer convergence, or
+  `mode = 1L` (exact) for a single-pass orthogonal split. Sparse cells
+  (fewer than `min_cell_n` observations) inherit Stage-1 multipliers.
+
 ## Breaking changes
 
 * `harvest()` default changed: `sor` is now `NULL` (disabled) instead of

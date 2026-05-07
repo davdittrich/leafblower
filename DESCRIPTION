@@ -14,5 +14,6 @@ Encoding: UTF-8
 NeedsCompilation: yes
 SystemRequirements: C++17 compiler, OpenMP (optional, for SIMD exp vectorisation)
 Suggests: autumn (>= 0.2.0), testthat (>= 3.0.0), bench, lhs, DiceKriging, ggplot2, rprojroot,
-    survey
+    survey, rmarkdown, knitr
+VignetteBuilder: knitr
 RoxygenNote: 7.3.3

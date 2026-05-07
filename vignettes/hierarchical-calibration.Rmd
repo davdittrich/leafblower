@@ -1,0 +1,122 @@
+---
+title: "Hierarchical Calibration"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{hierarchical-calibration}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(leafblower)
+set.seed(42)
+```
+
+## Overview
+
+Two-stage hierarchical calibration solves the sparse-cell problem that causes
+standard raking to return `NaN` or `RK_ERR_INFEAS` when the joint distribution
+of margins is sparse relative to sample size.
+
+**Stage 1** (coarse): calibrate globally on a subset of margins that define
+broad cells with adequate counts.
+
+**Stage 2** (fine): within each coarse cell, calibrate on the remaining margins
+using only the observations in that cell.
+
+This vignette demonstrates RAKING. Sinkhorn and Greenkhorn examples will be
+added in later releases.
+
+---
+
+## Data-generating process: K=9 sparse joint (rescue scenario)
+
+```{r dgp-k9, eval=FALSE}
+# K=9 binary margins, N=10 000, Dirichlet(0.1) joint — highly sparse.
+# Standard single-stage raking fails on ~80%+ of seeds.
+library(leafblower)
+
+make_k9_data <- function(seed, N = 1000L, K = 9L) {
+  set.seed(seed)
+  # Dirichlet(alpha=0.1) joint probabilities over 2^K cells
+  alpha  <- rep(0.1, 2^K)
+  probs  <- rgamma(length(alpha), alpha); probs <- probs / sum(probs)
+  cells  <- sample(seq_along(probs), N, replace = TRUE, prob = probs)
+  # Decode cell index to K binary columns
+  df <- as.data.frame(
+    matrix(as.integer((outer(cells - 1L, 2^(0:(K-1L)), bitwAnd) > 0L)),
+           nrow = N, ncol = K,
+           dimnames = list(NULL, paste0("x", seq_len(K)))))
+  targets <- lapply(seq_len(K), function(k) c(`0` = 0.5, `1` = 0.5))
+  names(targets) <- names(df)
+  list(df = df, targets = targets)
+}
+```
+
+## Single-stage failure demonstration
+
+```{r single-stage-fail, eval=FALSE}
+failures <- vapply(1:20, function(s) {
+  d   <- make_k9_data(s)
+  res <- harvest(d$df, d$targets, method = "raking")
+  any(is.nan(res$weight)) || attr(res, "result")$status != 0L
+}, logical(1))
+cat("Single-stage failure rate:", mean(failures), "\n")
+# Expected: >= 0.80
+```
+
+## Two-stage rescue demonstration
+
+```{r two-stage-rescue, eval=FALSE}
+converged <- vapply(1:20, function(s) {
+  d   <- make_k9_data(s)
+  res <- harvest(d$df, d$targets, method = "raking",
+                 hierarchical = list(
+                   coarse_mask      = c(1L, 1L, 1L, 0L, 0L, 0L, 0L, 0L, 0L),
+                   min_cell_n       = 30L,
+                   mode             = 0L,
+                   outer_tol        = 1e-4,
+                   outer_iterations = 100L
+                 ))
+  !any(is.nan(res$weight)) && attr(res, "result")$status == 0L
+}, logical(1))
+cat("Two-stage convergence rate:", mean(converged), "\n")
+# Expected: 1.0
+```
+
+## `mode = "exact"` + orthogonality contract
+
+```{r exact-mode, eval=FALSE}
+# Exact mode requires that fine-margin levels nest within coarse cells
+# (each fine-margin level belongs to exactly one coarse cell).
+# Use orthogonal design: coarse = first 2 margins, fine = last 2.
+set.seed(1)
+N   <- 1000L
+df2 <- data.frame(
+  region = sample(c("N","S"), N, TRUE),
+  sex    = sample(c("M","F"), N, TRUE),
+  age    = sample(c("Y","O"), N, TRUE),
+  edu    = sample(c("H","L"), N, TRUE)
+)
+tgt2 <- list(
+  region = c(N = 0.5, S = 0.5),
+  sex    = c(M = 0.5, F = 0.5),
+  age    = c(Y = 0.5, O = 0.5),
+  edu    = c(H = 0.5, L = 0.5)
+)
+# Non-orthogonal split raises BADARG at validation time.
+# Orthogonal split (fine levels must be nested within coarse cells) proceeds.
+res_exact <- harvest(df2, tgt2, method = "raking",
+                     hierarchical = list(
+                       coarse_mask      = c(1L, 1L, 0L, 0L),
+                       min_cell_n       = 1L,
+                       mode             = 1L,
+                       outer_tol        = 0,
+                       outer_iterations = 1L
+                     ))
+```
+
+---
+
+*Sinkhorn and Greenkhorn hierarchical examples will be added in T-G and T-H.*

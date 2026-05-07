@@ -113,6 +113,26 @@
 #'   Adds \code{ridge_lambda} to the diagonal of the Hessian (newton_kl) or
 #'   normal-equations matrix (greg) before factorization. Hardens near-singular
 #'   systems from cell-level sparseness. Ignored by all other solvers.
+#' @param hierarchical NULL (default, single-stage) or a named list enabling
+#'   two-stage coarse-then-fine calibration. Supported for
+#'   \code{method = "raking"} only. List fields:
+#'   \describe{
+#'     \item{\code{coarse_mask}}{Integer vector length K. 1 = margin is coarse
+#'       (Stage-1); 0 = fine (Stage-2). At least one coarse margin required.}
+#'     \item{\code{min_cell_n}}{Minimum observations per coarse cell to attempt
+#'       Stage-2 raking (default 30). Cells below this threshold inherit Stage-1
+#'       multipliers instead.}
+#'     \item{\code{mode}}{0L (default) = \code{"refine"}: iterates Stage-1 /
+#'       Stage-2 in an outer loop until convergence; 1L = \code{"exact"}:
+#'       one Stage-1 pass then one Stage-2 pass (requires orthogonal split).}
+#'     \item{\code{outer_tol}}{Outer-loop convergence tolerance (default 1e-4).
+#'       Ignored when \code{mode = 1}.}
+#'     \item{\code{outer_iterations}}{Max outer-loop iterations (default 50).
+#'       Ignored when \code{mode = 1}.}
+#'   }
+#'   The \code{result} attribute gains fields \code{n_cells_total},
+#'   \code{n_cells_skipped}, \code{outer_iterations_used}, and
+#'   \code{outer_residual_final} when hierarchical is non-NULL.
 #' @param add_na_proportion Not supported in v1; raises error if TRUE.
 #' @param auto_collapse Not supported in v1; raises error if TRUE.
 #' @param collapse_vars Not supported in v1; raises error if TRUE.
@@ -196,6 +216,28 @@
 #'
 #' # Logit-distance Newton calibration (Deville-Sarndal 1992)
 #' r_logit <- harvest(df, tgt, method = "logit")
+#'
+#' # Two-stage hierarchical raking (K=4, sparse joint, coarse = first 2 margins)
+#' set.seed(1)
+#' N <- 2000
+#' df4 <- data.frame(
+#'   a = sample(0:1, N, TRUE, prob = c(0.8, 0.2)),
+#'   b = sample(0:1, N, TRUE, prob = c(0.7, 0.3)),
+#'   c = sample(0:1, N, TRUE),
+#'   d = sample(0:1, N, TRUE)
+#' )
+#' tgt4 <- list(a = c(`0` = 0.5, `1` = 0.5),
+#'              b = c(`0` = 0.5, `1` = 0.5),
+#'              c = c(`0` = 0.5, `1` = 0.5),
+#'              d = c(`0` = 0.5, `1` = 0.5))
+#' r_hier <- harvest(df4, tgt4, method = "raking",
+#'                   hierarchical = list(
+#'                     coarse_mask       = c(1L, 1L, 0L, 0L),
+#'                     min_cell_n        = 30L,
+#'                     mode              = 0L,
+#'                     outer_tol         = 1e-4,
+#'                     outer_iterations  = 50L
+#'                   ))
 #' }
 #' @export
 harvest <- function(
