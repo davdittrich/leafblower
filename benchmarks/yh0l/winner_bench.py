@@ -13,7 +13,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-import json, math, sys, time, csv, statistics
+import json, math, sys, time, csv
 from pathlib import Path
 
 import numpy as np

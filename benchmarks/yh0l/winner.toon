@@ -2,6 +2,13 @@ task_id: T3
 success: true
 data:
   winner: Py
+  winner_basis: >-
+    Py wins fulldata cleanly (confidence 97): margin_kl lower, 2.4x faster, 2.4x fewer iters.
+    Medium and small_hicard are statistical ties (margin_kl exact tie / float-underflow respectively;
+    wall_ms within run-to-run noise on NREPS=3) — not contradictions. The K>8 estimate_M_cell
+    saturation differentiator is mathematically present in both paths but only produces measurable
+    Tier-1 metric divergence at production scale (n>>K^cat_count_product threshold). Aggregate Py
+    win is sound: one clean win + two ties = Py never loses.
   per_dgp:
     - dgp: fulldata
       n: 1582732
@@ -22,8 +29,9 @@ data:
       py_wall_ms: 312.0
       r_iter: 20
       py_iter: 20
-      dgp_winner: Py
-      confidence: 85
+      dgp_winner: tie
+      confidence: 70
+      note: "margin_kl exact tie; wall_ms 6% diff (332 vs 312ms) within run-to-run noise on NREPS=3 — insufficient discrimination at this baseline."
 
     - dgp: small_hicard
       n: 5000
@@ -33,8 +41,9 @@ data:
       py_wall_ms: 16.0
       r_iter: 20
       py_iter: 20
-      dgp_winner: Py
-      confidence: 80
+      dgp_winner: tie
+      confidence: 50
+      note: "py_margin_kl=-2.22e-16 is float-underflow; both effectively at zero. K>8 differentiator does not produce measurable diff at n=5K (estimate_M_cell saturation threshold not reached at small n)."
 
   code_attribution:
     r_side:
