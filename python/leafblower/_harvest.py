@@ -14,6 +14,7 @@ except ImportError:
     _PANDAS_AVAILABLE = False
 
 from ._leafblower import calibrate
+from ._hierarchical import HierarchicalConfig
 
 _TARGET_SUM_TOL = 5e-7  # matches R harvest() tolerance for target proportions summing to 1
 
@@ -202,6 +203,7 @@ def harvest(
     design_weights=None,
     target_map=None,
     ridge_lambda: float = 0.0,
+    hierarchical: "HierarchicalConfig | None" = None,
     **_kwargs,  # absorbed for forward-compat; not passed to R
 ):
     """
@@ -474,6 +476,31 @@ def harvest(
         params["capacity_penalty"] = capacity_penalty
     if alm_penalty is not None and alm_penalty > 0.0:
         params["alm_penalty"] = alm_penalty
+
+    # Hierarchical 2-stage params (T-J)
+    # var_names is the ordered list of margin names (keys of targets after parse_target).
+    if hierarchical is not None:
+        if not isinstance(hierarchical, HierarchicalConfig):
+            raise TypeError(
+                "harvest(): hierarchical must be a HierarchicalConfig instance or None"
+            )
+        # Validate all coarse_margins exist in targets
+        missing = [m for m in hierarchical.coarse_margins if m not in targets]
+        if missing:
+            raise ValueError(
+                f"harvest(): hierarchical.coarse_margins contains name(s) not in "
+                f"targets: {missing!r}"
+            )
+        # Build K-length coarse mask (1=coarse, 0=fine) aligned with margin order
+        coarse_set = set(hierarchical.coarse_margins)
+        coarse_mask = [1 if m in coarse_set else 0 for m in var_names]
+        mode_int = 0 if hierarchical.mode == "refine" else 1
+        params["hierarchical_enabled"] = 1
+        params["hierarchical_coarse_mask"] = coarse_mask
+        params["hierarchical_min_cell_n"] = hierarchical.min_cell_n
+        params["hierarchical_mode"] = mode_int
+        params["hierarchical_outer_tol"] = hierarchical.outer_tol
+        params["hierarchical_outer_iterations"] = hierarchical.outer_iterations
 
     log_fn = print if verbose > 0 else None
 

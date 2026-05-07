@@ -139,6 +139,25 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.alm_penalty = params_dict["alm_penalty"].cast<double>();
             if (params_dict.contains("ridge_lambda"))
                 p.ridge_lambda = params_dict["ridge_lambda"].cast<double>();
+            // Hierarchical 2-stage input params (T-J)
+            // coarse_mask is passed as a list<int> and converted to a local vector
+            // whose raw pointer is valid for the duration of rk_calibrate().
+            std::vector<int> coarse_mask_buf;
+            if (params_dict.contains("hierarchical_enabled")) {
+                p.hierarchical_enabled = params_dict["hierarchical_enabled"].cast<int>();
+            }
+            if (params_dict.contains("hierarchical_coarse_mask")) {
+                coarse_mask_buf = params_dict["hierarchical_coarse_mask"].cast<std::vector<int>>();
+                p.hierarchical_coarse_mask = coarse_mask_buf.data();
+            }
+            if (params_dict.contains("hierarchical_min_cell_n"))
+                p.hierarchical_min_cell_n = params_dict["hierarchical_min_cell_n"].cast<int>();
+            if (params_dict.contains("hierarchical_mode"))
+                p.hierarchical_mode = params_dict["hierarchical_mode"].cast<int>();
+            if (params_dict.contains("hierarchical_outer_tol"))
+                p.hierarchical_outer_tol = params_dict["hierarchical_outer_tol"].cast<double>();
+            if (params_dict.contains("hierarchical_outer_iterations"))
+                p.hierarchical_outer_iterations = params_dict["hierarchical_outer_iterations"].cast<int>();
 
             // Wire log callback if verbose and callable provided
             PyObject* callable_ptr = nullptr;
