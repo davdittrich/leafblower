@@ -199,6 +199,21 @@ Bumps `EXPECTED_RK_RESULT_BYTES`. R-side: surface via existing `attr(result, "re
 >
 > *Amendment v3 (this revision):* v2 also failed empirically — at N=200 K=9 binary Dirichlet(α=0.1), 1-D marginals are still always populated (0/100 seeds had empty category), and using empirical marginals as targets makes the system trivially feasible (identity weights w≡1 satisfy by construction). v3 prescribes a **minimal viable test fixture** (K=6 N=80, 3 coarse + 3 fine, chain-correlated skewed binary, targets = uniform 0.5/0.5) that empirically demonstrates the rescue. K=9 / K=20 remain in §2 as the user-facing motivating scale; §8 fixture uses minimal-K to exercise the mechanism cheaply (analogous to unit-test fixtures using small data even when production scales differ). Rescue mechanism on this fixture is **cell-local target absorption** — within each coarse cell (defined by `coarse_k` value), the chain `fine_k = f(coarse_k)` makes per-cell fine-distribution near-uniform, so 50/50 fine targets are reachable per-cell while infeasible globally. Single-stage fails because all 6 correlated skewed margins must be flattened simultaneously, compounding multiplicatively past `max_weight`. v3 DGP is empirically validated by prior `make_stress_dgp(N=120)` results (T-F iter 1 reported ≥95% single-stage failure rate).
 
+>
+> *Amendment v4 (2026-05-07):* Post-T-M algorithmic fix (commits 33416bf + 264bb1c) —
+> the canonical Stage-1 = coarse-margins-only correctness fix did NOT unblock any
+> of v0/v1/v2/v3 DGPs. All return 0/n rescue rate at spec §8 threshold. Root cause:
+> 2-stage rescue mechanism per spec §6 is sparseness-rescue (1-D zero-row → 0/0
+> NaN), but none of the amendment DGPs trigger zero-row at the chosen N+K. The v3
+> DGP (N=80, 3 binary coarse margins → 2^3=8 coarse cells) additionally fails input
+> validation: cell-count cap = floor(N/min_cell_n) = floor(80/30) = 2 < 8 estimated
+> cells → `RK_ERR_BADARG` on every seed (confirmed by T-W seed-sweep seeds 1..10:
+> 0/10 rescue, 10/10 BADARG). v0/v1 return BUDGET-exit; v2/v3 return INFEAS/BADARG.
+> Spec §8 rescue gate REMAINS skip()'d in `tests/testthat/test-2stage-raking.R`,
+> deferred to future research per `leafblower-6ycz.1.12` (T-L). v3 minimal-K
+> fixture retained as canonical infrastructure test (DGP construction works);
+> seed-sweep ≥95% / ≥80% pass criteria empirically unprovable on amendment-trail
+> DGPs.
 ### P2 compute scaling test (FLOP proxy, not wall-time)
 
 **DGP:** N=5000; K=20 dense margins, K_coarse = 4; bounded factorization-cost regime.
