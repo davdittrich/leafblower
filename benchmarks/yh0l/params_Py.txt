@@ -1,5 +1,12 @@
 === Python param dump: harvest(method='ieppa_soft', convergence={'tol': 1e-4}, max_weight=5, max_iterations=3000) ===
 
+--- data/input args (positional, data-dependent; structural summary) ---
+  group_ids_r             = VECSXP[K]; each INTSXP len=n (0-idx codes, -1=NA). K=n_margins, n=nrow(data)
+  cat_counts_r            = INTSXP[K]; per-margin level counts. sum=total_cells
+  targets_r               = VECSXP[K]; each REALSXP len=cat_counts[k]. sum(targets[k])≈1
+  n_obs                   = INTSXP scalar = nrow(data)
+  sw_vec (start_weights)  = REALSXP len=n or NULL → uniform 1.0
+
 --- params dict (passed to C++ calibrate()) ---
   min_weight                 = 0.0
   max_weight                 = 5.0

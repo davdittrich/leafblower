@@ -23,7 +23,7 @@ if os.path.exists(os.path.join(_wt_py, "leafblower", "_leafblower.cpython-314-x8
 
 from leafblower._harvest import (
     _parse_convergence, _parse_sor, _resolve_sor,
-    _METRIC_MAP, _RULE_MAP, _STOP_WHEN_MAP,
+    _METRIC_MAP,
 )
 
 # ---- Call parameters matching the test invocation ----
@@ -198,7 +198,15 @@ CPP_DEFAULTS = {
 
 print("=== Python param dump: harvest(method='ieppa_soft', convergence={'tol': 1e-4}, max_weight=5, max_iterations=3000) ===\n")
 
-print("--- params dict (passed to C++ calibrate()) ---")
+# Slots 1-3 and slot 10: data-dependent args — structural summary (not in params dict; passed directly to C++)
+print("--- data/input args (positional, data-dependent; structural summary) ---")
+print("  group_ids_r             = VECSXP[K]; each INTSXP len=n (0-idx codes, -1=NA). K=n_margins, n=nrow(data)")
+print("  cat_counts_r            = INTSXP[K]; per-margin level counts. sum=total_cells")
+print("  targets_r               = VECSXP[K]; each REALSXP len=cat_counts[k]. sum(targets[k])≈1")
+print("  n_obs                   = INTSXP scalar = nrow(data)")
+print("  sw_vec (start_weights)  = REALSXP len=n or NULL → uniform 1.0")
+
+print("\n--- params dict (passed to C++ calibrate()) ---")
 for k, v in params.items():
     status = "IN_DICT"
     cpp_default = CPP_DEFAULTS.get(k, ("IN_DICT", None))[1]

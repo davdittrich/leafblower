@@ -13,15 +13,29 @@ data:
   param_table:
     param                          r_value                                       py_value                                                py_default_when_missing                       mismatch  conf note
     ------------------------------ --------------------------------------------- ------------------------------------------------------- --------------------------------------------- --------- ---- ------------------------------------------------------------
+    group_ids_r                    VECSXP[K]; INTSXP len=n per margin (0-idx co  VECSXP[K]; INTSXP len=n per margin (0-idx codes, -1=NA  N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
+    cat_counts_r                   INTSXP[K]; level counts per margin. sum=tota  INTSXP[K]; level counts per margin. sum=total_cells     N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
+    targets_r                      VECSXP[K]; REALSXP len=cat_counts[k]. sum(ta  VECSXP[K]; REALSXP len=cat_counts[k]. sum(targets[[k]]  N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
+    n_obs                          INTSXP scalar = nrow(data)                    INTSXP scalar = nrow(data)                              N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
     min_weight                     0                                             0                                                       N/A                                           false     98  
     max_weight                     5                                             5                                                       N/A                                           false     98  
-    inner_max_iter                 3000                                          3000                                                    N/A                                           false     98  
-    outer_max_iter                 3000                                          3000                                                    N/A                                           false     98  
-    tol_abs                        1e-06                                         1e-06                                                   N/A                                           false     98  
-    verbose                        0                                             0                                                       N/A                                           false     98  
     algorithm                      ieppa_soft (string; r_bridge.cpp decodes)     8                                                       N/A                                           false     98  R sends string; Py sends int 8. r_bridge.cpp maps string→enum. Same result.
-    epsilon                        0.0 [rk_params_init default; r_bridge.cpp ha  0.05                                                    N/A                                           TRUE      97  DEPRECATED field; not read by any solver (leafblower.h:67). Zero behavioral impact.
+    verbose                        0                                             0                                                       N/A                                           false     98  
+    inner_max_iter                 3000                                          3000                                                    N/A                                           false     98  
+    sw_vec                         REALSXP len=n or NULL → uniform 1.0 (start_w REALSXP len=n or NULL → uniform 1.0 (start_weights=Non N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
+    capacity_penalty               -1                                            OMITTED: C++ default 0.0 (_bindings.cpp:131, c_api.cpp  0.0 → auto path: M_cell_est/n at c_api.cpp:3 false     95  R=-1.0, Py=0.0 (memset); both <=0.0 → auto M_cell_est/n at c_api.cpp:376-381. Same semantic.
+    alm_penalty                    -1                                            OMITTED: C++ default 0.0 (_bindings.cpp:136, c_api.cpp  0.0 → inactive (p->alm_penalty>0.0 false at  false     95  R=-1.0, Py=0.0 (memset); both <=0.0 → alm inactive at c_api.cpp:254. Same semantic.
+    tol_abs                        1e-06                                         1e-06                                                   N/A                                           false     98  
     bounds_mode                    0                                             0                                                       N/A                                           false     98  
+    homotopy_n_levels              1                                             1                                                       N/A                                           false     98  
+    homotopy_start_factor          1                                             1                                                       N/A                                           false     98  
+    homotopy_end_factor            1                                             1                                                       N/A                                           false     98  
+    homotopy_budget_p              0.5                                           0.5                                                     N/A                                           false     98  
+    scheduler                      round_robin (string → C: RK_SCHED_ROUND_ROBI 0                                                       N/A                                           false     98  R sends string 'round_robin'; Py sends int 0. Both → RK_SCHED_ROUND_ROBIN. Same.
+    eta_mode                       fixed (string → C: RK_ETA_FIXED=0)          0                                                       N/A                                           false     98  R sends string 'fixed'; Py sends int 0. Both → RK_ETA_FIXED. Same.
+    eta_start                      1                                             1                                                       N/A                                           false     98  
+    eta_end                        1                                             1                                                       N/A                                           false     98  
+    eta_schedule_power             0.5                                           0.5                                                     N/A                                           false     98  
     pct_tol                        0.0001                                        0.0001                                                  N/A                                           false     98  
     absolute_tol                   0                                             0                                                       N/A                                           false     98  
     metric                         6                                             6                                                       N/A                                           false     98  
@@ -33,29 +47,15 @@ data:
     sor_omega_min                  0.3                                           0.3                                                     N/A                                           false     98  
     sor_omega_fixed                -1                                            -1                                                      N/A                                           false     98  
     sor_burnin                     20                                            20                                                      N/A                                           false     98  
-    homotopy_n_levels              1                                             1                                                       N/A                                           false     98  
-    homotopy_start_factor          1                                             1                                                       N/A                                           false     98  
-    homotopy_end_factor            1                                             1                                                       N/A                                           false     98  
-    homotopy_budget_p              0.5                                           0.5                                                     N/A                                           false     98  
-    scheduler                      round_robin (string → C: RK_SCHED_ROUND_ROBI 0                                                       N/A                                           false     98  R sends string 'round_robin'; Py sends int 0. Both → RK_SCHED_ROUND_ROBIN. Same.
-    eta_mode                       fixed (string → C: RK_ETA_FIXED=0)          0                                                       N/A                                           false     98  R sends string 'fixed'; Py sends int 0. Both → RK_ETA_FIXED. Same.
-    eta_start                      1                                             1                                                       N/A                                           false     98  
-    eta_end                        1                                             1                                                       N/A                                           false     98  
-    eta_schedule_power             0.5                                           0.5                                                     N/A                                           false     98  
-    capacity_penalty               -1                                            OMITTED: C++ default 0.0 (_bindings.cpp:131, c_api.cpp  0.0 [c_api.cpp:memset; ieppa_soft <=0 → auto false     88  Different sentinel (-1.0 vs 0.0) but both → ieppa_soft auto (M_cell/n). Same semantic.
-    alm_penalty                    -1                                            OMITTED: C++ default 0.0 (_bindings.cpp:136, c_api.cpp  0.0 [c_api.cpp:memset; 0.0=inactive]          false     92  Different sentinel (-1.0 vs 0.0/omit) but both → alm_penalty=0.0 (inactive). Same semantic.
     accelerate                     0                                             0                                                       N/A                                           false     98  
     newton_tsvd_ratio              1e-08                                         1e-08                                                   N/A                                           false     98  
     ridge_lambda                   0                                             0                                                       N/A                                           false     98  
 
   mismatches:
-    - param: epsilon
-      r_value: 0.0 [rk_params_init default; r_bridge.cpp has no epsilon SEXP]
-      py_value: 0.05
-      confidence: 97
+    - none
 
   short_circuit: false
   short_circuit_reason: >-
-    Only mismatch (epsilon) is a deprecated field not read by any solver; not on convergence/init path.
+    No true mismatches on any positional SEXP arg. capacity_penalty/alm_penalty differ in sentinel (-1.0 vs 0.0) but both reach the same auto/inactive path (c_api.cpp:376-381, c_api.cpp:254). Data args identical.
 
 error_log: null

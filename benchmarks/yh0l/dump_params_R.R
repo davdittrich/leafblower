@@ -73,18 +73,20 @@ accelerate_bool <- FALSE
 
 cat("=== R arg dump: harvest(method='ieppa_soft', convergence=list(tol=1e-4), max_weight=5, max_iterations=3000) ===\n\n")
 
+# Slots 1-3: data-dependent structures (structural summary only)
+cat("  slot  1 | group_ids_r            = VECSXP[K]; each INTSXP len=n (0-idx codes, -1=NA). K=n_margins, n=nrow(data)\n")
+cat("  slot  2 | cat_counts_r           = INTSXP[K]; per-margin level counts. sum=total_cells\n")
+cat("  slot  3 | targets_r              = VECSXP[K]; each REALSXP len=cat_counts[k]. sum(targets[[k]])≈1\n")
+
 args_list <- list(
-  #  1: group_ids_r     (data-dependent, not shown; structural)
-  #  2: cat_counts_r    (data-dependent)
-  #  3: targets_r       (data-dependent)
-  n_obs                = "n_obs (data-dependent: nrow(data))",
+  n_obs                = "n_obs (INTSXP scalar = nrow(data))",
   min_weight           = as.double(min_weight),
   max_weight           = as.double(max_weight),
   method               = as.character(method),
   verbose              = as.integer(verbose),
   max_iterations       = as.integer(max_iterations),
-  start_weights        = "sw_vec (NULL → uniform, data-dep)",
-  # slot 9
+  start_weights        = "sw_vec (REALSXP len=n or NULL→uniform 1.0)",
+  # slot 11
   capacity_penalty     = if (is.null(capacity_penalty)) -1.0 else as.double(capacity_penalty),
   # slot 10
   alm_penalty          = if (is.null(alm_penalty)) -1.0 else as.double(alm_penalty),
@@ -119,7 +121,7 @@ args_list <- list(
   ridge_lambda         = as.double(ridge_lambda)
 )
 
-# Print all (note: args 1-3 are data-dependent lists; we skip them; args 4..40 = 37 scalar/string args)
+# Print slots 4-37 (data/tuning args); slots 1-3 printed above as structural summaries
 scalar_slot <- 4L  # slot numbering from harvest.R .Call
 for (nm in names(args_list)) {
   cat(sprintf("  slot %2d | %-22s = %s\n", scalar_slot, nm, deparse(args_list[[nm]])))

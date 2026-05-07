@@ -95,14 +95,19 @@ PARAM_MAP <- data.frame(
 # Known resolved values for the test call (from source analysis)
 # R values (what harvest.R sends to .Call for ieppa_soft, convergence=list(tol=1e-4), max_weight=5, max_iterations=3000)
 R_VALS <- list(
+  # Data/input args (pos 1-4, 10): structural summaries — data-dependent, identical on both sides
+  group_ids_r         = "VECSXP[K]; INTSXP len=n per margin (0-idx codes, -1=NA). K=n_margins, n=nrow(data)",
+  cat_counts_r        = "INTSXP[K]; level counts per margin. sum=total_cells",
+  targets_r           = "VECSXP[K]; REALSXP len=cat_counts[k]. sum(targets[[k]])≈1",
+  n_obs               = "INTSXP scalar = nrow(data)",
+  # Tuning params start at pos 5
   min_weight          = 0.0,
   max_weight          = 5.0,
-  inner_max_iter      = 3000L,   # R sends max_iterations to inner
-  outer_max_iter      = 3000L,   # R sends max_iterations to outer (ieppa_soft ≠ newton_kl)
-  tol_abs             = 1e-6,    # absolute_tol=0.0 → fallback 1e-6 (harvest.R:460)
-  verbose             = 0L,
   algorithm           = "ieppa_soft (string; r_bridge.cpp decodes)",
-  epsilon             = "N/A (not in rk_params_t; r_bridge skips)",
+  verbose             = 0L,
+  inner_max_iter      = 3000L,   # R sends max_iterations to inner; outer_max_iter computed in bridge
+  sw_vec              = "REALSXP len=n or NULL → uniform 1.0 (start_weights=NULL default)",
+  tol_abs             = 1e-6,    # absolute_tol=0.0 → fallback 1e-6 (harvest.R:460)
   bounds_mode         = 0L,      # "cell" → 0
   pct_tol             = 1e-4,    # tol=1e-4 with rule=improvement → pct_tol
   absolute_tol        = 0.0,     # improvement rule → absolute_tol=0.0
@@ -133,14 +138,19 @@ R_VALS <- list(
 
 # Python values (what _harvest.py puts in params dict for same call)
 PY_VALS <- list(
+  # Data/input args: Python passes same data arrays → structurally identical to R side
+  group_ids_r         = "VECSXP[K]; INTSXP len=n per margin (0-idx codes, -1=NA). K=n_margins, n=nrow(data)",
+  cat_counts_r        = "INTSXP[K]; level counts per margin. sum=total_cells",
+  targets_r           = "VECSXP[K]; REALSXP len=cat_counts[k]. sum(targets[[k]])≈1",
+  n_obs               = "INTSXP scalar = nrow(data)",
+  # Tuning params (matching C bridge positional order)
   min_weight          = 0.0,
   max_weight          = 5.0,
-  inner_max_iter      = 3000L,
-  outer_max_iter      = 3000L,
-  tol_abs             = 1e-6,    # absolute_tol=0.0 → fallback 1e-6 (_harvest.py:439)
+  algorithm           = 8L,      # alg_map["ieppa_soft"]=8 (Py sends int; R sends string)
   verbose             = 0L,
-  algorithm           = 8L,      # alg_map["ieppa_soft"]=8
-  epsilon             = 0.05,    # _harvest.py hardcoded 0.05 (_harvest.py:441)
+  inner_max_iter      = 3000L,
+  sw_vec              = "REALSXP len=n or NULL → uniform 1.0 (start_weights=None default)",
+  tol_abs             = 1e-6,    # absolute_tol=0.0 → fallback 1e-6 (_harvest.py:439)
   bounds_mode         = 0L,
   pct_tol             = 1e-4,    # tol=1e-4 with rule=improvement
   absolute_tol        = 0.0,
@@ -183,14 +193,22 @@ CONVERGENCE_INIT_PARAMS <- c(
 
 # Build TOON rows
 rows <- list()
+# 37 positional SEXP args to C_rk_calibrate (r_bridge.cpp:177-201), in call order.
+# Removed: outer_max_iter (not a SEXP; bridge derives from inner), epsilon (not a SEXP; rk_params_t ABI field only).
+# Added: group_ids_r, cat_counts_r, targets_r (pos 1-3), n_obs (pos 4), sw_vec (pos 10).
 params_in_order <- c(
-  "min_weight","max_weight","inner_max_iter","outer_max_iter","tol_abs",
-  "verbose","algorithm","epsilon","bounds_mode",
-  "pct_tol","absolute_tol","metric","rule","stop_when",
-  "sor_enabled","sor_auto","sor_omega_init","sor_omega_min","sor_omega_fixed","sor_burnin",
+  # pos 1-4: data/input args
+  "group_ids_r","cat_counts_r","targets_r","n_obs",
+  # pos 5-9: tuning scalars
+  "min_weight","max_weight","algorithm","verbose","inner_max_iter",
+  # pos 10: start weights (data-dependent)
+  "sw_vec",
+  # pos 11-37: calibration params
+  "capacity_penalty","alm_penalty","tol_abs","bounds_mode",
   "homotopy_n_levels","homotopy_start_factor","homotopy_end_factor","homotopy_budget_p",
   "scheduler","eta_mode","eta_start","eta_end","eta_schedule_power",
-  "capacity_penalty","alm_penalty",
+  "pct_tol","absolute_tol","metric","rule","stop_when",
+  "sor_enabled","sor_auto","sor_omega_init","sor_omega_min","sor_omega_fixed","sor_burnin",
   "accelerate","newton_tsvd_ratio","ridge_lambda"
 )
 
@@ -207,51 +225,44 @@ for (p in params_in_order) {
 
   # Determine C++ default when py omits
   py_default_when_missing <- if (grepl("OMITTED", pv_str, fixed = TRUE)) {
-    if (p == "capacity_penalty") "0.0 [c_api.cpp:memset; ieppa_soft <=0 → auto]"
-    else if (p == "alm_penalty") "0.0 [c_api.cpp:memset; 0.0=inactive]"
+    if (p == "capacity_penalty")
+      "0.0 → auto path: M_cell_est/n at c_api.cpp:376-381"
+    else if (p == "alm_penalty")
+      "0.0 → inactive (p->alm_penalty>0.0 false at c_api.cpp:254)"
     else "N/A"
   } else "N/A"
 
   # Mismatch logic
-  # For epsilon: R doesn't send it (not in rk_params_t as a positional arg); Py sends 0.05
-  # epsilon IS in rk_params_t (ABI compat, not read). R doesn't set it; Python sends 0.05.
-  # However r_bridge.cpp does NOT unpack an epsilon SEXP — it's not a positional arg.
-  # rk_params_init sets epsilon=0.0. Python sends 0.05 → _bindings.cpp sets p.epsilon=0.05.
-  # This IS a numerical mismatch (0.0 vs 0.05) but epsilon is deprecated/not read by any solver.
-  # → mismatch=TRUE but confidence=95, NOT on convergence/init path → no short_circuit.
-
-  # For capacity_penalty: R sends -1.0 → C bridge resolves to auto (ct_tmp.capacity_mu_auto)
-  #                        Py omits → C++ field=0.0 → ieppa_soft treats <=0 as auto
-  # Both sides end up at "auto" (M_cell/n). Different SENTINEL values but SAME SEMANTIC.
-  # Confidence 85 (same semantic, different path).
-
-  # For alm_penalty: R sends -1.0 → C bridge: alm_penalty_val=-1.0 → st.alm.mu=0.0
-  #                  Py omits → rk_params_t.alm_penalty=0.0 (memset) → same
-  # Both result in alm_penalty=0.0 (inactive). Same semantic. Confidence 92.
+  # Note: epsilon removed from positional-arg table (not a SEXP; rk_params_t ABI field only).
+  #
+  # For capacity_penalty: R=-1.0 sentinel → c_api.cpp:376 (p->capacity_penalty>0.0) false → auto.
+  #                        Py omits → memset 0.0 → c_api.cpp:376 (0.0>0.0) false → same auto path.
+  #                        Both → M_cell_est/n at c_api.cpp:376-381. mismatch=false.
+  #
+  # For alm_penalty: R=-1.0 → c_api.cpp:254 (p->alm_penalty>0.0) false → inactive (st.alm.mu unchanged).
+  #                  Py omits → 0.0 → c_api.cpp:254 (0.0>0.0) false → same inactive. mismatch=false.
 
   mismatch <- FALSE
   confidence <- 95L
   note <- ""
 
-  if (p == "epsilon") {
-    # R: rk_params_init sets 0.0; r_bridge.cpp does not unpack epsilon SEXP
-    # Py: _harvest.py sends 0.05 → _bindings.cpp sets p.epsilon=0.05
-    # epsilon is deprecated and NOT READ by any solver. Structural mismatch, zero behavioral impact.
-    mismatch <- TRUE
+  if (p %in% c("group_ids_r","cat_counts_r","targets_r","n_obs","sw_vec")) {
+    # Data/input args: same parquet input → structurally identical on both sides.
+    mismatch <- FALSE
     confidence <- 97L
-    rv_str <- "0.0 [rk_params_init default; r_bridge.cpp has no epsilon SEXP]"
-    note <- "DEPRECATED field; not read by any solver (leafblower.h:67). Zero behavioral impact."
+    note <- "Data-input SEXP; structurally identical when reading same dataset."
   } else if (p == "capacity_penalty") {
-    # R: sends -1.0 sentinel → C bridge resolves to auto. Py: omits → memset 0.0 → ieppa_soft auto.
-    # Both end up at auto (M_cell/n). Different sentinel, same semantic.
+    # R: sends -1.0 sentinel → c_api.cpp:376: (p->capacity_penalty > 0.0) false → auto (M_cell_est/n).
+    # Py: omits → memset 0.0 → c_api.cpp:376: (0.0 > 0.0) false → same auto path.
     mismatch <- FALSE
-    confidence <- 88L
-    note <- "Different sentinel (-1.0 vs 0.0) but both → ieppa_soft auto (M_cell/n). Same semantic."
+    confidence <- 95L
+    note <- "R=-1.0, Py=0.0 (memset); both <=0.0 → auto M_cell_est/n at c_api.cpp:376-381. Same semantic."
   } else if (p == "alm_penalty") {
-    # R: -1.0 → bridge: alm_penalty_val=-1.0 → st.alm.mu=0.0. Py: omits → 0.0 (inactive). Same.
+    # R: -1.0 → c_api.cpp:254: (p->alm_penalty > 0.0) false → st.alm.mu unchanged (inactive).
+    # Py: omits → 0.0 → c_api.cpp:254: (0.0 > 0.0) false → same inactive path.
     mismatch <- FALSE
-    confidence <- 92L
-    note <- "Different sentinel (-1.0 vs 0.0/omit) but both → alm_penalty=0.0 (inactive). Same semantic."
+    confidence <- 95L
+    note <- "R=-1.0, Py=0.0 (memset); both <=0.0 → alm inactive at c_api.cpp:254. Same semantic."
   } else if (p == "algorithm") {
     # R sends string "ieppa_soft"; Py sends int 8. r_bridge.cpp maps string → enum. Same result.
     mismatch <- FALSE
@@ -295,11 +306,13 @@ for (p in params_in_order) {
 }
 
 # Short-circuit determination
-# epsilon mismatch is the only TRUE mismatch.
-# epsilon is NOT on the convergence/init path AND is deprecated/not read.
+# All 37 positional SEXPs enumerated. epsilon removed (not a SEXP; rk_params_t ABI field only).
+# No true mismatches remain: capacity_penalty and alm_penalty use different sentinels but
+# both resolve to the same auto/inactive behavior (c_api.cpp:376-381, c_api.cpp:254).
+# Data-input args (group_ids_r, cat_counts_r, targets_r, n_obs, sw_vec) are structurally identical.
 # → no short_circuit
 short_circuit <- FALSE
-short_circuit_reason <- "Only mismatch (epsilon) is a deprecated field not read by any solver; not on convergence/init path."
+short_circuit_reason <- "No true mismatches on any positional SEXP arg. capacity_penalty/alm_penalty differ in sentinel (-1.0 vs 0.0) but both reach the same auto/inactive path (c_api.cpp:376-381, c_api.cpp:254). Data args identical."
 
 # Check for any mismatch on convergence/init path with confidence >= 90
 for (mr in mismatch_rows) {

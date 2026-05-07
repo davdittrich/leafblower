@@ -2,13 +2,16 @@ Welcome back dd!
 Working directory is: /home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize
 === R arg dump: harvest(method='ieppa_soft', convergence=list(tol=1e-4), max_weight=5, max_iterations=3000) ===
 
-  slot  4 | n_obs                  = "n_obs (data-dependent: nrow(data))"
+  slot  1 | group_ids_r            = VECSXP[K]; each INTSXP len=n (0-idx codes, -1=NA). K=n_margins, n=nrow(data)
+  slot  2 | cat_counts_r           = INTSXP[K]; per-margin level counts. sum=total_cells
+  slot  3 | targets_r              = VECSXP[K]; each REALSXP len=cat_counts[k]. sum(targets[[k]])≈1
+  slot  4 | n_obs                  = "n_obs (INTSXP scalar = nrow(data))"
   slot  5 | min_weight             = 0
   slot  6 | max_weight             = 5
   slot  7 | method                 = "ieppa_soft"
   slot  8 | verbose                = 0L
   slot  9 | max_iterations         = 3000L
-  slot 10 | start_weights          = "sw_vec (NULL → uniform, data-dep)"
+  slot 10 | start_weights          = "sw_vec (REALSXP len=n or NULL→uniform 1.0)"
   slot 11 | capacity_penalty       = -1
   slot 12 | alm_penalty            = -1
   slot 13 | tol_abs                = 1e-06
