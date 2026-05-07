@@ -63,7 +63,7 @@ def compute_metrics(w_arr, df, tgt):
             continue
         s_map = w.groupby(df[v]).sum() / W
         for lv, T in targets.items():
-            S = float(s_map.get(str(lv), 0.0))
+            S = float(s_map.get(str(lv), 0.0))  # JSON keys are always str; cast guards non-str parquet index dtypes (e.g. int-keyed categoricals)
             max_err = max(max_err, abs(S - T))
             if T > 0 and S > 0:
                 mkl += T * math.log(T / S)

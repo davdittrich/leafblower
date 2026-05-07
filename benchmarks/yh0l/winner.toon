@@ -1,49 +1,48 @@
 task_id: T3
 success: true
 data:
+  reduction: median_over_3_reps
   winner: Py
   winner_basis: >-
-    Py wins fulldata cleanly (confidence 97): margin_kl lower, 2.4x faster, 2.4x fewer iters.
-    Medium and small_hicard are statistical ties (margin_kl exact tie / float-underflow respectively;
-    wall_ms within run-to-run noise on NREPS=3) — not contradictions. The K>8 estimate_M_cell
-    saturation differentiator is mathematically present in both paths but only produces measurable
-    Tier-1 metric divergence at production scale (n>>K^cat_count_product threshold). Aggregate Py
-    win is sound: one clean win + two ties = Py never loses.
+    Aggregate winner: Py. fulldata: Py (confidence 76) — margin_kl: R=0.00507403 Py=0.00504482
+    rel_diff=0.00579. medium: tie (confidence 50) — all Tier-1 metrics within tie thresholds.
+    small_hicard: tie (confidence 50) — all Tier-1 metrics within tie thresholds.
   per_dgp:
     - dgp: fulldata
       n: 1582732
-      r_margin_kl: 0.00507403
-      py_margin_kl: 0.00504482
-      r_wall_ms: 3864.0
-      py_wall_ms: 2733.0
+      r_margin_kl: 0.0050740332
+      py_margin_kl: 0.0050448169
+      r_wall_ms: 3864
+      py_wall_ms: 2733.3853
       r_iter: 220
       py_iter: 90
       dgp_winner: Py
-      confidence: 97
+      confidence: 76
+      note: "margin_kl: R=0.00507403 Py=0.00504482 rel_diff=0.00579"
 
     - dgp: medium
       n: 200000
-      r_margin_kl: 0.00008577
-      py_margin_kl: 0.00008577
-      r_wall_ms: 332.0
-      py_wall_ms: 312.0
-      r_iter: 20
-      py_iter: 20
-      dgp_winner: tie
-      confidence: 70
-      note: "margin_kl exact tie; wall_ms 6% diff (332 vs 312ms) within run-to-run noise on NREPS=3 — insufficient discrimination at this baseline."
-
-    - dgp: small_hicard
-      n: 5000
-      r_margin_kl: 2.22e-16
-      py_margin_kl: -2.22e-16
-      r_wall_ms: 16.0
-      py_wall_ms: 16.0
+      r_margin_kl: 8.5771686e-05
+      py_margin_kl: 8.5771686e-05
+      r_wall_ms: 332
+      py_wall_ms: 311.65928
       r_iter: 20
       py_iter: 20
       dgp_winner: tie
       confidence: 50
-      note: "py_margin_kl=-2.22e-16 is float-underflow; both effectively at zero. K>8 differentiator does not produce measurable diff at n=5K (estimate_M_cell saturation threshold not reached at small n)."
+      note: "all Tier-1 metrics within tie thresholds"
+
+    - dgp: small_hicard
+      n: 5000
+      r_margin_kl: 2.21891327805088e-16
+      py_margin_kl: -3.2209482440973255e-16
+      r_wall_ms: 16
+      py_wall_ms: 15.585564
+      r_iter: 20
+      py_iter: 20
+      dgp_winner: tie
+      confidence: 50
+      note: "all Tier-1 metrics within tie thresholds"
 
   code_attribution:
     r_side:
