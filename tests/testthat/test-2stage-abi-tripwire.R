@@ -57,6 +57,36 @@ test_that("hier_levels_used == 2 when hierarchical enabled (raking/sinkhorn/gree
   }
 })
 
+test_that("outer_iterations_used == -1 when mode == exact", {
+  # Reuse orthogonal DGP from block above (region/edu, disjoint).
+  set.seed(99)
+  n <- 400L
+  df_exact <- data.frame(
+    region = factor(rep(c("N", "S"), each = n / 2L)),
+    edu    = factor(c(rep("H", n / 2L), rep("L", n / 2L)))
+  )
+  tgt_exact <- list(
+    region = c(N = 0.5, S = 0.5),
+    edu    = c(H = 0.5, L = 0.5)
+  )
+  hier_exact <- list(
+    coarse_mask      = c(1L, 0L),
+    min_cell_n       = 1L,
+    mode             = 1L,
+    outer_tol        = 1e-6,
+    outer_iterations = 5L
+  )
+
+  for (method in c("raking", "sinkhorn", "greenkhorn")) {
+    res <- suppressWarnings(
+      leafblower::harvest(df_exact, tgt_exact, method = method,
+                          hierarchical = hier_exact)
+    )
+    expect_equal(attr(res, "result")$outer_iterations_used, -1L,
+                 label = sprintf("method=%s exact-mode outer_iter sentinel", method))
+  }
+})
+
 test_that("hierarchical = NULL takes early-out: hierarchical_levels_used == 0", {
   set.seed(42)
   n   <- 200L

@@ -778,7 +778,7 @@ RakingResult raking_solve_hierarchical(CalibState& st, const rk_params_t* p) {
         res.base.max_error     = s1.base.max_error;
         res.hier_n_cells_total         = partition.n_cells_total;
         res.hier_n_cells_skipped       = partition.n_cells_skipped;
-        res.hier_outer_iterations_used = 1;
+        res.hier_outer_iterations_used = -1;
         res.hier_outer_residual_final  = 0.0;
         res.hier_levels_used           = 2;
     }
