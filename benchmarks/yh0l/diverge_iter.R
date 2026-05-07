@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # benchmarks/yh0l/diverge_iter.R
-# T2: load trajectory.csv; locate first iter where |errRp_R - errRp_Py| > 1e-12.
+# T2: load trajectory.csv; locate first iter where |convergence_metric_R - convergence_metric_Py| > 1e-12.
 # Also parses terminal status + iter from log files.
 
 suppressPackageStartupMessages({
@@ -45,8 +45,8 @@ parse_terminate <- function(path) {
     }
   }
 
-  # Fallback: parse "[leafblower] iEPPA converged in %d iters, errRp=%.3e"
-  conv_pat  <- "iEPPA (converged|terminated|max_iter) in (\\d+) iters.*errRp=([0-9eE.+\\-]+)"
+  # Parse TERMINATE line: "## TERMINATE status=<s> (<label>) iterations=<n> max_error=<v>"
+  conv_pat  <- "## TERMINATE status=\\S+ \\(\\S+\\) iterations=(\\d+|NA) max_error=([0-9eE.+\\-]+|NA)"
   for (ln in rev(lines)) {
     m <- regexec(conv_pat, ln, perl = TRUE)
     parts <- regmatches(ln, m)[[1]]
@@ -76,8 +76,8 @@ cat(sprintf("[diverge_iter] CSV rows: %d  (R:%d  Py:%d)\n",
             nrow(traj), sum(traj$lang == "R"), sum(traj$lang == "Py")))
 
 # ── Align on common iters ────────────────────────────────────────────────────
-df_r  <- traj[traj$lang == "R",  c("iter", "errRp")]
-df_py <- traj[traj$lang == "Py", c("iter", "errRp")]
+df_r  <- traj[traj$lang == "R",  c("iter", "convergence_metric")]
+df_py <- traj[traj$lang == "Py", c("iter", "convergence_metric")]
 joined <- merge(df_r, df_py, by = "iter", suffixes = c("_R", "_Py"))
 joined <- joined[order(joined$iter), ]
 
@@ -87,8 +87,8 @@ if (nrow(joined) == 0) {
   quit(save = "no")
 }
 
-joined$abs_diff <- abs(joined$errRp_R - joined$errRp_Py)
-joined$ratio    <- joined$errRp_R / joined$errRp_Py
+joined$abs_diff <- abs(joined$convergence_metric_R - joined$convergence_metric_Py)
+joined$ratio    <- joined$convergence_metric_R / joined$convergence_metric_Py
 
 THRESHOLD <- 1e-12
 diverged  <- joined[joined$abs_diff > THRESHOLD, ]
@@ -102,13 +102,13 @@ if (nrow(diverged) == 0) {
 } else {
   first <- diverged[1, ]
   cat(sprintf("\n[diverge_iter] First divergence > 1e-12 at iter %d:\n", first$iter))
-  cat(sprintf("  errRp_R  = %.15e\n", first$errRp_R))
-  cat(sprintf("  errRp_Py = %.15e\n", first$errRp_Py))
+  cat(sprintf("  convergence_metric_R  = %.15e\n", first$convergence_metric_R))
+  cat(sprintf("  convergence_metric_Py = %.15e\n", first$convergence_metric_Py))
   cat(sprintf("  abs_diff = %.6e\n",  first$abs_diff))
   cat(sprintf("  ratio    = %.10f\n", first$ratio))
   cat(sprintf("\ndivergence_iter: %d\n", first$iter))
-  cat(sprintf("metric_R_at_diverge:  %.15e\n", first$errRp_R))
-  cat(sprintf("metric_Py_at_diverge: %.15e\n", first$errRp_Py))
+  cat(sprintf("metric_R_at_diverge:  %.15e\n", first$convergence_metric_R))
+  cat(sprintf("metric_Py_at_diverge: %.15e\n", first$convergence_metric_Py))
 }
 
 cat(sprintf("\nstatus_R_at_terminate:  %s\n", term_R$status))
@@ -119,5 +119,5 @@ cat(sprintf("iter_Py_terminate: %s\n", term_Py$iterations))
 # First 10 diverged rows
 if (nrow(diverged) > 0) {
   cat("\n[diverge_iter] First 10 diverged iters:\n")
-  print(head(diverged[, c("iter","errRp_R","errRp_Py","abs_diff","ratio")], 10))
+  print(head(diverged[, c("iter","convergence_metric_R","convergence_metric_Py","abs_diff","ratio")], 10))
 }

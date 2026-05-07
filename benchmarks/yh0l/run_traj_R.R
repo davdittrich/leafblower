@@ -3,6 +3,10 @@
 # T2: run ieppa_soft with verbose=2 on stepstone fulldata; save log to traj_R.log
 # Run with: OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 Rscript benchmarks/yh0l/run_traj_R.R
 
+# Force single-thread BLAS for deterministic divergence trace
+Sys.setenv(OMP_NUM_THREADS = "1", OPENBLAS_NUM_THREADS = "1",
+           MKL_NUM_THREADS = "1")
+
 suppressPackageStartupMessages({
   library(arrow)
   library(jsonlite)

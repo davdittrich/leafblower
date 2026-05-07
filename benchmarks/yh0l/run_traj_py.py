@@ -10,6 +10,12 @@ import os
 import sys
 from pathlib import Path
 
+# Force single-thread BLAS for deterministic divergence trace
+# Must be set BEFORE numpy/leafblower import — BLAS thread count locks at import time.
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_PATH    = ROOT / "benchmarks" / "stepstone_fulldata_bench_data.parquet"
 TARGETS_PATH = ROOT / "benchmarks" / "stepstone_fulldata_bench_targets.json"
