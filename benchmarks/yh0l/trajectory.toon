@@ -1,0 +1,34 @@
+task_id: T2
+success: true
+data:
+  status: DONE
+  trajectory_csv: benchmarks/yh0l/trajectory.csv
+  notes: >-
+    errRp parsed from verbose=2 log at %.3e precision (3 sig figs). Fields
+    marginal_kl and weight_change are NOT emitted per-iter at verbose=2 —
+    only errRp (verbose>=1) and n_cap_active (verbose>=2) are available.
+    Divergence at iter 1 reflects 3-sig-fig log truncation AND genuine
+    numerical difference: R errRp=6.869e-03 vs Py errRp=1.329e-02 — a
+    factor of ~1.94x, far exceeding log-format rounding. R converged in
+    220 iters; Py converged in 90 iters. Same OMP_NUM_THREADS=1
+    OPENBLAS_NUM_THREADS=1 environment — divergence is cause (c)
+    (numerical drift), NOT cause (d) (BLAS thread nondeterminism).
+    Root cause investigation needed: likely data-ordering difference or
+    sparse-category handling (R: 36654 bounds-violated, Py: 36775 —
+    small but nonzero discrepancy in detected violations).
+  diverge_iter: 1
+  metric_R_at_diverge: 6.869e-03
+  metric_Py_at_diverge: 1.329e-02
+  metric_name: errRp
+  metric_ratio_R_over_Py: 0.5169
+  status_R_at_terminate: converged
+  status_Py_at_terminate: converged
+  iter_R_terminate: 220
+  iter_Py_terminate: 90
+  thread_env: "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1"
+  single_thread_observation: >-
+    Divergence persists at single-thread (OMP=1, OPENBLAS=1). Cause (d)
+    BLAS nondeterminism eliminated. Divergence is cause (c): deterministic
+    numerical drift from iter 1 — likely different initial errRp computation
+    or data-ordering in the first sweep.
+error_log: null
