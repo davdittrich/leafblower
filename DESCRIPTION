@@ -1,6 +1,6 @@
 Package: leafblower
 Title: High-Performance Survey Calibration via iEPPA and L-BFGS-B
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: person("Dennis Alexis Valin", "Dittrich",
     email = "davdittrich@gmail.com", role = c("aut", "cre"))
 Author: Dennis Alexis Valin Dittrich [aut, cre]

@@ -1,3 +1,57 @@
+# leafblower 0.2.1 (2026-05-07)
+
+Remediation wave for P1 epic `leafblower-6ycz.1`. Bug fixes only; no new public
+API. Covers 11 tickets (T-M through T-W) identified during T-K code-review pass.
+
+## Bug fixes
+
+* Stage-1 hierarchical calibration now fits coarse margins only (was: all
+  margins). Affected RAKING, SINKHORN, and GREENKHORN (`leafblower-6ycz.1.13`,
+  T-M).
+* Cell-aggregate Stage-1 multiplier replaces last-observation overwrite for
+  sparse-cell weight inheritance (`leafblower-6ycz.1.13`).
+* `outer_residual_final` now reports spec §8 `Σ|w·X − target|/N` L1 metric
+  (was: cell-balance proxy). BUDGET-exit recomputes residual on returned weights
+  for caller-visible consistency (`leafblower-6ycz.1.15`, T-O).
+* `hier_levels_used` returns 2 when hierarchical calibration is enabled (was: 1)
+  (`leafblower-6ycz.1.14`, T-N).
+* `outer_iterations_used` returns -1 in `mode = "exact"` branches (was: 1)
+  (`leafblower-6ycz.1.17`, T-Q).
+* Σw=N invariant violations are now surfaced via `result$message` and an
+  `Rprintf` warning; new `enforce_sigmaw_eq_n_diag` overload returns
+  `(passed, dev)` (`leafblower-6ycz.1.16`, T-P).
+* Python `HierarchicalConfig` rejects non-finite `outer_tol` via
+  `math.isfinite` check (`leafblower-6ycz.1.21`, T-U).
+
+## Internal
+
+* Drop duplicate `LBW_MAX_HIER_CELLS` define from `validation.hpp`; canonical
+  site is `calib_dispatch.hpp` (`leafblower-6ycz.1.18`, T-R).
+* Right-size `fine_gids_buf` / `fine_weights_buf` to `max_n_per_cell`
+  (~196 KB saved per call) (`leafblower-6ycz.1.19`, T-S).
+* `CalibState` sub-state uses explicit field-by-field init (was: `sub = st;`
+  raw pointer aliasing) (`leafblower-6ycz.1.20`, T-T).
+* `lbw::CalibResult` gained `char message[256]` field (`leafblower-6ycz.1.16`).
+
+## Test / docs
+
+* Spec §8 amended to v4 (v1–v3 history preserved) post-T-M empirical re-test
+  (`leafblower-6ycz.1.23`, T-W); v5 post-T-V stepstone-gate decision
+  (`leafblower-6ycz.1.22`).
+* Stepstone regression-gate fixture regenerated at T-M + T-O baseline;
+  `RESID_SLACK = 0.05` retained — structural floor on 9-margin overlapping
+  geometry (`leafblower-6ycz.1.22`).
+* Vignette Stage-1 description corrected to coarse-only semantics
+  (`leafblower-6ycz.1.13`).
+
+## Known limitations
+
+* Spec §8 P1 sparse-cell rescue seed-sweep gate remains `skip()`'d in
+  `tests/testthat/test-2stage-raking.R`. DGP discovery deferred to follow-up
+  `leafblower-6ycz.1.12` (T-L; closed with disposition note: 2-stage rescues
+  sparseness, not bounds-infeasibility — none of v0/v1/v2/v3 DGPs achieve rescue
+  at spec §8 thresholds under the corrected algorithm).
+
 # leafblower 0.2.0 (2026-05-07)
 
 P1 epic `leafblower-6ycz.1` — hierarchical two-stage calibration for RAKING,
