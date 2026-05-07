@@ -488,7 +488,7 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
         res.hier_n_cells_skipped       = partition.n_cells_skipped;
         res.hier_outer_iterations_used = out.iterations_used;
         res.hier_outer_residual_final  = out.residual_final;
-        res.hier_levels_used           = 1;
+        res.hier_levels_used           = 2;
         // Budget-exit: last_iterate_weights is in working_weights (fn writes there).
     } else {
         // Strategy B (exact): orthogonality already validated at entry.
@@ -531,7 +531,7 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
         res.hier_n_cells_skipped       = partition.n_cells_skipped;
         res.hier_outer_iterations_used = 1;
         res.hier_outer_residual_final  = 0.0;
-        res.hier_levels_used           = 1;
+        res.hier_levels_used           = 2;
     }
 
     // Write final weights back to caller's buffer and restore st.weights.
