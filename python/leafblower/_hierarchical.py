@@ -29,7 +29,7 @@ class HierarchicalConfig:
         ``"exact"`` — single-pass; requires orthogonal coarse/fine split
         (BADARG if not orthogonal).
     outer_tol:
-        Outer-loop convergence tolerance.  Must be > 0.
+        Outer-loop convergence tolerance.  Must be finite and > 0.
     outer_iterations:
         Maximum outer-loop iterations.  Must be in [1, 10000].
     """
