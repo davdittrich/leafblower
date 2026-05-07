@@ -316,12 +316,11 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
 
     // Coarse-only sub-CalibState buffers for Stage-1 (T-M / spec §6).
     // Group_ids pointers alias the original arrays; no buffer copy required at Stage-1.
-    // Greenkhorn writes back through res.base.best_weights (not in place), so we also
-    // pre-allocate coarse_weights_buf to receive the calibrated full-data weights.
+    // Stage-1 write-back: st.weights redirected to working_weights before the call;
+    // greenkhorn_solve writes best_weights there directly — no separate staging buffer needed.
     std::vector<const int32_t*>       coarse_gids_ptrs(K_coarse);
     std::vector<const double*>        coarse_tgt_ptrs(K_coarse);
     std::vector<int>                  coarse_cats(K_coarse);
-    std::vector<double>               coarse_weights_buf(N);
     for (int ci = 0; ci < K_coarse; ci++) {
         coarse_gids_ptrs[ci] = st.group_ids[coarse_idx[ci]];
         coarse_tgt_ptrs[ci]  = st.targets[coarse_idx[ci]];
