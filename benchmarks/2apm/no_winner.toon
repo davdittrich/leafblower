@@ -1,0 +1,93 @@
+task_id: T3_2apm
+success: true
+data:
+  branch: cause_c_no_winner
+  reduction: median_over_3_reps
+  winner: none
+  winner_basis: >-
+    Aggregate winner: tie. fulldata: R (confidence 77) — margin_kl: R=0.740995 Py=0.745615
+    rel_diff=0.00624. medium: Py (confidence 99) — margin_kl tie (|diff|<1e-12); wall_ms: R=19533.0
+    Py=6593.7 rel=1.96. small_hicard: tie (confidence 50) — all Tier-1 metrics within tie
+    thresholds.
+  per_dgp:
+    - dgp: fulldata
+      n: 1582732
+      r_margin_kl: 0.74099472
+      py_margin_kl: 0.74561543
+      r_wall_ms: 23771
+      py_wall_ms: 10389.357
+      r_iter: 500
+      py_iter: 500
+      r_weight_kl: 9.7292208e-05
+      py_weight_kl: 6.538819100304613e-12
+      r_max_abs_diff_stability: 0.13891672
+      py_max_abs_diff_stability: 0.13939123
+      dgp_winner: R
+      confidence: 77
+      note: "margin_kl: R=0.740995 Py=0.745615 rel_diff=0.00624"
+
+    - dgp: medium
+      n: 200000
+      r_margin_kl: 0.052224736
+      py_margin_kl: 0.052224736
+      r_wall_ms: 19533
+      py_wall_ms: 6593.7491
+      r_iter: 500
+      py_iter: 500
+      r_weight_kl: 0.0
+      py_weight_kl: 0.0
+      r_max_abs_diff_stability: 0.031085
+      py_max_abs_diff_stability: 0.031085
+      dgp_winner: Py
+      confidence: 99
+      note: "margin_kl tie (|diff|<1e-12); wall_ms: R=19533.0 Py=6593.7 rel=1.96"
+
+    - dgp: small_hicard
+      n: 5000
+      r_margin_kl: 0.047564536
+      py_margin_kl: 0.047564536
+      r_wall_ms: 18
+      py_wall_ms: 16.649348
+      r_iter: 2
+      py_iter: 2
+      r_weight_kl: 0.0
+      py_weight_kl: 0.0
+      r_max_abs_diff_stability: 0.030810806
+      py_max_abs_diff_stability: 0.030810806
+      dgp_winner: tie
+      confidence: 50
+      note: "all Tier-1 metrics within tie thresholds"
+
+  code_attribution:
+    r_side:
+      file: src/r_bridge.cpp
+      line: 648
+      quote: "st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));"
+    py_side:
+      file: src/c_api.cpp
+      line: 359
+      quote: "st_warm.inner_max_iter = std::max(50, std::min(100, st.inner_max_iter / 10));"
+    differentiator: >-
+      Both R (r_bridge.cpp:643-657) and Python (c_api.cpp:351-367) run the same ieppa warm-start
+      sequence before invoking lbw::chebyshev_ipm(st, w_warm, delta_warm). The blocks are
+      structurally identical EXCEPT for one constant in the inner_max_iter clamp expression:
+      the R bypass uses std::max(5, ...) while c_api.cpp uses std::max(50, ...). For default
+      max_iterations=3000 the inner cap is 100/10 = 10 inner Newton iters per ieppa outer iter
+      on both sides (clamped above by 100, below by 5/50 respectively); the divergence kicks in
+      when st.inner_max_iter / 10 is below 50. Additionally, c_api.cpp:352 carries the comment
+      "ieppa warm-start; mirrors r_bridge.cpp:628-657" — confirming this block was hand-copied
+      from the R bypass but drifted by one literal (50 vs 5 in the std::max floor). The warm-start `w_warm`
+      and `delta_warm` propagate into chebyshev_ipm's IPM Newton initial state via
+      lambda_A/lambda_B initialization derived from w_warm. Different warm states → different
+      Newton trajectories → different fixed points within the 500-iter Chebyshev cap. T2
+      already ruled out BLAS thread nondet and confirmed shared-code numerical drift (cause c).
+      This file:line pair is the sole textual divergence in the chebyshev dispatch path between
+      r_bridge.cpp and c_api.cpp.
+
+  fix_target: null
+
+  no_winner_followup_ticket_required: true
+  spec_amendment_needed: false
+  spec_amendment_path: null
+
+error_log: null
