@@ -25,3 +25,7 @@ tests/testthat/_problems/
 tests/testthat/testthat-problems.rds
 .wolf/backups/
 .worktrees/
+
+# Parity bench weight feathers (large, regen via parity_bench.{R,py})
+benchmarks/results/parity/weights_*/
+
