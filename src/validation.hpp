@@ -10,11 +10,7 @@
 #include <limits>
 #include <vector>
 
-// T-B owns canonical site; remove duplicate when T-B merges.
-// TODO(T-B): promote to calib_dispatch.hpp as LBW_MAX_HIER_CELLS
-#ifndef LBW_MAX_HIER_CELLS
-#  define LBW_MAX_HIER_CELLS 100000
-#endif
+static_assert(LBW_MAX_HIER_CELLS == 100000, "LBW_MAX_HIER_CELLS canonical resolution check");
 
 namespace lbw {
 
