@@ -184,12 +184,14 @@ Bumps `EXPECTED_RK_RESULT_BYTES`. R-side: surface via existing `attr(result, "re
 
 ### P1 sparse-cell rescue test (TDD-ready DGP)
 
-**DGP:** N=10000; K=9 binary margins; joint distribution from Dirichlet(α=0.1) producing ≥30% empty cross-product cells; `coarse_margins = first 3 margins`; `min_cell_n = 30`; seed-sweep `1..100`.
+**DGP:** N=10000; K=9 binary margins; joint distribution from Dirichlet(α=0.1) producing ≥30% empty cross-product cells; **margin TARGETS skewed** (target probability 0.95 / 0.05 per binary margin, i.i.d. across margins) combined with **`max_weight = 2`** (tight bound regime); `coarse_margins = first 3 margins`; `min_cell_n = 30`; seed-sweep `1..100`.
 
 **Pass criteria (P1 methods):**
-- 2-stage path: 100% of seeds converge with `Σ|w·X − target| / N ≤ 1e-4` on Stage-1 margins
-- Single-stage path on same DGP: ≥80% of seeds return NaN (RAKING/SINKHORN) or `RK_ERR_INFEAS` (otherwise)
-- Both bullets must hold simultaneously — proves rescue is real, not artifact of softer convergence
+- 2-stage path: 100% of seeds converge with `Σ|w·X − target| / N ≤ 1e-4` on Stage-1 margins (within-cell calibration relaxes the bound infeasibility locally — sparse-cell inheritance + cell-local target absorption)
+- Single-stage path on same DGP: ≥80% of seeds return one of `RK_ERR_INFEAS`, `RK_ERR_BUDGET`, NaN, or final weights with `max(weights) > max_weight` (bound violation) — i.e., single-stage RAKING/SINKHORN/GREENKHORN cannot satisfy the skewed targets globally under the bound at K=9
+- Both bullets must hold simultaneously on the **same DGP** — proves rescue is real, not artifact of softer convergence
+
+> **DGP design rationale (post-spec-amendment 2026-05-07):** Original spec called only for sparse joint cells via Dirichlet(α=0.1) on binary margins, expecting single-stage RAKING to fail via "0/0 zero-row" failure mode (§4 RAKING row). Empirically this is unreachable at N=10000 because binary 1-D marginals are essentially never empty (observed min ≈3500/10000). The amended DGP adds **target skew × tight max_weight** to surface a complementary single-stage failure mode (bounds-infeasibility under skewed targets, which RAKING cannot satisfy globally but 2-stage can satisfy via cell-local target redistribution). This preserves the spec's "same DGP" requirement and the rescue intent while exercising a failure mode that actually exists at N=10000 on binary margins.
 
 ### P2 compute scaling test (FLOP proxy, not wall-time)
 
