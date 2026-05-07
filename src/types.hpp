@@ -101,6 +101,7 @@ struct CalibResult {
     std::vector<double> best_weights;
     double convergence_solver_objective = std::numeric_limits<double>::infinity();
     int    convergence_minimized_metric = 0;
+    char   message[256]                 = {};   /* diagnostic string; "" until populated (T-P) */
 };
 // ── End CalibResult ───────────────────────────────────────────────────────────
 

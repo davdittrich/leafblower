@@ -67,6 +67,7 @@ SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 SEXP C_hier_partition_probe(SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_hier_inherit_probe(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_hier_sigmaw_probe(SEXP, SEXP);
+SEXP C_hier_sigmaw_diag_probe(SEXP, SEXP);
 SEXP C_hier_outer_probe(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_hier_orthogonal_probe(SEXP, SEXP, SEXP, SEXP, SEXP);
 }
@@ -138,6 +139,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_hier_partition_probe",        (DL_FUNC)&C_hier_partition_probe,        5},
         {"C_hier_inherit_probe",          (DL_FUNC)&C_hier_inherit_probe,          6},
         {"C_hier_sigmaw_probe",           (DL_FUNC)&C_hier_sigmaw_probe,           2},
+        {"C_hier_sigmaw_diag_probe",      (DL_FUNC)&C_hier_sigmaw_diag_probe,      2},
         {"C_hier_outer_probe",            (DL_FUNC)&C_hier_outer_probe,           11},
         {"C_hier_orthogonal_probe",       (DL_FUNC)&C_hier_orthogonal_probe,       5},
         {NULL, NULL, 0}
@@ -478,6 +480,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     int    res_outer_iterations_used   = 0;
     double res_outer_residual_final    = 0.0;
     int    res_hierarchical_levels     = 0;
+    char   res_solver_diag[256]        = "";   /* T-P: Σw=N violation message from solver */
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
     auto pack_solver_result = [&](const auto& res) {
@@ -523,6 +526,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_alg_used   = (int)RK_ALG_RAKING;
         pack_solver_result(res);
         res_sraa_demoted = res.sraa_demoted ? 1 : 0;
+        if (res.base.message[0] != '\0')
+            std::snprintf(res_solver_diag, sizeof(res_solver_diag), "%s", res.base.message);
         res_best_weights = std::move(res.base.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
         // AUTO routing (Epic-H WH-g):
@@ -660,6 +665,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_outer_residual_final  = res.hier_outer_residual_final;
         res_hierarchical_levels   = res.hier_levels_used;
         res_alg_used   = static_cast<int>(RK_ALG_SINKHORN);
+        if (res.base.message[0] != '\0')
+            std::snprintf(res_solver_diag, sizeof(res_solver_diag), "%s", res.base.message);
         if (!res.base.best_weights.empty())
             res_best_weights = std::move(res.base.best_weights);
         else
@@ -693,6 +700,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_outer_residual_final  = res.hier_outer_residual_final;
         res_hierarchical_levels   = res.hier_levels_used;
         res_alg_used   = (int)RK_ALG_GREENKHORN;
+        if (res.base.message[0] != '\0')
+            std::snprintf(res_solver_diag, sizeof(res_solver_diag), "%s", res.base.message);
         if (!res.base.best_weights.empty())
             res_best_weights = std::move(res.base.best_weights);
         else
@@ -850,6 +859,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         : "unknown";
     std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
                   alg_name_cstr, res_iterations, res_max_error);
+    // T-P: append Σw=N diagnostic if solver recorded one.
+    if (res_solver_diag[0] != '\0') {
+        size_t used = std::strlen(res_message);
+        std::snprintf(res_message + used, 256 - used, "; %s", res_solver_diag);
+    }
 
     // greenkhorn and logit do not modify st.weights in-place; copy calibrated
     // weights into the weights vector so raw$weights in harvest.R is correct.
@@ -1191,6 +1205,25 @@ extern "C" SEXP C_hier_sigmaw_probe(SEXP r_weights, SEXP r_N) {
     std::memcpy(w.data(), REAL(r_weights), (size_t)len * sizeof(double));
     bool ok = lbw::enforce_sigmaw_eq_n(w, N);
     return Rf_ScalarLogical(ok ? TRUE : FALSE);
+}
+
+// C_hier_sigmaw_diag_probe(weights_real, N_int) -> list(passed=logical(1), dev=double(1))
+// Exposes enforce_sigmaw_eq_n_diag for unit testing (T-P).
+extern "C" SEXP C_hier_sigmaw_diag_probe(SEXP r_weights, SEXP r_N) {
+    int N = scalar_int(r_N, "N");
+    int len = Rf_length(r_weights);
+    std::vector<double> w(len);
+    std::memcpy(w.data(), REAL(r_weights), (size_t)len * sizeof(double));
+    auto [ok, dev] = lbw::enforce_sigmaw_eq_n_diag(w, N);
+    SEXP out  = PROTECT(Rf_allocVector(VECSXP, 2));
+    SEXP nms  = PROTECT(Rf_allocVector(STRSXP, 2));
+    SET_VECTOR_ELT(out, 0, Rf_ScalarLogical(ok ? TRUE : FALSE));
+    SET_VECTOR_ELT(out, 1, Rf_ScalarReal(dev));
+    SET_STRING_ELT(nms, 0, Rf_mkChar("passed"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("dev"));
+    Rf_setAttrib(out, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return out;
 }
 
 // ── Strategy A outer-iteration probe (T-C) ──────────────────────────────────

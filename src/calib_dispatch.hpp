@@ -40,6 +40,7 @@
 #include <string>
 #include <sstream>
 #include <numeric>
+#include <utility>
 #include "lbw_math.hpp"
 
 // ── Hierarchical 2-stage cell-count cap ───────────────────────────────────
@@ -575,6 +576,20 @@ inline bool enforce_sigmaw_eq_n(
     return std::abs(sum - static_cast<double>(N)) < tol;
 }
 
+/// Diagnostic variant: returns (passed, |Σw − N|).
+/// Enables callers to surface the deviation without changing enforce_sigmaw_eq_n signature.
+inline std::pair<bool, double> enforce_sigmaw_eq_n_diag(
+    const std::vector<double>& weights,
+    int                        N) noexcept
+{
+    if (N <= 0) return {false, std::numeric_limits<double>::infinity()};
+    double sum = 0.0;
+    for (double w : weights) sum += w;
+    const double dev = std::fabs(sum - static_cast<double>(N));
+    const double tol = static_cast<double>(N) * 1e-12;
+    return {dev < tol, dev};
+}
+
 // ── Strategy A outer-iteration loop ─────────────────────────────────────────
 // Shared cadence constant — mirrors the per-solver kErrCheckInterval = 10.
 // Used only for best-iterate selection; NOT a convergence check cadence.
@@ -709,6 +724,13 @@ inline OuterResult outer_iterate_strategy_a(
         // Convergence check: outer_tol shadows cfg.absolute_tol at outer level.
         if (outer_tol > 0.0 && residual < outer_tol) {
             // RK_OK: enforce Σw=n before returning.
+            {
+                auto [ok, dev] = enforce_sigmaw_eq_n_diag(weights, N);
+                if (!ok) {
+                    Rprintf("Sigmaw=N invariant violated: |Sum(w) - N| = %.3e > tol = %.3e\n",
+                            dev, static_cast<double>(N) * 1e-12);
+                }
+            }
             enforce_sigmaw_eq_n(weights, N);  // gate; result ignored (spec §5)
             out.status              = RK_OK;
             out.last_iterate_weights = weights;

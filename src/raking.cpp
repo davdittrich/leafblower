@@ -813,6 +813,18 @@ RakingResult raking_solve_hierarchical(CalibState& st, const rk_params_t* p) {
         // Sparse cells inherit the cell-aggregate Stage-1 multiplier.
         lbw::apply_sparse_inheritance(working_weights, w_init, partition, sparse,
                                       stage1_multipliers);
+        {
+            auto [ok, dev] = lbw::enforce_sigmaw_eq_n_diag(working_weights, N);
+            if (!ok) {
+                char buf[256];
+                std::snprintf(buf, sizeof(buf),
+                    "Sigmaw=N invariant violated: |Sum(w) - N| = %.3e > tol = %.3e",
+                    dev, static_cast<double>(N) * 1e-12);
+                Rprintf("%s\n", buf);
+                if (res.base.message[0] == '\0')
+                    std::snprintf(res.base.message, sizeof(res.base.message), "%s", buf);
+            }
+        }
         lbw::enforce_sigmaw_eq_n(working_weights, N);
 
         res.base.status        = s1.base.status;
