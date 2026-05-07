@@ -1,0 +1,40 @@
+task_id: T2
+success: true
+data:
+  status: DONE
+  trajectory_csv: benchmarks/yh0l/trajectory.csv
+  notes: >-
+    convergence_metric is iEPPA errRp (Rp-norm of constraint residual), parsed
+    from verbose=2 log at %.3e precision (3 sig figs). CSV columns per spec:
+    lang, iter, convergence_metric, max_err, marginal_kl, weight_change, n_cap_active.
+    max_err: single value from TERMINATE line (max_error=<v>), filled only on
+    terminal iter row; NA on all other rows. marginal_kl: NOT instrumented at
+    verbose=2 in src/ieppa.cpp (lines 1414/1441/1650/1719/1978-1979 emit only
+    errRp + n_cap_active per iter); left NA throughout. weight_change: NOT
+    instrumented at verbose=2; left NA throughout. To add marginal_kl and
+    weight_change would require verbose=3 or new C++ instrumentation.
+    Divergence at iter 1 reflects 3-sig-fig log truncation AND genuine
+    numerical difference: R convergence_metric=6.869e-03 vs Py
+    convergence_metric=1.329e-02 — a factor of ~1.94x, far exceeding
+    log-format rounding. R converged in 220 iters; Py converged in 90 iters.
+    Same OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 enforced
+    inside scripts — divergence is cause (c) (numerical drift), NOT cause (d)
+    (BLAS thread nondeterminism). Root cause investigation needed: likely
+    data-ordering difference or sparse-category handling (R: 36654
+    bounds-violated, Py: 36775 — small but nonzero discrepancy).
+  diverge_iter: 1
+  metric_R_at_diverge: 6.869e-03
+  metric_Py_at_diverge: 1.329e-02
+  metric_name: convergence_metric
+  metric_ratio_R_over_Py: 0.5169
+  status_R_at_terminate: converged
+  status_Py_at_terminate: converged
+  iter_R_terminate: 220
+  iter_Py_terminate: 90
+  thread_env: "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1"
+  single_thread_observation: >-
+    Divergence persists at single-thread (OMP=1, OPENBLAS=1). Cause (d)
+    BLAS nondeterminism eliminated. Divergence is cause (c): deterministic
+    numerical drift from iter 1 — likely different initial errRp computation
+    or data-ordering in the first sweep.
+error_log: null

@@ -1,0 +1,28 @@
+task_id: T6
+success: true
+data:
+  identical_count: 14
+  ieppa_soft_max_abs_diff: 2.0961010704923e-13
+  regressed_methods: []
+  testthat_pass: true
+  pytest_pass: true
+  postfix_csv: benchmarks/results/parity/parity_bench_combined_postfix.csv
+  notes: |
+    chebyshev remains divergent at max_abs_diff=2.047e-03 (no_conv, iter cap 500).
+    This is unchanged from pre-fix baseline — not a regression. Addressed separately
+    in ticket leafblower-2apm. identical_count=14 (not 15) is expected and acceptable
+    per Epic resolution: ieppa_soft now identical (2.1e-13, machine-epsilon), chebyshev
+    excluded from this scope.
+
+    Pre-fix baseline (leafblower-u4u1):
+      ieppa_soft: max_abs_diff ~0.58 (divergent, R=220 iters, Py=90 iters)
+      chebyshev:  max_abs_diff ~2e-3  (divergent)
+      13 other methods: identical (0 or FP epsilon)
+
+    Post-fix (T4 harmonize + T5 regression test):
+      ieppa_soft: max_abs_diff=2.1e-13 (IDENTICAL, R=90 iters, Py=90 iters — match)
+      chebyshev:  max_abs_diff=2.047e-03 (unchanged — known divergent, leafblower-2apm)
+      13 other methods: identical (unchanged)
+
+    ieppa_soft iter/status match confirmed: R=90 converged, Py=90 converged.
+error_log: null
