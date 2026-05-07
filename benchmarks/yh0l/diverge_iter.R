@@ -45,20 +45,6 @@ parse_terminate <- function(path) {
     }
   }
 
-  # Parse TERMINATE line: "## TERMINATE status=<s> (<label>) iterations=<n> max_error=<v>"
-  conv_pat  <- "## TERMINATE status=\\S+ \\(\\S+\\) iterations=(\\d+|NA) max_error=([0-9eE.+\\-]+|NA)"
-  for (ln in rev(lines)) {
-    m <- regexec(conv_pat, ln, perl = TRUE)
-    parts <- regmatches(ln, m)[[1]]
-    if (length(parts) > 1) {
-      verb  <- parts[2]
-      iters <- suppressWarnings(as.integer(parts[3]))
-      err   <- suppressWarnings(as.numeric(parts[4]))
-      st    <- if (grepl("converge", verb)) "converged" else "no_conv"
-      return(list(status = st, iterations = iters, max_error = err))
-    }
-  }
-
   list(status = "NOT_FOUND", iterations = NA_integer_, max_error = NA_real_)
 }
 
