@@ -1,0 +1,83 @@
+task_id: T3
+success: true
+data:
+  winner: Py
+  per_dgp:
+    - dgp: fulldata
+      n: 1582732
+      r_margin_kl: 0.00507403
+      py_margin_kl: 0.00504482
+      r_wall_ms: 3864.0
+      py_wall_ms: 2733.0
+      r_iter: 220
+      py_iter: 90
+      dgp_winner: Py
+      confidence: 97
+
+    - dgp: medium
+      n: 200000
+      r_margin_kl: 0.00008577
+      py_margin_kl: 0.00008577
+      r_wall_ms: 332.0
+      py_wall_ms: 312.0
+      r_iter: 20
+      py_iter: 20
+      dgp_winner: Py
+      confidence: 85
+
+    - dgp: small_hicard
+      n: 5000
+      r_margin_kl: 2.22e-16
+      py_margin_kl: -2.22e-16
+      r_wall_ms: 16.0
+      py_wall_ms: 16.0
+      r_iter: 20
+      py_iter: 20
+      dgp_winner: Py
+      confidence: 80
+
+  code_attribution:
+    r_side:
+      file: src/r_bridge.cpp
+      line: 359
+      quote: "st.alm.capacity_mu = (cp_val <= 0.0) ? ct_tmp.capacity_mu_auto : cp_val;"
+    py_side:
+      file: src/c_api.cpp
+      line: 379
+      quote: "st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;"
+    differentiator: >-
+      The R bridge (r_bridge.cpp:346-359) calls lbw::build_cell_table() before the solver to
+      compute the exact number of occupied interaction cells (M_cell) and sets
+      capacity_mu = M_cell/n. The Python path goes through c_api.cpp (called via pybind11)
+      which uses lbw::estimate_M_cell() instead. estimate_M_cell has a K>8 fast-exit: when
+      K exceeds 8 margins, it returns n immediately (the theoretical maximum), making
+      capacity_mu = n/n = 1.0. For the fulldata DGP (K=9 margins), the R bridge computes
+      exact capacity_mu ≈ 0.073 (≈115,740 occupied cells out of 1,582,732 observations),
+      while the C API produces capacity_mu = 1.0. This capacity_mu value is the ALM
+      penalty scaling used by ieppa_soft's ADMM-style constraint enforcement; a smaller
+      capacity_mu imposes weaker initial constraint pressure, causing R's solver to converge
+      slower (220 iters) and to a slightly worse solution (margin_kl 0.005074 vs 0.005045).
+      The Python path's larger capacity_mu = 1.0 drives stronger initial constraint enforcement,
+      yielding faster convergence (90 iters) and lower final margin_kl. The root cause is not
+      in group_ids encoding, NA handling, factor level ordering, convergence parameters, or
+      BLAS threading — all of those are identical between the two sides (confirmed by T1 and
+      direct code verification). The sole differentiator is this capacity_mu initialization
+      path: r_bridge.cpp (exact build_cell_table) vs c_api.cpp (approximate estimate_M_cell
+      with K>8 cap).
+
+  fix_target: >-
+    The loser is R (src/r_bridge.cpp). The fix is to change r_bridge.cpp line 359 to use
+    estimate_M_cell (matching the Python/C-API path) OR change c_api.cpp line 379-380 to
+    call build_cell_table (matching the R bridge path). Since Python converges faster and to
+    better solutions with capacity_mu = 1.0 for large K, the preferred fix is to align
+    r_bridge.cpp to use estimate_M_cell for K>8, matching c_api.cpp. Specifically: in
+    src/r_bridge.cpp around line 340-360, replace the build_cell_table block with a call to
+    lbw::estimate_M_cell(n, K, group_ids.data(), cat_counts.data()) and set
+    st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0. Files T4
+    must modify: src/r_bridge.cpp (primary change). No changes needed in src/c_api.cpp,
+    src/ieppa.cpp, R/harvest.R, or python/leafblower/_harvest.py.
+
+  spec_amendment_needed: false
+  spec_amendment_path: null
+
+error_log: null
