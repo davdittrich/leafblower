@@ -7,16 +7,16 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
-import pytest
-
-# Enforce single-thread BLAS before numpy / leafblower import so that
+# Enforce single-thread BLAS BEFORE numpy / leafblower import so that
 # OpenBLAS / MKL / OpenMP pick up the constraint at initialisation time.
-# Setting these after import has no effect on most BLAS implementations.
+# Setting these after numpy import has no effect on most BLAS implementations.
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
+
+import numpy as np
+import pandas as pd
+import pytest
 
 # Python leafblower is installed or in python/ subdir
 try:
