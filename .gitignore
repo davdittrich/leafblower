@@ -33,3 +33,9 @@ benchmarks/results/parity/weights_*/
 benchmarks/2apm/weights_R_st/
 benchmarks/2apm/weights_Py_st/
 
+
+# 2apm T3 weight feathers (regen via winner_bench.{R,py})
+benchmarks/2apm/weights_R/
+benchmarks/2apm/weights_Py/
+benchmarks/2apm/no_winner.toon
+

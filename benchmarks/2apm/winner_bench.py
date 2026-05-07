@@ -60,7 +60,7 @@ def compute_metrics(w_arr, df, tgt):
     for v, targets in tgt.items():
         if v not in df.columns:
             continue
-        s_map = w.groupby(df[v]).sum() / W
+        s_map = w.groupby(df[v]).sum() / W  # type: ignore[operator]
         for lv, T in targets.items():
             S = float(s_map.get(str(lv), 0.0))
             max_err = max(max_err, abs(S - T))
