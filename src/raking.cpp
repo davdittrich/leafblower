@@ -664,13 +664,25 @@ RakingResult raking_solve_hierarchical(CalibState& st, const rk_params_t* p) {
             // Stage-1: full-data raking on coarse margins only (Stage-1 per spec §6).
             // Mutates working_weights via sub.weights == st.weights.
             if (K_coarse > 0) {
-                CalibState sub  = st;
-                sub.K           = K_coarse;
-                sub.group_ids   = coarse_gids_ptrs.data();
-                sub.targets     = coarse_tgt_ptrs.data();
-                sub.cat_counts  = coarse_cats.data();
-                // sub.weights inherits st.weights (pointer to working_weights);
-                // raking_solve writes calibrated weights in place there.
+                CalibState sub{};
+                sub.n              = st.n;
+                sub.K              = K_coarse;
+                sub.weights        = st.weights;
+                sub.group_ids      = coarse_gids_ptrs.data();
+                sub.targets        = coarse_tgt_ptrs.data();
+                sub.cat_counts     = coarse_cats.data();
+                sub.min_weight     = st.min_weight;
+                sub.max_weight     = st.max_weight;
+                sub.tol_abs        = st.tol_abs;
+                sub.inner_max_iter = st.inner_max_iter;
+                sub.verbose        = st.verbose;
+                sub.log_fn         = st.log_fn;
+                sub.log_ctx        = st.log_ctx;
+                sub.convergence_cfg = st.convergence_cfg;
+                sub.sor_cfg        = st.sor_cfg;
+                sub.scheduler      = st.scheduler;
+                sub.accelerate     = st.accelerate;
+                // sub.weights points at working_weights; raking_solve writes in place.
                 raking_solve(sub);
             }
             // Record per-cell Stage-1 multipliers for sparse inheritance.
@@ -701,13 +713,24 @@ RakingResult raking_solve_hierarchical(CalibState& st, const rk_params_t* p) {
             for (int fi = 0; fi < K_fine; fi++)
                 fine_gids_ptrs[fi] = fine_gids_buf[fi].data();
 
-            // Sub-CalibState: inherits all solver config, restricted to cell obs + fine margins.
-            CalibState sub   = st;
-            sub.n            = n_cell;
-            sub.K            = K_fine;
-            sub.weights      = fine_weights_buf.data();
-            sub.group_ids    = fine_gids_ptrs.data();
-            sub.targets      = fine_tgt_ptrs.data();
+            // Sub-CalibState: explicit field-by-field init, restricted to cell obs + fine margins.
+            CalibState sub{};
+            sub.n              = n_cell;
+            sub.K              = K_fine;
+            sub.weights        = fine_weights_buf.data();
+            sub.group_ids      = fine_gids_ptrs.data();
+            sub.targets        = fine_tgt_ptrs.data();
+            sub.min_weight     = st.min_weight;
+            sub.max_weight     = st.max_weight;
+            sub.tol_abs        = st.tol_abs;
+            sub.inner_max_iter = st.inner_max_iter;
+            sub.verbose        = st.verbose;
+            sub.log_fn         = st.log_fn;
+            sub.log_ctx        = st.log_ctx;
+            sub.convergence_cfg = st.convergence_cfg;
+            sub.sor_cfg        = st.sor_cfg;
+            sub.scheduler      = st.scheduler;
+            sub.accelerate     = st.accelerate;
 
             // cat_counts for fine margins.
             std::vector<int> fine_cats(K_fine);
@@ -747,11 +770,24 @@ RakingResult raking_solve_hierarchical(CalibState& st, const rk_params_t* p) {
         // Stage-1: full-data raking on coarse margins only (spec §6).
         RakingResult s1{};
         if (K_coarse > 0) {
-            CalibState sub  = st;
-            sub.K           = K_coarse;
-            sub.group_ids   = coarse_gids_ptrs.data();
-            sub.targets     = coarse_tgt_ptrs.data();
-            sub.cat_counts  = coarse_cats.data();
+            CalibState sub{};
+            sub.n              = st.n;
+            sub.K              = K_coarse;
+            sub.weights        = st.weights;
+            sub.group_ids      = coarse_gids_ptrs.data();
+            sub.targets        = coarse_tgt_ptrs.data();
+            sub.cat_counts     = coarse_cats.data();
+            sub.min_weight     = st.min_weight;
+            sub.max_weight     = st.max_weight;
+            sub.tol_abs        = st.tol_abs;
+            sub.inner_max_iter = st.inner_max_iter;
+            sub.verbose        = st.verbose;
+            sub.log_fn         = st.log_fn;
+            sub.log_ctx        = st.log_ctx;
+            sub.convergence_cfg = st.convergence_cfg;
+            sub.sor_cfg        = st.sor_cfg;
+            sub.scheduler      = st.scheduler;
+            sub.accelerate     = st.accelerate;
             s1 = raking_solve(sub);  // writes to working_weights via st.weights
         }
         // Cell-aggregate Stage-1 multiplier (spec §6) — used by sparse-cell

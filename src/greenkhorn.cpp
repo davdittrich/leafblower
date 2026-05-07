@@ -370,11 +370,19 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
             // working_weights (via st.weights) so subsequent Stage-2 calls see updated
             // starting weights and the outer loop convergence check is meaningful.
             if (K_coarse > 0) {
-                CalibState sub  = st;
-                sub.K           = K_coarse;
-                sub.group_ids   = coarse_gids_ptrs.data();
-                sub.targets     = coarse_tgt_ptrs.data();
-                sub.cat_counts  = coarse_cats.data();
+                CalibState sub{};
+                sub.n              = st.n;
+                sub.K              = K_coarse;
+                sub.weights        = st.weights;
+                sub.group_ids      = coarse_gids_ptrs.data();
+                sub.targets        = coarse_tgt_ptrs.data();
+                sub.cat_counts     = coarse_cats.data();
+                sub.min_weight     = st.min_weight;
+                sub.max_weight     = st.max_weight;
+                sub.tol_abs        = st.tol_abs;
+                sub.inner_max_iter = st.inner_max_iter;
+                sub.convergence_cfg = st.convergence_cfg;
+                sub.accelerate     = st.accelerate;
                 auto res1 = greenkhorn_solve(sub);
                 if (!res1.base.best_weights.empty() &&
                     static_cast<int>(res1.base.best_weights.size()) == N) {
@@ -414,12 +422,18 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
             // Queue isolation: greenkhorn_solve() rebuilds all internal state from sub.
             // The sub has n=n_cell (not N) and K=K_fine (not K), so cells_per_cat,
             // S_flat, and errRp are constructed exclusively from cell-local data.
-            CalibState sub   = st;
-            sub.n            = n_cell;
-            sub.K            = K_fine;
-            sub.weights      = fine_weights_buf.data();
-            sub.group_ids    = fine_gids_ptrs.data();
-            sub.targets      = fine_tgt_ptrs.data();
+            CalibState sub{};
+            sub.n              = n_cell;
+            sub.K              = K_fine;
+            sub.weights        = fine_weights_buf.data();
+            sub.group_ids      = fine_gids_ptrs.data();
+            sub.targets        = fine_tgt_ptrs.data();
+            sub.min_weight     = st.min_weight;
+            sub.max_weight     = st.max_weight;
+            sub.tol_abs        = st.tol_abs;
+            sub.inner_max_iter = st.inner_max_iter;
+            sub.convergence_cfg = st.convergence_cfg;
+            sub.accelerate     = st.accelerate;
 
             // cat_counts for fine margins.
             std::vector<int> fine_cats(K_fine);
@@ -468,11 +482,19 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
         // not in st.weights. Copy best_weights into working_weights for continuity.
         GreenkornResult s1{};
         if (K_coarse > 0) {
-            CalibState sub  = st;
-            sub.K           = K_coarse;
-            sub.group_ids   = coarse_gids_ptrs.data();
-            sub.targets     = coarse_tgt_ptrs.data();
-            sub.cat_counts  = coarse_cats.data();
+            CalibState sub{};
+            sub.n              = st.n;
+            sub.K              = K_coarse;
+            sub.weights        = st.weights;
+            sub.group_ids      = coarse_gids_ptrs.data();
+            sub.targets        = coarse_tgt_ptrs.data();
+            sub.cat_counts     = coarse_cats.data();
+            sub.min_weight     = st.min_weight;
+            sub.max_weight     = st.max_weight;
+            sub.tol_abs        = st.tol_abs;
+            sub.inner_max_iter = st.inner_max_iter;
+            sub.convergence_cfg = st.convergence_cfg;
+            sub.accelerate     = st.accelerate;
             s1 = greenkhorn_solve(sub);
             if (!s1.base.best_weights.empty() &&
                 static_cast<int>(s1.base.best_weights.size()) == N) {

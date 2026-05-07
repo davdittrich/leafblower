@@ -416,11 +416,18 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
             // Stage-1: full-data Sinkhorn on coarse margins only (Stage-1 per spec §6).
             // Mutates working_weights via sub.weights == st.weights.
             if (K_coarse > 0) {
-                CalibState sub  = st;
-                sub.K           = K_coarse;
-                sub.group_ids   = coarse_gids_ptrs.data();
-                sub.targets     = coarse_tgt_ptrs.data();
-                sub.cat_counts  = coarse_cats.data();
+                CalibState sub{};
+                sub.n              = st.n;
+                sub.K              = K_coarse;
+                sub.weights        = st.weights;
+                sub.group_ids      = coarse_gids_ptrs.data();
+                sub.targets        = coarse_tgt_ptrs.data();
+                sub.cat_counts     = coarse_cats.data();
+                sub.min_weight     = st.min_weight;
+                sub.max_weight     = st.max_weight;
+                sub.tol_abs        = st.tol_abs;
+                sub.inner_max_iter = st.inner_max_iter;
+                sub.convergence_cfg = st.convergence_cfg;
                 sinkhorn_solve(sub);
             }
             // Record per-cell Stage-1 multipliers for sparse inheritance.
@@ -454,12 +461,17 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
                 fine_gids_ptrs[fi] = fine_gids_buf[fi].data();
 
             // Sub-CalibState: inherits all solver config, restricted to cell obs + fine margins.
-            CalibState sub   = st;
-            sub.n            = n_cell;
-            sub.K            = K_fine;
-            sub.weights      = fine_weights_buf.data();
-            sub.group_ids    = fine_gids_ptrs.data();
-            sub.targets      = fine_tgt_ptrs.data();
+            CalibState sub{};
+            sub.n              = n_cell;
+            sub.K              = K_fine;
+            sub.weights        = fine_weights_buf.data();
+            sub.group_ids      = fine_gids_ptrs.data();
+            sub.targets        = fine_tgt_ptrs.data();
+            sub.min_weight     = st.min_weight;
+            sub.max_weight     = st.max_weight;
+            sub.tol_abs        = st.tol_abs;
+            sub.inner_max_iter = st.inner_max_iter;
+            sub.convergence_cfg = st.convergence_cfg;
 
             // cat_counts for fine margins.
             std::vector<int> fine_cats(K_fine);
@@ -499,11 +511,18 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
         // Stage-1: full-data Sinkhorn on coarse margins only (spec §6).
         SinkhornResult s1{};
         if (K_coarse > 0) {
-            CalibState sub  = st;
-            sub.K           = K_coarse;
-            sub.group_ids   = coarse_gids_ptrs.data();
-            sub.targets     = coarse_tgt_ptrs.data();
-            sub.cat_counts  = coarse_cats.data();
+            CalibState sub{};
+            sub.n              = st.n;
+            sub.K              = K_coarse;
+            sub.weights        = st.weights;
+            sub.group_ids      = coarse_gids_ptrs.data();
+            sub.targets        = coarse_tgt_ptrs.data();
+            sub.cat_counts     = coarse_cats.data();
+            sub.min_weight     = st.min_weight;
+            sub.max_weight     = st.max_weight;
+            sub.tol_abs        = st.tol_abs;
+            sub.inner_max_iter = st.inner_max_iter;
+            sub.convergence_cfg = st.convergence_cfg;
             s1 = sinkhorn_solve(sub);
         }
         // Cell-aggregate Stage-1 multiplier (spec §6).
