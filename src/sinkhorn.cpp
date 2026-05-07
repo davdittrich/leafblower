@@ -495,7 +495,9 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
         lbw::OuterResult out = lbw::outer_iterate_strategy_a(
             fn, working_weights,
             partition, sparse, w_init, stage1_multipliers,
-            st.convergence_cfg, outer_tol, outer_iters, N);
+            st.convergence_cfg, outer_tol, outer_iters, N,
+            coarse_tgt_ptrs.data(), coarse_gids_ptrs.data(),
+            coarse_cats.data(), K_coarse);
 
         res.base.status        = out.status;
         res.base.iterations    = out.iterations_used;

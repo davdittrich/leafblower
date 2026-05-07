@@ -635,7 +635,11 @@ inline OuterResult outer_iterate_strategy_a(
     const CalibConvergenceCfg&  cfg,
     double                      outer_tol,      // shadows cfg.absolute_tol at outer level
     int                         outer_iterations, // shadows cfg.max_iterations at outer level
-    int                         N) noexcept
+    int                         N,
+    const double* const*        coarse_targets,    // [K_coarse][C_k] target proportions
+    const int32_t* const*       coarse_gids,       // [K_coarse][N] category indices
+    const int*                  coarse_cats_counts, // [K_coarse] category count per coarse margin
+    int                         K_coarse) noexcept
 {
     OuterResult out;
     out.status          = RK_ERR_BUDGET;
@@ -643,6 +647,29 @@ inline OuterResult outer_iterate_strategy_a(
     out.residual_final  = std::numeric_limits<double>::infinity();
 
     const int K_cells = partition.n_cells_total;
+
+    // Spec §8 coarse-margin L1 residual (factored for reuse at BUDGET-exit):
+    // (Σ_k Σ_j |Σ_i w_i·1[X_ki=j] − target_kj·N|) / N
+    // Captures weights by ref — always reflects current weights at call time.
+    auto compute_residual = [&]() -> double {
+        double r = 0.0;
+        if (K_coarse > 0 && N > 0) {
+            const double dN = static_cast<double>(N);
+            for (int k = 0; k < K_coarse; ++k) {
+                const int C = coarse_cats_counts[k];
+                std::vector<double> ach(C, 0.0);
+                for (int i = 0; i < N; ++i) {
+                    const int32_t j = coarse_gids[k][i];
+                    if (j >= 0 && j < C) ach[j] += weights[i];
+                }
+                for (int j = 0; j < C; ++j) {
+                    r += std::fabs(ach[j] - coarse_targets[k][j] * dN);
+                }
+            }
+            r /= dN;
+        }
+        return r;
+    };
 
     // Stage 1: initial full-data calibrate (iteration 0 pre-pass).
     // Repairs coarse-margin sums before the per-cell Stage-2 loop.
@@ -657,20 +684,7 @@ inline OuterResult outer_iterate_strategy_a(
         // Sparse cells inherit Stage-1 multipliers (per spec §6).
         apply_sparse_inheritance(weights, w_init, partition, sparse, stage1_multipliers);
 
-        // Compute coarse-margin residual: max |Σw_cell[c]/N - 1/K_cells|
-        // (relative deviation from uniform target across cells; proxy residual
-        // adequate for outer convergence check without a full CalibState).
-        double residual = 0.0;
-        if (K_cells > 0) {
-            const double target_frac = 1.0 / static_cast<double>(K_cells);
-            const double inv_N       = (N > 0) ? 1.0 / static_cast<double>(N) : 0.0;
-            for (int c = 0; c < K_cells; ++c) {
-                double cell_sum = 0.0;
-                for (int i : partition.obs_indices_by_cell[c]) cell_sum += weights[i];
-                const double dev = std::fabs(cell_sum * inv_N - target_frac);
-                if (dev > residual) residual = dev;
-            }
-        }
+        double residual = compute_residual();
 
         // Track best-iterate at kOuterErrCheckInterval cadence.
         // Uses select_metric via a CellMetrics proxy where errRp = residual.
@@ -705,7 +719,10 @@ inline OuterResult outer_iterate_strategy_a(
         fn(weights, -1);
     }
 
-    // Budget exhausted: return last-iterate weights (NOT best-iterate — spec §6).
+    // Budget exhausted: recompute residual on FINAL weights (post-re-Stage-1)
+    // so out.residual_final matches the spec L1 on the weights being returned.
+    // (In-loop residual was computed pre-re-Stage-1; this corrects the mismatch.)
+    out.residual_final      = compute_residual();
     out.status              = RK_ERR_BUDGET;
     out.last_iterate_weights = weights;
     return out;

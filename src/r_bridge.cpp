@@ -1307,10 +1307,13 @@ extern "C" SEXP C_hier_outer_probe(
         return RK_OK;
     };
 
+    // Probe has no real targets — pass K_coarse=0 so compute_residual returns 0.
+    // (Probe tests assert on status/iterations, not residual value.)
     lbw::OuterResult result = lbw::outer_iterate_strategy_a(
         fn, weights, partition, sparse,
         w_init, s1mults,
-        cfg, outer_tol, outer_iter, N);
+        cfg, outer_tol, outer_iter, N,
+        nullptr, nullptr, nullptr, 0);
 
     // Pack result list
     const int NFIELDS = 6;
