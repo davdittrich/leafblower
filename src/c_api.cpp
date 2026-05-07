@@ -298,8 +298,19 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->hierarchical_levels_used = res.hier_levels_used;
         }
     } else if (alg == RK_ALG_SINKHORN) {
-        auto sres = lbw::sinkhorn_solve(st);
+        // Dispatch through hierarchical wrapper; falls through to sinkhorn_solve() when
+        // p->hierarchical_enabled == 0 (early-out, zero allocation overhead).
+        auto sres = lbw::sinkhorn_solve_hierarchical(st, p);
         pack_solver_result(result, sres, alg);
+        if (result) {
+            // Hierarchical diagnostics (zero when hierarchical_enabled == 0).
+            result->n_cells_total            = sres.hier_n_cells_total;
+            result->n_cells_skipped          = sres.hier_n_cells_skipped;
+            result->n_cells_inherited        = sres.hier_n_cells_skipped;
+            result->outer_iterations_used    = sres.hier_outer_iterations_used;
+            result->outer_residual_final     = sres.hier_outer_residual_final;
+            result->hierarchical_levels_used = sres.hier_levels_used;
+        }
         return sres.base.status;
     } else if (alg == RK_ALG_GREG) {
         auto gres = lbw::greg_solve(st);

@@ -646,11 +646,19 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_best_weights.assign(st.n, 0.0);
         }
     } else if (strcmp(method_str, "sinkhorn") == 0) {
-        auto res = lbw::sinkhorn_solve(st);
+        // Dispatch through hierarchical wrapper; falls through to sinkhorn_solve() when
+        // p->hierarchical_enabled == 0 (early-out, zero allocation overhead).
+        auto res = lbw::sinkhorn_solve_hierarchical(st, &p);
         pack_solver_result(res);
         res_status     = res.base.status;
         res_iterations = res.base.iterations;
         res_max_error  = res.base.max_error;
+        res_n_cells_total         = res.hier_n_cells_total;
+        res_n_cells_skipped       = res.hier_n_cells_skipped;
+        res_n_cells_inherited     = res.hier_n_cells_skipped;
+        res_outer_iterations_used = res.hier_outer_iterations_used;
+        res_outer_residual_final  = res.hier_outer_residual_final;
+        res_hierarchical_levels   = res.hier_levels_used;
         res_alg_used   = static_cast<int>(RK_ALG_SINKHORN);
         if (!res.base.best_weights.empty())
             res_best_weights = std::move(res.base.best_weights);

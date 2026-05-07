@@ -9,6 +9,14 @@
   `mode = 1L` (exact) for a single-pass orthogonal split. Sparse cells
   (fewer than `min_cell_n` observations) inherit Stage-1 multipliers.
 
+* Two-stage hierarchical calibration is now also available for SINKHORN
+  (`method = "sinkhorn"`). The within-cell Sinkhorn sweep (KL Bregman-Dykstra
+  alternating row/column scaling) runs on cell-restricted observations at
+  Stage 2. A NaN re-entry guard prevents `log(0)` propagation in cells with
+  zero-target categories: such cells are rejected via existing infeasibility
+  detection (`RK_ERR_INFEAS`) rather than producing silent NaN weights. API
+  is identical to the RAKING hierarchical interface.
+
 ## Breaking changes
 
 * `harvest()` default changed: `sor` is now `NULL` (disabled) instead of

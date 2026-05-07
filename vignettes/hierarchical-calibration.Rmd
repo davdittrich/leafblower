@@ -25,8 +25,8 @@ broad cells with adequate counts.
 **Stage 2** (fine): within each coarse cell, calibrate on the remaining margins
 using only the observations in that cell.
 
-This vignette demonstrates RAKING. Sinkhorn and Greenkhorn examples will be
-added in later releases.
+This vignette demonstrates RAKING and SINKHORN. Greenkhorn examples will be
+added in a later release.
 
 ---
 
@@ -119,4 +119,56 @@ res_exact <- harvest(df2, tgt2, method = "raking",
 
 ---
 
-*Sinkhorn and Greenkhorn hierarchical examples will be added in T-G and T-H.*
+## Two-stage hierarchical calibration: SINKHORN
+
+`method = "sinkhorn"` supports the same `hierarchical = list(...)` interface as
+RAKING. The within-cell solver uses Sinkhorn's alternating row/column scaling
+(KL Bregman-Dykstra) on the cell-restricted observation slice.
+
+**NaN guard.** Sinkhorn's inner scaling loop computes `log(target)`. When a
+target category has weight 0.0 (a zero-proportion margin), `log(0)` would
+produce `-Inf` and corrupt subsequent weights with NaN. The within-cell call
+delegates to the existing infeasibility detector (`RK_ERR_INFEAS`) in this
+case rather than propagating NaN.
+
+```{r sinkhorn-two-stage, eval=FALSE}
+library(leafblower)
+
+# K=4 binary survey: region (coarse) × sex, age, edu (fine).
+set.seed(42)
+n   <- 2000L
+df  <- data.frame(
+  region = factor(sample(c("N", "S"), n, TRUE, prob = c(0.3, 0.7))),
+  sex    = factor(sample(c("M", "F"), n, TRUE)),
+  age    = factor(sample(c("Y", "O"), n, TRUE)),
+  edu    = factor(sample(c("H", "L"), n, TRUE))
+)
+tgt <- list(
+  region = c(N = 0.5, S = 0.5),
+  sex    = c(M = 0.5, F = 0.5),
+  age    = c(Y = 0.5, O = 0.5),
+  edu    = c(H = 0.5, L = 0.5)
+)
+
+# Two-stage Sinkhorn: region is the coarse margin (Stage 1);
+# sex/age/edu are calibrated within each region cell (Stage 2).
+res_sk <- harvest(df, tgt, method = "sinkhorn",
+                  hierarchical = list(
+                    coarse_mask      = c(1L, 0L, 0L, 0L),
+                    min_cell_n       = 30L,
+                    mode             = 0L,        # refine (Strategy A)
+                    outer_tol        = 1e-4,
+                    outer_iterations = 50L
+                  ))
+
+diag_sk <- attr(res_sk, "result")
+cat("n_cells_total :", diag_sk$n_cells_total,  "\n")
+cat("n_cells_skipped:", diag_sk$n_cells_skipped, "\n")
+cat("outer_iters   :", diag_sk$outer_iterations_used, "\n")
+```
+
+The returned `attr(result, "result")` list contains the same hierarchical
+diagnostics as for RAKING: `n_cells_total`, `n_cells_skipped`,
+`outer_iterations_used`, and `outer_residual_final`.
+
+*Greenkhorn hierarchical examples will be added in T-H.*

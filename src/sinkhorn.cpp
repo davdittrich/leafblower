@@ -304,4 +304,184 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     return res;
 }
 
+// ── T-G: Two-stage hierarchical Sinkhorn ─────────────────────────────────────
+//
+// Glue layer: dispatches on p->hierarchical_enabled × hierarchical_mode.
+// DOES NOT modify Sinkhorn math — all KL Bregman-Dykstra logic lives in
+// sinkhorn_solve().
+//
+// Within-cell lambda signature: fn(weights, cell_id)
+//   cell_id == -1 → Stage-1: full-data Sinkhorn on all margins.
+//   cell_id >= 0  → Stage-2: cell-restricted Sinkhorn on fine margins only.
+//
+// NaN re-entry guard: zero-target cells (target=0, n>0) — Sinkhorn's log(0)
+// failure — are handled by the existing infeasibility detection inside
+// sinkhorn_solve(). Empty cells (n_cell==0) are skipped gracefully.
+//
+// Lambda [&] guard: bool guards declared BEFORE auto fn = [&] per CLAUDE.md.
+SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p) {
+    // Early-out: no hierarchical params or disabled — single-stage passthrough.
+    if (!p || p->hierarchical_enabled == 0 || !p->hierarchical_coarse_mask)
+        return sinkhorn_solve(st);
+
+    const int N = st.n;
+    const int K = st.K;
+    const int mode = p->hierarchical_mode;   // 0=refine, 1=exact
+    const int  min_cell_n     = p->hierarchical_min_cell_n > 0 ? p->hierarchical_min_cell_n : 1;
+    const double outer_tol    = p->hierarchical_outer_tol;
+    const int  outer_iters    = p->hierarchical_outer_iterations > 0
+                                    ? p->hierarchical_outer_iterations : 50;
+
+    // Build coarse-cell partition (used for Stage-1 multiplier bookkeeping).
+    lbw::CellPartition partition;
+    {
+        int rc = lbw::build_cell_partition(N, K, st.group_ids, st.cat_counts,
+                                           p->hierarchical_coarse_mask,
+                                           min_cell_n, partition);
+        if (rc != RK_OK) {
+            // Degenerate case (e.g. min_cell_n > N → cap = 0).
+            // Validator already emitted Rf_warning; fall back to single-stage.
+            return sinkhorn_solve(st);
+        }
+    }
+    lbw::SparseMask sparse = lbw::build_sparse_mask(partition, min_cell_n);
+
+    // Identify fine margins (coarse_mask[k]==0).
+    std::vector<int> fine_idx;          // indices into [0..K) of fine margins
+    fine_idx.reserve(K);
+    for (int k = 0; k < K; k++)
+        if (!p->hierarchical_coarse_mask[k]) fine_idx.push_back(k);
+    const int K_fine = static_cast<int>(fine_idx.size());
+
+    // Per-cell fine-margin group_ids and targets pointers (cell-restricted copies).
+    // Allocated once and reused per lambda call via shared buffers.
+    // Buffer: fine group_ids per cell observation (size N × K_fine max).
+    std::vector<std::vector<int32_t>> fine_gids_buf(K_fine, std::vector<int32_t>(N));
+    std::vector<double>               fine_weights_buf(N);
+    std::vector<const int32_t*>       fine_gids_ptrs(K_fine);
+    std::vector<const double*>        fine_tgt_ptrs(K_fine);
+    for (int fi = 0; fi < K_fine; fi++)
+        fine_tgt_ptrs[fi] = st.targets[fine_idx[fi]];
+
+    // stage1_multipliers: per-cell w_after/w_before ratio (length n_cells_total).
+    // Computed after Stage-1 completes; needed by apply_sparse_inheritance.
+    std::vector<double> stage1_multipliers(partition.n_cells_total, 1.0);
+
+    // Save original caller-owned weight buffer; redirect st.weights to our working copy.
+    double* const original_weights_ptr = st.weights;
+
+    // working_weights: shared working buffer used by both outer_iterate_strategy_a
+    // and our fn. st.weights points at this buffer so sinkhorn_solve() writes here.
+    std::vector<double> working_weights(st.weights, st.weights + N);
+    st.weights = working_weights.data();  // redirect raw pointer
+
+    // w_init: weight snapshot before Stage-1 (for sparse inheritance).
+    std::vector<double> w_init(working_weights);
+
+    // ── bool guards declared BEFORE [&] lambda (CLAUDE.md rule) ──
+    bool stage1_done = false;
+
+    // Within-cell callable for outer_iterate_strategy_a.
+    // weights_ref is the same vector as working_weights (passed by outer loop).
+    // cell_id == -1: full-data Stage-1 Sinkhorn on ALL margins.
+    // cell_id >= 0:  cell-restricted Stage-2 Sinkhorn on fine margins only.
+    auto fn = [&](std::vector<double>& weights_ref, int cell_id) {
+        // st.weights already points at weights_ref.data() (== working_weights.data()).
+        (void)weights_ref;
+        if (cell_id < 0) {
+            // Stage-1: full-data Sinkhorn on all margins; mutates working_weights via st.weights.
+            sinkhorn_solve(st);
+            // Record per-cell Stage-1 multipliers for sparse inheritance.
+            for (int i = 0; i < N; i++) {
+                int c = partition.cell_id_per_obs[i];
+                if (w_init[i] > 0.0)
+                    stage1_multipliers[c] = st.weights[i] / w_init[i];
+            }
+            stage1_done = true;
+        } else {
+            // Stage-2: cell-restricted Sinkhorn on fine margins only.
+            // NaN guard: n_cell==0 → skip gracefully (existing infeasibility detection
+            // inside sinkhorn_solve handles zero-target cells via log(0) → RK_ERR_INFEAS).
+            if (K_fine == 0) return;
+            const std::vector<int>& obs = partition.obs_indices_by_cell[cell_id];
+            const int n_cell = static_cast<int>(obs.size());
+            if (n_cell == 0) return;
+
+            // Pack cell weights and fine group_ids into contiguous buffers.
+            for (int ii = 0; ii < n_cell; ii++) {
+                fine_weights_buf[ii] = st.weights[obs[ii]];
+                for (int fi = 0; fi < K_fine; fi++)
+                    fine_gids_buf[fi][ii] = st.group_ids[fine_idx[fi]][obs[ii]];
+            }
+            for (int fi = 0; fi < K_fine; fi++)
+                fine_gids_ptrs[fi] = fine_gids_buf[fi].data();
+
+            // Sub-CalibState: inherits all solver config, restricted to cell obs + fine margins.
+            CalibState sub   = st;
+            sub.n            = n_cell;
+            sub.K            = K_fine;
+            sub.weights      = fine_weights_buf.data();
+            sub.group_ids    = fine_gids_ptrs.data();
+            sub.targets      = fine_tgt_ptrs.data();
+
+            // cat_counts for fine margins.
+            std::vector<int> fine_cats(K_fine);
+            for (int fi = 0; fi < K_fine; fi++)
+                fine_cats[fi] = st.cat_counts[fine_idx[fi]];
+            sub.cat_counts = fine_cats.data();
+
+            sinkhorn_solve(sub);
+
+            // Write calibrated weights back to shared working buffer.
+            for (int ii = 0; ii < n_cell; ii++)
+                st.weights[obs[ii]] = fine_weights_buf[ii];
+        }
+    };
+
+    SinkhornResult res;
+
+    if (mode == 0) {
+        // Strategy A (refine): outer_iterate_strategy_a alternates Stage-1 / Stage-2.
+        // working_weights is both passed to fn and holds the live weights.
+        lbw::OuterResult out = lbw::outer_iterate_strategy_a(
+            fn, working_weights,
+            partition, sparse, w_init, stage1_multipliers,
+            st.convergence_cfg, outer_tol, outer_iters, N);
+
+        res.base.status        = out.status;
+        res.base.iterations    = out.iterations_used;
+        res.base.max_error     = out.residual_final;
+        res.hier_n_cells_total         = partition.n_cells_total;
+        res.hier_n_cells_skipped       = partition.n_cells_skipped;
+        res.hier_outer_iterations_used = out.iterations_used;
+        res.hier_outer_residual_final  = out.residual_final;
+        res.hier_levels_used           = 1;
+        // Budget-exit: last_iterate_weights is in working_weights (fn writes there).
+    } else {
+        // Strategy B (exact): orthogonality already validated at entry.
+        // Stage-1: full-data Sinkhorn on all margins.
+        auto s1 = sinkhorn_solve(st);  // writes to working_weights via st.weights
+        // Stage-2: one pass per non-sparse cell on fine margins only.
+        for (int c = 0; c < partition.n_cells_total; c++) {
+            if (!sparse.is_sparse_cell[c])
+                fn(working_weights, c);
+        }
+        lbw::enforce_sigmaw_eq_n(working_weights, N);
+
+        res.base.status        = s1.base.status;
+        res.base.iterations    = s1.base.iterations;
+        res.base.max_error     = s1.base.max_error;
+        res.hier_n_cells_total         = partition.n_cells_total;
+        res.hier_n_cells_skipped       = partition.n_cells_skipped;
+        res.hier_outer_iterations_used = 1;
+        res.hier_outer_residual_final  = 0.0;
+        res.hier_levels_used           = 1;
+    }
+
+    // Write final weights back to caller's buffer and restore st.weights.
+    std::copy(working_weights.begin(), working_weights.end(), original_weights_ptr);
+    st.weights = original_weights_ptr;
+    return res;
+}
+
 } // namespace lbw
