@@ -51,8 +51,9 @@ harvest(
 
 \item{capacity_penalty}{Numeric, controls how strongly capacity bounds are
 enforced during ALM optimization in \code{method="ieppa_soft"}. Use
-\code{NULL} (default) for auto-computed value (\code{M_cell / n}) which gives a
-balanced blend between unconstrained KL minimization and hard-clamp projection.
+\code{NULL} (default) for auto-computed value (\code{estimate\_M\_cell() / n},
+capped at 1.0 for K>8) which gives a balanced blend between unconstrained KL
+minimization and hard-clamp projection.
 Larger values force tighter constraint adherence; smaller values allow more
 temporary bound violation before the final projection enforces exact bounds.
 Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},

@@ -336,27 +336,24 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     st.alm.mu     = 0.0;
     st.accelerate = (scalar_int(accelerate_sexp, "accelerate") != 0);
 
-    // Resolve capacity_mu for ieppa_soft: build cell table to obtain auto value.
-    // Done here (not inside solver) so r_bridge.cpp controls the resolution contract.
-    // capacity_penalty <= 0.0 (or NULL) selects auto (M_cell/n from cell_table);
+    // Resolve capacity_mu for ieppa_soft: harmonized to estimate_M_cell path matching c_api.cpp.
+    // leafblower-yh0l.4: T3 benchmark identified Py as winner on fulldata; differentiator was
+    // R using exact M_cell/n via build_cell_table (~0.073 at K=9), Py using estimate_M_cell
+    // which caps at n for K>8 (capacity_mu=1.0). ~14x scaling difference drove iter-0 divergence.
+    // capacity_penalty <= 0.0 (or NULL) selects auto via estimate_M_cell (matches c_api.cpp:380);
     // positive value is used directly. ALM block is gated by st.use_admm_capacity,
     // so st.alm.capacity_mu is harmless for non-ieppa_soft callers.
     {
-        lbw::CellTable ct_tmp;
-        int ct_rc = lbw::build_cell_table(n, K,
-            const_cast<const int32_t**>(group_ids.data()),
-            cat_counts.data(),
-            weights.data(),
-            ct_tmp);
-        if (ct_rc != 0) {
-            // build_cell_table failure is non-fatal here — capacity_mu falls back to 1.0.
-            // Infeasibility (empty cell with positive target) is caught by validate_inputs above.
-            st.alm.capacity_mu = 1.0;
+        const double cp_val = Rf_isNull(capacity_penalty_sexp)
+            ? -1.0
+            : (LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
+        if (cp_val > 0.0) {
+            st.alm.capacity_mu = cp_val;
         } else {
-            const double cp_val = Rf_isNull(capacity_penalty_sexp)
-                ? -1.0
-                : (LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
-            st.alm.capacity_mu = (cp_val <= 0.0) ? ct_tmp.capacity_mu_auto : cp_val;
+            int M_cell_est = lbw::estimate_M_cell(n, K,
+                const_cast<const int32_t**>(group_ids.data()),
+                cat_counts.data());
+            st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
         }
     }
 

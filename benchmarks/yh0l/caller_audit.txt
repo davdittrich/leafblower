@@ -1,0 +1,70 @@
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/R/harvest.R:13:#'   Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/R/harvest.R:155:#'         \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{ieppa_soft}).
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/python/leafblower/test_python.py:135:            "alm_capacity_mu_final": 0.0, "alm_n_growth_events": 0,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/python/leafblower/_bindings.cpp:193:            result_dict["alm_capacity_mu_final"] = result.alm_capacity_mu_final;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/tests/testthat/test-calibration-solvers.R:837:  cm <- attr(r1, "result")$alm_capacity_mu_final
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/tests/testthat/test-calibration-solvers.R:908:  # violation streak fires adaptive growth. Verify capacity_mu grew.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/tests/testthat/test-calibration-solvers.R:921:  # OR capacity_mu_final should have grown (either from growth events or auto-init).
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/tests/testthat/test-calibration-solvers.R:923:  grew <- res$alm_n_growth_events > 0L || res$alm_capacity_mu_final > 1e-6 * 1.5
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/tests/testthat/test-calibration-solvers.R:926:                  res$alm_n_growth_events, res$alm_capacity_mu_final))
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/tests/testthat/test-alm-config-grouping.R:4:# st.alm.capacity_mu, st.alm.lambda) did not break solver behaviour.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:9:#include "cell_table.hpp" // estimate_M_cell for AUTO routing
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:165:                int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:374:               Contract: p.capacity_penalty <= 0.0 selects auto (M_cell/n from estimate_M_cell);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:377:                st.alm.capacity_mu = p->capacity_penalty;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:379:                int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:380:                st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:415:                result->alm_capacity_mu_final = res.alm_capacity_mu_final;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/c_api.cpp:455:            result->alm_capacity_mu_final = res.alm_capacity_mu_final;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/leafblower.h:140:    double          alm_capacity_mu_final;  /* final capacity_mu after adaptive scaling; 0 if not ieppa_soft */
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:339:    // Resolve capacity_mu for ieppa_soft: build cell table to obtain auto value.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:343:    // so st.alm.capacity_mu is harmless for non-ieppa_soft callers.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:346:        int ct_rc = lbw::build_cell_table(n, K,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:352:            // build_cell_table failure is non-fatal here — capacity_mu falls back to 1.0.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:354:            st.alm.capacity_mu = 1.0;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:359:            st.alm.capacity_mu = (cp_val <= 0.0) ? ct_tmp.capacity_mu_auto : cp_val;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:402:    double res_alm_capacity_mu_final   = 0.0;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:465:        int M_cell_est = lbw::estimate_M_cell(n, K,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:698:            res_alm_capacity_mu_final = res.alm_capacity_mu_final;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:858:    SET_STRING_ELT(res_names, 30, Rf_mkChar("alm_capacity_mu_final"));
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:862:    SET_VECTOR_ELT(res_list,  30, Rf_ScalarReal(res_alm_capacity_mu_final));
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:921:    int rc = lbw::build_cell_table(n, K, gid_ptrs.data(), cat_counts.data(),
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/r_bridge.cpp:923:    if (rc != 0) Rf_error("build_cell_table failed (rc=%d)", rc);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/logit_calib.hpp:20:    double alm_capacity_mu_final  = 0.0;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/types.hpp:76:    double capacity_mu = 0.0;  // ieppa_soft ALM penalty (capacity box constraint); 0.0 = inactive
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/types.hpp:122:    ALMConfig alm;  // ALM penalty state: lambda, mu, capacity_mu
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.hpp:31:    double alm_capacity_mu_final        = 0.0;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/cell_table.hpp:13:    double capacity_mu_auto = 0.0;  // auto-computed ALM default: M_cell/n (set by build_cell_table)
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/cell_table.hpp:20:int build_cell_table(int n, int K,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/cell_table.hpp:28:int estimate_M_cell(int n, int K,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/calib_dispatch.hpp:314:// Full cell-table setup: build_cell_table + X_init + bounds + cat_offset + validate.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/calib_dispatch.hpp:329:    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/calib_dispatch.hpp:331:        std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/calib_dispatch.hpp:348:// Partial cell-table setup for raking: build_cell_table + X_init + bounds only.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/calib_dispatch.hpp:361:    if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/cell_table.cpp:45:int build_cell_table(int n, int K,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/cell_table.cpp:139:    out.capacity_mu_auto = (n > 0 && out.M_cell > 0)
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/cell_table.cpp:145:int estimate_M_cell(int n, int K,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:139:    double                                    capacity_mu_adaptive,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:176:        res.alm_capacity_mu_final = capacity_mu_adaptive;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:469:        int rc = build_cell_table(st.n, st.K, st.group_ids,
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:571:    const bool alm_active = st.use_admm_capacity && st.alm.capacity_mu > 0.0;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:572:    const double capacity_mu_base    = st.alm.capacity_mu;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:573:    double capacity_mu_adaptive      = capacity_mu_base;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:812:        // ALM (ieppa_soft) per-level state: scale capacity_mu, reset duals.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:819:                st.alm.capacity_mu = eta_i_current * capacity_mu_adaptive;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:822:                st.alm.capacity_mu = capacity_mu_adaptive;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1583:                    const double rho = st.alm.capacity_mu * X_tilde_c;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1584:                    double X_alm = X_tilde_c * (1.0 - lambda_cell[c] + st.alm.capacity_mu * z) / (1.0 + rho);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1587:                    const double lambda_cap = 10.0 * capacity_mu_base * st.max_weight;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1588:                    lambda_cell[c] += st.alm.capacity_mu * (X_alm - z);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1665:                    const double rho = st.alm.capacity_mu * X_tilde[c];
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1666:                    double X_alm = X_tilde[c] * (1.0 - lambda_cell[c] + st.alm.capacity_mu * z) / (1.0 + rho);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1670:                    const double lambda_cap = 10.0 * capacity_mu_base * st.max_weight;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1671:                    lambda_cell[c] += st.alm.capacity_mu * (X_alm - z);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1707:                    capacity_mu_adaptive < capacity_mu_base * kAlmMaxScale) {
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1708:                    capacity_mu_adaptive *= kAlmGrowthFactor;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1709:                    st.alm.capacity_mu = eta_i_current * capacity_mu_adaptive;
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1710:                    // SRAA history stale after capacity_mu change — fixed-point shifted.
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:1721:                        std::snprintf(msg, sizeof(msg), "[ieppa_soft] mu growth: %.4e", capacity_mu_adaptive);
+/home/dd/Gemini/leafblower/.worktrees/yh0l-harmonize/src/ieppa.cpp:2069:                   alm_active, capacity_mu_adaptive, lambda_cell,

@@ -1,5 +1,7 @@
 # leafblower (development version)
 
+* fix(ieppa_soft)!: harmonize R/Python `capacity_mu` ALM scaling — R now uses `estimate_M_cell()` matching c_api path (Py-winner per leafblower-yh0l benchmark; was: exact `M_cell/n` via `build_cell_table.capacity_mu_auto`, ~14× tighter at K>8 fulldata, slower convergence on production scale).
+
 ## Breaking changes
 
 * `harvest()` default changed: `sor` is now `NULL` (disabled) instead of
