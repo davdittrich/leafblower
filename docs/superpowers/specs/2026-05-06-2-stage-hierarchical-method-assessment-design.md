@@ -184,14 +184,18 @@ Bumps `EXPECTED_RK_RESULT_BYTES`. R-side: surface via existing `attr(result, "re
 
 ### P1 sparse-cell rescue test (TDD-ready DGP)
 
-**DGP:** N=10000; K=9 binary margins; joint distribution from Dirichlet(α=0.1) producing ≥30% empty cross-product cells; **margin TARGETS skewed** (target probability 0.95 / 0.05 per binary margin, i.i.d. across margins) combined with **`max_weight = 2`** (tight bound regime); `coarse_margins = first 3 margins`; `min_cell_n = 30`; seed-sweep `1..100`.
+**DGP:** N=200; K=9 binary margins; joint distribution from Dirichlet(α=0.1) producing both empty cross-product cells AND occasional empty 1-D marginal categories at this small-N scale; targets sampled from each seed's empirical marginal distribution (no artificial skew); `coarse_margins = first 3 margins`; `min_cell_n = 30`; default `max_weight`; seed-sweep `1..100`.
 
 **Pass criteria (P1 methods):**
-- 2-stage path: 100% of seeds converge with `Σ|w·X − target| / N ≤ 1e-4` on Stage-1 margins (within-cell calibration relaxes the bound infeasibility locally — sparse-cell inheritance + cell-local target absorption)
-- Single-stage path on same DGP: ≥80% of seeds return one of `RK_ERR_INFEAS`, `RK_ERR_BUDGET`, NaN, or final weights with `max(weights) > max_weight` (bound violation) — i.e., single-stage RAKING/SINKHORN/GREENKHORN cannot satisfy the skewed targets globally under the bound at K=9
+- 2-stage path: ≥95% of seeds converge with `Σ|w·X − target| / N ≤ 1e-4` on Stage-1 margins (sparse cells inherit Stage-1 multiplier; dense cells fit fine margins locally)
+- Single-stage path on same DGP: ≥80% of seeds return `RK_ERR_INFEAS`, NaN, or `RK_ERR_BUDGET` (canonical 0/0 zero-row failure mode at small N where binary 1-D categories occasionally draw empty)
 - Both bullets must hold simultaneously on the **same DGP** — proves rescue is real, not artifact of softer convergence
 
-> **DGP design rationale (post-spec-amendment 2026-05-07):** Original spec called only for sparse joint cells via Dirichlet(α=0.1) on binary margins, expecting single-stage RAKING to fail via "0/0 zero-row" failure mode (§4 RAKING row). Empirically this is unreachable at N=10000 because binary 1-D marginals are essentially never empty (observed min ≈3500/10000). The amended DGP adds **target skew × tight max_weight** to surface a complementary single-stage failure mode (bounds-infeasibility under skewed targets, which RAKING cannot satisfy globally but 2-stage can satisfy via cell-local target redistribution). This preserves the spec's "same DGP" requirement and the rescue intent while exercising a failure mode that actually exists at N=10000 on binary margins.
+> **DGP design rationale (amendment trail, 2026-05-07):**
+>
+> *Amendment v1 (e24d620):* original spec specified N=10000 binary K=9 Dirichlet(α=0.1) but expected RAKING 0/0-zero-row single-stage failure (§4). Empirically unreachable: binary 1-D marginals always populated at N=10000 (observed min ≈3500/10000 across 100 seeds). v1 attempted to surface bounds-infeasibility via target_skew=0.95 + max_weight=2.
+>
+> *Amendment v2 (this revision):* v1 also failed empirically — Dirichlet(α=0.1) at N=10000 produces ~50/50 sample marginals; target 0.95 against ~50% sample requires upweighting factor ~19× >> max_weight=2; the problem is geometrically infeasible for BOTH single-stage AND 2-stage (sample base rate, not bound, is the binding constraint). 2-stage does not rescue bounds-infeasibility — its primary rescue mechanism is sparseness (sparse-cell inherit) and cubic-K compute. v2 therefore reverts to small-N (N=200) binary Dirichlet without target skew, where binary 1-D marginals OCCASIONALLY draw empty across seed-sweep, surfacing the canonical 0/0 RAKING failure mode that 2-stage rescues by skipping fine cal in cells whose 1-D restriction is empty. 2-stage success rate target relaxed from 100% to ≥95% to accommodate occasional pathological seeds (where even 2-stage cannot recover from a coarse-cell having zero observations of one fine-margin category).
 
 ### P2 compute scaling test (FLOP proxy, not wall-time)
 
