@@ -7,7 +7,7 @@ name = "leafblower"
 # Version is hardcoded here and in DESCRIPTION; keep in sync on releases.
 # The ../DESCRIPTION relative path is fragile in sdist builds where the
 # directory layout differs from a local source tree.
-version = "0.1.0"
+version = "0.2.0"
 description = "High-performance survey calibration (iEPPA and L-BFGS-B)"
 requires-python = ">=3.9"
 dependencies = ["numpy>=1.21"]

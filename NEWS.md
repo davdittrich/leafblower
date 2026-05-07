@@ -1,87 +1,90 @@
-# leafblower (development version)
+# leafblower 0.2.0 (2026-05-07)
 
-## Hierarchical calibration
+P1 epic `leafblower-6ycz.1` — hierarchical two-stage calibration for RAKING,
+SINKHORN, and GREENKHORN. Backward-compatible: `hierarchical = NULL` (default)
+preserves single-stage behavior identical to 0.1.x. Issues: `leafblower-6ycz`.
 
-* `harvest()` gains `hierarchical = list(...)` for two-stage coarse-then-fine
-  calibration on RAKING. Coarse margins are calibrated globally (Stage 1); fine
-  margins are then calibrated within each coarse cell (Stage 2). Use
-  `mode = 0L` (refine, default) for iterative outer convergence, or
-  `mode = 1L` (exact) for a single-pass orthogonal split. Sparse cells
-  (fewer than `min_cell_n` observations) inherit Stage-1 multipliers.
+## New features
 
-* Two-stage hierarchical calibration is now also available for SINKHORN
-  (`method = "sinkhorn"`). The within-cell Sinkhorn sweep (KL Bregman-Dykstra
-  alternating row/column scaling) runs on cell-restricted observations at
-  Stage 2. A NaN re-entry guard prevents `log(0)` propagation in cells with
-  zero-target categories: such cells are rejected via existing infeasibility
-  detection (`RK_ERR_INFEAS`) rather than producing silent NaN weights. API
-  is identical to the RAKING hierarchical interface.
+* `harvest()` gains `hierarchical = list(coarse_margins, fine_margins, ...)` for
+  two-stage coarse-then-fine calibration. Coarse margins are calibrated globally
+  (Stage 1); fine margins are calibrated within each coarse cell (Stage 2). Sparse
+  cells (fewer than `min_cell_n` observations) inherit Stage-1 multipliers unchanged.
+  Supported for `method = "raking"`, `"sinkhorn"`, and `"greenkhorn"`.
 
-* Two-stage hierarchical calibration is now also available for GREENKHORN
-  (`method = "greenkhorn"`). The within-cell Greenkhorn step (greedy
-  coordinate-descent IPF, Altschuler-Weed-Rigollet 2017) runs on
-  cell-restricted observations at Stage 2. Queue isolation is guaranteed:
-  `greenkhorn_solve()` reconstructs all state (`X`, `W`, `S_flat`, `errRp`,
-  `cells_per_cat`) from `CalibState` on every call; there is no global or
-  static priority-queue state. Within-cell calls receive a sub-`CalibState`
-  restricted to cell observations and fine margins, so the greedy argmax
-  ranking is seeded on cell-local residuals — independent of full-data
-  residuals from Stage-1 or prior Stage-2 calls. API is identical to the
-  RAKING and SINKHORN hierarchical interfaces.
+* `harvest()` gains `mode` argument controlling Stage-2 solver strategy:
+  `mode = "refine"` (default, `0L`) — iterative outer convergence;
+  `mode = "exact"` (`1L`) — single-pass orthogonal split.
 
-## Breaking changes
+* Six convergence/quality diagnostics always returned in `attr(result, "result")`:
+  `max_error`, `mean_error`, `kl`, `chi2`, `l1_weight_change`, `grake_norm`.
+  Two hierarchical diagnostics added: `hier_outer_iters`, `hier_outer_residual`.
 
-* `harvest()` default changed: `sor` is now `NULL` (disabled) instead of
-  `list(auto = TRUE, omega_min = 0.3)`. SOR caused 2–3× slowdowns at loose
-  bounds (`max_weight ≥ 5`, `K ≤ 3`) — the common calibration scenario.
-  To opt in: `harvest(..., sor = list(auto = TRUE))`.
-
-* `anesrake()` now defaults to `choosemethod = "ieppa"` (was `"rake"` which triggered a deprecation warning).
-
-## Newton-KL calibration
-
-* Epic-Dβ verdict: **PARTIAL** — Newton-KL pipeline shipped with LM scale-invariant
+* Newton-KL calibration (`method = "newton_kl"`) ships with LM scale-invariant
   damping (Marquardt gain ratio), truncated-SVD pseudoinverse (LAPACK `dsyevd`),
-  and Steihaug-CG trust-region in retained subspace. LM damping adapts via gain-ratio
-  ρ (ρ>0.75 ⇒ Δ ×2; ρ<0.25 ⇒ Δ ÷4), with LSE stabilization in dual evaluation
-  and weight recovery (fixes NaN weights on K=20 severe-skew). Best-iterate fallback
-  rolls back rank-deficient drift; `LEAFBLOWER_NEWTON_TRACE` audit shows fires
-  across all scenarios (25 T1/T4/T5, 3 T7-K4, 9 T2-stepstone, 37 regression).
-  Diagnostic fields: `n_projected_dims` (truncation ratio `1e-8 × λ_max`), `lm_mu_final`.
-  Stepstone K=9 basin floor at ~2.6e-4 appears intrinsic to dual landscape
-  (from 2.79e-4 master, 6.5% improvement). Full regression FAIL=0 outside
-  documented basin; T7 K=4 over-projection PASS (2.84e-7); kk1204 K=20 severe-skew
-  converges status=0 at gap=6.24e-2 (vs master diverged). Closure to <1e-4
-  deferred to Epic-E (continuation methods, multi-start, alternative algorithm).
+  and Steihaug-CG trust-region in retained subspace. Fixes NaN weights on K=20
+  severe-skew. Diagnostic fields: `n_projected_dims`, `lm_mu_final`.
+
+* Replaced SQUAREM/CBB with SRAA-m (Safeguarded Regularized Anderson Acceleration,
+  window m=5) for `method = "greenkhorn"` and `method = "raking"`. SRAA-m guarantees
+  quality >= plain per super-step (fixes prior 35%/9% quality regression on bounded
+  problems). Uses 2 F-evals/accepted step vs SQUAREM's 3.
+
+## API additions
+
+* `hierarchical` argument: `list(coarse_margins, fine_margins, min_cell_n, mode)`.
+  Python: `HierarchicalConfig` dataclass with identical fields.
+
+* `mode` argument: `"refine"` | `"exact"` (also accepted as integer `0L` / `1L`).
+
+* `bounds_mode = "unit"` combined with `hierarchical` raises `BADARG` immediately —
+  per-observation water-fill and hierarchical cell dispatch are mutually exclusive.
+
+* Cell count cap: `LBW_MAX_HIER_CELLS = 100000`; exceeded at dispatch raises `BADARG`.
+
+* `anesrake()` now defaults to `choosemethod = "ieppa"` (was `"rake"`, which
+  triggered a deprecation warning).
+
+* **AUTO routing for K≥5 severe-skew** (`max_T/min_T > 5`): `harvest(method="auto")`
+  now selects `method = "ieppa"` with `accelerate = TRUE`. Moderate-skew K≥5
+  (ratio ≤ 5) still routes to Newton-KL. Migration: pin `method = "newton_kl"`
+  to retain prior behavior.
 
 ## Breaking changes
 
-* `harvest()` parameter `jacobi_sweep` removed. The parameter has been
-  C++-inert since its introduction (the underlying sweep order is always
-  Gauss-Seidel). Callers passing `jacobi_sweep=` will have it silently
-  absorbed by `...` (no behavior change vs prior silent no-op).
+* `harvest()` default changed: `sor` is now `NULL` (disabled). SOR caused 2–3×
+  slowdowns at loose bounds (`max_weight ≥ 5`, `K ≤ 3`). To opt in:
+  `harvest(..., sor = list(auto = TRUE))`.
 
-* `harvest(method="greenkhorn", accelerate=TRUE)` and `harvest(method="raking", accelerate=TRUE)`:
-  calibrated weights will differ from previous versions. The prior SQUAREM/CBB
-  acceleration overshot the bounded optimum (greenkhorn: 35% worse quality than plain).
-  Replaced by Safeguarded Regularized Anderson Acceleration (SRAA-m, m=5), which
-  guarantees quality >= plain per super-step. Reproducible pipelines using
+* `harvest()` parameter `jacobi_sweep` removed (was C++-inert since introduction).
+  Callers passing `jacobi_sweep =` will have it silently absorbed by `...`.
+
+* `harvest(method="greenkhorn", accelerate=TRUE)` and
+  `harvest(method="raking", accelerate=TRUE)`: calibrated weights will differ from
+  0.1.x due to SRAA replacing SQUAREM/CBB. Reproducible pipelines using
   `set.seed() + accelerate=TRUE` will produce different (more accurate) results.
 
-* **AUTO routing for K≥5 severe-skew problems** (`max_T/min_T > 5`): `harvest(method="auto", ...)`
-  now selects `method="ieppa"` with `accelerate=TRUE` instead of `method="newton_kl"`.
-  Motivated by Epic-Dβ kk1204 K=20 evidence (Newton-KL converges to high-error fixed point
-  at gap=6.24e-2 on severe-skew). Moderate-skew K≥5 (max_T/min_T ≤ 5) still routes to
-  Newton-KL. Affected users: AUTO callers with K≥5 categorical strata and order-of-magnitude
-  target imbalance. Migration: pin `method="newton_kl"` explicitly to retain prior behavior.
+## Tests / CI
 
-## Acceleration
+* Stepstone regression gate added (`tests/testthat/test-stepstone.R`): 9 adversarial
+  fixtures per method (RAKING, SINKHORN, GREENKHORN) validated against stored RDS
+  baselines. Gate uses a 5% slack regression band; `outer_residual_final` does not
+  enforce 1e-4 absolute on stepstone (intrinsic basin floor ~2.6e-4 on K=9).
 
-* Replaced SQUAREM/CBB with SRAA-m (Type II Anderson Acceleration, window m=5) for
-  `method="greenkhorn"` and `method="raking"`. SRAA-m fixes the 35%/9% quality
-  regression on bounded calibration problems. Uses 2 F-evals/accepted step vs
-  SQUAREM's 3. Automatic restart on residual divergence (||R_k||^2 > 4*||R_{k-1}||^2)
-  and Tikhonov regularization on the m*m Gram system.
+* Python parity suite (`python/parity/`) passes 50 tests (3 skipped, 0 failed)
+  at `rtol = 1e-6` vs R reference output. Outer iteration counts are integer-exact.
+
+## Known limitations
+
+* **Sparse-cell rescue / seed-sweep gate deferred** to `leafblower-6ycz.1.12` (T-L).
+  When a Stage-2 cell has fewer than `min_cell_n` observations and the inherited
+  Stage-1 multiplier produces a poor seed for the within-cell solver, recovery is
+  currently limited to inheriting Stage-1 weights unchanged. A DGP-discovery sweep
+  to characterize failure modes is pending.
+
+* Newton-KL K=9 stepstone basin floor (~2.6e-4) is intrinsic to the dual landscape.
+  Closure to `< 1e-4` deferred to Epic-E (continuation methods, multi-start,
+  alternative algorithm).
 
 ---
 
