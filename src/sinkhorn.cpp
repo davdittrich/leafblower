@@ -311,7 +311,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 // sinkhorn_solve().
 //
 // Within-cell lambda signature: fn(weights, cell_id)
-//   cell_id == -1 → Stage-1: full-data Sinkhorn on all margins.
+//   cell_id == -1 → Stage-1: full-data Sinkhorn on coarse margins only (spec §6).
 //   cell_id >= 0  → Stage-2: cell-restricted Sinkhorn on fine margins only.
 //
 // NaN re-entry guard: zero-target cells (target=0, n>0) — Sinkhorn's log(0)
@@ -346,12 +346,17 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
     }
     lbw::SparseMask sparse = lbw::build_sparse_mask(partition, min_cell_n);
 
-    // Identify fine margins (coarse_mask[k]==0).
+    // Identify fine margins (coarse_mask[k]==0) and coarse margins (coarse_mask[k]==1).
     std::vector<int> fine_idx;          // indices into [0..K) of fine margins
+    std::vector<int> coarse_idx;        // indices into [0..K) of coarse margins
     fine_idx.reserve(K);
-    for (int k = 0; k < K; k++)
-        if (!p->hierarchical_coarse_mask[k]) fine_idx.push_back(k);
-    const int K_fine = static_cast<int>(fine_idx.size());
+    coarse_idx.reserve(K);
+    for (int k = 0; k < K; k++) {
+        if (p->hierarchical_coarse_mask[k]) coarse_idx.push_back(k);
+        else                                fine_idx.push_back(k);
+    }
+    const int K_fine   = static_cast<int>(fine_idx.size());
+    const int K_coarse = static_cast<int>(coarse_idx.size());
 
     // Per-cell fine-margin group_ids and targets pointers (cell-restricted copies).
     // Allocated once and reused per lambda call via shared buffers.
@@ -363,8 +368,23 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
     for (int fi = 0; fi < K_fine; fi++)
         fine_tgt_ptrs[fi] = st.targets[fine_idx[fi]];
 
+    // Coarse-only sub-CalibState buffers for Stage-1 (T-M / spec §6).
+    // Stage-1 calibrates COARSE margins only; fine margins are repaired
+    // Stage-2 within cells. Group_ids pointers alias the original arrays;
+    // no buffer copy is required since n=N (full data) at Stage-1.
+    std::vector<const int32_t*>       coarse_gids_ptrs(K_coarse);
+    std::vector<const double*>        coarse_tgt_ptrs(K_coarse);
+    std::vector<int>                  coarse_cats(K_coarse);
+    for (int ci = 0; ci < K_coarse; ci++) {
+        coarse_gids_ptrs[ci] = st.group_ids[coarse_idx[ci]];
+        coarse_tgt_ptrs[ci]  = st.targets[coarse_idx[ci]];
+        coarse_cats[ci]      = st.cat_counts[coarse_idx[ci]];
+    }
+
     // stage1_multipliers: per-cell w_after/w_before ratio (length n_cells_total).
     // Computed after Stage-1 completes; needed by apply_sparse_inheritance.
+    // Spec §6: cell-aggregate multiplier = Σ(weights[i in c]) / Σ(w_init[i in c]),
+    // NOT a per-obs ratio (which would non-deterministically depend on obs order).
     std::vector<double> stage1_multipliers(partition.n_cells_total, 1.0);
 
     // Save original caller-owned weight buffer; redirect st.weights to our working copy.
@@ -383,20 +403,33 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
 
     // Within-cell callable for outer_iterate_strategy_a.
     // weights_ref is the same vector as working_weights (passed by outer loop).
-    // cell_id == -1: full-data Stage-1 Sinkhorn on ALL margins.
+    // cell_id == -1: full-data Stage-1 Sinkhorn on COARSE margins only (spec §6).
     // cell_id >= 0:  cell-restricted Stage-2 Sinkhorn on fine margins only.
     auto fn = [&](std::vector<double>& weights_ref, int cell_id) {
         // st.weights already points at weights_ref.data() (== working_weights.data()).
         (void)weights_ref;
         if (cell_id < 0) {
-            // Stage-1: full-data Sinkhorn on all margins; mutates working_weights via st.weights.
-            sinkhorn_solve(st);
+            // Stage-1: full-data Sinkhorn on coarse margins only (Stage-1 per spec §6).
+            // Mutates working_weights via sub.weights == st.weights.
+            if (K_coarse > 0) {
+                CalibState sub  = st;
+                sub.K           = K_coarse;
+                sub.group_ids   = coarse_gids_ptrs.data();
+                sub.targets     = coarse_tgt_ptrs.data();
+                sub.cat_counts  = coarse_cats.data();
+                sinkhorn_solve(sub);
+            }
             // Record per-cell Stage-1 multipliers for sparse inheritance.
+            // Spec §6: cell-aggregate ratio Σw / Σw_init (NOT per-obs overwrite).
+            std::vector<double> num(partition.n_cells_total, 0.0);
+            std::vector<double> den(partition.n_cells_total, 0.0);
             for (int i = 0; i < N; i++) {
                 int c = partition.cell_id_per_obs[i];
-                if (w_init[i] > 0.0)
-                    stage1_multipliers[c] = st.weights[i] / w_init[i];
+                num[c] += st.weights[i];
+                den[c] += w_init[i];
             }
+            for (int c = 0; c < partition.n_cells_total; c++)
+                stage1_multipliers[c] = (den[c] > 0.0) ? num[c] / den[c] : 1.0;
             stage1_done = true;
         } else {
             // Stage-2: cell-restricted Sinkhorn on fine margins only.
@@ -459,13 +492,36 @@ SinkhornResult sinkhorn_solve_hierarchical(CalibState& st, const rk_params_t* p)
         // Budget-exit: last_iterate_weights is in working_weights (fn writes there).
     } else {
         // Strategy B (exact): orthogonality already validated at entry.
-        // Stage-1: full-data Sinkhorn on all margins.
-        auto s1 = sinkhorn_solve(st);  // writes to working_weights via st.weights
+        // Stage-1: full-data Sinkhorn on coarse margins only (spec §6).
+        SinkhornResult s1{};
+        if (K_coarse > 0) {
+            CalibState sub  = st;
+            sub.K           = K_coarse;
+            sub.group_ids   = coarse_gids_ptrs.data();
+            sub.targets     = coarse_tgt_ptrs.data();
+            sub.cat_counts  = coarse_cats.data();
+            s1 = sinkhorn_solve(sub);
+        }
+        // Cell-aggregate Stage-1 multiplier (spec §6).
+        {
+            std::vector<double> num(partition.n_cells_total, 0.0);
+            std::vector<double> den(partition.n_cells_total, 0.0);
+            for (int i = 0; i < N; i++) {
+                int c = partition.cell_id_per_obs[i];
+                num[c] += st.weights[i];
+                den[c] += w_init[i];
+            }
+            for (int c = 0; c < partition.n_cells_total; c++)
+                stage1_multipliers[c] = (den[c] > 0.0) ? num[c] / den[c] : 1.0;
+        }
         // Stage-2: one pass per non-sparse cell on fine margins only.
         for (int c = 0; c < partition.n_cells_total; c++) {
             if (!sparse.is_sparse_cell[c])
                 fn(working_weights, c);
         }
+        // Sparse cells inherit the cell-aggregate Stage-1 multiplier.
+        lbw::apply_sparse_inheritance(working_weights, w_init, partition, sparse,
+                                      stage1_multipliers);
         lbw::enforce_sigmaw_eq_n(working_weights, N);
 
         res.base.status        = s1.base.status;

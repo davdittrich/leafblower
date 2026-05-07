@@ -255,7 +255,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
 // greenkhorn_solve().
 //
 // Within-cell lambda signature: fn(weights, cell_id)
-//   cell_id == -1 → Stage-1: full-data Greenkhorn on all margins.
+//   cell_id == -1 → Stage-1: full-data Greenkhorn on coarse margins only (spec §6).
 //   cell_id >= 0  → Stage-2: cell-restricted Greenkhorn on fine margins only.
 //
 // Queue isolation: greenkhorn_solve() reconstructs X, W, S_flat, errRp, and
@@ -292,12 +292,17 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
     }
     lbw::SparseMask sparse = lbw::build_sparse_mask(partition, min_cell_n);
 
-    // Identify fine margins (coarse_mask[k]==0).
+    // Identify fine margins (coarse_mask[k]==0) and coarse margins (coarse_mask[k]==1).
     std::vector<int> fine_idx;          // indices into [0..K) of fine margins
+    std::vector<int> coarse_idx;        // indices into [0..K) of coarse margins
     fine_idx.reserve(K);
-    for (int k = 0; k < K; k++)
-        if (!p->hierarchical_coarse_mask[k]) fine_idx.push_back(k);
-    const int K_fine = static_cast<int>(fine_idx.size());
+    coarse_idx.reserve(K);
+    for (int k = 0; k < K; k++) {
+        if (p->hierarchical_coarse_mask[k]) coarse_idx.push_back(k);
+        else                                fine_idx.push_back(k);
+    }
+    const int K_fine   = static_cast<int>(fine_idx.size());
+    const int K_coarse = static_cast<int>(coarse_idx.size());
 
     // Per-cell fine-margin group_ids and targets pointers (cell-restricted copies).
     // Allocated once and reused per lambda call via shared buffers.
@@ -309,8 +314,24 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
     for (int fi = 0; fi < K_fine; fi++)
         fine_tgt_ptrs[fi] = st.targets[fine_idx[fi]];
 
+    // Coarse-only sub-CalibState buffers for Stage-1 (T-M / spec §6).
+    // Group_ids pointers alias the original arrays; no buffer copy required at Stage-1.
+    // Greenkhorn writes back through res.base.best_weights (not in place), so we also
+    // pre-allocate coarse_weights_buf to receive the calibrated full-data weights.
+    std::vector<const int32_t*>       coarse_gids_ptrs(K_coarse);
+    std::vector<const double*>        coarse_tgt_ptrs(K_coarse);
+    std::vector<int>                  coarse_cats(K_coarse);
+    std::vector<double>               coarse_weights_buf(N);
+    for (int ci = 0; ci < K_coarse; ci++) {
+        coarse_gids_ptrs[ci] = st.group_ids[coarse_idx[ci]];
+        coarse_tgt_ptrs[ci]  = st.targets[coarse_idx[ci]];
+        coarse_cats[ci]      = st.cat_counts[coarse_idx[ci]];
+    }
+
     // stage1_multipliers: per-cell w_after/w_before ratio (length n_cells_total).
     // Computed after Stage-1 completes; needed by apply_sparse_inheritance.
+    // Spec §6: cell-aggregate multiplier = Σ(weights[i in c]) / Σ(w_init[i in c]),
+    // NOT a per-obs ratio (which would non-deterministically depend on obs order).
     std::vector<double> stage1_multipliers(partition.n_cells_total, 1.0);
 
     // Save original caller-owned weight buffer; redirect st.weights to our working copy.
@@ -340,23 +361,35 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
         // st.weights already points at weights_ref.data() (== working_weights.data()).
         (void)weights_ref;
         if (cell_id < 0) {
-            // Stage-1: full-data Greenkhorn on all margins.
-            // NOTE: greenkhorn_solve() does NOT write back to st.weights — it returns
+            // Stage-1: full-data Greenkhorn on coarse margins only (Stage-1 per spec §6).
+            // NOTE: greenkhorn_solve() does NOT write back to sub.weights — it returns
             // calibrated obs-level weights in res.base.best_weights. Copy them into
             // working_weights (via st.weights) so subsequent Stage-2 calls see updated
             // starting weights and the outer loop convergence check is meaningful.
-            auto res1 = greenkhorn_solve(st);
-            if (!res1.base.best_weights.empty() &&
-                static_cast<int>(res1.base.best_weights.size()) == N) {
-                std::copy(res1.base.best_weights.begin(),
-                          res1.base.best_weights.end(), st.weights);
+            if (K_coarse > 0) {
+                CalibState sub  = st;
+                sub.K           = K_coarse;
+                sub.group_ids   = coarse_gids_ptrs.data();
+                sub.targets     = coarse_tgt_ptrs.data();
+                sub.cat_counts  = coarse_cats.data();
+                auto res1 = greenkhorn_solve(sub);
+                if (!res1.base.best_weights.empty() &&
+                    static_cast<int>(res1.base.best_weights.size()) == N) {
+                    std::copy(res1.base.best_weights.begin(),
+                              res1.base.best_weights.end(), st.weights);
+                }
             }
             // Record per-cell Stage-1 multipliers for sparse inheritance.
+            // Spec §6: cell-aggregate ratio Σw / Σw_init (NOT per-obs overwrite).
+            std::vector<double> num(partition.n_cells_total, 0.0);
+            std::vector<double> den(partition.n_cells_total, 0.0);
             for (int i = 0; i < N; i++) {
                 int c = partition.cell_id_per_obs[i];
-                if (w_init[i] > 0.0)
-                    stage1_multipliers[c] = st.weights[i] / w_init[i];
+                num[c] += st.weights[i];
+                den[c] += w_init[i];
             }
+            for (int c = 0; c < partition.n_cells_total; c++)
+                stage1_multipliers[c] = (den[c] > 0.0) ? num[c] / den[c] : 1.0;
             stage1_done = true;
         } else {
             // Stage-2: cell-restricted Greenkhorn on fine margins only.
@@ -427,26 +460,43 @@ GreenkornResult greenkhorn_solve_hierarchical(CalibState& st, const rk_params_t*
         // Budget-exit: last_iterate_weights is in working_weights (fn writes there).
     } else {
         // Strategy B (exact): orthogonality already validated at entry.
-        // Stage-1: full-data Greenkhorn on all margins.
+        // Stage-1: full-data Greenkhorn on coarse margins only (spec §6).
         // greenkhorn_solve() returns calibrated obs-level weights in best_weights,
         // not in st.weights. Copy best_weights into working_weights for continuity.
-        auto s1 = greenkhorn_solve(st);
-        if (!s1.base.best_weights.empty() &&
-            static_cast<int>(s1.base.best_weights.size()) == N) {
-            std::copy(s1.base.best_weights.begin(),
-                      s1.base.best_weights.end(), working_weights.begin());
-            // st.weights points at working_weights.data() — update stage1_multipliers.
+        GreenkornResult s1{};
+        if (K_coarse > 0) {
+            CalibState sub  = st;
+            sub.K           = K_coarse;
+            sub.group_ids   = coarse_gids_ptrs.data();
+            sub.targets     = coarse_tgt_ptrs.data();
+            sub.cat_counts  = coarse_cats.data();
+            s1 = greenkhorn_solve(sub);
+            if (!s1.base.best_weights.empty() &&
+                static_cast<int>(s1.base.best_weights.size()) == N) {
+                std::copy(s1.base.best_weights.begin(),
+                          s1.base.best_weights.end(), working_weights.begin());
+            }
+        }
+        // Cell-aggregate Stage-1 multiplier (spec §6).
+        {
+            std::vector<double> num(partition.n_cells_total, 0.0);
+            std::vector<double> den(partition.n_cells_total, 0.0);
             for (int i = 0; i < N; i++) {
                 int c = partition.cell_id_per_obs[i];
-                if (w_init[i] > 0.0)
-                    stage1_multipliers[c] = working_weights[i] / w_init[i];
+                num[c] += working_weights[i];
+                den[c] += w_init[i];
             }
+            for (int c = 0; c < partition.n_cells_total; c++)
+                stage1_multipliers[c] = (den[c] > 0.0) ? num[c] / den[c] : 1.0;
         }
         // Stage-2: one pass per non-sparse cell on fine margins only.
         for (int c = 0; c < partition.n_cells_total; c++) {
             if (!sparse.is_sparse_cell[c])
                 fn(working_weights, c);
         }
+        // Sparse cells inherit the cell-aggregate Stage-1 multiplier.
+        lbw::apply_sparse_inheritance(working_weights, w_init, partition, sparse,
+                                      stage1_multipliers);
         lbw::enforce_sigmaw_eq_n(working_weights, N);
 
         res.base.status        = s1.base.status;

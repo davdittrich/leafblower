@@ -19,11 +19,15 @@ Two-stage hierarchical calibration solves the sparse-cell problem that causes
 standard raking to return `NaN` or `RK_ERR_INFEAS` when the joint distribution
 of margins is sparse relative to sample size.
 
-**Stage 1** (coarse): calibrate globally on a subset of margins that define
-broad cells with adequate counts.
+**Stage 1** (coarse): calibrate the COARSE margins on the full data — broad
+cells with adequate counts. The fine margins are NOT touched at this stage.
 
-**Stage 2** (fine): within each coarse cell, calibrate on the remaining margins
-using only the observations in that cell.
+**Stage 2** (fine): within each coarse cell, calibrate on the remaining FINE
+margins using only the observations in that cell. Sparse cells (whose
+observation count is below `min_cell_n`) inherit a cell-aggregate Stage-1
+multiplier `Σ(w_post_stage1) / Σ(w_init)` instead of running a per-cell
+Stage-2 — preserving the cell-total constraint without overfitting on too few
+points.
 
 This vignette demonstrates RAKING, SINKHORN, and GREENKHORN.
 
