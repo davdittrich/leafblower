@@ -2,6 +2,7 @@
 for all methods when both call the same C++ solver with identical input."""
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,6 +10,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+
+# Enforce single-thread BLAS before numpy / leafblower import so that
+# OpenBLAS / MKL / OpenMP pick up the constraint at initialisation time.
+# Setting these after import has no effect on most BLAS implementations.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 # Python leafblower is installed or in python/ subdir
 try:
@@ -156,10 +164,17 @@ def test_ieppa_soft_default_tol_parity(tmp_path):
     df, tgt, data_csv, targets_json = _make_correlated_fixture(tmp_path)
     out_csv = tmp_path / "ieppa_soft_r_out.csv"
 
+    _single_thread_env = {
+        **os.environ,
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+    }
     result = subprocess.run(
         ["Rscript", str(_IEPPA_SOFT_R_HELPER),
          str(data_csv), str(targets_json), str(out_csv)],
         capture_output=True, text=True, timeout=180,
+        env=_single_thread_env,
     )
     if result.returncode == 2:
         pytest.skip(f"R package not available: {result.stderr.strip()}")

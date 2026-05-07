@@ -2,6 +2,12 @@
 # run_ieppa_soft_r.R — T5 parity helper: ieppa_soft at tol=1e-4, max_weight=5
 # Args: <data_csv> <targets_json> <out_csv>
 # out_csv columns: weight, iterations, status
+
+# Enforce single-thread BLAS before any library load so that thread count is
+# locked before OpenBLAS / MKL / OpenMP initialise their thread pools.
+Sys.setenv(OMP_NUM_THREADS = "1", OPENBLAS_NUM_THREADS = "1",
+           MKL_NUM_THREADS = "1")
+
 tryCatch(
   suppressPackageStartupMessages({
     library(leafblower)
