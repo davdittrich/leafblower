@@ -319,14 +319,24 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     } else if (alg == RK_ALG_GREENKHORN) {
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure min_weight < max_weight. */
-        auto res = lbw::greenkhorn_solve(st);
+        // Dispatch through hierarchical wrapper; falls through to greenkhorn_solve() when
+        // p->hierarchical_enabled == 0 (early-out, zero allocation overhead).
+        auto res = lbw::greenkhorn_solve_hierarchical(st, p);
         // Solver stores calibrated weights only in best_weights, not in st.weights.
-        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors r_bridge.cpp:806-810.
+        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors r_bridge.cpp.
         if (!res.base.best_weights.empty() &&
             static_cast<int>(res.base.best_weights.size()) == n)
             std::copy(res.base.best_weights.begin(),
                       res.base.best_weights.end(), weights);
         pack_solver_result(result, res, alg);
+        if (result) {
+            result->n_cells_total            = res.hier_n_cells_total;
+            result->n_cells_skipped          = res.hier_n_cells_skipped;
+            result->n_cells_inherited        = res.hier_n_cells_skipped;
+            result->outer_iterations_used    = res.hier_outer_iterations_used;
+            result->outer_residual_final     = res.hier_outer_residual_final;
+            result->hierarchical_levels_used = res.hier_levels_used;
+        }
         used = RK_ALG_GREENKHORN;
         status = res.base.status;
         iterations = res.base.iterations;

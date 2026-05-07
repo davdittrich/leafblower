@@ -17,6 +17,18 @@
   detection (`RK_ERR_INFEAS`) rather than producing silent NaN weights. API
   is identical to the RAKING hierarchical interface.
 
+* Two-stage hierarchical calibration is now also available for GREENKHORN
+  (`method = "greenkhorn"`). The within-cell Greenkhorn step (greedy
+  coordinate-descent IPF, Altschuler-Weed-Rigollet 2017) runs on
+  cell-restricted observations at Stage 2. Queue isolation is guaranteed:
+  `greenkhorn_solve()` reconstructs all state (`X`, `W`, `S_flat`, `errRp`,
+  `cells_per_cat`) from `CalibState` on every call; there is no global or
+  static priority-queue state. Within-cell calls receive a sub-`CalibState`
+  restricted to cell observations and fine margins, so the greedy argmax
+  ranking is seeded on cell-local residuals — independent of full-data
+  residuals from Stage-1 or prior Stage-2 calls. API is identical to the
+  RAKING and SINKHORN hierarchical interfaces.
+
 ## Breaking changes
 
 * `harvest()` default changed: `sor` is now `NULL` (disabled) instead of
