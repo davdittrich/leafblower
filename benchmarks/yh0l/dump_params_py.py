@@ -12,6 +12,9 @@ Also documents C++ binding default for each key NOT in the dict (from _bindings.
 import sys
 import os
 
+if not os.path.exists("benchmarks/yh0l"):
+    sys.exit(f"Run from project root. Current wd={os.getcwd()}")
+
 # Use the installed leafblower package (main repo install; worktree shares .so).
 # If worktree python/ has a built .so, prefer it; else fall back to installed.
 _wt = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -213,14 +216,8 @@ for k, v in params.items():
     print(f"  {k:<26} = {repr(v)}")
 
 print("\n--- Keys OMITTED from params dict (capacity_penalty, alm_penalty) ---")
-print(f"  {'capacity_penalty':<26}: NOT in dict (capacity_penalty=None)")
-print(f"    → _bindings.cpp:131 if(params_dict.contains('capacity_penalty')) NOT taken")
-print(f"    → C++ field p.capacity_penalty left at rk_params_init default: 0.0 (memset, c_api.cpp:51)")
-print(f"    → ieppa_soft treats <=0.0 as auto (M_cell/n from cell_table)")
-print(f"  {'alm_penalty':<26}: NOT in dict (alm_penalty=None)")
-print(f"    → _bindings.cpp:136 if(params_dict.contains('alm_penalty')) NOT taken")
-print(f"    → C++ field p.alm_penalty left at rk_params_init default: 0.0 (memset, c_api.cpp:51)")
-print(f"    → 0.0 = inactive (struct comment leafblower.h:100)")
+print("OMITTED_KEY: capacity_penalty | C_DEFAULT: 0.0 | CITATION: c_api.cpp:51")
+print("OMITTED_KEY: alm_penalty | C_DEFAULT: 0.0 | CITATION: c_api.cpp:51")
 
 print("\n--- Convergence resolution detail ---")
 print(f"  convergence input      = {convergence!r}")

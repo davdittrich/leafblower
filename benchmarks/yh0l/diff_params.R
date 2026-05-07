@@ -2,6 +2,10 @@
 # T1: parse params_R.txt and params_Py.txt, emit params_diff.toon
 # Usage: Rscript benchmarks/yh0l/diff_params.R
 
+if (!file.exists("benchmarks/yh0l")) {
+  stop("Run from project root. Current wd=", getwd())
+}
+
 OUTDIR <- "benchmarks/yh0l"
 
 # Read raw dump files
@@ -46,14 +50,12 @@ parse_py_dump <- function(lines) {
       }
     }
   }
-  # Omitted keys — capacity_penalty, alm_penalty
-  # These are documented with C++ defaults in the dump
+  # Omitted keys — stable sentinel: OMITTED_KEY: <name> | C_DEFAULT: <value> | CITATION: <file:line>
+  omit_pat <- "^OMITTED_KEY: (\\w+) \\| C_DEFAULT: (\\S+) \\| CITATION: (\\S+)$"
   for (l in lines) {
-    if (grepl("capacity_penalty.*NOT in dict", l)) {
-      out[["capacity_penalty"]] <- list(status = "OMITTED", raw = "NOT_IN_DICT", cpp_default = "0.0")
-    }
-    if (grepl("alm_penalty.*NOT in dict", l)) {
-      out[["alm_penalty"]] <- list(status = "OMITTED", raw = "NOT_IN_DICT", cpp_default = "0.0")
+    m <- regmatches(l, regexec(omit_pat, l))[[1]]
+    if (length(m) == 4) {
+      out[[m[2]]] <- list(status = "OMITTED", raw = "NOT_IN_DICT", cpp_default = m[3])
     }
   }
   out
@@ -325,7 +327,34 @@ for (mr in mismatch_rows) {
   }
 }
 
-# Write TOON output
+# Write TOON output — valid YAML, sequence-of-mappings for param_table
+# Strings containing ':' or '#' are single-quoted to avoid YAML parse errors.
+yaml_quote <- function(s) {
+  s <- as.character(s)
+  # Single-quote if value contains YAML-unsafe characters or leading/trailing whitespace.
+  # Note: use fixed=TRUE / chartr-style checks — POSIX bracket expressions eat ':' as class delimiter.
+  needs_quote <- grepl(":", s, fixed = TRUE) ||
+                 grepl("#", s, fixed = TRUE) ||
+                 grepl(">", s, fixed = TRUE) ||
+                 grepl("|", s, fixed = TRUE) ||
+                 grepl("&", s, fixed = TRUE) ||
+                 grepl("*", s, fixed = TRUE) ||
+                 grepl("!", s, fixed = TRUE) ||
+                 grepl(",", s, fixed = TRUE) ||
+                 grepl("{", s, fixed = TRUE) ||
+                 grepl("}", s, fixed = TRUE) ||
+                 grepl("[", s, fixed = TRUE) ||
+                 grepl("]", s, fixed = TRUE) ||
+                 grepl("^\\s|\\s$", s) ||
+                 nchar(s) == 0
+  if (needs_quote) {
+    # Escape any single-quotes inside by doubling them
+    s <- gsub("'", "''", s, fixed = TRUE)
+    s <- paste0("'", s, "'")
+  }
+  s
+}
+
 toon_path <- file.path(OUTDIR, "params_diff.toon")
 con <- file(toon_path, "w")
 
@@ -342,40 +371,38 @@ writeLines("    - benchmarks/yh0l/params_Py.txt", con)
 writeLines("    - benchmarks/yh0l/params_diff.toon", con)
 writeLines("", con)
 writeLines("  param_table:", con)
-writeLines(sprintf("    %-30s %-45s %-55s %-45s %-9s %-3s %s",
-                    "param", "r_value", "py_value", "py_default_when_missing",
-                    "mismatch", "conf", "note"), con)
-writeLines(sprintf("    %-30s %-45s %-55s %-45s %-9s %-3s %s",
-                    strrep("-",30), strrep("-",45), strrep("-",55),
-                    strrep("-",45), strrep("-",9), strrep("-",4), strrep("-",60)), con)
 for (r in rows) {
-  writeLines(sprintf("    %-30s %-45s %-55s %-45s %-9s %-3d %s",
-    r$param,
-    substr(r$r_value, 1, 44),
-    substr(r$py_value, 1, 54),
-    substr(r$py_default_when_missing, 1, 44),
-    if(r$mismatch) "TRUE" else "false",
-    r$confidence,
-    r$note
-  ), con)
+  writeLines(sprintf("    - param: %s", r$param), con)
+  writeLines(sprintf("      r_value: %s", yaml_quote(r$r_value)), con)
+  writeLines(sprintf("      py_value: %s", yaml_quote(r$py_value)), con)
+  pdwm <- if (is.null(r$py_default_when_missing) || r$py_default_when_missing == "N/A") {
+    "null"
+  } else {
+    yaml_quote(r$py_default_when_missing)
+  }
+  writeLines(sprintf("      py_default_when_missing: %s", pdwm), con)
+  writeLines(sprintf("      mismatch: %s", if (r$mismatch) "true" else "false"), con)
+  writeLines(sprintf("      confidence: %d", r$confidence), con)
+  writeLines(sprintf("      note: %s", yaml_quote(r$note)), con)
 }
 
 writeLines("", con)
 writeLines("  mismatches:", con)
 if (length(mismatch_rows) == 0) {
-  writeLines("    - none", con)
+  writeLines("    []", con)
 } else {
   for (mr in mismatch_rows) {
     writeLines(sprintf("    - param: %s", mr$param), con)
-    writeLines(sprintf("      r_value: %s", mr$r_value), con)
-    writeLines(sprintf("      py_value: %s", mr$py_value), con)
+    writeLines(sprintf("      r_value: %s", yaml_quote(mr$r_value)), con)
+    writeLines(sprintf("      py_value: %s", yaml_quote(mr$py_value)), con)
     writeLines(sprintf("      confidence: %d", mr$confidence), con)
   }
 }
 
 writeLines("", con)
-writeLines(sprintf("  short_circuit: %s", if(short_circuit) "true" else "false"), con)
-writeLines(sprintf("  short_circuit_reason: >-"), con)
+writeLines(sprintf("  short_circuit: %s", if (short_circuit) "true" else "false"), con)
+# Use block scalar (>-) for reason — safe for arbitrary prose
+writeLines("  short_circuit_reason: >-", con)
 writeLines(sprintf("    %s", short_circuit_reason), con)
 
 writeLines("", con)
@@ -388,5 +415,5 @@ for (mr in mismatch_rows) {
   cat(sprintf("  - %s (confidence=%d): R=%s | Py=%s\n",
               mr$param, mr$confidence, mr$r_value, mr$py_value))
 }
-cat(sprintf("short_circuit: %s\n", if(short_circuit) "TRUE" else "FALSE"))
+cat(sprintf("short_circuit: %s\n", if (short_circuit) "TRUE" else "FALSE"))
 cat(sprintf("Reason: %s\n", short_circuit_reason))

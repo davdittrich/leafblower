@@ -4,6 +4,10 @@
 #               max_weight=5, max_iterations=3000)
 # Does NOT call the solver; replicates harvest.R's arg-prep then prints.
 
+if (!file.exists("benchmarks/yh0l")) {
+  stop("Run from project root. Current wd=", getwd())
+}
+
 suppressPackageStartupMessages({
   library(leafblower)
 })

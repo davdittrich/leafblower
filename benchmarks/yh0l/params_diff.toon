@@ -11,48 +11,268 @@ data:
     - benchmarks/yh0l/params_diff.toon
 
   param_table:
-    param                          r_value                                       py_value                                                py_default_when_missing                       mismatch  conf note
-    ------------------------------ --------------------------------------------- ------------------------------------------------------- --------------------------------------------- --------- ---- ------------------------------------------------------------
-    group_ids_r                    VECSXP[K]; INTSXP len=n per margin (0-idx co  VECSXP[K]; INTSXP len=n per margin (0-idx codes, -1=NA  N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
-    cat_counts_r                   INTSXP[K]; level counts per margin. sum=tota  INTSXP[K]; level counts per margin. sum=total_cells     N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
-    targets_r                      VECSXP[K]; REALSXP len=cat_counts[k]. sum(ta  VECSXP[K]; REALSXP len=cat_counts[k]. sum(targets[[k]]  N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
-    n_obs                          INTSXP scalar = nrow(data)                    INTSXP scalar = nrow(data)                              N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
-    min_weight                     0                                             0                                                       N/A                                           false     98  
-    max_weight                     5                                             5                                                       N/A                                           false     98  
-    algorithm                      ieppa_soft (string; r_bridge.cpp decodes)     8                                                       N/A                                           false     98  R sends string; Py sends int 8. r_bridge.cpp maps string→enum. Same result.
-    verbose                        0                                             0                                                       N/A                                           false     98  
-    inner_max_iter                 3000                                          3000                                                    N/A                                           false     98  
-    sw_vec                         REALSXP len=n or NULL → uniform 1.0 (start_w REALSXP len=n or NULL → uniform 1.0 (start_weights=Non N/A                                           false     97  Data-input SEXP; structurally identical when reading same dataset.
-    capacity_penalty               -1                                            OMITTED: C++ default 0.0 (_bindings.cpp:131, c_api.cpp  0.0 → auto path: M_cell_est/n at c_api.cpp:3 false     95  R=-1.0, Py=0.0 (memset); both <=0.0 → auto M_cell_est/n at c_api.cpp:376-381. Same semantic.
-    alm_penalty                    -1                                            OMITTED: C++ default 0.0 (_bindings.cpp:136, c_api.cpp  0.0 → inactive (p->alm_penalty>0.0 false at  false     95  R=-1.0, Py=0.0 (memset); both <=0.0 → alm inactive at c_api.cpp:254. Same semantic.
-    tol_abs                        1e-06                                         1e-06                                                   N/A                                           false     98  
-    bounds_mode                    0                                             0                                                       N/A                                           false     98  
-    homotopy_n_levels              1                                             1                                                       N/A                                           false     98  
-    homotopy_start_factor          1                                             1                                                       N/A                                           false     98  
-    homotopy_end_factor            1                                             1                                                       N/A                                           false     98  
-    homotopy_budget_p              0.5                                           0.5                                                     N/A                                           false     98  
-    scheduler                      round_robin (string → C: RK_SCHED_ROUND_ROBI 0                                                       N/A                                           false     98  R sends string 'round_robin'; Py sends int 0. Both → RK_SCHED_ROUND_ROBIN. Same.
-    eta_mode                       fixed (string → C: RK_ETA_FIXED=0)          0                                                       N/A                                           false     98  R sends string 'fixed'; Py sends int 0. Both → RK_ETA_FIXED. Same.
-    eta_start                      1                                             1                                                       N/A                                           false     98  
-    eta_end                        1                                             1                                                       N/A                                           false     98  
-    eta_schedule_power             0.5                                           0.5                                                     N/A                                           false     98  
-    pct_tol                        0.0001                                        0.0001                                                  N/A                                           false     98  
-    absolute_tol                   0                                             0                                                       N/A                                           false     98  
-    metric                         6                                             6                                                       N/A                                           false     98  
-    rule                           1                                             1                                                       N/A                                           false     98  
-    stop_when                      0                                             0                                                       N/A                                           false     98  
-    sor_enabled                    0                                             0                                                       N/A                                           false     98  
-    sor_auto                       0                                             0                                                       N/A                                           false     98  
-    sor_omega_init                 1                                             1                                                       N/A                                           false     98  
-    sor_omega_min                  0.3                                           0.3                                                     N/A                                           false     98  
-    sor_omega_fixed                -1                                            -1                                                      N/A                                           false     98  
-    sor_burnin                     20                                            20                                                      N/A                                           false     98  
-    accelerate                     0                                             0                                                       N/A                                           false     98  
-    newton_tsvd_ratio              1e-08                                         1e-08                                                   N/A                                           false     98  
-    ridge_lambda                   0                                             0                                                       N/A                                           false     98  
+    - param: group_ids_r
+      r_value: 'VECSXP[K]; INTSXP len=n per margin (0-idx codes, -1=NA). K=n_margins, n=nrow(data)'
+      py_value: 'VECSXP[K]; INTSXP len=n per margin (0-idx codes, -1=NA). K=n_margins, n=nrow(data)'
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 97
+      note: Data-input SEXP; structurally identical when reading same dataset.
+    - param: cat_counts_r
+      r_value: 'INTSXP[K]; level counts per margin. sum=total_cells'
+      py_value: 'INTSXP[K]; level counts per margin. sum=total_cells'
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 97
+      note: Data-input SEXP; structurally identical when reading same dataset.
+    - param: targets_r
+      r_value: 'VECSXP[K]; REALSXP len=cat_counts[k]. sum(targets[[k]])≈1'
+      py_value: 'VECSXP[K]; REALSXP len=cat_counts[k]. sum(targets[[k]])≈1'
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 97
+      note: Data-input SEXP; structurally identical when reading same dataset.
+    - param: n_obs
+      r_value: INTSXP scalar = nrow(data)
+      py_value: INTSXP scalar = nrow(data)
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 97
+      note: Data-input SEXP; structurally identical when reading same dataset.
+    - param: min_weight
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: max_weight
+      r_value: 5
+      py_value: 5
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: algorithm
+      r_value: ieppa_soft (string; r_bridge.cpp decodes)
+      py_value: 8
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: R sends string; Py sends int 8. r_bridge.cpp maps string→enum. Same result.
+    - param: verbose
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: inner_max_iter
+      r_value: 3000
+      py_value: 3000
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: sw_vec
+      r_value: REALSXP len=n or NULL → uniform 1.0 (start_weights=NULL default)
+      py_value: REALSXP len=n or NULL → uniform 1.0 (start_weights=None default)
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 97
+      note: Data-input SEXP; structurally identical when reading same dataset.
+    - param: capacity_penalty
+      r_value: -1
+      py_value: 'OMITTED: C++ default 0.0 (_bindings.cpp:131, c_api.cpp:memset)'
+      py_default_when_missing: '0.0 → auto path: M_cell_est/n at c_api.cpp:376-381'
+      mismatch: false
+      confidence: 95
+      note: 'R=-1.0, Py=0.0 (memset); both <=0.0 → auto M_cell_est/n at c_api.cpp:376-381. Same semantic.'
+    - param: alm_penalty
+      r_value: -1
+      py_value: 'OMITTED: C++ default 0.0 (_bindings.cpp:136, c_api.cpp:memset)'
+      py_default_when_missing: '0.0 → inactive (p->alm_penalty>0.0 false at c_api.cpp:254)'
+      mismatch: false
+      confidence: 95
+      note: 'R=-1.0, Py=0.0 (memset); both <=0.0 → alm inactive at c_api.cpp:254. Same semantic.'
+    - param: tol_abs
+      r_value: 1e-06
+      py_value: 1e-06
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: bounds_mode
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: homotopy_n_levels
+      r_value: 1
+      py_value: 1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: homotopy_start_factor
+      r_value: 1
+      py_value: 1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: homotopy_end_factor
+      r_value: 1
+      py_value: 1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: homotopy_budget_p
+      r_value: 0.5
+      py_value: 0.5
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: scheduler
+      r_value: 'round_robin (string → C: RK_SCHED_ROUND_ROBIN=0)'
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: R sends string 'round_robin'; Py sends int 0. Both → RK_SCHED_ROUND_ROBIN. Same.
+    - param: eta_mode
+      r_value: 'fixed (string → C: RK_ETA_FIXED=0)'
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: R sends string 'fixed'; Py sends int 0. Both → RK_ETA_FIXED. Same.
+    - param: eta_start
+      r_value: 1
+      py_value: 1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: eta_end
+      r_value: 1
+      py_value: 1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: eta_schedule_power
+      r_value: 0.5
+      py_value: 0.5
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: pct_tol
+      r_value: 0.0001
+      py_value: 0.0001
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: absolute_tol
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: metric
+      r_value: 6
+      py_value: 6
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: rule
+      r_value: 1
+      py_value: 1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: stop_when
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: sor_enabled
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: sor_auto
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: sor_omega_init
+      r_value: 1
+      py_value: 1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: sor_omega_min
+      r_value: 0.3
+      py_value: 0.3
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: sor_omega_fixed
+      r_value: -1
+      py_value: -1
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: sor_burnin
+      r_value: 20
+      py_value: 20
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: accelerate
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: newton_tsvd_ratio
+      r_value: 1e-08
+      py_value: 1e-08
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
+    - param: ridge_lambda
+      r_value: 0
+      py_value: 0
+      py_default_when_missing: null
+      mismatch: false
+      confidence: 98
+      note: ''
 
   mismatches:
-    - none
+    []
 
   short_circuit: false
   short_circuit_reason: >-
