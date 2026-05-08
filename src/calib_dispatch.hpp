@@ -241,7 +241,6 @@ inline CellMetrics compute_cell_metrics(
     std::vector<double>& bucket) noexcept
 {
     constexpr double kMetricEps = 1e-10;
-    constexpr double kChi2Floor = 1.0;
     CellMetrics m;
     double mean_sum = 0.0;
     for (int k = 0; k < st.K; k++) {
@@ -256,7 +255,12 @@ inline CellMetrics compute_cell_metrics(
             if (err > m.errRp)      m.errRp = err;
             if (T > 0.0)            kl_k += T * std::log((T + kMetricEps) / (S_p + kMetricEps));
             double obs = bucket[j], pop = T * W;
-            m.chi2 += (obs - pop) * (obs - pop) / (pop + kChi2Floor);
+            // Pearson chi2: (obs - pop)^2 / pop. Skip bins with pop <= kMetricEps:
+            // T_j = 0 means the bin is not part of the test (no expected count), and the
+            // chi2 contribution is undefined under standard Pearson semantics. Prior
+            // kChi2Floor=1.0 Laplace smoothing distorted contributions for rare bins
+            // (pop ~ O(1)) by halving them; spec-correct treatment is exclusion.
+            if (pop > kMetricEps)   m.chi2 += (obs - pop) * (obs - pop) / pop;
             double nm = std::fabs(obs - pop) / (1.0 + std::fabs(pop));
             if (nm > m.grake_norm)  m.grake_norm = nm;
         }
