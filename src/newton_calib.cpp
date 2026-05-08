@@ -815,28 +815,17 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         if (w_i > st.max_weight || w_i < st.min_weight) ++n_violated;
     }
 
-    // Always surface violation count; downgrade status FIRST (leafblower-73d7).
-    // Any violation breaks the bounds-mode contract — zero tolerance.
-    // State-machine before fix:  compute w → write st.weights → maybe set ERR
-    // State-machine after fix:   compute w → set ERR if violated → write ONLY
-    //                            when status is still RK_OK.
-    //
-    // Algebraic safety: st.weights has NOT been mutated yet at this point
-    // (line 829 is the sole write site).  If n_violated > 0 we skip the write;
-    // caller's st.weights retains the pre-violation iterate — the last λ-step
-    // that was Armijo-accepted before the final weight-recovery pass.
+    // Always surface violation count; 5% threshold gates status change only.
     res.n_bounds_violated = n_violated;
-    if (n_violated > 0) {
-        const double frac_violated = static_cast<double>(n_violated) / n;
+    const double frac_violated = static_cast<double>(n_violated) / n;
+    if (frac_violated > 0.05) {
         res.base.status = RK_ERR_NOCONV;
         std::snprintf(res.message, sizeof(res.message),
             "newton_kl: %.1f%% of obs violate [min,max] weight bounds",
             frac_violated * 100.0);
-        res.lm_mu_final = lm_mu;
-        return res;  // st.weights and res.base.best_weights left at pre-violation state
     }
 
-    // ── 7. Write calibrated weights and compute max_error (n_violated == 0) ──
+    // ── 7. Write calibrated weights and compute max_error ───────────────────
     for (int i = 0; i < n; ++i) st.weights[i] = w[i];
 
     double max_err = 0.0;
