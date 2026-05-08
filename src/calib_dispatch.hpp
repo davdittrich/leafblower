@@ -60,15 +60,19 @@ inline double select_metric(
 }
 
 // Apply the stopping rule.
-// `prev` is read and updated by this function; initialise to +infinity before
-// the first iteration.  Returns false on the first call when prev==+inf.
+// `prev` is read here and updated to curr ONLY when the rule did NOT fire
+// (converged == false).  When convergence fires, prev is left at its
+// pre-call value so the caller can distinguish "at-convergence baseline"
+// from the halting curr.  Callers that continue iterating despite a fired
+// rule (e.g. stop_when=ALL waiting on a second criterion) must update prev
+// themselves (see check_convergence below).
 //
 // Note: lbfgsb_solver does NOT use this helper because it is a batch solver
 // with no per-iteration baseline; it retains its own THRESHOLD-only logic.
 inline bool apply_rule(
     CalibRule rule,
     double    curr,
-    double&   prev,   // in-out: updated to curr on return when finite
+    double&   prev,   // in-out: updated to curr on return ONLY when not converged
     double    tol) noexcept
 {
     if (!std::isfinite(curr) || tol <= 0.0) return false;
@@ -105,8 +109,13 @@ inline bool apply_rule(
             break;
     }
 
-    prev = curr;   // always update — sliding-window baseline for next call (intentional side effect)
-    return converged;
+    // Route A: early-return on short-circuit halt — prev retains at-convergence
+    // baseline value, NOT the post-halt curr.  This prevents prev from leaking
+    // the halting curr into any re-entry path (homotopy restart, SRAA, diagnostics).
+    if (converged) return true;
+
+    prev = curr;   // sliding-window baseline for next call (only when not converged)
+    return false;
 }
 
 struct CellMetrics {
@@ -175,6 +184,14 @@ inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
 
 // Returns true when the convergence criterion fires. Updates prev_metric via apply_rule.
 // tol_abs_fallback: value of CalibState::tol_abs, used when neither pct_tol nor absolute_tol set.
+//
+// prev_metric contract (post-call):
+//   - Halting (returns true):  prev_metric retains pre-call value (at-convergence baseline).
+//   - Continuing (returns false): prev_metric = curr (sliding-window updated for next check).
+//
+// For stop_when=ALL: apply_rule fires when the pct criterion alone is met, but the driver
+// continues until abs also fires.  In that case apply_rule leaves prev un-updated (Route A);
+// we restore prev_metric = curr here so the next check computes improvement/plateau correctly.
 inline bool check_convergence(
     const CalibConvergenceCfg& cfg,
     const CellMetrics& m,
@@ -185,9 +202,15 @@ inline bool check_convergence(
     const bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
     const bool c_abs = have_abs && (curr < cfg.absolute_tol);
     const bool c_pct = have_pct && apply_rule(cfg.rule, curr, prev_metric, cfg.pct_tol);
-    if (have_pct && have_abs)
-        return (cfg.stop_when == CalibStopWhen::ALL)
-               ? (c_pct && c_abs) : (c_pct || c_abs);
+    if (have_pct && have_abs) {
+        const bool halting = (cfg.stop_when == CalibStopWhen::ALL)
+                             ? (c_pct && c_abs) : (c_pct || c_abs);
+        // apply_rule left prev un-updated when c_pct fired (Route A).  If the driver is
+        // continuing (not halting), advance the sliding window so the next check has a
+        // correct baseline.
+        if (!halting && c_pct) prev_metric = curr;
+        return halting;
+    }
     if (have_pct) return c_pct;
     if (have_abs) return c_abs;
     return (m.errRp < tol_abs_fallback);

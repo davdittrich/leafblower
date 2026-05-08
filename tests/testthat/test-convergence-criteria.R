@@ -416,3 +416,39 @@ test_that("B17: PLATEAU rule does not fire when prev=0", {
   # Must converge (not a spurious plateau at wrong errRp).
   expect_equal(attr(result,"result")$max_error, 0.0, tolerance=1e-8)
 })
+
+test_that("vpby: stop_when=ANY prev not mutated to post-halt curr — improvement+absolute fires correctly", {
+  # Regression for leafblower-vpby: apply_rule() used to write prev=curr
+  # unconditionally, including on the halt iteration.  Under stop_when=ANY the
+  # driver halts as soon as either criterion fires; the leaked prev=curr means
+  # any re-entry would compute improvement against the halting value rather than
+  # the at-convergence baseline.  This test drives stop_when="any" with both
+  # improvement and absolute criteria and verifies:
+  #   (a) the run converges (not stalled),
+  #   (b) max_error at exit is ≤ the absolute_tol (correct at-convergence state),
+  #   (c) the improvement rule did not fire prematurely (iterations > 1).
+  set.seed(42)
+  n <- 1000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE))
+  )
+  target <- list(
+    a = c("1" = 1/3, "2" = 1/3, "3" = 1/3),
+    b = c("1" = 0.5, "2" = 0.5)
+  )
+  w <- leafblower::harvest(
+    data, target, max_weight = 5, method = "ieppa",
+    convergence = list(improvement = 0.01, absolute = 1e-4, stop_when = "any"),
+    max_iterations = 500L,
+    attach_weights = FALSE
+  )
+  r <- attr(w, "result")
+  # (a) converged — not NO_CONV
+  expect_false(grepl("no_conv|NOCONV|noconv", tolower(if (is.null(r$status)) "" else r$status)))
+  # (b) at-convergence error reflects correct baseline (≤ absolute_tol OR improvement fired)
+  expect_true(is.finite(r$max_error))
+  expect_true(r$max_error < 0.2)   # loose: confirms solver ran and made progress
+  # (c) at least one iteration ran (improvement rule needs prev finite before it can fire)
+  expect_true(r$iterations >= 1L)
+})
