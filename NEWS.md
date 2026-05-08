@@ -1,5 +1,7 @@
 # leafblower (development version)
 
+* harmonize(chebyshev): align c_api.cpp ieppa warm-start floor to r_bridge.cpp source-of-truth (5 not 50). Restores mirror invariant declared at c_api.cpp:352 'mirrors r_bridge.cpp:628-657'; was hand-copy typo at c_api.cpp:359. Eliminates ~2.05e-3 max_abs_diff R-Py weight divergence at chebyshev iter cap. Closes leafblower-2apm.4.
+
 * fix(ieppa_soft)!: harmonize R/Python `capacity_mu` ALM scaling — R now uses `estimate_M_cell()` matching c_api path (Py-winner per leafblower-yh0l benchmark; was: exact `M_cell/n` via `build_cell_table.capacity_mu_auto`, ~14× tighter at K>8 fulldata, slower convergence on production scale).
 
 ## Breaking changes
