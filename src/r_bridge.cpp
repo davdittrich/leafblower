@@ -211,10 +211,16 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     std::vector<const double*> targets(K);
 
     {
-        const int* cc = INTEGER(cat_counts_sexp);
+        if (TYPEOF(cat_counts_sexp) != INTSXP)
+            pre_error = "cat_counts must be an integer vector";
+        const int* cc = pre_error.empty() ? INTEGER(cat_counts_sexp) : nullptr;
         for (int k = 0; k < K && pre_error.empty(); k++) {
             cat_counts[k] = cc[k];
             SEXP gid_vec = VECTOR_ELT(group_ids_sexp, k);
+            if (TYPEOF(gid_vec) != INTSXP) {
+                pre_error = "group_ids[[" + std::to_string(k + 1) + "]] must be an integer vector";
+                break;
+            }
             if (LENGTH(gid_vec) != n) {
                 pre_error = "group_ids[[" + std::to_string(k + 1) + "]] length != n";
                 break;
@@ -223,6 +229,10 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             gids_storage[k].assign(gp, gp + n);
             group_ids[k] = gids_storage[k].data();
             SEXP tgt_vec = VECTOR_ELT(targets_sexp, k);
+            if (TYPEOF(tgt_vec) != REALSXP) {
+                pre_error = "targets[[" + std::to_string(k + 1) + "]] must be a numeric vector";
+                break;
+            }
             const double* tp = REAL(tgt_vec);
             tgt_storage[k].assign(tp, tp + cat_counts[k]);
             targets[k] = tgt_storage[k].data();
@@ -272,11 +282,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.homotopy.end_factor      = scalar_real(homotopy_end_factor_sexp, "homotopy_end_factor");
     p.homotopy.budget_split_p  = scalar_real(homotopy_budget_p_sexp, "homotopy_budget_p");
     {
-        const char* sched_str = CHAR(STRING_ELT(scheduler_sexp, 0));
+        if (pre_error.empty() && (TYPEOF(scheduler_sexp) != STRSXP || LENGTH(scheduler_sexp) != 1))
+            pre_error = "scheduler must be a length-1 character string";
+        const char* sched_str = pre_error.empty() ? CHAR(STRING_ELT(scheduler_sexp, 0)) : "";
         p.scheduler = (strcmp(sched_str, "greedy") == 0) ? RK_SCHED_GREEDY : RK_SCHED_ROUND_ROBIN;
     }
     {
-        const char* eta_str = CHAR(STRING_ELT(eta_schedule_sexp, 0));
+        if (pre_error.empty() && (TYPEOF(eta_schedule_sexp) != STRSXP || LENGTH(eta_schedule_sexp) != 1))
+            pre_error = "eta_schedule must be a length-1 character string";
+        const char* eta_str = pre_error.empty() ? CHAR(STRING_ELT(eta_schedule_sexp, 0)) : "";
         p.eta_mode = (strcmp(eta_str, "tang_dynamic") == 0) ? RK_ETA_TANG_DYNAMIC : RK_ETA_FIXED;
     }
     p.eta_start           = scalar_real(eta_start_sexp, "eta_start");

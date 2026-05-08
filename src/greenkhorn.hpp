@@ -1,4 +1,5 @@
 #pragma once
+#include <limits>
 #include "lbw_config.h"
 #include "types.hpp"
 #include "leafblower.h"
@@ -8,7 +9,8 @@ namespace lbw {
 struct GreenkornResult {
     CalibResult base;
     // ── Greenkhorn-specific extras ──
-    double best_objective_seen = 0.0;   // internal: weight KL at best_iter
+    // +inf sentinel — first-iter finite objective always strictly improves it.
+    double best_objective_seen = std::numeric_limits<double>::infinity();
     char   message[256]        = {0};
     // ── End extras ──
 };

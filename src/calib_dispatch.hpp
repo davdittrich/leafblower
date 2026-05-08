@@ -329,6 +329,7 @@ inline int solver_setup_ct(
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
         res.base.status = RK_ERR_BADARG;
         std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
+        res.message[sizeof(res.message) - 1] = '\0';
         return RK_ERR_BADARG;
     }
     X_init.assign(ct.M_cell, 0.0);
@@ -340,6 +341,7 @@ inline int solver_setup_ct(
     if (calib_validate_preentry(ct, st, &tmp, X_init.data(), n_cats_total) != RK_OK) {
         res.base.status = tmp.status;
         std::strncpy(res.message, tmp.message, sizeof(res.message) - 1);
+        res.message[sizeof(res.message) - 1] = '\0';
         return tmp.status;
     }
     return RK_OK;
