@@ -245,3 +245,97 @@ def test_ieppa_soft_default_tol_parity(tmp_path):
         f"(iters_R={iters_r}, iters_Py={iters_py}, cap_mu_diff={cap_mu_diff:.2e}; "
         "check capacity_mu harmonization in r_bridge.cpp — see T4 fix ae09943)"
     )
+
+
+# ---------------------------------------------------------------------------
+# T5 (2apm): chebyshev parity regression — locks c_api.cpp:359 floor=5 (b60a3fd)
+# ---------------------------------------------------------------------------
+
+_CHEBYSHEV_R_HELPER = REPO_ROOT / "tests" / "parity" / "run_chebyshev_r.R"
+
+# Convergence params — identical in R helper and Python call below.
+_CHEBYSHEV_CONV = {"metric": "max_err", "rule": "improvement", "tol": 1e-4}
+
+
+@pytest.mark.skipif(not RSCRIPT_AVAILABLE, reason="Rscript not found")
+def test_chebyshev_default_tol_parity(tmp_path):
+    """R and Python must agree on weights, iter count, and status for chebyshev at tol=1e-4.
+
+    Fixture: K=9 margins with 50 unique interaction cells from n=5000 rows
+    (reuses _make_correlated_fixture from yh0l T5).  The K=9 warm-start ieppa
+    uses inner_max_iter = max(5, min(100, max_iterations/10)); pre-T4 c_api.cpp
+    had floor=50 vs r_bridge.cpp floor=5, producing a different warm-start
+    trajectory and a 2e-3 weight divergence at the iter cap.
+
+    Red-green gate: weight vector parity max|w_R - w_Py| < 1e-6.
+    - Pre-T4  (c_api.cpp:359 floor=50): max_abs_diff ≈ 2e-3  → test FAILS.
+    - Post-T4 (c_api.cpp:359 floor=5):  max_abs_diff < 1e-6  → test PASSES.
+    """
+    df, tgt, data_csv, targets_json = _make_correlated_fixture(tmp_path)
+    out_csv = tmp_path / "chebyshev_r_out.csv"
+
+    _CHEBYSHEV_SUBPROCESS_ENV = {
+        **os.environ,
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+    }
+    result = subprocess.run(
+        ["Rscript", str(_CHEBYSHEV_R_HELPER),
+         str(data_csv), str(targets_json), str(out_csv)],
+        capture_output=True, text=True, timeout=180,
+        env=_CHEBYSHEV_SUBPROCESS_ENV,
+    )
+    if result.returncode == 2:
+        pytest.skip(f"R package not available: {result.stderr.strip()}")
+    if result.returncode != 0:
+        raise RuntimeError(f"Rscript failed:\n{result.stderr}")
+
+    r_out    = pd.read_csv(out_csv)
+    w_r      = r_out["weight"].to_numpy(dtype=np.float64)
+    iters_r  = int(r_out["iterations"].iloc[0])
+    status_r = int(r_out["status"].iloc[0])
+
+    # Python in-proc call — identical params as R helper.
+    py_res   = harvest(
+        df, tgt,
+        method         = "chebyshev",
+        min_weight     = 0,
+        max_weight     = 5,
+        max_iterations = 3000,
+        convergence    = _CHEBYSHEV_CONV,
+        verbose        = 0,
+        attach_weights = False,
+    )
+    w_py      = np.array(py_res["weights"], dtype=np.float64)
+    iters_py  = int(py_res["result"]["iterations"])
+    status_py = int(py_res["result"]["status"])
+
+    print(
+        f"\n  chebyshev: iters_R={iters_r} iters_Py={iters_py} "
+        f"status_R={status_r} status_Py={status_py}"
+    )
+
+    # --- Same status ---
+    assert status_r == status_py, (
+        f"chebyshev: status mismatch — R={status_r}, Python={status_py}"
+    )
+
+    # --- Identical iter count ---
+    assert iters_r == iters_py, (
+        f"chebyshev: iter count mismatch — R={iters_r}, Python={iters_py} "
+        "(warm-start floor mismatch between r_bridge.cpp and c_api.cpp?)"
+    )
+
+    # --- Weight vector parity ---
+    assert len(w_r) == len(w_py), (
+        f"chebyshev: weight vector length mismatch — R={len(w_r)}, Python={len(w_py)}"
+    )
+    max_abs_diff = np.max(np.abs(w_r - w_py))
+    print(f"  chebyshev: max|w_R - w_Py| = {max_abs_diff:.2e}")
+    assert max_abs_diff < 1e-6, (
+        f"chebyshev parity FAIL: max|w_R - w_Py| = {max_abs_diff:.2e} >= 1e-6 "
+        f"(iters_R={iters_r}, iters_Py={iters_py}; "
+        "check warm-start floor in c_api.cpp:359 — must match r_bridge.cpp:648 floor=5; "
+        "see T4 fix b60a3fd)"
+    )
