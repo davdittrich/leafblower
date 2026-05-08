@@ -245,6 +245,9 @@ def harvest(
     if auto_collapse is True or (collapse_vars is not None and auto_collapse is not False):
         vars_to_collapse = collapse_vars if collapse_vars is not None else list(targets.keys())
         data = data.copy()  # avoid mutating caller's DataFrame
+        # Deep-copy targets too: targets[v].pop() below permanently corrupts
+        # caller's dict (parity with the data.copy() above).
+        targets = {k: (dict(v) if isinstance(v, dict) else v) for k, v in targets.items()}
         for v in vars_to_collapse:
             if v not in targets:
                 continue
@@ -472,8 +475,11 @@ def harvest(
     }
     if capacity_penalty is not None:
         params["capacity_penalty"] = capacity_penalty
-    if alm_penalty is not None and alm_penalty > 0.0:
-        params["alm_penalty"] = alm_penalty
+    if alm_penalty is not None:
+        # Pass through unconditionally — R sends -1.0 as 'disabled' sentinel;
+        # C-side handles sentinel semantics. Previously the >0.0 gate silently
+        # diverged from R parity for negative inputs.
+        params["alm_penalty"] = float(alm_penalty)
 
     log_fn = print if verbose > 0 else None
 
@@ -599,9 +605,12 @@ def harvest(
         out[weight_column] = weights_out
         # Expose calibration diagnostics via DataFrame.attrs (PEP 526 / pandas 1.0+).
         # Nest SOR fields to match R's result$sor namespace.
+        # Non-SOR solvers (newton_kl, chebyshev, greg, etc.) don't populate
+        # SOR fields; .pop with default avoids KeyError. R side returns NULL
+        # for these; Python returns None inside the nested dict.
         result_dict["sor"] = {
-            "min_omega": result_dict.pop("sor_min_omega"),
-            "n_damped":  result_dict.pop("sor_n_damped"),
+            "min_omega": result_dict.pop("sor_min_omega", None),
+            "n_damped":  result_dict.pop("sor_n_damped", None),
         }
         out.attrs["result"] = result_dict
         out.attrs["iterations"] = result_dict["iterations"]
