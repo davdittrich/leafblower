@@ -34,7 +34,7 @@ res <- harvest(
   method         = "chebyshev",
   min_weight     = 0,
   max_weight     = 5,
-  max_iterations = 3000,
+  max_iterations = 40,
   convergence    = list(metric = "max_err", rule = "improvement", tol = 1e-4),
   verbose        = 0L
 )

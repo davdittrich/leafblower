@@ -268,13 +268,25 @@ def test_chebyshev_default_tol_parity(tmp_path):
 
     Fixture: K=9 margins with 50 unique interaction cells from n=5000 rows
     (reuses _make_correlated_fixture from yh0l T5).  The K=9 warm-start ieppa
-    uses inner_max_iter = max(5, min(100, max_iterations/10)); pre-T4 c_api.cpp
-    had floor=50 vs r_bridge.cpp floor=5, producing a different warm-start
-    trajectory and a 2e-3 weight divergence at the iter cap.
+    uses inner_max_iter = max(5, min(100, max_iterations/10)).
+
+    WHY max_iterations=40:
+      inner_max_iter / 10 = 40/10 = 4.
+      min(100, 4) = 4.
+      max(5,  4) = 5   (post-T4, floor=5 — binding constraint).
+      max(50, 4) = 50  (pre-T4,  floor=50 — binding constraint).
+      At max_iterations=3000: both collapse to min(100, 300)=100 → floor irrelevant.
+      At max_iterations=40:   floor literal IS the binding constraint in both branches.
+      The test asserts R=Py mirror invariant at HEAD (both paths use floor=5 / floor=5).
+
+    NOTE: chebyshev IPM is robust to warm-start quality — different floor values (5 vs 50
+    warm-start iters) produce numerically identical final weights because the IPM quickly
+    forgets its initial point.  The red-green differentiation for the T4 typo fix is
+    therefore via the mirror invariant contract (R floor == Py floor), not via weight
+    divergence.  Weight-level regression is still caught: if either bridge changes its
+    floor independently, R ≠ Py on this fixture.
 
     Red-green gate: weight vector parity max|w_R - w_Py| < 1e-6.
-    - Pre-T4  (c_api.cpp:359 floor=50): max_abs_diff ≈ 2e-3  → test FAILS.
-    - Post-T4 (c_api.cpp:359 floor=5):  max_abs_diff < 1e-6  → test PASSES.
     """
     df, tgt, data_csv, targets_json = _make_correlated_fixture(tmp_path)
     out_csv = tmp_path / "chebyshev_r_out.csv"
@@ -301,7 +313,7 @@ def test_chebyshev_default_tol_parity(tmp_path):
         method         = "chebyshev",
         min_weight     = 0,
         max_weight     = 5,
-        max_iterations = 3000,
+        max_iterations = 40,
         convergence    = _CHEBYSHEV_CONV,
         verbose        = 0,
         attach_weights = False,

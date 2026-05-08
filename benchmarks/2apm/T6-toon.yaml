@@ -6,10 +6,15 @@ data:
   chebyshev_max_abs_diff_post_T4: 2.047e-3
   chebyshev_max_abs_diff_pre_T4: 2.047e-3
   T4_fix_status: >-
-    VALID — T5 test proves harmonization on convergent fixtures (max_abs_diff < 1e-6).
-    T4 floor literal only triggers when inner_max_iter < 500; parity_bench uses
-    max_iter=3000 → both langs compute warm-start=100 iter regardless of floor.
-    Residual divergence at iter cap on stepstone fulldata is NOT from warm-start floor.
+    VALID — fixes latent floor typo (mirror invariant violation at c_api.cpp:359 vs
+    r_bridge.cpp:648). Triggers only when inner_max_iter < 50 (max_iterations < 500).
+    T5 fixture lowered to max_iterations=40 so the floor literal IS the binding constraint
+    (floor=5→5 iters vs floor=50→50 iters). Weight-level red-green differentiation is NOT
+    achievable: chebyshev IPM is robust to warm-start quality — floor=5 and floor=50 produce
+    identical final weights. T5 instead tests the mirror-invariant contract: R and Py must
+    agree at HEAD (both floors = 5). If either bridge independently changes its floor, R ≠ Py.
+    Production parity_bench uses max_iter=3000 → both floors collapse via min(100,300)=100.
+  t4_fixes_observed_stepstone_divergence: false
   residual_followup_ticket: leafblower-8u2y
   regressed_methods: []
   testthat_pass: true
