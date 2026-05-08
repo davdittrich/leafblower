@@ -491,13 +491,20 @@ def harvest(
 
     # Build convergence_used nested dict from raw integer fields (WU-G).
     # Mirrors R's harvest.R WU-E2 block.
+    def _safe_metric_name(idx):
+        if 0 <= idx < len(_METRIC_NAMES):
+            return _METRIC_NAMES[idx]
+        raise RuntimeError(
+            f"C bridge returned out-of-range metric id {idx} "
+            f"(valid: 0..{len(_METRIC_NAMES)-1}). Check leafblower build version."
+        )
     result_dict["convergence_used"] = {
-        "metric":        _METRIC_NAMES[result_dict.get("convergence_metric", 0)],
+        "metric":        _safe_metric_name(result_dict.get("convergence_metric", 0)),
         "rule":          _RULE_NAMES[result_dict.get("convergence_rule", 1)],
         "tol":           result_dict.get("convergence_tol", 0.001),
         "fired_at_iter": result_dict.get("convergence_iter", -1),
         "objective":         result_dict.get("convergence_solver_objective", float("inf")),
-        "minimized_metric":  _METRIC_NAMES[result_dict.get("convergence_minimized_metric", 0)],
+        "minimized_metric":  _safe_metric_name(result_dict.get("convergence_minimized_metric", 0)),
     }
 
     if result_dict["status"] == 1:
