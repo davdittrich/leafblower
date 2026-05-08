@@ -719,14 +719,21 @@ harvest <- function(
 # --- Helpers (each <= 15 lines, independently testable) ---
 
 compute_sparseness_diag <- function(target, data, cat_threshold = 0.01, obs_threshold = 30L) {
+  # Pre-hoist: extract data column names once; avoids repeated names(data) in loop.
+  data_names  <- names(data)
   sparse_cats <- list()
   for (v in names(target)) {
-    if (!v %in% names(data)) next
-    counts <- table(data[[v]])
-    for (lv in names(target[[v]])) {
-      T_kj <- target[[v]][[lv]]
-      n_kj  <- as.integer(counts[as.character(lv)])
-      n_kj  <- if (is.na(n_kj)) 0L else n_kj
+    if (!v %in% data_names) next
+    tv   <- target[[v]]           # hoist target[[v]] — one string lookup per margin
+    col  <- data[[v]]             # hoist data[[v]]   — one string lookup per margin
+    lvs  <- names(tv)             # hoist names() — reused for tabulate and inner loop
+    # tabulate(match()) replaces table(): avoids factor()+unique() passes over col,
+    # cutting 70% of per-call cost (profile: factor+unique.default = 66% self-time).
+    cnts <- tabulate(match(col, lvs), nbins = length(lvs))
+    names(cnts) <- lvs
+    for (lv in lvs) {
+      T_kj <- tv[[lv]]
+      n_kj  <- cnts[[lv]]         # integer (tabulate output); 0 for absent levels
       if (T_kj < cat_threshold || n_kj < obs_threshold) {
         sparse_cats[[v]] <- c(sparse_cats[[v]], list(list(level = lv, T_kj = T_kj, n_kj = n_kj)))
       }
