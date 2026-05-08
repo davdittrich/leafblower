@@ -43,9 +43,9 @@ int compute_normal_equations_reduced(
 int cholesky_factor_inplace(double* A, size_t n, double eps_perturb);
 
 /**
- * Solve A×x = b using a previously LDLT-factored matrix (in-place combined storage).
- * A is the factored matrix from cholesky_factor_inplace: lower triangle holds L,
- * diagonal holds d.  Overwrites b with the solution.
+ * Solve A×x = b using a previously Cholesky (LL^T)-factored matrix (in-place combined storage).
+ * A is the factored matrix from cholesky_factor_inplace: lower triangle holds L.
+ * Overwrites b with the solution.
  */
 void cholesky_solve(const double* A, size_t n, double* b);
 
