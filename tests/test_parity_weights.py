@@ -256,6 +256,11 @@ _CHEBYSHEV_R_HELPER = REPO_ROOT / "tests" / "parity" / "run_chebyshev_r.R"
 # Convergence params — identical in R helper and Python call below.
 _CHEBYSHEV_CONV = {"metric": "max_err", "rule": "improvement", "tol": 1e-4}
 
+_CHEBYSHEV_SUBPROCESS_ENV = {**os.environ,
+                              "OMP_NUM_THREADS": "1",
+                              "OPENBLAS_NUM_THREADS": "1",
+                              "MKL_NUM_THREADS": "1"}
+
 
 @pytest.mark.skipif(not RSCRIPT_AVAILABLE, reason="Rscript not found")
 def test_chebyshev_default_tol_parity(tmp_path):
@@ -274,12 +279,6 @@ def test_chebyshev_default_tol_parity(tmp_path):
     df, tgt, data_csv, targets_json = _make_correlated_fixture(tmp_path)
     out_csv = tmp_path / "chebyshev_r_out.csv"
 
-    _CHEBYSHEV_SUBPROCESS_ENV = {
-        **os.environ,
-        "OMP_NUM_THREADS": "1",
-        "OPENBLAS_NUM_THREADS": "1",
-        "MKL_NUM_THREADS": "1",
-    }
     result = subprocess.run(
         ["Rscript", str(_CHEBYSHEV_R_HELPER),
          str(data_csv), str(targets_json), str(out_csv)],

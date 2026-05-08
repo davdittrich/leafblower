@@ -2,6 +2,10 @@
 # run_chebyshev_r.R — T5 parity helper: chebyshev at tol=1e-4, max_weight=5
 # Args: <data_csv> <targets_json> <out_csv>
 # out_csv columns: weight, iterations, status
+# Note: alm_capacity_mu_final intentionally omitted — chebyshev is LP/IPM
+# (not ALM); capacity_mu is irrelevant for this solver. Divergence signal
+# for chebyshev is the warm-start floor (c_api.cpp:359 vs r_bridge.cpp:648),
+# not capacity_mu. See benchmarks/2apm/winner.toon.
 
 # Enforce single-thread BLAS before any library load so that thread count is
 # locked before OpenBLAS / MKL / OpenMP initialise their thread pools.
