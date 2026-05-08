@@ -272,7 +272,7 @@ harvest <- function(
   # character path (as.character(NA) == "NA") rather than the factor path which
   # maps NA codes to -1L.
   .na_margins <- character(0)
-  if (!isFALSE(add_na_proportion)) {
+  if (isTRUE(add_na_proportion)) {
     n_local <- nrow(data)
     for (v in names(target)) {
       if (!v %in% names(data)) next
@@ -548,10 +548,12 @@ harvest <- function(
 
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
-  if (calib_result$status == 2L)
+  # NULL-guard required: `NULL == 2L` returns logical(0), and `if (logical(0))`
+  # silently skips the branch — leaking garbage weights to caller.
+  if (!is.null(calib_result$status) && calib_result$status == 2L)
     stop("leafblower: ", if (nchar(calib_result$message) > 0) calib_result$message
          else "infeasible problem")
-  if (calib_result$status == 3L)
+  if (!is.null(calib_result$status) && calib_result$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 
   # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp).
