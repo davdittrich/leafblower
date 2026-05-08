@@ -646,12 +646,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_iterations = res.base.iterations;
         res_max_error  = res.base.max_error;
         res_alg_used   = (int)RK_ALG_NEWTON_KL;
-        res_n_projected_dims = res.n_projected_dims;
-        res_lm_mu_final      = res.lm_mu_final;
+        res_n_projected_dims  = res.n_projected_dims;
+        res_lm_mu_final       = res.lm_mu_final;
+        res_n_bounds_violated = res.n_bounds_violated;  // surface violation count (leafblower-73d7)
         if (!res.base.best_weights.empty())
             res_best_weights = std::move(res.base.best_weights);
         else
-            res_best_weights.assign(st.n, 0.0);
+            res_best_weights.assign(st.n, 0.0);  // sentinel zeros: violation guard left best_weights empty
     } else {
         // Dispatch for chebyshev, ieppa_soft, and default ieppa.
 

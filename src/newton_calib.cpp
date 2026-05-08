@@ -826,7 +826,14 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     }
 
     // ── 7. Write calibrated weights and compute max_error ───────────────────
-    for (int i = 0; i < n; ++i) st.weights[i] = w[i];
+    // Guard: only write to caller's st.weights when no threshold violation.
+    // When frac_violated > 0.05 (T4 contract), st.weights retains the
+    // pre-violation iterate; res.base.best_weights is left empty/default.
+    // max_error is still computed from w[] so callers get a finite diagnostic.
+    const bool violation_threshold_crossed = (frac_violated > 0.05);
+    if (!violation_threshold_crossed) {
+        for (int i = 0; i < n; ++i) st.weights[i] = w[i];
+    }
 
     double max_err = 0.0;
     for (int k = 0; k < K; ++k) {
@@ -846,9 +853,11 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             if (err > max_err) max_err = err;
         }
     }
-    res.base.max_error    = max_err;
-    res.base.best_weights = w;
-    res.lm_mu_final       = lm_mu;
+    res.base.max_error = max_err;
+    if (!violation_threshold_crossed) {
+        res.base.best_weights = w;
+    }
+    res.lm_mu_final = lm_mu;
 
     return res;
 }
