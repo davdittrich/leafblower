@@ -413,10 +413,14 @@ RakingResult raking_solve(CalibState& st) {
                 l1_weight /= static_cast<double>(st.n);
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
 
-                // Extra metrics for non-MAX_ERR convergence
+                // Extra metrics needed for: non-MAX_ERR convergence, OR final
+                // iter (full diagnostics), OR MAX_ERR with chi2 propagation
+                // (leafblower-a605: chi2 was stale on early-converged MAX_ERR
+                // when last_F_metrics-write iter ≠ converging iter).
                 const lbw::CalibMetric metric = st.convergence_cfg.metric;
                 double mean_err = 0.0, kl_max = 0.0, chi2_total = 0.0, grake_norm = 0.0;
-                const bool need_extra = (metric == lbw::CalibMetric::MEAN_ERR ||
+                const bool need_extra = (metric == lbw::CalibMetric::MAX_ERR ||
+                                         metric == lbw::CalibMetric::MEAN_ERR ||
                                          metric == lbw::CalibMetric::KL ||
                                          metric == lbw::CalibMetric::CHI2 ||
                                          metric == lbw::CalibMetric::GRAKE_NORM ||
