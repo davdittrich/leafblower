@@ -149,7 +149,11 @@ PYBIND11_MODULE(_leafblower, m) {
             }
 
             rk_result_t result;
-            std::memset(&result, 0, sizeof(result));
+            rk_result_init(&result);  // sets sentinel +Inf on best_error,
+                                      // sor_min_omega=1.0, prev_check_iter=-1,
+                                      // convergence_tol=0.001 etc. Bare memset()
+                                      // here would zero those — Python callers
+                                      // saw best_error=0.0 on solver failure.
             int rc;
             {
                 py::gil_scoped_release release;

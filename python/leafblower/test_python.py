@@ -11,7 +11,7 @@ def test_harvest_returns_copy():
     tgts = [np.array([0.5, 0.5])]
     # Half in cat 0, half in cat 1
     gids[0][50:] = 1
-    status, weights_out, res = calibrate(n, 1, weights, gids, cats, tgts)
+    status, weights_out, res = calibrate(n, 1, weights, gids, cats, tgts, {}, None)
     weights_out[0] = 9999.0
     assert weights[0] != 9999.0, "weights_out must be a copy"
 

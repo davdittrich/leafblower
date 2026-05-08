@@ -160,7 +160,10 @@ int estimate_M_cell(int n, int K,
     for (int k = 0; k < K; k++) bit_widths[k] = bits_needed(cat_counts[k] + 1);
 
     std::unordered_set<uint64_t> seen;
-    seen.reserve(static_cast<size_t>(std::min(n, 1 << 20)));  // caps allocation; count remains exact
+    // Pre-allocate up to 1M buckets when n is large; the set may still grow
+    // beyond this if distinct cell count exceeds the hint (insert is unbounded).
+    // The hint just avoids rehash thrash for typical n; it does NOT cap count.
+    seen.reserve(static_cast<size_t>(std::min(n, 1 << 20)));
     for (int i = 0; i < n; i++)
         seen.insert(pack_key_compute(K, group_ids, i, cat_counts, bit_widths.data()));
     return static_cast<int>(seen.size());
