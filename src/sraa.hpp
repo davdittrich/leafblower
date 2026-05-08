@@ -20,7 +20,13 @@ static constexpr int    kSRAAMaxM         = 5;     // stack array bound; init() 
 static constexpr int    kSRAAm            = 5;     // default window: ~176 MB at stepstone scale
 static constexpr int    kSRAAMinCount     = 2;     // min DX/DR pairs before AA fires
 static constexpr double kSRAAdeltaReg     = 1e-10; // relative Tikhonov on Gram matrix
-static constexpr double kSRAARestartGamma = 2.0;   // restart when ||R_k||^2 > 4 x prev_norm
+// SRAA Anderson-acceleration restart trigger.
+// Restart when residual norm grows by factor > kSRAARestartGamma vs prev iter:
+//   ||R_k||   > kSRAARestartGamma   * ||R_prev||                  (intuition)
+//   ||R_k||^2 > kSRAARestartGammaSq * ||R_prev||^2                (computed)
+// Squaring avoids sqrt on the already-squared norm_k.
+static constexpr double kSRAARestartGamma   = 2.0;
+static constexpr double kSRAARestartGammaSq = kSRAARestartGamma * kSRAARestartGamma;  // 4.0
 static constexpr double kSRAAOuterSlack       = 0.10; // 10% above best_errRp → stall
 static constexpr int    kSRAAOuterStallWindow = 5;    // 5 stall iters → revert+restart
 
@@ -113,7 +119,7 @@ SRAAStepResult sraa_step(
 
     // --- Step 2: Restart check (guarded by has_prev — never fires on first call) ---
     if (state.has_prev &&
-        norm_k > kSRAARestartGamma * kSRAARestartGamma * state.prev_resid_norm) {
+        norm_k > kSRAARestartGammaSq * state.prev_resid_norm) {
         state.clear();
         std::swap(X, state.F_cur);
         return {false, 1, err_plain};
