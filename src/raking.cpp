@@ -345,19 +345,22 @@ RakingResult raking_solve(CalibState& st) {
             auto r = lbw::sraa_step(F_eval, X, L_cell, U_cell, rk_sraa);
             if (!r.aa_accepted && r.f_evals == 2) last_F_metrics = saved_metrics;
             f_evals_used += r.f_evals;
-            res.base.max_error  = r.err_result;
+            // hhmk: use last_F_metrics.errRp (accepted iterate) instead of removed
+            // r.err_rp fast-proxy. select_metric() honors cfg.metric.
+            const double sraa_metric_val = lbw::select_metric(st.convergence_cfg.metric, last_F_metrics);
+            res.base.max_error  = last_F_metrics.errRp;
             res.base.iterations = f_evals_used;
 
-            // Best-iterate tracking
-            if (r.err_result < best.best_metric) {
-                best.update(r.err_result,
+            // Best-iterate tracking (uses cfg-specified metric, not max_err proxy)
+            if (sraa_metric_val < best.best_metric) {
+                best.update(sraa_metric_val,
                             lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n, kl_ratio_scratch.data(), kl_weight_scratch.data()),
                             f_evals_used, X);
             }
 
             // Outer revert: if quality has degraded significantly, revert to best
             {
-                double curr_quality_rk = r.err_result;
+                double curr_quality_rk = sraa_metric_val;
                 if (curr_quality_rk > best.best_metric * (1.0 + lbw::kSRAAOuterSlack)) {
                     if (++rk_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
                         X = best.best_weights;    // revert; no S_flat rebuild — F_eval handles it
@@ -370,7 +373,8 @@ RakingResult raking_solve(CalibState& st) {
             // Convergence check
             {
                 lbw::CellMetrics m_conv = last_F_metrics;
-                m_conv.errRp = r.err_result;
+                // m_conv.errRp already populated by F_eval (accepted iterate);
+                // no need to override with proxy.
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
                     lbw::mark_converged(res, st.convergence_cfg, f_evals_used);
@@ -381,7 +385,7 @@ RakingResult raking_solve(CalibState& st) {
             if (st.verbose >= 1) {
                 char msg[256];
                 std::snprintf(msg, 256, "raking[sraa] f_evals=%d errRp=%.2e aa=%d",
-                              f_evals_used, r.err_result, (int)r.aa_accepted);
+                              f_evals_used, last_F_metrics.errRp, (int)r.aa_accepted);
                 st.log(msg);
             }
         }

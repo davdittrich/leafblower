@@ -1154,17 +1154,17 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 f_evals_used += r.f_evals;
                 iter_sraa    += r.f_evals;
                 res.base.iterations = total_iters + f_evals_used;
-                res.base.max_error  = r.err_result;
+                res.base.max_error  = r.err_rp;
 
                 // B-narrow SOR coexistence: enable SOR adaptation on plain
                 // (non-AA-accepted) SRAA steps, disable on AA-accepted steps
                 // (their trajectory is non-monotone from extrapolation; SOR
-                // would fight AA). Uses global errRp from r.err_result as the
+                // would fight AA). Uses global errRp from r.err_rp as the
                 // monotonicity proxy — coarser than per-margin errRp_k but
                 // preserves the dampening effect needed to stabilize max_err.
                 sor_auto_v = sor_base && !r.aa_accepted;
                 if (sor_auto_v && sor_active && iter_sraa >= sor_burnin_v) {
-                    const double curr_errRp = r.err_result;
+                    const double curr_errRp = r.err_rp;
                     bool decreasing = (curr_errRp < sor_prev_errRp[0]);
                     bool sign_flip  = !decreasing && sor_prev_decreasing[0];
                     if (sign_flip) {
@@ -1189,8 +1189,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // when errRp degrades for kSRAAOuterStallWindow steps.
                 // Uses errRp (not best.best_metric) since best-iterate now tracks
                 // marginal_kl on the kErrCheckInterval gate, not errRp per-step.
-                sraa_best_errRp = std::min(sraa_best_errRp, r.err_result);
-                if (r.err_result > sraa_best_errRp * (1.0 + lbw::kSRAAOuterSlack)) {
+                sraa_best_errRp = std::min(sraa_best_errRp, r.err_rp);
+                if (r.err_rp > sraa_best_errRp * (1.0 + lbw::kSRAAOuterSlack)) {
                     if (++sraa_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
                         lf_flat = lf_best;
                         unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
@@ -1257,7 +1257,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     char msg[256];
                     std::snprintf(msg, sizeof(msg),
                                   "iEPPA[sraa] f_evals=%d errRp=%.3e aa=%d",
-                                  f_evals_used, r.err_result,
+                                  f_evals_used, r.err_rp,
                                   (int)r.aa_accepted);
                     st.log(msg);
                 }

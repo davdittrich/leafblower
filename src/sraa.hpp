@@ -27,7 +27,14 @@ static constexpr int    kSRAAOuterStallWindow = 5;    // 5 stall iters → rever
 struct SRAAStepResult {
     bool   aa_accepted;
     int    f_evals;     // 1 (plain) or 2 (AA attempted)
-    double err_result;  // max_error of accepted step
+    // STRICTLY the raw errRp of the accepted iterate (max relative residual,
+    // computed by f_eval). Use ONLY for: (a) max_error reporting,
+    // (b) SOR oscillation monitor, (c) outer-stall guard on raw residual.
+    // DO NOT use for best-iterate selection — that bug was re-introduced
+    // twice (leafblower-hhmk). For best-iterate tracking, callers must
+    // compute select_metric(cfg.metric, full_cm) from a fresh CellMetrics
+    // at kErrCheckInterval boundaries, NOT this field.
+    double err_rp;
 };
 
 struct SRAAState {
