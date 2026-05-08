@@ -288,6 +288,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     // Post-loop status
     if (res.base.status == RK_ERR_NOCONV) {
         res.base.status = (best_resid < initial_resid * 0.999) ? RK_ERR_BUDGET : RK_ERR_STALL;
+        if (res.base.status == RK_ERR_STALL) res.base.stall_kind = 2;  // KL/metric plateau (BCD-class)
         std::snprintf(res.message, sizeof(res.message),
             "logit: %s after %d Newton steps",
             res.base.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",

@@ -229,6 +229,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         // B5: compare against first_errRp (initial error), not prev_metric (last update = final error)
         res.base.status = (first_errRp > 0.0 && final_errRp < first_errRp * 0.999)
             ? RK_ERR_BUDGET : RK_ERR_STALL;
+        if (res.base.status == RK_ERR_STALL) res.base.stall_kind = 2;  // KL plateau (Sinkhorn-class)
         std::snprintf(res.message, sizeof(res.message),
             "greenkhorn: %s after %d steps; best max_err=%.4e",
             res.base.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",

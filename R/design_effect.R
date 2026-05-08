@@ -1,10 +1,13 @@
-#' Kish design effect (1-argument) or Henry-Valliant (4-argument)
+#' Kish design effect (1-argument) or Cochran (1977) calibration design effect (4-argument)
 #'
 #' When called with only \code{weights}, computes the Kish (1992) design effect:
 #' \code{n * sum(w^2) / sum(w)^2}.
 #'
 #' When called with all four arguments, computes the Henry & Valliant (2015)
-#' calibration design effect: \code{var_weighted(y) / var_unweighted(y)}.
+#' calibration design effect ratio \code{var_weighted(y) / var_unweighted(y)},
+#' using Cochran (1977) §4.5 unbiased weighted variance for the numerator
+#' (denominator \code{(sum(w)^2 - sum(w^2)) / sum(w)}, reduces to Bessel
+#' \code{(n-1)} under uniform weights; matches \code{survey::svydesign}).
 #'
 #' @param weights Numeric vector of calibrated weights.
 #' @param outcome Numeric outcome vector (optional; 4-arg form only).
