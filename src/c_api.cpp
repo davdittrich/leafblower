@@ -460,8 +460,12 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         }
     }
 
-    // Auto-fallback: if primary solver NOCONVs, retry with newton_kl
-    if (status == RK_ERR_NOCONV && p->algorithm == RK_ALG_AUTO) {
+    // Auto-fallback: if primary solver NOCONV or BUDGET, retry with newton_kl.
+    // Parity with r_bridge.cpp:558 — both NOCONV and BUDGET indicate "still
+    // improving, ran out of iterations" and should fall back. STALL stays put
+    // (at constrained optimum, fallback won't help).
+    if ((status == RK_ERR_NOCONV || status == RK_ERR_BUDGET)
+        && p->algorithm == RK_ALG_AUTO) {
         if (p->verbose >= 1)
             st.log("auto: primary NOCONV; retrying with newton_kl");
         std::copy(weights_backup.begin(), weights_backup.end(), weights);
