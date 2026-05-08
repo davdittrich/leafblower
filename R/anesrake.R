@@ -34,8 +34,9 @@ anesrake <- function(inputter, targets, weightvec = NULL, caseid = NULL,
     convergence[["pct"]] <- pctlim
   }
 
-  # F7: silently remap legacy "rake"/"nrake" to "ieppa" — avoids deprecation warning
-  if (choosemethod %in% c("rake", "nrake")) choosemethod <- "ieppa"
+  # F7: silently remap legacy "rake"/"nrake" to "ieppa" — avoids deprecation warning.
+  # tolower() guards against caller-passed "Rake"/"NRAKE" etc.
+  if (tolower(choosemethod) %in% c("rake", "nrake")) choosemethod <- "ieppa"
 
   harvest(
     data           = inputter,

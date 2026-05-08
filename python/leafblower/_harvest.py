@@ -141,9 +141,11 @@ def _parse_sor(sor):
 
 def _parse_target(target, target_map=None):
     """Mirror R parse_target(): convert DataFrame target to dict. No normalization."""
-    if not (_PANDAS_AVAILABLE and isinstance(target, __import__("pandas").DataFrame)):
-        return target  # already dict or pandas not available
+    if not _PANDAS_AVAILABLE:
+        return target  # pandas not available, target must be dict
     import pandas as pd
+    if not isinstance(target, pd.DataFrame):
+        return target  # already dict
     if target_map is not None:
         vcol = target_map["variable"]
         lcol = target_map["level"]

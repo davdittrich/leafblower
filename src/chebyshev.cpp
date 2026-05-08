@@ -531,11 +531,8 @@ ChebyshevResult chebyshev_ipm(
 
             // ── ν correction (Phase B): reuse w_e_red (SM-corrected) and schur_nu from Phase A ──
             // e_red is fixed within iteration → w_e_red identical between phases.
-            const double schur_nu_B = D_nu - [&](){
-                double s = 0.0;
-                for (int nr = 0; nr < nct_red; nr++) s += e_red[nr] * w_e_red[nr];
-                return s;
-            }();
+            // T46: reuse eTw_e_A computed at line 411 (line invariant within iter).
+            const double schur_nu_B = D_nu - eTw_e_A;
             double eTdl_B = 0.0;
             for (int nr = 0; nr < nct_red; nr++) eTdl_B += e_red[nr] * dlambda_B_red[nr];
             const double dnu_B = (schur_nu_B > kSchurNuMin) ? (-r_nu - eTdl_B) / schur_nu_B : 0.0;
