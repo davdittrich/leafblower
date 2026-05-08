@@ -449,7 +449,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     constexpr double kAlphaBeta          = 0.5;   // P2.1 stress→alpha mapping: alpha = 1/(1+β·stress)
     constexpr double kSorOscillationDamp = 0.7;   // SOR sign-flip: reduce omega by this factor
     constexpr double kSorRecoveryGrowth  = 1.05;  // SOR monotone: recover omega by this factor
-    constexpr double kInfeasStallRatio   = 10.0;  // stall warn: max_error / pct_tol threshold
+    // kInfeasStallRatio defined once in ieppa_finalize() at line 148; this scope
 
     IEPPAResult res;
     res.base.status = RK_ERR_NOCONV;

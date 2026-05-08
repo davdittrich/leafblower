@@ -36,7 +36,7 @@ int compute_normal_equations_reduced(
 ) noexcept;
 
 /**
- * In-place LDLT factorization of a symmetric positive semidefinite n×n matrix.
+ * In-place Cholesky (LL^T) factorization of a symmetric positive semidefinite n×n matrix.
  * eps_perturb: minimum diagonal value after factorization (Gill-Murray stability).
  * Returns RK_OK or RK_ERR_BADARG if n > kNCatsTotalMax.
  */

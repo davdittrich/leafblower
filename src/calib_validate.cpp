@@ -35,8 +35,8 @@ int calib_validate_preentry(const CellTable& ct,
     double sum_L = 0.0, sum_U = 0.0;
 
     for (int c = 0; c < ct.M_cell; c++) {
-        double L_c = lo * ct.n_per_cell[c];
-        double U_c = hi * ct.n_per_cell[c];
+        double L_c = lo * static_cast<double>(ct.n_per_cell[c]);
+        double U_c = hi * static_cast<double>(ct.n_per_cell[c]);
 
         // 2a. Empty cell guard
         if (ct.n_per_cell[c] == 0) {
