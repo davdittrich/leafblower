@@ -984,12 +984,13 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 for (size_t r = 0; r < cells.size(); r++) {
                     int c = cells[r];
                     if (X_init[c] <= 0.0 || W[c] <= 0.0) continue;
-                    double s = log_X_init[c] + log_W[c];
-                    for (int m = 0; m < st.K; m++) {
-                        if (m == k) continue;
-                        int gm = ct.g_per_cell[m][c];
-                        s += lf[cat_offset[m] + gm];
-                    }
+                    // pdzx: O(K) inner loop replaced by cell_lf shadow + 1 subtraction.
+                    // cell_lf[c] = Σ_m lf[cat_offset[m] + g_per_cell[m][c]] (g>=0 only).
+                    // We need Σ_{m!=k} that sum, so subtract margin-k's contribution
+                    // iff g_k(c) >= 0 (mirrors cell_lf accumulation guard).
+                    double s = log_X_init[c] + log_W[c] + cell_lf[c];
+                    int gk = ct.g_per_cell[k][c];
+                    if (gk >= 0) s -= lf[cat_offset[k] + gk];
                     lv[r] = s;
                     if (s > lv_max) lv_max = s;
                 }
