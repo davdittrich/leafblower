@@ -791,7 +791,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         std::copy(res_best_weights.begin(), res_best_weights.end(), weights.begin());
     }
 
-    // Build return list: list(weights=numeric[n], result=list(23 fields))
+    // Build return list: list(weights=numeric[n], result=list(42 fields))
+    // PROTECT out first so wts/res_list/res_names sit above it on the stack;
+    // each is UNPROTECTed immediately after adoption, in LIFO order.
+    SEXP out = PROTECT(Rf_allocVector(VECSXP, 2));  // owns wts + res_list below
+
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
@@ -903,15 +907,20 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SET_STRING_ELT(res_names, 41, Rf_mkChar("convergence_stall_kind"));
     SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(res_stall_kind));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
+    UNPROTECT(1);  // res_names adopted by res_list
 
-    SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));
-    SEXP out_names = PROTECT(Rf_allocVector(STRSXP,  2));
-    SET_STRING_ELT(out_names, 0, Rf_mkChar("weights"));
-    SET_STRING_ELT(out_names, 1, Rf_mkChar("result"));
-    SET_VECTOR_ELT(out, 0, wts);
     SET_VECTOR_ELT(out, 1, res_list);
-    Rf_setAttrib(out, R_NamesSymbol, out_names);
-    UNPROTECT(5);
+    UNPROTECT(1);  // res_list adopted by out
+    SET_VECTOR_ELT(out, 0, wts);
+    UNPROTECT(1);  // wts adopted by out
+    {
+        SEXP out_names = PROTECT(Rf_allocVector(STRSXP,  2));
+        SET_STRING_ELT(out_names, 0, Rf_mkChar("weights"));
+        SET_STRING_ELT(out_names, 1, Rf_mkChar("result"));
+        Rf_setAttrib(out, R_NamesSymbol, out_names);
+        UNPROTECT(1);  // out_names adopted by out
+    }
+    UNPROTECT(1);  // out: return transfers ownership to caller
     return out;
 }
 
