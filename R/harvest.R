@@ -392,6 +392,9 @@ harvest <- function(
 
   bounds_mode_char <- parse_bounds_mode(bounds_mode)
   bounds_mode_int  <- match(bounds_mode_char, c("cell", "unit")) - 1L
+  if (is.na(bounds_mode_int))
+    stop(sprintf("bounds_mode must be one of 'cell' or 'unit'; got: %s",
+                 format(bounds_mode_char)), call. = FALSE)
 
   # Overlay arg resolution
   scheduler    <- match.arg(scheduler)
