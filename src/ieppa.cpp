@@ -826,7 +826,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         }
 
         // Recompute U_cell for this level's current_max_weight.
-        double hi = std::isfinite(current_max_weight) ? current_max_weight : 1e300;
+        double hi = std::isfinite(current_max_weight) ? current_max_weight : kUnboundedSentinel;
         for (int c = 0; c < ct.M_cell; c++) {
             U_cell[c] = hi * ct.n_per_cell[c];
         }

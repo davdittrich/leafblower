@@ -106,7 +106,7 @@ RakingResult raking_solve(CalibState& st) {
     // SOR: wire st.sor_cfg into raking's IPF step (same API as ieppa).
     // Apply only when bounds are active (oscillation risk).
     const bool sor_active  = st.sor_cfg.enabled &&
-                              (st.min_weight > 0.0 || hi < 1e300);
+                              (st.min_weight > 0.0 || hi < kUnboundedSentinel);
     const bool sor_auto    = st.sor_cfg.auto_adapt;
     const double omega_min = st.sor_cfg.omega_min;    // default 0.3
     const double omega_init = st.sor_cfg.omega_init;  // default 1.0

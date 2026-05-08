@@ -262,9 +262,16 @@ inline void apply_obs_expansion(
     }
 }
 
-/// Returns st.max_weight if finite, else 1e300.
+/// Sentinel for "unbounded" max_weight upper bound. Chosen as 1e300 (not
+/// std::numeric_limits<double>::infinity()) to preserve bit-exact numerical
+/// behavior under clamp/multiply: a finite sentinel saturates products and
+/// keeps downstream weight × cell-count arithmetic finite. parity_bench
+/// rtol=1e-6 vs prior literal-1e300 build is the gate.
+inline constexpr double kUnboundedSentinel = 1e300;
+
+/// Returns st.max_weight if finite, else kUnboundedSentinel.
 inline double resolve_hi(const CalibState& st) noexcept {
-    return std::isfinite(st.max_weight) ? st.max_weight : 1e300;
+    return std::isfinite(st.max_weight) ? st.max_weight : kUnboundedSentinel;
 }
 
 /// Fills L[c] = lo*n_per_cell[c], U[c] = hi*n_per_cell[c] for c in [0, M_cell).
