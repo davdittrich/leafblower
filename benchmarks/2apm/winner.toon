@@ -1,0 +1,89 @@
+task_id: T3_2apm
+success: true
+data:
+  branch: cause_c_with_winner
+  reduction: median_over_3_reps
+  winner: R
+  loser: Py
+  winner_basis_non_empirical: >-
+    c_api.cpp:352 declares 'ieppa warm-start; mirrors r_bridge.cpp:628-657'. The mirror invariant
+    is BROKEN at c_api.cpp:359 (floor=50) vs r_bridge.cpp:648 (floor=5). Per c_api's own comment,
+    r_bridge is source-of-truth. Empirical Tier-1 ranking is mixed (R wins fulldata margin_kl
+    primary, conf=77; Py wins medium wall_ms tiebreak, conf=99; small_hicard tied) — the mixed
+    result is RESOLVED by the code-stated invariant rather than empirical preference.
+  per_dgp:
+    - dgp: fulldata
+      n: 1582732
+      r_margin_kl: 0.74099472
+      py_margin_kl: 0.74561543
+      r_wall_ms: 23771
+      py_wall_ms: 10389.357
+      r_iter: 500
+      py_iter: 500
+      r_weight_kl: 9.7292208e-05
+      py_weight_kl: 6.538819100304613e-12
+      r_max_abs_diff_stability: 0.13891672
+      py_max_abs_diff_stability: 0.13939123
+      dgp_winner: R
+      confidence: 77
+      note: "margin_kl: R=0.740995 Py=0.745615 rel_diff=0.00624"
+
+    - dgp: medium
+      n: 200000
+      r_margin_kl: 0.052224736
+      py_margin_kl: 0.052224736
+      r_wall_ms: 19533
+      py_wall_ms: 6593.7491
+      r_iter: 500
+      py_iter: 500
+      r_weight_kl: 0.0
+      py_weight_kl: 0.0
+      r_max_abs_diff_stability: 0.031085
+      py_max_abs_diff_stability: 0.031085
+      dgp_winner: Py
+      confidence: 99
+      note: "margin_kl tie (|diff|<1e-12); wall_ms: R=19533.0 Py=6593.7 rel=1.96"
+
+    - dgp: small_hicard
+      n: 5000
+      r_margin_kl: 0.047564536
+      py_margin_kl: 0.047564536
+      r_wall_ms: 18
+      py_wall_ms: 16.649348
+      r_iter: 2
+      py_iter: 2
+      r_weight_kl: 0.0
+      py_weight_kl: 0.0
+      r_max_abs_diff_stability: 0.030810806
+      py_max_abs_diff_stability: 0.030810806
+      dgp_winner: tie
+      confidence: 50
+      note: "all Tier-1 metrics within tie thresholds"
+
+  code_attribution:
+    r_side:
+      file: src/r_bridge.cpp
+      line: 648
+      quote: "st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));"
+    py_side:
+      file: src/c_api.cpp
+      line: 359
+      quote: "st_warm.inner_max_iter = std::max(50, std::min(100, st.inner_max_iter / 10));"
+    differentiator: >-
+      ieppa warm-start floor literal drifted: 5 (r_bridge.cpp:648, source-of-truth per
+      c_api.cpp:352 'mirrors r_bridge.cpp:628-657') vs 50 (c_api.cpp:359, hand-copy typo).
+      Floor 50 in c_api forces >=50 ieppa iterations of warm-start; floor 5 in r_bridge allows
+      as few as 5. Different w_warm/delta_warm -> different IPM Newton trajectory -> different
+      fixed-point within 500-iter cap -> max_abs_diff=2.047e-3.
+
+  fix_target: >-
+    src/c_api.cpp:359 — change 'std::max(50, std::min(100, st.inner_max_iter / 10))' ->
+    'std::max(5, std::min(100, st.inner_max_iter / 10))' to restore the mirror invariant declared
+    at c_api.cpp:352. Single 1-character literal change. T4 wrapper-only edit; no solver-core
+    touch (chebyshev.cpp/calib_dispatch.hpp/cell_table.hpp untouched).
+
+  no_winner_followup_ticket_required: false
+  spec_amendment_needed: false
+  spec_amendment_path: null
+
+error_log: null

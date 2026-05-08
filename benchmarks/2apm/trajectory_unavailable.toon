@@ -1,0 +1,13 @@
+task_id: T2_2apm_trajectory
+status: UNAVAILABLE
+reason: >
+  src/chebyshev.cpp line ~419: verbose >= 2 emits diagnostics only at iter == 0
+  (the initial iterate), not at each IPM iteration. No per-IPM-iteration trajectory
+  is available without adding instrumentation to the solver internals, which is
+  forbidden by task constraints (no src/ edits). Trajectory analysis is therefore
+  structurally impossible without solver modification.
+impact: >
+  Cause attribution proceeds via single-thread vs multi-thread weight comparison
+  (d_st vs d_mt) as specified. Trajectory data is not needed for cause (c)
+  resolution: d_st = 2.047e-3 > 1e-3 at single-thread confirms shared-code
+  numerical drift independent of thread count.

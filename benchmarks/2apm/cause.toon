@@ -1,0 +1,12 @@
+task_id: T2_2apm
+success: true
+data:
+  status: DONE_CAUSE_C
+  d_st: 0.00204676151255523
+  d_mt: 0.00204676151255523
+  d_st_variance: null
+  cause_resolved: c
+  singlethread_csv: benchmarks/2apm/parity_singlethread.csv
+  trajectory_csv: null
+  trajectory_unavailable_note: benchmarks/2apm/trajectory_unavailable.toon
+error_log: null

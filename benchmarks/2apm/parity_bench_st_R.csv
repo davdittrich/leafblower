@@ -1,0 +1,2 @@
+"method","median_ms","min_ms","max_ms","status","iterations","algorithm","max_err","marginal_kl","kl","chi2"
+"chebyshev",11513,11396,11591,"no_conv",500,"chebyshev",0.139390782779517,0.74561275384656,2.31087420754562e-10,66150.8116725782

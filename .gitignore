@@ -29,3 +29,13 @@ tests/testthat/testthat-problems.rds
 # Parity bench weight feathers (large, regen via parity_bench.{R,py})
 benchmarks/results/parity/weights_*/
 
+# Single-thread parity bench weight feathers (large, regen via parity_bench_st_*.{R,py})
+benchmarks/2apm/weights_R_st/
+benchmarks/2apm/weights_Py_st/
+
+
+# 2apm T3 weight feathers (regen via winner_bench.{R,py})
+benchmarks/2apm/weights_R/
+benchmarks/2apm/weights_Py/
+benchmarks/2apm/no_winner.toon
+

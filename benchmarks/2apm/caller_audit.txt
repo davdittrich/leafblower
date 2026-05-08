@@ -1,0 +1,35 @@
+# Caller audit for leafblower-2apm.4 warm-start floor gate
+# Generated: 2026-05-08 BEFORE T4 fix applied (snapshot of pre-fix call sites).
+# Post-fix state: src/c_api.cpp:359 floor changed 50 -> 5 (matches r_bridge.cpp:648).
+# Use 'git show b60a3fd:src/c_api.cpp' or current source for post-fix view.
+
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/python/leafblower/_harvest.py:435:        "inner_max_iter": max_iterations,
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/python/leafblower/_bindings.cpp:72:            if (params_dict.contains("inner_max_iter"))
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/python/leafblower/_bindings.cpp:73:                p.inner_max_iter = params_dict["inner_max_iter"].cast<int>();
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/tests/testthat/test-chebyshev.R:55:  # With very few iterations, ieppa warm-start is weak but chebyshev should
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/c_api.cpp:56:    p->inner_max_iter = 500;
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/c_api.cpp:215:    st.inner_max_iter = p->inner_max_iter;
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/c_api.cpp:352:            // ieppa warm-start; mirrors r_bridge.cpp:628-657.
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/c_api.cpp:359:                st_warm.inner_max_iter = std::max(50, std::min(100, st.inner_max_iter / 10));
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/chebyshev.cpp:227:    const int max_ipm = std::min(kMaxIpm, st.inner_max_iter);
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/greenkhorn.cpp:145:    for (int iter = 0; iter < st.inner_max_iter; iter++) {
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/greenkhorn.cpp:204:        if ((iter + 1) % kErrCheckInterval == 0 || iter == st.inner_max_iter - 1) {
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/leafblower.h:58:    int             inner_max_iter;  /* inner BCD cap per outer iter, default 500 */
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/leafblower.h:60:                                       * Note: R bridge sets outer_max_iter = inner_max_iter;
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/r_bridge.cpp:90:    st.inner_max_iter = p.inner_max_iter;
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/r_bridge.cpp:181:                    SEXP inner_max_iter_sexp, SEXP start_weights_sexp,
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/r_bridge.cpp:257:    p.inner_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/r_bridge.cpp:264:        p.outer_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/r_bridge.cpp:640:        // Run ieppa warm-start BEFORE chebyshev dispatch.
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/r_bridge.cpp:648:            st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/types.hpp:117:    int inner_max_iter;
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/raking.cpp:37:// inner_max_iter is the single iteration budget; outer_max_iter is unused.
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/raking.cpp:336:        int f_eval_budget = st.inner_max_iter;
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/raking.cpp:389:        for (int iter = 1; iter <= st.inner_max_iter; iter++) {
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/raking.cpp:392:            f_eval_full_metrics = (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter);
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/raking.cpp:423:                                         iter == st.inner_max_iter);
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/sinkhorn.cpp:172:    for (int iter = 1; iter <= st.inner_max_iter; iter++) {
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/sinkhorn.cpp:239:        if (iter == 1 || iter % kErrCheckInterval == 0 || iter == st.inner_max_iter) {
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/logit_calib.cpp:78:    const int kMaxNewtonIters = std::min(50, st.inner_max_iter);
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/ieppa.cpp:788:        const int budget_lvl = (N_levels == 1) ? st.inner_max_iter
+/home/dd/Gemini/leafblower/.worktrees/2apm-harmonize/src/ieppa.cpp:790:                static_cast<double>(st.inner_max_iter) *

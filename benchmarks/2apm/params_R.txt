@@ -1,0 +1,58 @@
+Welcome back dd!
+Working directory is: /home/dd/Gemini/leafblower/.worktrees/2apm-harmonize
+=== R arg dump: harvest(method='chebyshev', convergence=list(tol=1e-4), max_weight=5, max_iterations=3000) ===
+
+  slot  1 | group_ids_r            = VECSXP[K]; each INTSXP len=n (0-idx codes, -1=NA). K=n_margins, n=nrow(data)
+  slot  2 | cat_counts_r           = INTSXP[K]; per-margin level counts. sum=total_cells
+  slot  3 | targets_r              = VECSXP[K]; each REALSXP len=cat_counts[k]. sum(targets[[k]])≈1
+  slot  4 | n_obs                  = "n_obs (INTSXP scalar = nrow(data))"
+  slot  5 | min_weight             = 0
+  slot  6 | max_weight             = 5
+  slot  7 | method                 = "chebyshev"
+  slot  8 | verbose                = 0L
+  slot  9 | max_iterations         = 3000L
+  slot 10 | start_weights          = "sw_vec (REALSXP len=n or NULL→uniform 1.0)"
+  slot 11 | capacity_penalty       = -1
+  slot 12 | alm_penalty            = -1
+  slot 13 | tol_abs                = 1e-06
+  slot 14 | bounds_mode            = 0L
+  slot 15 | homotopy_levels        = 1L
+  slot 16 | homotopy_start_factor  = 1
+  slot 17 | homotopy_end_factor    = 1
+  slot 18 | homotopy_budget_p      = 0.5
+  slot 19 | scheduler              = "round_robin"
+  slot 20 | eta_schedule           = "fixed"
+  slot 21 | eta_start              = 1
+  slot 22 | eta_end                = 1
+  slot 23 | eta_schedule_power     = 0.5
+  slot 24 | pct_tol                = 0.0001
+  slot 25 | absolute_tol           = 0
+  slot 26 | metric                 = 0L
+  slot 27 | rule                   = 1L
+  slot 28 | stop_when              = 0L
+  slot 29 | sor_enabled            = 0L
+  slot 30 | sor_auto               = 0L
+  slot 31 | sor_omega_init         = 1
+  slot 32 | sor_omega_min          = 0.3
+  slot 33 | sor_omega_fixed        = -1
+  slot 34 | sor_burnin             = 20L
+  slot 35 | accelerate             = 0L
+  slot 36 | newton_tsvd_ratio      = 1e-08
+  slot 37 | ridge_lambda           = 0
+
+--- conv struct ---
+  conv$metric       = max_err
+  conv$rule         = improvement
+  conv$pct_tol      = 0.0001
+  conv$absolute_tol = 0
+  conv$stop_when    = any
+
+--- sor_cfg struct ---
+  enabled   = 0
+  auto      = 0
+  omega_init= 1.0000
+  omega_min = 0.3000
+  omega_fixed= -1.0000
+  burnin    = 20
+
+Done.
