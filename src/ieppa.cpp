@@ -186,6 +186,14 @@ static void ieppa_finalize(
     // RK_ERR_STALL  (5): metric never improved from initial → at constrained optimum.
     if (res.base.status == RK_ERR_NOCONV) {
         res.base.status = best.has_best() ? RK_ERR_BUDGET : RK_ERR_STALL;
+        if (res.base.status == RK_ERR_STALL) {
+            // leafblower-8eod: stall_kind driven by actual accelerate state at solver exit.
+            // This path is NOT bijective with the user's accelerate flag (harvest.R heuristic
+            // was wrong): ieppa emits status==5 for both SRAA (accelerate=true) and plain-BCD
+            // (accelerate=false). Set stall_kind from st.accelerate here so harvest.R reads
+            // the actual mechanism instead of the user input flag.
+            res.base.stall_kind = st.accelerate ? 1 : 2;  // 1=wchange (SRAA), 2=kl (plain-BCD)
+        }
     }
 
     // PCT stall detection: pct_change < pct_tol (PCT converged) but max_error >> pct_tol

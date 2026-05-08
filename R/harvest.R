@@ -534,7 +534,21 @@ harvest <- function(
         "3" = "error",
         "2" = "infeasible",
         "1" = "legacy",
-        "5" = if (isTRUE(accelerate_bool)) "stall_wchange" else "stall_kl",
+        # leafblower-8eod: use solver-emitted convergence_stall_kind (set at RK_ERR_STALL
+        # emission site) instead of the user-input accelerate_bool heuristic.
+        # Audit (2026-05-08): raking.cpp:494 only fires inside the !st.accelerate branch
+        # (raking.cpp:392 else-guard) → stall_kind=2. ieppa.cpp:188 fires for both SRAA
+        # (accelerate=TRUE, stall_kind=1) and plain-BCD (accelerate=FALSE, stall_kind=2) —
+        # NOT bijective with user flag; required route (a). stall_kind=0 → NA (no stall).
+        "5" = {
+          sk <- calib_result$convergence_stall_kind
+          if (is.null(sk) || is.na(sk)) sk <- 0L
+          switch(as.character(sk),
+            "1" = "stall_wchange",
+            "2" = "stall_kl",
+            NA_character_
+          )
+        },
         NA_character_  # default
       )
     }

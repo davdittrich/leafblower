@@ -101,6 +101,11 @@ struct CalibResult {
     std::vector<double> best_weights;
     double convergence_solver_objective = std::numeric_limits<double>::infinity();
     int    convergence_minimized_metric = 0;
+    // stall_kind: 0=no stall, 1=wchange (weight-change plateau, SRAA path),
+    //             2=kl (metric/KL plateau, plain-IPF path).
+    // Set by the solver at the RK_ERR_STALL emission site; read by r_bridge and harvest.
+    // Replaces the accelerate_bool heuristic in harvest.R (leafblower-8eod).
+    int    stall_kind                   = 0;
 };
 // ── End CalibResult ───────────────────────────────────────────────────────────
 

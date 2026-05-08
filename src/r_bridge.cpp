@@ -426,6 +426,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     double res_metric_first_check      = std::numeric_limits<double>::infinity();
     double res_metric_prev_check       = std::numeric_limits<double>::infinity();
     int    res_prev_check_iter         = -1;
+    /* stall_kind: 0=no stall, 1=wchange (SRAA path), 2=kl (plain-IPF path).
+       Populated by the solver at the RK_ERR_STALL emission site (leafblower-8eod). */
+    int    res_stall_kind              = 0;
     std::vector<double> res_best_weights;  // obs-level, length n
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
@@ -446,6 +449,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_metric_first_check       = res.base.metric_first_check;
         res_metric_prev_check        = res.base.metric_prev_check;
         res_prev_check_iter          = res.base.prev_check_iter;
+        res_stall_kind               = res.base.stall_kind;
     };
 
     std::string solver_error;
@@ -791,8 +795,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    constexpr int N_RESULT_FIELDS = 41;
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted
+    constexpr int N_RESULT_FIELDS = 42;
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted + 1 convergence_stall_kind
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  N_RESULT_FIELDS));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
@@ -893,6 +897,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     /* Element 40: SRAA scheduler-demotion flag (ieppa/raking only; FALSE elsewhere) */
     SET_STRING_ELT(res_names, 40, Rf_mkChar("sraa_demoted"));
     SET_VECTOR_ELT(res_list,  40, Rf_ScalarLogical(res_sraa_demoted));
+    /* Element 41: solver-emitted stall kind (leafblower-8eod).
+       0=no stall, 1=wchange (SRAA path), 2=kl (plain-IPF path).
+       Set at RK_ERR_STALL emission site; replaces accelerate_bool heuristic in harvest.R. */
+    SET_STRING_ELT(res_names, 41, Rf_mkChar("convergence_stall_kind"));
+    SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(res_stall_kind));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
 
     SEXP out       = PROTECT(Rf_allocVector(VECSXP,  2));

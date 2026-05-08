@@ -491,7 +491,10 @@ RakingResult raking_solve(CalibState& st) {
                 }
 
                 if (n_no_improve >= kMaxNoImprove) {
-                    res.base.status = RK_ERR_STALL;
+                    res.base.status           = RK_ERR_STALL;
+                    res.base.stall_kind       = 2;  // kl: metric/loss plateau (plain-IPF path)
+                    // leafblower-8eod: stall_kind=2 (kl) because this branch is
+                    // !st.accelerate (raking.cpp:392); SRAA path does not emit RK_ERR_STALL.
                     if (st.verbose >= 1) {
                         char msg[256];
                         std::snprintf(msg, 256,
