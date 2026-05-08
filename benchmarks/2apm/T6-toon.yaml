@@ -1,0 +1,31 @@
+task_id: T6_2apm
+success: false
+data:
+  branch: 2apm-harmonize
+  identical_count_default_thread: 14
+  chebyshev_max_abs_diff: 2.047e-3
+  regressed_methods:
+    - chebyshev
+  testthat_pass: true
+  pytest_pass: true
+  postfix_csv: benchmarks/results/parity/parity_bench_combined_2apm.csv
+error_log: >-
+  T4 warm-start floor fix (c_api.cpp:359: 50→5) verified correct on convergent fixtures.
+  test_chebyshev_default_tol_parity (n=5000, K=9) PASSES with max|w_R-w_Py|<1e-6.
+  Production parity_bench (stepstone, n=1,582,732) chebyshev hits no_conv at 500 iters.
+  At iter-cap with no_conv, 500 iterations of FP accumulation diverge R↔Py by 2.047e-3.
+  This is NOT a regression from pre-T4 — parity_singlethread.csv (pre-T4 single-thread
+  run) also shows chebyshev NO at 2.047e-3. The T4 fix closes parity only when
+  chebyshev converges within its budget. DoD spec (identical_count==15) was written
+  assuming chebyshev would converge on the stepstone dataset after the floor fix;
+  it does not. Behavioral gate (testthat 557/557 pass, pytest 9/9 pass, parity
+  test 8/8 pass including test_chebyshev_default_tol_parity) is satisfied.
+  Recommendation: raise chebyshev max_iterations or relax identical_1e4 spec
+  for no_conv methods, or accept 14/15 as the correct production result.
+notes:
+  - "Pre-fix baseline: chebyshev identical_1e4=NO, max_abs_diff=2.047e-3 (parity_bench_combined.csv)"
+  - "Post-T4 fix: chebyshev identical_1e4=NO, max_abs_diff=2.047e-3 (unchanged on no_conv dataset)"
+  - "T5 parity test (n=5000, converges): max_abs_diff < 1e-6 — PASSES"
+  - "14 baseline methods all identical_1e4=YES — no regressions"
+  - "Builds: R CMD INSTALL --preclean=OK, pip install --no-build-isolation=OK"
+  - "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 applied to both bench runs"
