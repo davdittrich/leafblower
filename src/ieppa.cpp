@@ -1299,10 +1299,15 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
 
         double nat_metric_prev_nonavec = std::numeric_limits<double>::infinity();
         int    nat_iter_prev_nonavec   = -1;
+        // T20 g9jm: hoist scratch vectors out of flat-BCD iter loop — eliminates K-sized alloc per iter.
+        std::vector<double> per_margin_err(st.K);
+        std::vector<double> per_k_errRp_cache(st.K, 0.0);
+        bool per_k_errRp_valid = false;
         // ════════════════════ Non-accelerated flat BCD path ════════════════════
         if (!sraa_active_lvl) {
         for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
+        per_k_errRp_valid = false;  // T20: reset stale-cache flag at iter start
         res.base.iterations = iter;
         alpha = compute_alpha();
         if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
@@ -1369,10 +1374,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             if (st.verbose >= 1)
                 st.log("[ieppa] greedy scheduler disabled under SRAA-m; using round_robin");
         }
-
-        // 773f.3: hoist per_margin_err outside inner iter loop — eliminates K-sized alloc per iteration.
-        // Shared by both linear and log greedy paths.
-        std::vector<double> per_margin_err(st.K);
 
         if (use_linear) {
             // WU-2 prefactored linear-space sweep (spec rev 5 §5).
@@ -1737,10 +1738,6 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 alm_violation_streak = 0;
             }
         }
-
-        // 773f.7: per-margin errRp captured during linear-path convergence sweep; reused by SOR.
-        std::vector<double> per_k_errRp_cache(st.K, 0.0);
-        bool per_k_errRp_valid = false;
 
         // Convergence check.
         if (iter == 1 || iter % kErrCheckInterval == 0 || iter_in_lvl == budget_lvl) {
