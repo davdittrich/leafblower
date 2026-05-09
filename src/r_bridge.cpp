@@ -121,6 +121,8 @@ static void init_calib_state(lbw::CalibState& st,
 
 extern "C" {
 
+SEXP C_rk_design_effect(SEXP, SEXP, SEXP, SEXP, SEXP);  // defined below
+
 void R_init_leafblower(DllInfo* dll) {
     static const R_CallMethodDef call_methods[] = {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
@@ -128,6 +130,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
         {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       37},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
+        {"C_rk_design_effect",           (DL_FUNC)&C_rk_design_effect,           5},
         {NULL, NULL, 0}
     };
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
@@ -968,6 +971,64 @@ extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
     Rf_setAttrib(ret, R_NamesSymbol, names);
     UNPROTECT(4);  // ret + cell_of_sexp + npc + names
     return ret;
+}
+
+SEXP C_rk_design_effect(SEXP weights_sexp, SEXP outcome_sexp,
+                         SEXP data_codes_sexp, SEXP cat_counts_sexp,
+                         SEXP K_sexp) {
+    if (TYPEOF(weights_sexp) != REALSXP)
+        Rf_error("design_effect: 'weights' must be REALSXP (got TYPEOF=%d)", TYPEOF(weights_sexp));
+    if (TYPEOF(K_sexp) != INTSXP || Rf_length(K_sexp) != 1)
+        Rf_error("design_effect: 'K' must be INTSXP scalar");
+
+    const int n = Rf_length(weights_sexp);
+    const int K = INTEGER(K_sexp)[0];
+    const double* weights = REAL(weights_sexp);
+
+    const double* outcome = nullptr;
+    if (TYPEOF(outcome_sexp) == REALSXP) {
+        if (Rf_length(outcome_sexp) != n)
+            Rf_error("design_effect: 'outcome' length (%d) must equal length(weights) (%d)",
+                     Rf_length(outcome_sexp), n);
+        outcome = REAL(outcome_sexp);
+    } else if (TYPEOF(outcome_sexp) != NILSXP) {
+        Rf_error("design_effect: 'outcome' must be REALSXP or NULL (got TYPEOF=%d)",
+                 TYPEOF(outcome_sexp));
+    }
+
+    const int* data_codes = nullptr;
+    const int* cat_counts = nullptr;
+    if (K > 0 && outcome != nullptr) {
+        if (TYPEOF(data_codes_sexp) != INTSXP)
+            Rf_error("design_effect: 'data_codes' must be INTSXP (got TYPEOF=%d)",
+                     TYPEOF(data_codes_sexp));
+        if (Rf_length(data_codes_sexp) != n * K)
+            Rf_error("design_effect: length(data_codes) must be n*K = %d (got %d)",
+                     n * K, Rf_length(data_codes_sexp));
+        if (TYPEOF(cat_counts_sexp) != INTSXP || Rf_length(cat_counts_sexp) != K)
+            Rf_error("design_effect: 'cat_counts' must be INTSXP of length K=%d", K);
+        data_codes = INTEGER(data_codes_sexp);
+        cat_counts = INTEGER(cat_counts_sexp);
+    }
+
+    rk_design_effect_result_t out;
+    const int status = rk_design_effect(weights, outcome, data_codes, cat_counts, n, K, &out);
+    if (status != RK_OK)
+        Rf_error("design_effect: %s", out.message);
+
+    SEXP res       = PROTECT(Rf_allocVector(VECSXP, 4));
+    SEXP res_names = PROTECT(Rf_allocVector(STRSXP, 4));
+    SET_VECTOR_ELT(res, 0, Rf_ScalarReal(out.deff_K));
+    SET_STRING_ELT(res_names, 0, Rf_mkChar("deff_K"));
+    SET_VECTOR_ELT(res, 1, Rf_ScalarReal(out.deff_H));
+    SET_STRING_ELT(res_names, 1, Rf_mkChar("deff_H"));
+    SET_VECTOR_ELT(res, 2, Rf_ScalarInteger(out.rank_def));
+    SET_STRING_ELT(res_names, 2, Rf_mkChar("rank_def"));
+    SET_VECTOR_ELT(res, 3, Rf_mkString(out.message));
+    SET_STRING_ELT(res_names, 3, Rf_mkChar("message"));
+    Rf_setAttrib(res, R_NamesSymbol, res_names);
+    UNPROTECT(2);  // res_names adopted by res; res returned (protected by caller)
+    return res;
 }
 
 } // extern "C"
