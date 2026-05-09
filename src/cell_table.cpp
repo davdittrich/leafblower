@@ -169,4 +169,19 @@ int estimate_M_cell(int n, int K,
     return static_cast<int>(seen.size());
 }
 
+
+std::vector<std::vector<std::vector<int>>>
+build_cells_per_cat(const CellTable& ct, int K, const int* cat_counts)
+{
+    std::vector<std::vector<std::vector<int>>> cpc(K);
+    for (int k = 0; k < K; k++) {
+        cpc[k].assign(cat_counts[k], {});
+        for (int c = 0; c < ct.M_cell; c++) {
+            int g = ct.g_per_cell[k][c];
+            if (g >= 0 && g < cat_counts[k]) cpc[k][g].push_back(c);
+        }
+    }
+    return cpc;
+}
+
 } // namespace lbw
