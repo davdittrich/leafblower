@@ -24,6 +24,7 @@ set(CORE_SOURCES
     ../src/raking.cpp
     ../src/sinkhorn.cpp
     ../src/design_effect.cpp
+    ../src/validation.cpp
 )
 
 pybind11_add_module(_leafblower
