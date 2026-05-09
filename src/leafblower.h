@@ -30,7 +30,8 @@ typedef struct {
 
 /* ── Return codes ── */
 #define RK_OK           0  /* Converged: improvement criterion satisfied */
-#define RK_ERR_NOCONV   1  /* Legacy alias — no longer emitted by new solvers */
+#define RK_ERR_NOCONV   1  /* Emitted by: chebyshev.cpp, greenkhorn.cpp, newton_calib.cpp,
+                              sinkhorn.cpp, logit_calib.cpp, greg.cpp */
 #define RK_ERR_INFEAS   2  /* Infeasible: empty cell with positive target */
 #define RK_ERR_BADARG   3  /* Invalid argument */
 #define RK_ERR_BUDGET   4  /* Budget exhausted while loss still decreasing; increase max_iterations */
