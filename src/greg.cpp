@@ -51,10 +51,11 @@ GregResult greg_solve(CalibState& st) {
     static constexpr int kMaxNewtonIters = 50;
     static constexpr double kEps = 1e-10;
 
-    std::vector<bool> prev_fixed_lo(ct.M_cell, false), prev_fixed_hi(ct.M_cell, false);
     bool need_refactor = true; // R1: refactor only when active set changes
+    bool kkt_dirty = false;
 
     for (int newton_iter = 0; newton_iter < kMaxNewtonIters; newton_iter++) {
+        kkt_dirty = false;
         res.base.iterations = newton_iter + 1;
 
         if (need_refactor) {
@@ -105,28 +106,26 @@ GregResult greg_solve(CalibState& st) {
             double X_new = X_init[c] * (1.0 + sum_lam);
             const double cell_tol = 1e-10 * std::max(1.0, X_init[c]);
             if (X_new < L_cell[c] - cell_tol) {
-                X[c] = L_cell[c]; fixed_lo[c] = true; any_clamped = true;
+                X[c] = L_cell[c]; fixed_lo[c] = true; any_clamped = true; kkt_dirty = true;
             } else if (X_new > U_cell[c] + cell_tol) {
-                X[c] = U_cell[c]; fixed_hi[c] = true; any_clamped = true;
+                X[c] = U_cell[c]; fixed_hi[c] = true; any_clamped = true; kkt_dirty = true;
             } else {
                 X[c] = std::clamp(X_new, L_cell[c], U_cell[c]);
             }
         }
 
         // R1: invalidate factorization cache only when active set changed
-        need_refactor = (fixed_lo != prev_fixed_lo || fixed_hi != prev_fixed_hi);
-        prev_fixed_lo = fixed_lo;
-        prev_fixed_hi = fixed_hi;
+        need_refactor = kkt_dirty;
 
         // C6: KKT release pass — drop constraints whose multiplier has wrong sign
         for (int c = 0; c < ct.M_cell; ++c) {
             if (X_init[c] <= 1e-10) continue;
             double grad_c = (X[c] - X_init[c]) / X_init[c];
             if (fixed_lo[c] && grad_c < -1e-8) {
-                fixed_lo[c] = false; need_refactor = true; any_clamped = true;
+                fixed_lo[c] = false; need_refactor = true; kkt_dirty = true; any_clamped = true;
             }
             if (fixed_hi[c] && grad_c > 1e-8) {
-                fixed_hi[c] = false; need_refactor = true; any_clamped = true;
+                fixed_hi[c] = false; need_refactor = true; kkt_dirty = true; any_clamped = true;
             }
         }
 
