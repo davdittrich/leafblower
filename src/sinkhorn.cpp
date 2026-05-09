@@ -168,6 +168,12 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     // Short-circuit is only safe when a[] is zero; non-zero a[] means bisection
     // must run even when X is in bounds to maintain the fixed-point invariant.
     bool a_is_zero = true;
+    // tsyw: track cells clamped to lower bound by bisect_capacity_fast.
+    // at_lower[c]=true → cell is frozen at L_cell[c]; exclude from Dykstra
+    // correction to prevent unbounded a[c] growth for perma-clamped cells.
+    // Stability: frozen cells' exp_a[c] stays at last valid value; bisect still
+    // clamps them correctly. Release occurs when bisect raises X[c] above L_cell[c].
+    std::vector<bool> at_lower(ct.M_cell, false);
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.base.iterations = iter;
@@ -224,6 +230,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             // a += log(X_proj) - log(X) form (which assumes exp(-a) un-projects).
             // Verified by fixed-point trace: at convergence the update yields zero. (B11)
             for (int c = 0; c < ct.M_cell; c++) {
+                if (at_lower[c]) continue;  // tsyw: no Dykstra correction for at-bound cells
                 if (X[c] > 1e-300 && X_proj[c] > 1e-300)
                     a[c] += std::log(X[c]) - std::log(X_proj[c]);
                 a[c] = std::clamp(a[c], -kAmax, kAmax);
@@ -232,6 +239,12 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             lbw::bulk_scaled_exp(1.0, a.data(), exp_a.data(), ct.M_cell);
             // 773f.5: apply projection result to X only on projection path. No-op copy eliminated.
             for (int c = 0; c < ct.M_cell; c++) X[c] = X_proj[c];
+            // tsyw: update at_lower flags after bisect writes X_proj.
+            // Freeze cells where bisect clamped to lower bound; release those raised above it.
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X[c] <= L_cell[c] + 1e-12) at_lower[c] = true;
+                else if (X[c] >= L_cell[c] + 1e-9) at_lower[c] = false;  // tsyw: release
+            }
         }
         // B10: On non-projection path, X unchanged — do NOT zero a[]. Accumulated correction from prior
         // projected iterations is valid history; zeroing would corrupt subsequent bisect_capacity calls.
