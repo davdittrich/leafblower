@@ -263,6 +263,11 @@ RakingResult raking_solve(CalibState& st) {
                         const auto& cells_kj = cells_per_cat[k][j];
                         for (int ci = 0; ci < (int)cells_kj.size(); ++ci)
                             Xv[cells_kj[ci]] = L_cell[cells_kj[ci]];
+                        // 67sk: accumulate post-clamp bucket[j] so SOR ek-loop sees correct value
+                        bucket[j] = 0.0;
+                        const auto& cells_kj_ec = cells_per_cat[k][j];
+                        for (int ci2 = 0; ci2 < (int)cells_kj_ec.size(); ci2++)
+                            bucket[j] += L_cell[cells_kj_ec[ci2]];
                     }
                     continue;
                 }
@@ -272,11 +277,17 @@ RakingResult raking_solve(CalibState& st) {
                     Tkj = bucket[j] * std::pow(s0, eff_omega);
                 }
                 water_fill_cat(k, j, Tkj, bucket[j], Xv);
+                // 67sk: inline bucket[j] update replaces aggregate_to_margin for SOR ek-loop
+                bucket[j] = 0.0;
+                {
+                    const auto& cells_kj_wf = cells_per_cat[k][j];
+                    for (int ci2 = 0; ci2 < (int)cells_kj_wf.size(); ci2++)
+                        bucket[j] += Xv[cells_kj_wf[ci2]];
+                }
             }
 
             // SOR adaptation: post-water-fill residual for omega adjustment
             if (sor_active && sor_auto && W_total > 0.0) {
-                lbw::aggregate_to_margin(ct, Xv, k, st.cat_counts[k], bucket.data());
                 double ek = 0.0;
                 for (int j = 0; j < st.cat_counts[k]; j++) {
                     double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
