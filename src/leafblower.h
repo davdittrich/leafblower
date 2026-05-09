@@ -148,6 +148,40 @@ typedef struct {
     /* ── End extended quality metrics ── */
 } rk_result_t;
 
+/*
+ * Design effect result (Kish 1965 + Henry & Valliant 2015 Eq 3.5).
+ * Computed by rk_design_effect; populated entirely on success.
+ */
+typedef struct {
+    double deff_K;        /* Kish (1965) Eq 2.4: n * Σw² / [Σw]². Always finite. */
+    double deff_H;        /* H&V (2015) Eq 3.5: deff_K · σ̂²_u / σ̂²_y. NaN if outcome=NULL or K=0. */
+    int    rank_def;      /* 1 if X^T W X singular (deff_H falls back to deff_K); else 0. */
+    char   message[128];  /* Diagnostic on RK_ERR_BADARG; empty on RK_OK. */
+} rk_design_effect_result_t;
+
+/*
+ * Compute Kish + H&V design effects in a single C entry.
+ *
+ * weights[n]       Calibrated weights. All-finite, no NA, sum > 0.
+ * outcome[n]       Outcome variable. All-finite, no NA. Pass NULL for Kish-only.
+ *                  out->deff_H = NaN.
+ * data_codes[n*K]  Row-major integer-coded categorical (0-based level indices).
+ *                  Pass NULL when K=0 or outcome=NULL.
+ * cat_counts[K]    Number of levels per margin (>= 2). Pass NULL when K=0.
+ * n                Number of observations (>= 1).
+ * K                Number of calibration margins (>= 0).
+ *
+ * Returns: RK_OK or RK_ERR_BADARG (out->message set).
+ */
+int rk_design_effect(
+    const double* weights,
+    const double* outcome,           /* nullable */
+    const int*    data_codes,        /* nullable when outcome=NULL or K=0 */
+    const int*    cat_counts,        /* nullable when outcome=NULL or K=0 */
+    int n, int K,
+    rk_design_effect_result_t* out
+);
+
 /* Fill *p with safe defaults */
 void rk_params_init(rk_params_t* p);
 
