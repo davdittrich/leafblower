@@ -361,6 +361,12 @@ inline int solver_setup_ct(
     int&                     n_cats_total,
     ResT&                    res) noexcept
 {
+    static_assert(
+        std::is_class<typename std::remove_reference<decltype(
+            std::declval<ResT>().base)>::type>::value,
+        "solver_setup_ct<ResT>: ResT must have a .base member (CalibResultBase). "
+        "Valid types: RakingResult, IEPPAResult, ChebyshevResult, etc."
+    );
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
         res.base.status = RK_ERR_BADARG;
         std::strncpy(res.message, "build_cell_table failed", sizeof(res.message) - 1);
