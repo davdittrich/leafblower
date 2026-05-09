@@ -124,25 +124,25 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     std::vector<double> b_trial(nct, 0.0);      // trial residuals for Armijo
     std::vector<double> lambda_trial(nct, 0.0); // trial lambda for Armijo
 
+    // Cache for w[]+D_eff[]: L4 writes these after accepting a Newton step; L1 reads them
+    // on iter>=1, skipping the redundant O(M*K) recompute. Invalidated only at iter==0.
+    std::vector<double> w_cached(M, 0.0);
+    std::vector<double> D_eff_cached(M, 0.0);
+    bool wDeff_cache_valid = false;
+
     for (int iter = 0; iter < kMaxNewtonIters; iter++) {
         res.base.iterations = iter + 1;
 
         // (1) Compute w[c] and D_eff[c] from lambda
-        for (int c = 0; c < M; c++) {
-            double z = 0.0;
-            for (int k = 0; k < K; k++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) z += lambda[cat_offset[k] + g];
+        if (wDeff_cache_valid) {
+            // Cache valid: L4 of prior iter already computed w[]+D_eff[] from the accepted
+            // lambda (same vector). Copy instead of recomputing O(M*K) inner products.
+            for (int c = 0; c < M; c++) {
+                w[c]     = w_cached[c];
+                D_eff[c] = D_eff_cached[c];
             }
-            z = std::clamp(z, -700.0, 700.0);  // prevent exp overflow
-            double sig   = 1.0 / (1.0 + std::exp(-z));
-            double range = U_cell[c] - L_cell[c];
-            w[c]     = L_cell[c] + range * sig;        // bounds by construction, no clamp
-            D_eff[c] = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
-        }
-
-        // Early-exit: if >50% of cells saturated (|z|>650), lambda is too large to recover
-        if (iter == 0) {
+        } else {
+            // iter==0 path: compute from scratch, fill cache, run saturation check.
             int n_saturated = 0;
             for (int c = 0; c < M; c++) {
                 double z = 0.0;
@@ -150,8 +150,18 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                     int g = ct.g_per_cell[k][c];
                     if (g >= 0 && g < st.cat_counts[k]) z += lambda[cat_offset[k] + g];
                 }
+                z = std::clamp(z, -700.0, 700.0);  // prevent exp overflow
+                double sig   = 1.0 / (1.0 + std::exp(-z));
+                double range = U_cell[c] - L_cell[c];
+                w[c]          = L_cell[c] + range * sig;
+                D_eff[c]      = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
+                w_cached[c]     = w[c];
+                D_eff_cached[c] = D_eff[c];
                 if (std::fabs(z) > 650.0) ++n_saturated;
             }
+            wDeff_cache_valid = true;
+
+            // Early-exit: if >50% of cells saturated (|z|>650), lambda is too large to recover
             if (n_saturated > M / 2) {
                 res.base.status = RK_ERR_NOCONV;
                 std::snprintf(res.message, sizeof(res.message),
@@ -261,7 +271,8 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         }
         for (int j = 0; j < nct; j++) lambda[j] += alpha * b[j];
 
-        // Recompute w from updated lambda so convergence check sees post-step weights
+        // Recompute w+D_eff from updated lambda so convergence check sees post-step weights.
+        // Also fills cache so next iter's L1 can skip the O(M*K) recompute.
         for (int c = 0; c < M; c++) {
             double z = 0.0;
             for (int k = 0; k < K; k++) {
@@ -269,9 +280,14 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 if (g >= 0 && g < st.cat_counts[k]) z += lambda[cat_offset[k] + g];
             }
             z = std::clamp(z, -700.0, 700.0);
-            double sig = 1.0 / (1.0 + std::exp(-z));
-            w[c] = L_cell[c] + (U_cell[c] - L_cell[c]) * sig;
+            double sig   = 1.0 / (1.0 + std::exp(-z));
+            double range = U_cell[c] - L_cell[c];
+            w[c]          = L_cell[c] + range * sig;
+            D_eff[c]      = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
+            w_cached[c]     = w[c];
+            D_eff_cached[c] = D_eff[c];
         }
+        wDeff_cache_valid = true;
 
         // (5) Convergence check via shared infrastructure
         double W_total = 0.0;
