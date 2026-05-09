@@ -265,9 +265,14 @@ RakingResult raking_solve(CalibState& st) {
                             Xv[cells_kj[ci]] = L_cell[cells_kj[ci]];
                         // 67sk: accumulate post-clamp bucket[j] so SOR ek-loop sees correct value
                         bucket[j] = 0.0;
-                        const auto& cells_kj_ec = cells_per_cat[k][j];
-                        for (int ci2 = 0; ci2 < (int)cells_kj_ec.size(); ci2++)
-                            bucket[j] += L_cell[cells_kj_ec[ci2]];
+                        for (int ci2 = 0; ci2 < (int)cells_kj.size(); ci2++)
+                            bucket[j] += L_cell[cells_kj[ci2]];
+                    } else {
+                        // 67sk: zero-target cells clamped to L_cell; update bucket[j] for ek-loop
+                        bucket[j] = 0.0;
+                        const auto& cells_kj = cells_per_cat[k][j];
+                        for (int ci2 = 0; ci2 < (int)cells_kj.size(); ci2++)
+                            bucket[j] += L_cell[cells_kj[ci2]];
                     }
                     continue;
                 }
