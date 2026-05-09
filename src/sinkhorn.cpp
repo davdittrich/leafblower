@@ -239,8 +239,8 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             lbw::bulk_scaled_exp(1.0, a.data(), exp_a.data(), ct.M_cell);
             // 773f.5: apply projection result to X only on projection path. No-op copy eliminated.
             for (int c = 0; c < ct.M_cell; c++) X[c] = X_proj[c];
-            // tsyw: update at_lower flags after bisect writes X_proj.
-            // Freeze cells where bisect clamped to lower bound; release those raised above it.
+            // tsyw: update at_lower after X <- X_proj copy; freeze if at lower bound
+            // tsyw: hysteresis prevents flag thrashing — freeze at L+1e-12 (numerical floor), release at L+1e-9 (3-decade dead band)
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X[c] <= L_cell[c] + 1e-12) at_lower[c] = true;
                 else if (X[c] >= L_cell[c] + 1e-9) at_lower[c] = false;  // tsyw: release
