@@ -32,7 +32,7 @@ static constexpr const char* kAlgNames[] = {
     "sinkhorn",     // 4  RK_ALG_SINKHORN
     "chebyshev",    // 5  RK_ALG_CHEBYSHEV
     "greg",         // 6  RK_ALG_GREG
-    "(reserved)",   // 7  deprecated
+    "(gap)",        // 7  unused gap between GREG=6 and IEPPA_SOFT=8
     "iEPPA-soft",   // 8  RK_ALG_IEPPA_SOFT
     "greenkhorn",   // 9  RK_ALG_GREENKHORN
     "logit",        // 10 RK_ALG_LOGIT
@@ -67,16 +67,6 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     dst->metric_prev_check            = src.base.metric_prev_check;
     dst->prev_check_iter              = src.base.prev_check_iter;
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
-    // If solver left message empty, write the algorithm name so early-return
-    // callers (sinkhorn, greg, chebyshev) get a meaningful default.
-    if (dst->message[0] == '\0') {
-        const int idx = static_cast<int>(alg);
-        const char* name = (idx >= 0 && idx < static_cast<int>(
-            sizeof(kAlgNames)/sizeof(kAlgNames[0])))
-            ? kAlgNames[idx] : "unknown";
-        std::snprintf(dst->message, sizeof(dst->message),
-            "%s: result available", name);
-    }
 }
 
 extern "C" {
