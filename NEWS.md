@@ -1,5 +1,12 @@
 # leafblower (development version)
 
+* `design_effect()` (R) and `design_effect()` (Python) now share a single C++17
+  core implementation (`src/design_effect.cpp`). Both 1-argument Kish (1965) and
+  4-argument Henry & Valliant (2015) Eq 3.5 calibration design effects produce
+  byte-identical output across languages by construction. Previously the 4-argument
+  form was R-only and used a Cochran (1977) reliability-weight variance ratio that
+  diverged from the H&V 2015 paper it claimed to implement. (leafblower-on7a v3)
+
 * harmonize(chebyshev): align c_api.cpp ieppa warm-start floor to r_bridge.cpp source-of-truth (5 not 50). Restores mirror invariant declared at c_api.cpp:352 'mirrors r_bridge.cpp:628-657'; was hand-copy typo at c_api.cpp:359. Fixes latent floor mismatch; only triggers when `inner_max_iter < 50` (i.e. `max_iterations < 500`). Does NOT close the stepstone chebyshev R-Py divergence (separate cause tracked in leafblower-8u2y). Closes leafblower-2apm.4.
 
 * fix(ieppa_soft)!: harmonize R/Python `capacity_mu` ALM scaling — R now uses `estimate_M_cell()` matching c_api path (Py-winner per leafblower-yh0l benchmark; was: exact `M_cell/n` via `build_cell_table.capacity_mu_auto`, ~14× tighter at K>8 fulldata, slower convergence on production scale).

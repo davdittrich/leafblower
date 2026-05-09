@@ -898,6 +898,8 @@ compute_quality_metrics <- function(weights, target_list, df) {
   Z  <- sum(weights)
   n  <- length(weights)
   wn <- weights * n / Z                         # normalize to mean=1
+  # leafblower-on7a v3 boundary: compute_quality_metrics uses Kish (1965) deff_K
+  # (cheap observation-level path). H&V 2015 4-arg deff_H lives in design_effect(w, y, data, target).
   deff <- n * sum(weights^2) / Z^2
 
   # Per-margin KL helper: shared finalization across both single-pass and K-pass.

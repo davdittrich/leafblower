@@ -172,6 +172,8 @@ test_that("B1: compute_quality_metrics extraction: values identical to inline", 
   expected_weight_kl <- res$weight_kl
   expected_eff_obs <- res$effective_observations
 
+  # leafblower-on7a v3 boundary: asserts qm$design_effect (Kish) == res$design_effect (Kish).
+  # Neither invokes the H&V 4-arg design_effect(); that is intentionally not plumbed here.
   # Call extracted helper and verify identical values
   qm <- leafblower:::compute_quality_metrics(w, tgt_t, df_t)
   expect_equal(qm$margin_kl, expected_margin_kl, tolerance = 1e-10)
