@@ -10,6 +10,7 @@
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
+#include "design_effect.hpp"
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -514,6 +515,18 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         }
     }
     return status;
+}
+
+int rk_design_effect(
+    const double* weights,
+    const double* outcome,
+    const int*    data_codes,
+    const int*    cat_counts,
+    int n, int K,
+    rk_design_effect_result_t* out
+) {
+    if (out == nullptr || weights == nullptr) return RK_ERR_BADARG;
+    return lbw::design_effect_compute(weights, outcome, data_codes, cat_counts, n, K, out);
 }
 
 } // extern "C"
