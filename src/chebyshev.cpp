@@ -27,6 +27,7 @@ ChebyshevResult chebyshev_ipm(
     static constexpr int    kInfeasPersistence = 5;  // consecutive negative-slack iters before INFEAS
     static constexpr double kWarmStartRelEps       = 1e-8;   // fractional shift off bound for strict-interior warm start
     static constexpr double kWarmStartAbsEps        = 1e-10; // absolute floor when gap is tiny
+    static constexpr double kEpsChebyshev           = 1e-10; // obs-expansion guard: skip cells with near-zero X_init
     static constexpr double kPrimalMachinePrecConv  = 1e-8;  // Mehrotra: accept when best errRp at machine precision
     ChebyshevResult res;
     // Chebyshev defaults differ from CalibResult — override here to preserve existing behavior.
@@ -708,7 +709,7 @@ ChebyshevResult chebyshev_ipm(
     const double hi_obs = lbw::resolve_hi(st);
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
-        double mult = (X_init[c] > 1e-10) ? X_out[c]/X_init[c] : 1.0;
+        double mult = (X_init[c] > kEpsChebyshev) ? X_out[c]/X_init[c] : 1.0;
         st.weights[i] = std::clamp(st.weights[i]*mult, lo, hi_obs);
     }
     res.base.best_weights.resize(st.n);
