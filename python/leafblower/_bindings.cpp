@@ -211,4 +211,53 @@ PYBIND11_MODULE(_leafblower, m) {
         py::arg("log_callable") = py::none(),
         "Calibrate survey weights in-place. Returns (status, weights_copy, result_dict)."
     );
+
+    m.def("_design_effect",
+        [](py::array_t<double, py::array::c_style | py::array::forcecast> weights,
+           py::object outcome_obj,
+           py::object data_codes_obj,
+           py::object cat_counts_obj,
+           int K) -> py::dict {
+            py::buffer_info w_info = weights.request();
+            const int n = static_cast<int>(w_info.shape[0]);
+            const double* w_ptr = static_cast<const double*>(w_info.ptr);
+
+            const double* y_ptr = nullptr;
+            py::array_t<double, py::array::c_style | py::array::forcecast> y_arr;
+            if (!outcome_obj.is_none()) {
+                y_arr = outcome_obj.cast<py::array_t<double, py::array::c_style | py::array::forcecast>>();
+                y_ptr = static_cast<const double*>(y_arr.request().ptr);
+            }
+
+            const int* dc_ptr = nullptr;
+            const int* cc_ptr = nullptr;
+            py::array_t<int32_t, py::array::c_style | py::array::forcecast> dc_arr, cc_arr;
+            if (K > 0 && y_ptr != nullptr) {
+                dc_arr = data_codes_obj.cast<py::array_t<int32_t, py::array::c_style | py::array::forcecast>>();
+                cc_arr = cat_counts_obj.cast<py::array_t<int32_t, py::array::c_style | py::array::forcecast>>();
+                dc_ptr = static_cast<const int*>(dc_arr.request().ptr);
+                cc_ptr = static_cast<const int*>(cc_arr.request().ptr);
+            }
+
+            rk_design_effect_result_t out;
+            const int status = rk_design_effect(w_ptr, y_ptr, dc_ptr, cc_ptr, n, K, &out);
+            if (status != RK_OK)
+                throw std::runtime_error(std::string("design_effect: ") + out.message);
+
+            py::dict result;
+            result["deff_K"]   = out.deff_K;
+            result["deff_H"]   = out.deff_H;
+            result["rank_def"] = out.rank_def;
+            result["message"]  = std::string(out.message);
+            return result;
+        },
+        py::arg("weights"),
+        py::arg("outcome") = py::none(),
+        py::arg("data_codes") = py::none(),
+        py::arg("cat_counts") = py::none(),
+        py::arg("K") = 0,
+        "Compute Kish (1965) deff_K and H&V (2015) Eq 3.5 deff_H.\n"
+        "Returns dict with keys: deff_K, deff_H, rank_def, message.\n"
+        "Henry, K.A. & Valliant, R. (2015) Survey Methodology 41(2), 315-331."
+    );
 }
