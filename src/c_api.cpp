@@ -21,6 +21,28 @@
 
 #define LBW_NODISCARD [[nodiscard]]
 
+// Single source of truth: algorithm index → display name.
+// Indices match rk_algorithm_t enum values in leafblower.h.
+// Gaps (2, 7) use "(reserved)" so out-of-enum values are visible.
+static constexpr const char* kAlgNames[] = {
+    "auto",         // 0  RK_ALG_AUTO
+    "iEPPA",        // 1  RK_ALG_IEPPA
+    "(reserved)",   // 2  removed LBFGSB
+    "raking",       // 3  RK_ALG_RAKING
+    "sinkhorn",     // 4  RK_ALG_SINKHORN
+    "chebyshev",    // 5  RK_ALG_CHEBYSHEV
+    "greg",         // 6  RK_ALG_GREG
+    "(reserved)",   // 7  deprecated
+    "iEPPA-soft",   // 8  RK_ALG_IEPPA_SOFT
+    "greenkhorn",   // 9  RK_ALG_GREENKHORN
+    "logit",        // 10 RK_ALG_LOGIT
+    "newton_kl"     // 11 RK_ALG_NEWTON_KL
+};
+static_assert(RK_ALG_NEWTON_KL == 11,
+    "kAlgNames: update if enum max changes");
+static_assert(sizeof(kAlgNames)/sizeof(kAlgNames[0]) == 12,
+    "kAlgNames must cover all 12 enum slots 0..11");
+
 template <typename R>
 static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t alg) noexcept {
     if (!dst) return;
@@ -45,6 +67,16 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     dst->metric_prev_check            = src.base.metric_prev_check;
     dst->prev_check_iter              = src.base.prev_check_iter;
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
+    // If solver left message empty, write the algorithm name so early-return
+    // callers (sinkhorn, greg, chebyshev) get a meaningful default.
+    if (dst->message[0] == '\0') {
+        const int idx = static_cast<int>(alg);
+        const char* name = (idx >= 0 && idx < static_cast<int>(
+            sizeof(kAlgNames)/sizeof(kAlgNames[0])))
+            ? kAlgNames[idx] : "unknown";
+        std::snprintf(dst->message, sizeof(dst->message),
+            "%s: result available", name);
+    }
 }
 
 extern "C" {
@@ -504,12 +536,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         result->max_error = max_error;
         result->algorithm_used = used;
         if (result->message[0] == '\0') {
-            const char* name = (used == RK_ALG_RAKING)      ? "raking"
-                             : (used == RK_ALG_IEPPA_SOFT)  ? "iEPPA-soft"
-                             : (used == RK_ALG_GREENKHORN)  ? "greenkhorn"
-                             : (used == RK_ALG_LOGIT)        ? "logit"
-                             : (used == RK_ALG_NEWTON_KL)   ? "newton_kl"
-                             : "iEPPA";
+            const int idx = static_cast<int>(used);
+            const char* name = (idx >= 0 && idx < static_cast<int>(
+                sizeof(kAlgNames)/sizeof(kAlgNames[0])))
+                ? kAlgNames[idx] : "unknown";
             snprintf(result->message, 256, "%s: %d iters, max_error=%.2e",
                      name, iterations, max_error);
         }
