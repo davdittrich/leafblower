@@ -1136,6 +1136,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         double sraa_best_errRp     = std::numeric_limits<double>::infinity();
         double nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
         int    nat_iter_prev_sraa   = -1;
+        // Shared scratch — SRAA and flat-BCD are mutually exclusive; one buffer serves both.
+        std::vector<double> w_ratio_scratch(ct.M_cell);
         // ════════════════════ SRAA-m accelerated path ════════════════════
         if (sraa_active_lvl) {
             ieppa_sraa.init(total_cats, lbw::kSRAAm);
@@ -1248,7 +1250,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         nat_metric_prev_sraa = nat_metric;
                         nat_iter_prev_sraa   = res.base.iterations;
                         if (std::isfinite(nat_metric) && nat_metric < best.best_metric) {
-                            std::vector<double> w_ratio(ct.M_cell);
+                            auto& w_ratio = w_ratio_scratch;
                             for (int c = 0; c < ct.M_cell; c++)
                                 w_ratio[c] = (X_init[c] > 0.0) ? X_cur[c] / X_init[c] : 0.0;
                             best.update(nat_metric,
@@ -1793,9 +1795,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             res.marginal_kl_at_iter = marg_kl;
             res.base.max_error = errRp;
 
-            // w_ratio: hoisted outside best-iterate gates to avoid repeated heap allocation.
+            // w_ratio: alias to function-scope scratch (hoisted above sraa_active_lvl branch).
             // Populated lazily inside each gate only when a new best is found.
-            std::vector<double> w_ratio(ct.M_cell);
+            auto& w_ratio = w_ratio_scratch;
 
             // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
             // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
