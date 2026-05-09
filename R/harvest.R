@@ -588,6 +588,7 @@ harvest <- function(
     b_iter   <- calib_result$best_iter
     iters    <- calib_result$iterations
     mstr     <- calib_result$convergence_used$metric
+    if (is.na(mstr)) mstr <- "<metric>"
     tol_used <- if (conv$absolute_tol > 0) conv$absolute_tol else conv$pct_tol
 
     # Stall detection: if best was found much earlier than budget, solver is at a fixed point
