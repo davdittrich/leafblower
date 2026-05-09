@@ -295,7 +295,7 @@ harvest <- function(
   sparse_diag <- compute_sparseness_diag(target, data,
                                          cat_threshold = 0.01, obs_threshold = 30L)
   if (length(sparse_diag) > 0) {
-    n_flagged <- sum(sapply(sparse_diag, length))
+    n_flagged <- sum(vapply(sparse_diag, length, FUN.VALUE = integer(1)))
     warning(sprintf(
       "leafblower: %d sparse categories detected (T_kj < 1%% or n_kj < 30); see result$diagnostics$sparseness",
       n_flagged), call. = FALSE)
