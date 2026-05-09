@@ -330,7 +330,7 @@ def harvest(
         "ieppa_soft": 8, "greenkhorn": 9, "logit": 10, "newton_kl": 11,
     }  # "auto" (0) removed from Python user API; "grake" (7) removed; "lbfgsb" (2) removed — enum gap
     if method_lc not in alg_map:
-        raise ValueError(f"method must be one of {list(alg_map)}")
+        raise ValueError(f"method must be one of {sorted(alg_map)}; 'auto' is R-only and not supported in Python")
     alg_int = alg_map[method_lc]
 
     if bounds_mode not in ("cell", "unit"):
