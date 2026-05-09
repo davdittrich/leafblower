@@ -23,6 +23,7 @@ set(CORE_SOURCES
     ../src/newton_calib.cpp
     ../src/raking.cpp
     ../src/sinkhorn.cpp
+    ../src/design_effect.cpp
 )
 
 pybind11_add_module(_leafblower
