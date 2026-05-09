@@ -341,7 +341,8 @@ inline void mark_converged(ResT& res, const CalibConvergenceCfg& cfg, int iter) 
     res.base.status             = RK_OK;
     res.base.convergence_metric = static_cast<int>(cfg.metric);
     res.base.convergence_rule   = static_cast<int>(cfg.rule);
-    res.base.convergence_tol    = cfg.pct_tol;
+    res.base.convergence_tol    = (cfg.absolute_tol > 0.0 && cfg.pct_tol == 0.0)
+                                  ? cfg.absolute_tol : cfg.pct_tol;
     res.base.convergence_iter   = iter;
 }
 

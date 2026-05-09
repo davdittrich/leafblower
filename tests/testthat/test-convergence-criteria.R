@@ -452,3 +452,22 @@ test_that("vpby: stop_when=ANY prev not mutated to post-halt curr — improvemen
   # (c) at least one iteration ran (improvement rule needs prev finite before it can fire)
   expect_true(r$iterations >= 1L)
 })
+
+test_that("4jx9: mark_converged stores absolute_tol when abs-only convergence fires (raking)", {
+  # raking uses generic mark_converged; ieppa has its own correct impl.
+  # With absolute-only convergence, convergence_tol must reflect abs_tol (not pct_tol=0).
+  set.seed(7)
+  n <- 500
+  data <- data.frame(a = factor(sample(c("1","2"), n, replace = TRUE)))
+  target <- list(a = c("1" = 0.5, "2" = 0.5))
+  abs_tol <- 1e-5
+  w <- leafblower::harvest(
+    data, target, method = "raking",
+    convergence = list(absolute = abs_tol),
+    max_iterations = 2000L,
+    attach_weights = FALSE
+  )
+  r <- attr(w, "result")
+  # convergence_used$tol must equal abs_tol, not 0 (the bugged pct_tol default).
+  expect_equal(r$convergence_used$tol, abs_tol, tolerance = 1e-12)
+})
