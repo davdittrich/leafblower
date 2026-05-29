@@ -20,6 +20,12 @@ python/leafblower/*.so
 *.so
 src/leafblower.so
 src/*.o
+# Python bytecode
+**/__pycache__/
+*.pyc
+# Stray local build outputs
+/Cholesky
+benchmarks/results/sor_sweep.csv
 # Test failure tracking
 tests/testthat/_problems/
 tests/testthat/testthat-problems.rds
