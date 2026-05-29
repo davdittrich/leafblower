@@ -242,7 +242,7 @@ ChebyshevResult chebyshev_ipm(
         // O(K*nct) pass — cheap vs LDLT O(nct³). Computes all 6 metrics from current S[].
         double W = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W += X[c];
-        if (W < 1e-300) { res.base.status = RK_ERR_INFEAS; return res; }
+        if (W < 1e-300) { res.base.status = RK_ERR_INFEAS; goto finalize; }
         CellMetrics cm = lbw::compute_cell_metrics(st, ct, X, W, bucket_tmp);
         // Only save X_best when X is fully finite — Mehrotra on ill-conditioned K>=9 systems
         // can produce NaN X values; saving NaN as best would corrupt the final result.
@@ -331,7 +331,7 @@ ChebyshevResult chebyshev_ipm(
                                                   cat_offset.data(), st.K,
                                                   static_cast<size_t>(nct_red),
                                                   full_to_red.data()) != RK_OK) {
-            res.base.status = RK_ERR_BADARG; return res;
+            res.base.status = RK_ERR_BADARG; goto finalize;
         }
 
         // Jacobi diagonal preconditioning on N_red
@@ -343,7 +343,7 @@ ChebyshevResult chebyshev_ipm(
 
         // LDLT factor scaled N_red once per iteration
         if (cholesky_factor_inplace(N_red.data(), static_cast<size_t>(nct_red), kEpsCholesky) != RK_OK) {
-            res.base.status = RK_ERR_BADARG; return res;
+            res.base.status = RK_ERR_BADARG; goto finalize;
         }
         res.n_factorizations++;
 
@@ -681,6 +681,10 @@ ChebyshevResult chebyshev_ipm(
         }  // end Mehrotra predictor-corrector block
     }
 
+finalize:
+    // Single exit: early failure returns (RK_ERR_INFEAS/RK_ERR_BADARG) jump here so
+    // best_weights is populated from X_best and obs-expansion runs on every path
+    // (izql). Failure status set before the goto is preserved.
     // Populate metrics
     res.base.convergence_solver_objective = best_delta;
     res.base.best_error = best_errRp;  // actual calibration error at best_iter
