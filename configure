@@ -8,13 +8,12 @@ else
     echo "WARNING: C++17 not available; falling back to C++14" >&2
 fi
 
-# Detect -O3 support (set via OPT_FLAGS so it does not appear in PKG_CXXFLAGS
-# literally; CRAN portability check flags PKG_CXXFLAGS containing -O flags).
-if eval $CXX -O3 -x c++ -c /dev/null -o /dev/null 2>/dev/null; then
-    OPT_FLAGS="-O3"
-else
-    OPT_FLAGS=""
-fi
+# NOTE: the package no longer sets its own optimization (-O) level. R already
+# supplies the user/site -O level via $(CXXFLAGS) in $(ALL_CXXFLAGS), and
+# tools:::.check_make_vars flags both PKG_CXXFLAGS containing -O* ("pflags") and
+# any mutation of the user CXXFLAGS variable ("uflags"). A user wanting -O3 sets
+# it in ~/.R/Makevars. (WRE §1.2.1: "flags such as -O2 ... are all specific to
+# GCC" — packages must not hard-code them.)
 
 # Detect OpenMP simd hints (-fopenmp-simd, no threading runtime required).
 # This is probed independently: a user may have simd vectorisation annotations
@@ -65,7 +64,10 @@ fi
 
 # Detect glibc libmvec (_ZGVdN4v_exp — AVX2, 4-wide double, glibc >= 2.22).
 # _ZGVdN4v_exp is in libmvec.so, NOT libm.so. Linker flag must be -lmvec.
-# -mavx2 is required in PKG_CXXFLAGS so __m256d intrinsics compile.
+# -mavx2 is required so the __m256d intrinsics in lbw_math.hpp compile; it is
+# substituted into PKG_CXXFLAGS via the @MAVX2_FLAG@ placeholder (see Makevars.in).
+# R CMD check's tools:::.check_make_vars greps the SHIPPED Makevars.in (paths[1L]),
+# which contains the opaque placeholder, so PKG_CXXFLAGS stays portable-flag-clean.
 LBW_HAS_GLIBC_MVEC=0
 MVEC_LIBS=""
 MAVX2_FLAG=""
@@ -100,5 +102,5 @@ cat > src/lbw_config.h << EOF
 #endif /* LBW_CONFIG_H */
 EOF
 
-sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OPT_FLAGS@|${OPT_FLAGS}|;s|@OMP_FLAGS@|${OMP_FLAGS}|;s|@SIMD_FLAGS@|${SIMD_FLAGS}|;s|@MAVX2_FLAG@|${MAVX2_FLAG}|;s|@MVEC_LIBS@|${MVEC_LIBS}|" \
+sed "s|@CXXFLAGS_STD@|${CXXFLAGS_STD}|;s|@OMP_FLAGS@|${OMP_FLAGS}|;s|@SIMD_FLAGS@|${SIMD_FLAGS}|;s|@MAVX2_FLAG@|${MAVX2_FLAG}|;s|@MVEC_LIBS@|${MVEC_LIBS}|" \
     src/Makevars.in > src/Makevars

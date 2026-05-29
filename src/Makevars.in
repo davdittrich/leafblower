@@ -1,9 +1,17 @@
-PKG_CXXFLAGS = @CXXFLAGS_STD@ @OMP_FLAGS@ @SIMD_FLAGS@ -I. -DSTRICT_R_HEADERS
-# -O3 (@OPT_FLAGS@) and -mavx2 (@MAVX2_FLAG@) are optimization/code-gen flags.
-# CRAN WRE §1.2.1 rejects -O and -m* flags inside PKG_CXXFLAGS, so they are kept
-# out of PKG_CXXFLAGS and appended to the package-local CXXFLAGS, which R folds
-# into $(ALL_CXXFLAGS) at compile time. (-mavx2 is load-bearing: the _mm256_*
-# intrinsics fail to compile without it, so a successful build confirms it applied.)
-CXXFLAGS += @OPT_FLAGS@ @MAVX2_FLAG@
+# -mavx2 (@MAVX2_FLAG@) is carried in PKG_CXXFLAGS via a configure-substituted
+# placeholder. WRE §1.2.1 / R CMD check rationale (tools:::.check_make_vars):
+#   * The "uflags" sub-check flags any mutation of the user CXXFLAGS variable
+#     (value != "-o /dev/null"), so the package must NOT append to CXXFLAGS.
+#   * The "pflags" sub-check greps the *.in* file (paths[1L] = Makevars.in) for
+#     non-portable tokens; it sees the opaque "@MAVX2_FLAG@" placeholder, not the
+#     literal "-mavx2", so PKG_CXXFLAGS in the SHIPPED Makevars.in is clean.
+# -mavx2 is load-bearing: the _mm256_* intrinsics in lbw_math.hpp fail to compile
+# without it, and the only AVX2 code is preprocessor-gated behind LBW_HAS_GLIBC_MVEC
+# (set by the same configure AVX2 feature-test), so @MAVX2_FLAG@ is empty on
+# non-AVX2 / non-x86 compilers and the intrinsics are not compiled there.
+# -O3 is intentionally NOT set: R supplies the user/site -O level via $(CXXFLAGS)
+# in $(ALL_CXXFLAGS); a user wanting -O3 sets it in ~/.R/Makevars. WRE: "flags
+# such as -O2 ... are all specific to GCC" — packages must not hard-code them.
+PKG_CXXFLAGS = @CXXFLAGS_STD@ @OMP_FLAGS@ @SIMD_FLAGS@ @MAVX2_FLAG@ -I. -DSTRICT_R_HEADERS
 PKG_LIBS = @MVEC_LIBS@ $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
 PKG_SOURCES = c_api.cpp logit.cpp ieppa.cpp ieppa_trajectory.cpp ieppa_finalize.cpp cell_table.cpp r_bridge.cpp calib_validate.cpp sinkhorn.cpp calib_linalg.cpp greg.cpp chebyshev.cpp greenkhorn.cpp logit_calib.cpp newton_calib.cpp design_effect.cpp validation.cpp
