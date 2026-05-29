@@ -11,11 +11,14 @@ Statistics Canada Catalogue No. 12-001-X. Equation 3.5.
 from __future__ import annotations
 
 import warnings
-from typing import Mapping, Optional
+from typing import Mapping, Optional, TYPE_CHECKING
 
 import numpy as np
 
 from leafblower._leafblower import _design_effect as _c_design_effect
+
+if TYPE_CHECKING:  # annotation-only; runtime pandas import is lazy (see design_effect body)
+    import pandas as pd
 
 
 def design_effect(
