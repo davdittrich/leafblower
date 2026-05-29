@@ -62,12 +62,42 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     };
     for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
 
-    // G8c: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
+    // CXX.2 (leafblower-5fm8.5): DECOUPLE the per-iteration oscillation monitor
+    // (errRp scale) from the REPORTED best-iterate (configured-metric scale).
+    //  - `sraa_best`: cheap errRp-scale (max marginal-residual) monitor that drives
+    //    the SRAA outer-stall revert. errRp IS the correct fast oscillation signal;
+    //    computing full CellMetrics every iteration would be an O(K·M_cell) perf
+    //    regression. Updated every iteration; always seeded with the initial iterate
+    //    so the revert always has a valid fallback.
+    //  - `best`: the REPORTED/SELECTED best-iterate feeding res.base.{best_error,
+    //    max_error,best_iter,best_weights}; its scale is select_metric(cfg.metric).
+    //
+    // Cadence of the `best` update is metric-dependent, BY DESIGN:
+    //  * cfg.metric == MAX_ERR (default): select_metric == max(errRp) == the
+    //    per-iteration `curr_max` we already maintain cheaply. `best` is updated
+    //    EVERY iteration from curr_max, EXACTLY reproducing the historical greenkhorn
+    //    code (same best_iter / best_weights, incl. non-interval iterations). The
+    //    default path therefore stays byte-identical. We deliberately do NOT update
+    //    `best` from the interval-block fresh m.errRp (from-scratch bucket sums differ
+    //    from the incrementally-maintained errRp at the ~1e-15 floor, which would pick
+    //    a different best_iter than the historical path).
+    //  * cfg.metric != MAX_ERR (kl/chi2/…): the per-iteration errRp is the WRONG
+    //    scale, so `best` is updated ONLY in the kErrCheckInterval block where the
+    //    full CellMetrics `m` exists, via select_metric(cfg.metric, m) — mirroring
+    //    sinkhorn.cpp. This is the bug fix: pre-CXX.2 `best.best_metric` was an errRp
+    //    value mislabeled as the requested metric.
     // greenkhorn does not minimise KL directly, so best_objective stays ∞.
+    const bool metric_is_max_err = (st.convergence_cfg.metric == CalibMetric::MAX_ERR);
     BestIterTracker best;
+    BestIterTracker sraa_best;
     {
         double init_errRp = *std::max_element(errRp.begin(), errRp.end());
-        best.update(init_errRp, std::numeric_limits<double>::infinity(), 0, X);
+        sraa_best.update(init_errRp, std::numeric_limits<double>::infinity(), 0, X);
+        // MAX_ERR default: seed `best` identically to the historical code (initial
+        // iterate on the errRp==metric scale). Non-MAX_ERR: leave `best` at +inf so
+        // the first interval check sets it on the correct metric scale.
+        if (metric_is_max_err)
+            best.update(init_errRp, std::numeric_limits<double>::infinity(), 0, X);
     }
 
     // Convergence state
@@ -174,15 +204,24 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             res.base.iterations = iter + 1;
         }
 
-        // Best-iterate
+        // CXX.2: per-iteration errRp oscillation monitor (sraa_best) → SRAA
+        // outer-stall revert. The reported `best` mirrors this ONLY for MAX_ERR
+        // (where select_metric == max(errRp) == curr_max); other metrics defer to
+        // the interval block below.
         double curr_max = *std::max_element(errRp.begin(), errRp.end());
-        if (curr_max < best.best_metric) {
-            best.update(curr_max, std::numeric_limits<double>::infinity(),
-                        res.base.iterations, X);
+        if (curr_max < sraa_best.best_metric) {
+            sraa_best.update(curr_max, std::numeric_limits<double>::infinity(),
+                             res.base.iterations, X);
+            // MAX_ERR default: track the per-iteration errRp-best EXACTLY as the
+            // historical code did (byte-identical default path, incl. best_iter on
+            // a non-interval iteration). select_metric(MAX_ERR)==curr_max, no recompute.
+            if (metric_is_max_err)
+                best.update(curr_max, std::numeric_limits<double>::infinity(),
+                            res.base.iterations, X);
         } else if (st.accelerate && K > 0 &&
-                   curr_max > best.best_metric * (1.0 + lbw::kSRAAOuterSlack)) {
+                   curr_max > sraa_best.best_metric * (1.0 + lbw::kSRAAOuterSlack)) {
             if (++outer_stall_count >= lbw::kSRAAOuterStallWindow) {
-                X = best.best_weights;        // revert to outer-quality best
+                X = sraa_best.best_weights;   // revert to errRp-best (oscillation monitor)
                 grk_sraa.clear();             // restart AA history
                 outer_stall_count = 0;
                 // Rebuild W, S_flat, errRp from reverted X
@@ -196,7 +235,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
                     }
                 }
                 for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
-                // After revert to best, errRp matches best.best_metric — no update needed.
+                // After revert to sraa_best, errRp matches sraa_best.best_metric — no update needed.
             }
         } else { outer_stall_count = 0; }
 
@@ -211,18 +250,33 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             // default-metric behavior is unchanged; KL/CHI2/etc. now report and
             // select the iterate that is best under the requested metric.
             const double curr_metric = lbw::select_metric(cfg.metric, m);
-            bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
-            if (converged) {
+            // CXX.2: for NON-MAX_ERR metrics, update the reported best-iterate on
+            // the configured-metric scale at EVERY interval check (mirrors
+            // sinkhorn.cpp). This is where the scale-correct `best` is built for
+            // kl/chi2/… For MAX_ERR we SKIP it: the per-iteration block already
+            // tracks max(errRp) on the metric scale, and the fresh m.errRp recompute
+            // here can differ from the incremental errRp at ~1e-15, which would pick
+            // a different best_iter and break the byte-identical default path.
+            if (!metric_is_max_err &&
+                std::isfinite(curr_metric) && curr_metric < best.best_metric) {
+                best.update(curr_metric, std::numeric_limits<double>::infinity(),
+                            res.base.iterations, X);
+            }
+            if (lbw::check_convergence(cfg, m, prev_metric, st.tol_abs)) {
                 lbw::mark_converged(res, cfg, res.base.iterations);
-                // B7: only overwrite best if convergence X is actually better
-                if (std::isfinite(curr_metric) && curr_metric < best.best_metric) {
-                    best.update(curr_metric, std::numeric_limits<double>::infinity(),
-                                res.base.iterations, X);
-                }
                 break;
             }
         }
     }
+
+    // CXX.2: for non-MAX_ERR metrics `best` is updated only at interval checks
+    // (MAX_ERR is pre-seeded + per-iteration, so it is never empty). If a
+    // non-default-metric solve broke out before any interval check fired (e.g. the
+    // W<=0 guard on iter 0), `best` is still empty. Fall back to the always-seeded
+    // errRp monitor so best_weights is never empty (avoids OOB in the reconstruction
+    // loop below). best.best_iter < 0 ⇔ never updated.
+    if (best.best_iter < 0)
+        best = sraa_best;
 
     // G8c: write best-iterate fields from tracker.
     res.base.convergence_solver_objective = best.best_objective;  // ∞ for greenkhorn
