@@ -44,4 +44,5 @@ test_that("bounds_mode='unit' succeeds (strict per-obs mode)", {
   expect_equal(attr(r, "result")$status, 0L, info = "unit mode must converge")
   expect_lte(max(r$weights), max_weight + 1e-9, label = "max(weights) <= max_weight")
   expect_gte(min(r$weights), min_weight - 1e-9, label = "min(weights) >= min_weight")
+  expect_lt(abs(sum(r$weights) - nrow(df)), 1e-6, label = "sum(weights) == n")
 })
