@@ -1642,6 +1642,21 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 if (alm_active && X_tilde_c > 0.0) {
                     // ALM: linearized Newton step, rho = mu*X_tilde balances KL Hessian.
                     // X = X_tilde * (1 - lambda + mu*z) / (1 + rho); lambda += mu*(X-z).
+                    //
+                    // Derivation (iEPPA uses the UN-normalized KL / I-divergence
+                    // D = X*log(X/X_tilde) - X + X_tilde, so dD/dX = log(X/X_tilde),
+                    // NOT log(X/X_tilde)+1). Stationarity of
+                    //   D + lambda*X + (mu/2)(X-z)^2  is  log(X/X_tilde)+lambda+mu(X-z)=0.
+                    // Linearize log(X/X_tilde) ~= X/X_tilde - 1:
+                    //   (X/X_tilde - 1) + lambda + mu(X-z) = 0
+                    //   X(1 + mu*X_tilde) = X_tilde*(1 - lambda + mu*z)
+                    //   X = X_tilde*(1 - lambda + mu*z)/(1 + rho).
+                    // This is exactly the line below. leafblower-7emq proposed an
+                    // extra "-rho" in the numerator, but that derives from the
+                    // NORMALIZED KL (dD/dX = log+1), which is not iEPPA's generator.
+                    // Verified: both forms share the fixed point X=clamp(X_tilde,L,U)
+                    // and convergence rate is a wash (2-cell scipy-style sim). Do NOT
+                    // add -rho here.
                     const double z   = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
                     const double rho = st.alm.capacity_mu * X_tilde_c;
                     double X_alm = X_tilde_c * (1.0 - lambda_cell[c] + st.alm.capacity_mu * z) / (1.0 + rho);
