@@ -156,7 +156,7 @@ test_that("WU-2: sparse regime (M_cell/n ~ 0.01) auto-dispatches log-space", {
                    max_iterations = 500L,
                    convergence = list(absolute = 1e-6),
                    verbose = 1L),
-    type = "message"
+    type = "output"
   )
   # Verbose log prefix differs by path; we rely on either absence of
   # "linear-space" OR presence of "path=log" if labelled.
