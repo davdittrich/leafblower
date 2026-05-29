@@ -9,9 +9,15 @@ get_current_miss <- function(data, target, weights) {
   vapply(names(target), function(v) {
     col <- data[[v]]
     tgt <- target[[v]]
-    W   <- sum(weights[!is.na(col)])
+    # Encode NA observations into the literal "NA" bin so an injected
+    # add_na_proportion target is counted (as.character(NA) is NA_character_,
+    # which never equals the string "NA"). Denominator spans all observations
+    # so shares sum to 1.
+    col_char <- as.character(col)
+    col_char[is.na(col)] <- "NA"
+    W   <- sum(weights)
     errs <- vapply(names(tgt), function(lv) {
-      mask <- !is.na(col) & (as.character(col) == lv)
+      mask <- col_char == lv
       prop <- if (W > 0) sum(weights[mask]) / W else 0.0
       abs(prop - tgt[[lv]])
     }, numeric(1))
