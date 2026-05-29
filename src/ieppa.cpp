@@ -5,6 +5,7 @@
 #include "cell_table.hpp"
 #include "leafblower.h"
 #include "sraa.hpp"
+#include "ieppa_internal.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -18,42 +19,8 @@
 
 namespace lbw {
 
-static std::vector<int> parse_trajectory_iters() {
-    const char* s = std::getenv("LBW_TRAJECTORY_AT");
-    if (!s || !*s) return {};
-    std::vector<int> out;
-    std::string buf;
-    for (const char* p = s;; ++p) {
-        if (*p == ',' || *p == '\0') {
-            if (!buf.empty()) {
-                try {
-                    out.push_back(std::stoi(buf));
-                } catch (const std::exception&) {
-                    // skip malformed token
-                }
-                buf.clear();
-            }
-            if (*p == '\0') break;
-        } else buf.push_back(*p);
-    }
-    std::sort(out.begin(), out.end());
-    out.erase(std::unique(out.begin(), out.end()), out.end());
-    return out;
-}
-
-
-static void write_trajectory_csv(
-    const std::vector<std::pair<int,double>>& samples)
-{
-    if (samples.empty()) return;
-    const char* path = std::getenv("LBW_TRAJECTORY_OUT");
-    if (!path || !*path) return;
-    std::ofstream f(path);
-    if (!f.is_open()) return;
-    f << "iter,errRp\n";
-    for (const auto& p : samples)
-        f << p.first << "," << p.second << "\n";
-}
+// parse_trajectory_iters() and write_trajectory_csv() moved to
+// ieppa_trajectory.cpp (declared in ieppa_internal.hpp) — uu8r.1.
 
 // Log-space algBCD at C=0 — see design spec §2.3, §8 for math.
 // lf[k][j]: log Sinkhorn factor (per margin k, category j)
