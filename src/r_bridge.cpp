@@ -483,8 +483,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         int M_cell_est = lbw::estimate_M_cell(n, K,
             const_cast<const int32_t**>(group_ids.data()),
             cat_counts.data());
-        // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
-        const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9);
+        // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
+        // PAR.1: use >= to match c_api.cpp:190; > diverged at the exact 0.9 boundary.
+        const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9);
         // Save for auto-fallback: only st.weights is mutated by solvers in-place
         const std::vector<double> weights_backup(weights);
         if (zero_compression && K >= 5) {

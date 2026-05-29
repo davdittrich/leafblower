@@ -45,6 +45,49 @@ test_that("WH-g: AUTO keeps moderate-skew K>=5 on newton_kl", {
                     attr(r, "algorithm")))
 })
 
+# PAR.1 (leafblower-6uhm.1): AUTO routing comparator parity R vs Python.
+# c_api.cpp routes with M_cell*10 >= n*9 (>=); r_bridge.cpp historically used
+# > and diverged at the EXACT boundary M_cell/n == 0.9. This fixture is
+# engineered so estimate_M_cell == 18 over n == 20 rows => 18*10 == 20*9 == 180,
+# i.e. M_cell/n == 0.9 exactly. With K>=5 and moderate skew the >= branch must
+# select newton_kl (the compressed-iEPPA branch only fires when 0.9 is NOT met).
+make_boundary_df <- function() {
+  cats <- letters[1:5]; K <- 5L
+  # 18 distinct 5-tuples (deterministic, no RNG, all 5 levels per margin).
+  # Stride 173 (coprime-ish with 5^5=3125) over the full enumeration spreads
+  # levels so every margin is feasible against the moderate-skew targets.
+  base <- as.matrix(expand.grid(rep(list(seq_len(5L)), K)))
+  idx <- ((seq_len(18L) - 1L) * 173L) %% nrow(base) + 1L
+  rows <- base[idx, , drop = FALSE]
+  # duplicate first 2 tuples -> n=20 rows, 18 distinct cells
+  dat <- rbind(rows, rows[1:2, , drop = FALSE])
+  df <- as.data.frame(
+    lapply(seq_len(K), function(k) factor(cats[dat[, k]], levels = cats)),
+    stringsAsFactors = TRUE)
+  names(df) <- paste0("m", seq_len(K))
+  rownames(df) <- NULL
+  df
+}
+
+test_that("PAR.1: AUTO at exact M_cell/n==0.9 boundary routes via >= (parity with c_api)", {
+  df <- make_boundary_df()
+  expect_identical(nrow(df), 20L)
+  expect_identical(nrow(unique(df)), 18L)  # M_cell == 18 => 18*10 == 20*9
+  # Moderate skew (max/min = 0.4/0.1 = 4 <= 5) => >= branch picks newton_kl.
+  tgt <- lapply(df, function(f) {
+    p <- c(0.4, 0.2, 0.2, 0.1, 0.1)
+    setNames(p, levels(f))
+  })
+  r <- suppressWarnings(harvest(df, tgt, method = "auto",
+    max_weight = 20, min_weight = 0,
+    max_iterations = 200L, attach_weights = FALSE, verbose = 0L))
+  # >= branch -> K>=5 + moderate skew -> newton_kl. The buggy > branch would
+  # fall through to the compressed-iEPPA path and return "ieppa".
+  expect_equal(attr(r, "algorithm"), "newton_kl",
+    label = sprintf("PAR.1 boundary: expected newton_kl (>= branch) got %s",
+                    attr(r, "algorithm")))
+})
+
 test_that("WH-g: AUTO with min_target=0 takes severe-skew branch (no div-by-zero)", {
   df <- make_zero_compress_df(seed = 3L)
   # min target == 0: floor at 1e-12 forces target_skew large -> severe-skew
