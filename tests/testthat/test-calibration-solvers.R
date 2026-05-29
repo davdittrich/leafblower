@@ -206,6 +206,10 @@ test_that("S1: sinkhorn handles tight bounds without overflow (a[c] clamp guard)
               info=sprintf("expected 0 (OK) or 4 (BUDGET) or 5 (STALL), got %d", r$status))
   expect_true(all(w >= 0.1 - 1e-10 & w <= 2.0 + 1e-10),
               info="bounds violated")
+  # Quality gate: fixture achieves max_error ~0.235 (errRp at final iter);
+  # threshold 0.5 is 2× observed — rejects perpetual-stall (errRp never drops).
+  expect_lt(r$max_error, 0.5,
+            label=sprintf("max_error=%.4f must be < 0.5 (perpetual stall guard)", r$max_error))
 })
 
 test_that("S2: sinkhorn achieves KL <= raking on synthetic (no external data)", {
