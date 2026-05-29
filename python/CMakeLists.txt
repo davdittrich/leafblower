@@ -19,6 +19,7 @@ set(CORE_SOURCES
     ../src/greg.cpp
     ../src/ieppa.cpp
     ../src/ieppa_trajectory.cpp
+    ../src/ieppa_finalize.cpp
     ../src/logit.cpp
     ../src/logit_calib.cpp
     ../src/newton_calib.cpp
