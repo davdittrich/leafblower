@@ -123,3 +123,95 @@ def test_diagnose_weights_na_bin_r_python_parity():
             f"R<->Python {col} mismatch:\n"
             f"R={diag_r[col].to_dict()}\nPy={diag_py[col].to_dict()}"
         )
+
+
+def test_diagnose_weights_no_na_bin_excludes_na_r_python_parity():
+    """No 'NA' target bin + NA data: shares over non-NA obs, error_weighted ~ 0.
+
+    Regression guard (NABIN). With an all-obs denominator the named-level
+    shares would sum to (1 - na_frac) and error_weighted would be
+    ~ -na_frac*target on every level. The fix excludes NA obs from the
+    denominator so shares sum to 1 over non-NA obs and error_weighted ~ 0 for
+    well-calibrated (here: uniform) weights. R and Python must agree (rtol=1e-6).
+    """
+    na_frac = 0.20
+    g_raw = _make_fixture(seed=7, n=500, na_frac=na_frac)
+    n = len(g_raw)
+    n_nonna = sum(1 for v in g_raw if v is not None)
+
+    # Target = observed NON-NA shares (no "NA" bin).
+    obs = {lv: sum(1 for v in g_raw if v == lv) / n_nonna for lv in ("a", "b", "c")}
+    tgt_used = {"a": obs["a"], "b": obs["b"], "c": obs["c"]}
+
+    df_py = pd.DataFrame({"g": pd.Categorical(g_raw, categories=["a", "b", "c"])})
+    w_py = np.ones(n, dtype=float)  # uniform => perfectly "calibrated" to obs shares
+
+    diag_py = diagnose_weights(df_py, {"g": tgt_used}, w_py)
+    diag_py = diag_py.set_index("level").sort_index()
+
+    # Regression assertions (Python side).
+    assert abs(diag_py["prop_original"].sum() - 1.0) < 1e-12
+    assert abs(diag_py["prop_weighted"].sum() - 1.0) < 1e-12
+    assert (diag_py["error_weighted"].abs() < 1e-12).all(), (
+        f"error_weighted not ~0 (regression): {diag_py['error_weighted'].to_dict()}"
+    )
+
+    # --- R side via subprocess. ---
+    fixture = {
+        "g": [("NA" if v is None else v) for v in g_raw],
+        "weights": w_py.tolist(),
+        "target_used": {k: float(v) for k, v in tgt_used.items()},
+    }
+    fx_path = "/tmp/diagnose_no_na_fixture.json"
+    with open(fx_path, "w") as fh:
+        json.dump(fixture, fh)
+
+    r_script = (
+        f'devtools::load_all("{_REPO_ROOT}", quiet = TRUE); '
+        f'f <- jsonlite::fromJSON("{fx_path}"); '
+        'g_raw <- f$g; g_raw[g_raw == "NA"] <- NA; '
+        'g <- factor(g_raw, levels = c("a", "b", "c")); '
+        'df <- data.frame(g = g, stringsAsFactors = FALSE); '
+        'tu <- unlist(f$target_used); '
+        'target <- list(g = tu); '
+        'w <- as.numeric(f$weights); '
+        'd <- diagnose_weights(df, target, w); '
+        'out <- list('
+        '  level = as.character(d$level), '
+        '  prop_original = as.numeric(d$prop_original), '
+        '  prop_weighted = as.numeric(d$prop_weighted), '
+        '  error_weighted = as.numeric(d$error_weighted)); '
+        'cat(jsonlite::toJSON(out, auto_unbox = FALSE, digits = 15))'
+    )
+    proc = subprocess.run(
+        ["Rscript", "-e", r_script],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert proc.returncode == 0, f"Rscript failed:\n{proc.stderr}"
+    r_out = json.loads(proc.stdout.strip())
+    diag_r = pd.DataFrame(
+        {
+            "level": [str(x) for x in r_out["level"]],
+            "prop_original": r_out["prop_original"],
+            "prop_weighted": r_out["prop_weighted"],
+            "error_weighted": r_out["error_weighted"],
+        }
+    ).set_index("level").sort_index()
+
+    # R side: no "NA" level present, error_weighted ~ 0, shares sum to 1.
+    assert "NA" not in diag_r.index
+    assert abs(diag_r["prop_weighted"].sum() - 1.0) < 1e-12
+    assert (diag_r["error_weighted"].abs() < 1e-12).all(), (
+        f"R error_weighted not ~0 (regression): {diag_r['error_weighted'].to_dict()}"
+    )
+
+    # --- Full R<->Python parity (rtol=1e-6, atol=0). ---
+    assert set(diag_r.index) == set(diag_py.index)
+    for col in ("prop_original", "prop_weighted"):
+        assert np.allclose(
+            diag_r[col].to_numpy(), diag_py[col].to_numpy(),
+            rtol=1e-6, atol=0.0,
+        ), (
+            f"R<->Python {col} mismatch:\n"
+            f"R={diag_r[col].to_dict()}\nPy={diag_py[col].to_dict()}"
+        )
