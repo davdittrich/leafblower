@@ -315,6 +315,73 @@ inline void compute_cell_bounds(
     }
 }
 
+/// Exit-time weight finalization shared by solvers (canonical: ieppa_finalize).
+/// (1) Enforces Σw=n via one pre-bounds scale (sanctioned: applied BEFORE bounds
+///     post-processing so unit-mode water-fill sees final-scale weights — NOT a
+///     forbidden post-water-fill renormalize).
+/// (2) bounds_mode==CELL: counts per-obs violations (diagnostic only, no clamp —
+///     cell contract is aggregate X[c] <= U_cell, and clamping per-obs distorts
+///     marginals). bounds_mode==UNIT: per-cell water-fill enforcing
+///     [min_weight, max_weight] per obs while preserving Σw=n.
+/// Degenerate total_w (0 / non-finite): weights left unchanged.
+/// Writes the per-obs violation / clamp counts to the out-params (solver result
+/// structs differ in whether they surface these — callers pass their own fields
+/// or discard).
+inline void finalize_weights(CalibState& st, const CellTable& ct,
+                             int& n_bounds_violated, int& n_bounds_clamped) {
+    double total_w = 0.0;
+    for (int i = 0; i < st.n; i++) total_w += st.weights[i];
+    if (std::isfinite(total_w) && total_w > 0.0) {
+        const double norm = static_cast<double>(st.n) / total_w;
+        for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
+    }
+
+    if (st.bounds_mode == RK_BOUNDS_CELL) {
+        int violations = 0;
+        for (int i = 0; i < st.n; i++)
+            if (st.weights[i] > st.max_weight || st.weights[i] < st.min_weight) ++violations;
+        n_bounds_violated = violations;
+        n_bounds_clamped  = 0;
+        return;
+    }
+
+    // Unit mode: per-cell water-fill (mirror of ieppa_finalize unit branch).
+    std::vector<std::vector<int>> cells_of_obs(ct.M_cell);
+    for (int i = 0; i < st.n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
+    const int kWaterFillMaxIter = std::max(50, st.K * 10);
+    int total_clamped = 0;
+    for (int c = 0; c < ct.M_cell; c++) {
+        const auto& idxs = cells_of_obs[c];
+        if (idxs.empty()) continue;
+        for (int it = 0; it < kWaterFillMaxIter; it++) {
+            double excess = 0.0, free_sum = 0.0;
+            int n_free = 0; bool any_violation = false;
+            for (int i : idxs) {
+                if (st.weights[i] > st.max_weight) {
+                    excess += st.weights[i] - st.max_weight;
+                    st.weights[i] = st.max_weight; any_violation = true; ++total_clamped;
+                } else if (st.weights[i] < st.min_weight) {
+                    excess -= st.min_weight - st.weights[i];
+                    st.weights[i] = st.min_weight; any_violation = true; ++total_clamped;
+                } else if (st.weights[i] == st.max_weight || st.weights[i] == st.min_weight) {
+                    // Pinned from prior iter (assigned, not computed — FP-equality safe).
+                    // Excluded from free_sum so factor distributes excess in full.
+                } else {
+                    free_sum += st.weights[i]; ++n_free;
+                }
+            }
+            if (!any_violation) break;
+            if (n_free == 0 || free_sum <= 0.0) break;  // no room to redistribute
+            const double factor = 1.0 + excess / free_sum;
+            for (int i : idxs)
+                if (st.weights[i] > st.min_weight && st.weights[i] < st.max_weight)
+                    st.weights[i] *= factor;
+        }
+    }
+    n_bounds_violated = 0;
+    n_bounds_clamped  = total_clamped;
+}
+
 /// Builds prefix-sum cat_offset[k] and returns n_cats_total.
 /// cat_offset[k] = sum of cat_counts[0..k-1].
 inline int build_cat_offset(int K, const int* cat_counts,

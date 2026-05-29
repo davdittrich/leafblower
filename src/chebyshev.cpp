@@ -52,7 +52,6 @@ ChebyshevResult chebyshev_ipm(
                               cat_offset, nct, res) != RK_OK)
         return res;
     res.M_cell = ct.M_cell;
-    const double lo = st.min_weight;
     const double hi = hi_eff;
 
     const double n_d = static_cast<double>(st.n);
@@ -709,13 +708,20 @@ finalize:
     }
     // else: X_best collapsed — leave metrics at default 0.0 (not NaN)
 
-    // Obs expansion using X_out (best-errRp iterate)
-    const double hi_obs = lbw::resolve_hi(st);
+    // Obs expansion using X_out (best-errRp iterate). No per-obs clamp here:
+    // Σw=n enforcement + bounds_mode post-processing are delegated to the shared
+    // finalize_weights helper (canonical ieppa_finalize contract). This is the
+    // only exit path (early failures goto finalize above), so Σw=n now holds on
+    // every path (xl44).
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
         double mult = (X_init[c] > kEpsChebyshev) ? X_out[c]/X_init[c] : 1.0;
-        st.weights[i] = std::clamp(st.weights[i]*mult, lo, hi_obs);
+        st.weights[i] = st.weights[i] * mult;
     }
+    int nbv = 0, nbc = 0;  // ChebyshevResult does not surface bounds diagnostics
+    lbw::finalize_weights(st, ct, nbv, nbc);
+    (void)nbv; (void)nbc;
+
     res.base.best_weights.resize(st.n);
     std::copy(st.weights, st.weights+st.n, res.base.best_weights.begin());
     return res;
