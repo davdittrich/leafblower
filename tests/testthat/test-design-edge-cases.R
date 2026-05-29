@@ -13,6 +13,45 @@ test_that("design_effect errors when sum(weights) <= 0", {
   expect_error(design_effect(c(0, 0, 0)), regexp = "positive|sum", ignore.case = TRUE)
 })
 
+# RVAL.5: R-level guard fires BEFORE .Call in 1-arg path.
+# Tests are specific to the R-layer message so they distinguish R guard from C++ guard.
+
+test_that("RVAL.5: 1-arg design_effect R-level guard catches NA weights", {
+  expect_error(
+    design_effect(c(1, NA, 3)),
+    regexp = "weights.*NA|NA.*weights",
+    ignore.case = TRUE
+  )
+})
+
+test_that("RVAL.5: 1-arg design_effect R-level guard catches Inf weights", {
+  expect_error(
+    design_effect(c(1, Inf, 3)),
+    regexp = "weights.*finite|finite.*weights",
+    ignore.case = TRUE
+  )
+})
+
+test_that("RVAL.5: 1-arg design_effect R-level guard catches zero-sum weights", {
+  expect_error(
+    design_effect(c(-1, 0, 1)),
+    regexp = "sum.*weights.*positive|weights.*sum.*positive",
+    ignore.case = TRUE
+  )
+})
+
+test_that("RVAL.5: 1-arg design_effect R-level guard catches non-numeric weights", {
+  expect_error(
+    design_effect(c("a", "b")),
+    regexp = "numeric|weights",
+    ignore.case = TRUE
+  )
+})
+
+test_that("RVAL.5: valid weights pass R-level guard and return finite result", {
+  expect_true(is.finite(design_effect(c(1, 2, 3))))
+})
+
 test_that("design_effect 4-arg errors on NA in outcome", {
   w <- c(1, 2, 3); y <- c(10, NA, 30)
   data <- data.frame(g = c("A", "B", "A"), stringsAsFactors = FALSE)
