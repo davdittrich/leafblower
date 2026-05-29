@@ -296,6 +296,13 @@ inline void apply_obs_expansion(
 /// rtol=1e-6 vs prior literal-1e300 build is the gate.
 inline constexpr double kUnboundedSentinel = 1e300;
 
+/// Minimum total weight for which the Σw=n renormalization (norm = n/total_w) is
+/// applied. Below this, total_w is treated as degenerate-zero: weights are left
+/// unchanged rather than scaled by an enormous norm (a subnormal total_w ~1e-310
+/// would overflow norm to +inf). 1e-100 keeps n/total_w well within double range
+/// for any realistic n while rejecting only physically-meaningless near-zero sums.
+inline constexpr double kMinSafeTotalWeight = 1e-100;
+
 /// Returns st.max_weight if finite, else kUnboundedSentinel.
 inline double resolve_hi(const CalibState& st) noexcept {
     return std::isfinite(st.max_weight) ? st.max_weight : kUnboundedSentinel;
@@ -336,7 +343,7 @@ inline void finalize_weights_buf(double* w, int n, const CalibState& st,
                                  int& n_bounds_violated, int& n_bounds_clamped) {
     double total_w = 0.0;
     for (int i = 0; i < n; i++) total_w += w[i];
-    if (std::isfinite(total_w) && total_w > 0.0) {
+    if (std::isfinite(total_w) && total_w > kMinSafeTotalWeight) {
         const double norm = static_cast<double>(n) / total_w;
         for (int i = 0; i < n; i++) w[i] *= norm;
     }

@@ -279,7 +279,10 @@ static void ieppa_finalize(
     // within each cell, so cell-aggregate scale is irrelevant).
     double total_w = 0.0;
     for (int i = 0; i < st.n; i++) total_w += st.weights[i];
-    if (std::isfinite(total_w) && total_w > 0.0) {
+    // l7sg: guard against subnormal total_w (~1e-310), which would overflow
+    // norm = n/total_w to +inf. Below kMinSafeTotalWeight, treat as degenerate-zero
+    // (weights left unchanged, status as set upstream).
+    if (std::isfinite(total_w) && total_w > kMinSafeTotalWeight) {
         const double norm = static_cast<double>(st.n) / total_w;
         for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
     }
