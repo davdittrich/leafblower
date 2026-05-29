@@ -1,3 +1,9 @@
-PKG_CXXFLAGS = @CXXFLAGS_STD@ @OPT_FLAGS@ @OMP_FLAGS@ @SIMD_FLAGS@ @MAVX2_FLAG@ -I. -DSTRICT_R_HEADERS
+PKG_CXXFLAGS = @CXXFLAGS_STD@ @OMP_FLAGS@ @SIMD_FLAGS@ -I. -DSTRICT_R_HEADERS
+# -O3 (@OPT_FLAGS@) and -mavx2 (@MAVX2_FLAG@) are optimization/code-gen flags.
+# CRAN WRE §1.2.1 rejects -O and -m* flags inside PKG_CXXFLAGS, so they are kept
+# out of PKG_CXXFLAGS and appended to the package-local CXXFLAGS, which R folds
+# into $(ALL_CXXFLAGS) at compile time. (-mavx2 is load-bearing: the _mm256_*
+# intrinsics fail to compile without it, so a successful build confirms it applied.)
+CXXFLAGS += @OPT_FLAGS@ @MAVX2_FLAG@
 PKG_LIBS = @MVEC_LIBS@ $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
 PKG_SOURCES = c_api.cpp logit.cpp ieppa.cpp ieppa_trajectory.cpp ieppa_finalize.cpp cell_table.cpp r_bridge.cpp calib_validate.cpp sinkhorn.cpp calib_linalg.cpp greg.cpp chebyshev.cpp greenkhorn.cpp logit_calib.cpp newton_calib.cpp design_effect.cpp validation.cpp
