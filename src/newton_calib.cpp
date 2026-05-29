@@ -672,6 +672,12 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             for (int a = 0; a < n_lam; ++a) delta_norm += delta[a] * delta[a];
             delta_norm = std::sqrt(delta_norm);
             const double g_norm = std::sqrt(g_norm_sq);
+            // dqs3 audit (non-bug): delta_norm is a per-iteration local whose ONLY
+            // consumer is this guard test, computed from the pre-swap delta — which is
+            // correct, since the test decides whether to swap. After the swap below it
+            // is never read again (no Armijo line-search or trust-region consumer; it is
+            // re-derived fresh next iteration), so it is deliberately NOT recomputed for
+            // the steepest-descent direction. Verified: sole uses are L671-675.
             if (g_dot_d <= 1e-12 * g_norm * delta_norm) {
                 std::copy(G.begin(), G.end(), delta.begin());
                 g_dot_d = g_norm_sq;
