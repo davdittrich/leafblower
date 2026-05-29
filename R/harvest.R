@@ -280,8 +280,9 @@ harvest <- function(
   .na_margins <- character(0)
   if (isTRUE(add_na_proportion)) {
     n_local <- nrow(data)
+    data_names <- names(data)
     for (v in names(target)) {
-      if (!v %in% names(data)) next
+      if (!v %in% data_names) next
       na_frac <- mean(is.na(data[[v]]))
       if (na_frac == 0) next
       if (na_frac == 1)
@@ -924,6 +925,7 @@ compute_quality_metrics <- function(weights, target_list, df) {
   # AND K >= 3 (paste/rowsum overhead unprofitable for K < 3) AND all margin
   # cols are factors (precondition for integer-radix key encoding).
   margin_cols <- names(target_list)
+  col_nlevels <- vapply(margin_cols, function(k) nlevels(df[[k]]), integer(1))
   use_single_pass <- length(target_list) >= 3L &&
     !anyNA(df[margin_cols]) &&
     all(vapply(margin_cols, function(k) is.factor(df[[k]]), logical(1)))
@@ -932,7 +934,7 @@ compute_quality_metrics <- function(weights, target_list, df) {
   # With K>=10 margins x ~50 levels, prod(nlevels) can exceed 2^53,
   # causing integer-key collisions and silent KL corruption.
   if (use_single_pass) {
-    max_cells <- prod(vapply(margin_cols, function(k) nlevels(df[[k]]), integer(1)))
+    max_cells <- prod(col_nlevels)
     if (max_cells > 2^53) {
       use_single_pass <- FALSE
     }
@@ -947,7 +949,7 @@ compute_quality_metrics <- function(weights, target_list, df) {
       multiplier <- 1
       for (k in margin_cols) {
         key <- key + (as.integer(df[[k]]) - 1L) * multiplier
-        multiplier <- multiplier * nlevels(df[[k]])
+        multiplier <- multiplier * col_nlevels[[k]]
       }
       w_cell <- withCallingHandlers(
         rowsum(weights, key, na.action = NULL, reorder = TRUE),
