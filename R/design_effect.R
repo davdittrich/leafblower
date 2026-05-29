@@ -65,7 +65,7 @@ design_effect <- function(weights, outcome = NULL, data = NULL, target = NULL) {
                    var, paste(bad, collapse = ", ")))
     f <- factor(col, levels = levs)
     code_vec <- as.integer(f) - 1L   # 0-based for C
-    for (i in seq_len(n)) data_codes[(i - 1L) * K + k] <- code_vec[i]
+    data_codes[seq(k, n * K, by = K)] <- code_vec
     cat_counts[k] <- length(levs)
   }
   res <- .Call(C_rk_design_effect, as.double(weights), as.double(outcome),
