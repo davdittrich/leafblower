@@ -52,7 +52,6 @@ ChebyshevResult chebyshev_ipm(
                               cat_offset, nct, res) != RK_OK)
         return res;
     res.M_cell = ct.M_cell;
-    const double hi = hi_eff;
 
     const double n_d = static_cast<double>(st.n);
 
