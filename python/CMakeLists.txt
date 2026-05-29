@@ -42,6 +42,11 @@ target_link_libraries(_leafblower PRIVATE ${LAPACK_LIBRARIES})
 # via bulk_scaled_exp when LBW_HAS_GLIBC_MVEC=1 (default in lbw_config.h).
 # Without it, gcc errors "inlining failed in call to 'always_inline'
 # '_mm256_set1_pd': target specific option mismatch".
-target_compile_options(_leafblower PRIVATE -O3 -mavx2)
+target_compile_options(_leafblower PRIVATE -O3)
+# -mavx2 only on x86_64; the _mm256_* intrinsics are x86-only and #ifdef-guarded
+# (LBW_HAS_GLIBC_MVEC) so ARM/non-AVX2 builds link without it.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_compile_options(_leafblower PRIVATE -mavx2)
+endif()
 
 install(TARGETS _leafblower LIBRARY DESTINATION leafblower)
