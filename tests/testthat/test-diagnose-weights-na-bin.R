@@ -37,3 +37,39 @@ test_that("diagnose_weights: 'NA' bin prop_original ~ na_frac, not 0", {
   expect_equal(sum(d$prop_original), 1.0, tolerance = 1e-12)
   expect_equal(sum(d$prop_weighted), 1.0, tolerance = 1e-12)
 })
+
+test_that("diagnose_weights: NO 'NA' bin but data HAS NA -> shares over non-NA, error_weighted ~ 0", {
+  ## Regression guard (NABIN): when the target has no explicit "NA" level but
+  ## the data contains NA, the named-level denominator must EXCLUDE NA obs.
+  ## With an all-obs denominator the named shares sum to (1 - na_frac), so
+  ## error_weighted would be ~ -na_frac*target on every level even for
+  ## perfectly calibrated weights. The fix restores the non-NA denominator.
+  set.seed(29L)
+  n <- 500L
+  na_frac <- 0.20
+  na_count <- round(n * na_frac)
+  g <- sample(c("a", "b", "c"), n, replace = TRUE)
+  na_idx <- sample(n, na_count)
+  g[na_idx] <- NA
+  df <- data.frame(g = g, stringsAsFactors = FALSE)
+
+  # Target over the NON-NA observed shares (no "NA" bin). Set the target equal
+  # to the observed non-NA shares so well-calibrated (here: uniform) weights
+  # give error_weighted == 0.
+  n_nonna <- sum(!is.na(g))
+  obs_a <- sum(g == "a", na.rm = TRUE) / n_nonna
+  obs_b <- sum(g == "b", na.rm = TRUE) / n_nonna
+  obs_c <- sum(g == "c", na.rm = TRUE) / n_nonna
+  target <- list(g = c(a = obs_a, b = obs_b, c = obs_c))
+
+  w <- rep(1.0, n)
+  d <- diagnose_weights(df, target, w)
+
+  # Named-level shares sum to 1 over NON-NA obs (NOT 1 - na_frac).
+  expect_equal(sum(d$prop_original), 1.0, tolerance = 1e-12)
+  expect_equal(sum(d$prop_weighted), 1.0, tolerance = 1e-12)
+
+  # error_weighted ~ 0 on EVERY level (the regression produced ~ -na_frac*tgt).
+  expect_true(all(abs(d$error_weighted) < 1e-12))
+  expect_true(all(abs(d$error_original) < 1e-12))
+})

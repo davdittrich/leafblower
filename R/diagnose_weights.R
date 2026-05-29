@@ -22,17 +22,32 @@ diagnose_weights <- function(data, target, weights) {
     col <- data[[varname]]
     if (is.null(col)) stop("Variable '", varname, "' not found in data")
     tgt      <- target[[varname]]
-    # Fill NA observations into the literal "NA" bin so an injected
-    # add_na_proportion target is counted (as.character(NA) is NA_character_,
-    # which never matches the string "NA"). All-obs denominators so the
-    # prop_original / prop_weighted shares sum to 1 across bins.
-    col_char <- as.character(col)
-    col_char[is.na(col)] <- "NA"
-    n_total  <- length(col)
-    w_total  <- sum(weights)
+    is_na    <- is.na(col)
+    has_na_bin <- "NA" %in% names(tgt)
+    if (has_na_bin) {
+      # add_na_proportion case: fill NA observations into the literal "NA" bin
+      # so the injected target is counted (as.character(NA) is NA_character_,
+      # which never matches the string "NA"). All-obs denominators so the
+      # prop_original / prop_weighted shares sum to 1 across bins (incl. NA).
+      col_char <- as.character(col)
+      col_char[is_na] <- "NA"
+      n_total <- length(col)
+      w_total <- sum(weights)
+    } else {
+      # No "NA" bin (common case): exclude NA observations from BOTH the level
+      # masks and the denominators. harvest drops NA/gid<0 obs from the
+      # marginal constraints (raking.cpp: `if (g>=0)`), so named-level shares
+      # must be measured over non-NA obs only — otherwise they sum to <1 and
+      # produce a spurious error_weighted ~ -na_frac*target on every level for
+      # well-calibrated data.
+      col_char <- as.character(col)
+      col_char[is_na] <- NA_character_
+      n_total <- sum(!is_na)
+      w_total <- sum(weights[!is_na])
+    }
 
     for (lvl in names(tgt)) {
-      mask      <- col_char == lvl
+      mask      <- !is.na(col_char) & col_char == lvl
       prop_orig <- if (n_total > 0L) sum(mask) / n_total else 0.0
       prop_wtd  <- if (w_total > 0.0) sum(weights[mask]) / w_total else 0.0
       tgt_val   <- tgt[[lvl]]
