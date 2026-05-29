@@ -166,6 +166,17 @@ static void ieppa_finalize(
         double final_total = 0.0;
         for (int c = 0; c < ct.M_cell; c++) final_total += X[c];
         res.alm_sum_drift = std::abs(final_total - static_cast<double>(st.n));
+        // ohi0: force cell-aggregate Σ_c X = n. The bounded rescale loop above
+        // cannot reach it when cells are mass-saturated (infeasible), leaving a
+        // residual. Apply one unclamped scale AFTER recording alm_sum_drift so the
+        // infeasibility signal is preserved. No clamp: on infeasible inputs X may
+        // exceed [L_cell,U_cell] — the honest cell-aggregate outcome. Does not
+        // change obs weights: the obs-level Σw=n renorm below absorbs the uniform
+        // X scaling.
+        if (final_total > 0.0) {
+            const double rescale_final = static_cast<double>(st.n) / final_total;
+            for (int c = 0; c < ct.M_cell; c++) X[c] *= rescale_final;
+        }
         if (res.alm_sum_drift > 1e-6 * st.n && st.verbose >= 1) {
             char msg[256];
             std::snprintf(msg, sizeof(msg), "[ieppa_soft] final projection sum drift = %.2e", res.alm_sum_drift);
