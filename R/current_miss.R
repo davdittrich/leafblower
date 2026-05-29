@@ -9,9 +9,28 @@ get_current_miss <- function(data, target, weights) {
   vapply(names(target), function(v) {
     col <- data[[v]]
     tgt <- target[[v]]
-    W   <- sum(weights[!is.na(col)])
+    is_na <- is.na(col)
+    has_na_bin <- "NA" %in% names(tgt)
+    if (has_na_bin) {
+      # add_na_proportion case: encode NA observations into the literal "NA"
+      # bin so the injected target is counted (as.character(NA) is
+      # NA_character_, which never equals the string "NA"). Denominator spans
+      # ALL observations so shares (incl. NA) sum to 1.
+      col_char <- as.character(col)
+      col_char[is_na] <- "NA"
+      W <- sum(weights)
+    } else {
+      # No "NA" bin (common case): exclude NA observations from BOTH the level
+      # masks and the denominator. harvest drops NA/gid<0 obs from the marginal
+      # constraints (raking.cpp: `if (g>=0)`), so the named-level shares must be
+      # measured over non-NA obs only — otherwise they sum to <1 and produce a
+      # spurious miss ~ na_frac*target on every level for calibrated data.
+      col_char <- as.character(col)
+      col_char[is_na] <- NA_character_
+      W <- sum(weights[!is_na])
+    }
     errs <- vapply(names(tgt), function(lv) {
-      mask <- !is.na(col) & (as.character(col) == lv)
+      mask <- !is.na(col_char) & col_char == lv
       prop <- if (W > 0) sum(weights[mask]) / W else 0.0
       abs(prop - tgt[[lv]])
     }, numeric(1))

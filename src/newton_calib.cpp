@@ -722,10 +722,15 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             consecutive_failed = 0;
 
             // Marquardt gain ratio: actual / predicted reduction.
-            // Guard denominator — predicted can be tiny/negative near singularity.
+            // CXX.3: a non-positive predicted decrease means the quadratic model
+            // does not predict improvement; clamping the denominator to 1e-300
+            // (the old guard) inflated rho into the good-model branch and wrongly
+            // tightened damping. Treat predicted<=0 as rho=0 (poor model ⇒ back off).
             const double predicted = alpha * g_dot_d
                                      - 0.5 * alpha * alpha * delta_H_delta;
-            const double rho = (g_curr - g_trial) / std::max(predicted, 1e-300);
+            const double rho = (predicted <= 0.0)
+                               ? 0.0
+                               : (g_curr - g_trial) / predicted;
 
             if (alpha >= 0.999 && rho > 0.75) {
                 // FULL_ACCEPT with good model quality — tighten damping.

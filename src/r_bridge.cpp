@@ -216,6 +216,12 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     {
         if (TYPEOF(cat_counts_sexp) != INTSXP)
             pre_error = "cat_counts must be an integer vector";
+        // CXX.1: bound-check container lengths vs K (=LENGTH(group_ids_sexp))
+        // BEFORE any indexed read, so a malformed direct .Call cannot OOB-read.
+        else if (LENGTH(cat_counts_sexp) != K)
+            pre_error = "cat_counts length != number of margins (K)";
+        else if (TYPEOF(targets_sexp) != VECSXP || LENGTH(targets_sexp) < K)
+            pre_error = "targets must be a list of length >= number of margins (K)";
         const int* cc = pre_error.empty() ? INTEGER(cat_counts_sexp) : nullptr;
         for (int k = 0; k < K && pre_error.empty(); k++) {
             cat_counts[k] = cc[k];
@@ -234,6 +240,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             SEXP tgt_vec = VECTOR_ELT(targets_sexp, k);
             if (TYPEOF(tgt_vec) != REALSXP) {
                 pre_error = "targets[[" + std::to_string(k + 1) + "]] must be a numeric vector";
+                break;
+            }
+            // CXX.1: guard the assign range — tp+cat_counts[k] must stay in bounds.
+            if (LENGTH(tgt_vec) != cat_counts[k]) {
+                pre_error = "targets[[" + std::to_string(k + 1) + "]] length != cat_counts[" + std::to_string(k + 1) + "]";
                 break;
             }
             const double* tp = REAL(tgt_vec);
@@ -366,7 +377,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             : (LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
         if (cp_val > 0.0) {
             st.alm.capacity_mu = cp_val;
-        } else {
+        } else if (pre_error.empty()) {
+            // CXX.1: estimate_M_cell dereferences group_ids/cat_counts; skip when a
+            // length-validation error is already pending (the throw at the deferred
+            // check below converts pre_error into a graceful R error). Filling these
+            // with malformed input would OOB-read.
             int M_cell_est = lbw::estimate_M_cell(n, K,
                 const_cast<const int32_t**>(group_ids.data()),
                 cat_counts.data());
@@ -483,8 +498,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         int M_cell_est = lbw::estimate_M_cell(n, K,
             const_cast<const int32_t**>(group_ids.data()),
             cat_counts.data());
-        // Exact integer comparison: M_cell_est / n > 0.9  ↔  M_cell_est * 10 > n * 9
-        const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 > static_cast<int64_t>(n) * 9);
+        // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
+        // PAR.1: use >= to match c_api.cpp:190; > diverged at the exact 0.9 boundary.
+        const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9);
         // Save for auto-fallback: only st.weights is mutated by solvers in-place
         const std::vector<double> weights_backup(weights);
         if (zero_compression && K >= 5) {

@@ -657,13 +657,31 @@ def diagnose_weights(data, targets, weights):
     for varname, tgt_dict in targets.items():
         series = data[varname]
         # Use pd.isna for null detection — avoids coercing actual "nan" strings to NA
-        not_na = ~pd.isna(series)
+        na_mask = pd.isna(series).values
         col_str = series.astype(str)  # convert after NA check
-        col_notna = not_na.values
-        w_total = weights[col_notna].sum()
-        n_total = col_notna.sum()
+        has_na_bin = "NA" in {str(lv) for lv in tgt_dict}
+        if has_na_bin:
+            # add_na_proportion case: all-obs denominators. NA observations are
+            # counted via the explicit "NA" bin so shares sum to 1.
+            w_total = weights.sum()
+            n_total = len(series)
+        else:
+            # No "NA" bin (common case): exclude NA observations from BOTH the
+            # level masks and the denominators. harvest drops NA/gid<0 obs from
+            # the marginal constraints (raking.cpp: `if (g>=0)`), so named-level
+            # shares must be measured over non-NA obs only — otherwise they sum
+            # to <1 and produce a spurious error_weighted ~ -na_frac*target on
+            # every level for well-calibrated data.
+            not_na = ~na_mask
+            w_total = weights[not_na].sum()
+            n_total = int(not_na.sum())
         for level, tgt_val in tgt_dict.items():
-            mask = col_notna & (col_str.values == str(level))
+            # The injected add_na_proportion bin is literally named "NA"; match
+            # it on the null mask (str(NA) is "nan"/"NaT", never "NA").
+            if str(level) == "NA":
+                mask = na_mask
+            else:
+                mask = (~na_mask) & (col_str.values == str(level))
             n_lvl = mask.sum()
             prop_orig = n_lvl / n_total if n_total > 0 else 0.0
             w_lvl = weights[mask].sum()

@@ -205,12 +205,18 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, X, W, bucket_scratch);
             double current_errRp = *std::max_element(errRp.begin(), errRp.end());
             if (first_errRp < 0.0) first_errRp = current_errRp;  // B5: capture at first check
+            // CXX.2: track best-iterate on the configured convergence metric
+            // (matches every other solver via select_metric), not the errRp
+            // fast proxy. For cfg.metric==MAX_ERR this equals current_errRp, so
+            // default-metric behavior is unchanged; KL/CHI2/etc. now report and
+            // select the iterate that is best under the requested metric.
+            const double curr_metric = lbw::select_metric(cfg.metric, m);
             bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
             if (converged) {
                 lbw::mark_converged(res, cfg, res.base.iterations);
                 // B7: only overwrite best if convergence X is actually better
-                if (current_errRp < best.best_metric) {
-                    best.update(current_errRp, std::numeric_limits<double>::infinity(),
+                if (std::isfinite(curr_metric) && curr_metric < best.best_metric) {
+                    best.update(curr_metric, std::numeric_limits<double>::infinity(),
                                 res.base.iterations, X);
                 }
                 break;

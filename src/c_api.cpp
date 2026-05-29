@@ -67,6 +67,7 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     dst->metric_prev_check            = src.base.metric_prev_check;
     dst->prev_check_iter              = src.base.prev_check_iter;
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
+    dst->message[sizeof(dst->message) - 1] = '\0';  // CXX.4: strncpy may not NUL-terminate
 }
 
 extern "C" {
@@ -367,6 +368,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->metric_prev_check   = nkr.base.metric_prev_check;
             result->prev_check_iter     = nkr.base.prev_check_iter;
             std::strncpy(result->message, nkr.message, sizeof(result->message) - 1);
+            result->message[sizeof(result->message) - 1] = '\0';  // CXX.4: NUL-terminate
         }
         for (int i = 0; i < n; i++) weights[i] = st.weights[i];
         return nkr.base.status;
@@ -516,6 +518,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->chi2               = fb.base.chi2;
             result->l1_weight_change   = fb.base.l1_weight_change;
             std::strncpy(result->message, fb.message, sizeof(result->message)-1);
+            result->message[sizeof(result->message) - 1] = '\0';  // CXX.4: NUL-terminate
         }
         for (int i = 0; i < n; i++) weights[i] = st.weights[i];
     }
@@ -530,7 +533,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             const char* name = (idx >= 0 && idx < static_cast<int>(
                 sizeof(kAlgNames)/sizeof(kAlgNames[0])))
                 ? kAlgNames[idx] : "unknown";
-            snprintf(result->message, 256, "%s: %d iters, max_error=%.2e",
+            snprintf(result->message, sizeof(result->message),  // CXX.4: was literal 256
+                     "%s: %d iters, max_error=%.2e",
                      name, iterations, max_error);
         }
     }
