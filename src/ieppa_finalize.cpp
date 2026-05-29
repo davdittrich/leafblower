@@ -161,112 +161,20 @@ void ieppa_finalize(
         st.weights[i] = st.weights[i] * mult[ct.cell_of[i]];
     }
 
-    // Solver-owned normalization (moved from wrapper 2026-04-24 per user directive).
-    // Applied AFTER expansion and BEFORE bounds_mode post-processing so unit-mode
-    // water-fill sees final-scale weights and can strictly enforce
-    // [min_weight, max_weight]. Contract: if total_w == 0 (degenerate: all zero
-    // X_init[c] or all-zero mult[c]), weights remain unchanged (all zero) and
-    // solver status is left as set upstream. X[c] is NOT rescaled — it is dead
-    // after expansion (water-fill uses (void)target_sum below and redistributes
-    // within each cell, so cell-aggregate scale is irrelevant).
-    double total_w = 0.0;
-    for (int i = 0; i < st.n; i++) total_w += st.weights[i];
-    // l7sg: guard against subnormal total_w (~1e-310), which would overflow
-    // norm = n/total_w to +inf. Below kMinSafeTotalWeight, treat as degenerate-zero
-    // (weights left unchanged, status as set upstream).
-    if (std::isfinite(total_w) && total_w > kMinSafeTotalWeight) {
-        const double norm = static_cast<double>(st.n) / total_w;
-        for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
-    }
+    // Solver-owned normalization (moved from wrapper 2026-04-24 per user directive)
+    // + bounds_mode dispatch via the shared finalize_weights contract.
+    // o2o6.1: the normalize (l7sg subnormal guard), cell-mode diagnostic-only
+    // counting, and unit-mode per-cell water-fill core were duplicated here and in
+    // calib_dispatch.hpp::finalize_weights_buf. Delegate to the single source.
+    // Sanctioned order: normalize (Σw=n, applied AFTER expansion and BEFORE bounds
+    // post-processing so unit-mode water-fill sees final-scale weights) → bounds
+    // dispatch. Degenerate total_w leaves weights unchanged (status as set upstream).
+    // The unit-mode gbib.1 Σ=n renorm + post-renorm clamp below stay inline: they
+    // are final-iterate-specific (the best-iterate call at L149 deliberately omits
+    // them), so folding them into the shared helper would alter best-iterate output.
+    finalize_weights(st, ct, res.n_bounds_violated, res.n_bounds_clamped);
 
-    if (st.bounds_mode == RK_BOUNDS_CELL) {
-        // Cell mode: count per-obs bound violations for diagnostic only.
-        // Do NOT clamp — cell-mode contract is X[c] <= U_cell[c] (aggregate),
-        // not w[i] <= max_weight. Clamping individual weights here distorts
-        // marginals when d[i] varies within a cell (non-uniform design weights).
-        int violations = 0;
-        for (int i = 0; i < st.n; i++) {
-            if (st.weights[i] > st.max_weight || st.weights[i] < st.min_weight)
-                violations++;
-        }
-        res.n_bounds_violated = violations;
-        res.n_bounds_clamped  = 0;
-    } else {
-        // Unit mode: per-cell water-filling.
-        // Water-fill redistributes excess within each cell, preserving the
-        // post-normalize cell sum X[c] exactly via three-way classification
-        // in the scan (violator / pinned / free). Only strictly-free obs
-        // enter free_sum, so factor = 1 + excess/free_sum_really_free
-        // distributes excess in full.
-        // Build cells_of_obs (list of obs indices per cell) in one pass.
-        std::vector<std::vector<int>> cells_of_obs(ct.M_cell);
-        for (int i = 0; i < st.n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
-
-        const int kWaterFillMaxIter = std::max(50, st.K * 10);
-        int total_clamped = 0;
-        for (int c = 0; c < ct.M_cell; c++) {
-            const auto& idxs = cells_of_obs[c];
-            if (idxs.empty()) continue;
-
-            for (int it = 0; it < kWaterFillMaxIter; it++) {
-                double excess = 0.0;
-                double free_sum = 0.0;
-                int    n_free = 0;
-                bool   any_violation = false;
-                // Running counter: increment total_clamped at each normal-path
-                // clamp (strict > max / < min). Pinned weights stay at bound
-                // exactly, so the next-iter scan (strict-inequality here) and
-                // the redistribute guard (strict < max && > min at "free"
-                // branch below) both exclude them — no double count.
-                // Pathological re-clamps (n_free==0, budget exhausted) are
-                // redundant with these increments and do not re-count.
-                for (int i : idxs) {
-                    if (st.weights[i] > st.max_weight) {
-                        excess += st.weights[i] - st.max_weight;
-                        st.weights[i] = st.max_weight;
-                        any_violation = true;
-                        total_clamped++;
-                    } else if (st.weights[i] < st.min_weight) {
-                        excess -= st.min_weight - st.weights[i];
-                        st.weights[i] = st.min_weight;
-                        any_violation = true;
-                        total_clamped++;
-                    } else if (st.weights[i] == st.max_weight || st.weights[i] == st.min_weight) {
-                        // Pinned from prior iter (set exactly via direct
-                        // assignment above). Excluded from free_sum so
-                        // factor = 1 + excess/free_sum_really_free
-                        // distributes excess in full; cell-sum conservation
-                        // holds exactly. FP equality is safe here because
-                        // pinned obs was assigned, not computed. See
-                        // leafblower-6s1o for the pre-fix under-distribution.
-                    } else {
-                        free_sum += st.weights[i];
-                        n_free++;
-                    }
-                }
-                if (!any_violation) break;
-                if (n_free == 0 || free_sum <= 0.0) {
-                    // Pathological: no room to redistribute. All violators
-                    // already pinned by the scan above (line 585/589); cell
-                    // sum may deviate from target by accumulated excess.
-                    break;
-                }
-                // Redistribute excess proportionally over free observations.
-                double factor = 1.0 + excess / free_sum;
-                for (int i : idxs) {
-                    if (st.weights[i] > st.min_weight && st.weights[i] < st.max_weight) {
-                        st.weights[i] *= factor;
-                    }
-                }
-                // Budget-exhaustion case (it == kWaterFillMaxIter - 1): if
-                // factor-redistribution newly pushes a free obs above max,
-                // the scan in the NEXT iter would clamp it — but there is no
-                // next iter. In practice iter count is always enough because
-                // water-fill converges geometrically for feasible problems.
-            }
-        }
-        res.n_bounds_clamped = total_clamped;
-
+    if (st.bounds_mode != RK_BOUNDS_CELL) {
         // gbib.1: water-fill preserves Σ weights = n in the redistribute branch
         // (factor = 1 + excess/free_sum exactly absorbs `excess`), but the
         // pathological n_free==0 / free_sum<=0 break path (lines ~1930) leaves
