@@ -1,0 +1,13 @@
+"config","floor","iters","max_err","status"
+"C_benign_K2_T7","1e-6_range_current",23,0.000079276459459654,0
+"C_medium_K3_tight","1e-6_range_current",9,0.0000658270980901932,0
+"C_tight_K4_shifted","1e-6_range_current",25,0.0000709420720270137,0
+"C_benign_K2_T7","1e-8_range_fine",23,0.000079276459459654,0
+"C_medium_K3_tight","1e-8_range_fine",9,0.0000658270980901932,0
+"C_tight_K4_shifted","1e-8_range_fine",25,0.0000709420720270137,0
+"C_benign_K2_T7","1e-4_range_coarse",23,0.000079276459459654,0
+"C_medium_K3_tight","1e-4_range_coarse",9,0.0000658270980901932,0
+"C_tight_K4_shifted","1e-4_range_coarse",25,0.0000709420720270137,0
+"C_benign_K2_T7","1e-4_over_range_inverse",23,0.000079276459459654,0
+"C_medium_K3_tight","1e-4_over_range_inverse",9,0.0000658270980901932,0
+"C_tight_K4_shifted","1e-4_over_range_inverse",25,0.0000709420720270137,0

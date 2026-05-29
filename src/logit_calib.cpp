@@ -76,7 +76,23 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     const CalibConvergenceCfg& cfg = st.convergence_cfg;
 
     const int kMaxNewtonIters = std::min(50, st.inner_max_iter);
-    constexpr double kDeffFloor = 1e-6;  // floor prevents D_eff→0 when sig saturates
+    constexpr double kDeffFloor = 1e-6;  // floor prevents D_eff→0 when sig saturates (sig→0 or 1)
+    // Rationale: D_eff[c] = max(kDeffFloor*range, range*sig*(1-sig)).
+    // At saturation (|z|→∞, sig→0 or 1), sig*(1-sig)→0 and D_eff→0 without this floor,
+    // causing the Newton step b/D_eff to blow up. kDeffFloor=1e-6 scales with range
+    // (cell capacity), so the absolute floor is proportional to the feasible weight
+    // interval — correctly small for tight-bound cells and correctly large for wide ones.
+    // Profiling on convergent configs (K=2..4, ranges 0.3–5.0, seeds 1/10/42):
+    //   floor=1e-8*range, 1e-6*range (current), 1e-4*range, 1e-4/range (inverse)
+    //   all produce identical iters and max_err — the floor is inactive on all
+    //   tested convergent configs. On infeasible/near-infeasible tight-bound
+    //   configs (where logit hits iter ceiling regardless), none of the variants
+    //   changes the budget-exhausted outcome either.
+    // Proposed 1e-4/range (inverse scaling) was REJECTED: it scales INVERSELY with
+    // range, giving a LARGER absolute floor for tight-bound cells (small range),
+    // which would ADD more damping — the opposite of the stated "over-damp" concern.
+    // The current 1e-6*range is correct: tight-bound cells get a proportionally
+    // small floor, wide-bound cells get a proportionally large one.
     constexpr double kInitSigmaEps = 1e-4;  // clips sigma_target to [eps, 1-eps] bounding z_target
     constexpr int    kMaxHalvings = 10;   // max Armijo halvings; alpha_min = 2^-10 ≈ 1e-3
     constexpr double kArmijoC     = 0.01; // Armijo sufficient-decrease constant
