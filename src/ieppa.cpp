@@ -1303,11 +1303,44 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             // SRAA lf extrapolation is unconstrained and can overshoot cell
             // capacity bounds; without clamping, per-obs weights explode
             // (e.g. wmax=75 on stepstone with max_weight=5).
+            //
+            // vtjf: mass-preserving clamp. A plain clamp sheds the over-cap excess,
+            // so Σ_c X < n and the next homotopy level's warm start begins below
+            // the SRAA fixed point. Instead pick a scalar r so that
+            //   Σ_c clamp(r·src[c], L, U) = n.
+            // f(r) is monotone non-decreasing, so bisect. If n is outside
+            // [Σ L_cell, Σ U_cell] (mass-saturated/infeasible) r saturates and X
+            // pins at the reachable bound (best effort) — the honest outcome.
             {
                 const std::vector<double>& src_cells = use_linear ? X_cur
                     : (!X_tilde.empty() ? X_tilde : X_cur);
+                const double target = static_cast<double>(st.n);
+                auto clamped_sum = [&](double r) {
+                    double s = 0.0;
+                    for (int c = 0; c < ct.M_cell; c++)
+                        s += std::clamp(r * src_cells[c], L_cell[c], U_cell[c]);
+                    return s;
+                };
+                double r = 1.0;
+                if (clamped_sum(0.0) >= target) {
+                    r = 0.0;                       // even all-at-L overshoots n
+                } else {
+                    double r_lo = 0.0, r_hi = 1.0;
+                    int grow = 0;
+                    while (clamped_sum(r_hi) < target && grow < 200) { r_hi *= 2.0; ++grow; }
+                    if (clamped_sum(r_hi) < target) {
+                        r = r_hi;                  // mass-saturated: pin near U
+                    } else {
+                        for (int it = 0; it < 100; it++) {
+                            r = 0.5 * (r_lo + r_hi);
+                            const double s = clamped_sum(r);
+                            if (std::abs(s - target) <= 1e-12 * target) break;
+                            if (s < target) r_lo = r; else r_hi = r;
+                        }
+                    }
+                }
                 for (int c = 0; c < ct.M_cell; c++) {
-                    X[c] = std::clamp(src_cells[c], L_cell[c], U_cell[c]);
+                    X[c] = std::clamp(r * src_cells[c], L_cell[c], U_cell[c]);
                 }
             }
         }
