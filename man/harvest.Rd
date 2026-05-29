@@ -181,7 +181,15 @@ across n levels.}
       linear-to-log-path fallback.
   }}
 
-\item{add_na_proportion}{Not supported in v1; raises error if TRUE.}
+\item{add_na_proportion}{Logical (default FALSE). When TRUE, NA observations
+in each margin column are encoded as an explicit \code{"NA"} bin: existing
+targets are renormalized by \code{(1 - na_frac)} and an \code{"NA"} target
+equal to \code{na_frac} is injected, so that the NA observations receive
+positive calibration weights rather than being excluded. An error is raised
+if a margin is entirely NA (\code{na_frac == 1}).
+\strong{Known limitation:} a column that simultaneously contains real
+\code{NA} values \emph{and} a literal factor level or character value named
+\code{"NA"} will collide — both will be mapped to the injected NA bin.}
 
 \item{auto_collapse}{Not supported in v1; raises error if TRUE.}
 

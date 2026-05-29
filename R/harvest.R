@@ -120,7 +120,15 @@
 #'   Adds \code{ridge_lambda} to the diagonal of the Hessian (newton_kl) or
 #'   normal-equations matrix (greg) before factorization. Hardens near-singular
 #'   systems from cell-level sparseness. Ignored by all other solvers.
-#' @param add_na_proportion Not supported in v1; raises error if TRUE.
+#' @param add_na_proportion Logical (default FALSE). When TRUE, NA observations
+#'   in each margin column are encoded as an explicit \code{"NA"} bin: existing
+#'   targets are renormalized by \code{(1 - na_frac)} and an \code{"NA"} target
+#'   equal to \code{na_frac} is injected, so that the NA observations receive
+#'   positive calibration weights rather than being excluded. An error is raised
+#'   if a margin is entirely NA (\code{na_frac == 1}).
+#'   \strong{Known limitation:} a column that simultaneously contains real
+#'   \code{NA} values \emph{and} a literal factor level or character value named
+#'   \code{"NA"} will collide — both will be mapped to the injected NA bin.
 #' @param auto_collapse Not supported in v1; raises error if TRUE.
 #' @param collapse_vars Not supported in v1; raises error if TRUE.
 #' @param target_map Passed through for data-frame target format handling.
@@ -273,10 +281,11 @@ harvest <- function(
     if (data_modified) data <- data_local
   }
 
-  # --- yaye: add_na_proportion — encode NA observations as explicit "__NA__" bin ---
+  # --- yaye: add_na_proportion — encode NA observations as explicit "NA" bin ---
   # Tracks which margins received a NA bin so group_ids encoding can use the
-  # character path (as.character(NA) == "NA") rather than the factor path which
-  # maps NA codes to -1L.
+  # character path with explicit NA→"NA" fill (as.character(NA) produces
+  # NA_character_, NOT the string "NA"; the fill is applied in the else-branch
+  # below) rather than the factor path which maps NA codes to -1L.
   .na_margins <- character(0)
   if (isTRUE(add_na_proportion)) {
     n_local <- nrow(data)
@@ -440,7 +449,8 @@ harvest <- function(
   group_ids_r  <- lapply(margins, function(v) {
     col <- data[[v]]
     # yaye: if this margin has a NA bin, always use character path so that
-    # as.character(NA) == "NA" matches the explicit "NA" bin in target[[v]].
+    # NA observations can be explicitly filled to "NA" (as.character(NA) yields
+    # NA_character_, not the string "NA"; the fill happens in the else-branch).
     if (is.factor(col) && !v %in% .na_margins) {
       lvl_map              <- match(levels(col), names(target[[v]])) - 1L
       lvl_map[is.na(lvl_map)] <- -1L          # OOV levels -> -1
@@ -449,7 +459,9 @@ harvest <- function(
       gids[is.na(gids)]    <- -1L
       gids
     } else {
-      idx              <- match(as.character(col), names(target[[v]]))
+      key <- as.character(col)
+      if (v %in% .na_margins) key[is.na(key)] <- "NA"
+      idx              <- match(key, names(target[[v]]))
       idx[is.na(idx)]  <- 0L
       idx - 1L
     }
