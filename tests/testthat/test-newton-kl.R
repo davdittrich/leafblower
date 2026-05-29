@@ -123,3 +123,33 @@ test_that("T5: newton_kl produces KL-form weights distinct from greg's chi2", {
   expect_true(all(w_n > 0),
     label=sprintf("newton_kl weights must be > 0 (KL exp form); min=%.2e", min(w_n)))
 })
+
+# CXX.3 (leafblower-5fm8.3): Marquardt gain ratio with non-positive predicted
+# decrease. Old guard std::max(predicted,1e-300) inflated rho into the
+# good-model branch and wrongly tightened damping on iterations where the
+# quadratic model predicts no improvement; predicted<=0 must give rho=0 (back
+# off). On a stiff-but-feasible skewed problem the solver must still converge
+# cleanly with finite final damping — the spurious tighten would risk stalling.
+test_that("CXX.3: newton_kl converges on stiff skewed targets (gain-ratio guard)", {
+  set.seed(2024L); n <- 1500L
+  df <- data.frame(
+    a = factor(sample(letters[1:6], n, TRUE)),
+    b = factor(sample(LETTERS[1:4], n, TRUE)),
+    c = factor(sample(c("M","F"),   n, TRUE))
+  )
+  # Heavily skewed but feasible targets stress the quadratic model.
+  tgt <- list(
+    a = setNames(c(0.45, 0.25, 0.15, 0.08, 0.05, 0.02), letters[1:6]),
+    b = setNames(c(0.5, 0.3, 0.15, 0.05),                LETTERS[1:4]),
+    c = c(M=0.6, F=0.4)
+  )
+  r <- harvest(df, tgt, method="newton_kl",
+               convergence=list(absolute=1e-7), max_iterations=80L,
+               attach_weights=FALSE, verbose=0L)
+  res <- attr(r, "result")
+  expect_equal(res$status, 0L,
+    label=sprintf("CXX.3: status=%d max_err=%.2e", res$status, res$max_error))
+  expect_lt(res$max_error, 1e-6)
+  expect_true(is.finite(res$lm_mu_final),
+    label="CXX.3: lm_mu_final must stay finite (no spurious tighten blow-up)")
+})
