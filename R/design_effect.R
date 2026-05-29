@@ -34,6 +34,14 @@
 #' @export
 design_effect <- function(weights, outcome = NULL, data = NULL, target = NULL) {
   if (is.null(outcome)) {
+    if (!is.numeric(weights))
+      stop("design_effect: weights must be a numeric vector")
+    if (anyNA(weights))
+      stop("design_effect: weights must not contain NA values")
+    if (!all(is.finite(weights)))
+      stop("design_effect: weights must all be finite")
+    if (sum(weights) <= 0)
+      stop("design_effect: sum(weights) must be positive")
     res <- .Call(C_rk_design_effect, as.double(weights), NULL, NULL, NULL, 0L)
     return(res$deff_K)
   }
