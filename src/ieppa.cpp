@@ -1230,6 +1230,14 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         converged = lbw::check_convergence(sraa_cfg, cm,
                                                            prev_metric_for_rule,
                                                            st.tol_abs);
+                        // jd2f: intermediate homotopy levels allow warm-jump when
+                        // errRp is loose, mirroring the non-SRAA branch
+                        // (converged = errRp < tol_lvl at L2038). Without it the
+                        // SRAA path waited for full convergence at every level,
+                        // slowing homotopy progression. Performance only — the
+                        // final level (lvl == N_levels-1) still uses full tol.
+                        if (!converged && lvl < N_levels - 1)
+                            converged = (cm.errRp < tol_lvl);
                         // Natural-metric best-iterate update (inside W_total > 0 block).
                         // lf_best captured at check intervals only — correct: marginal_kl
                         // unavailable between checks. Fewer compute_weight_kl calls than errRp path.
