@@ -233,7 +233,10 @@ static void ieppa_finalize(
     res.base.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
     res.base.convergence_tol = absolute_tol_fired
         ? st.convergence_cfg.absolute_tol : st.convergence_cfg.pct_tol;
-    res.base.convergence_iter               = (res.base.status == RK_OK) ? res.base.iterations : -1;
+    // za9r: convergence_iter is pinned at the firing site (non-SRAA terminal
+    // block / SRAA mark_converged). Do NOT clobber it with res.base.iterations
+    // here; only reset to -1 when the solve did not converge.
+    if (res.base.status != RK_OK) res.base.convergence_iter = -1;
     res.base.convergence_solver_objective   = best.best_objective;
     res.base.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
 
@@ -2100,6 +2103,10 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     level_converged = true;
                     if (lvl == N_levels - 1) {
                         res.base.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
+                        // za9r: pin the convergence-firing iter here rather than
+                        // letting ieppa_finalize read res.base.iterations at exit
+                        // (robust if any post-convergence work advances the counter).
+                        res.base.convergence_iter = res.base.iterations;
                     }
                     res.final_alpha = alpha;
                     break;
