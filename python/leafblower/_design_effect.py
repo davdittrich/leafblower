@@ -14,7 +14,6 @@ import warnings
 from typing import Mapping, Optional
 
 import numpy as np
-import pandas as pd
 
 from leafblower._leafblower import _design_effect as _c_design_effect
 
@@ -57,6 +56,13 @@ def design_effect(
     missing = [v for v in target if v not in data.columns]
     if missing:
         raise ValueError(f"design_effect: data missing target column(s): {missing}")
+    try:
+        import pandas as pd
+    except ImportError as exc:
+        raise ImportError(
+            "design_effect with 'data'/'target' arguments requires pandas. "
+            "Install it with: pip install pandas"
+        ) from exc
     data_codes = np.empty(n * K, dtype=np.int32)
     cat_counts = np.empty(K, dtype=np.int32)
     for k, var in enumerate(target):
