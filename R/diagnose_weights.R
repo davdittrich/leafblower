@@ -22,13 +22,17 @@ diagnose_weights <- function(data, target, weights) {
     col <- data[[varname]]
     if (is.null(col)) stop("Variable '", varname, "' not found in data")
     tgt      <- target[[varname]]
-    not_na   <- !is.na(col)
-    n_total  <- sum(not_na)
-    w_total  <- sum(weights[not_na])
+    # Fill NA observations into the literal "NA" bin so an injected
+    # add_na_proportion target is counted (as.character(NA) is NA_character_,
+    # which never matches the string "NA"). All-obs denominators so the
+    # prop_original / prop_weighted shares sum to 1 across bins.
     col_char <- as.character(col)
+    col_char[is.na(col)] <- "NA"
+    n_total  <- length(col)
+    w_total  <- sum(weights)
 
     for (lvl in names(tgt)) {
-      mask      <- not_na & (col_char == lvl)
+      mask      <- col_char == lvl
       prop_orig <- if (n_total > 0L) sum(mask) / n_total else 0.0
       prop_wtd  <- if (w_total > 0.0) sum(weights[mask]) / w_total else 0.0
       tgt_val   <- tgt[[lvl]]
