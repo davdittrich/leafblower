@@ -36,3 +36,32 @@ test_that("get_current_miss: 'NA' bin observed share is counted (~ na_frac), not
   # Independent guard: the NA-bin observed share must equal na_frac, not 0.
   expect_equal(obs_na, na_frac, tolerance = 1e-12)
 })
+
+test_that("get_current_miss: NO 'NA' bin but data HAS NA -> miss over non-NA, ~ 0", {
+  ## Regression guard (NABIN): with no explicit "NA" target level the
+  ## denominator must EXCLUDE NA obs. An all-obs denominator deflates the
+  ## named-level shares by (1 - na_frac), so a perfectly calibrated target
+  ## would report miss ~ na_frac*target on every level. The fix restores the
+  ## non-NA denominator => miss ~ 0.
+  set.seed(31L)
+  n <- 500L
+  na_frac <- 0.20
+  na_count <- round(n * na_frac)
+  g <- sample(c("a", "b", "c"), n, replace = TRUE)
+  na_idx <- sample(n, na_count)
+  g[na_idx] <- NA
+  df <- data.frame(g = g, stringsAsFactors = FALSE)
+
+  # Target = observed NON-NA shares (no "NA" bin).
+  n_nonna <- sum(!is.na(g))
+  obs_a <- sum(g == "a", na.rm = TRUE) / n_nonna
+  obs_b <- sum(g == "b", na.rm = TRUE) / n_nonna
+  obs_c <- sum(g == "c", na.rm = TRUE) / n_nonna
+  target <- list(g = c(a = obs_a, b = obs_b, c = obs_c))
+
+  w <- rep(1.0, n)
+  miss <- get_current_miss(df, target, w)
+
+  # With the non-NA denominator the observed shares match the target exactly.
+  expect_lt(unname(miss[["g"]]), 1e-12)
+})
