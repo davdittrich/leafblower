@@ -495,6 +495,18 @@ ChebyshevResult chebyshev_ipm(
 
             // ── Phase B: corrector (centering + second-order) ─────────────────────
             // r_delta_stat cached at iter top; duals not mutated since Phase A.
+            //
+            // corr = -Δs_aff·Δy_aff (the Mehrotra 2nd-order term). The affine
+            // complementarity row gives Δy_aff = -y - y·Δs_aff/s (FULL form,
+            // incl. the -y from the -sy residual), so
+            //   -Δs_aff·Δy_aff = y·Δs_aff + y·Δs_aff²/s.
+            // BOTH terms are required. The linear y·Δs_aff piece is NOT a stray
+            // predictor residual — dropping it (a previously proposed "fix",
+            // leafblower-xiox) breaks the correction. Verified against a CLARABEL
+            // LP reference: with this term the solver hits the Chebyshev optimum
+            // to ~1e-11 on converged problems; removing it does not affect the
+            // K≥9 stall (a separate conditioning issue, see header). Sign flips
+            // for corr_hi below because Δs_hi = -ΔX.
             // RHS_B (reduced rows only — reference categories dropped)
             for (int nr = 0; nr < nct_red; nr++) {
                 int m = red_to_full[nr];
