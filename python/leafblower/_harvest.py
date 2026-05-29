@@ -657,13 +657,19 @@ def diagnose_weights(data, targets, weights):
     for varname, tgt_dict in targets.items():
         series = data[varname]
         # Use pd.isna for null detection — avoids coercing actual "nan" strings to NA
-        not_na = ~pd.isna(series)
+        na_mask = pd.isna(series).values
         col_str = series.astype(str)  # convert after NA check
-        col_notna = not_na.values
-        w_total = weights[col_notna].sum()
-        n_total = col_notna.sum()
+        # All-obs denominators (parity with R diagnose_weights): NA observations
+        # are counted via the explicit "NA" bin so shares sum to 1.
+        w_total = weights.sum()
+        n_total = len(series)
         for level, tgt_val in tgt_dict.items():
-            mask = col_notna & (col_str.values == str(level))
+            # The injected add_na_proportion bin is literally named "NA"; match
+            # it on the null mask (str(NA) is "nan"/"NaT", never "NA").
+            if str(level) == "NA":
+                mask = na_mask
+            else:
+                mask = (~na_mask) & (col_str.values == str(level))
             n_lvl = mask.sum()
             prop_orig = n_lvl / n_total if n_total > 0 else 0.0
             w_lvl = weights[mask].sum()
