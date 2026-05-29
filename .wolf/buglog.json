@@ -6144,6 +6144,337 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-05-06T11:44:24.443Z"
+    },
+    {
+      "id": "bug-385",
+      "timestamp": "2026-05-09T15:33:06.911Z",
+      "error_message": "Missing guard clause",
+      "file": "src/sinkhorn.cpp",
+      "root_cause": "No early return/throw for edge case: at_lower[c]",
+      "fix": "Added guard clause: if (at_lower[c])",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T15:33:06.911Z"
+    },
+    {
+      "id": "bug-386",
+      "timestamp": "2026-05-09T16:11:54.813Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/raking.cpp",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 10→15 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T16:11:54.813Z"
+    },
+    {
+      "id": "bug-387",
+      "timestamp": "2026-05-09T16:25:28.388Z",
+      "error_message": "Significant refactor of ",
+      "file": ".beads/plans/2026-05-09-p3-batch-plan.md",
+      "root_cause": "10 lines replaced/restructured",
+      "fix": "Rewrote 15→5 lines (10 removed) | Also: **Verification:**; ```",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-05-09T16:25:52.709Z"
+    },
+    {
+      "id": "bug-388",
+      "timestamp": "2026-05-09T16:28:02.143Z",
+      "error_message": "Incorrect value in code",
+      "file": ".beads/plans/2026-05-09-p3-batch-plan.md",
+      "root_cause": "Had `validation.o`",
+      "fix": "Changed to `validation.cpp`",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T16:28:02.143Z"
+    },
+    {
+      "id": "bug-389",
+      "timestamp": "2026-05-09T16:31:44.204Z",
+      "error_message": "Wrong reference: sapply should be vapply",
+      "file": "R/harvest.R",
+      "root_cause": "Used \"sapply\" instead of \"vapply\"",
+      "fix": "Changed sapply → vapply",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "r"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T16:31:44.204Z"
+    },
+    {
+      "id": "bug-390",
+      "timestamp": "2026-05-09T16:32:02.127Z",
+      "error_message": "Incorrect value in code",
+      "file": "python/leafblower/_harvest.py",
+      "root_cause": "Had \"method must be one of {list(alg_map)}\"",
+      "fix": "Changed to \"method must be one of {sorted(alg_map)}; '",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T16:32:02.127Z"
+    },
+    {
+      "id": "bug-391",
+      "timestamp": "2026-05-09T20:22:13.253Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/cell_table.hpp",
+      "root_cause": "13 lines replaced/restructured",
+      "fix": "Rewrote 15→4 lines (13 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T20:22:13.253Z"
+    },
+    {
+      "id": "bug-392",
+      "timestamp": "2026-05-09T20:23:28.524Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/validation.hpp",
+      "root_cause": "102 lines replaced/restructured",
+      "fix": "Rewrote 118→8 lines (102 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T20:23:28.524Z"
+    },
+    {
+      "id": "bug-393",
+      "timestamp": "2026-05-12T14:41:09.030Z",
+      "error_message": "Wrong reference: true should be false",
+      "file": "../../.claude/settings.json",
+      "root_cause": "Used \"true\" instead of \"false\"",
+      "fix": "Changed true → false",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "json"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-12T14:41:09.030Z"
+    },
+    {
+      "id": "bug-izql",
+      "timestamp": "2026-05-29T11:16:00Z",
+      "error_message": "chebyshev.cpp early-return paths (L245 INFEAS, L334/L346 BADARG) leave res.base.best_weights empty and st.weights at entry-state on iter k>0 failure, losing valid X_best",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "Three bare 'return res' inside IPM loop bypass the normal-exit finalize block that populates best_weights from X_best via obs-expansion",
+      "fix": "Added 'finalize:' label at L684; replaced the 3 bare returns with 'goto finalize' after status set. goto is legal (lands above finalize-locals, no init-bypass; verified -fsyntax-only). best_weights now populated unconditionally on all paths.",
+      "tags": [
+        "chebyshev",
+        "best_weights",
+        "early-return",
+        "goto-single-exit",
+        "contract"
+      ],
+      "related_bugs": [
+        "xl44"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T11:16:00Z"
+    },
+    {
+      "id": "bug-395",
+      "timestamp": "2026-05-29T11:43:33.295Z",
+      "error_message": "Missing guard clause",
+      "file": "src/calib_dispatch.hpp",
+      "root_cause": "No early return/throw for edge case: std::isfinite(total_w",
+      "fix": "Added guard clause: if (std::isfinite(total_w)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T11:43:33.295Z"
+    },
+    {
+      "id": "bug-396",
+      "timestamp": "2026-05-29T11:43:44.452Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/chebyshev.cpp",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 8→13 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T11:43:44.452Z"
+    },
+    {
+      "id": "bug-397",
+      "timestamp": "2026-05-29T11:45:11.760Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/calib_dispatch.hpp",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 3→6 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "hpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T11:45:11.760Z"
+    },
+    {
+      "id": "bug-xl44",
+      "timestamp": "2026-05-29T11:45:00Z",
+      "error_message": "chebyshev exit does not enforce Σw=n: best-errRp iterate X_best may have Σ_c X≠n and per-obs clamp at L717 further reduces Σ; violates project invariant Σw=n at every exit",
+      "file": "src/chebyshev.cpp + src/calib_dispatch.hpp",
+      "root_cause": "Finalize obs-expansion clamped per-obs to [lo,hi_obs] with no Σw=n step; cell-mode also wrongly clamped per-obs (contract is cell-aggregate; ieppa forbids per-obs clamp in cell mode)",
+      "fix": "Added shared lbw::finalize_weights (calib_dispatch.hpp): pre-bounds Σw=n normalize (mirrors ieppa L276-281) then bounds_mode dispatch (CELL=count-only, UNIT=water-fill preserving Σ=n). chebyshev expands without clamp then calls it. n_bounds_* are out-params (ChebyshevResult lacks such fields; ieppa/newton have them). Removed orphaned 'lo'.",
+      "fix_verification": "R 593 pass; 15 py parity pass (ext rebuilt --break-system-packages); Σw=n exact R 1e-12 / Py 2e-12 incl non-converged exit; no parity-fixture regression",
+      "tags": [
+        "chebyshev",
+        "calib_dispatch",
+        "sum-to-n",
+        "water-fill",
+        "bounds_mode",
+        "contract",
+        "res.base-footgun"
+      ],
+      "related_bugs": [
+        "izql"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T11:45:00Z"
+    },
+    {
+      "id": "bug-399",
+      "timestamp": "2026-05-29T13:00:55.071Z",
+      "error_message": "Wrong operator: == should be !=",
+      "file": "src/ieppa.cpp",
+      "root_cause": "Used \"==\" instead of \"!=\"",
+      "fix": "Changed operator == → !=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T13:00:55.071Z"
+    },
+    {
+      "id": "bug-400",
+      "timestamp": "2026-05-29T13:46:12.692Z",
+      "error_message": "Significant refactor of ",
+      "file": ".beads/plans/active-plan.md",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 6→11 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T13:46:12.692Z"
+    },
+    {
+      "id": "bug-401",
+      "timestamp": "2026-05-29T13:48:05.453Z",
+      "error_message": "Wrong reference: algorithm should be ieppa_internal",
+      "file": "src/ieppa.cpp",
+      "root_cause": "Used \"algorithm\" instead of \"ieppa_internal\"",
+      "fix": "Changed algorithm → ieppa_internal",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T13:48:05.453Z"
+    },
+    {
+      "id": "bug-402",
+      "timestamp": "2026-05-29T13:48:21.780Z",
+      "error_message": "Significant refactor of ",
+      "file": "src/ieppa.cpp",
+      "root_cause": "34 lines replaced/restructured",
+      "fix": "Rewrote 40→6 lines (34 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "cpp"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T13:48:21.780Z"
+    },
+    {
+      "id": "bug-403",
+      "timestamp": "2026-05-29T13:48:39.197Z",
+      "error_message": "Wrong reference: logit should be ieppa_trajectory",
+      "file": "python/CMakeLists.txt",
+      "root_cause": "Used \"logit\" instead of \"ieppa_trajectory\"",
+      "fix": "Changed logit → ieppa_trajectory",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "txt"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T13:48:39.198Z"
+    },
+    {
+      "id": "bug-404",
+      "timestamp": "2026-05-29T13:53:51.571Z",
+      "error_message": "Wrong reference: cell_table should be ieppa_finalize",
+      "file": "src/Makevars.in",
+      "root_cause": "Used \"cell_table\" instead of \"ieppa_finalize\"",
+      "fix": "Changed cell_table → ieppa_finalize",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "in"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-29T13:53:51.571Z"
     }
   ]
 }

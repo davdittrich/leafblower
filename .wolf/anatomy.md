@@ -1,160 +1,42 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-05-06T11:44:56.128Z
+> Auto-maintained by OpenWolf. Last scanned: 2026-05-29T14:03:45.635Z
 > Files: 542 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ..Rcheck/
 
-- `00check.log` (~28215 tok)
-- `00install.out` (~325 tok)
-- `leafblower-Ex.R` (~294 tok)
-- `leafblower-Ex.Rout` — Declares to (~518 tok)
+- `00check.log` (~315 tok)
 
-## ..Rcheck/leafblower/
+## ..Rcheck/R_check_bin/
 
-- `DESCRIPTION` (~250 tok)
-- `INDEX` (~139 tok)
-- `LICENSE` — Project license (~16 tok)
-- `NAMESPACE` (~71 tok)
-- `NEWS.md` — leafblower (development version) (~1517 tok)
-
-## ..Rcheck/leafblower/Meta/
-
-- `features.rds` (~32 tok)
-- `hsearch.rds` (~134 tok)
-- `links.rds` (~60 tok)
-- `nsInfo.rds` (~102 tok)
-- `package.rds` (~266 tok)
-- `Rd.rds` (~132 tok)
-
-## ..Rcheck/leafblower/R/
-
-- `leafblower` — File share/R/nspackloader.R (~283 tok)
-- `leafblower.rdb` (~8950 tok)
-- `leafblower.rdx` (~133 tok)
-
-## ..Rcheck/leafblower/help/
-
-- `aliases.rds` (~43 tok)
-- `AnIndex` (~54 tok)
-- `leafblower.rdb` (~6722 tok)
-- `leafblower.rdx` (~86 tok)
-- `paths.rds` (~55 tok)
-
-## ..Rcheck/leafblower/html/
-
-- `00Index.html` — R: High-Performance Survey Calibration via iEPPA and L-BFGS-B (~534 tok)
-- `R.css` — Styles: 3 rules, 1 media queries (~610 tok)
-
-## ..Rcheck/leafblower/libs/
-
-- `symbols.rds` (~1055 tok)
-
-## ..Rcheck/tests/
-
-- `startup.Rs` — # A custom startup file for tests (~38 tok)
-- `testthat.R` — This file is part of the R package leafblower. (~49 tok)
-- `testthat.Rout.fail` — Declares to (~2222 tok)
-
-## ..Rcheck/tests/testthat/
-
-- `lbfgsb_baseline_time.rds` (~27 tok)
-- `lbfgsb_ref_weights.rds` (~2943 tok)
-- `task1_ref.rds` (~531 tok)
-- `task2_ieppa_ref.rds` (~1526 tok)
-- `test-algo-selection.R` — tests/testthat/test-algo-selection.R (~2435 tok)
-- `test-alm-config-grouping.R` (~247 tok)
-- `test-auto-routing-severe-skew.R` (~688 tok)
-- `test-bench-gate.R` (~609 tok)
-- `test-best-iterate.R` (~1633 tok)
-- `test-bounded-convergence.R` (~426 tok)
-- `test-calib-linalg.R` — Direct tests for LDLT factorization and compute_normal_equations (~2056 tok)
-- `test-calib-result-consolidation.R` — # test-calib-result-consolidation.R (~306 tok)
-- `test-calibration-solvers.R` (~14440 tok)
-- `test-cell-table.R` (~497 tok)
-- `test-chebyshev.R` — tests/testthat/test-chebyshev.R (~1367 tok)
-- `test-compare.R` (~495 tok)
-- `test-compat.R` (~302 tok)
-- `test-config-defaults.R` (~600 tok)
-- `test-convergence-criteria.R` (~4502 tok)
-- `test-convergence-trajectory.R` (~253 tok)
-- `test-design.R` (~223 tok)
-- `test-eta-schedule.R` (~402 tok)
-- `test-harvest.R` (~1763 tok)
-- `test-homotopy-enabled-field.R` (~278 tok)
-- `test-homotopy.R` (~533 tok)
-- `test-ieppa-bounds-mode.R` (~2361 tok)
-- `test-ieppa-faithful.R` (~3928 tok)
-- `test-ieppa-nonuniform-d.R` (~447 tok)
-- `test-ieppa-persistent-infeas.R` — WU-1: persistent-infeas tracker regression test. (~1176 tok)
-- `test-ieppa-sraa-log-path.R` (~855 tok)
-- `test-ieppa-sraa-sor.R` (~282 tok)
-- `test-ieppa-sraa.R` (~1825 tok)
-- `test-ieppa.R` (~1082 tok)
-- `test-lbfgsb.R` (~1458 tok)
-- `test-logit.R` (~308 tok)
-- `test-method-dispatch.R` (~335 tok)
-- `test-newton-kl-tsvd-ratio.R` (~462 tok)
-- `test-newton-kl.R` — tests/testthat/test-newton-kl.R (~1493 tok)
-- `test-newton-steihaug-cg.R` — tests/testthat/test-newton-steihaug-cg.R (~460 tok)
-- `test-newton-tsvd-projection.R` — tests/testthat/test-newton-tsvd-projection.R (~532 tok)
-- `test-priority-sweep.R` (~783 tok)
-- `test-quality-metrics.R` (~2291 tok)
-- `test-raking.R` — Declares split (~1688 tok)
-- `test-rk-params-passthrough.R` (~427 tok)
-- `test-safety.R` — tests/testthat/test-safety.R (~811 tok)
-- `test-select-metric-struct.R` (~177 tok)
-- `test-simd-math.R` (~588 tok)
-- `test-sor.R` (~459 tok)
-- `test-sraa-global.R` — tests/testthat/test-sraa-global.R (~1527 tok)
-- `testthat-problems.rds` (~1380 tok)
-
-## ..Rcheck/tests/testthat/_problems/
-
-- `test-auto-routing-severe-skew-63.R` — Extracted from test-auto-routing-severe-skew.R:63 (~327 tok)
-- `test-calibration-solvers-253.R` — Extracted from test-calibration-solvers.R:253 (~306 tok)
-- `test-convergence-criteria-203.R` — Extracted from test-convergence-criteria.R:203 (~406 tok)
-- `test-ieppa-nonuniform-d-28.R` — Extracted from test-ieppa-nonuniform-d.R:28 (~208 tok)
-- `test-ieppa-nonuniform-d-29.R` — Extracted from test-ieppa-nonuniform-d.R:29 (~217 tok)
-- `test-raking-89.R` — Extracted from test-raking.R:89 (~295 tok)
-- `test-raking-92.R` — Extracted from test-raking.R:92 (~261 tok)
-
-## ..Rcheck/tests/testthat/fixtures/
-
-- `ieppa_kl_reference_stepstone.rds` (~47 tok)
-- `ieppa_pre_alm_ref.rds` (~1523 tok)
-- `raking_obs_reference_stepstone.rds` (~58 tok)
-- `raking_squarem_baseline.rds` (~353 tok)
-- `stepstone_best_error_ref.rds` (~15 tok)
-- `stepstone_reference_diag.R` — Diagnostic report on the captured stepstone_reference.rds. (~1598 tok)
-- `stepstone_reference_diag.txt` (~828 tok)
-- `stepstone_reference_run.R` — Reference stepstone run matching the ORIGINAL Rmd (~2101 tok)
-- `stepstone_reference_summary.rds` (~218 tok)
-- `stepstone_small_targets.rds` (~1737 tok)
-- `stepstone_small.parquet` (~24475 tok)
-- `stepstone_verify.R` — Verification-only: report n + per-margin counts from the saved parquet. (~1151 tok)
+- `R` (~22 tok)
+- `Rscript` (~24 tok)
 
 ## ./
 
-- `.gitignore` — Git ignore rules (~131 tok)
+- `.gitignore` — Git ignore rules (~240 tok)
 - `.mcp.json` (~50 tok)
 - `.Rbuildignore` (~88 tok)
 - `.tldrignore` — TLDR ignore patterns (gitignore syntax) (~280 tok)
-- `AGENTS.md` — Agent Instructions (~726 tok)
+- `AGENTS.md` — Agent Instructions (~841 tok)
+- `AGENTS.md.lean-ctx.bak` — Agent Instructions (~775 tok)
 - `baseline_bench.R` (~191 tok)
 - `cell_table_92c4f45.cpp` — include "lbw_config.h" (~1375 tok)
 - `cell_table_92c4f45.hpp` — pragma once (~285 tok)
+- `Cholesky` (~0 tok)
 - `CLAUDE.md` — OpenWolf (~1659 tok)
 - `cleanup` (~8 tok)
 - `code-review-findings.md` — Code Review: C++ Source Files (cell_table, chebyshev, sinkhorn, grake, greg) (~1627 tok)
 - `configure` — Detect C++17 support. (~1050 tok)
 - `conftest.py` — Root conftest: remove python/ src tree from sys.path so the installed wheel (~89 tok)
-- `DESCRIPTION` (~228 tok)
+- `DESCRIPTION` (~234 tok)
 - `GEMINI.md` — graphify (~165 tok)
 - `ieppa_92c4f45.cpp` — include "lbw_config.h" (~3859 tok)
 - `LICENSE` — Project license (~16 tok)
 - `NAMESPACE` (~71 tok)
-- `NEWS.md` — leafblower (development version) (~1517 tok)
+- `NEWS.md` — leafblower (development version) (~1901 tok)
+- `package-lock.json` — npm lock file (~26 tok)
+- `package.json` — Node.js package manifest (~1 tok)
 - `patch_raking.py` — Declares CalibState (~4764 tok)
 - `patch_wolfe.py` — F3 derivation trace (verified 2026-05-03 against phi_from_u canonical reference): (~1506 tok)
 - `REVIEW_FINDINGS.md` — Code Review: harvest.R & calib_dispatch.hpp (~775 tok)
@@ -166,8 +48,8 @@
 - `.gitignore` — Git ignore rules (~448 tok)
 - `.local_version` (~2 tok)
 - `config.yaml` — Beads Configuration File (~597 tok)
-- `export-state.json` (~38 tok)
-- `interactions.jsonl` — Declares guards (~23715 tok)
+- `export-state.json` (~39 tok)
+- `interactions.jsonl` — Declares guards (~44596 tok)
 - `last-touched` (~5 tok)
 - `metadata.json` (~46 tok)
 - `README.md` — Project documentation (~562 tok)
@@ -201,12 +83,23 @@
 
 ## .beads/plans/
 
-- `active-plan.md` — Active Plan (~368 tok)
+- `_create_tickets.sh` — Creates 40 tickets across 6 epics. Phase 1: bd create. Phase 2: bd dep add. (~6751 tok)
+- `_split_bundles.sh` — Declares SEXP (~2344 tok)
+- `2026-05-08-codereview-remediation-active-plan.md` — Code Review Remediation Plan (~2403 tok)
+- `2026-05-09-67sk-plan.md` — leafblower-67sk: SOR auto-adapt redundant aggregate elimination (~1085 tok)
+- `2026-05-09-p2-final-batch-active-plan.md` — Active Plan — P2 Final Batch (tsyw + 3qtd) (~5157 tok)
+- `2026-05-09-p3-batch-plan.md` — P3 Batch Plan — codereview remediation (9 tickets, 5 WUs) (~2562 tok)
+- `2026-05-09-perf-p2-batch-active-plan.md` — PERF P2 Batch — Revised Active Plan (iter 3, post plan-review-gate) (~5331 tok)
+- `2apm-active-plan.md` — Active Plan (~8563 tok)
+- `8u2y-active-plan.md` — Active Plan (~9773 tok)
+- `8u2y7-active-plan.md` — Active Plan (~8315 tok)
+- `active-plan.md` — Active Plan — codereview remediation, epic-organized by solver file (~1018 tok)
+- `cr52-active-plan.md` — Active Plan (~4353 tok)
 
 ## .claude/
 
 - `settings.json` (~748 tok)
-- `settings.local.json` (~1315 tok)
+- `settings.local.json` (~29 tok)
 
 ## .claude/rules/
 
@@ -716,29 +609,142 @@
 - `leafblower.h` — ifndef LEAFBLOWER_H (~945 tok)
 - `logit.cpp` — include "logit.hpp" (~112 tok)
 - `logit.hpp` — pragma once (~921 tok)
+- `logit.o` (~250 tok)
+- `Makevars` (~50 tok)
+- `Makevars.in` (~58 tok)
+- `r_bridge.cpp` — include "leafblower.h" (~3080 tok)
+- `r_bridge.o` (~10410 tok)
+- `raking.cpp` — include "lbw_config.h" (~2397 tok)
+- `raking.hpp` — pragma once (~50 tok)
+- `raking.o` (~2859 tok)
+- `symbols.rds` (~516 tok)
+- `types.hpp` — pragma once (~334 tok)
 
-## .worktrees/fix-bench-timing/benchmarks/
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/00_pkg_src/leafblower/tests/
 
-- `allmethod_bench.py` — benchmarks/allmethod_bench.py (~1807 tok)
-- `allmethod_bench.R` — benchmarks/allmethod_bench.R (~1465 tok)
-- `run_allmethod.sh` (~45 tok)
+- `testthat.R` — This file is part of the R package leafblower. (~49 tok)
 
-## .worktrees/fix-bench-timing/python/leafblower/
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/00_pkg_src/leafblower/tests/testthat/
 
-- `_bindings.cpp` — include <pybind11/pybind11.h> (~2957 tok)
+- `lbfgsb_baseline_time.rds` (~27 tok)
+- `lbfgsb_ref_weights.rds` (~2943 tok)
+- `task1_ref.rds` (~531 tok)
+- `task2_ieppa_ref.rds` (~1526 tok)
+- `test-algo-selection.R` — tests/testthat/test-algo-selection.R (~2289 tok)
+- `test-bounded-convergence.R` (~400 tok)
+- `test-cell-table.R` (~497 tok)
+- `test-compare.R` (~393 tok)
+- `test-compat.R` (~292 tok)
+- `test-design.R` (~223 tok)
+- `test-harvest.R` (~1083 tok)
+- `test-ieppa-faithful.R` (~1057 tok)
+- `test-ieppa.R` (~611 tok)
+- `test-lbfgsb.R` (~957 tok)
+- `test-logit.R` (~308 tok)
+- `test-raking.R` (~604 tok)
 
-## .worktrees/fix-r-bench-parity/R/
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/R_check_bin/
 
-- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~12205 tok)
+- `R` (~22 tok)
+- `Rscript` (~24 tok)
 
-## .worktrees/fix-r-bench-parity/benchmarks/
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/leafblower/
 
-- `allmethod_bench.R` — benchmarks/allmethod_bench.R (~1410 tok)
+- `DESCRIPTION` (~263 tok)
+- `INDEX` (~139 tok)
+- `LICENSE` — Project license (~16 tok)
+- `NAMESPACE` (~64 tok)
+- `NEWS.md` — leafblower (development) (~224 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/leafblower/Meta/
+
+- `features.rds` (~32 tok)
+- `hsearch.rds` (~134 tok)
+- `links.rds` (~60 tok)
+- `nsInfo.rds` (~98 tok)
+- `package.rds` (~271 tok)
+- `Rd.rds` (~132 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/leafblower/R/
+
+- `leafblower` — File share/R/nspackloader.R (~283 tok)
+- `leafblower.rdb` (~3935 tok)
+- `leafblower.rdx` (~120 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/leafblower/help/
+
+- `aliases.rds` (~44 tok)
+- `AnIndex` (~54 tok)
+- `leafblower.rdb` (~3176 tok)
+- `leafblower.rdx` (~87 tok)
+- `paths.rds` (~59 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/leafblower/html/
+
+- `00Index.html` — R: High-Performance Survey Calibration via iEPPA and L-BFGS-B (~535 tok)
+- `R.css` — Styles: 3 rules, 1 media queries (~527 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/leafblower/libs/
+
+- `symbols.rds` (~516 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/tests/
+
+- `startup.Rs` — # A custom startup file for tests (~38 tok)
+- `testthat.R` — This file is part of the R package leafblower. (~49 tok)
+- `testthat.Rout` — Declares to (~259 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/leafblower.Rcheck/tests/testthat/
+
+- `lbfgsb_baseline_time.rds` (~27 tok)
+- `lbfgsb_ref_weights.rds` (~2943 tok)
+- `task1_ref.rds` (~531 tok)
+- `task2_ieppa_ref.rds` (~1526 tok)
+- `test-algo-selection.R` — tests/testthat/test-algo-selection.R (~2289 tok)
+- `test-bounded-convergence.R` (~400 tok)
+- `test-cell-table.R` (~497 tok)
+- `test-compare.R` (~393 tok)
+- `test-compat.R` (~292 tok)
+- `test-design.R` (~223 tok)
+- `test-harvest.R` (~1083 tok)
+- `test-ieppa-faithful.R` (~1057 tok)
+- `test-ieppa.R` (~611 tok)
+- `test-lbfgsb.R` (~957 tok)
+- `test-logit.R` (~308 tok)
+- `test-raking.R` (~604 tok)
+
+## .claude/worktrees/agent-a060b207d4ea59804/man/
+
+- `anesrake.Rd` (~312 tok)
+- `design_effect.Rd` (~240 tok)
+- `diagnose_weights.Rd` (~176 tok)
+- `effective_sample_size.Rd` (~103 tok)
+- `get_current_miss.Rd` (~141 tok)
+- `harvest.Rd` (~3256 tok)
+- `weighted_pct.Rd` (~109 tok)
 
 ## R/
 
-- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~12205 tok)
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~12807 tok)
 
 ## benchmarks/
 
-- `allmethod_bench.R` — benchmarks/allmethod_bench.R (~1404 tok)
+- `_uu8r_perf.R` — uu8r.3 perf gate: median ieppa solve time on the stepstone fixture. (~352 tok)
+
+## python/
+
+- `_xiox_validate.py` — xiox validation: does chebyshev_ipm (WITH the linear corrector term) converge (~985 tok)
+- `CMakeLists.txt` (~386 tok)
+
+## python/leafblower/
+
+- `_harvest.py` — harvest (~8622 tok)
+
+## src/
+
+- `calib_dispatch.hpp` — pragma once (~6019 tok)
+- `chebyshev.cpp` — include "chebyshev.hpp" (~10027 tok)
+- `ieppa_internal.hpp` — ifndef LBW_IEPPA_INTERNAL_HPP (~544 tok)
+- `ieppa_trajectory.cpp` — Cold trajectory-diagnostics I/O for iEPPA, split out of ieppa.cpp (uu8r.1). (~436 tok)
+- `ieppa.cpp` — include "lbw_config.h" (~30251 tok)
+- `Makevars.in` (~115 tok)

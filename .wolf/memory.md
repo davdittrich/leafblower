@@ -1241,3 +1241,163 @@
 | 13:44 | Edited .worktrees/fix-bench-timing/benchmarks/allmethod_bench.py | 2→3 lines | ~40 |
 | 13:45 | Session end: 27 writes across 7 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 33 reads | ~51331 tok |
 | 13:48 | Session end: 27 writes across 7 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 33 reads | ~51411 tok |
+| 17:32 | Edited src/sinkhorn.cpp | modified for() | ~151 |
+| 17:33 | Edited src/sinkhorn.cpp | added 3 condition(s) | ~279 |
+| 17:37 | Edited src/sinkhorn.cpp | modified for() | ~114 |
+| 17:39 | Session end: 30 writes across 8 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 35 reads | ~55939 tok |
+| 17:43 | Created .beads/plans/2026-05-09-67sk-plan.md | — | ~1450 |
+| 17:46 | Created .beads/plans/2026-05-09-67sk-plan.md | — | ~1156 |
+| 17:47 | Session end: 32 writes across 9 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 38 reads | ~59815 tok |
+| 18:09 | Edited src/raking.cpp | modified if() | ~235 |
+| 18:09 | Edited src/raking.cpp | modified if() | ~162 |
+| 18:11 | Edited src/raking.cpp | 10→15 lines | ~246 |
+| 18:14 | Session end: 35 writes across 10 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 38 reads | ~68004 tok |
+| 18:17 | Session end: 35 writes across 10 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 38 reads | ~68004 tok |
+| 18:21 | Created .beads/plans/2026-05-09-p3-batch-plan.md | — | ~2119 |
+| 18:25 | Created .beads/plans/2026-05-09-p3-batch-plan.md | — | ~2688 |
+| 18:25 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | modified Commit() | ~98 |
+| 18:25 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | modified docs() | ~107 |
+| 18:25 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | modified test() | ~53 |
+| 18:25 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | modified refactor() | ~112 |
+| 18:25 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | modified refactor() | ~85 |
+| 18:28 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | 2→2 lines | ~70 |
+| 18:28 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | inline fix | ~34 |
+| 18:28 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | inline fix | ~148 |
+| 18:29 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | modified DGP() | ~186 |
+| 18:29 | Edited .beads/plans/2026-05-09-p3-batch-plan.md | 1 → 2 | ~8 |
+| 18:30 | Session end: 47 writes across 11 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 42 reads | ~76679 tok |
+| 18:31 | Edited R/harvest.R | inline fix | ~20 |
+| 18:31 | Edited R/harvest.R | added 1 condition(s) | ~25 |
+| 18:32 | Edited python/leafblower/_harvest.py | "method must be one of {li" → "method must be one of {so" | ~33 |
+| 18:34 | Edited src/leafblower.h | 1→2 lines | ~44 |
+| 18:35 | Edited src/chebyshev.cpp | 1→2 lines | ~57 |
+| 18:35 | Edited src/chebyshev.cpp | inline fix | ~21 |
+| 18:37 | Edited src/leafblower.h | 2→2 lines | ~47 |
+| 18:41 | Created tests/testthat/test-stall-kind-greenkhorn.R | — | ~228 |
+| 18:41 | Created tests/testthat/test-stall-kind-logit.R | — | ~242 |
+| 18:42 | Session end: 56 writes across 15 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 42 reads | ~89992 tok |
+| 22:22 | Edited src/cell_table.hpp | reduced (-11 lines) | ~77 |
+| 22:22 | Edited src/cell_table.cpp | added 1 condition(s) | ~122 |
+| 22:23 | Created src/validation.cpp | — | ~1276 |
+| 22:23 | Edited src/validation.hpp | removed 118 lines | ~139 |
+| 22:23 | Edited src/Makevars | inline fix | ~60 |
+| 22:23 | Edited src/Makevars.in | inline fix | ~60 |
+| 22:23 | Edited python/CMakeLists.txt | 3→4 lines | ~22 |
+| 22:26 | Edited src/calib_dispatch.hpp | expanded (+6 lines) | ~276 |
+| 22:28 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:34 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:35 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:35 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:35 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:39 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:44 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:49 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 22:52 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 23:06 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 23:07 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+| 23:25 | Session end: 64 writes across 23 files (_harvest.py, test_python.py, _bindings.cpp, harvest.R, allmethod_bench.R) | 45 reads | ~92639 tok |
+
+## Session: 2026-05-09 01:48
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-12 11:16
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-12 15:57
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 16:41 | Edited ../../.claude/settings.json | inline fix | ~12 |
+| 16:41 | Session end: 1 writes across 1 files (settings.json) | 40 reads | ~55147 tok |
+
+## Session: 2026-05-23 13:07
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-23 22:54
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-23 22:56
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-23 22:58
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-23 23:00
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-29 12:41
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 13:18 | Created .beads/plans/active-plan.md | — | ~479 |
+| 13:20 | Edited src/chebyshev.cpp | inline fix | ~20 |
+| 13:20 | Edited src/chebyshev.cpp | 3→3 lines | ~41 |
+| 13:20 | Edited src/chebyshev.cpp | 3→3 lines | ~47 |
+| 13:20 | Edited src/chebyshev.cpp | 2→6 lines | ~86 |
+| 13:27 | izql: route 3 chebyshev early-returns to finalize: label, best_weights now populated | src/chebyshev.cpp | 593 R pass/15 py parity, build clean | ~14k |
+| 13:43 | Edited src/calib_dispatch.hpp | added 10 condition(s) | ~907 |
+| 13:43 | Edited src/chebyshev.cpp | modified for() | ~168 |
+| 13:44 | Edited src/chebyshev.cpp | 3→2 lines | ~16 |
+| 13:45 | Edited src/calib_dispatch.hpp | modified total_w() | ~104 |
+| 13:45 | Edited src/calib_dispatch.hpp | 3→3 lines | ~23 |
+| 13:45 | Edited src/calib_dispatch.hpp | 3→3 lines | ~18 |
+| 13:45 | Edited src/chebyshev.cpp | 3→5 lines | ~52 |
+| 13:49 | xl44: shared lbw::finalize_weights, chebyshev Σw=n at exit (normalize+bounds dispatch) | src/calib_dispatch.hpp,src/chebyshev.cpp | 593 R pass/15 py parity, Σw=n 1e-12 | ~30k |
+| 13:56 | Edited src/chebyshev.cpp | 2→2 lines | ~39 |
+| 13:56 | Edited src/chebyshev.cpp | inline fix | ~19 |
+| 13:56 | Edited src/chebyshev.cpp | 2→2 lines | ~35 |
+| 14:01 | Created python/_xiox_validate.py | — | ~959 |
+| 14:02 | Edited python/_xiox_validate.py | 12→12 lines | ~172 |
+| 14:02 | Edited python/_xiox_validate.py | modified abs() | ~88 |
+| 14:03 | Edited src/chebyshev.cpp | expanded (+12 lines) | ~284 |
+| 14:04 | xiox REJECTED not-a-bug: Mehrotra linear corrector term is correct (cvxpy LP verified ~1e-11); guard comment added | src/chebyshev.cpp | closed invalid, commit 9e2e913 | ~45k |
+| 14:07 | Edited R/harvest.R | expanded (+6 lines) | ~132 |
+| 14:08 | Edited python/leafblower/_harvest.py | 2→5 lines | ~95 |
+| 14:10 | 0xc5: document chebyshev ignores convergence rule | R/harvest.R,man/harvest.Rd,python/_harvest.py | closed, commit | ~8k |
+| 14:17 | Edited src/calib_dispatch.hpp | modified finalize_weights_buf() | ~849 |
+| 14:18 | Edited src/ieppa.cpp | modified for() | ~324 |
+| 14:25 | l6to: ieppa best_weights Σ=n via finalize_weights_buf (rejected post-normalize) | src/ieppa.cpp,src/calib_dispatch.hpp | 593 R/15 py, Σ=n 1e-11 | ~22k |
+| 14:27 | Edited src/ieppa.cpp | added 1 condition(s) | ~221 |
+| 14:34 | jd2f: SRAA intermediate-level warm-jump (mirror non-SRAA); perf unmeasurable but removes divergence | src/ieppa.cpp | 593 R/15 py pass | ~25k |
+| 14:37 | Edited src/ieppa.cpp | added 1 condition(s) | ~237 |
+| 14:40 | ohi0: ieppa ALM cell sum(X)=n enforced (no output change) | src/ieppa.cpp | 593 R/15 py identical | ~14k |
+| 14:42 | Edited src/calib_dispatch.hpp | expanded (+7 lines) | ~138 |
+| 14:42 | Edited src/calib_dispatch.hpp | 6→6 lines | ~70 |
+| 14:42 | Edited src/ieppa.cpp | 6→9 lines | ~135 |
+| 14:44 | l7sg: kMinSafeTotalWeight guard vs subnormal total_w overflow (ieppa + finalize_weights_buf) | src/ieppa.cpp,src/calib_dispatch.hpp | 593 R/15 py pass | ~12k |
+| 14:53 | Edited src/ieppa.cpp | added 4 condition(s) | ~638 |
+| 14:56 | vtjf: mass-preserving SRAA-end clamp (bisection r, ΣX=n) | src/ieppa.cpp | 593 R/15 py, no parity shift | ~20k |
+| 15:00 | Edited src/ieppa.cpp | modified if() | ~163 |
+| 15:00 | Edited src/ieppa.cpp | added 1 condition(s) | ~77 |
+| 15:06 | za9r: pin convergence_iter at firing site (finalize no longer clobbers) | src/ieppa.cpp | 593 R/15 py pass | ~16k |
+| 15:19 | Edited src/ieppa.cpp | expanded (+15 lines) | ~335 |
+| 15:19 | 7emq REJECTED not-a-bug: ALM Newton correct (un-normalized KL linearization); guard comment | src/ieppa.cpp | closed invalid | ~30k |
+| 15:32 | Edited .beads/plans/active-plan.md | modified PROGRESS() | ~351 |
+| 15:46 | Edited .beads/plans/active-plan.md | modified REORDERED() | ~342 |
+| 15:47 | Created src/ieppa_internal.hpp | — | ~196 |
+| 15:47 | Created src/ieppa_trajectory.cpp | — | ~436 |
+| 15:48 | Edited src/ieppa.cpp | 2→3 lines | ~19 |
+| 15:48 | Edited src/ieppa.cpp | removed 40 lines | ~57 |
+| 15:48 | Edited python/CMakeLists.txt | 2→3 lines | ~20 |
+| 15:48 | Edited src/Makevars.in | inline fix | ~25 |
+| 15:52 | Edited src/ieppa_internal.hpp | expanded (+26 lines) | ~439 |
+| 15:53 | Edited python/CMakeLists.txt | 2→3 lines | ~22 |
+| 15:53 | Edited src/Makevars.in | inline fix | ~18 |
+| 15:57 | Created benchmarks/_uu8r_perf.R | — | ~352 |
+| 16:03 | uu8r DONE: cold-only ieppa split (trajectory+finalize TUs), perf-neutral 3411->3341ms | src/ieppa*.{cpp,hpp},Makevars.in,CMakeLists.txt | 593 R/15 py, gate-approved | ~60k |
+| 16:03 | Edited .beads/plans/active-plan.md | 1→3 lines | ~126 |
+| 16:04 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
