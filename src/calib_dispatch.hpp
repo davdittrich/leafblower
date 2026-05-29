@@ -327,19 +327,24 @@ inline void compute_cell_bounds(
 /// Writes the per-obs violation / clamp counts to the out-params (solver result
 /// structs differ in whether they surface these — callers pass their own fields
 /// or discard).
-inline void finalize_weights(CalibState& st, const CellTable& ct,
-                             int& n_bounds_violated, int& n_bounds_clamped) {
+///
+/// _buf variant operates on an explicit weight buffer (w, n) using st only for
+/// bounds_mode / min_weight / max_weight / K — used for both the final iterate
+/// (st.weights) and the best-iterate snapshot (res.base.best_weights).
+inline void finalize_weights_buf(double* w, int n, const CalibState& st,
+                                 const CellTable& ct,
+                                 int& n_bounds_violated, int& n_bounds_clamped) {
     double total_w = 0.0;
-    for (int i = 0; i < st.n; i++) total_w += st.weights[i];
+    for (int i = 0; i < n; i++) total_w += w[i];
     if (std::isfinite(total_w) && total_w > 0.0) {
-        const double norm = static_cast<double>(st.n) / total_w;
-        for (int i = 0; i < st.n; i++) st.weights[i] *= norm;
+        const double norm = static_cast<double>(n) / total_w;
+        for (int i = 0; i < n; i++) w[i] *= norm;
     }
 
     if (st.bounds_mode == RK_BOUNDS_CELL) {
         int violations = 0;
-        for (int i = 0; i < st.n; i++)
-            if (st.weights[i] > st.max_weight || st.weights[i] < st.min_weight) ++violations;
+        for (int i = 0; i < n; i++)
+            if (w[i] > st.max_weight || w[i] < st.min_weight) ++violations;
         n_bounds_violated = violations;
         n_bounds_clamped  = 0;
         return;
@@ -347,7 +352,7 @@ inline void finalize_weights(CalibState& st, const CellTable& ct,
 
     // Unit mode: per-cell water-fill (mirror of ieppa_finalize unit branch).
     std::vector<std::vector<int>> cells_of_obs(ct.M_cell);
-    for (int i = 0; i < st.n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
+    for (int i = 0; i < n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
     const int kWaterFillMaxIter = std::max(50, st.K * 10);
     int total_clamped = 0;
     for (int c = 0; c < ct.M_cell; c++) {
@@ -357,29 +362,35 @@ inline void finalize_weights(CalibState& st, const CellTable& ct,
             double excess = 0.0, free_sum = 0.0;
             int n_free = 0; bool any_violation = false;
             for (int i : idxs) {
-                if (st.weights[i] > st.max_weight) {
-                    excess += st.weights[i] - st.max_weight;
-                    st.weights[i] = st.max_weight; any_violation = true; ++total_clamped;
-                } else if (st.weights[i] < st.min_weight) {
-                    excess -= st.min_weight - st.weights[i];
-                    st.weights[i] = st.min_weight; any_violation = true; ++total_clamped;
-                } else if (st.weights[i] == st.max_weight || st.weights[i] == st.min_weight) {
+                if (w[i] > st.max_weight) {
+                    excess += w[i] - st.max_weight;
+                    w[i] = st.max_weight; any_violation = true; ++total_clamped;
+                } else if (w[i] < st.min_weight) {
+                    excess -= st.min_weight - w[i];
+                    w[i] = st.min_weight; any_violation = true; ++total_clamped;
+                } else if (w[i] == st.max_weight || w[i] == st.min_weight) {
                     // Pinned from prior iter (assigned, not computed — FP-equality safe).
                     // Excluded from free_sum so factor distributes excess in full.
                 } else {
-                    free_sum += st.weights[i]; ++n_free;
+                    free_sum += w[i]; ++n_free;
                 }
             }
             if (!any_violation) break;
             if (n_free == 0 || free_sum <= 0.0) break;  // no room to redistribute
             const double factor = 1.0 + excess / free_sum;
             for (int i : idxs)
-                if (st.weights[i] > st.min_weight && st.weights[i] < st.max_weight)
-                    st.weights[i] *= factor;
+                if (w[i] > st.min_weight && w[i] < st.max_weight)
+                    w[i] *= factor;
         }
     }
     n_bounds_violated = 0;
     n_bounds_clamped  = total_clamped;
+}
+
+/// Convenience overload operating on st.weights (the final iterate).
+inline void finalize_weights(CalibState& st, const CellTable& ct,
+                             int& n_bounds_violated, int& n_bounds_clamped) {
+    finalize_weights_buf(st.weights, st.n, st, ct, n_bounds_violated, n_bounds_clamped);
 }
 
 /// Builds prefix-sum cat_offset[k] and returns n_cats_total.

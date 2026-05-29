@@ -226,11 +226,10 @@ static void ieppa_finalize(
     res.base.convergence_solver_objective   = best.best_objective;
     res.base.convergence_minimized_metric   = static_cast<int>(st.convergence_cfg.metric);
 
-    // WU-E / G8b: expand best.best_weights (cell-level W ratio snapshot) to obs-level.
-    // Rule: scalar mult of initial obs weight by cell multiplier, then sum-normalize to n,
-    // then clamped to [min_weight, max_weight].
-    // NO water-fill — this is a mid-loop snapshot.
-    // If best.has_best() is false (solver exited before first check), best_weights is all zeros.
+    // WU-E / G8b: expand best.best_weights (cell-level W ratio snapshot) to obs-level,
+    // then finalize through the shared Σw=n + bounds_mode contract (same as the final
+    // iterate below). If best.has_best() is false (solver exited before first check),
+    // best_weights is all zeros.
     res.base.best_error = best.best_metric;
     res.base.best_iter  = best.best_iter;
     if (best.has_best()) {
@@ -238,19 +237,13 @@ static void ieppa_finalize(
         for (int i = 0; i < st.n; i++) {
             best_weights_obs[i] = st.weights[i] * best.best_weights[ct.cell_of[i]];
         }
-        // Sum-normalize to n (scalar mult + sum-normalize only, per spec).
-        double s = 0.0;
-        for (int i = 0; i < st.n; i++) s += best_weights_obs[i];
-        if (s > 0.0) {
-            const double scale = static_cast<double>(st.n) / s;
-            for (int i = 0; i < st.n; i++) best_weights_obs[i] *= scale;
-        }
-        // Clamp best-iterate weights to [min_weight, max_weight].
-        // Post-normalization can push weights beyond bounds on infeasible problems.
-        for (int i = 0; i < st.n; i++) {
-            best_weights_obs[i] = std::max(st.min_weight,
-                                  std::min(st.max_weight, best_weights_obs[i]));
-        }
+        // l6to: enforce Σw=n via the shared finalize_weights contract (normalize then
+        // bounds_mode dispatch). The previous normalize-then-clamp broke Σw=n on
+        // infeasible problems, and a post-clamp renormalize would re-break the bounds.
+        // Cell mode: no clamp (cell-aggregate contract). Unit mode: per-cell water-fill
+        // preserves Σw=n while enforcing [min_weight, max_weight].
+        int best_nbv = 0, best_nbc = 0;
+        finalize_weights_buf(best_weights_obs.data(), st.n, st, ct, best_nbv, best_nbc);
         res.base.best_weights = std::move(best_weights_obs);
     } else {
         res.base.best_weights.assign(st.n, 0.0);
