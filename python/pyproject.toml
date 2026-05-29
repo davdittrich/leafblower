@@ -8,7 +8,7 @@ name = "leafblower"
 # The ../DESCRIPTION relative path is fragile in sdist builds where the
 # directory layout differs from a local source tree.
 version = "0.1.0"
-description = "High-performance survey calibration (iEPPA and L-BFGS-B)"
+description = "High-performance survey calibration (iEPPA, raking, Sinkhorn, Chebyshev IPM, GREG)"
 requires-python = ">=3.9"
 dependencies = ["numpy>=1.21"]
 license = {text = "MIT"}
