@@ -25,12 +25,14 @@ diagnose_weights <- function(data, target, weights) {
     is_na    <- is.na(col)
     has_na_bin <- "NA" %in% names(tgt)
     if (has_na_bin) {
-      # add_na_proportion case: fill NA observations into the literal "NA" bin
-      # so the injected target is counted (as.character(NA) is NA_character_,
-      # which never matches the string "NA"). All-obs denominators so the
-      # prop_original / prop_weighted shares sum to 1 across bins (incl. NA).
+      # add_na_proportion case: the injected "NA" bin is counted via the is_na
+      # MASK (see lvl loop below), NOT by encoding NAs into the string "NA".
+      # Collision-safe: a row whose value is the *literal* string "NA" must
+      # never be conflated with a genuinely-missing row (4ihf.4). All-obs
+      # denominators so prop_original / prop_weighted sum to 1 across bins
+      # (incl. NA). Mirrors Python diagnose_weights(), which masks on pd.isna().
       col_char <- as.character(col)
-      col_char[is_na] <- "NA"
+      col_char[is_na] <- NA_character_
       n_total <- length(col)
       w_total <- sum(weights)
     } else {
@@ -47,7 +49,10 @@ diagnose_weights <- function(data, target, weights) {
     }
 
     for (lvl in names(tgt)) {
-      mask      <- !is.na(col_char) & col_char == lvl
+      # Injected NA bin (lvl == "NA" with has_na_bin) matches the is_na mask:
+      # true-missings count there; a literal-"NA" category row does not.
+      mask      <- if (has_na_bin && lvl == "NA") is_na
+                   else !is.na(col_char) & col_char == lvl
       prop_orig <- if (n_total > 0L) sum(mask) / n_total else 0.0
       prop_wtd  <- if (w_total > 0.0) sum(weights[mask]) / w_total else 0.0
       tgt_val   <- tgt[[lvl]]

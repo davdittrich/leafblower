@@ -215,3 +215,92 @@ def test_diagnose_weights_no_na_bin_excludes_na_r_python_parity():
             f"R<->Python {col} mismatch:\n"
             f"R={diag_r[col].to_dict()}\nPy={diag_py[col].to_dict()}"
         )
+
+
+def test_diagnose_weights_literal_NA_not_conflated_with_missing(tmp_path):
+    """Collision case (leafblower-4ihf.4): a genuinely-missing row and a row
+    whose value is the *literal* string "NA" must NOT be conflated.
+
+    The injected "NA" bin (add_na_proportion) must count ONLY the true
+    missings (matched on the missingness mask, not a string compare). The
+    literal-"NA" rows must NOT inflate the NA bin. R and Python must agree
+    (rtol=1e-6). Before the fix, R counted literal-"NA" rows into the NA bin
+    (NA share = 4/7) while Python (mask-based) counted 2/7 — a divergence.
+    """
+    # 3x "X" (real category), 2x literal-"NA" string, 2x true-missing (None).
+    g_raw = ["X", "X", "NA", "NA", None, None, "X"]
+    n = len(g_raw)
+    n_missing = sum(1 for v in g_raw if v is None)  # 2
+    # Injected-NA-bin target: the only "NA" key is the injected bin.
+    tgt_used = {"X": 0.5, "NA": 0.5}
+
+    df_py = pd.DataFrame({"g": g_raw})  # object dtype: None=NaN, "NA"=string
+    w_py = np.ones(n, dtype=float)
+    diag_py = diagnose_weights(df_py, {"g": tgt_used}, w_py)
+    diag_py = diag_py.set_index("level").sort_index()
+
+    # NA bin counts ONLY the true missings (2/7), NOT the literal-"NA" rows.
+    assert abs(diag_py.loc["NA", "prop_original"] - n_missing / n) < 1e-12, (
+        f"Python NA bin conflated literal-'NA': {diag_py.loc['NA','prop_original']}"
+    )
+    # The 3 real "X" rows are counted as their own category (literal-"NA" rows
+    # are excluded from every bin since they collide with the injected bin name).
+    assert abs(diag_py.loc["X", "prop_original"] - 3 / n) < 1e-12
+
+    # --- R side via subprocess. The literal-"NA" rows stay the string "NA";
+    # only the true-missings become R NA. ---
+    fixture = {
+        # sentinel "__MISSING__" marks true-missings so R can re-inject NA
+        # without colliding with the literal string "NA".
+        "g": [("__MISSING__" if v is None else v) for v in g_raw],
+        "weights": w_py.tolist(),
+        "target_used": {k: float(v) for k, v in tgt_used.items()},
+    }
+    fx_path = str(tmp_path / "diagnose_literal_na_fixture.json")
+    with open(fx_path, "w") as fh:
+        json.dump(fixture, fh)
+
+    r_script = (
+        f'devtools::load_all("{_REPO_ROOT}", quiet = TRUE); '
+        f'f <- jsonlite::fromJSON("{fx_path}"); '
+        'g <- f$g; g[g == "__MISSING__"] <- NA; '  # literal "NA" preserved
+        'df <- data.frame(g = g, stringsAsFactors = FALSE); '
+        'tu <- unlist(f$target_used); '
+        'target <- list(g = tu); '
+        'w <- as.numeric(f$weights); '
+        'd <- diagnose_weights(df, target, w); '
+        'out <- list('
+        '  level = as.character(d$level), '
+        '  prop_original = as.numeric(d$prop_original), '
+        '  prop_weighted = as.numeric(d$prop_weighted)); '
+        'cat(jsonlite::toJSON(out, auto_unbox = FALSE, digits = 15))'
+    )
+    proc = subprocess.run(
+        ["Rscript", "-e", r_script],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert proc.returncode == 0, f"Rscript failed:\n{proc.stderr}"
+    r_out = json.loads(proc.stdout.strip())
+    diag_r = pd.DataFrame(
+        {
+            "level": [str(x) for x in r_out["level"]],
+            "prop_original": r_out["prop_original"],
+            "prop_weighted": r_out["prop_weighted"],
+        }
+    ).set_index("level").sort_index()
+
+    # R NA bin counts ONLY true missings (mask-based), not literal-"NA".
+    assert abs(diag_r.loc["NA", "prop_original"] - n_missing / n) < 1e-12, (
+        f"R NA bin conflated literal-'NA': {diag_r.loc['NA','prop_original']}"
+    )
+
+    # --- Full R<->Python parity (rtol=1e-6, atol=0). ---
+    assert set(diag_r.index) == set(diag_py.index)
+    for col in ("prop_original", "prop_weighted"):
+        assert np.allclose(
+            diag_r[col].to_numpy(), diag_py[col].to_numpy(),
+            rtol=1e-6, atol=0.0,
+        ), (
+            f"R<->Python {col} mismatch:\n"
+            f"R={diag_r[col].to_dict()}\nPy={diag_py[col].to_dict()}"
+        )

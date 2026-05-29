@@ -12,12 +12,15 @@ get_current_miss <- function(data, target, weights) {
     is_na <- is.na(col)
     has_na_bin <- "NA" %in% names(tgt)
     if (has_na_bin) {
-      # add_na_proportion case: encode NA observations into the literal "NA"
-      # bin so the injected target is counted (as.character(NA) is
-      # NA_character_, which never equals the string "NA"). Denominator spans
-      # ALL observations so shares (incl. NA) sum to 1.
+      # add_na_proportion case: the injected "NA" bin is counted via the
+      # is_na MASK (see lvl loop below), NOT by encoding NAs into the string
+      # "NA". This is collision-safe: a row whose value is the *literal* string
+      # "NA" must never be conflated with a genuinely-missing row (4ihf.4).
+      # Denominator spans ALL observations so shares (incl. NA) sum to 1.
+      # Mirrors Python diagnose_weights() / _compute_sparseness_diag(), which
+      # count the NA bin via pd.isna().
       col_char <- as.character(col)
-      col_char[is_na] <- "NA"
+      col_char[is_na] <- NA_character_
       W <- sum(weights)
     } else {
       # No "NA" bin (common case): exclude NA observations from BOTH the level
@@ -30,7 +33,11 @@ get_current_miss <- function(data, target, weights) {
       W <- sum(weights[!is_na])
     }
     errs <- vapply(names(tgt), function(lv) {
-      mask <- !is.na(col_char) & col_char == lv
+      # The injected NA bin (lv == "NA" with has_na_bin) is matched on the
+      # is_na mask so true-missings count there and a literal-"NA" category
+      # row does not. Real levels match the (NA-cleared) char vector.
+      mask <- if (has_na_bin && lv == "NA") is_na
+              else !is.na(col_char) & col_char == lv
       prop <- if (W > 0) sum(weights[mask]) / W else 0.0
       abs(prop - tgt[[lv]])
     }, numeric(1))

@@ -37,6 +37,25 @@ test_that("get_current_miss: 'NA' bin observed share is counted (~ na_frac), not
   expect_equal(obs_na, na_frac, tolerance = 1e-12)
 })
 
+test_that("get_current_miss: literal-'NA' string NOT conflated with true missing (4ihf.4)", {
+  ## Collision case: a row whose value is the literal string "NA" must not be
+  ## counted into the injected NA bin. The NA bin counts ONLY genuinely-missing
+  ## rows (is.na mask). Fixture: 3x "X", 2x literal-"NA", 2x true-missing.
+  g <- c("X", "X", "NA", "NA", NA, NA, "X")
+  n <- length(g)
+  df <- data.frame(g = g, stringsAsFactors = FALSE)
+
+  # Observed all-obs shares under mask-based counting: X = 3/7, NA bin = 2/7
+  # (true missings only). Set the target to these so miss == 0 ONLY when the
+  # NA bin is counted by the mask. With the old conflation the NA bin observed
+  # share is 4/7, giving miss = |4/7 - 2/7| = 2/7.
+  target <- list(g = c(X = 3 / n, `NA` = 2 / n))
+  w <- rep(1.0, n)
+  miss <- get_current_miss(df, target, w)
+
+  expect_lt(unname(miss[["g"]]), 1e-12)
+})
+
 test_that("get_current_miss: NO 'NA' bin but data HAS NA -> miss over non-NA, ~ 0", {
   ## Regression guard (NABIN): with no explicit "NA" target level the
   ## denominator must EXCLUDE NA obs. An all-obs denominator deflates the
