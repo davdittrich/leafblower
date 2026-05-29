@@ -535,12 +535,13 @@ RakingResult raking_solve(CalibState& st) {
 
     // leafblower-236s: propagate chi2 from last full-metrics eval.
     // leafblower-24f7 audit (false-positive): this assignment is always fresh.
-    //   Flat loop:   convergence fires only inside `if (f_eval_full_metrics)` (L415),
-    //     and that same iter F_eval already set last_F_metrics at L320 (f_eval_full_metrics=true).
-    //     res.base.chi2 is also set at L469 from the independent compute_cell_metrics
-    //     call at L453; both use the same X and W≈n, so this overwrite is redundant but correct.
-    //   SRAA loop:   f_eval_full_metrics is always true → F_eval sets last_F_metrics every iter;
-    //     this line is the ONLY chi2 assignment for the SRAA path.
+    //   Flat loop:   convergence is checked only inside the `if (f_eval_full_metrics)`
+    //     block, and on that same iter F_eval already refreshed last_F_metrics
+    //     (compute_cell_metrics over the current X). res.base.chi2 was also set just
+    //     above from chi2_total (the same compute_cell_metrics result), so this overwrite
+    //     is redundant but correct — both use the same X and W≈n.
+    //   SRAA loop:   f_eval_full_metrics is always true → F_eval refreshes last_F_metrics
+    //     every iter; this line is the ONLY chi2 assignment on the SRAA path.
     // Test guard: test-raking-chi2-freshness.R verifies all scenarios.
     if (best.has_best()) res.base.chi2 = last_F_metrics.chi2;
 
