@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-05-29T14:03:45.635Z
-> Files: 542 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-05-29T14:38:46.699Z
+> Files: 543 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ..Rcheck/
 
@@ -24,7 +24,7 @@
 - `cell_table_92c4f45.cpp` — include "lbw_config.h" (~1375 tok)
 - `cell_table_92c4f45.hpp` — pragma once (~285 tok)
 - `Cholesky` (~0 tok)
-- `CLAUDE.md` — OpenWolf (~1659 tok)
+- `CLAUDE.md` — OpenWolf (~2058 tok)
 - `cleanup` (~8 tok)
 - `code-review-findings.md` — Code Review: C++ Source Files (cell_table, chebyshev, sinkhorn, grake, greg) (~1627 tok)
 - `configure` — Detect C++17 support. (~1050 tok)
@@ -744,6 +744,7 @@
 
 - `calib_dispatch.hpp` — pragma once (~6019 tok)
 - `chebyshev.cpp` — include "chebyshev.hpp" (~10027 tok)
+- `ieppa_finalize.cpp` — Cold post-loop finalization for iEPPA, split out of ieppa.cpp (uu8r.2). (~3515 tok)
 - `ieppa_internal.hpp` — ifndef LBW_IEPPA_INTERNAL_HPP (~544 tok)
 - `ieppa_trajectory.cpp` — Cold trajectory-diagnostics I/O for iEPPA, split out of ieppa.cpp (uu8r.1). (~436 tok)
 - `ieppa.cpp` — include "lbw_config.h" (~30251 tok)
