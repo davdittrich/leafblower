@@ -232,6 +232,9 @@ def harvest(
         "improvement" (float) — shorthand: activates max_err + improvement rule.
         "stop_when" (str) — "any" (default) or "all".
         Unknown keys raise ValueError.
+        Note: method="chebyshev" ignores "rule" (and "metric"/"stop_when"); its
+        interior-point solver stops on its own complementarity-gap criterion,
+        falling back to the "pct"/"absolute" tolerance on the max marginal error.
     sor : dict for SOR adaptive under-relaxation (iEPPA only). None disables SOR. Keys:
         "auto" (bool, default True), "omega_min" (float, default 0.3),
         "omega" (float) for fixed omega, "burnin" (int, default 20).

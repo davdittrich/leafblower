@@ -114,7 +114,13 @@ equivalent to \code{autumn::calibrate()}).}
   \strong{chi2 cross-solver note:} chi2 is not directly comparable
   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
   raking uses \code{n}. Use chi2 as a convergence criterion
-  within one method; do not compare values across methods.}
+  within one method; do not compare values across methods.
+
+  \strong{chebyshev note:} \code{method="chebyshev"} ignores \code{rule}
+  (and \code{metric}/\code{stop_when}). The interior-point solver stops on its
+  own complementarity-gap criterion, falling back to the \code{pct}/\code{absolute}
+  tolerance on the max marginal error. Other \code{convergence} keys are no-ops
+  for this method.}
 
 \item{sor}{Named list for SOR adaptive under-relaxation (iEPPA and raking).
 Default \code{NULL} disables SOR. Keys:
