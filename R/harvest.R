@@ -250,6 +250,12 @@ harvest <- function(
   ridge_lambda = 0.0,
   ...
 ) {
+  # RVAL.2: warn on unknown ... args (typos / removed params)
+  dots <- list(...)
+  if (length(dots) > 0L)
+    warning("harvest: unknown argument(s) ignored: ",
+            paste(names(dots), collapse = ", "), call. = FALSE)
+
   # Not-in-v1 hard stops
   target  <- parse_target(target, target_map)
 
@@ -298,6 +304,12 @@ harvest <- function(
         stop(sprintf(
           "add_na_proportion: all observations are NA for margin '%s'", v),
           call. = FALSE)
+      # RVAL.1: validate target sums to 1 before rescaling
+      s <- sum(unlist(target[[v]]))
+      if (abs(s - 1) >= 1e-6)
+        stop(sprintf(
+          "add_na_proportion: target for variable '%s' must sum to 1 before rescaling (observed sum = %.8g)",
+          v, s), call. = FALSE)
       # Renormalize existing targets by (1 - na_frac) then add NA bin
       target[[v]] <- c(
         lapply(target[[v]], function(t) t * (1 - na_frac)),
@@ -426,10 +438,10 @@ harvest <- function(
   }
 
   # CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT 6=MARGINAL_KL
+  # META.2: pct alias resolved to l1_weight in parse_convergence; no duplicate entry here
   metric_int    <- c(max_err = 0L, mean_err = 1L, kl = 2L, chi2 = 3L,
                      grake_norm = 4L, l1_weight = 5L,
-                     marginal_kl = 6L,
-                     pct = 5L)  # pct is legacy alias for l1_weight
+                     marginal_kl = 6L)
   # CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU
   rule_int      <- c(threshold = 0L, improvement = 1L, plateau = 2L)
   stop_when_int <- c(any = 0L, all = 1L)
@@ -466,6 +478,16 @@ harvest <- function(
       idx - 1L
     }
   })
+  # RVAL.3: warn on genuine OOV observations (gid == -1, not NA-on-NA-margin)
+  for (i in seq_along(margins)) {
+    v    <- margins[[i]]
+    gids <- group_ids_r[[i]]
+    n_oov <- sum(gids == -1L)
+    if (n_oov > 0L)
+      warning(sprintf(
+        "harvest: %d out-of-vocabulary observation(s) for variable '%s' — these levels are absent from target and will not contribute to calibration",
+        n_oov, v), call. = FALSE)
+  }
   cat_counts_r <- vapply(target, length, integer(1L))
   targets_r    <- lapply(target, function(t) as.double(unname(t)))
   n_obs        <- nrow(data)
@@ -839,8 +861,10 @@ parse_convergence <- function(convergence) {
   # "criterion" is a legacy alias for "metric" (backward compat)
   metric_raw <- convergence[["metric"]] %||% convergence[["criterion"]] %||%
                 (if (explicit_pct) "pct" else "max_err")
+  # META.2: resolve pct alias to l1_weight before metric_int lookup
+  if (!is.null(metric_raw) && identical(metric_raw, "pct")) metric_raw <- "l1_weight"
   metric <- match.arg(metric_raw,
-    c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl", "pct"))
+    c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl"))
 
   # pct is autumn/anesrake compatible: stops when Σ|Δw| STOPS IMPROVING (plateau).
   # Default its rule to "plateau" when pct is specified without an explicit rule.
