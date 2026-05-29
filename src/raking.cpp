@@ -158,7 +158,15 @@ RakingResult raking_solve(CalibState& st) {
         double clamped_sum = 0.0;
         double free_sum    = bucket_j;  // Σ_{free} X_orig[c]
 
-        for (int pass = 0; pass <= n; ++pass) {
+        // Bound is pass < n (not <= n): at most n clamping passes are possible
+        // before the free pool empties (each pass that clamps ≥1 cell shrinks
+        // the pool by ≥1).  The only clean-success exit is the !any_clamped
+        // commit-and-return inside the loop.  Pass index n is never needed for
+        // a real commit; it only re-applies the eps-infeasibility guard
+        // (free_sum < kAbsoluteZeroThreshold) which can spuriously flag
+        // 0 < free_sum < eps as infeasible — a case the post-loop handler
+        // (free_sum <= 0.0) would correctly treat as best-effort.
+        for (int pass = 0; pass < n; ++pass) {
             if (free_sum < kAbsoluteZeroThreshold) { is_infeasible = true; break; }
             const double T_free = T_kj - clamped_sum;
             if (T_free <= 0.0) break;
