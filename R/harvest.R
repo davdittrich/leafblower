@@ -74,6 +74,10 @@
 #'   \itemize{
 #'     \item \code{auto}: logical, default \code{TRUE}.
 #'     \item \code{omega_min}: lower bound on relaxation factor, default \code{0.3}.
+#'     \item \code{omega_max}: upper bound (recovery ceiling) on relaxation factor,
+#'       default \code{1.5}. Values in (1, 2) enable over-relaxation, which reduces
+#'       iteration count; global convergence is guaranteed for all omega in (0, 2)
+#'       (Thibault 2021). ORIS only; ignored for greedy scheduler.
 #'     \item \code{omega}: fixed relaxation factor (disables auto-adapt).
 #'     \item \code{burnin}: iterations before adaptation starts, default \code{20}.
 #'   }
@@ -528,6 +532,7 @@ harvest <- function(
                as.integer(sor_cfg$auto),
                as.double(sor_cfg$omega_init),
                as.double(sor_cfg$omega_min),
+               as.double(sor_cfg$omega_max),
                as.double(sor_cfg$omega_fixed),
                as.integer(sor_cfg$burnin),
                ## SRAA-m accelerate flag
@@ -911,9 +916,9 @@ parse_sor <- function(sor) {
   `%||%` <- function(a, b) if (is.null(a)) b else a
   if (is.null(sor)) {
     return(list(enabled = 0L, auto = 0L, omega_init = 1.0,
-                omega_min = 0.3, omega_fixed = -1.0, burnin = 20L))
+                omega_min = 0.3, omega_max = 1.5, omega_fixed = -1.0, burnin = 20L))
   }
-  valid_keys <- c("auto", "omega_min", "omega", "omega_init", "burnin")
+  valid_keys <- c("auto", "omega_min", "omega_max", "omega", "omega_init", "burnin")
   bad <- setdiff(names(sor), valid_keys)
   if (length(bad))
     stop(sprintf("Unknown sor key(s): %s. Valid keys: %s",
@@ -924,6 +929,7 @@ parse_sor <- function(sor) {
     auto        = if (isTRUE(sor[["auto"]])) 1L else 0L,
     omega_init  = as.double(sor[["omega_init"]] %||% 1.0),
     omega_min   = as.double(sor[["omega_min"]] %||% 0.3),
+    omega_max   = as.double(sor[["omega_max"]] %||% 1.5),
     omega_fixed = as.double(sor[["omega"]] %||% -1.0),
     burnin      = as.integer(sor[["burnin"]] %||% 20L)
   )

@@ -5,7 +5,7 @@ library(leafblower)
 # targets shorter than K (or a target vector shorter than its cat_count)
 # previously OOB-read. The bridge must now raise a graceful R error.
 
-# Build the exact 37-arg C_rk_calibrate payload for a small valid problem,
+# Build the exact 38-arg C_rk_calibrate payload for a small valid problem,
 # then return the arg list so individual tests can corrupt one slot.
 make_call_args <- function() {
   cats <- c("a", "b", "c")
@@ -38,10 +38,10 @@ make_call_args <- function() {
     as.double(1e-6),         # 25: absolute_tol
     1L, 1L, 1L,              # 26-28: metric, rule, stop_when
     0L, 0L,                  # 29-30: sor_enabled, sor_auto
-    1.5, 1.0, 1.0, 0L,       # 31-34: sor omega_init/min/fixed, burnin
-    0L,                      # 35: accelerate
-    as.double(1e-8),         # 36: newton_tsvd_ratio
-    as.double(0.0)           # 37: ridge_lambda
+    1.5, 1.0, 1.5, 1.0, 0L, # 31-35: sor omega_init/min/max/fixed, burnin
+    0L,                      # 36: accelerate
+    as.double(1e-8),         # 37: newton_tsvd_ratio
+    as.double(0.0)           # 38: ridge_lambda
   )
 }
 

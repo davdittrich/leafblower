@@ -37,7 +37,7 @@ linear:  f_new = f_old^(1−α·ω) · naive^(α·ω)
 log:     lf_new = (1−α·ω)·lf_old + α·ω·(log T_kj·W − log S_kj)
 ```
 
-- `ω` (`eff_omega`) is the SOR relaxation parameter, auto-adapted per margin after a burn-in; `ω = 1` recovers plain IPF (fast path, no `pow()`).
+- `ω` (`eff_omega`) is the SOR relaxation parameter, auto-adapted per margin after a burn-in; `ω = 1` recovers plain IPF (fast path, no `pow()`). The adaptive scheme grows ω toward `omega_max` (default **1.5**; configurable via `sor = list(omega_max = ...)`) when errRp decreases, and damps toward `omega_min` (default 0.3) on sign-flip oscillation. The default `omega_max = 1.5` places ω in the proven acceleration zone ω ∈ (1, 2) [thibault2021overrelaxed]; it is capped at 1.99 by design.
 - `α` is the **infeasibility-streak damping factor** `α = 1/(1 + β·stress)` (`compute_alpha`), where `stress` = longest consecutive infeasible-bucket streak and `β = kAlphaBeta = 0.5`; no stress ⇒ `α = 1` (fast path). It shrinks the step when a margin cannot be satisfied; with `ω ≤ 2` it keeps the net exponent `α·ω` inside the `(0, 2)` window proven globally convergent for overrelaxed Sinkhorn [thibault2021overrelaxed].
 - `β` is **only** the constant inside that damping map (the η-schedule scales it per homotopy level, `β = 0.5·η`). It is **not** a proximal/entropic term — the core update carries no proximal term.
 - The net exponent on the Sinkhorn ratio is `α·ω`; margins are swept **Gauss–Seidel (BCD-style)**.

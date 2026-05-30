@@ -395,6 +395,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     bool sor_auto_v           = sor_base && !st.accelerate;
     const double omega_init_v = st.sor_cfg.omega_init;    // default 1.0
     const double omega_min_v  = st.sor_cfg.omega_min;     // default 0.3
+    const double omega_max_v  = st.sor_cfg.omega_max;     // default 1.5; proven (0,2) (Thibault 2021)
     const double omega_fixed_v = st.sor_cfg.omega_fixed;  // -1.0 = use auto
     const int    sor_burnin_v  = st.sor_cfg.burnin;       // default 20
     std::vector<double> sor_omega(st.K, omega_init_v);
@@ -834,7 +835,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         sor_n_damped++;
                     } else if (decreasing) {
                         for (int k = 0; k < st.K; k++) {
-                            sor_omega[k] = std::min(1.0,
+                            sor_omega[k] = std::min(omega_max_v,
                                 sor_omega[k] * kSorRecoveryGrowth);
                         }
                     }
@@ -1560,8 +1561,8 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                             sor_omega[k] = std::max(omega_min_v, sor_omega[k] * kSorOscillationDamp);
                             sor_n_damped++;
                         } else if (decreasing) {
-                            // Monotone convergence: cautiously recover omega toward 1.0.
-                            sor_omega[k] = std::min(1.0, sor_omega[k] * kSorRecoveryGrowth);
+                            // Monotone convergence: cautiously recover omega toward omega_max.
+                            sor_omega[k] = std::min(omega_max_v, sor_omega[k] * kSorRecoveryGrowth);
                         }
                         if (sor_omega[k] < sor_min_omega) sor_min_omega = sor_omega[k];
                         sor_prev_decreasing[k] = decreasing;

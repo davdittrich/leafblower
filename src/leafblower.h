@@ -89,6 +89,7 @@ typedef struct {
     int    sor_auto;
     double sor_omega_init;
     double sor_omega_min;
+    double sor_omega_max;    /* recovery ceiling; default 1.5; proven (0,2) (Thibault 2021) */
     double sor_omega_fixed;  /* -1.0 = use auto */
     int    sor_burnin;
     double          capacity_penalty;   /* oris_soft ALM penalty; <=0.0 = use auto (M_cell/n) */
@@ -234,14 +235,15 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  *   pct_tol (double, 8B) + absolute_tol (double, 8B)
  *   metric (int, 4B) + rule (int, 4B) + stop_when (int, 4B)
  *   sor_enabled (int, 4B) + sor_auto (int, 4B)
- *   sor_omega_init (double, 8B) + sor_omega_min (double, 8B) + sor_omega_fixed (double, 8B)
- *   sor_burnin (int, 4B) + 4B pad
+ *   sor_omega_init (double, 8B) + sor_omega_min (double, 8B) + sor_omega_max (double, 8B)
+ *   sor_omega_fixed (double, 8B) + sor_burnin (int, 4B) + 4B pad
  * T4 (2026-04-29): capacity_penalty (double, 8B) after sor_burnin;
  * ztid.7 (2026-04-30): removed enabled int from rk_homotopy_cfg_t; total: 224B.
  * 8aex.3 (2026-05-02): added newton_tsvd_ratio (double) for Epic-H WH-e; +8B → 232B.
  * PY-2 (2026-05-03): added accelerate (int) + _pad (int) + alm_penalty (double); +16B → 248B.
- * ridge (2026-05-06): added ridge_lambda (double); +8B → 256B. */
-#define EXPECTED_RK_PARAMS_BYTES 256
+ * ridge (2026-05-06): added ridge_lambda (double); +8B → 256B.
+ * mj1p.1 (2026-05-31): added sor_omega_max (double); +8B → 264B. */
+#define EXPECTED_RK_PARAMS_BYTES 264
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

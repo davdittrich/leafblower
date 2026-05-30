@@ -66,6 +66,7 @@ struct CalibSorCfg {
     bool   auto_adapt    = true;
     double omega_init    = 1.0;
     double omega_min     = 0.3;
+    double omega_max     = 1.5;  // recovery ceiling; 1.5 is in the proven (0,2) window (Thibault 2021)
     double omega_fixed   = -1.0;  // sentinel: use auto
     int    burnin        = 20;  // iterations before SOR adaptation starts; ORIS only (raking ignores)
 };
