@@ -1,6 +1,6 @@
 # Rename `ieppa` / `ieppa_soft` → `oris` / `oris_soft` (ORIS)
 
-**Status:** Draft rev 3 (Design Review Gate iteration 3 — full-repo sweep added in §8.9)
+**Status:** Draft rev 4 (Design Review Gate iter-3 — historical-vs-live scope policy settled in §8.10; gate iteration cap reached, escalated to user)
 **Date:** 2026-05-30
 **Author:** Dennis Alexis Valin Dittrich
 **Type:** Mechanical rename (no behavior change)
@@ -147,3 +147,33 @@ An exhaustive `grep -rIi ieppa` (with §8.6 exclusions) surfaces these remaining
 - Confirmed: `docs/methods/oris.md` does **not** yet exist; the rename creates it from `ieppa.md` (no stray to reconcile).
 
 With §3 + §8.1–8.9, the site list is exhaustive; the grep-clean gate (§8.8 item 8) is the binding completion check.
+
+### 8.10 Historical records vs live docs — scope policy (gate iter-3)
+
+The full grep surfaced ~130 further `ieppa` hits, almost all in **completed-work records**. Policy: **historical records are NOT edited** — rewriting a dated plan/spec/investigation to say "oris" would falsify the project record (CLAUDE.md: preserve history; spec amendments append, never rewrite). They state what the solver was *called at the time* and are correct as-is. Only **live** documentation is updated. This resolves the architect's iter-3 blockers.
+
+**Excluded as historical (no edits, excluded from the grep-clean gate):**
+- `docs/superpowers/plans/**` and `docs/superpowers/specs/**` (every dated file; this rename spec may also match — fine).
+- `docs/investigations/**`.
+- `.beads/plans/**`, `tasks/**`.
+- `.wolf/**` — auto-maintained by OpenWolf hooks, not hand-edited for a rename.
+- `benchmarks/2apm/**`, `benchmarks/yh0l/**` (ticket-prefixed one-off audit subdirs) and `benchmarks/results/**`.
+- `docs/iEPPA/**` (the source paper), the `chu2022ieppa` bib key in `references.bib`, `_92c4f45.*` snapshots, `*.Rcheck/**`.
+
+**Live docs ADDED to scope (update):**
+- `docs/raking.md` (repo-root file, distinct from `docs/methods/raking.md`) — update IEPPA prose/links.
+- `docs/ieppa_assessmen.md` — current-state solver assessment: update `ieppa`→`oris`/`ORIS` references and add a header noting it is superseded by `docs/methods/oris.md`.
+- `docs/internal/r_bridge_floor.md` — update references.
+- Live top-level benchmark scripts that pass a `method=` string or label: `benchmarks/allmethod_bench.{R,py}`, `stepstone_*.{R,py}`, `parity_bench.{R,py}`, `algo_selection_benchmark.R`, `newton_kl_bench.R`, `sor_sweep.R`, etc. — update the method string/label; rename only the `ieppa_`-prefixed filename (`ieppa_vs_raking_bench.R` → `oris_vs_raking_bench.R`, §8.4).
+
+**§8.8 grep-filter fix.** The earlier filter used leading-slash anchors (`/\.beads/`) that miss relative paths. Corrected completion gate (run from repo root; two-stage to avoid grep lookahead limits):
+```
+grep -rIi ieppa . \
+  --include='*.cpp' --include='*.hpp' --include='*.h' --include='*.R' --include='*.Rd' \
+  --include='*.py' --include='*.toml' --include='*.in' --include='*.md' --include='*.txt' \
+| grep -vE '(^|/)(\.git|\.beads|\.wolf)/' \
+| grep -vE '(^|/)(docs/superpowers/(plans|specs)|docs/investigations|docs/iEPPA|tasks)/' \
+| grep -vE '(^|/)benchmarks/(2apm|yh0l|results)/' \
+| grep -vE '_92c4f45\.|references\.bib|\.Rcheck/'
+```
+**Binding requirement:** after the rename this returns only (a) the live-doc files above and (b) the intentional "renamed from iEPPA" notes in `oris.md` / `00-overview.md` / `CLAUDE.md` / `AGENTS.md`.
