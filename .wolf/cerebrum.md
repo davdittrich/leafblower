@@ -27,3 +27,6 @@
 ## Decision Log
 
 <!-- Significant technical decisions with rationale. Why X was chosen over Y. -->
+## Do-Not-Repeat (2026-05-29)
+- R gotcha: `as.character(NA)` is `NA_character_`, NOT the string "NA" (that's `paste(NA)`/`format(NA)`). `match(NA_character_, x)` returns NA for ANY x (NA propagation) — even when "NA" is an element. To bind NA obs to a literal "NA" target bin, fill `key[is.na(key)] <- "NA"` BEFORE match. This false belief (`as.character(NA)=="NA"`) caused the tu15 add_na_proportion bug AND tripped 2 plan-review reviewers who wrongly called the fix a no-op — verify R semantics by live run, not assumption.
+- R↔Python parity: harvest() encoding logic is duplicated in R/harvest.R (group_ids_r) and python/leafblower/_harvest.py. Divergences go unnoticed because no parity test covered add_na_proportion. When fixing one side, check the other is the reference + add a subprocess+Rscript+JSON parity test (pattern: test_design_effect_parity.py).

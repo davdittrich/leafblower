@@ -3,6 +3,11 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+| 16:53 | NotebookLM deep research (77 sources) + WebFetch DOI verification; appended History/Practitioner-Impls/Caveats/Leafblower-Deviations/References to docs/methods/logit.md | docs/methods/logit.md | success | ~28k tok |
+| 16:50 | NotebookLM deep research (58 sources) + WebFetch DOI verification; appended History/Practitioner-Impls/Caveats/Leafblower-Deviations/References to docs/methods/ieppa.md | docs/methods/ieppa.md | success | ~22k tok |
+| 16:45 | NotebookLM deep research (79 sources) + WebFetch DOI verification; appended History/Practitioner-Impls/Caveats/Leafblower-Deviations/References to docs/methods/raking.md | docs/methods/raking.md | success | ~20k tok |
+| 16:41 | NotebookLM deep research (132 sources) + WebFetch DOI verification; appended History/Implementations/Caveats/Deviation/References to docs/methods/greg.md | docs/methods/greg.md | success | ~18k tok |
+
 | 15:13 | Fix B7 test: replace stale .Call probe (34 args → 36 after kc5x); use public harvest() API instead. Remove invalid 'lbfgsb' from B4 test. | tests/testthat/test-safety.R | commit 492e331; 4 PASS, all tests green | ~500 |
 
 | 12:36 | fcbo.6: extract aggregate_to_margin() helper into calib_dispatch.hpp; replaced 5 exact bucket-fill loop sites | src/calib_dispatch.hpp, src/sinkhorn.cpp, src/raking.cpp, src/greg.cpp | 95de586: sinkhorn (1), raking (2), greg (1), compute_cell_metrics (1); 535 pass, 2 pre-existing failures | ~2500 |
@@ -1401,3 +1406,325 @@
 | 16:03 | uu8r DONE: cold-only ieppa split (trajectory+finalize TUs), perf-neutral 3411->3341ms | src/ieppa*.{cpp,hpp},Makevars.in,CMakeLists.txt | 593 R/15 py, gate-approved | ~60k |
 | 16:03 | Edited .beads/plans/active-plan.md | 1→3 lines | ~126 |
 | 16:04 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
+| 16:13 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
+| 16:16 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
+| 16:21 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
+| 16:23 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
+| 16:25 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
+| 16:28 | Session end: 45 writes across 12 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 17 reads | ~56175 tok |
+| 16:30 | Edited CLAUDE.md | 1→3 lines | ~233 |
+| 16:30 | Edited CLAUDE.md | 8→8 lines | ~116 |
+| 16:30 | Edited CLAUDE.md | "bounds_mode=" → "lbw::finalize_weights[_bu" | ~119 |
+| 16:31 | Edited CLAUDE.md | modified formulas() | ~162 |
+| 16:31 | Session end: 49 writes across 13 files (active-plan.md, chebyshev.cpp, calib_dispatch.hpp, _xiox_validate.py, harvest.R) | 18 reads | ~58509 tok |
+
+## Session: 2026-05-29 16:35
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 16:38 | Edited src/ieppa_finalize.cpp | removed 107 lines | ~295 |
+| 16:46 | Session end: 1 writes across 1 files (ieppa_finalize.cpp) | 2 reads | ~9850 tok |
+| 16:48 | Session end: 1 writes across 1 files (ieppa_finalize.cpp) | 2 reads | ~9850 tok |
+| 16:52 | Edited ../leafblower-2lxq/src/chebyshev.cpp | 4→3 lines | ~21 |
+| 17:01 | Session end: 2 writes across 2 files (ieppa_finalize.cpp, chebyshev.cpp) | 3 reads | ~19900 tok |
+| 17:10 | Created ../leafblower-nil1/tests/testthat/test-raking-chi2-freshness.R | — | ~1555 |
+| 17:10 | Edited ../leafblower-nil1/src/raking.cpp | added 1 condition(s) | ~219 |
+| 17:15 | Edited ../leafblower-nil1/src/raking.cpp | modified n() | ~196 |
+| 17:17 | Edited ../leafblower-nil1/src/newton_calib.cpp | modified audit() | ~182 |
+| 17:21 | Created ../leafblower-nil1/benchmarks/logit_deff_floor_study.R | — | ~1065 |
+| 17:24 | Created ../leafblower-nil1/benchmarks/logit_floor_probe.R | — | ~710 |
+| 17:25 | Edited ../leafblower-nil1/src/logit_calib.cpp | inline fix | ~27 |
+| 17:25 | Edited ../leafblower-nil1/src/logit_calib.cpp | inline fix | ~28 |
+| 17:25 | Edited ../leafblower-nil1/src/logit_calib.cpp | inline fix | ~31 |
+| 17:26 | Edited ../leafblower-nil1/src/logit_calib.cpp | inline fix | ~29 |
+| 17:26 | Edited ../leafblower-nil1/src/logit_calib.cpp | inline fix | ~28 |
+| 17:26 | Edited ../leafblower-nil1/src/logit_calib.cpp | modified configs() | ~367 |
+| 17:26 | Edited ../leafblower-nil1/src/logit_calib.cpp | inline fix | ~16 |
+| 17:40 | Edited ../leafblower-nil1/src/raking.cpp | L320() → chi2_total() | ~196 |
+| 17:45 | Session end: 16 writes across 8 files (ieppa_finalize.cpp, chebyshev.cpp, test-raking-chi2-freshness.R, raking.cpp, newton_calib.cpp) | 11 reads | ~43706 tok |
+| 18:07 | Created ../../../../tmp/lbw_prof_driver.R | — | ~110 |
+| 18:14 | Created ../../../../tmp/l1p3_desc.md | — | ~910 |
+| 18:15 | Created ../../../../tmp/p4_desc.md | — | ~742 |
+| 18:38 | Created ../../../../tmp/l1p3_desc.md | — | ~1112 |
+| 18:45 | Edited ../leafblower-ya85/R/harvest.R | 3→4 lines | ~33 |
+| 18:45 | Edited ../leafblower-ya85/R/harvest.R | modified if() | ~141 |
+| 18:46 | Edited ../leafblower-ya85/R/harvest.R | inline fix | ~14 |
+| 18:54 | Session end: 23 writes across 12 files (ieppa_finalize.cpp, chebyshev.cpp, test-raking-chi2-freshness.R, raking.cpp, newton_calib.cpp) | 26 reads | ~102849 tok |
+| 18:58 | Created ../../../../tmp/tiam_desc.md | — | ~1631 |
+| 18:59 | Session end: 24 writes across 13 files (ieppa_finalize.cpp, chebyshev.cpp, test-raking-chi2-freshness.R, raking.cpp, newton_calib.cpp) | 26 reads | ~104596 tok |
+| 19:03 | Created ../../../../tmp/tiam_desc.md | — | ~2047 |
+| 19:06 | Session end: 25 writes across 13 files (ieppa_finalize.cpp, chebyshev.cpp, test-raking-chi2-freshness.R, raking.cpp, newton_calib.cpp) | 27 reads | ~107175 tok |
+| 19:12 | Edited ../leafblower-tiam/src/Makevars.in | inline fix | ~35 |
+| 19:14 | Edited ../leafblower-tiam/src/Makevars.in | inline fix | ~28 |
+| 19:16 | Session end: 27 writes across 14 files (ieppa_finalize.cpp, chebyshev.cpp, test-raking-chi2-freshness.R, raking.cpp, newton_calib.cpp) | 29 reads | ~137608 tok |
+| 21:06 | Created ../../../../tmp/tu15_desc.md | — | ~1457 |
+| 21:06 | Session end: 28 writes across 15 files (ieppa_finalize.cpp, chebyshev.cpp, test-raking-chi2-freshness.R, raking.cpp, newton_calib.cpp) | 30 reads | ~147791 tok |
+| 21:12 | Created ../../../../tmp/tu15_desc.md | — | ~1857 |
+| 21:15 | Edited ../../../../tmp/tu15_desc.md | modified branch() | ~282 |
+| 21:16 | Edited ../../../../tmp/tu15_desc.md | modified precheck() | ~490 |
+| 21:16 | Edited ../../../../tmp/tu15_desc.md | inline fix | ~53 |
+| 21:20 | Edited ../../../../tmp/tu15_desc.md | 1→3 lines | ~474 |
+| 21:20 | Session end: 33 writes across 15 files (ieppa_finalize.cpp, chebyshev.cpp, test-raking-chi2-freshness.R, raking.cpp, newton_calib.cpp) | 31 reads | ~151172 tok |
+| 21:26 | Created ../leafblower-tu15/tests/testthat/test-add-na-proportion.R | — | ~1061 |
+
+## Session: 2026-05-29 21:32
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-29 21:32
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 21:37 | Edited ../leafblower-tu15/R/harvest.R | added 1 condition(s) | ~55 |
+| 21:37 | Edited ../leafblower-tu15/R/harvest.R | path() → fill() | ~101 |
+| 21:37 | Edited ../leafblower-tu15/R/harvest.R | 2→3 lines | ~63 |
+| 21:37 | Edited ../leafblower-tu15/R/harvest.R | expanded (+8 lines) | ~183 |
+| 21:39 | Created ../leafblower-tu15/python/leafblower/test_harvest_na_parity.py | — | ~823 |
+| 21:40 | Edited ../leafblower-tu15/python/leafblower/test_harvest_na_parity.py | 4→4 lines | ~46 |
+| 21:40 | Edited ../leafblower-tu15/python/leafblower/test_harvest_na_parity.py | "conv <- attr(res, " → "conv <- (attr(res, " | ~16 |
+| 21:40 | Edited ../leafblower-tu15/python/leafblower/test_harvest_na_parity.py | "cat(jsonlite::toJSON(out," → "cat(jsonlite::toJSON(out," | ~20 |
+| 21:44 | Edited ../leafblower-tu15/python/leafblower/test_harvest_na_parity.py | 5→4 lines | ~20 |
+| 21:45 | Session end: 9 writes across 2 files (harvest.R, test_harvest_na_parity.py) | 6 reads | ~22784 tok |
+| 21:48 | Session end: 9 writes across 2 files (harvest.R, test_harvest_na_parity.py) | 6 reads | ~22784 tok |
+| 21:50 | Session end: 9 writes across 2 files (harvest.R, test_harvest_na_parity.py) | 6 reads | ~22784 tok |
+| 21:53 | Edited ../../.lean-ctx/config.toml | 3→3 lines | ~13 |
+| 21:53 | Session end: 10 writes across 3 files (harvest.R, test_harvest_na_parity.py, config.toml) | 7 reads | ~22798 tok |
+
+## Session: 2026-05-29 21:55
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 22:18 | Created .beads/plans/2026-05-29-codereview-batch-plan.md | — | ~2394 |
+| 22:23 | Session end: 1 writes across 1 files (2026-05-29-codereview-batch-plan.md) | 106 reads | ~73124 tok |
+| 22:36 | Edited ../leafblower-cr/cpp/tests/testthat/test-auto-routing-severe-skew.R | modified 1() | ~530 |
+| 22:37 | Edited ../leafblower-cr/cpp/tests/testthat/test-auto-routing-severe-skew.R | modified function() | ~200 |
+| 22:42 | Edited ../leafblower-cr/deff/tests/testthat/test-design.R | added 1 condition(s) | ~498 |
+| 22:42 | Edited ../leafblower-cr/pytest/python/conftest.py | 4→9 lines | ~91 |
+| 22:42 | Edited ../leafblower-cr/cpp/src/r_bridge.cpp | 2→3 lines | ~76 |
+| 22:42 | Created ../leafblower-cr/nabin/tests/testthat/test-current-miss-na-bin.R | — | ~344 |
+| 22:42 | Created ../leafblower-cr/harvest/tests/testthat/test-harvest-rval.R | — | ~1163 |
+| 22:43 | Edited ../leafblower-cr/deff/R/design_effect.R | inline fix | ~14 |
+| 22:43 | Edited ../leafblower-cr/nabin/R/current_miss.R | modified function() | ~139 |
+| 22:43 | Edited ../leafblower-cr/pytest/tests/testthat/test-ieppa-faithful.R | 5→5 lines | ~54 |
+| 22:43 | Edited ../leafblower-cr/harvest/R/harvest.R | added 1 condition(s) | ~80 |
+| 22:44 | Edited ../leafblower-cr/harvest/R/harvest.R | added 1 condition(s) | ~142 |
+| 22:44 | Edited ../leafblower-cr/nabin/tests/testthat/test-current-miss-na-bin.R | 28→32 lines | ~348 |
+| 22:44 | Edited ../leafblower-cr/harvest/R/harvest.R | added 1 condition(s) | ~148 |
+| 22:44 | Edited ../leafblower-cr/pytest/tests/testthat/test-harvest-bounds-mode.R | expanded (+10 lines) | ~308 |
+| 22:44 | Edited ../leafblower-cr/harvest/R/harvest.R | added 1 condition(s) | ~109 |
+| 22:44 | Created ../leafblower-cr/nabin/tests/testthat/test-diagnose-weights-na-bin.R | — | ~372 |
+| 22:44 | Edited ../leafblower-cr/harvest/R/harvest.R | 5→5 lines | ~91 |
+| 22:44 | Edited ../leafblower-cr/nabin/R/diagnose_weights.R | 10→14 lines | ~173 |
+| 22:45 | Edited ../leafblower-cr/pytest/tests/testthat/test-calibration-solvers.R | 7→11 lines | ~172 |
+| 22:45 | Edited ../leafblower-cr/deff/tests/testthat/test-design-edge-cases.R | expanded (+39 lines) | ~410 |
+| 22:45 | Edited ../leafblower-cr/pytest/python/pyproject.toml | "High-performance survey c" → "High-performance survey c" | ~27 |
+| 22:46 | Edited ../leafblower-cr/pytest/python/leafblower/_design_effect.py | 4→3 lines | ~26 |
+| 22:46 | Edited ../leafblower-cr/deff/R/design_effect.R | added 4 condition(s) | ~130 |
+| 22:46 | Edited ../leafblower-cr/pytest/python/leafblower/_design_effect.py | modified enumerate() | ~224 |
+| 22:47 | Edited ../leafblower-cr/cpp/src/r_bridge.cpp | added 2 condition(s) | ~209 |
+| 22:47 | Edited ../leafblower-cr/cpp/src/r_bridge.cpp | added 1 condition(s) | ~171 |
+| 22:47 | Created ../leafblower-cr/cpp/tests/testthat/test-bridge-length-checks.R | — | ~834 |
+| 22:49 | Edited ../leafblower-cr/cpp/src/r_bridge.cpp | added 1 condition(s) | ~178 |
+| 22:49 | Edited ../leafblower-cr/nabin/python/leafblower/_harvest.py | modified items() | ~298 |
+| 22:50 | Created ../leafblower-cr/pytest/python/leafblower/test_solver_parity.py | — | ~2892 |
+| 22:50 | Created ../leafblower-cr/nabin/python/leafblower/test_diagnose_na_parity.py | — | ~1292 |
+| 22:50 | Edited ../leafblower-cr/nabin/python/leafblower/test_diagnose_na_parity.py | 6→9 lines | ~133 |
+| 22:51 | Edited ../leafblower-cr/cpp/src/greenkhorn.cpp | modified if() | ~270 |
+| 22:52 | Created ../leafblower-cr/cpp/tests/testthat/test-greenkhorn-best-metric.R | — | ~536 |
+| 22:52 | Edited ../leafblower-cr/cpp/tests/testthat/test-greenkhorn-best-metric.R | 5→5 lines | ~69 |
+| 22:53 | Edited ../leafblower-cr/cpp/src/newton_calib.cpp | 5→10 lines | ~182 |
+| 22:53 | Created ../leafblower-cr/pytest/python/leafblower/test_solver_parity.py | — | ~2384 |
+| 22:54 | Edited ../leafblower-cr/cpp/tests/testthat/test-newton-kl.R | modified 3() | ~436 |
+| 22:55 | Edited ../leafblower-cr/cpp/src/c_api.cpp | 2→3 lines | ~44 |
+| 22:55 | Edited ../leafblower-cr/cpp/src/c_api.cpp | 2→3 lines | ~50 |
+| 22:55 | Edited ../leafblower-cr/cpp/src/c_api.cpp | 2→3 lines | ~49 |
+| 22:55 | Edited ../leafblower-cr/cpp/src/c_api.cpp | 2→3 lines | ~52 |
+| 23:05 | Edited ../leafblower-cr/build/src/Makevars.in | expanded (+6 lines) | ~138 |
+| 23:05 | Edited ../leafblower-cr/build/.gitignore | expanded (+6 lines) | ~43 |
+| 23:06 | Edited ../leafblower-cr/build/python/CMakeLists.txt | added 1 condition(s) | ~82 |
+| 23:08 | Edited ../leafblower-cr/pytest/python/leafblower/_design_effect.py | 5→8 lines | ~75 |
+| 23:17 | Edited ../leafblower-cr/nabin/R/current_miss.R | added 2 condition(s) | ~353 |
+| 23:17 | Edited ../leafblower-cr/nabin/R/diagnose_weights.R | added 2 condition(s) | ~325 |
+| 23:17 | Edited ../leafblower-cr/nabin/python/leafblower/_harvest.py | added 1 condition(s) | ~414 |
+| 23:17 | Edited ../leafblower-cr/nabin/tests/testthat/test-diagnose-weights-na-bin.R | modified test_that() | ~466 |
+| 23:17 | Edited ../leafblower-cr/nabin/tests/testthat/test-current-miss-na-bin.R | modified test_that() | ~334 |
+| 23:18 | Edited ../leafblower-cr/nabin/python/leafblower/test_diagnose_na_parity.py | modified test_diagnose_weights_no_na_bin_excludes_na_r_python_parity() | ~1215 |
+| 23:23 | Created ../../../../tmp/nabin_chk.py | — | ~789 |
+| 23:27 | Edited ../leafblower-cr/pytest/tests/testthat/test-calibration-solvers.R | stall() → regression() | ~119 |
+| 23:52 | Session end: 56 writes across 31 files (2026-05-29-codereview-batch-plan.md, test-auto-routing-severe-skew.R, test-design.R, conftest.py, r_bridge.cpp) | 160 reads | ~170537 tok |
+
+## Session: 2026-05-29 00:00
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 00:19 | Created .beads/plans/2026-05-30-codereview-followups-active-plan.md | — | ~4204 |
+| 00:32 | Edited python/leafblower/test_solver_parity.py | 5→10 lines | ~184 |
+| 00:33 | Edited python/leafblower/test_solver_parity.py | modified _run_r() | ~366 |
+| 00:33 | Edited python/leafblower/test_solver_parity.py | 2→2 lines | ~23 |
+| 00:33 | Edited python/leafblower/test_solver_parity.py | modified test_logit_parity() | ~305 |
+| 00:34 | Edited python/leafblower/test_solver_parity.py | 4→5 lines | ~52 |
+| 00:34 | Edited python/leafblower/test_solver_parity.py | expanded (+15 lines) | ~350 |
+| 00:40 | Edited src/greenkhorn.cpp | expanded (+12 lines) | ~328 |
+| 00:40 | Edited src/greenkhorn.cpp | modified if() | ~427 |
+| 00:40 | Edited src/greenkhorn.cpp | 11→13 lines | ~215 |
+| 00:40 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~195 |
+| 00:43 | Edited tests/testthat/test-greenkhorn-best-metric.R | modified function() | ~810 |
+| 00:45 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~594 |
+| 00:45 | Edited src/greenkhorn.cpp | 2→2 lines | ~31 |
+| 00:45 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~291 |
+| 00:46 | Edited src/greenkhorn.cpp | 6→6 lines | ~125 |
+| 00:47 | Edited src/greenkhorn.cpp | expanded (+10 lines) | ~376 |
+| 00:48 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~689 |
+| 00:49 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~550 |
+| 00:49 | Edited src/greenkhorn.cpp | expanded (+6 lines) | ~292 |
+| 00:49 | Edited src/greenkhorn.cpp | added 1 condition(s) | ~176 |
+| 00:55 | Edited tests/testthat/test-greenkhorn-best-metric.R | modified 2() | ~148 |
+| 00:55 | Edited tests/testthat/test-greenkhorn-best-metric.R | Converges() → test() | ~137 |
+| 00:57 | Created ../../../../tmp/grk_commit_msg.txt | — | ~596 |
+| 01:02 | Edited R/current_miss.R | modified if() | ~169 |
+| 01:02 | Edited R/current_miss.R | added 1 condition(s) | ~127 |
+| 01:02 | Edited R/diagnose_weights.R | modified if() | ~168 |
+| 01:02 | Edited R/diagnose_weights.R | added 1 condition(s) | ~79 |
+| 01:03 | Edited python/leafblower/test_diagnose_na_parity.py | modified test_diagnose_weights_literal_NA_not_conflated_with_missing() | ~1269 |
+| 01:03 | Edited tests/testthat/test-diagnose-weights-na-bin.R | expanded (+25 lines) | ~346 |
+| 01:03 | Edited tests/testthat/test-current-miss-na-bin.R | expanded (+19 lines) | ~258 |
+| 01:09 | Edited python/leafblower/test_solver_parity.py | 5→4 lines | ~20 |
+| 01:09 | Edited python/leafblower/test_solver_parity.py | modified fixture() | ~350 |
+| 01:11 | Edited tests/testthat/test-harvest-bounds-mode.R | 3→4 lines | ~68 |
+| 01:26 | Created src/Makevars.in | — | ~500 |
+| 01:27 | Edited configure | 9→8 lines | ~117 |
+| 01:27 | Edited configure | 2→2 lines | ~52 |
+| 01:27 | Edited configure | 2→4 lines | ~83 |
+| 01:30 | Created src/Makevars.in | — | ~407 |
+| 01:31 | Edited configure | variable() → placeholder() | ~108 |
+| 01:48 | Session end: 40 writes across 13 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 25 reads | ~88558 tok |
+| 01:50 | Session end: 40 writes across 13 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 25 reads | ~88558 tok |
+| 01:56 | Created .beads/plans/2026-05-30-4ihf5-diag-solver-na-consistency-plan.md | — | ~2327 |
+| 02:01 | Created .beads/plans/2026-05-30-4ihf5-diag-solver-na-consistency-plan.md | — | ~3121 |
+| 02:09 | Created .beads/plans/2026-05-30-4ihf5-diag-solver-na-consistency-plan.md | — | ~3425 |
+| 02:15 | Edited .beads/plans/2026-05-30-4ihf5-diag-solver-na-consistency-plan.md | 2→2 lines | ~467 |
+| 02:19 | Created ../../../../tmp/4ihf5_familyP.md | — | ~858 |
+| 02:19 | Created ../../../../tmp/4ihf6_familyS.md | — | ~1122 |
+| 02:19 | Session end: 46 writes across 16 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 30 reads | ~109016 tok |
+| 02:22 | Edited R/harvest.R | added 1 condition(s) | ~379 |
+| 02:22 | Edited R/harvest.R | 2→3 lines | ~55 |
+| 02:23 | Edited python/leafblower/_harvest.py | expanded (+6 lines) | ~194 |
+| 02:23 | Created tests/testthat/test-sparseness-na-bin.R | — | ~1071 |
+| 02:24 | Edited python/leafblower/test_python.py | modified test_compute_sparseness_diag_na_bin_conflates_literal() | ~570 |
+| 02:24 | Edited tests/testthat/test-sparseness-na-bin.R | 7→8 lines | ~142 |
+| 02:32 | Edited R/harvest.R | inline fix | ~22 |
+| 02:32 | Edited tests/testthat/test-sparseness-na-bin.R | inline fix | ~23 |
+| 02:32 | Edited python/leafblower/test_python.py | inline fix | ~18 |
+| 02:34 | Edited R/current_miss.R | modified if() | ~184 |
+| 02:34 | Edited R/current_miss.R | modified function() | ~139 |
+| 02:35 | Edited R/diagnose_weights.R | modified if() | ~166 |
+| 02:35 | Edited R/diagnose_weights.R | 5→8 lines | ~126 |
+| 02:35 | Edited python/leafblower/_harvest.py | mask() → bin() | ~199 |
+| 02:35 | Edited tests/testthat/test-current-miss-na-bin.R | expanded (+7 lines) | ~323 |
+| 02:36 | Edited tests/testthat/test-diagnose-weights-na-bin.R | 24→28 lines | ~358 |
+| 02:36 | Edited python/leafblower/test_diagnose_na_parity.py | modified test_diagnose_weights_literal_NA_conflated_with_missing() | ~508 |
+| 02:36 | Edited python/leafblower/test_diagnose_na_parity.py | 4→7 lines | ~113 |
+| 02:38 | Created ../../../../tmp/verify_py.py | — | ~209 |
+| 02:38 | Edited ../../../../tmp/verify_py.py | inline fix | ~12 |
+| 02:43 | Edited R/current_miss.R | 3→5 lines | ~104 |
+| 02:43 | Edited R/diagnose_weights.R | 3→5 lines | ~102 |
+| 02:44 | Edited python/leafblower/_harvest.py | 2→4 lines | ~81 |
+| 02:44 | Edited tests/testthat/test-current-miss-na-bin.R | 11→7 lines | ~90 |
+| 02:51 | Session end: 70 writes across 21 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 31 reads | ~121193 tok |
+| 03:39 | Created ../../../../tmp/mb06_plan.md | — | ~956 |
+| 03:40 | Session end: 71 writes across 22 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 31 reads | ~122217 tok |
+| 03:43 | Session end: 71 writes across 22 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 33 reads | ~122217 tok |
+| 11:07 | Edited R/harvest.R | added 1 condition(s) | ~40 |
+| 11:07 | Edited tests/testthat/test-quality-metrics.R | expanded (+28 lines) | ~402 |
+| 11:13 | Edited R/harvest.R | 3→4 lines | ~71 |
+| 11:13 | Edited tests/testthat/test-quality-metrics.R | added 1 condition(s) | ~444 |
+| 11:18 | Session end: 75 writes across 23 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 33 reads | ~125815 tok |
+| 11:52 | Session end: 75 writes across 23 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 33 reads | ~125815 tok |
+| 11:53 | Session end: 75 writes across 23 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 33 reads | ~125815 tok |
+| 11:57 | Created .beads/plans/2026-05-30-v6hq-f7w0-plan.md | — | ~1985 |
+| 12:02 | Session end: 76 writes across 24 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 34 reads | ~129879 tok |
+| 12:34 | Edited src/greenkhorn.cpp | "greenkhorn: %s after %d s" → "greenkhorn: %s after %d s" | ~16 |
+| 12:38 | Edited R/current_miss.R | modified function() | ~169 |
+| 12:38 | Edited R/diagnose_weights.R | modified function() | ~185 |
+| 12:38 | Edited python/leafblower/_harvest.py | expanded (+7 lines) | ~143 |
+| 12:42 | Session end: 80 writes across 24 files (2026-05-30-codereview-followups-active-plan.md, test_solver_parity.py, greenkhorn.cpp, test-greenkhorn-best-metric.R, grk_commit_msg.txt) | 35 reads | ~130457 tok |
+
+## Session: 2026-05-30 14:54
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 15:15 | Created docs/methods/ieppa.md | — | ~1722 |
+| 15:16 | Created docs/methods/raking.md | — | ~1193 |
+| 15:16 | Created docs/methods/sinkhorn.md | — | ~1340 |
+| 15:17 | Created docs/methods/greenkhorn.md | — | ~1341 |
+| 15:17 | Created docs/methods/chebyshev.md | — | ~1450 |
+| 15:18 | Created docs/methods/greg.md | — | ~1264 |
+| 15:18 | Created docs/methods/newton_kl.md | — | ~1385 |
+| 15:19 | Created docs/methods/logit.md | — | ~1475 |
+| 15:19 | Created docs/methods/00-overview.md | — | ~2042 |
+| 15:20 | Session end: 9 writes across 9 files (ieppa.md, raking.md, sinkhorn.md, greenkhorn.md, chebyshev.md) | 1 reads | ~16213 tok |
+| 15:29 | Edited docs/methods/ieppa.md | 8→9 lines | ~214 |
+| 15:30 | Edited docs/methods/ieppa.md | modified transport() | ~1841 |
+| 15:30 | Edited docs/methods/ieppa.md | 2→3 lines | ~91 |
+| 15:30 | Edited docs/methods/sinkhorn.md | 1→3 lines | ~174 |
+| 15:34 | Edited docs/methods/ieppa.md | modified structure() | ~1234 |
+| 15:34 | Edited docs/methods/ieppa.md | inline fix | ~80 |
+| 15:36 | Edited docs/methods/ieppa.md | regularization() → algBCD() | ~255 |
+| 15:36 | Edited docs/methods/ieppa.md | modified structure() | ~262 |
+| 15:37 | Edited docs/methods/ieppa.md | 4→5 lines | ~260 |
+| 15:37 | Edited docs/methods/ieppa.md | 8→8 lines | ~490 |
+| 15:37 | Edited docs/methods/ieppa.md | inline fix | ~109 |
+| 15:39 | Edited docs/methods/ieppa.md | 4→4 lines | ~227 |
+| 15:39 | Edited docs/methods/ieppa.md | inline fix | ~59 |
+| 15:39 | Edited docs/methods/ieppa.md | "β" → "ω" | ~62 |
+| 15:39 | Edited docs/methods/ieppa.md | inline fix | ~65 |
+| 15:39 | Edited docs/methods/ieppa.md | "f = τ·W/S" → "new_f = f_old^(1−α·ω)·nai" | ~136 |
+| 15:40 | Session end: 25 writes across 9 files (ieppa.md, raking.md, sinkhorn.md, greenkhorn.md, chebyshev.md) | 5 reads | ~52420 tok |
+| 15:47 | Created docs/methods/ieppa.md | — | ~3640 |
+| 15:47 | Edited docs/methods/sinkhorn.md | inline fix | ~150 |
+| 15:47 | Session end: 27 writes across 9 files (ieppa.md, raking.md, sinkhorn.md, greenkhorn.md, chebyshev.md) | 6 reads | ~60565 tok |
+| 16:40 | Edited docs/methods/greenkhorn.md | modified complexity() | ~2365 |
+| 16:40 | Edited docs/methods/greg.md | modified between() | ~2781 |
+| 16:41 | Edited docs/methods/sinkhorn.md | modified 37() | ~2411 |
+| 16:41 | Appended History/Practitioner/Caveats/Deviations/References to docs/methods/sinkhorn.md | NotebookLM deep research (163 sources) + WebFetch DOI verification | ~8000 |
+| 16:44 | Edited docs/methods/newton_kl.md | modified is() | ~2930 |
+| 16:44 | Appended History, Practitioner implementations, Caveats, How-leafblower-deviates, References sections to docs/methods/newton_kl.md via deep notebooklm research (107 unique sources) | docs/methods/newton_kl.md | OK — file 95→190 lines | ~8000 |
+| 16:45 | Edited docs/methods/raking.md | modified uses() | ~3207 |
+| 16:49 | Edited docs/methods/chebyshev.md | modified exploits() | ~3095 |
+| 16:49 | Edited docs/methods/ieppa.md | modified minimised() | ~4147 |
+| 16:53 | Edited docs/methods/logit.md | modified G() | ~3665 |
+| 17:01 | Created docs/methods/references.bib | — | ~4894 |
+| 17:02 | Edited docs/methods/00-overview.md | 1→5 lines | ~101 |
+| 17:09 | Edited docs/methods/references.bib | expanded (+30 lines) | ~327 |
+| 17:09 | Edited docs/methods/references.bib | 10→7 lines | ~68 |
+| 17:12 | Edited docs/methods/references.bib | expanded (+10 lines) | ~112 |
+| 17:12 | Edited docs/methods/chebyshev.md | inline fix | ~16 |
+| 17:12 | Edited docs/methods/chebyshev.md | — | ~0 |
+| 17:12 | Session end: 42 writes across 10 files (ieppa.md, raking.md, sinkhorn.md, greenkhorn.md, chebyshev.md) | 34 reads | ~125451 tok |
+| 18:06 | Session end: 42 writes across 10 files (ieppa.md, raking.md, sinkhorn.md, greenkhorn.md, chebyshev.md) | 34 reads | ~125451 tok |
+| 18:09 | Created docs/superpowers/specs/2026-05-30-oris-rename-design.md | — | ~2075 |
+| 18:14 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | inline fix | ~24 |
+| 18:14 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | modified dispatch() | ~1428 |
+| 18:17 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | inline fix | ~24 |
+| 18:17 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | expanded (+13 lines) | ~448 |
+| 18:21 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | inline fix | ~40 |
+| 18:22 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | modified historical() | ~751 |
+| 18:29 | Created docs/superpowers/plans/2026-05-30-oris-rename.md | — | ~4224 |
+| 18:48 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 1→3 lines | ~132 |
+| 18:49 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | inline fix | ~75 |
+| 18:49 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | inline fix | ~106 |
+| 18:49 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | modified is() | ~724 |
+| 18:49 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | inline fix | ~183 |
+| 18:49 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 11→12 lines | ~251 |
+| 18:50 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 3→4 lines | ~62 |
+| 18:50 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | 4→6 lines | ~133 |
+| 18:58 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | inline fix | ~80 |
+| 18:59 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | modified is() | ~315 |
+| 18:59 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 4→4 lines | ~187 |
+| 18:59 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 5→5 lines | ~122 |
+| 18:59 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 1→2 lines | ~189 |
+| 19:03 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | inline fix | ~101 |
+| 19:03 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 5→6 lines | ~64 |
+| 19:03 | Edited docs/superpowers/specs/2026-05-30-oris-rename-design.md | 5→6 lines | ~103 |
+| 19:03 | Edited docs/superpowers/plans/2026-05-30-oris-rename.md | 1→2 lines | ~187 |

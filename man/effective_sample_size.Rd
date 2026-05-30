@@ -2,16 +2,19 @@
 % Please edit documentation in R/design_effect.R
 \name{effective_sample_size}
 \alias{effective_sample_size}
-\title{Effective sample size}
+\title{Effective sample size given calibrated weights}
 \usage{
 effective_sample_size(weights)
 }
 \arguments{
-\item{weights}{Numeric vector of calibrated weights.}
+\item{weights}{Numeric vector of calibrated weights. Must be finite, no NA, sum > 0.}
 }
 \value{
-Numeric scalar: n / design_effect(weights).
+Numeric scalar effective sample size.
 }
 \description{
-Effective sample size
+Computes \code{length(weights) / design_effect(weights)} (Kish 1965 form).
+}
+\references{
+Kish, L. (1965). \emph{Survey Sampling}. Wiley.
 }

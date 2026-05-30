@@ -2,27 +2,48 @@
 % Please edit documentation in R/design_effect.R
 \name{design_effect}
 \alias{design_effect}
-\title{Kish design effect (1-argument) or Henry-Valliant (4-argument)}
+\title{Kish (1965) design effect (1-argument) or Henry & Valliant (2015) calibration design effect (4-argument)}
 \usage{
 design_effect(weights, outcome = NULL, data = NULL, target = NULL)
 }
 \arguments{
-\item{weights}{Numeric vector of calibrated weights.}
+\item{weights}{Numeric vector of calibrated weights. Must be finite, no NA, sum > 0.}
 
-\item{outcome}{Numeric outcome vector (optional; 4-arg form only).}
+\item{outcome}{Numeric outcome vector (optional; 4-arg form only). Must match
+\code{length(weights)}, no NA, all finite.}
 
-\item{data}{Data frame used in calibration (optional; 4-arg form only).}
+\item{data}{Data frame with the calibration covariate columns named in \code{target}.
+Must have \code{nrow(data) == length(weights)}. Each column named in \code{target}
+must contain only levels present in \code{names(target[[var]])} and no NAs.}
 
-\item{target}{Named list of target proportions (optional; 4-arg form only).}
+\item{target}{Named list of target proportions per categorical calibration margin
+(one named entry per margin variable in \code{data}). May be \code{list()}.}
 }
 \value{
-Numeric scalar design effect.
+Numeric scalar design effect (\code{deff_K} for 1-arg, \code{deff_H} for 4-arg).
 }
 \description{
-When called with only \code{weights}, computes the Kish (1992) design effect:
-\code{n * sum(w^2) / sum(w)^2}.
+When called with only \code{weights}, computes the Kish (1965) weighting design effect
+\code{deff_K(w) = n * sum(w^2) / sum(w)^2}.
 }
 \details{
-When called with all four arguments, computes the Henry & Valliant (2015)
-calibration design effect: \code{var_weighted(y) / var_unweighted(y)}.
+When called with all four arguments, computes the Henry & Valliant (2015) calibration
+design effect (Eq 3.5, zero-correlation approximation):
+\deqn{deff_H \approx deff_K(w) \cdot \hat{\sigma}^2_u / \hat{\sigma}^2_y}
+where \eqn{\hat{u}_i = y_i - x_i^T \hat{\beta}} are the GREG residuals from a survey-
+weighted least-squares fit of \code{outcome} on the calibration covariate matrix
+\eqn{X} (built from \code{data} + \code{target}), and \eqn{\hat{\sigma}^2_u, \hat{\sigma}^2_y}
+are survey-weighted population unit variances per Eq 2.7. Falls back to \code{deff_K(w)}
+when \code{target} is empty, when \eqn{\hat{\sigma}^2_y} is zero, or when calibration
+margins are rank-deficient (with warning).
+
+All numerical computation is performed in C++17 via \code{.Call(C_rk_design_effect, ...)};
+R + Python wrappers produce byte-identical output by construction.
+}
+\references{
+Kish, L. (1965). \emph{Survey Sampling}. Wiley.
+
+  Henry, K.A. and Valliant, R. (2015). A design effect measure for calibration weighting
+  in single-stage samples. \emph{Survey Methodology}, 41(2), 315-331.
+  Statistics Canada Catalogue No. 12-001-X. Equation 3.5.
 }

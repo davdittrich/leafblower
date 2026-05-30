@@ -1,382 +1,619 @@
 {
-  "session_id": "session-2026-05-29-1241",
-  "started": "2026-05-29T10:41:35.147Z",
+  "session_id": "session-2026-05-30-1454",
+  "started": "2026-05-30T12:54:41.692Z",
   "files_read": {
-    "/home/dd/.claude/skills/planning-with-beads/templates/epic_template.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-05-29T10:44:26.076Z"
-    },
-    "/tmp/claude-1000/-home-dd-Gemini-leafblower/615827bb-9a17-4dac-93e5-a8262698b12c/tasks/bvc18s235.output": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-05-29T11:04:29.878Z"
-    },
-    "/tmp/claude-1000/-home-dd-Gemini-leafblower/615827bb-9a17-4dac-93e5-a8262698b12c/tasks/bnfve2ln6.output": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-05-29T11:04:30.601Z"
-    },
-    "/tmp/claude-1000/-home-dd-Gemini-leafblower/615827bb-9a17-4dac-93e5-a8262698b12c/tasks/bg7o1rsvs.output": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-05-29T11:06:57.469Z"
-    },
-    "/home/dd/Gemini/leafblower/.beads/plans/active-plan.md": {
+    "/home/dd/Gemini/leafblower/CLAUDE.md": {
       "count": 2,
-      "tokens": 449,
-      "first_read": "2026-05-29T11:16:52.274Z"
+      "tokens": 2058,
+      "first_read": "2026-05-30T13:10:23.105Z"
     },
-    "/home/dd/Gemini/leafblower/src/chebyshev.cpp": {
-      "count": 11,
-      "tokens": 9758,
-      "first_read": "2026-05-29T11:19:02.274Z"
+    "/home/dd/Gemini/leafblower/docs/iEPPA/arxiv.2011.14312/iEPPA-LP-R2-arXiv.tex": {
+      "count": 5,
+      "tokens": 0,
+      "first_read": "2026-05-30T13:27:06.337Z"
     },
-    "/tmp/claude-1000/-home-dd-Gemini-leafblower/615827bb-9a17-4dac-93e5-a8262698b12c/tasks/brly06gon.output": {
+    "/home/dd/Gemini/leafblower/src/ieppa.hpp": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-05-29T11:35:14.456Z"
+      "first_read": "2026-05-30T13:29:32.853Z"
     },
-    "/home/dd/Gemini/leafblower/src/ieppa.cpp": {
-      "count": 16,
-      "tokens": 30251,
-      "first_read": "2026-05-29T11:35:53.587Z"
-    },
-    "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp": {
-      "count": 2,
-      "tokens": 5771,
-      "first_read": "2026-05-29T11:42:49.121Z"
-    },
-    "/home/dd/Gemini/leafblower/R/harvest.R": {
-      "count": 2,
-      "tokens": 0,
-      "first_read": "2026-05-29T12:07:46.179Z"
-    },
-    "/home/dd/Gemini/leafblower/python/leafblower/_harvest.py": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-05-29T12:08:17.373Z"
-    },
-    "/tmp/claude-1000/-home-dd-Gemini-leafblower/615827bb-9a17-4dac-93e5-a8262698b12c/tasks/bsxt7b1a8.output": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-05-29T12:15:01.764Z"
-    },
-    "/home/dd/.claude/skills/planning-with-beads/templates/task_template.md": {
-      "count": 1,
-      "tokens": 0,
-      "first_read": "2026-05-29T13:28:52.847Z"
-    },
-    "/home/dd/Gemini/leafblower/python/CMakeLists.txt": {
+    "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md": {
       "count": 4,
       "tokens": 0,
-      "first_read": "2026-05-29T13:34:07.324Z"
+      "first_read": "2026-05-30T13:32:21.324Z"
     },
-    "/home/dd/Gemini/leafblower/python/pyproject.toml": {
-      "count": 1,
+    "/home/dd/Gemini/leafblower/src/ieppa.cpp": {
+      "count": 6,
+      "tokens": 30251,
+      "first_read": "2026-05-30T13:35:27.783Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/methods/ieppa.md": {
+      "count": 6,
+      "tokens": 7248,
+      "first_read": "2026-05-30T13:45:59.663Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/methods/raking.md": {
+      "count": 4,
+      "tokens": 4076,
+      "first_read": "2026-05-30T14:04:32.372Z"
+    },
+    "/home/dd/Gemini/leafblower/src/raking.cpp": {
+      "count": 4,
       "tokens": 0,
-      "first_read": "2026-05-29T13:34:07.492Z"
+      "first_read": "2026-05-30T14:04:32.632Z"
     },
-    "/home/dd/Gemini/leafblower/src/Makevars.in": {
+    "/home/dd/Gemini/leafblower/src/greenkhorn.cpp": {
+      "count": 2,
+      "tokens": 4053,
+      "first_read": "2026-05-30T14:04:48.867Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/methods/greenkhorn.md": {
+      "count": 3,
+      "tokens": 1257,
+      "first_read": "2026-05-30T14:04:49.216Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/methods/chebyshev.md": {
+      "count": 3,
+      "tokens": 1359,
+      "first_read": "2026-05-30T14:05:03.796Z"
+    },
+    "/home/dd/Gemini/leafblower/src/chebyshev.cpp": {
+      "count": 4,
+      "tokens": 10027,
+      "first_read": "2026-05-30T14:05:04.239Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/methods/greg.md": {
+      "count": 3,
+      "tokens": 1185,
+      "first_read": "2026-05-30T14:05:10.018Z"
+    },
+    "/home/dd/Gemini/leafblower/src/greg.cpp": {
       "count": 2,
       "tokens": 0,
-      "first_read": "2026-05-29T13:34:15.857Z"
+      "first_read": "2026-05-30T14:05:10.057Z"
     },
-    "/home/dd/Gemini/leafblower/src/Makevars": {
+    "/home/dd/Gemini/leafblower/docs/methods/newton_kl.md": {
+      "count": 4,
+      "tokens": 1298,
+      "first_read": "2026-05-30T14:05:20.055Z"
+    },
+    "/home/dd/Gemini/leafblower/src/newton_calib.cpp": {
+      "count": 5,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:05:20.887Z"
+    },
+    "/home/dd/Gemini/leafblower/src/logit_calib.cpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:05:30.198Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/methods/logit.md": {
+      "count": 6,
+      "tokens": 4800,
+      "first_read": "2026-05-30T14:05:30.601Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/methods/sinkhorn.md": {
+      "count": 2,
+      "tokens": 1397,
+      "first_read": "2026-05-30T14:10:55.065Z"
+    },
+    "/home/dd/Gemini/leafblower/src/sinkhorn.cpp": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:10:55.466Z"
+    },
+    "/home/dd/Gemini/leafblower/.claude/worktrees/agent-a060b207d4ea59804/docs/iEPPA/arxiv.2011.14312/references/Ref_iEPPA.bib": {
       "count": 1,
       "tokens": 0,
-      "first_read": "2026-05-29T13:34:20.551Z"
+      "first_read": "2026-05-30T14:11:37.011Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/b1vi86g1k.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:11:51.663Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/iEPPA/arxiv.2011.14312/references/Ref_iEPPA.bib": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:11:55.063Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/brczjm25m.output": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:14:05.615Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/bkelpuov3.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:15:39.999Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/bb32veor7.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:17:23.235Z"
+    },
+    "/home/dd/.claude/projects/-home-dd-Gemini-leafblower/8ea5161a-ef48-4be4-8847-3d0982a97a6a/tool-results/bk128cu1d.txt": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:20:25.444Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/b7spkwfv4.output": {
+      "count": 2,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:39:17.439Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/bs9w9hk7s.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:44:37.647Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/bv231h1q0.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:44:54.754Z"
+    },
+    "/tmp/minimax_survey_source.txt": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:44:57.851Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/bi1y2vz1s.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:47:26.328Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/bpb4bwgfh.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:48:00.641Z"
+    },
+    "/tmp/claude-1000/-home-dd-Gemini-leafblower/2cc9cff4-55b7-4340-85fd-32b55857e138/tasks/b5y9f585w.output": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T14:50:37.004Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md": {
+      "count": 22,
+      "tokens": 4399,
+      "first_read": "2026-05-30T16:09:58.233Z"
+    },
+    "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md": {
+      "count": 17,
+      "tokens": 5129,
+      "first_read": "2026-05-30T16:45:21.920Z"
+    },
+    "/tmp/ieppa_full.txt": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T17:00:51.611Z"
+    },
+    "/tmp/ieppa_files.txt": {
+      "count": 1,
+      "tokens": 0,
+      "first_read": "2026-05-30T17:32:20.161Z"
     }
   },
   "files_written": [
     {
-      "file": "/home/dd/Gemini/leafblower/.beads/plans/active-plan.md",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
       "action": "create",
-      "tokens": 514,
-      "at": "2026-05-29T11:18:57.177Z"
+      "tokens": 1845,
+      "at": "2026-05-30T13:15:52.161Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/raking.md",
+      "action": "create",
+      "tokens": 1278,
+      "at": "2026-05-30T13:16:15.864Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/sinkhorn.md",
+      "action": "create",
+      "tokens": 1436,
+      "at": "2026-05-30T13:16:42.218Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/greenkhorn.md",
+      "action": "create",
+      "tokens": 1437,
+      "at": "2026-05-30T13:17:08.256Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/chebyshev.md",
+      "action": "create",
+      "tokens": 1553,
+      "at": "2026-05-30T13:17:36.487Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/greg.md",
+      "action": "create",
+      "tokens": 1354,
+      "at": "2026-05-30T13:18:01.402Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/newton_kl.md",
+      "action": "create",
+      "tokens": 1484,
+      "at": "2026-05-30T13:18:37.821Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/logit.md",
+      "action": "create",
+      "tokens": 1580,
+      "at": "2026-05-30T13:19:04.037Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/00-overview.md",
+      "action": "create",
+      "tokens": 2188,
+      "at": "2026-05-30T13:19:49.413Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
       "action": "edit",
-      "tokens": 22,
-      "at": "2026-05-29T11:20:19.542Z"
+      "tokens": 229,
+      "at": "2026-05-30T13:29:55.602Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
       "action": "edit",
-      "tokens": 44,
-      "at": "2026-05-29T11:20:32.474Z"
+      "tokens": 1972,
+      "at": "2026-05-30T13:30:38.957Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
       "action": "edit",
-      "tokens": 50,
-      "at": "2026-05-29T11:20:43.872Z"
+      "tokens": 98,
+      "at": "2026-05-30T13:30:42.574Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/sinkhorn.md",
       "action": "edit",
-      "tokens": 92,
-      "at": "2026-05-29T11:20:54.634Z"
+      "tokens": 187,
+      "at": "2026-05-30T13:30:52.525Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
       "action": "edit",
-      "tokens": 971,
-      "at": "2026-05-29T11:43:33.293Z"
+      "tokens": 1322,
+      "at": "2026-05-30T13:34:29.281Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
       "action": "edit",
-      "tokens": 180,
-      "at": "2026-05-29T11:43:44.449Z"
+      "tokens": 86,
+      "at": "2026-05-30T13:34:35.714Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 273,
+      "at": "2026-05-30T13:36:47.250Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 280,
+      "at": "2026-05-30T13:36:58.266Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 278,
+      "at": "2026-05-30T13:37:07.866Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 525,
+      "at": "2026-05-30T13:37:28.371Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 117,
+      "at": "2026-05-30T13:37:48.649Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 243,
+      "at": "2026-05-30T13:39:15.119Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 63,
+      "at": "2026-05-30T13:39:17.932Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 67,
+      "at": "2026-05-30T13:39:20.333Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 70,
+      "at": "2026-05-30T13:39:23.136Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 146,
+      "at": "2026-05-30T13:39:31.155Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "create",
+      "tokens": 3900,
+      "at": "2026-05-30T13:47:16.927Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/sinkhorn.md",
+      "action": "edit",
+      "tokens": 160,
+      "at": "2026-05-30T13:47:26.247Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/greenkhorn.md",
+      "action": "edit",
+      "tokens": 2534,
+      "at": "2026-05-30T14:40:07.288Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/greg.md",
+      "action": "edit",
+      "tokens": 2980,
+      "at": "2026-05-30T14:40:31.832Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/sinkhorn.md",
+      "action": "edit",
+      "tokens": 2583,
+      "at": "2026-05-30T14:41:29.048Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/newton_kl.md",
+      "action": "edit",
+      "tokens": 3140,
+      "at": "2026-05-30T14:44:18.925Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/raking.md",
+      "action": "edit",
+      "tokens": 3436,
+      "at": "2026-05-30T14:45:45.541Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/chebyshev.md",
+      "action": "edit",
+      "tokens": 3316,
+      "at": "2026-05-30T14:49:23.723Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/ieppa.md",
+      "action": "edit",
+      "tokens": 4444,
+      "at": "2026-05-30T14:49:46.654Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/logit.md",
+      "action": "edit",
+      "tokens": 3927,
+      "at": "2026-05-30T14:53:11.134Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/references.bib",
+      "action": "create",
+      "tokens": 5244,
+      "at": "2026-05-30T15:01:28.150Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/00-overview.md",
+      "action": "edit",
+      "tokens": 108,
+      "at": "2026-05-30T15:02:03.630Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/references.bib",
+      "action": "edit",
+      "tokens": 350,
+      "at": "2026-05-30T15:09:09.151Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/references.bib",
+      "action": "edit",
+      "tokens": 72,
+      "at": "2026-05-30T15:09:23.697Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/references.bib",
+      "action": "edit",
+      "tokens": 120,
+      "at": "2026-05-30T15:12:06.480Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/methods/chebyshev.md",
       "action": "edit",
       "tokens": 17,
-      "at": "2026-05-29T11:44:16.001Z"
+      "at": "2026-05-30T15:12:07.730Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
+      "file": "/home/dd/Gemini/leafblower/docs/methods/chebyshev.md",
       "action": "edit",
-      "tokens": 111,
-      "at": "2026-05-29T11:45:11.758Z"
+      "tokens": 0,
+      "at": "2026-05-30T15:12:09.207Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
-      "action": "edit",
-      "tokens": 25,
-      "at": "2026-05-29T11:45:16.440Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
-      "action": "edit",
-      "tokens": 20,
-      "at": "2026-05-29T11:45:21.529Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 56,
-      "at": "2026-05-29T11:45:26.851Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 41,
-      "at": "2026-05-29T11:56:07.467Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 20,
-      "at": "2026-05-29T11:56:12.750Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
-      "action": "edit",
-      "tokens": 38,
-      "at": "2026-05-29T11:56:18.592Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/python/_xiox_validate.py",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
       "action": "create",
-      "tokens": 959,
-      "at": "2026-05-29T12:01:15.924Z"
+      "tokens": 2223,
+      "at": "2026-05-30T16:09:13.456Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/python/_xiox_validate.py",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
       "action": "edit",
-      "tokens": 172,
-      "at": "2026-05-29T12:02:26.515Z"
+      "tokens": 26,
+      "at": "2026-05-30T16:14:09.192Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/python/_xiox_validate.py",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
       "action": "edit",
-      "tokens": 88,
-      "at": "2026-05-29T12:02:36.584Z"
+      "tokens": 1530,
+      "at": "2026-05-30T16:14:37.629Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/chebyshev.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
       "action": "edit",
-      "tokens": 304,
-      "at": "2026-05-29T12:03:37.858Z"
+      "tokens": 26,
+      "at": "2026-05-30T16:17:47.948Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/R/harvest.R",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
+      "action": "edit",
+      "tokens": 480,
+      "at": "2026-05-30T16:17:58.405Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
+      "action": "edit",
+      "tokens": 43,
+      "at": "2026-05-30T16:21:55.446Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
+      "action": "edit",
+      "tokens": 804,
+      "at": "2026-05-30T16:22:09.800Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
+      "action": "create",
+      "tokens": 4526,
+      "at": "2026-05-30T16:29:13.415Z"
+    },
+    {
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
       "tokens": 141,
-      "at": "2026-05-29T12:07:59.168Z"
+      "at": "2026-05-30T16:48:59.881Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/python/leafblower/_harvest.py",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 95,
-      "at": "2026-05-29T12:08:22.609Z"
+      "tokens": 80,
+      "at": "2026-05-30T16:49:02.740Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 910,
-      "at": "2026-05-29T12:17:55.886Z"
+      "tokens": 113,
+      "at": "2026-05-30T16:49:13.141Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 347,
-      "at": "2026-05-29T12:18:36.929Z"
+      "tokens": 776,
+      "at": "2026-05-30T16:49:34.716Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 237,
-      "at": "2026-05-29T12:27:54.761Z"
+      "tokens": 196,
+      "at": "2026-05-30T16:49:41.508Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 254,
-      "at": "2026-05-29T12:37:33.506Z"
+      "tokens": 268,
+      "at": "2026-05-30T16:49:59.530Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 148,
-      "at": "2026-05-29T12:42:06.147Z"
+      "tokens": 66,
+      "at": "2026-05-30T16:50:03.617Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/calib_dispatch.hpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
       "action": "edit",
-      "tokens": 74,
-      "at": "2026-05-29T12:42:12.980Z"
+      "tokens": 142,
+      "at": "2026-05-30T16:50:08.034Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 145,
-      "at": "2026-05-29T12:42:26.745Z"
+      "tokens": 85,
+      "at": "2026-05-30T16:58:56.106Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 683,
-      "at": "2026-05-29T12:53:21.239Z"
+      "tokens": 337,
+      "at": "2026-05-30T16:59:06.005Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 174,
-      "at": "2026-05-29T13:00:25.169Z"
+      "tokens": 201,
+      "at": "2026-05-30T16:59:13.255Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 82,
-      "at": "2026-05-29T13:00:55.067Z"
+      "tokens": 130,
+      "at": "2026-05-30T16:59:18.255Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 359,
-      "at": "2026-05-29T13:19:13.896Z"
+      "tokens": 202,
+      "at": "2026-05-30T16:59:23.898Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/.beads/plans/active-plan.md",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 376,
-      "at": "2026-05-29T13:32:12.284Z"
+      "tokens": 108,
+      "at": "2026-05-30T17:03:30.165Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/.beads/plans/active-plan.md",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 366,
-      "at": "2026-05-29T13:46:12.689Z"
+      "tokens": 69,
+      "at": "2026-05-30T17:03:33.667Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa_internal.hpp",
-      "action": "create",
-      "tokens": 210,
-      "at": "2026-05-29T13:47:36.965Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa_trajectory.cpp",
-      "action": "create",
-      "tokens": 467,
-      "at": "2026-05-29T13:47:48.541Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-30-oris-rename-design.md",
       "action": "edit",
-      "tokens": 20,
-      "at": "2026-05-29T13:48:05.450Z"
+      "tokens": 110,
+      "at": "2026-05-30T17:03:37.478Z"
     },
     {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa.cpp",
+      "file": "/home/dd/Gemini/leafblower/docs/superpowers/plans/2026-05-30-oris-rename.md",
       "action": "edit",
-      "tokens": 61,
-      "at": "2026-05-29T13:48:21.776Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/python/CMakeLists.txt",
-      "action": "edit",
-      "tokens": 21,
-      "at": "2026-05-29T13:48:39.194Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/Makevars.in",
-      "action": "edit",
-      "tokens": 27,
-      "at": "2026-05-29T13:48:55.958Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/ieppa_internal.hpp",
-      "action": "edit",
-      "tokens": 470,
-      "at": "2026-05-29T13:52:52.977Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/python/CMakeLists.txt",
-      "action": "edit",
-      "tokens": 24,
-      "at": "2026-05-29T13:53:44.737Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/src/Makevars.in",
-      "action": "edit",
-      "tokens": 19,
-      "at": "2026-05-29T13:53:51.568Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/benchmarks/_uu8r_perf.R",
-      "action": "create",
-      "tokens": 377,
-      "at": "2026-05-29T13:57:28.589Z"
-    },
-    {
-      "file": "/home/dd/Gemini/leafblower/.beads/plans/active-plan.md",
-      "action": "edit",
-      "tokens": 135,
-      "at": "2026-05-29T14:03:45.648Z"
+      "tokens": 200,
+      "at": "2026-05-30T17:03:56.578Z"
     }
   ],
   "edit_counts": {
-    ".beads/plans/active-plan.md": 4,
-    "src/chebyshev.cpp": 11,
-    "src/calib_dispatch.hpp": 7,
-    "python/_xiox_validate.py": 3,
-    "R/harvest.R": 1,
-    "python/leafblower/_harvest.py": 1,
-    "src/ieppa.cpp": 10,
-    "src/ieppa_internal.hpp": 2,
-    "src/ieppa_trajectory.cpp": 1,
-    "python/CMakeLists.txt": 2,
-    "src/Makevars.in": 2,
-    "benchmarks/_uu8r_perf.R": 1
+    "docs/methods/ieppa.md": 18,
+    "docs/methods/raking.md": 2,
+    "docs/methods/sinkhorn.md": 4,
+    "docs/methods/greenkhorn.md": 2,
+    "docs/methods/chebyshev.md": 4,
+    "docs/methods/greg.md": 2,
+    "docs/methods/newton_kl.md": 2,
+    "docs/methods/logit.md": 2,
+    "docs/methods/00-overview.md": 2,
+    "docs/methods/references.bib": 4,
+    "docs/superpowers/specs/2026-05-30-oris-rename-design.md": 9,
+    "docs/superpowers/plans/2026-05-30-oris-rename.md": 16
   },
-  "anatomy_hits": 1,
-  "anatomy_misses": 16,
-  "repeated_reads_warned": 32,
+  "anatomy_hits": 15,
+  "anatomy_misses": 22,
+  "repeated_reads_warned": 89,
   "cerebrum_warnings": 0,
-  "stop_count": 2
+  "stop_count": 6
 }

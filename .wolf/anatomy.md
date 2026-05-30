@@ -1,7 +1,138 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-05-29T14:38:46.699Z
-> Files: 543 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-05-30T17:03:56.569Z
+> Files: 623 tracked | Anatomy hits: 0 | Misses: 0
+
+## ../../../../tmp/
+
+- `4ihf5_familyP.md` — I. Context & Objective (~804 tok)
+- `4ihf6_familyS.md` — I. Context & Objective (~1052 tok)
+- `grk_commit_msg.txt` (~559 tok)
+- `l1p3_desc.md` — l1p3: Hoist 2 loop-invariant queries in R/harvest.R (H4, H7b) (~1042 tok)
+- `lbw_prof_driver.R` (~110 tok)
+- `mb06_plan.md` — I. Context & Objective (~896 tok)
+- `nabin_chk.py` — fix, rrun (~789 tok)
+- `p4_desc.md` — SPECULATIVE: micro-bench bulk_logsumexp kernel for ieppa apply_single_margin_log (~695 tok)
+- `tiam_desc.md` — SPECULATIVE: bulk_logsumexp kernel for ieppa LSE accumulate — measure-first (~1919 tok)
+- `tu15_desc.md` — tu15: Fix R add_na_proportion NA-binding (R↔Python parity) + test + roxygen (~2525 tok)
+- `verify_py.py` (~195 tok)
+
+## ../../.lean-ctx/
+
+- `config.toml` (~1087 tok)
+
+## ../leafblower-2lxq/src/
+
+- `chebyshev.cpp` — include "chebyshev.hpp" (~10019 tok)
+
+## ../leafblower-cr/build/
+
+- `.gitignore` — Git ignore rules (~269 tok)
+
+## ../leafblower-cr/build/python/
+
+- `CMakeLists.txt` (~449 tok)
+
+## ../leafblower-cr/build/src/
+
+- `Makevars.in` (~225 tok)
+
+## ../leafblower-cr/cpp/src/
+
+- `c_api.cpp` — include "leafblower.h" (~7575 tok)
+- `greenkhorn.cpp` — include "lbw_config.h" (~3000 tok)
+- `newton_calib.cpp` — include "newton_calib.hpp" (~11798 tok)
+- `r_bridge.cpp` — include "leafblower.h" (~14199 tok)
+
+## ../leafblower-cr/cpp/tests/testthat/
+
+- `test-auto-routing-severe-skew.R` (~1248 tok)
+- `test-bridge-length-checks.R` (~834 tok)
+- `test-greenkhorn-best-metric.R` (~539 tok)
+- `test-newton-kl.R` — tests/testthat/test-newton-kl.R (~1909 tok)
+
+## ../leafblower-cr/deff/R/
+
+- `design_effect.R` — ' Kish (1965) design effect (1-argument) or Henry & Valliant (2015) calibration design effect (4-arg (~1278 tok)
+
+## ../leafblower-cr/deff/tests/testthat/
+
+- `test-design-edge-cases.R` — Edge-case validation for design_effect() R wrapper + C++ core. (~1080 tok)
+- `test-design.R` — Tests for R/design_effect.R: thin wrapper over .Call(C_rk_design_effect, ...). (~884 tok)
+
+## ../leafblower-cr/harvest/R/
+
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~13353 tok)
+
+## ../leafblower-cr/harvest/tests/testthat/
+
+- `test-harvest-rval.R` — Tests for RVAL.1, RVAL.2, RVAL.3, META.2 (~1163 tok)
+
+## ../leafblower-cr/nabin/R/
+
+- `current_miss.R` — ' Current calibration miss (matching autumn's export name) (~438 tok)
+- `diagnose_weights.R` — ' Diagnose calibration quality (~727 tok)
+
+## ../leafblower-cr/nabin/python/leafblower/
+
+- `_harvest.py` — harvest (~8912 tok)
+- `test_diagnose_na_parity.py` — R-parity test for diagnose_weights NA-bin handling (NABIN.3 / leafblower-4ihf.3). (~2445 tok)
+
+## ../leafblower-cr/nabin/tests/testthat/
+
+- `test-current-miss-na-bin.R` — # NABIN.1 — get_current_miss must count the explicit "NA" bin (leafblower-4ihf.1) (~719 tok)
+- `test-diagnose-weights-na-bin.R` — # NABIN.2 — diagnose_weights must count the explicit "NA" bin (leafblower-4ihf.2) (~789 tok)
+
+## ../leafblower-cr/pytest/python/
+
+- `conftest.py` — Ensure the installed wheel's leafblower package is found, not the local (~118 tok)
+- `pyproject.toml` — High-performance survey calibration (iEPPA, raking, Sinkhorn, Chebyshev IPM, GREG) (~284 tok)
+
+## ../leafblower-cr/pytest/python/leafblower/
+
+- `_design_effect.py` — Henry & Valliant (2015) calibration design effect — Python wrapper. (~1093 tok)
+- `test_solver_parity.py` — R↔Python parity tests for greg, newton_kl, logit, chebyshev, greenkhorn. (~2384 tok)
+
+## ../leafblower-cr/pytest/tests/testthat/
+
+- `test-calibration-solvers.R` (~14761 tok)
+- `test-harvest-bounds-mode.R` (~474 tok)
+- `test-ieppa-faithful.R` (~3927 tok)
+
+## ../leafblower-nil1/benchmarks/
+
+- `logit_deff_floor_study.R` — # benchmarks/logit_deff_floor_study.R (~1065 tok)
+- `logit_floor_probe.R` — # benchmarks/logit_floor_probe.R (~710 tok)
+
+## ../leafblower-nil1/src/
+
+- `logit_calib.cpp` — include "lbw_config.h" (~4490 tok)
+- `newton_calib.cpp` — include "newton_calib.hpp" (~11712 tok)
+- `raking.cpp` — raking.cpp — bounded raking via cyclic IPF with water-filling box projections. (~7839 tok)
+
+## ../leafblower-nil1/tests/testthat/
+
+- `test-raking-chi2-freshness.R` — Regression guard for leafblower-24f7: (~1555 tok)
+
+## ../leafblower-tiam/src/
+
+- `Makevars.in` (~115 tok)
+
+## ../leafblower-tu15/R/
+
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~13057 tok)
+
+## ../leafblower-tu15/python/leafblower/
+
+- `test_harvest_na_parity.py` — R-parity test for harvest(add_na_proportion=True) — tu15. (~818 tok)
+
+## ../leafblower-tu15/tests/testthat/
+
+- `test-add-na-proportion.R` — # Tests for harvest(add_na_proportion = TRUE) — tu15 (~1061 tok)
+
+## ../leafblower-ya85/R/
+
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~12823 tok)
 
 ## ..Rcheck/
 
@@ -27,7 +158,7 @@
 - `CLAUDE.md` — OpenWolf (~2058 tok)
 - `cleanup` (~8 tok)
 - `code-review-findings.md` — Code Review: C++ Source Files (cell_table, chebyshev, sinkhorn, grake, greg) (~1627 tok)
-- `configure` — Detect C++17 support. (~1050 tok)
+- `configure` — Detect C++17 support. (~1157 tok)
 - `conftest.py` — Root conftest: remove python/ src tree from sys.path so the installed wheel (~89 tok)
 - `DESCRIPTION` (~234 tok)
 - `GEMINI.md` — graphify (~165 tok)
@@ -90,6 +221,10 @@
 - `2026-05-09-p2-final-batch-active-plan.md` — Active Plan — P2 Final Batch (tsyw + 3qtd) (~5157 tok)
 - `2026-05-09-p3-batch-plan.md` — P3 Batch Plan — codereview remediation (9 tickets, 5 WUs) (~2562 tok)
 - `2026-05-09-perf-p2-batch-active-plan.md` — PERF P2 Batch — Revised Active Plan (iter 3, post plan-review-gate) (~5331 tok)
+- `2026-05-29-codereview-batch-plan.md` — Code-Review Remediation Batch — Active Plan (~2244 tok)
+- `2026-05-30-4ihf5-diag-solver-na-consistency-plan.md` — 4ihf.5 — Diagnostics↔Solver NA-bin Consistency — Active Plan (rev 3) (~3407 tok)
+- `2026-05-30-codereview-followups-active-plan.md` — Code-Review Follow-ups Batch — Active Plan (~3941 tok)
+- `2026-05-30-v6hq-f7w0-plan.md` — v6hq + f7w0 — Full-Session Review Minors — Active Plan (~1861 tok)
 - `2apm-active-plan.md` — Active Plan (~8563 tok)
 - `8u2y-active-plan.md` — Active Plan (~9773 tok)
 - `8u2y7-active-plan.md` — Active Plan (~8315 tok)
@@ -725,11 +860,33 @@
 
 ## R/
 
-- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~12807 tok)
+- `current_miss.R` — ' Current calibration miss (matching autumn's export name) (~803 tok)
+- `diagnose_weights.R` — ' Diagnose calibration quality (~1072 tok)
+- `harvest.R` — ' Generate calibrated weights (drop-in for autumn::harvest) (~13595 tok)
 
 ## benchmarks/
 
 - `_uu8r_perf.R` — uu8r.3 perf gate: median ieppa solve time on the stepstone fixture. (~352 tok)
+
+## docs/methods/
+
+- `00-overview.md` — Weighting Methods — Comparative Overview (~1999 tok)
+- `chebyshev.md` — CHEBYSHEV — Mehrotra Interior-Point Method on the Minimax Calibration LP (~4171 tok)
+- `greenkhorn.md` — GREENKHORN — Greedy Coordinate-Descent IPF (~3372 tok)
+- `greg.md` — GREG — Generalized Regression Estimator (Active-Set Newton, χ² / linear method) + history, practitioner impls, caveats, leafblower deviation sections (~7800 tok)
+- `logit.md` — LOGIT — Bounded Logit-Link Newton Calibration (Deville–Särndal 1992) (~4800 tok)
+- `newton_kl.md` — NEWTON-KL — Truncated-SVD Trust-Region Newton on the Dual KL Objective (~4030 tok)
+- `raking.md` — RAKING — Bounded Cyclic IPF with Water-Filling Box Projection; appended: history (Deming 1940, Csiszár 1975/1984, Deville 1993), practitioner impls, caveats, leafblower deviations, references (~7800 tok)
+- `references.bib` (~5217 tok)
+- `sinkhorn.md` — SINKHORN — Log-Domain Sinkhorn with Dykstra Capacity Projection (~3642 tok)
+
+## docs/superpowers/plans/
+
+- `2026-05-30-oris-rename.md` — ORIS Rename Implementation Plan (~5129 tok)
+
+## docs/superpowers/specs/
+
+- `2026-05-30-oris-rename-design.md` — Rename `ieppa` / `ieppa_soft` → `oris` / `oris_soft` (ORIS) (~4399 tok)
 
 ## python/
 
@@ -738,14 +895,27 @@
 
 ## python/leafblower/
 
-- `_harvest.py` — harvest (~8622 tok)
+- `_harvest.py` — harvest (~9261 tok)
+- `test_diagnose_na_parity.py` — R-parity test for diagnose_weights NA-bin handling (NABIN.3 / leafblower-4ihf.3). (~3687 tok)
+- `test_python.py` — test_harvest_returns_copy, test_convergence_unknown_key_raises, test_min_weight_badarg_python, test_ (~3094 tok)
+- `test_solver_parity.py` — R↔Python parity tests for greg, newton_kl, logit, chebyshev, greenkhorn. (~3316 tok)
 
 ## src/
 
 - `calib_dispatch.hpp` — pragma once (~6019 tok)
 - `chebyshev.cpp` — include "chebyshev.hpp" (~10027 tok)
+- `greenkhorn.cpp` — include "lbw_config.h" (~4053 tok)
 - `ieppa_finalize.cpp` — Cold post-loop finalization for iEPPA, split out of ieppa.cpp (uu8r.2). (~3515 tok)
 - `ieppa_internal.hpp` — ifndef LBW_IEPPA_INTERNAL_HPP (~544 tok)
 - `ieppa_trajectory.cpp` — Cold trajectory-diagnostics I/O for iEPPA, split out of ieppa.cpp (uu8r.1). (~436 tok)
 - `ieppa.cpp` — include "lbw_config.h" (~30251 tok)
-- `Makevars.in` (~115 tok)
+- `Makevars.in` — -mavx2 (@MAVX2_FLAG@) is carried in PKG_CXXFLAGS via a configure-substituted (~407 tok)
+
+## tests/testthat/
+
+- `test-current-miss-na-bin.R` — # NABIN.1 — get_current_miss must count the explicit "NA" bin (leafblower-4ihf.1) (~1023 tok)
+- `test-diagnose-weights-na-bin.R` — # NABIN.2 — diagnose_weights must count the explicit "NA" bin (leafblower-4ihf.2) (~1147 tok)
+- `test-greenkhorn-best-metric.R` (~1380 tok)
+- `test-harvest-bounds-mode.R` (~495 tok)
+- `test-quality-metrics.R` — Declares under (~2585 tok)
+- `test-sparseness-na-bin.R` — # Tests for compute_sparseness_diag NA-bin counting — 4ihf.6 (~1089 tok)
