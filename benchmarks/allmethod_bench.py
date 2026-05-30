@@ -97,13 +97,13 @@ def run(label, conv, **kwargs):
 
 
 cfg = [
-    # ieppa family — natural: marginal_kl
-    ("ieppa",                  KL,   {"method": "ieppa"}),
-    ("ieppa + accel",          KL,   {"method": "ieppa",      "accelerate": True}),
-    ("ieppa + greedy",         KL,   {"method": "ieppa",      "scheduler": "greedy"}),
-    ("ieppa + greedy+accel",   KL,   {"method": "ieppa",      "scheduler": "greedy", "accelerate": True}),
-    ("ieppa_soft (auto cp)",   KL,   {"method": "ieppa_soft"}),
-    ("ieppa_soft + accel",     KL,   {"method": "ieppa_soft", "accelerate": True}),
+    # oris family — natural: marginal_kl
+    ("oris",                  KL,   {"method": "oris"}),
+    ("oris + accel",          KL,   {"method": "oris",      "accelerate": True}),
+    ("oris + greedy",         KL,   {"method": "oris",      "scheduler": "greedy"}),
+    ("oris + greedy+accel",   KL,   {"method": "oris",      "scheduler": "greedy", "accelerate": True}),
+    ("oris_soft (auto cp)",   KL,   {"method": "oris_soft"}),
+    ("oris_soft + accel",     KL,   {"method": "oris_soft", "accelerate": True}),
     # raking/greenkhorn family — natural: weight-kl (Csiszar-Tusnady monotone)
     ("raking",                 WKL,  {"method": "raking"}),
     ("greenkhorn",             WKL,  {"method": "greenkhorn"}),

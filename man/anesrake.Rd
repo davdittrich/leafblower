@@ -33,7 +33,7 @@ anesrake(
 \item{cap}{Upper weight cap; maps to \code{max_weight}.}
 
 \item{choosemethod}{Algorithm; \code{"rake"} and \code{"nrake"} are silently
-remapped to \code{"ieppa"} (the recommended method).}
+remapped to \code{"oris"} (the recommended method).}
 
 \item{type}{Ignored.}
 

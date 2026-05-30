@@ -3,7 +3,7 @@
 ## Summary
 
 R bridge (via `.Call`) runs **62-66% slower** than Python bridge for the same C++ solver:
-- ieppa: Python 1931ms, R 3142ms (+62%)
+- oris: Python 1931ms, R 3142ms (+62%)
 - raking: Python 1896ms, R 3143ms (+66%)
 - Fixture: 1.58M rows × 9 margins
 

@@ -7,7 +7,7 @@
 # May help at M_cell > 1M (untested); re-evaluate on fulldata Stepstone.
 
 suppressPackageStartupMessages(library(leafblower))
-Sys.setenv(LBW_IEPPA_FORCE_PATH = "log")
+Sys.setenv(LBW_ORIS_FORCE_PATH = "log")
 
 make_adversarial <- function(n, K, compression, seed=42L) {
   set.seed(seed)
@@ -31,7 +31,7 @@ make_adversarial <- function(n, K, compression, seed=42L) {
 
 run_timed <- function(df, tgt, jacobi, max_w) {
   t0 <- proc.time()["elapsed"]
-  r <- suppressWarnings(harvest(df, tgt, method="ieppa",
+  r <- suppressWarnings(harvest(df, tgt, method="oris",
     max_weight=max_w, min_weight=0, max_iterations=100L,
     convergence=list(absolute=1e-4), jacobi_sweep=jacobi,
     verbose=0L, attach_weights=FALSE))

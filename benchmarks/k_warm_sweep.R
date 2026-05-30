@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # WI-1 empirical K_warm=8 validation.
-# Sweep IEPPA+SRAA on stepstone for K_warm in {1,2,4,8,16,32}.
+# Sweep ORIS+SRAA on stepstone for K_warm in {1,2,4,8,16,32}.
 # Verify K_warm=8 reaches max_err <= 1e-2 (basin-of-attraction proxy for
 # warm-start utility — K=8 SRAA iterations should drive lf close enough to
 # the fixed point that Newton's quadratic-region radius is plausibly entered).
@@ -29,7 +29,7 @@ for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
 K_warms <- c(1L, 2L, 4L, 8L, 16L, 32L)
 results <- data.frame(K_warm = integer(0), max_err = numeric(0), iters = integer(0))
 for (K in K_warms) {
-  r <- suppressWarnings(harvest(df, tgt, method = "ieppa", accelerate = TRUE,
+  r <- suppressWarnings(harvest(df, tgt, method = "oris", accelerate = TRUE,
     max_weight = 5, min_weight = 0, max_iterations = as.integer(K),
     attach_weights = FALSE, verbose = 0L))
   res <- attr(r, "result")
@@ -44,7 +44,7 @@ cat("K_warm sweep:\n"); print(results)
 k8_max_err <- results$max_err[results$K_warm == 8L]
 cat(sprintf("\nK_warm=8 max_err = %.3e (threshold for PROCEED: <= 1e-2)\n", k8_max_err))
 if (is.na(k8_max_err) || k8_max_err > 1e-2) {
-  cat(sprintf("ABORT: K_warm=8 max_err=%.3e > 1e-2 -- IEPPA contraction insufficient on stepstone\n",
+  cat(sprintf("ABORT: K_warm=8 max_err=%.3e > 1e-2 -- ORIS contraction insufficient on stepstone\n",
               k8_max_err))
   quit(status = 2)
 }

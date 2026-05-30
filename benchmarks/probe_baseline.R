@@ -6,7 +6,7 @@ withr::with_envvar(
     LBW_TRAJECTORY_OUT = out),
   leafblower::harvest(
     data, target, max_weight = 5,
-    method = "ieppa",
+    method = "oris",
     max_iterations = 3000,
     convergence = list(absolute = 1e-12),
     attach_weights = FALSE

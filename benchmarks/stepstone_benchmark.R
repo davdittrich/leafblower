@@ -11,7 +11,7 @@
 #
 # Convergence notes:
 #   - All methods use tol=1e-3 (0.1% worst margin error, survey-adequate).
-#   - iEPPA (cyclic IPF + Dykstra box) converges to 1e-3 in ~130ms.
+#   - ORIS (cyclic IPF + Dykstra box) converges to 1e-3 in ~130ms.
 #   - Tightening to 1e-4 causes all cyclic IPF methods to stall: the
 #     overlapping 9-margin system oscillates with no further progress.
 #     This is structural, not a leafblower bug.
@@ -164,7 +164,7 @@ cat(sprintf("Data saved → %s\n\n", DATA_PATH))
 # ── 5. Benchmark settings ─────────────────────────────────────────────────────
 MAX_ITER   <- 500L
 MAX_WEIGHT <- 5
-TOL        <- 1e-3   # 0.1% worst margin error; iEPPA converges in ~130ms at this level
+TOL        <- 1e-3   # 0.1% worst margin error; ORIS converges in ~130ms at this level
                      # Tightening to 1e-4 causes oscillation in all cyclic IPF methods.
 AUTUMN_CONV <- c(pct = 1e-15, absolute = TOL)
 
@@ -200,11 +200,11 @@ cat(sprintf("  DEFF:     %.3f  |  ESS: %.0f / %d\n\n",
     autumn::effective_sample_size(r_autumn$result), n))
 
 # ── 7. leafblower ────────────────────────────────────────────────────────────
-cat("--- leafblower::harvest (ieppa, tol=1e-3) ---\n")
-invisible(leafblower::harvest(data_survey, target_anes, method="ieppa",
+cat("--- leafblower::harvest (oris, tol=1e-3) ---\n")
+invisible(leafblower::harvest(data_survey, target_anes, method="oris",
                               max_weight=MAX_WEIGHT, max_iterations=MAX_ITER,
                               convergence=list(absolute=TOL))) # warmup
-r_lb <- time_one(leafblower::harvest(data_survey, target_anes, method="ieppa",
+r_lb <- time_one(leafblower::harvest(data_survey, target_anes, method="oris",
                                      max_weight=MAX_WEIGHT, max_iterations=MAX_ITER,
                                      convergence=list(absolute=TOL)))
 

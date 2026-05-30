@@ -51,7 +51,7 @@ flowchart TD
     I -- yes --> J[finalize_weights]
 ```
 
-- **Warm start**: strictly interior; optional mass-preserving clamp of IEPPA cell masses.
+- **Warm start**: strictly interior; optional mass-preserving clamp of ORIS cell masses.
 - **Linear algebra**: reduced normal equations via Schur complement + Sherman–Morrison rank-1 + Jacobi-preconditioned LDLᵀ.
 - **Best-iterate** tracked by actual calibration error `errRp`, not LP `δ` (δ can hit its floor while the primal is still off — source comment).
 - **Hard cap** `kMaxIpm = 500`; objective via `select_solver_objective → m.errRp`.

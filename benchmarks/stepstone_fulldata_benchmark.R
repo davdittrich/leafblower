@@ -382,17 +382,17 @@ cat(sprintf("  DEFF:     %.3f  |  ESS: %s\n\n",
     autumn::design_effect(r_autumn$result),
     format(round(autumn::effective_sample_size(r_autumn$result)), big.mark=",")))
 
-cat("--- leafblower::harvest (ieppa, tol=1e-3) ---\n")
+cat("--- leafblower::harvest (oris, tol=1e-3) ---\n")
 cat("  (warmup...)\n")
 suppressWarnings(
   invisible(leafblower::harvest(stepstone_imputed, target_anes,
-    method="ieppa", max_weight=MAX_WEIGHT, max_iterations=50,
+    method="oris", max_weight=MAX_WEIGHT, max_iterations=50,
     convergence=list(absolute=TOL))))
 
 cat("  (timed run...)\n")
 suppressWarnings(
   r_lb <- time_one(leafblower::harvest(stepstone_imputed, target_anes,
-    method="ieppa", max_weight=MAX_WEIGHT, max_iterations=MAX_ITER,
+    method="oris", max_weight=MAX_WEIGHT, max_iterations=MAX_ITER,
     convergence=list(absolute=TOL))))
 w_lb <- r_lb$result$weights
 

@@ -29,7 +29,7 @@ results <- do.call(rbind, lapply(seq_len(nrow(grid)), function(i) {
   w <- leafblower::harvest(
     data, target,
     max_weight     = 5,
-    method         = "ieppa",
+    method         = "oris",
     bounds_mode    = g$bounds_mode,
     max_iterations = g$max_iterations,
     convergence    = list(absolute = 1e-10),

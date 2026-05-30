@@ -1,3 +1,7 @@
+# leafblower (development)
+
+* BREAKING: solver method "ieppa"/"ieppa_soft" renamed to "oris"/"oris_soft" (ORIS — Over-Relaxed Iterative Scaling). No alias; update calls. Algorithm, numeric output, and enum values unchanged.
+
 # leafblower (development version)
 
 * `design_effect()` (R) and `design_effect()` (Python) now share a single C++17

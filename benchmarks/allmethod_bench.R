@@ -84,12 +84,12 @@ run <- function(label, conv, ...) {
 # Per-method natural default: metric set by harvest.R switch (1ab1165).
 # Only tol is set here; each method uses its solver-appropriate objective.
 cfg <- list(
-  list("ieppa",                  DEF, method="ieppa"),
-  list("ieppa + accel",          DEF, method="ieppa",      accelerate=TRUE),
-  list("ieppa + greedy",         DEF, method="ieppa",      scheduler="greedy"),
-  list("ieppa + greedy + accel", DEF, method="ieppa",      scheduler="greedy", accelerate=TRUE),
-  list("ieppa_soft (auto cp)",   DEF, method="ieppa_soft"),
-  list("ieppa_soft + accel",     DEF, method="ieppa_soft", accelerate=TRUE),
+  list("oris",                  DEF, method="oris"),
+  list("oris + accel",          DEF, method="oris",      accelerate=TRUE),
+  list("oris + greedy",         DEF, method="oris",      scheduler="greedy"),
+  list("oris + greedy + accel", DEF, method="oris",      scheduler="greedy", accelerate=TRUE),
+  list("oris_soft (auto cp)",   DEF, method="oris_soft"),
+  list("oris_soft + accel",     DEF, method="oris_soft", accelerate=TRUE),
   list("raking",                 DEF, method="raking"),
   list("greenkhorn",             DEF, method="greenkhorn"),
   list("greenkhorn + greedy",    DEF, method="greenkhorn", scheduler="greedy"),

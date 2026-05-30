@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Generates tests/testthat/fixtures/oris_kl_reference_stepstone.rds
 # Run: Rscript data-raw/gen_oris_kl_ref.R
-# Records iEPPA's KL divergence at best_iter on stepstone-fulldata.
+# Records ORIS's KL divergence at best_iter on stepstone-fulldata.
 # Used by A1 test: sinkhorn KL at convergence must be <= this value.
 suppressPackageStartupMessages({
   library(leafblower)

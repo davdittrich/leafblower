@@ -37,7 +37,7 @@ make_plots <- function(state, candidates, threshold, out_dir = "benchmarks") {
     ggplot2::geom_point(data  = pt_df,
                         ggplot2::aes(shape = type),
                         colour = "white", size = 2) +
-    ggplot2::scale_fill_viridis_c(name = "log(t_iEPPA/baseline)") +
+    ggplot2::scale_fill_viridis_c(name = "log(t_ORIS/baseline)") +
     ggplot2::scale_shape_manual(values = c(LHC = 16L, Adaptive = 4L)) +
     ggplot2::labs(
       title   = "GP posterior mean - red line = 1.2x contour",
@@ -132,7 +132,7 @@ make_plots_3d <- function(state, candidates, threshold, out_dir = "benchmarks",
                             breaks    = threshold,
                             colour    = "red",
                             linewidth = 1.2) +
-      ggplot2::scale_fill_viridis_c(name = "log(t_iEPPA/t_raking)") +
+      ggplot2::scale_fill_viridis_c(name = "log(t_ORIS/t_raking)") +
       ggplot2::labs(
         title   = sprintf("GP posterior mean: %s = %.1f", slice_label, val),
         x       = x1_label,
@@ -143,7 +143,7 @@ make_plots_3d <- function(state, candidates, threshold, out_dir = "benchmarks",
     # Save PDF with underscore-replaced value (dots → underscores for file safety)
     val_str <- sprintf("%.1f", val)
     val_str <- gsub("\\.", "_", val_str)
-    filename <- sprintf("ieppa_vs_raking_3d_slice_%s.pdf", val_str)
+    filename <- sprintf("oris_vs_raking_3d_slice_%s.pdf", val_str)
     ggplot2::ggsave(file.path(out_dir, filename), p, width = 9, height = 6)
 
     plots[[length(plots) + 1]] <- p

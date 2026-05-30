@@ -103,12 +103,12 @@ def run(label, conv, **kwargs):
 
 
 cfg = [
-    ("ieppa",              {"method": "ieppa"}),
-    ("ieppa_accel",        {"method": "ieppa",      "accelerate": True}),
-    ("ieppa_greedy",       {"method": "ieppa",      "scheduler": "greedy"}),
-    ("ieppa_greedy_accel", {"method": "ieppa",      "scheduler": "greedy", "accelerate": True}),
-    ("ieppa_soft",         {"method": "ieppa_soft"}),
-    ("ieppa_soft_accel",   {"method": "ieppa_soft", "accelerate": True}),
+    ("oris",              {"method": "oris"}),
+    ("oris_accel",        {"method": "oris",      "accelerate": True}),
+    ("oris_greedy",       {"method": "oris",      "scheduler": "greedy"}),
+    ("oris_greedy_accel", {"method": "oris",      "scheduler": "greedy", "accelerate": True}),
+    ("oris_soft",         {"method": "oris_soft"}),
+    ("oris_soft_accel",   {"method": "oris_soft", "accelerate": True}),
     ("raking",             {"method": "raking"}),
     ("greenkhorn",         {"method": "greenkhorn"}),
     ("greenkhorn_greedy",  {"method": "greenkhorn", "scheduler": "greedy"}),

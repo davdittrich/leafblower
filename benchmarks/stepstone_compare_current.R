@@ -60,10 +60,10 @@ cat(sprintf("=== Current HEAD:   %s ===\n",
     system("git rev-parse HEAD", intern=TRUE)))
 
 # Cell-mode (default)
-cat("\n=== Current lb iEPPA — cell-mode (bounds_mode='cell', default) ===\n")
+cat("\n=== Current lb ORIS — cell-mode (bounds_mode='cell', default) ===\n")
 t0 <- Sys.time()
 r_cell <- suppressWarnings(
-  leafblower::harvest(df, tgt, method="ieppa",
+  leafblower::harvest(df, tgt, method="oris",
     max_weight=5, min_weight=0,
     max_iterations=3000L, convergence=list(absolute=1e-10),
     bounds_mode="cell", attach_weights=FALSE)
@@ -76,10 +76,10 @@ cat(sprintf("  wall=%.1fs status=%d iter=%d solver_err=%.3e n_bounds_violated=%d
     info_cell$n_bounds_violated, info_cell$n_bounds_clamped))
 
 # Unit-mode (P3.1 strict per-obs bounds)
-cat("\n=== Current lb iEPPA — unit-mode (bounds_mode='unit', P3.1 strict) ===\n")
+cat("\n=== Current lb ORIS — unit-mode (bounds_mode='unit', P3.1 strict) ===\n")
 t0 <- Sys.time()
 r_unit <- suppressWarnings(
-  leafblower::harvest(df, tgt, method="ieppa",
+  leafblower::harvest(df, tgt, method="oris",
     max_weight=5, min_weight=0,
     max_iterations=3000L, convergence=list(absolute=1e-10),
     bounds_mode="unit", attach_weights=FALSE)

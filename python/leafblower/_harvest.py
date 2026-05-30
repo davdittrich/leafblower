@@ -593,7 +593,7 @@ def harvest(
     # per-cell bounds after expansion even when cell aggregates are in range.
     # The ORIS/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
     # is the invariant that preserves calibration. See
-    # tests/testthat/test-ieppa-nonuniform-d.R.
+    # tests/testthat/test-oris-nonuniform-d.R.
 
     # c8w1: attach sparseness diagnostics to result_dict
     result_dict["diagnostics"] = {

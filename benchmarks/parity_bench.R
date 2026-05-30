@@ -87,12 +87,12 @@ run <- function(label, conv, ...) {
 }
 
 cfg <- list(
-  list("ieppa",                  DEF, method = "ieppa"),
-  list("ieppa_accel",            DEF, method = "ieppa",      accelerate = TRUE),
-  list("ieppa_greedy",           DEF, method = "ieppa",      scheduler = "greedy"),
-  list("ieppa_greedy_accel",     DEF, method = "ieppa",      scheduler = "greedy", accelerate = TRUE),
-  list("ieppa_soft",             DEF, method = "ieppa_soft"),
-  list("ieppa_soft_accel",       DEF, method = "ieppa_soft", accelerate = TRUE),
+  list("oris",                  DEF, method = "oris"),
+  list("oris_accel",            DEF, method = "oris",      accelerate = TRUE),
+  list("oris_greedy",           DEF, method = "oris",      scheduler = "greedy"),
+  list("oris_greedy_accel",     DEF, method = "oris",      scheduler = "greedy", accelerate = TRUE),
+  list("oris_soft",             DEF, method = "oris_soft"),
+  list("oris_soft_accel",       DEF, method = "oris_soft", accelerate = TRUE),
   list("raking",                 DEF, method = "raking"),
   list("greenkhorn",             DEF, method = "greenkhorn"),
   list("greenkhorn_greedy",      DEF, method = "greenkhorn", scheduler = "greedy"),

@@ -623,7 +623,7 @@ harvest <- function(
   # per-cell bounds after expansion even when cell aggregates are in range.
   # The ORIS/raking solvers enforce bounds on the cell aggregate X[c], which
   # is the invariant that preserves calibration. See
-  # tests/testthat/test-ieppa-nonuniform-d.R.
+  # tests/testthat/test-oris-nonuniform-d.R.
 
   if (calib_result$status == 4L) {
     e_final  <- calib_result$best_error

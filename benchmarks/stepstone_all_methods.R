@@ -72,9 +72,9 @@ run <- function(method, label = method, ...) {
 
 ITERS <- 5000L
 cat("=== leafblower methods ===\n")
-r_ieppa        <- run("ieppa",       max_iterations = ITERS)
-r_ieppa_greedy <- run("ieppa",       label = "ieppa+greedy",     max_iterations = ITERS, scheduler = "greedy")
-r_ieppa_soft   <- run("ieppa_soft",  max_iterations = ITERS)
+r_oris        <- run("oris",       max_iterations = ITERS)
+r_oris_greedy <- run("oris",       label = "oris+greedy",     max_iterations = ITERS, scheduler = "greedy")
+r_oris_soft   <- run("oris_soft",  max_iterations = ITERS)
 r_raking       <- run("raking",      max_iterations = ITERS)
 r_raking_sraa  <- run("raking",      label = "raking+sraa",      max_iterations = ITERS, accelerate = TRUE)
 r_raking_greedy <- run("raking",     label = "raking+greedy",    max_iterations = ITERS, scheduler = "greedy")
@@ -98,10 +98,10 @@ cat("\n=== autumn (reference — cached) ===\n")
   r_autumn <- list(w = ac$autumn_weights, wall = ac$autumn_wall_s, m = m)
 }
 
-cat("\n=== Pearson r vs iEPPA ===\n")
+cat("\n=== Pearson r vs ORIS ===\n")
 pairs <- list(
-  ieppa_greedy  = "ieppa+greedy",
-  ieppa_soft    = "ieppa_soft",
+  oris_greedy  = "oris+greedy",
+  oris_soft    = "oris_soft",
   raking        = "raking",
   raking_sraa   = "raking+sraa",
   raking_greedy = "raking+greedy",
@@ -116,7 +116,7 @@ pairs <- list(
 )
 for (nm in names(pairs)) {
   rv <- get(paste0("r_", nm))
-  cat(sprintf("  ieppa ↔ %-22s  r=%.6f\n", pairs[[nm]], cor(r_ieppa$w, rv$w)))
+  cat(sprintf("  oris ↔ %-22s  r=%.6f\n", pairs[[nm]], cor(r_oris$w, rv$w)))
 }
 
 cat("\n=== Python IPF implementations ===\n")

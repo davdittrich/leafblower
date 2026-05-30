@@ -5,7 +5,7 @@
 # RESULT (2026-05-01): Newton-KL fails to converge on the spec's severe-skew
 # fixture at K=20. The Hessian becomes near rank-deficient as λ drifts and
 # trust-region clipping (κ=1) gives only linear convergence in this regime.
-# Newton-KL DOES converge on moderate-skew K=20 problems and beats ieppa+sraa
+# Newton-KL DOES converge on moderate-skew K=20 problems and beats oris+sraa
 # there. Honest cross-method comparison reported below; spec gates dropped.
 
 Sys.setenv(OMP_NUM_THREADS = "1")
@@ -15,7 +15,7 @@ suppressPackageStartupMessages({
 })
 
 run_one <- function(skew_name, p_skew, n = 1e6L, K = 20L, nj = 5L,
-                    methods = c("newton_kl", "ieppa")) {
+                    methods = c("newton_kl", "oris")) {
   set.seed(1)
   df <- as.data.frame(lapply(seq_len(K), function(k)
     factor(sample(letters[seq_len(nj)], n, TRUE))))
@@ -28,11 +28,11 @@ run_one <- function(skew_name, p_skew, n = 1e6L, K = 20L, nj = 5L,
   for (m in methods) {
     res <- bench::mark(
       run = harvest(df, tgt, method = m, max_weight = 3,
-                    max_iterations = 50, accelerate = (m == "ieppa")),
+                    max_iterations = 50, accelerate = (m == "oris")),
       iterations = 2, check = FALSE, memory = FALSE, filter_gc = FALSE
     )
     r <- harvest(df, tgt, method = m, max_weight = 3,
-                 max_iterations = 50, accelerate = (m == "ieppa"))
+                 max_iterations = 50, accelerate = (m == "oris"))
     R <- attr(r, "result")
     cat(sprintf("  %-12s wall=%6.2fs status=%d max_err=%.3e iters=%d\n",
                 m, as.numeric(res$median), R$status, R$max_error, R$iterations))

@@ -23,7 +23,7 @@ make_oscillating_frame <- function(n, K, max_wt) {
 
 # Pre-validate DGP: check weights hit boundary
 validate_dgp <- function(df, tgt, max_wt) {
-  res <- harvest(df, tgt, method="ieppa", max_weight=max_wt,
+  res <- harvest(df, tgt, method="oris", max_weight=max_wt,
                  convergence=list(tol=1e-4), verbose=0L, attach_weights=FALSE)
   boundary_pct <- mean(res >= max_wt * 0.9)
   if (boundary_pct < 0.01) {
@@ -65,7 +65,7 @@ for (bname in names(bounds_grid)) {
       times <- numeric(NREPS); iters <- integer(NREPS)
       for (i in seq_len(NREPS)) {
         t0 <- proc.time()["elapsed"]
-        res <- harvest(df, tgt, method="ieppa", max_weight=max_wt,
+        res <- harvest(df, tgt, method="oris", max_weight=max_wt,
                        convergence=CONV, sor=sor_cfg, verbose=0L, attach_weights=FALSE)
         times[i] <- (proc.time()["elapsed"] - t0) * 1000
         iters[i] <- attr(res, "iterations") %||% NA_integer_

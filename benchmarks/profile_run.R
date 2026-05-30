@@ -16,5 +16,5 @@ targets <- list(
   reg  = c("N"=0.25, "S"=0.25, "E"=0.25, "W"=0.25),
   vote = c("D"=0.40, "R"=0.35, "I"=0.25)
 )
-for (i in 1:10) harvest(df, targets, method="ieppa", max_iterations=500L)
+for (i in 1:10) harvest(df, targets, method="oris", max_iterations=500L)
 for (i in 1:10) harvest(df, targets, method="raking", max_iterations=500L)

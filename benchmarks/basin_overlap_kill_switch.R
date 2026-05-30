@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
-# WI-0b: basin-overlap kill-switch for Epic-C IEPPA warm-start.
+# WI-0b: basin-overlap kill-switch for Epic-C ORIS warm-start.
 #
 # Purpose: falsify the warm-start hypothesis BEFORE writing any code.
-# If running IEPPA and Newton-KL on the same fixture (current master,
+# If running ORIS and Newton-KL on the same fixture (current master,
 # no warm-start) lands at per-observation weights within 1e-3 (log-ratio),
 # warm-start would be a functional no-op and the entire epic is wasted work.
 #
@@ -37,10 +37,10 @@ tgt <- lapply(jsonlite::fromJSON(tgt_path), function(t) {
 })
 for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
 
-# IEPPA + SRAA acceleration (current Epic-C baseline pipeline).
+# ORIS + SRAA acceleration (current Epic-C baseline pipeline).
 w_ie <- suppressWarnings(harvest(
   df, tgt,
-  method = "ieppa", accelerate = TRUE,
+  method = "oris", accelerate = TRUE,
   max_weight = 5, min_weight = 0,
   max_iterations = 200L,
   attach_weights = FALSE, verbose = 0L

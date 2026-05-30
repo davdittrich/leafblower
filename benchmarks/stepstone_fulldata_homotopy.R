@@ -84,7 +84,7 @@ run_lb <- function(label, homotopy_levels, homotopy_start_factor,
     w_raw <- leafblower::harvest(
       data, target,
       max_weight          = 5,
-      method              = "ieppa",
+      method              = "oris",
       max_iterations      = max_iterations,
       convergence         = list(absolute = 1e-10),
       homotopy_levels     = homotopy_levels,

@@ -1,4 +1,6 @@
-This is a beautifully engineered piece of C++ code. You are implementing a Block Coordinate Descent (BCD) approach using Sinkhorn iterations (iEPPA), complete with a clever dual-path (linear/log-space) execution to balance speed with numerical stability. 
+> Superseded by docs/methods/oris.md. This document was written when the solver was named iEPPA; it has since been renamed to ORIS (Over-Relaxed Iterative Scaling). References to "iEPPA" below are historical.
+
+This is a beautifully engineered piece of C++ code. You are implementing a Block Coordinate Descent (BCD) approach using Sinkhorn iterations (ORIS, formerly iEPPA), complete with a clever dual-path (linear/log-space) execution to balance speed with numerical stability. 
 
 From an industry and statistical perspective, this code deviates from "standard" raking (like classical IPF or standard Deville-Särndal generalized raking) in a few highly specific—and intentional—ways. 
 
@@ -34,13 +36,13 @@ Your algorithm pre-compiles the dataset into `ct.M_cell` (unique intersection ce
 
 ### 4. Absence of a Sum-to-$N$ Constraint
 In your previous Dykstra code, there was an explicit hyperplane projection to ensure the final weights summed exactly to the sample size $n$. 
-This iEPPA code lacks a global sum constraint step. It assumes that if the marginal targets (`st.targets`) sum correctly, the final weights will naturally sum to the desired total. While this is mathematically true for pure IPF, if capacity clamping (`n_cap_active > 0`) is heavily engaged, the final sum of weights might drift slightly from the expected total because the cell bounds interrupt the pure multiplicative updates.
+This ORIS code lacks a global sum constraint step. It assumes that if the marginal targets (`st.targets`) sum correctly, the final weights will naturally sum to the desired total. While this is mathematically true for pure IPF, if capacity clamping (`n_cap_active > 0`) is heavily engaged, the final sum of weights might drift slightly from the expected total because the cell bounds interrupt the pure multiplicative updates.
 
 ---
 
 ### Summary Comparison
 
-| Feature | Your Code (iEPPA) | Standard Raking Software |
+| Feature | Your Code (ORIS) | Standard Raking Software |
 | :--- | :--- | :--- |
 | **Data Structure** | Pre-aggregated Cells ($M\_cell$) | Row-by-Row Observations ($N$) |
 | **Weight Bounds** | Applied to **Cell Totals** ($\sum_{i \in c} w_i$) | Applied to **Individual Weights** ($w_i$) |
@@ -55,7 +57,7 @@ The **only statistical danger** is the cell-level bounding. If a user inputs `mi
 
 ##
 
-To guarantee that **individual observation weights** never exceed your `min_weight` ($L$) and `max_weight` ($U$) bounds, you must address the core mathematical conflict in your current iEPPA implementation: **applying a uniform cell multiplier to non-uniform base weights.**
+To guarantee that **individual observation weights** never exceed your `min_weight` ($L$) and `max_weight` ($U$) bounds, you must address the core mathematical conflict in your current ORIS implementation: **applying a uniform cell multiplier to non-uniform base weights.**
 
 If a cell's aggregate weight is well within bounds, but one respondent in that cell has a massive initial design weight, multiplying them both by the same ratio will push the outlier out of bounds.
 
@@ -115,7 +117,7 @@ for (int c = 0; c < ct.M_cell; c++) {
 ### Solution 2: The Exact Fix (Intra-Cell Water Filling)
 If Solution 1 causes too many infeasibility errors, you must abandon the idea of a **uniform multiplier** for skewed cells. 
 
-Instead, you let the iEPPA solver find the ideal cell total `X[c]`. Then, when expanding back to observations, you clamp the out-of-bounds weights and mathematically re-distribute their "lost" mass to the other valid observations in the exact same cell. This guarantees that `sum(w_i) == X[c]` while keeping all $w_i \in [L, U]$.
+Instead, you let the ORIS solver find the ideal cell total `X[c]`. Then, when expanding back to observations, you clamp the out-of-bounds weights and mathematically re-distribute their "lost" mass to the other valid observations in the exact same cell. This guarantees that `sum(w_i) == X[c]` while keeping all $w_i \in [L, U]$.
 
 **The Code Implementation:**
 Replace your final expansion block at the bottom of the function with this:
@@ -182,5 +184,5 @@ for (int c = 0; c < ct.M_cell; c++) {
     }
 }
 ```
-**Pros:** Ensures every observation strictly obeys the user constraints `[lo, hi]` while perfectly maintaining the iEPPA solver's hard-won marginal convergence.
+**Pros:** Ensures every observation strictly obeys the user constraints `[lo, hi]` while perfectly maintaining the ORIS solver's hard-won marginal convergence.
 **Cons:** The weights inside the cell are no longer strictly proportional to their initial design weights (though this is standard compromise in bounded survey statistics).

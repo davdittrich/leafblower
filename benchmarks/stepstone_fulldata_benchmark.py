@@ -28,7 +28,7 @@ TARGETS_PATH = ROOT / "benchmarks" / "stepstone_fulldata_bench_targets.json"
 MAX_ITER   = 3000
 MAX_WEIGHT = 5.0
 TOL        = 1e-3
-METHOD     = "ieppa"
+METHOD     = "oris"
 
 
 def load_data():
@@ -99,7 +99,7 @@ def main():
     print(f"Categories per margin: {', '.join(str(len(v)) for v in targets.values())}")
     print(f"Total categories: {sum(len(v) for v in targets.values())}\n")
 
-    print("--- Python leafblower::harvest (ieppa, tol=1e-3) ---")
+    print("--- Python leafblower::harvest (oris, tol=1e-3) ---")
     result = bench_harvest(df, targets)
     w = result["weights"]
 

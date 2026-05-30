@@ -42,10 +42,10 @@ def _make_fixture(n=1000):
 
 
 def test_default_convergence_is_marginal_kl_improvement():
-    """Default convergence for ieppa: metric=marginal_kl (per-method natural objective), rule=improvement."""
+    """Default convergence for oris: metric=marginal_kl (per-method natural objective), rule=improvement."""
     from leafblower import harvest
     df, tgts = _make_fixture(n=500)
-    res = harvest(df, tgts, max_weight=5, method="ieppa")
+    res = harvest(df, tgts, max_weight=5, method="oris")
     r = res.attrs.get("result", {})
     cu = r.get("convergence_used", {})
     assert cu.get("metric") == "marginal_kl", f"expected marginal_kl, got {cu.get('metric')}"
@@ -56,7 +56,7 @@ def test_all_metrics_in_result_pct_change_removed():
     """l1_weight_change and grake_norm present; pct_change absent (WU-G)."""
     from leafblower import harvest
     df, tgts = _make_fixture(n=500)
-    res = harvest(df, tgts, max_weight=5, method="ieppa")
+    res = harvest(df, tgts, max_weight=5, method="oris")
     r = res.attrs.get("result", {})
     assert "l1_weight_change" in r, "result must contain l1_weight_change"
     assert "grake_norm" in r, "result must contain grake_norm"
@@ -67,7 +67,7 @@ def test_all_6_metrics_present():
     """All 6 quality metrics must be present in result attrs (WU-G)."""
     from leafblower import harvest
     df, tgts = _make_fixture(n=1000)
-    res = harvest(df, tgts, max_weight=5, method="ieppa")
+    res = harvest(df, tgts, max_weight=5, method="oris")
     r = res.attrs.get("result", {})
     for key in ("max_error", "mean_error", "kl", "chi2", "l1_weight_change", "grake_norm"):
         assert key in r, f"Missing metric: {key}"
@@ -77,7 +77,7 @@ def test_best_error_le_max_error():
     """best_error <= max_error always (best iterate tracked throughout)."""
     from leafblower import harvest
     df, tgts = _make_fixture(n=1000)
-    res = harvest(df, tgts, max_weight=5, method="ieppa", max_iterations=200)
+    res = harvest(df, tgts, max_weight=5, method="oris", max_iterations=200)
     r = res.attrs.get("result", {})
     assert "best_error" in r, "result must contain best_error"
     assert r["best_error"] <= r["max_error"] + 1e-12, (
@@ -103,8 +103,8 @@ def test_per_method_default_metric():
     }
 
     cases = [
-        ("ieppa",       _METRIC_MAP["marginal_kl"]),
-        ("ieppa_soft",  _METRIC_MAP["marginal_kl"]),
+        ("oris",       _METRIC_MAP["marginal_kl"]),
+        ("oris_soft",  _METRIC_MAP["marginal_kl"]),
         ("raking",      _METRIC_MAP["kl"]),
         ("greenkhorn",  _METRIC_MAP["kl"]),
         ("sinkhorn",    _METRIC_MAP["kl"]),
@@ -155,7 +155,7 @@ def test_per_method_default_metric():
         )
 
     # Guard: user-explicit metric must NOT be overridden by per-method default
-    for method in ("ieppa", "raking", "greg"):
+    for method in ("oris", "raking", "greg"):
         captured.clear()
         try:
             _h.calibrate = _mock_calibrate

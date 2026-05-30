@@ -23,7 +23,7 @@ suppressWarnings(
   leafblower::harvest(
     data_s, target_s,
     max_weight          = 5,
-    method              = "ieppa",
+    method              = "oris",
     max_iterations      = 3000,
     convergence         = list(absolute = 1e-12),
     homotopy_levels     = 5L,

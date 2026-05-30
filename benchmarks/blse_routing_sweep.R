@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# BLSE routing sweep: localize ieppa/raking crossover across compression ratio.
+# BLSE routing sweep: localize oris/raking crossover across compression ratio.
 # Runs a 3x3 grid: mc_ratio (M_cell/n) x n.
 
 suppressPackageStartupMessages({
@@ -31,26 +31,26 @@ for (n in ns) {
     compression <- n / (nj1 * nj2)
     label <- sprintf("n=%d mc=%.2f compression=%.1fx", n, mc, compression)
     cat(sprintf("  %-52s ...", label)); flush.console()
-    t_ieppa <- system.time(suppressWarnings(
-      harvest(df, tgt, method="ieppa",  max_iterations=200L, verbose=0L)
+    t_oris <- system.time(suppressWarnings(
+      harvest(df, tgt, method="oris",  max_iterations=200L, verbose=0L)
     ))["elapsed"]
     t_raking <- system.time(suppressWarnings(
       harvest(df, tgt, method="raking", max_iterations=200L, verbose=0L)
     ))["elapsed"]
-    winner <- if (t_ieppa < t_raking) "ieppa" else "raking"
-    cat(sprintf("  ieppa=%.2fs raking=%.2fs  winner=%s\n",
-      t_ieppa, t_raking, winner))
+    winner <- if (t_oris < t_raking) "oris" else "raking"
+    cat(sprintf("  oris=%.2fs raking=%.2fs  winner=%s\n",
+      t_oris, t_raking, winner))
     results[[length(results)+1]] <- list(
       n=n, mc_ratio=mc, compression=compression,
-      t_ieppa=t_ieppa, t_raking=t_raking, winner=winner
+      t_oris=t_oris, t_raking=t_raking, winner=winner
     )
   }
 }
 
 cat("\n=== Routing crossover summary ===\n")
 for (r in results) {
-  cat(sprintf("  n=%6d  compr=%5.1fx  ieppa=%5.2fs  raking=%5.2fs  winner=%-6s\n",
-    r$n, r$compression, r$t_ieppa, r$t_raking, r$winner))
+  cat(sprintf("  n=%6d  compr=%5.1fx  oris=%5.2fs  raking=%5.2fs  winner=%-6s\n",
+    r$n, r$compression, r$t_oris, r$t_raking, r$winner))
 }
 
 saveRDS(results, "benchmarks/blse_routing_sweep.rds")

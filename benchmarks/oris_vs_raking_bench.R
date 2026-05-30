@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
-# Bayesian Level Set Estimation: ieppa (faithful) vs raking (hybrid).
-# Response: y = log(t_ieppa / t_raking). Threshold: log(1.2) — ieppa wins if y <= threshold.
+# Bayesian Level Set Estimation: oris (faithful) vs raking (hybrid).
+# Response: y = log(t_oris / t_raking). Threshold: log(1.2) — oris wins if y <= threshold.
 # Input space (3D):
 #   x1 = log10(complexity) = log10(n * sum(cat_counts)) in [4, 7.7]
 #   x2 = log10(tol_abs) in [-6, -3]
 #   x3 = log10(prod(cat_counts) / n) in [0, 3.5]  # theoretical max compression
 #
-# Output: benchmarks/ieppa_vs_raking_results.rds
+# Output: benchmarks/oris_vs_raking_results.rds
 Sys.setenv(OMP_NUM_THREADS = "1")
 suppressPackageStartupMessages({
   library(leafblower)
@@ -65,7 +65,7 @@ time_method <- function(d, method) {
 # Evaluate log-ratio at a single (x1,x2,x3) point
 evaluate_point <- function(x1, x2, x3, runs = 3) {
   d <- generate_data(x1, x2, x3)
-  t_ie <- median(replicate(runs, time_method(d, "ieppa")))
+  t_ie <- median(replicate(runs, time_method(d, "oris")))
   t_rk <- median(replicate(runs, time_method(d, "raking")))
   log(t_ie / t_rk)
 }
@@ -125,8 +125,8 @@ run_benchmark <- function(n_initial = 16, n_adaptive = 8) {
 
 if (!.BENCH_SOURCED) {
   res <- run_benchmark()
-  saveRDS(res, "benchmarks/ieppa_vs_raking_results.rds")
-  cat("Saved benchmarks/ieppa_vs_raking_results.rds\n")
+  saveRDS(res, "benchmarks/oris_vs_raking_results.rds")
+  cat("Saved benchmarks/oris_vs_raking_results.rds\n")
   # Plot (uses plot_helpers.R)
   # Build state object matching make_plots_3d's expected structure
   state_obj <- list(design = res$design, y = res$y, gp = res$gp,

@@ -9,7 +9,7 @@ Entropy-regularised optimal-transport-style scaling: alternating **Sinkhorn** ma
 
 The capacity step is solved by **bisection on a single log-scale multiplier** `μ`.
 
-> **vs. IEPPA**: both reach the same KL/IPF fixed point on the margins; the difference is *how the box is enforced* (Sinkhorn = Dykstra correction every iteration, stateful, not SRAA-able; IEPPA = bounds at finalize, SOR + infeasibility damping, SRAA-able) — see the comparison table in [ieppa.md](ieppa.md#ieppa-vs-sinkhorn-dykstra). The source paper behind IEPPA (arXiv:2011.14312) names *DyKL — Dykstra-with-KL — as the baseline it improves on*, and DyKL ≡ the dual BCD that paper uses internally; this Sinkhorn+Dykstra solver is structurally that baseline.
+> **vs. ORIS**: both reach the same KL/IPF fixed point on the margins; the difference is *how the box is enforced* (Sinkhorn = Dykstra correction every iteration, stateful, not SRAA-able; ORIS = bounds at finalize, SOR + infeasibility damping, SRAA-able) — see the comparison table in [oris.md](oris.md#oris-vs-sinkhorn-dykstra). The source paper behind ORIS (arXiv:2011.14312) names *DyKL — Dykstra-with-KL — as the baseline it improves on*, and DyKL ≡ the dual BCD that paper uses internally; this Sinkhorn+Dykstra solver is structurally that baseline.
 
 ## Mathematical formulation
 
@@ -58,7 +58,7 @@ flowchart TD
 ```
 
 - **Marginal sweep + capacity bisection** alternate each iteration.
-- **Dykstra state** `a[c]` is carried across iterations (this solver is *not* stateless → no SRAA-m wrapper, unlike RAKING/IEPPA/Greenkhorn).
+- **Dykstra state** `a[c]` is carried across iterations (this solver is *not* stateless → no SRAA-m wrapper, unlike RAKING/ORIS/Greenkhorn).
 - `convergence_rule = 0` — sinkhorn uses no improvement criterion; it iterates to the fixed point.
 - **Finalize**: Σw=n already holds; `bounds_mode` dispatch still runs for per-obs unit mode.
 

@@ -1,11 +1,11 @@
-# IEPPA — Iterative Entropy-Penalized Proportional Adjustment
+# ORIS — Over-Relaxed Iterative Scaling
 
-> Enum: `RK_ALG_IEPPA = 1` (+ variant `RK_ALG_IEPPA_SOFT = 8`)
-> Source: `src/ieppa.cpp`, `src/ieppa_internal.hpp`, `src/ieppa_finalize.cpp`, `src/ieppa_trajectory.cpp`
+> Enum: `RK_ALG_ORIS = 1` (+ variant `RK_ALG_ORIS_SOFT = 8`)
+> Source: `src/oris.cpp`, `src/oris_internal.hpp`, `src/oris_finalize.cpp`, `src/oris_trajectory.cpp`
 
 ## Overview
 
-IEPPA is **iterative proportional fitting (IPF / RAS / Sinkhorn–Knopp) on log-Sinkhorn factors, with successive over-relaxation (SOR) stepping and an infeasibility damping factor**. It is the project's default solver. It adjusts cell masses `X[c]` so every marginal sum matches its target while staying as close as possible (in Kullback–Leibler divergence) to the design weights `X_init`.
+ORIS is **iterative proportional fitting (IPF / RAS / Sinkhorn–Knopp) on log-Sinkhorn factors, with successive over-relaxation (SOR) stepping and an infeasibility damping factor**. It is the project's default solver. It adjusts cell masses `X[c]` so every marginal sum matches its target while staying as close as possible (in Kullback–Leibler divergence) to the design weights `X_init`.
 
 The solver keeps one multiplicative factor per `(margin k, category j)` — the Sinkhorn dual scaling — and sweeps the margins repeatedly. It runs in **linear space** when the compression ratio is small and switches to **log space** to avoid overflow when factors grow extreme (cutoff `kLinearSpaceThreshold = 2.0`).
 
@@ -22,7 +22,7 @@ s.t.    Σ_{c ∈ (k,j)} X[c] = T_kj    for every margin k, category j
 
 This is the standard raking / maximum-entropy calibration problem. Its dual has one Lagrange multiplier per category; the multiplicative factor is `f_kj = exp(λ_kj)`.
 
-### Update rule (verified in `ieppa_solve`)
+### Update rule (verified in `oris_solve`)
 
 Per category, the *naïve* full Sinkhorn ratio is the target over the current marginal sum:
 
@@ -43,7 +43,7 @@ log:     lf_new = (1−α·ω)·lf_old + α·ω·(log T_kj·W − log S_kj)
 - The net exponent on the Sinkhorn ratio is `α·ω`; margins are swept **Gauss–Seidel (BCD-style)**.
 - `ω = 1, α = 1` ⇒ exact Sinkhorn–Knopp.
 
-### IEPPA_SOFT variant (enum 8)
+### ORIS_SOFT variant (enum 8)
 
 Adds an **augmented-Lagrangian / ADMM** soft-capacity term: per-cell capacity bounds are not hard-clamped each sweep but enforced through a penalty `μ` driven up across outer iterations, with the KL Newton step `X̃(1−λ+μz)/(1+ρ)` for the un-normalized-KL generator. (Do **not** "correct" this formula — it is right for this generator; see `CLAUDE.md`.)
 
@@ -51,7 +51,7 @@ Adds an **augmented-Lagrangian / ADMM** soft-capacity term: per-cell capacity bo
 
 ```mermaid
 flowchart TD
-    A[harvest.R / c_api] --> B[ieppa_solve]
+    A[harvest.R / c_api] --> B[oris_solve]
     B --> C{compression ratio < 2.0?}
     C -- yes --> D[linear-space sweep]
     C -- no --> E[log-space sweep]
@@ -59,33 +59,35 @@ flowchart TD
     F --> G{SRAA accel on?}
     G -- yes --> H[Anderson acceleration sraa.hpp]
     G -- no --> I[flat fixed-point loop]
-    H & I --> J[ieppa_finalize: obs expand + bounds]
+    H & I --> J[oris_finalize: obs expand + bounds]
     J --> K[finalize_weights: Σw=n then bounds_mode]
 ```
 
-- **Core loop**: `ieppa_solve` in `src/ieppa.cpp` (kept in one TU — it is the hot path; cold code lives in `ieppa_finalize.cpp` / `ieppa_trajectory.cpp`, see no-LTO note in `CLAUDE.md`).
+- **Core loop**: `oris_solve` in `src/oris.cpp` (kept in one TU — it is the hot path; cold code lives in `oris_finalize.cpp` / `oris_trajectory.cpp`, see no-LTO note in `CLAUDE.md`).
 - **Scheduler**: round-robin or greedy (largest per-margin residual first).
 - **Acceleration**: optional SRAA-m (Anderson) via `sraa.hpp`, opt-in through `st.accelerate`.
 - **Homotopy**: optional multi-level cascade over `max_weight` multipliers (`rk_homotopy_cfg_t`); the outer driver iterates these levels.
 - **Finalize**: `finalize_weights` (`calib_dispatch.hpp`) enforces Σw = n, then `bounds_mode` dispatch (cell = count only; unit = per-cell water-fill).
 
-## IEPPA vs. Sinkhorn (+Dykstra)
+## ORIS vs. Sinkhorn (+Dykstra)
 
-Both solve the **same KL/IPF fixed point on the margins** — at `α = ω = 1` the IEPPA marginal step *is* a Sinkhorn step. They diverge on:
+Both solve the **same KL/IPF fixed point on the margins** — at `α = ω = 1` the ORIS marginal step *is* a Sinkhorn step. They diverge on:
 
-| Axis | IEPPA (this method) | Sinkhorn (`sinkhorn.md`) |
+| Axis | ORIS (this method) | Sinkhorn (`sinkhorn.md`) |
 |------|---------------------|--------------------------|
-| **Box constraint `[L_c,U_c]`** | Deferred to `finalize_weights` (or, in IEPPA_SOFT, an **ADMM/ALM** penalty `μ` driven up across levels). The *core* sweep is box-free. | Enforced **jointly each iteration** by **Dykstra** correction vectors `a[c]` + a `μ`-bisection that projects onto the capacity box in KL geometry. |
+| **Box constraint `[L_c,U_c]`** | Deferred to `finalize_weights` (or, in ORIS_SOFT, an **ADMM/ALM** penalty `μ` driven up across levels). The *core* sweep is box-free. | Enforced **jointly each iteration** by **Dykstra** correction vectors `a[c]` + a `μ`-bisection that projects onto the capacity box in KL geometry. |
 | **State carried between iterations** | Only the Sinkhorn log-factors `lf` (a pure fixed-point map) ⇒ **SRAA-m Anderson acceleration applies**. | The Dykstra correction `a[c]` is iterate-history ⇒ **stateful, not SRAA-able**. |
 | **Step control** | SOR over-relaxation `ω` + infeasibility damping `α = 1/(1+β·stress)` (net exponent `α·ω`); homotopy on bounds. **No proximal term.** | Plain Sinkhorn step + Dykstra; no over-relaxation. |
 | **Mass `Σw`** | Re-scaled to `n` at finalize (normalize→bounds order). | `Σ = n` preserved *by construction* every iteration (bisection targets `n`). |
 | **Stopping** | metric-improvement / plateau. | fixed point, no improvement rule (`convergence_rule = 0`). |
 
-**One-line summary**: IEPPA = *over-relaxed Sinkhorn with bounds pushed to finalize and Anderson acceleration available*; Sinkhorn = *plain Sinkhorn with the bounds folded into every iteration via Dykstra*. IEPPA trades exact per-iterate box-feasibility for cheaper, accelerable sweeps; Sinkhorn trades acceleration for a joint, always-feasible KL projection.
+**One-line summary**: ORIS = *over-relaxed Sinkhorn with bounds pushed to finalize and Anderson acceleration available*; Sinkhorn = *plain Sinkhorn with the bounds folded into every iteration via Dykstra*. ORIS trades exact per-iterate box-feasibility for cheaper, accelerable sweeps; Sinkhorn trades acceleration for a joint, always-feasible KL projection.
 
 ## Relationship to the source paper (arXiv:2011.14312)
 
 > Chu, Liang, Toh & Yang, *"An efficient implementable inexact entropic proximal point algorithm for a class of linear programming problems."* — `docs/iEPPA/arxiv.2011.14312/`. Design contract: `docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md`.
+
+The name was changed **from iEPPA** because the codebase implements the paper's **inner C=0 scaling step** (the algBCD sweep), not its outer inexact-proximal-point contribution — the outer PPA loop is mathematically inert at C=0 (see below).
 
 The codebase implements the paper's **inner algBCD specialized to `C = 0`**. The paper's headline *outer* inexact-proximal-point loop is **not** part of this solver — at `C = 0` it is mathematically inert — so the operative guarantee is Csiszár I-projection, not the paper's outer-PPA theorem.
 
@@ -122,14 +124,14 @@ min_X  KL(X ‖ X_init)   s.t.  A(X) = T,  0 ≤ X ≤ U
 
 Mapping paper → code:
 
-| Paper component | In `ieppa_solve` | Evidence |
+| Paper component | In `oris_solve` | Evidence |
 |-----------------|------------------|----------|
 | `C = 0` reduction to KL-to-prior calibration | ✅ | spec §2.1 |
-| Inner dual BCD (margin blocks + capacity block, Sinkhorn-like) | ✅ | `ieppa.cpp` algBCD; capacity clip `Γ = min{U/M,1}` |
+| Inner dual BCD (margin blocks + capacity block, Sinkhorn-like) | ✅ | `oris.cpp` algBCD; capacity clip `Γ = min{U/M,1}` |
 | Entropic proximal term | ❌ none — `f = τ·W/S` is a pure Sinkhorn ratio | spec §2.3 |
-| SOR `ω` + damping `α = 1/(1+β·stress)` | ✅ step-size relaxations (`β` is the damping constant, not a proximal term) | `ieppa.cpp` `compute_alpha`, `sor_omega`, `kAlphaBeta = 0.5` |
-| Outer moving-anchor PPA loop `KL(X‖X^k)` | ❌ inert at `C = 0`; the outer driver is homotopy over `max_weight` | spec §2.1/§9/§11; `ieppa.cpp` homotopy driver |
-| Capacity via ALM/ADMM | ✅ IEPPA_SOFT only | `use_admm_capacity`, `ALMConfig.capacity_mu` |
+| SOR `ω` + damping `α = 1/(1+β·stress)` | ✅ step-size relaxations (`β` is the damping constant, not a proximal term) | `oris.cpp` `compute_alpha`, `sor_omega`, `kAlphaBeta = 0.5` |
+| Outer moving-anchor PPA loop `KL(X‖X^k)` | ❌ inert at `C = 0`; the outer driver is homotopy over `max_weight` | spec §2.1/§9/§11; `oris.cpp` homotopy driver |
+| Capacity via ALM/ADMM | ✅ ORIS_SOFT only | `use_admm_capacity`, `ALMConfig.capacity_mu` |
 | Convergence guarantee | Csiszár (1975) / Csiszár–Tusnády (1984) cyclic I-projection, linear under Slater — not the paper's outer-PPA theorem | spec §9 |
 
 ### Appraisal
@@ -137,7 +139,7 @@ Mapping paper → code:
 - **Operative guarantee is Csiszár / Csiszár–Tusnády cyclic I-projection** onto affine sets ∩ log-convex box (linear rate under Slater, spec §9) — the paper's outer-PPA theorem does not apply because that loop is inert at `C = 0`.
 - **The core has no entropic-proximal bias.** The update `new_f = f_old^(1−α·ω)·naive^(α·ω)` uses two step-size relaxations (`ω`, `α`); neither moves the fixed point — at a fixed point `naive = 1` regardless of `α`, `ω`, so margins are satisfied exactly. With `ω = 1, α = 1` the solver is plain Sinkhorn/IPF (Sinkhorn–Knopp convergence applies).
 
-*(Confidence: 90 — facts stated in the design spec §2.1/§2.3/§9/§11, source headers, and verified update lines in `ieppa.cpp`.)*
+*(Confidence: 90 — facts stated in the design spec §2.1/§2.3/§9/§11, source headers, and verified update lines in `oris.cpp`.)*
 
 ## Advantages
 
@@ -170,10 +172,10 @@ Mapping paper → code:
 
 | Component | File | Key symbols |
 |-----------|------|-------------|
-| Core solve | `src/ieppa.cpp` | `ieppa_solve`, `eff_omega`, `compute_alpha`, `naive`, `f_lin`, `S_lin` |
-| Log/linear switch | `src/ieppa.cpp` | `kLinearSpaceThreshold` |
-| Finalize / bounds / obs-expand | `src/ieppa_finalize.cpp` | unit/cell branch |
-| Trajectory diagnostics | `src/ieppa_trajectory.cpp` | — |
+| Core solve | `src/oris.cpp` | `oris_solve`, `eff_omega`, `compute_alpha`, `naive`, `f_lin`, `S_lin` |
+| Log/linear switch | `src/oris.cpp` | `kLinearSpaceThreshold` |
+| Finalize / bounds / obs-expand | `src/oris_finalize.cpp` | unit/cell branch |
+| Trajectory diagnostics | `src/oris_trajectory.cpp` | — |
 | Acceleration | `src/sraa.hpp` | SRAA-m Anderson |
 | Shared finalize | `src/calib_dispatch.hpp` | `finalize_weights`, `finalize_weights_buf` |
 | Source paper + design contract | `docs/iEPPA/arxiv.2011.14312/`, `docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md` | Chu–Liang–Toh–Yang (arXiv:2011.14312); reference MATLAB in `docs/iEPPA/code/` |
@@ -235,19 +237,19 @@ The following failures are documented across the sources above and in the practi
 
 ## How leafblower deviates
 
-The table below maps standard IPF idioms to leafblower's design choices. All claims are grounded in `src/ieppa.cpp` and the design spec.
+The table below maps standard IPF idioms to leafblower's design choices. All claims are grounded in `src/oris.cpp` and the design spec.
 
 | Axis | Standard IPF / common packages | leafblower (this solver) | Better for / Worse for |
 |------|-------------------------------|--------------------------|------------------------|
 | **Iteration unit** | Observation-level: scale each row/column of the raw weight matrix | **Cell-level**: compress all observations sharing the same covariate pattern into a single mass `X[c]`; only `M_cell ≪ n` cells iterated | Better: O(M_cell·K) vs O(n·K) per sweep — 10–100× faster at high compression. Worse: all obs in a cell receive identical relative adjustment (design weights preserved within cell, not freed) |
 | **Step size** | Plain multiplicative ratio (`naive = T / S`) — SOR not used in `survey::rake`, `ipfp`, `mipfp` | SOR over-relaxation `ω` auto-adapted per margin + infeasibility damping `α = 1/(1+β·stress)` | Better: faster convergence in practice (super-linear empirically on well-conditioned problems). Worse: `ω > 1` can oscillate if burn-in estimate is wrong; harder to reason about formally |
-| **Bounds handling** | Either no bounds (`ipfp`, `mipfp`), or bounds folded into every iteration via bisection or logit transform (`survey`, `icarus`, `ReGenesees`) | Bounds deferred to `finalize_weights` after convergence (IEPPA_SOFT uses ALM/ADMM to enforce bounds inside the loop) | Better (base): cheaper iterations, SRAA-accelerable; bound-violation is only transient. Worse: core loop is not box-feasible — final weights may differ from the KL minimizer subject to bounds if the box-free projection lands outside `[L,U]` |
+| **Bounds handling** | Either no bounds (`ipfp`, `mipfp`), or bounds folded into every iteration via bisection or logit transform (`survey`, `icarus`, `ReGenesees`) | Bounds deferred to `finalize_weights` after convergence (ORIS_SOFT uses ALM/ADMM to enforce bounds inside the loop) | Better (base): cheaper iterations, SRAA-accelerable; bound-violation is only transient. Worse: core loop is not box-feasible — final weights may differ from the KL minimizer subject to bounds if the box-free projection lands outside `[L,U]` |
 | **Acceleration** | None in most packages; SQUAREM in some R wrappers | SRAA-m Anderson acceleration (optional, `st.accelerate`) | Better: empirically reduces iteration counts by 30–80% on well-conditioned cases. Worse: no formal convergence proof for the accelerated sequence beyond the local contraction regime; stall-revert guard required |
 | **Zero-cell semantics** | Division-by-zero halts or NaN-propagates | `X_init[c] = 0` cells are skipped; if the corresponding target is positive, `RK_ERR_INFEAS` is latched after the sweep | Better: explicit infeasibility reporting with (k,j) enumeration instead of silent NaN. Same fundamental limitation: a zero seed cell cannot be filled |
 | **Convergence criterion** | Max absolute margin error < tol | Metric-improvement + plateau detection (`kErrCheckInterval`, best-iterate tracking via SRAA) | Better: detects stalls that look like slow convergence; NOCONV signalled promptly. Worse: slightly more complex stopping logic; can terminate early on a metric plateau that would eventually resolve |
 | **Variance estimation** | Replication or Taylor linearization (design-weight aware) | Not provided — leafblower is a weight-production library, not a variance estimator | Out of scope by design; downstream tools must account for calibration |
 
-**Summary.** leafblower's cell-compression + SOR + deferred-bounds design trades exact per-iterate box-feasibility and formal convergence proof for the accelerated path for significantly cheaper iteration cost and empirical speed. The trade is favourable when `M_cell ≪ n` (high compression) and when `max_weight` bounds are loose enough that the box-free fixed point is already inside `[L,U]` — the common case in production survey calibration. With tight bounds (`max_weight` ≈ 1.1–1.3) IEPPA_SOFT's ALM layer is the recommended variant.
+**Summary.** leafblower's cell-compression + SOR + deferred-bounds design trades exact per-iterate box-feasibility and formal convergence proof for the accelerated path for significantly cheaper iteration cost and empirical speed. The trade is favourable when `M_cell ≪ n` (high compression) and when `max_weight` bounds are loose enough that the box-free fixed point is already inside `[L,U]` — the common case in production survey calibration. With tight bounds (`max_weight` ≈ 1.1–1.3) ORIS_SOFT's ALM layer is the recommended variant.
 
 ## References
 

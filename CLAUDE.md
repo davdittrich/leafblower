@@ -75,7 +75,7 @@ cd python && pip install -e . && pytest        # Python parity tests (rtol=1e-6 
 - Algorithm slot 2 is reserved (LBFGSB removed). Do not reuse in `rk_algorithm_t` enum.
 - `-O3` lives in `OPT_FLAGS` (set by `configure`), NOT `PKG_CXXFLAGS` — CRAN portability check rejects `-O` flags in `PKG_CXXFLAGS`.
 - **Two build sites for `src/*.cpp`:** R auto-globs `src/*.cpp` (the `PKG_SOURCES` list in `Makevars.in` is decorative — R ignores it). The Python build does NOT glob: `python/CMakeLists.txt` has an explicit `CORE_SOURCES` list. A new `src/*.cpp` MUST be added to `CORE_SOURCES` or the pybind11 link fails with undefined symbols.
-- **No LTO** (`-flto` absent from `configure`/`Makevars`). A TU split only stays perf-neutral if HOT code (per-iteration loops, `static inline` kernels) stays co-located with its caller — cross-TU calls don't inline. Move only COLD (once-per-solve) code to new TUs. `ieppa.cpp` is split this way (`ieppa_finalize.cpp`, `ieppa_trajectory.cpp`, `ieppa_internal.hpp`); the hot `ieppa_solve` stays in `ieppa.cpp`.
+- **No LTO** (`-flto` absent from `configure`/`Makevars`). A TU split only stays perf-neutral if HOT code (per-iteration loops, `static inline` kernels) stays co-located with its caller — cross-TU calls don't inline. Move only COLD (once-per-solve) code to new TUs. `oris.cpp` is split this way (`oris_finalize.cpp`, `oris_trajectory.cpp`, `oris_internal.hpp`); the hot `oris_solve` stays in `oris.cpp`.
 
 ## Conventions & Footguns
 
@@ -91,10 +91,10 @@ cd python && pip install -e . && pytest        # Python parity tests (rtol=1e-6 
 
 - **Version sync:** bump `DESCRIPTION` AND `python/pyproject.toml` manually — no automation.
 - **Output weights:** Σw=n enforced at exit via `lbw::finalize_weights[_buf]` (calib_dispatch.hpp): a single pre-bounds scale to n, THEN `bounds_mode` dispatch (cell = count-only, unit = per-cell water-fill). The sanctioned order is normalize→bounds. FORBIDDEN: renormalizing AFTER water-fill — that silently breaks the `bounds_mode="unit"` clamps. Degenerate `total_w < kMinSafeTotalWeight` (1e-100) is left unscaled (avoids subnormal-overflow).
-- **`bounds_mode`:** `"cell"` = cell-aggregate (default). `"unit"` = strict per-obs via iEPPA water-fill.
+- **`bounds_mode`:** `"cell"` = cell-aggregate (default). `"unit"` = strict per-obs via ORIS water-fill.
 - `homotopy_levels_used` returns `1` for `n_levels=1` (single-pass), not `0`. Struct comment is wrong.
 - SRAA best-iterate: use `select_metric(sraa_cfg.metric, cm)` at `kErrCheckInterval` — NOT `errRp` fast proxy. Bug has been re-introduced twice.
-- Do NOT "fix" two solver formulas (both verified correct, guarded by code comments): the chebyshev Mehrotra corrector's linear `y·Δs_aff` term (it's the `−Δs_aff·Δy_aff` cross-term, not a stray residual), and the ieppa ALM Newton step `X̃(1−λ+μz)/(1+ρ)` (correct for the un-normalized-KL generator — no missing `−ρ`). Reviewer claims to add/drop terms came from the wrong divergence/derivation; verify against the actual generator before touching solver math.
+- Do NOT "fix" two solver formulas (both verified correct, guarded by code comments): the chebyshev Mehrotra corrector's linear `y·Δs_aff` term (it's the `−Δs_aff·Δy_aff` cross-term, not a stray residual), and the oris ALM Newton step `X̃(1−λ+μz)/(1+ρ)` (correct for the un-normalized-KL generator — no missing `−ρ`). Reviewer claims to add/drop terms came from the wrong divergence/derivation; verify against the actual generator before touching solver math.
 - Lambda `[&]` in `raking.cpp`: declare bool guards BEFORE `auto F_eval = [&]` definition — `[&]` captures only vars in scope at definition site, not at call site.
 
 <!-- code-review-graph MCP tools -->

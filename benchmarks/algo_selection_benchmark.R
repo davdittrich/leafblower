@@ -1,5 +1,5 @@
 # benchmarks/algo_selection_benchmark.R
-# Bayesian Level Set Estimation benchmark for iEPPA vs L-BFGS-B algorithm selection.
+# Bayesian Level Set Estimation benchmark for ORIS vs L-BFGS-B algorithm selection.
 # See: docs/superpowers/specs/2026-04-20-algo-selection-design.md
 
 # Enforce single-threaded execution before loading any library that might
@@ -67,9 +67,9 @@ make_bench_data <- function(n, K, cats_per_margin) {
 }
 
 # ── time_cell ─────────────────────────────────────────────────────────────────
-# Times iEPPA vs L-BFGS-B at one (log_complexity, log_tol) point.
-# Returns log(median_t_iEPPA / median_t_LBFGSB):
-#   positive → iEPPA is slower → L-BFGS-B wins.
+# Times ORIS vs L-BFGS-B at one (log_complexity, log_tol) point.
+# Returns log(median_t_ORIS / median_t_LBFGSB):
+#   positive → ORIS is slower → L-BFGS-B wins.
 # Threshold: log(1.2) ≈ 0.182.
 #
 # n derivation: cats_per_margin fixed by complexity tercile, n = round(complexity/(K*cats)).
@@ -120,17 +120,17 @@ time_cell <- function(log_complexity, log_tol, K = 9L, seed_extra = 0L) {
     }))
   }
 
-  t_ieppa  <- time_algo("ieppa")
+  t_oris  <- time_algo("oris")
   # lbfgsb removed — strictly dominated by newton_kl
   # Floor at 0.1ms to guard against proc.time() resolution yielding exact zeros.
   t_min <- 1e-4
-  log(max(t_ieppa, t_min) / t_min)  # placeholder: lbfgsb no longer exists
+  log(max(t_oris, t_min) / t_min)  # placeholder: lbfgsb no longer exists
 }
 
 # ── fit_gp ────────────────────────────────────────────────────────────────────
 # Fits a Matérn-5/2 GP to timing observations.
 # design_mat: n_obs × 2 matrix (col 1 = log_complexity, col 2 = log_tol).
-# y: numeric vector of log(t_iEPPA / t_LBFGSB).
+# y: numeric vector of log(t_ORIS / t_LBFGSB).
 fit_gp <- function(design_mat, y) {
   stopifnot(is.matrix(design_mat), nrow(design_mat) == length(y), ncol(design_mat) == 2L)
   DiceKriging::km(

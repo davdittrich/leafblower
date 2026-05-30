@@ -5,7 +5,7 @@
 
 ## Overview
 
-A **second-order (Newton) solver for the same maximum-entropy / KL calibration problem that IEPPA solves by IPF** — but attacked through its **smooth dual**. It minimises the convex dual gap `g(λ) = log Z(λ) − T·λ` directly, using an eigendecomposition of the Hessian with **truncated-SVD (TSVD) regularisation**, **Levenberg–Marquardt damping**, and a **Steihaug–CG trust region**. Designed for the "zero-compression regime" where weights are non-saturating and the dual is well-behaved.
+A **second-order (Newton) solver for the same maximum-entropy / KL calibration problem that ORIS solves by IPF** — but attacked through its **smooth dual**. It minimises the convex dual gap `g(λ) = log Z(λ) − T·λ` directly, using an eigendecomposition of the Hessian with **truncated-SVD (TSVD) regularisation**, **Levenberg–Marquardt damping**, and a **Steihaug–CG trust region**. Designed for the "zero-compression regime" where weights are non-saturating and the dual is well-behaved.
 
 ## Mathematical formulation
 
@@ -144,7 +144,7 @@ The following failure modes are documented in the survey calibration literature 
 
 4. **TSVD truncation bias.** Hard spectral thresholding (TSVD) discards entire singular components, introducing bias in directions associated with small-but-nonzero singular values. In ill-conditioned regimes this trades ill-conditioning for systematic underfitting: the retained dual subspace does not capture the full margin discrepancy. Tikhonov regularisation is a smooth alternative but attenuates *all* directions; both induce regularisation bias [conngouldtoint2000].
 
-5. **Non-convergence in near-saturating / high-dimensional regimes.** When calibration constraints saturate the degrees of freedom (many fine-grained interactions, near-empty cells), weights become extreme, the Hessian eigenspectrum becomes ill-conditioned, and convergence stalls. Newton can diverge or cycle in this regime; IPF / raking or iEPPA are better suited [devillesarndal1992].
+5. **Non-convergence in near-saturating / high-dimensional regimes.** When calibration constraints saturate the degrees of freedom (many fine-grained interactions, near-empty cells), weights become extreme, the Hessian eigenspectrum becomes ill-conditioned, and convergence stalls. Newton can diverge or cycle in this regime; IPF / raking or ORIS are better suited [devillesarndal1992].
 
 6. **Quadratic convergence only near the solution.** Newton guarantees quadratic local convergence under a positive-definite Hessian at the optimum; globally the Hessian can be near-singular during early iterations, making the pure Newton step unreliable without damping.
 

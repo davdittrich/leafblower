@@ -11,7 +11,7 @@ harvest(
   max_weight = 5,
   capacity_penalty = NULL,
   alm_penalty = NULL,
-  method = "ieppa",
+  method = "oris",
   verbose = 0,
   max_iterations = 500,
   start_weights = NULL,
@@ -50,7 +50,7 @@ harvest(
 \item{max_weight}{Upper bound on weights. Default 5.}
 
 \item{capacity_penalty}{Numeric, controls how strongly capacity bounds are
-enforced during ALM optimization in \code{method="ieppa_soft"}. Use
+enforced during ALM optimization in \code{method="oris_soft"}. Use
 \code{NULL} (default) for auto-computed value (\code{estimate\_M\_cell() / n},
 capped at 1.0 for K>8) which gives a balanced blend between unconstrained KL
 minimization and hard-clamp projection.
@@ -58,13 +58,13 @@ Larger values force tighter constraint adherence; smaller values allow more
 temporary bound violation before the final projection enforces exact bounds.
 Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
 the adaptive schedule hit its ceiling — increase \code{capacity_penalty} by 10x.
-Ignored for methods other than \code{"ieppa_soft"}.}
+Ignored for methods other than \code{"oris_soft"}.}
 
-\item{method}{Calibration method. One of \code{"auto"} (default: iEPPA or
-raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
-\code{"ieppa_soft"} (iEPPA with augmented Lagrangian soft capacity enforcement;
-better than \code{"ieppa"} on tight-bounds problems where cells hit
-\code{max_weight}),
+\item{method}{Calibration method (ORIS: Over-Relaxed Iterative Scaling). One of
+\code{"auto"} (default: ORIS or raking based on M_cell/n ratio),
+\code{"oris"} (paper-faithful ORIS), \code{"oris_soft"} (ORIS with augmented
+Lagrangian soft capacity enforcement; better than \code{"oris"} on tight-bounds
+problems where cells hit \code{max_weight}),
 \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"sinkhorn"} (KL Bregman Dykstra),
 \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
 (L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
@@ -108,11 +108,11 @@ equivalent to \code{autumn::calibrate()}).}
   }
   Shorthands and explicit keys may be combined; explicit keys override shorthand
   defaults. \code{convergence = list()} uses the default (max_err + improvement +
-  tol = 0.001). For \code{method="ieppa"}, the default metric is \code{marginal_kl}
+  tol = 0.001). For \code{method="oris"}, the default metric is \code{marginal_kl}
   (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)). For other methods: \code{max_err}.
 
   \strong{chi2 cross-solver note:} chi2 is not directly comparable
-  across methods. iEPPA uses unnormalized cell mass as \code{W_total};
+  across methods. ORIS uses unnormalized cell mass as \code{W_total};
   raking uses \code{n}. Use chi2 as a convergence criterion
   within one method; do not compare values across methods.
 
@@ -122,7 +122,7 @@ equivalent to \code{autumn::calibrate()}).}
   tolerance on the max marginal error. Other \code{convergence} keys are no-ops
   for this method.}
 
-\item{sor}{Named list for SOR adaptive under-relaxation (iEPPA and raking).
+\item{sor}{Named list for SOR adaptive under-relaxation (ORIS and raking).
 Default \code{NULL} disables SOR. Keys:
 \itemize{
   \item \code{auto}: logical, default \code{TRUE}.
@@ -157,14 +157,14 @@ across n levels.}
 
 \item{accelerate}{Logical. Enable Safeguarded Regularized Anderson Acceleration
   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
-  \code{"ieppa"}, and \code{"ieppa_soft"}. Default \code{FALSE}.
+  \code{"oris"}, and \code{"oris_soft"}. Default \code{FALSE}.
 
-  \strong{For ieppa and ieppa_soft}, SRAA-m operates in log-factor space
+  \strong{For oris and oris_soft}, SRAA-m operates in log-factor space
   (dimension n_cats_total ≈ 50–500, not M_cell), so history matrices are
   small. Expected benefit: ≥30\% fewer outer iterations on tight-bounds
   problems (K≥6, max_weight<3, or skewed margins).
 
-  \strong{Behavioral changes when accelerate=TRUE for ieppa/ieppa_soft:}
+  \strong{Behavioral changes when accelerate=TRUE for oris/oris_soft:}
   \itemize{
     \item \strong{SOR disabled}: adaptive under-relaxation (SOR) is turned
       off; omega stays fixed at omega_init (default 1.0). Use
@@ -223,7 +223,7 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
         \item \code{max_error}: maximum marginal error at the returned weights.
         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
           For \code{method="lbfgsb"} this is start-to-final (batch solver);
-          for iEPPA and raking it is iteration-to-iteration.
+          for ORIS and raking it is iteration-to-iteration.
         \item \code{grake_norm}: survey-grake normalized residual
           max_k|misfit|/(1+|pop|).
         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},
@@ -240,14 +240,14 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
           \code{"stall_wchange"} (SRAA-m weight-change plateau — at constrained optimum),
           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
-        \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{ieppa_soft}).
+        \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{oris_soft}).
         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
         \item \code{alm_max_dual_norm}: max absolute Lagrange dual at solver exit.
         \item \code{alm_sum_drift}: \code{|sum(weights) - n|} after final projection (bounded by \code{1e-6 * n}).
         \item \code{sraa_demoted}: logical; \code{TRUE} iff SRAA-m
           acceleration was requested with \code{scheduler="greedy"} and the
           greedy scheduler was demoted to round-robin (greedy is incompatible
-          with SRAA's fixed-point geometry). \code{FALSE} for non-ieppa /
+          with SRAA's fixed-point geometry). \code{FALSE} for non-oris /
           non-raking solvers and whenever no demotion occurred.
       }
     }
@@ -259,10 +259,10 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
 Generate calibrated weights (drop-in for autumn::harvest)
 }
 \details{
-\strong{When to use \code{ieppa_soft} vs \code{ieppa}}: Use
-\code{method="ieppa_soft"} when \code{ieppa} gives \code{max_error > 1e-3}
-and many observations are near \code{max_weight}. \code{ieppa_soft} is
-roughly 10-30\% slower than \code{ieppa} but finds a better constrained
+\strong{When to use \code{oris_soft} vs \code{oris}}: Use
+\code{method="oris_soft"} when \code{oris} gives \code{max_error > 1e-3}
+and many observations are near \code{max_weight}. \code{oris_soft} is
+roughly 10-30\% slower than \code{oris} but finds a better constrained
 optimum by temporarily relaxing bounds during optimization, then projecting
 to exact feasibility at exit.
 

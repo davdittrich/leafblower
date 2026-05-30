@@ -5,7 +5,7 @@
 
 ## Overview
 
-This is **classical cyclic iterative proportional fitting (raking) with hard per-cell box constraints enforced inside each margin step by a water-filling projection**. Unlike IEPPA (which clamps only at finalize) or Sinkhorn (which uses Dykstra correction vectors), RAKING enforces `L_c ≤ X[c] ≤ U_c` *inline*, by replacing each plain marginal rescale with a KL-projection onto the bounded simplex slice for that category.
+This is **classical cyclic iterative proportional fitting (raking) with hard per-cell box constraints enforced inside each margin step by a water-filling projection**. Unlike ORIS (which clamps only at finalize) or Sinkhorn (which uses Dykstra correction vectors), RAKING enforces `L_c ≤ X[c] ≤ U_c` *inline*, by replacing each plain marginal rescale with a KL-projection onto the bounded simplex slice for that category.
 
 The per-margin sweep function `F_eval` is **stateless** (no correction vectors carried between iterations), which is what allows it to be wrapped by SRAA-m Anderson acceleration.
 

@@ -27,8 +27,8 @@ TARGETS_PATH = ROOT / "benchmarks" / "stepstone_bench_targets.json"
 
 MAX_ITER   = 500
 MAX_WEIGHT = 5.0
-TOL        = 1e-3   # 0.1% worst margin error; iEPPA converges here in ~130ms
-METHOD     = "ieppa"  # cyclic IPF + Dykstra box, matches autumn's raking class
+TOL        = 1e-3   # 0.1% worst margin error; ORIS converges here in ~130ms
+METHOD     = "oris"  # cyclic IPF + Dykstra box, matches autumn's raking class
 
 
 def load_data():
