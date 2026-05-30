@@ -1,4 +1,4 @@
-context("ieppa faithful — algBCD specifics")
+context("oris faithful — algBCD specifics")
 
 # Tests in this file check properties unique to the faithful algBCD solver:
 # cell compression, within-cell weight equality, capacity block behavior.
@@ -42,7 +42,7 @@ test_that("within-cell weight equality: obs with identical tuples get equal weig
     a = setNames(c(0.25, 0.25, 0.25, 0.25), levels(df$a)),
     b = setNames(c(0.33, 0.33, 0.34), levels(df$b))
   )
-  res <- harvest(df, tgt, method = "ieppa", convergence = list(absolute = 1e-6))
+  res <- harvest(df, tgt, method = "oris", convergence = list(absolute = 1e-6))
   w <- res$weights
   # Group by (a, b) tuple; within each group, weights should be equal
   for (a in 0:3) for (b in 0:2) {
@@ -61,7 +61,7 @@ test_that("cap-inactive: loose bounds produce no active cap", {
   n <- 1000
   df <- data.frame(a = sample(c("x","y","z"), n, replace = TRUE))
   tgt <- list(a = c(x = 0.4, y = 0.3, z = 0.3))
-  res <- harvest(df, tgt, method = "ieppa", max_weight = 10, min_weight = 0,
+  res <- harvest(df, tgt, method = "oris", max_weight = 10, min_weight = 0,
                  convergence = list(absolute = 1e-6))
   # n_cap_active accessible via attr; if not wired, skip
   # Loose bound means all weights should be in interior of [0, 10]
@@ -76,7 +76,7 @@ test_that("cap-active: tight bounds force cap with targets still met", {
     a = c(rep("x", 100), rep("y", 900))  # 90/10 split
   )
   tgt <- list(a = c(x = 0.5, y = 0.5))  # need heavy upweighting of x
-  res <- harvest(df, tgt, method = "ieppa", max_weight = 5, min_weight = 0,
+  res <- harvest(df, tgt, method = "oris", max_weight = 5, min_weight = 0,
                  convergence = list(absolute = 1e-6))
   # Target: x:y = 50:50; achieved by upweighting x ~5x
   # Some weights should hit the cap
@@ -91,7 +91,7 @@ test_that("infeasibility: empty cell + positive target → INFEAS error", {
   n <- 100
   df <- data.frame(a = rep("x", n))  # only x
   tgt <- list(a = c(x = 0.5, y = 0.5))  # y target positive but no y obs
-  expect_error(harvest(df, tgt, method = "ieppa", convergence = list(absolute = 1e-6)),
+  expect_error(harvest(df, tgt, method = "oris", convergence = list(absolute = 1e-6)),
                regexp = "infeasible|empty cell", ignore.case = TRUE)
 })
 
@@ -102,7 +102,7 @@ test_that("both-sided cap: min_weight + max_weight both active, targets met", {
     a = sample(c("x","y"), n, replace = TRUE, prob = c(0.8, 0.2))
   )
   tgt <- list(a = c(x = 0.5, y = 0.5))  # need up y and down x
-  res <- harvest(df, tgt, method = "ieppa",
+  res <- harvest(df, tgt, method = "oris",
                  min_weight = 0.3, max_weight = 3,
                  convergence = list(absolute = 1e-6))
   expect_true(min(res$weights) >= 0.3 - 1e-6)
@@ -121,19 +121,19 @@ test_that("WU-2: dense regime (M_cell/n ~ 1) linear-space matches log-space to 1
   )
   for (k in names(df)) df[[k]] <- c("a","b","c")[df[[k]]]
 
-  Sys.setenv(LBW_IEPPA_FORCE_PATH = "linear")
-  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_PATH"), add = TRUE)
-  res_lin <- harvest(df, targets, method = "ieppa",
+  Sys.setenv(LBW_ORIS_FORCE_PATH = "linear")
+  on.exit(Sys.unsetenv("LBW_ORIS_FORCE_PATH"), add = TRUE)
+  res_lin <- harvest(df, targets, method = "oris",
                      max_weight = 10, min_weight = 0,
                      max_iterations = 500L,
                      convergence = list(absolute = 1e-6))
 
-  Sys.setenv(LBW_IEPPA_FORCE_PATH = "log")
-  res_log <- harvest(df, targets, method = "ieppa",
+  Sys.setenv(LBW_ORIS_FORCE_PATH = "log")
+  res_log <- harvest(df, targets, method = "oris",
                      max_weight = 10, min_weight = 0,
                      max_iterations = 500L,
                      convergence = list(absolute = 1e-6))
-  Sys.unsetenv("LBW_IEPPA_FORCE_PATH")
+  Sys.unsetenv("LBW_ORIS_FORCE_PATH")
 
   expect_lt(max(abs(res_lin$weights - res_log$weights)), 1e-8)
 })
@@ -151,7 +151,7 @@ test_that("WU-2: sparse regime (M_cell/n ~ 0.01) auto-dispatches log-space", {
     b = setNames(rep(0.2, 5), letters[1:5])
   )
   msgs <- capture.output(
-    res <- harvest(df, targets, method = "ieppa",
+    res <- harvest(df, targets, method = "oris",
                    max_weight = 5, min_weight = 0,
                    max_iterations = 500L,
                    convergence = list(absolute = 1e-6),
@@ -176,10 +176,10 @@ test_that("WU-2: overflow synthesis falls back to log-space, still completes", {
     replicate(K, c(a = 0.6, b = 0.3, c = 0.1), simplify = FALSE),
     paste0("m", 1:K)
   )
-  Sys.setenv(LBW_IEPPA_FORCE_PATH = "linear")
-  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_PATH"), add = TRUE)
+  Sys.setenv(LBW_ORIS_FORCE_PATH = "linear")
+  on.exit(Sys.unsetenv("LBW_ORIS_FORCE_PATH"), add = TRUE)
   # Success condition: no error, status is RK_OK or RK_ERR_NOCONV, weights finite.
-  res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+  res <- suppressWarnings(harvest(df, targets, method = "oris",
                                   max_weight = 1e6, min_weight = 0,
                                   max_iterations = 200L,
                                   convergence = list(absolute = 1e-4)))
@@ -204,17 +204,17 @@ test_that("WU-3: stable-mode fast-path is deterministic + does not engage dampin
     a = c(a = 0.33, b = 0.33, c = 0.34),
     b = c(a = 0.33, b = 0.33, c = 0.34)
   )
-  Sys.setenv(LBW_IEPPA_FORCE_DAMPING = "off")
-  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
+  Sys.setenv(LBW_ORIS_FORCE_DAMPING = "off")
+  on.exit(Sys.unsetenv("LBW_ORIS_FORCE_DAMPING"), add = TRUE)
   msgs <- capture.output(
-    res1 <- harvest(df, targets, method = "ieppa",
+    res1 <- harvest(df, targets, method = "oris",
                     max_weight = 5, min_weight = 0,
                     max_iterations = 500L,
                     convergence = list(absolute = 1e-6),
                     verbose = 1L),
     type = "output"
   )
-  res2 <- harvest(df, targets, method = "ieppa",
+  res2 <- harvest(df, targets, method = "oris",
                   max_weight = 5, min_weight = 0,
                   max_iterations = 500L,
                   convergence = list(absolute = 1e-6))
@@ -227,8 +227,8 @@ test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused b
   # birthday-saturates all 9 cells deterministically. X_init[c] > 0 for every c,
   # so the fused block increments the counter on every cell every iter.
   # (critical-code-reviewer R1: former K=4/n=5000 was RNG-fragile on empty-cell risk.)
-  Sys.setenv(LBW_IEPPA_FORCE_PATH = "linear")
-  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_PATH"), add = TRUE)
+  Sys.setenv(LBW_ORIS_FORCE_PATH = "linear")
+  on.exit(Sys.unsetenv("LBW_ORIS_FORCE_PATH"), add = TRUE)
   set.seed(991)
   n <- 100000L
   df <- data.frame(
@@ -239,7 +239,7 @@ test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused b
     a = c(a = 0.4, b = 0.35, c = 0.25),
     b = c(a = 0.4, b = 0.35, c = 0.25)
   )
-  res <- harvest(df, targets, method = "ieppa",
+  res <- harvest(df, targets, method = "oris",
                  max_weight = 5, min_weight = 0,
                  max_iterations = 20L,
                  convergence = list(absolute = 1e-300),
@@ -261,7 +261,7 @@ test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused b
 })
 
 test_that("WU-3: damped mode takes strictly more iters than stable on same input (spec §7)", {
-  # Use LBW_IEPPA_FORCE_DAMPING to run the SAME feasible input twice: once
+  # Use LBW_ORIS_FORCE_DAMPING to run the SAME feasible input twice: once
   # stable (alpha=1.0, fast path), once damped (alpha=0.5, geometric blend).
   # Spec §7 / CTO B5: monotone `iter_damped > iter_stable` assertion.
   set.seed(314)
@@ -276,17 +276,17 @@ test_that("WU-3: damped mode takes strictly more iters than stable on same input
   )
 
   run_one <- function(force_damping) {
-    Sys.setenv(LBW_IEPPA_FORCE_DAMPING = force_damping)
-    on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
+    Sys.setenv(LBW_ORIS_FORCE_DAMPING = force_damping)
+    on.exit(Sys.unsetenv("LBW_ORIS_FORCE_DAMPING"), add = TRUE)
     msgs <- capture.output(
-      res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+      res <- suppressWarnings(harvest(df, targets, method = "oris",
                                       max_weight = 10, min_weight = 0,
                                       max_iterations = 500L,
                                       convergence = list(absolute = 1e-5),
                                       verbose = 1L)),
       type = "output"
     )
-    # Final verbose line: "iEPPA <status> in <N> iters, errRp=..."
+    # Final verbose line: "ORIS <status> in <N> iters, errRp=..."
     m <- tail(grep("in [0-9]+ iters", msgs, value = TRUE), 1)
     iter <- as.integer(sub(".*in ([0-9]+) iters.*", "\\1", m))
     list(res = res, iter = iter)
@@ -305,7 +305,7 @@ test_that("P2.1: benign input keeps alpha == 1.0 (fast path)", {
   df <- data.frame(a = sample(letters[1:3], n, TRUE),
                    b = sample(letters[1:3], n, TRUE))
   targets <- list(a = c(a=0.33,b=0.33,c=0.34), b = c(a=0.33,b=0.33,c=0.34))
-  res <- harvest(df, targets, method = "ieppa",
+  res <- harvest(df, targets, method = "oris",
                  max_weight = 5, min_weight = 0,
                  max_iterations = 500L,
                  convergence = list(absolute = 1e-6),
@@ -326,7 +326,7 @@ test_that("P2.1: stress input engages damping (alpha < 1.0) with smooth schedule
     replicate(K, c(a=0.7, b=0.2, c=0.1), simplify=FALSE),
     paste0("m", 1:K)
   )
-  res <- suppressWarnings(harvest(df, targets, method = "ieppa",
+  res <- suppressWarnings(harvest(df, targets, method = "oris",
                                   max_weight = 3, min_weight = 0,
                                   max_iterations = 500L,
                                   convergence = list(absolute = 1e-4),
@@ -338,15 +338,15 @@ test_that("P2.1: stress input engages damping (alpha < 1.0) with smooth schedule
   expect_true(info$min_alpha_seen > 0.0)  # sanity: formula is bounded below
 })
 
-test_that("P2.1: LBW_IEPPA_FORCE_DAMPING=on forces alpha = 0.5", {
-  Sys.setenv(LBW_IEPPA_FORCE_DAMPING = "on")
-  on.exit(Sys.unsetenv("LBW_IEPPA_FORCE_DAMPING"), add = TRUE)
+test_that("P2.1: LBW_ORIS_FORCE_DAMPING=on forces alpha = 0.5", {
+  Sys.setenv(LBW_ORIS_FORCE_DAMPING = "on")
+  on.exit(Sys.unsetenv("LBW_ORIS_FORCE_DAMPING"), add = TRUE)
   set.seed(55)
   n <- 500L
   df <- data.frame(a = sample(letters[1:3], n, TRUE),
                    b = sample(letters[1:3], n, TRUE))
   targets <- list(a = c(a=0.33,b=0.33,c=0.34), b = c(a=0.33,b=0.33,c=0.34))
-  res <- harvest(df, targets, method = "ieppa",
+  res <- harvest(df, targets, method = "oris",
                  max_weight = 5, min_weight = 0,
                  max_iterations = 500L,
                  convergence = list(absolute = 1e-6),

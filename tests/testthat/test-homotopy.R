@@ -25,7 +25,7 @@ test_that("P-A homotopy achieves >=30pct errRp reduction vs baseline (tight-clam
   withr::with_envvar(
     c(LBW_TRAJECTORY_AT = probe_iters, LBW_TRAJECTORY_OUT = tmp_base),
     leafblower::harvest(data, target, max_weight = max_w,
-                        method = "ieppa",
+                        method = "oris",
                         max_iterations = 500,
                         convergence = list(absolute = 1e-12),
                         attach_weights = FALSE))
@@ -33,7 +33,7 @@ test_that("P-A homotopy achieves >=30pct errRp reduction vs baseline (tight-clam
   homo <- withr::with_envvar(
     c(LBW_TRAJECTORY_AT = probe_iters, LBW_TRAJECTORY_OUT = tmp_homo),
     leafblower::harvest(data, target, max_weight = max_w,
-                        method = "ieppa",
+                        method = "oris",
                         max_iterations = 500,
                         convergence = list(absolute = 1e-12),
                         homotopy_levels = 5,

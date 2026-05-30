@@ -12,13 +12,13 @@ test_that("greedy scheduler preserves feasibility and Pearson agreement", {
     c = c(A=0.1, B=0.2, C=0.3, D=0.4)
   )
   rr <- leafblower::harvest(data, target, max_weight = 4,
-                            method = "ieppa",
+                            method = "oris",
                             max_iterations = 200,
                             convergence = list(absolute = 1e-5),
                             scheduler = "round_robin",
                             attach_weights = FALSE)
   grd <- leafblower::harvest(data, target, max_weight = 4,
-                             method = "ieppa",
+                             method = "oris",
                              max_iterations = 200,
                              convergence = list(absolute = 1e-5),
                              scheduler = "greedy",
@@ -41,13 +41,13 @@ test_that("greedy uses fewer margin sweeps on 2-cat-heavy problem", {
     hardB = setNames(rep(0.1, 10), as.character(1:10))
   )
   rr <- leafblower::harvest(data, target, max_weight = 3,
-                            method = "ieppa",
+                            method = "oris",
                             max_iterations = 300,
                             convergence = list(absolute = 1e-4),
                             scheduler = "round_robin",
                             attach_weights = FALSE)
   grd <- leafblower::harvest(data, target, max_weight = 3,
-                             method = "ieppa",
+                             method = "oris",
                              max_iterations = 300,
                              convergence = list(absolute = 1e-4),
                              scheduler = "greedy",

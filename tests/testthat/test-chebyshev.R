@@ -52,7 +52,7 @@ test_that("T_cheby_warm: chebyshev K=3 converges with status=0 and max_err <= ra
 })
 
 test_that("T_cheby_warm_fallback: chebyshev returns finite result even with marginal warm-start", {
-  # With very few iterations, ieppa warm-start is weak but chebyshev should
+  # With very few iterations, oris warm-start is weak but chebyshev should
   # still return a finite (if not converged) result without crashing.
   set.seed(7); n <- 1000L
   df  <- data.frame(x=factor(sample(letters[1:3],n,TRUE)),

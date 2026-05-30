@@ -1,6 +1,6 @@
 library(leafblower)
 
-methods_to_test <- c("ieppa", "ieppa_soft", "raking", "greg",
+methods_to_test <- c("oris", "oris_soft", "raking", "greg",
                      "chebyshev", "sinkhorn", "auto", "greenkhorn", "logit")
 
 for (m in methods_to_test) {
@@ -37,7 +37,7 @@ test_that("AUTO path completes quickly on hard input (no lbfgsb hang)", {
   elapsed <- proc.time()["elapsed"] - t0
   expect_lt(elapsed, 15.0)
   alg     <- attr(r, "result")$algorithm
-  expect_true(alg %in% c("ieppa", "newton_kl", "raking"))
+  expect_true(alg %in% c("oris", "newton_kl", "raking"))
 })
 
 test_that("unknown method rejected by R layer (C++ kAlgMap fallback not reachable via harvest)", {

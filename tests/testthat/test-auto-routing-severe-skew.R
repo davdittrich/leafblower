@@ -1,7 +1,7 @@
 library(leafblower)
 
 # WH-g: AUTO routing target-skew gate (Epic-H).
-# Rule: K>=5 + M_cell/n>0.9 + target_skew>5 -> ieppa+sraa (else newton_kl).
+# Rule: K>=5 + M_cell/n>0.9 + target_skew>5 -> oris+sraa (else newton_kl).
 # Fixtures use K=5 with 5-cat margins and n=300 to force M_cell/n ~ 1.0
 # (5^5 = 3125 possible cells, ~300 unique tuples in random sample).
 
@@ -15,7 +15,7 @@ make_zero_compress_df <- function(seed = 1L, n = 300L, K = 5L, ncat = 5L) {
   df
 }
 
-test_that("WH-g: AUTO routes severe-skew K>=5 to ieppa", {
+test_that("WH-g: AUTO routes severe-skew K>=5 to oris", {
   df <- make_zero_compress_df(seed = 1L)
   # Severe skew per margin: max/min = 0.7/0.075 = 9.33 > 5
   tgt <- lapply(df, function(f) {
@@ -25,8 +25,8 @@ test_that("WH-g: AUTO routes severe-skew K>=5 to ieppa", {
   r <- suppressWarnings(harvest(df, tgt, method = "auto",
     max_weight = 10, min_weight = 0,
     max_iterations = 200L, attach_weights = FALSE, verbose = 0L))
-  expect_equal(attr(r, "algorithm"), "ieppa",
-    label = sprintf("WH-g severe-skew K=5: expected ieppa got %s",
+  expect_equal(attr(r, "algorithm"), "oris",
+    label = sprintf("WH-g severe-skew K=5: expected oris got %s",
                     attr(r, "algorithm")))
 })
 
@@ -50,7 +50,7 @@ test_that("WH-g: AUTO keeps moderate-skew K>=5 on newton_kl", {
 # > and diverged at the EXACT boundary M_cell/n == 0.9. This fixture is
 # engineered so estimate_M_cell == 18 over n == 20 rows => 18*10 == 20*9 == 180,
 # i.e. M_cell/n == 0.9 exactly. With K>=5 and moderate skew the >= branch must
-# select newton_kl (the compressed-iEPPA branch only fires when 0.9 is NOT met).
+# select newton_kl (the compressed-ORIS branch only fires when 0.9 is NOT met).
 make_boundary_df <- function() {
   cats <- letters[1:5]; K <- 5L
   # 18 distinct 5-tuples (deterministic, no RNG, all 5 levels per margin).
@@ -82,7 +82,7 @@ test_that("PAR.1: AUTO at exact M_cell/n==0.9 boundary routes via >= (parity wit
     max_weight = 20, min_weight = 0,
     max_iterations = 200L, attach_weights = FALSE, verbose = 0L))
   # >= branch -> K>=5 + moderate skew -> newton_kl. The buggy > branch would
-  # fall through to the compressed-iEPPA path and return "ieppa".
+  # fall through to the compressed-ORIS path and return "oris".
   expect_equal(attr(r, "algorithm"), "newton_kl",
     label = sprintf("PAR.1 boundary: expected newton_kl (>= branch) got %s",
                     attr(r, "algorithm")))
@@ -91,7 +91,7 @@ test_that("PAR.1: AUTO at exact M_cell/n==0.9 boundary routes via >= (parity wit
 test_that("WH-g: AUTO with min_target=0 takes severe-skew branch (no div-by-zero)", {
   df <- make_zero_compress_df(seed = 3L)
   # min target == 0: floor at 1e-12 forces target_skew large -> severe-skew
-  # branch. ieppa may NOCONV on infeasible target; auto-fallback -> newton_kl.
+  # branch. oris may NOCONV on infeasible target; auto-fallback -> newton_kl.
   # Either path is acceptable; the test checks NO CRASH and NOT-raking.
   tgt <- lapply(df, function(f) {
     p <- c(0.55, 0.30, 0.10, 0.05, 0.0)
@@ -101,7 +101,7 @@ test_that("WH-g: AUTO with min_target=0 takes severe-skew branch (no div-by-zero
     max_weight = 10, min_weight = 0,
     max_iterations = 300L, attach_weights = FALSE, verbose = 0L))
   alg <- attr(r, "algorithm")
-  expect_true(alg %in% c("ieppa", "newton_kl"),
+  expect_true(alg %in% c("oris", "newton_kl"),
     label = sprintf("WH-g zero-min-target: must not crash and not route raking; got %s",
                     alg))
 })

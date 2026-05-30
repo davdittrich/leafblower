@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# run_ieppa_soft_r.R — T5 parity helper: ieppa_soft at tol=1e-4, max_weight=5
+# run_oris_soft_r.R — T5 parity helper: oris_soft at tol=1e-4, max_weight=5
 # Args: <data_csv> <targets_json> <out_csv>
 # out_csv columns: weight, iterations, status
 
@@ -30,7 +30,7 @@ tgt  <- lapply(tgt, function(x) {
 
 res <- harvest(
   df, tgt,
-  method         = "ieppa_soft",
+  method         = "oris_soft",
   min_weight     = 0,
   max_weight     = 5,
   max_iterations = 1000,

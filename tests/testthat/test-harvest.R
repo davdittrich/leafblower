@@ -12,14 +12,14 @@ test_that("method='nr' emits deprecation warning routing to newton_kl", {
   expect_warning(leafblower::harvest(df, tgt, method="nr", convergence = list(absolute = 1e-6)), regexp = "Newton-Raphson.*newton_kl")
 })
 
-test_that("default routing selects iEPPA for large complexity", {
+test_that("default routing selects ORIS for large complexity", {
   set.seed(1)
   n   <- 200000L
   df  <- data.frame(x = factor(sample(c("a","b","c"), n, replace=TRUE)))
   tgt <- list(x = c(a=0.33, b=0.34, c=0.33))
-  # iEPPA is the default; no method arg needed
+  # oris is the default; no method arg needed
   result <- harvest(df, tgt, convergence = list(absolute = 1e-6))
-  expect_identical(attr(result, "algorithm"), "ieppa")
+  expect_identical(attr(result, "algorithm"), "oris")
 })
 
 test_that("convergence$absolute is forwarded to solver", {
@@ -38,14 +38,14 @@ test_that("convergence$absolute is forwarded to solver", {
   # 2 iterations with default tol (1e-6): competing margins cannot converge -> warning
   # BUDGET(4) is emitted when iterations exhaust but metric improved at some point.
   expect_warning(
-    harvest(df, tgt, method="ieppa", max_iterations=2, convergence = list(absolute = 1e-6)),
+    harvest(df, tgt, method="oris", max_iterations=2, convergence = list(absolute = 1e-6)),
     regexp="budget exhausted"
   )
   # 2 iterations with loose tol (0.3): error after 2 iters < 0.3 -> no warning
   # Before fix: tol_abs ignored, tol=1e-6 used, warning fires -> test fails
   # After fix:  tol_abs=0.3 forwarded, error < 0.3 accepted -> no warning
   expect_no_warning(
-    harvest(df, tgt, method="ieppa", max_iterations=2,
+    harvest(df, tgt, method="oris", max_iterations=2,
             convergence=list(absolute=0.3))
   )
 })
@@ -74,7 +74,7 @@ test_that("infeasible problem (empty cell with positive target) stops with infea
   df  <- data.frame(x = factor(c("a", "a", "a"), levels = c("a", "b")))
   tgt <- list(x = c(a = 0.6, b = 0.4))
   expect_error(
-    harvest(df, tgt, method = "ieppa", convergence = list(absolute = 1e-6)),
+    harvest(df, tgt, method = "oris", convergence = list(absolute = 1e-6)),
     regexp = "infeasible problem"
   )
 })
@@ -88,7 +88,7 @@ test_that("K > 64 rejected with informative error", {
   # Targets: each column has 1 category, target = 1
   tgt <- lapply(seq_len(65), function(k) setNames(1.0, "0"))
   names(tgt) <- names(data)
-  expect_error(harvest(data, tgt, method = "ieppa", convergence = list(absolute = 1e-6)),
+  expect_error(harvest(data, tgt, method = "oris", convergence = list(absolute = 1e-6)),
                regexp = "K.*64|too many margin", ignore.case = TRUE)
 })
 
@@ -97,7 +97,7 @@ test_that("cat_counts <= 0 rejected", {
   n <- 100
   data <- data.frame(a = sample(c("x", "y"), n, replace = TRUE))
   tgt <- list(a = setNames(numeric(0), character(0)))
-  expect_error(harvest(data, tgt, method = "ieppa", convergence = list(absolute = 1e-6)),
+  expect_error(harvest(data, tgt, method = "oris", convergence = list(absolute = 1e-6)),
                regexp = "cat_counts|empty target|no categories", ignore.case = TRUE)
 })
 
@@ -106,7 +106,7 @@ test_that("zero-sum input weights rejected", {
   data <- data.frame(a = sample(c("x", "y"), n, replace = TRUE))
   tgt <- list(a = c(x = 0.5, y = 0.5))
   sw <- rep(0.0, n)
-  expect_error(harvest(data, tgt, method = "ieppa", start_weights = sw,
+  expect_error(harvest(data, tgt, method = "oris", start_weights = sw,
                        convergence = list(absolute = 1e-6)),
                regexp = "start_weights.*positive|sum.*zero", ignore.case = TRUE)
 })
@@ -158,7 +158,7 @@ test_that("B13: partial NA (some obs assigned) does not trigger INFEAS", {
   )
 })
 
-test_that("R4: K=9 with 2 cats each routes to iEPPA via AUTO (not raking)", {
+test_that("R4: K=9 with 2 cats each routes to oris via AUTO (not raking)", {
   set.seed(42)
   n <- 10000L
   cats <- paste0("m", 1:9)
@@ -168,6 +168,6 @@ test_that("R4: K=9 with 2 cats each routes to iEPPA via AUTO (not raking)", {
   tgt <- setNames(lapply(cats, function(nm) c(a=0.5, b=0.5)), cats)
   result <- harvest(df, tgt, method="auto", convergence=list(absolute=1e-3))
   alg <- attr(result, "algorithm")
-  expect_true(grepl("ieppa", alg, ignore.case=TRUE),
-    info = paste("Expected ieppa but got", alg))
+  expect_true(grepl("oris", alg, ignore.case=TRUE),
+    info = paste("Expected oris but got", alg))
 })

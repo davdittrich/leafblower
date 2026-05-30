@@ -106,13 +106,13 @@ saveRDS(intermediate, file.path(OUT_DIR, "stepstone_reference_autumn_only.rds"))
 cat("  autumn intermediate saved.\n")
 
 # =============================================================
-# 2. leafblower::harvest (ieppa) — same params, for comparison
+# 2. leafblower::harvest (oris) — same params, for comparison
 # Qualified explicitly — autumn also exports harvest().
 # =============================================================
-cat("\n=== leafblower::harvest (ieppa, same params for comparison) ===\n")
+cat("\n=== leafblower::harvest (oris, same params for comparison) ===\n")
 t0 <- Sys.time()
 r_lb <- suppressWarnings(
-  leafblower::harvest(df, tgt, method="ieppa",
+  leafblower::harvest(df, tgt, method="oris",
           max_weight=MAX_WEIGHT, min_weight=0,
           max_iterations=MAX_ITER,
           convergence=list(absolute=1e-10),

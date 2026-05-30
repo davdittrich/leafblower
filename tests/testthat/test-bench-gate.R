@@ -41,7 +41,7 @@ test_that("kk1204 gate: n=500k K=20 converges in <30s with best_error<1e-3", {
   t0 <- proc.time()["elapsed"]
   w <- leafblower::harvest(
     data_kk, target_kk, max_weight = 3,
-    method = "ieppa",
+    method = "oris",
     max_iterations = 500,
     attach_weights = FALSE)
   elapsed <- proc.time()["elapsed"] - t0

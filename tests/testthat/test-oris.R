@@ -1,17 +1,17 @@
-context("ieppa (faithful algBCD)")
+context("oris (faithful algBCD)")
 
-test_that("iEPPA converges: 1 margin, 2 cats, no bounds", {
+test_that("ORIS converges: 1 margin, 2 cats, no bounds", {
   set.seed(42)
   n   <- 100L
   df  <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE, prob=c(0.7,0.3))))
   tgt <- list(x = c(a=0.5, b=0.5))
-  result <- harvest(df, tgt, method="ieppa", convergence = list(absolute = 1e-6))
-  expect_true(attr(result, "algorithm") == "ieppa")
+  result <- harvest(df, tgt, method="oris", convergence = list(absolute = 1e-6))
+  expect_true(attr(result, "algorithm") == "oris")
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
 
-test_that("iEPPA respects max_weight=2 on tight bounds", {
+test_that("ORIS respects max_weight=2 on tight bounds", {
   set.seed(7)
   n   <- 10000L
   df  <- data.frame(
@@ -24,31 +24,31 @@ test_that("iEPPA respects max_weight=2 on tight bounds", {
     sex = c(M=0.50, F=0.50),
     edu = c(HS=0.35, Col=0.45, Grad=0.20)
   )
-  result <- harvest(df, tgt, method="ieppa", max_weight=2, convergence = list(absolute = 1e-6))
+  result <- harvest(df, tgt, method="oris", max_weight=2, convergence = list(absolute = 1e-6))
   expect_true(max(result$weights) <= 2.0 + 1e-8)
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
 
-test_that("iEPPA respects min_weight=0.5", {
+test_that("ORIS respects min_weight=0.5", {
   set.seed(3)
   n   <- 10000L
   df  <- data.frame(
     x = factor(sample(c("a","b","c","d","e"), n, replace=TRUE))
   )
   tgt <- list(x = c(a=0.2, b=0.2, c=0.2, d=0.2, e=0.2))
-  result <- harvest(df, tgt, method="ieppa", min_weight=0.5, max_weight=5, convergence = list(absolute = 1e-6))
+  result <- harvest(df, tgt, method="oris", min_weight=0.5, max_weight=5, convergence = list(absolute = 1e-6))
   expect_true(min(result$weights) >= 0.5 - 1e-8)
   diag <- diagnose_weights(result, tgt, result$weights)
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
 
-test_that("iEPPA output weights have mean=1 and respect bounds", {
+test_that("ORIS output weights have mean=1 and respect bounds", {
   set.seed(5L)
   n   <- 1000L
   df  <- data.frame(x = factor(sample(c("a", "b", "c"), n, replace = TRUE)))
   tgt <- list(x = c(a = 0.5, b = 0.3, c = 0.2))
-  res <- leafblower::harvest(df, tgt, method = "ieppa",
+  res <- leafblower::harvest(df, tgt, method = "oris",
                               max_weight = 2.0, min_weight = 0.2,
                               convergence = list(absolute = 1e-6),
                               attach_weights = FALSE)
@@ -66,7 +66,7 @@ test_that("B11: X_prev initialized from X_init not zeros on first homotopy level
   result <- harvest(
     data.frame(x = factor(c("A","A","B","B","B")), w=rep(1,5)),
     target = list(x = c(A=0.4, B=0.6)),
-    method = "ieppa",
+    method = "oris",
     max_iterations = 5L,
     convergence = list(rule="improvement", pct=0.5)
   )
@@ -74,7 +74,7 @@ test_that("B11: X_prev initialized from X_init not zeros on first homotopy level
   expect_lte(attr(result,"result")$iterations, 3L)
 })
 
-test_that("B12: ieppa greedy scheduler produces finite errRp (not 0 sentinel) on non-trivial input", {
+test_that("B12: oris greedy scheduler produces finite errRp (not 0 sentinel) on non-trivial input", {
   # With bug: compute_margin_errRp_linear/log returned 0.0 when W_total<=0,
   # signalling false perfect convergence to greedy scheduler.
   # With fix: returns Inf, so greedy correctly selects max-error margin.
@@ -88,7 +88,7 @@ test_that("B12: ieppa greedy scheduler produces finite errRp (not 0 sentinel) on
   result <- harvest(
     df,
     target = list(x=c(A=0.5,B=0.5), y=c(P=0.5,Q=0.5)),
-    method = "ieppa",
+    method = "oris",
     scheduler = "greedy",
     max_iterations = 50L,
     convergence = list(absolute = 1e-4)

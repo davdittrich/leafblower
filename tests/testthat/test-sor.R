@@ -15,7 +15,7 @@ test_that("A3: SOR auto triggers on oscillatory tight-clamp synthetic", {
     v4 = c(p=0.7, q=0.3),
     v5 = c(a=0.05,b=0.05,c=0.5,d=0.2,e=0.15,f=0.05)
   )
-  w <- leafblower::harvest(data, target, max_weight = 1.5, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 1.5, method = "oris",
                            max_iterations = 1000,
                            convergence = list(absolute = 1e-6),
                            sor = list(auto = TRUE, omega_min = 0.3),
@@ -32,7 +32,7 @@ test_that("A4: SOR silent on smooth input — no damping", {
     b = factor(sample(c("1","2"), n, replace = TRUE))
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
-  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
                            max_iterations = 500,
                            sor = list(auto = TRUE, omega_min = 0.3),
                            attach_weights = FALSE)

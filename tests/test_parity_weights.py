@@ -71,7 +71,7 @@ def _r_weights(data_csv, targets_json, method, out_csv, max_iter=1000):
 
 @pytest.mark.skipif(not RSCRIPT_AVAILABLE, reason="Rscript not found")
 @pytest.mark.parametrize("method", [
-    "greenkhorn", "logit", "raking", "ieppa", "sinkhorn", "newton_kl",
+    "greenkhorn", "logit", "raking", "oris", "sinkhorn", "newton_kl",
 ])
 def test_weight_parity(method, tmp_path):
     df, tgt, data_csv, targets_json = _make_synthetic(tmp_path)
@@ -97,13 +97,13 @@ def test_weight_parity(method, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# T5: ieppa_soft parity regression — locks T4 harmonization (ae09943)
+# T5: oris_soft parity regression — locks T4 harmonization (ae09943)
 # ---------------------------------------------------------------------------
 
-_IEPPA_SOFT_R_HELPER = REPO_ROOT / "tests" / "parity" / "run_ieppa_soft_r.R"
+_ORIS_SOFT_R_HELPER = REPO_ROOT / "tests" / "parity" / "run_oris_soft_r.R"
 
 # Convergence params — identical in R helper and Python call below.
-_IEPPA_SOFT_CONV = {"metric": "max_err", "rule": "improvement", "tol": 1e-4}
+_ORIS_SOFT_CONV = {"metric": "max_err", "rule": "improvement", "tol": 1e-4}
 
 
 def _make_correlated_fixture(tmp_path, n=5000, K=9, n_levels=5, n_clusters=50, seed=42):
@@ -144,8 +144,8 @@ def _make_correlated_fixture(tmp_path, n=5000, K=9, n_levels=5, n_clusters=50, s
 
 
 @pytest.mark.skipif(not RSCRIPT_AVAILABLE, reason="Rscript not found")
-def test_ieppa_soft_default_tol_parity(tmp_path):
-    """R and Python must agree on capacity_mu and weights for ieppa_soft at tol=1e-4.
+def test_oris_soft_default_tol_parity(tmp_path):
+    """R and Python must agree on capacity_mu and weights for oris_soft at tol=1e-4.
 
     Fixture: synthetic, K=9 margins with 50 unique interaction cells from n=5000
     rows. This triggers >= 20 outer iterations at tol=1e-4.
@@ -162,7 +162,7 @@ def test_ieppa_soft_default_tol_parity(tmp_path):
     also passes post-T4 (and coincidentally pre-T4 too — it is not the gate).
     """
     df, tgt, data_csv, targets_json = _make_correlated_fixture(tmp_path)
-    out_csv = tmp_path / "ieppa_soft_r_out.csv"
+    out_csv = tmp_path / "oris_soft_r_out.csv"
 
     _single_thread_env = {
         **os.environ,
@@ -171,7 +171,7 @@ def test_ieppa_soft_default_tol_parity(tmp_path):
         "MKL_NUM_THREADS": "1",
     }
     result = subprocess.run(
-        ["Rscript", str(_IEPPA_SOFT_R_HELPER),
+        ["Rscript", str(_ORIS_SOFT_R_HELPER),
          str(data_csv), str(targets_json), str(out_csv)],
         capture_output=True, text=True, timeout=180,
         env=_single_thread_env,
@@ -190,11 +190,11 @@ def test_ieppa_soft_default_tol_parity(tmp_path):
     # --- Python in-proc ---
     py_res      = harvest(
         df, tgt,
-        method         = "ieppa_soft",
+        method         = "oris_soft",
         min_weight     = 0,
         max_weight     = 5,
         max_iterations = 1000,
-        convergence    = _IEPPA_SOFT_CONV,
+        convergence    = _ORIS_SOFT_CONV,
         verbose        = 0,
         attach_weights = False,
     )
@@ -214,11 +214,11 @@ def test_ieppa_soft_default_tol_parity(tmp_path):
     # Post-T4 R uses estimate_M_cell → same as Python (1.0 for K>8, M_cell >= n).
     cap_mu_diff = abs(cap_mu_r - cap_mu_py)
     print(
-        f"\n  ieppa_soft: alm_capacity_mu_final R={cap_mu_r:.6f} Py={cap_mu_py:.6f} "
+        f"\n  oris_soft: alm_capacity_mu_final R={cap_mu_r:.6f} Py={cap_mu_py:.6f} "
         f"diff={cap_mu_diff:.2e}  iters_R={iters_r}  iters_Py={iters_py}  status={status_r}"
     )
     assert cap_mu_diff < 1e-9, (
-        f"ieppa_soft capacity_mu MISMATCH: R={cap_mu_r:.6f} Py={cap_mu_py:.6f} "
+        f"oris_soft capacity_mu MISMATCH: R={cap_mu_r:.6f} Py={cap_mu_py:.6f} "
         f"diff={cap_mu_diff:.2e} — "
         "R r_bridge.cpp is using build_cell_table instead of estimate_M_cell. "
         "Apply T4 fix ae09943 (harmonize R to estimate_M_cell path)."
@@ -226,22 +226,22 @@ def test_ieppa_soft_default_tol_parity(tmp_path):
 
     # --- Same status ---
     assert status_r == status_py, (
-        f"ieppa_soft: status mismatch — R={status_r}, Python={status_py}"
+        f"oris_soft: status mismatch — R={status_r}, Python={status_py}"
     )
 
     # --- Same iter count ---
     assert iters_r == iters_py, (
-        f"ieppa_soft: iter count mismatch — R={iters_r}, Python={iters_py} "
+        f"oris_soft: iter count mismatch — R={iters_r}, Python={iters_py} "
         f"(capacity_mu_R={cap_mu_r:.4f}; check r_bridge.cpp harmonization)"
     )
 
     # --- Weight vector parity ---
     assert len(w_r) == len(w_py), (
-        f"ieppa_soft: weight vector length mismatch — R={len(w_r)}, Python={len(w_py)}"
+        f"oris_soft: weight vector length mismatch — R={len(w_r)}, Python={len(w_py)}"
     )
     max_abs_diff = np.max(np.abs(w_r - w_py))
     assert max_abs_diff < 1e-6, (
-        f"ieppa_soft parity FAIL: max|w_R - w_Py| = {max_abs_diff:.2e} >= 1e-6 "
+        f"oris_soft parity FAIL: max|w_R - w_Py| = {max_abs_diff:.2e} >= 1e-6 "
         f"(iters_R={iters_r}, iters_Py={iters_py}, cap_mu_diff={cap_mu_diff:.2e}; "
         "check capacity_mu harmonization in r_bridge.cpp — see T4 fix ae09943)"
     )
@@ -267,7 +267,7 @@ def test_chebyshev_default_tol_parity(tmp_path):
     """R and Python must agree on weights, iter count, and status for chebyshev at tol=1e-4.
 
     Fixture: K=9 margins with 50 unique interaction cells from n=5000 rows
-    (reuses _make_correlated_fixture from yh0l T5).  The K=9 warm-start ieppa
+    (reuses _make_correlated_fixture from yh0l T5).  The K=9 warm-start oris
     uses inner_max_iter = max(5, min(100, max_iterations/10)).
 
     WHY max_iterations=40:

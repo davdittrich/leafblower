@@ -1,4 +1,4 @@
-test_that("iEPPA converges: 1 margin, 2 cats, no bounds", {
+test_that("raking converges: 1 margin, 2 cats, no bounds", {
   set.seed(42)
   n   <- 100L
   df  <- data.frame(x = factor(sample(c("a","b"), n, replace=TRUE, prob=c(0.7,0.3))))
@@ -9,7 +9,7 @@ test_that("iEPPA converges: 1 margin, 2 cats, no bounds", {
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
 
-test_that("iEPPA respects max_weight=2 on tight bounds", {
+test_that("raking respects max_weight=2 on tight bounds", {
   set.seed(7)
   n   <- 10000L
   df  <- data.frame(
@@ -28,7 +28,7 @@ test_that("iEPPA respects max_weight=2 on tight bounds", {
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
 
-test_that("iEPPA respects min_weight=0.5", {
+test_that("raking respects min_weight=0.5", {
   set.seed(3)
   n   <- 10000L
   df  <- data.frame(
@@ -41,7 +41,7 @@ test_that("iEPPA respects min_weight=0.5", {
   expect_true(all(abs(diag$error_weighted) < 1e-6))
 })
 
-test_that("iEPPA output weights have mean=1 and respect bounds", {
+test_that("raking output weights have mean=1 and respect bounds", {
   set.seed(5L)
   n   <- 1000L
   df  <- data.frame(x = factor(sample(c("a", "b", "c"), n, replace = TRUE)))

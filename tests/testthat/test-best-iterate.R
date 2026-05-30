@@ -1,4 +1,4 @@
-test_that("A5: best_error <= max_error for iEPPA", {
+test_that("A5: best_error <= max_error for oris", {
   set.seed(42)
   n <- 1000
   data <- data.frame(
@@ -6,7 +6,7 @@ test_that("A5: best_error <= max_error for iEPPA", {
     b = factor(sample(c("1", "2"), n, replace = TRUE))
   )
   target <- list(a = c("1" = 0.5, "2" = 0.5), b = c("1" = 0.5, "2" = 0.5))
-  w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "oris",
                            max_iterations = 200,
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
@@ -37,7 +37,7 @@ test_that("A5: best_weights is obs-level, length n, sum normalized to n", {
   n <- 1000
   data <- data.frame(a = factor(sample(c("1", "2"), n, replace = TRUE)))
   target <- list(a = c("1" = 0.5, "2" = 0.5))
-  w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "oris",
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
   result <- attr(w, "result")
@@ -58,7 +58,7 @@ test_that("A6: stepstone best-iterate within 5% of reference", {
     v <- unlist(x)
     v / sum(v)
   })
-  w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "oris",
                            max_iterations = 3000,
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
@@ -78,7 +78,7 @@ test_that("z8wx: best_weights sum=n and best_error<=max_error with homotopy_leve
     a = c("1"=0.4, "2"=0.4, "3"=0.2),
     b = c("1"=0.25, "2"=0.25, "3"=0.25, "4"=0.25)
   )
-  w <- leafblower::harvest(data, target, max_weight = 2, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 2, method = "oris",
                            max_iterations = 300,
                            homotopy_levels = 3L,
                            homotopy_start_factor = 4.0,
@@ -96,7 +96,7 @@ test_that("qbsf: best_iter is positive (cumulative counter confirmed)", {
   n <- 500
   data <- data.frame(a = factor(sample(c("1","2","3"), n, replace = TRUE)))
   target <- list(a = c("1"=0.4, "2"=0.4, "3"=0.2))
-  w <- leafblower::harvest(data, target, max_weight = 2, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 2, method = "oris",
                            max_iterations = 100,
                            convergence = list(absolute = 1e-10),
                            attach_weights = FALSE)
@@ -107,7 +107,7 @@ test_that("qbsf: best_iter is positive (cumulative counter confirmed)", {
 
 test_that("g4oj: best_iter tracks active metric (kl vs max_err differ)", {
   # Use raking with max_iterations=3 (no convergence) so both solvers stop mid-run,
-  # ensuring KL != errRp at the best snapshot.  iEPPA converges in <5 iters on this
+  # ensuring KL != errRp at the best snapshot.  ORIS converges in <5 iters on this
   # dataset, collapsing both metrics to float-zero and making the assertion vacuous.
   set.seed(42)
   n <- 1000

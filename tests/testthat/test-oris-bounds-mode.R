@@ -12,13 +12,13 @@ skewed_d_input <- function(n = 500L, seed = 404) {
 
 test_that("P3.1: default bounds_mode='cell' preserves current behaviour", {
   fx <- skewed_d_input()
-  res_default <- harvest(fx$df, fx$targets, method = "ieppa",
+  res_default <- harvest(fx$df, fx$targets, method = "oris",
                          max_weight = 3, min_weight = 0.3,
                          design_weights = fx$df$design_weight,
                          max_iterations = 500L,
                          convergence = list(absolute = 1e-5),
                          attach_weights = FALSE)
-  res_explicit <- harvest(fx$df, fx$targets, method = "ieppa",
+  res_explicit <- harvest(fx$df, fx$targets, method = "oris",
                           max_weight = 3, min_weight = 0.3,
                           design_weights = fx$df$design_weight,
                           bounds_mode = "cell",
@@ -31,7 +31,7 @@ test_that("P3.1: default bounds_mode='cell' preserves current behaviour", {
 test_that("P3.1: cell-mode emits warning + n_bounds_violated > 0 on skewed-d", {
   fx <- skewed_d_input()
   expect_warning(
-    res <- harvest(fx$df, fx$targets, method = "ieppa",
+    res <- harvest(fx$df, fx$targets, method = "oris",
                    max_weight = 3, min_weight = 0.3,
                    design_weights = fx$df$design_weight,
                    bounds_mode = "cell",
@@ -47,7 +47,7 @@ test_that("P3.1: cell-mode emits warning + n_bounds_violated > 0 on skewed-d", {
 
 test_that("P3.1: unit-mode produces strict per-obs bounds (skewed-d, < 0.001·n clamps)", {
   fx <- skewed_d_input()
-  res <- harvest(fx$df, fx$targets, method = "ieppa",
+  res <- harvest(fx$df, fx$targets, method = "oris",
                  max_weight = 3, min_weight = 0.3,
                  design_weights = fx$df$design_weight,
                  bounds_mode = "unit",
@@ -78,7 +78,7 @@ test_that("P3.1: unit-mode on benign uniform-d input produces ZERO clamps (spec 
   # Uniform design weights (all 1.0). Feasible targets.
   targets <- list(a = c(a = 1/3, b = 1/3, c = 1/3),
                   b = c(a = 1/3, b = 1/3, c = 1/3))
-  res <- harvest(df, targets, method = "ieppa",
+  res <- harvest(df, targets, method = "oris",
                  max_weight = 3, min_weight = 0.2,
                  bounds_mode = "unit",
                  max_iterations = 500L,
@@ -93,7 +93,7 @@ test_that("P3.1: unit-mode on benign uniform-d input produces ZERO clamps (spec 
 test_that("leafblower-kssd: n_bounds_clamped counts normal-path clamps accurately", {
   # Pre-leafblower-kssd fix, counter only bumped on pathological paths
   # (n_free==0 and budget-exhausted). Normal redistribute-path clamps
-  # at src/ieppa.cpp:585,589 produced n_bounds_clamped=0 despite real
+  # at src/oris.cpp:585,589 produced n_bounds_clamped=0 despite real
   # clamps. This test exercises the normal path explicitly: cell "a"
   # has 20 obs with high design_weight (will exceed max_weight) and 80
   # obs with lower design_weight (stay free) — water-fill redistributes
@@ -105,7 +105,7 @@ test_that("leafblower-kssd: n_bounds_clamped counts normal-path clamps accuratel
   design <- c(rep(5.0, 20), rep(0.8, 80), rep(1.0, 200))
   df <- data.frame(a = factor(cat_a))
   tgt <- list(a = c(a = 1/3, b = 1/3, c = 1/3))
-  res <- harvest(df, tgt, method = "ieppa",
+  res <- harvest(df, tgt, method = "oris",
                  max_weight = 1.5, min_weight = 0.3,
                  design_weights = design,
                  bounds_mode = "unit",
@@ -132,7 +132,7 @@ test_that("leafblower-6s1o: three-way scan preserves bounds + keeps cell sums ne
   design <- c(rep(4.0, 50), rep(1.2, 50), rep(1.0, 100))
   df <- data.frame(a = factor(cat_a))
   tgt <- list(a = c(a = 0.5, b = 0.5))
-  res <- harvest(df, tgt, method = "ieppa",
+  res <- harvest(df, tgt, method = "oris",
                  max_weight = 1.5, min_weight = 0.3,
                  design_weights = design,
                  bounds_mode = "unit",
@@ -152,7 +152,7 @@ test_that("leafblower-6s1o: three-way scan preserves bounds + keeps cell sums ne
 test_that("P3.1: invalid bounds_mode raises clear error", {
   fx <- skewed_d_input()
   expect_error(
-    harvest(fx$df, fx$targets, method = "ieppa", bounds_mode = "invalid"),
+    harvest(fx$df, fx$targets, method = "oris", bounds_mode = "invalid"),
     regexp = "should be one of"  # match.arg message
   )
 })
@@ -163,7 +163,7 @@ test_that("P3.1: cross-language ABI — raw integer bounds_mode agrees with stri
   # We bypass the R helper by passing bounds_mode_int=1L directly.
   fx <- skewed_d_input()
   # Reference run via string path.
-  res_string <- harvest(fx$df, fx$targets, method = "ieppa",
+  res_string <- harvest(fx$df, fx$targets, method = "oris",
                         max_weight = 3, min_weight = 0.3,
                         design_weights = fx$df$design_weight,
                         bounds_mode = "unit",
@@ -179,7 +179,7 @@ test_that("P3.1: cross-language ABI — raw integer bounds_mode agrees with stri
   expect_equal(match("cell", c("cell", "unit")) - 1L, 0L)
   # End-to-end: re-run with the string path and verify output matches the first run bit-for-bit
   # (determinism under identical args; tautology unless the integer mapping broke).
-  res_again <- harvest(fx$df, fx$targets, method = "ieppa",
+  res_again <- harvest(fx$df, fx$targets, method = "oris",
                        max_weight = 3, min_weight = 0.3,
                        design_weights = fx$df$design_weight,
                        bounds_mode = "unit",

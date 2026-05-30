@@ -14,7 +14,7 @@ test_that("T1b: convergence_used$solver_objective and $minimized_metric present"
   set.seed(1)
   data <- data.frame(a=factor(sample(c("1","2"),200,TRUE)))
   target <- list(a=c("1"=0.5,"2"=0.5))
-  w <- leafblower::harvest(data, target, max_weight=3, method="ieppa",
+  w <- leafblower::harvest(data, target, max_weight=3, method="oris",
                            attach_weights=FALSE)
   r <- attr(w, "result")
   expect_true("solver_objective" %in% names(r$convergence_used))
@@ -22,29 +22,29 @@ test_that("T1b: convergence_used$solver_objective and $minimized_metric present"
   expect_true(is.finite(r$convergence_used$solver_objective))
 })
 
-test_that("T3: ieppa default convergence is kl+improvement", {
+test_that("T3: oris default convergence is kl+improvement", {
   set.seed(42)
   data <- data.frame(
     a = factor(sample(c("1","2","3"), 500, replace=TRUE)),
     b = factor(sample(c("1","2"), 500, replace=TRUE))
   )
   target <- list(a=c("1"=1/3,"2"=1/3,"3"=1/3), b=c("1"=0.5,"2"=0.5))
-  w <- leafblower::harvest(data, target, max_weight=10, method="ieppa",
+  w <- leafblower::harvest(data, target, max_weight=10, method="oris",
                            max_iterations=500, attach_weights=FALSE)
   r <- attr(w, "result")
   expect_equal(r$convergence_used$metric, "marginal_kl",
-               info="ieppa default metric must be 'marginal_kl' (Task 0 convergence overlay)")
+               info="oris default metric must be 'marginal_kl' (Task 0 convergence overlay)")
   expect_equal(r$convergence_used$rule, "improvement")
 })
 
-test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
+test_that("A1: sinkhorn KL <= oris KL at best_iter", {
   skip_on_cran()
   skip_if_not_installed("arrow")
   skip_if_not_installed("jsonlite")
   skip_if(!file.exists("benchmarks/stepstone_fulldata_bench_data.parquet"),
           "stepstone benchmark data not available")
-  ref_path <- test_path("fixtures/ieppa_kl_reference_stepstone.rds")
-  skip_if(!file.exists(ref_path), "ieppa KL reference fixture not generated yet")
+  ref_path <- test_path("fixtures/oris_kl_reference_stepstone.rds")
+  skip_if(!file.exists(ref_path), "oris KL reference fixture not generated yet")
   ref <- readRDS(ref_path)
 
   # No unconditional skip — test FAILS with "sinkhorn not yet implemented"
@@ -63,7 +63,7 @@ test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
   )
   r_s <- attr(w_s, "result")
   expect_lte(attr(w_s, "result")$convergence_used$solver_objective, ref$kl_at_best_iter,
-             label="sinkhorn KL <= ieppa best_iter KL")
+             label="sinkhorn KL <= oris best_iter KL")
   expect_equal(r_s$status, 0L, label="sinkhorn must converge")
   expect_equal(r_s$convergence_used$fired_at_iter, r_s$iterations,
                label="A7: sinkhorn best_iter == last_iter (monotone)")
@@ -71,7 +71,7 @@ test_that("A1: sinkhorn KL <= ieppa KL at best_iter", {
 
 test_that("T-routing: AUTO uses raking when incompressible (M_cell/n > 0.9)", {
   # 200 obs each in its own group → M_cell = 200, ratio = 1.0 (fully incompressible).
-  # AUTO must select raking (not iEPPA) because there is no cell compression benefit.
+  # AUTO must select raking (not ORIS) because there is no cell compression benefit.
   set.seed(99)
   n2 <- 200
   # Each obs is its own group for margin 'a' → M_cell = n2
@@ -170,19 +170,19 @@ test_that("T-overflow: AUTO routing + algorithm_used populated", {
   r <- attr(w, "result")
   expect_equal(r$status, 0L)
   expect_lt(r$max_error, 0.01)
-  # algorithm_used: AUTO with M_cell << n should route to ieppa (algorithm=1)
-  expect_equal(r$algorithm_used, "ieppa",
-               info="AUTO must select ieppa when M_cell/n << 0.9")
+  # algorithm_used: AUTO with M_cell << n should route to oris (algorithm=1)
+  expect_equal(r$algorithm_used, "oris",
+               info="AUTO must select oris when M_cell/n << 0.9")
 })
 
-test_that("T-auto-kl: method='ieppa' defaults to marginal_kl convergence metric", {
+test_that("T-auto-kl: method='oris' defaults to marginal_kl convergence metric", {
   set.seed(3)
   data <- data.frame(a=factor(sample(c("1","2","3"),300,TRUE)))
   target <- list(a=c("1"=0.4,"2"=0.4,"3"=0.2))
-  w <- leafblower::harvest(data, target, max_weight=5, method="ieppa", attach_weights=FALSE)
+  w <- leafblower::harvest(data, target, max_weight=5, method="oris", attach_weights=FALSE)
   r <- attr(w, "result")
   expect_equal(r$convergence_used$metric, "marginal_kl",
-               info="ieppa default metric is marginal_kl (calibration quality loss)")
+               info="oris default metric is marginal_kl (calibration quality loss)")
 })
 
 test_that("S1: sinkhorn handles tight bounds without overflow (a[c] clamp guard)", {
@@ -297,7 +297,7 @@ test_that("E2: grake is deprecated and removed (errors on dispatch)", {
 # Note: max_weight=3 prevents convergence in 50 iters (tight bounds + oscillation)
 # so we test absence of overflow message, NOT status == 0.
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.B)", {
+test_that("oris: no linear overflow trip on K=20 skewed targets (T1.B)", {
   set.seed(42); K <- 20L; n <- 100000L
   cols <- paste0("v", seq_len(K))
   data <- as.data.frame(lapply(seq_len(K),
@@ -308,7 +308,7 @@ test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.B)", {
 
   # Capture C++ stdout where st.log() writes (overflow message goes here)
   out <- capture.output(
-    r <- leafblower::harvest(data, target, method = "ieppa",
+    r <- leafblower::harvest(data, target, method = "oris",
                              min_weight = 0.2, max_weight = 3,
                              max_iterations = 50,
                              attach_weights = FALSE, verbose = 1),
@@ -321,7 +321,7 @@ test_that("ieppa: no linear overflow trip on K=20 skewed targets (T1.B)", {
   expect_length(overflow_msgs, 0L)
 })
 
-test_that("ieppa: cell-mode per-obs weights can exceed max_weight due to normalization", {
+test_that("oris: cell-mode per-obs weights can exceed max_weight due to normalization", {
   # Cell-mode contract: X[c] <= max_weight * n_per_cell (cell aggregate).
   # Per-obs weights can exceed max_weight when: (a) non-uniform d within cell, OR
   # (b) cells are at capacity → W_total < n → normalization scale > 1 pushes obs above cap.
@@ -330,7 +330,7 @@ test_that("ieppa: cell-mode per-obs weights can exceed max_weight due to normali
   df <- data.frame(v1 = factor(sample(c("A","B"), n, replace=TRUE, prob=c(.5,.5))))
   tgt <- list(v1 = c("A"=0.9, "B"=0.1))
 
-  r <- leafblower::harvest(df, tgt, method = "ieppa",
+  r <- leafblower::harvest(df, tgt, method = "oris",
     max_weight = 1.5, min_weight = 0.0,
     bounds_mode = "cell", max_iterations = 500L,
     attach_weights = FALSE, verbose = 0)
@@ -366,45 +366,45 @@ test_that("T1: sinkhorn convergence_used$solver_objective exists and is weight K
               label="objective consistent across stopping criteria")
 })
 
-# ── T2: ieppa_soft available (RED: unknown method before Task 3) ──
-test_that("T2: ieppa_soft method exists and respects max_weight", {
+# ── T2: oris_soft available (RED: unknown method before Task 3) ──
+test_that("T2: oris_soft method exists and respects max_weight", {
   set.seed(2L); n <- 2000L
   df  <- data.frame(v1 = factor(sample(c("X","Y"), n, TRUE, prob=c(.3,.7))))
   tgt <- list(v1 = c("X"=0.8, "Y"=0.2))
-  r <- leafblower::harvest(df, tgt, method="ieppa_soft",
+  r <- leafblower::harvest(df, tgt, method="oris_soft",
     max_weight=2.0, min_weight=0.0, max_iterations=300L, attach_weights=FALSE,
     bounds_mode="unit")
   w <- as.numeric(r)
-  expect_true(max(w) <= 2.0 + 1e-9, label="ieppa_soft wmax <= max_weight")
-  expect_true(min(w) >= 0.0 - 1e-9, label="ieppa_soft wmin >= min_weight")
+  expect_true(max(w) <= 2.0 + 1e-9, label="oris_soft wmax <= max_weight")
+  expect_true(min(w) >= 0.0 - 1e-9, label="oris_soft wmin >= min_weight")
   expect_equal(attr(r, "result")$status, 0L)
 })
 
-# ── T3: ieppa_soft no worse than ieppa on tight-bounds problem ──
+# ── T3: oris_soft no worse than oris on tight-bounds problem ──
 # ADMM benefit is path-dependent: permanently-saturated cells show no improvement.
 # Assertion weakened to <= (no regression guarantee, not strict improvement).
-test_that("T3: ieppa_soft max_err strictly < ieppa max_err on tight bounds", {
+test_that("T3: oris_soft max_err strictly < oris max_err on tight bounds", {
   set.seed(3L); n <- 5000L
   df  <- data.frame(v1 = factor(sample(5L, n, TRUE)))
   tgt <- list(v1 = setNames(c(0.4, 0.3, 0.15, 0.1, 0.05), as.character(1:5)))
-  r_hard <- leafblower::harvest(df, tgt, method="ieppa",
+  r_hard <- leafblower::harvest(df, tgt, method="oris",
     max_weight=1.8, min_weight=0, max_iterations=500L, attach_weights=FALSE)
-  r_soft <- leafblower::harvest(df, tgt, method="ieppa_soft",
+  r_soft <- leafblower::harvest(df, tgt, method="oris_soft",
     max_weight=1.8, min_weight=0, max_iterations=500L, attach_weights=FALSE)
   me_hard <- attr(r_hard, "result")$max_error
   me_soft <- attr(r_soft, "result")$max_error
   expect_lt(me_soft, me_hard - 1e-6,
-    label = sprintf("ieppa_soft must beat ieppa by >=1e-6: hard=%.6e, soft=%.6e",
+    label = sprintf("oris_soft must beat oris by >=1e-6: hard=%.6e, soft=%.6e",
                     me_hard, me_soft))
 })
 
 # ── Raking Bregman Dykstra RED test ─────────────────────────────────────────
 # Before fix: Euclidean hyperplane correction changes fixed point vs pure IPF.
-# After fix:  multiplicative hyperplane = KL projection → same fixed point as ieppa.
-# RED: expect_equal(wkl_raking, wkl_ieppa, tol=1e-4) FAILS before Bregman Dykstra.
+# After fix:  multiplicative hyperplane = KL projection → same fixed point as oris.
+# RED: expect_equal(wkl_raking, wkl_oris, tol=1e-4) FAILS before Bregman Dykstra.
 # solver_objective field confirmed: raking.cpp:349, harvest.R:280.
 # ────────────────────────────────────────────────────────────────────────────
-test_that("raking-bregman: unconstrained raking matches ieppa weight_kl (unified KL fixed point)", {
+test_that("raking-bregman: unconstrained raking matches oris weight_kl (unified KL fixed point)", {
   set.seed(1L); n <- 2000L
   df <- data.frame(
     v1 = factor(sample(3L, n, TRUE)),
@@ -416,18 +416,18 @@ test_that("raking-bregman: unconstrained raking matches ieppa weight_kl (unified
   r_raking <- leafblower::harvest(df, tgt, method="raking",
     min_weight=0, max_weight=Inf, max_iterations=500L,
     attach_weights=FALSE)
-  r_ieppa  <- leafblower::harvest(df, tgt, method="ieppa",
+  r_oris   <- leafblower::harvest(df, tgt, method="oris",
     min_weight=0, max_weight=Inf, max_iterations=500L,
     attach_weights=FALSE)
 
   wkl_raking <- attr(r_raking, "result")$convergence_used$solver_objective
-  wkl_ieppa  <- attr(r_ieppa,  "result")$convergence_used$solver_objective
+  wkl_oris   <- attr(r_oris,   "result")$convergence_used$solver_objective
 
   # Both are unconstrained IPF → same KL minimum → same weight_kl.
   # Before Bregman: Euclidean hyperplane shifts raking fixed point → FAIL.
   # After  Bregman: unified KL geometry → PASS.
-  expect_equal(wkl_raking, wkl_ieppa, tolerance=1e-4,
-               label="unconstrained raking must reach same weight_kl as ieppa")
+  expect_equal(wkl_raking, wkl_oris, tolerance=1e-4,
+               label="unconstrained raking must reach same weight_kl as oris")
 })
 
 # ── SQUAREM acceleration tests ──────────────────────────────────────────────
@@ -488,13 +488,13 @@ test_that("squarem-ac4: step-halving path produces valid weights (no NaN, bounds
   expect_equal(sum(w), n, tolerance=1e-8, label="AC4: weights sum to n")
 })
 
-test_that("squarem-ac5: accelerate=TRUE is now supported for ieppa (no warning)", {
-  # ieppa now supports accelerate=TRUE (SRAA-m). The old warning about
-  # "raking-only" was removed when SRAA was extended to ieppa.
+test_that("squarem-ac5: accelerate=TRUE is now supported for oris (no warning)", {
+  # oris now supports accelerate=TRUE (SRAA-m). The old warning about
+  # "raking-only" was removed when SRAA was extended to oris.
   df  <- data.frame(v1 = factor(c("1","2","1","2","1")))
   tgt <- list(v1=c("1"=0.5,"2"=0.5))
   expect_no_error(
-    leafblower::harvest(df, tgt, method="ieppa", accelerate=TRUE,
+    leafblower::harvest(df, tgt, method="oris", accelerate=TRUE,
                         max_weight=3, attach_weights=FALSE)
   )
 })
@@ -683,7 +683,7 @@ test_that("r6: algorithm attribute present for both attach_weights=TRUE and FALS
 
 # === RED TESTS: C1 & C2 Bug Fixes ===
 
-test_that("ieppa-c1-red: PCT stall Rprintf must not appear for metric=kl (not max_err/mean_err)", {
+test_that("oris-c1-red: PCT stall Rprintf must not appear for metric=kl (not max_err/mean_err)", {
   # C1: pre-fix guard checks metric != L1_WEIGHT. metric=kl passes → Rprintf fires.
   # C1 GREEN: post-fix guard checks metric in {max_err, mean_err}. kl blocked.
   # max_iterations=3L guarantees max_error >> 10*pct_tol (pct_tol=0.001 from tol=0.001).
@@ -696,7 +696,7 @@ test_that("ieppa-c1-red: PCT stall Rprintf must not appear for metric=kl (not ma
 
   out <- capture.output(
     suppressWarnings(leafblower::harvest(
-      df, tgt, method = "ieppa", verbose = 1,
+      df, tgt, method = "oris", verbose = 1,
       convergence = list(metric = "kl", rule = "improvement", tol = 0.001),
       max_iterations = 3L,
       attach_weights = FALSE)),
@@ -710,8 +710,8 @@ test_that("ieppa-c1-red: PCT stall Rprintf must not appear for metric=kl (not ma
                label = "C1: PCT stall Rprintf must not appear for metric=kl")
 })
 
-test_that("ieppa-c2-red: non-convergent iEPPA must return status 4 or 5 not 1", {
-  # C2 RED: ieppa.cpp exits with RK_ERR_NOCONV=1 on budget exhaustion.
+test_that("oris-c2-red: non-convergent ORIS must return status 4 or 5 not 1", {
+  # C2 RED: oris.cpp exits with RK_ERR_NOCONV=1 on budget exhaustion.
   # C2 GREEN: status=4 (budget) or status=5 (stall) returned.
   set.seed(99L)
   df <- data.frame(
@@ -720,23 +720,23 @@ test_that("ieppa-c2-red: non-convergent iEPPA must return status 4 or 5 not 1", 
   )
   tgt <- list(v1 = c("A" = 0.2, "B" = 0.8), v2 = c("X" = 0.3, "Y" = 0.7))
   w <- suppressWarnings(
-    leafblower::harvest(df, tgt, method = "ieppa", max_iterations = 2L,
+    leafblower::harvest(df, tgt, method = "oris", max_iterations = 2L,
                         attach_weights = FALSE))
   r <- attr(w, "result")
   # RED: r$status == 1L
   # GREEN: r$status %in% c(4L, 5L)
   expect_true(r$status %in% c(4L, 5L),
-              label = "C2: iEPPA non-convergence must return budget(4) or stall(5), not legacy(1)")
+              label = "C2: ORIS non-convergence must return budget(4) or stall(5), not legacy(1)")
 })
 
-test_that("ieppa-c3: best_weights all-finite after any iEPPA run", {
+test_that("oris-c3: best_weights all-finite after any ORIS run", {
   # C3 regression guard: if overflow fallback doesn't reset best-iterate tracking,
   # best_weights can contain Inf/NaN from degenerate linear-space iterates.
   set.seed(42L)
   df  <- data.frame(v1 = factor(c(rep("A", 100L), rep("B", 100L))))
   tgt <- list(v1 = c("A" = 0.5, "B" = 0.5))
   w <- suppressWarnings(
-    leafblower::harvest(df, tgt, method = "ieppa", max_iterations = 200L,
+    leafblower::harvest(df, tgt, method = "oris", max_iterations = 200L,
                         attach_weights = FALSE))
   r <- attr(w, "result")
   if (is.finite(r$best_error)) {
@@ -837,46 +837,46 @@ test_that("T4: capacity_penalty=NULL routes to auto; rejects invalid input", {
   set.seed(4); n <- 1000L
   df  <- data.frame(v=factor(sample(letters[1:3], n, TRUE)))
   tgt <- list(v=c(a=0.4, b=0.4, c=0.2))
-  r1 <- harvest(df, tgt, method="ieppa_soft", capacity_penalty=NULL, attach_weights=FALSE)
-  r2 <- harvest(df, tgt, method="ieppa_soft", attach_weights=FALSE)
+  r1 <- harvest(df, tgt, method="oris_soft", capacity_penalty=NULL, attach_weights=FALSE)
+  r2 <- harvest(df, tgt, method="oris_soft", attach_weights=FALSE)
   expect_equal(as.numeric(r1), as.numeric(r2), tolerance=1e-12)
   cm <- attr(r1, "result")$alm_capacity_mu_final
   expect_true(is.finite(cm) && cm > 0)
   # Rejection cases
   df0 <- data.frame(v=factor(c("a","a","b")))
   t0  <- list(v=c(a=0.5, b=0.5))
-  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=-1),    "positive finite scalar")
-  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=0),     "positive finite scalar")
-  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=Inf),   "positive finite scalar")
-  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=NaN),   "positive finite scalar")
-  expect_error(harvest(df0, t0, method="ieppa_soft", capacity_penalty=c(1,2)),"positive finite scalar")
+  expect_error(harvest(df0, t0, method="oris_soft", capacity_penalty=-1),    "positive finite scalar")
+  expect_error(harvest(df0, t0, method="oris_soft", capacity_penalty=0),     "positive finite scalar")
+  expect_error(harvest(df0, t0, method="oris_soft", capacity_penalty=Inf),   "positive finite scalar")
+  expect_error(harvest(df0, t0, method="oris_soft", capacity_penalty=NaN),   "positive finite scalar")
+  expect_error(harvest(df0, t0, method="oris_soft", capacity_penalty=c(1,2)),"positive finite scalar")
 })
 
 # ── T5: Final bounds adherence ────────────────────────────────────────────────
 
-test_that("T5: ieppa_soft final weights respect bounds exactly", {
+test_that("T5: oris_soft final weights respect bounds exactly", {
   set.seed(5); n <- 5000L
   df  <- data.frame(v1=factor(sample(5, n, TRUE)))
   tgt <- list(v1=setNames(c(0.4,0.3,0.15,0.1,0.05), as.character(1:5)))
-  r <- harvest(df, tgt, method="ieppa_soft",
+  r <- harvest(df, tgt, method="oris_soft",
                max_weight=1.8, min_weight=0.1,
                max_iterations=300, attach_weights=FALSE, bounds_mode="unit")
   w <- as.numeric(r)
   expect_true(max(w) <= 1.8)
   expect_true(min(w) >= 0.1)
-  # Discriminating: must differ from ieppa hard-clamp
-  r_hard <- harvest(df, tgt, method="ieppa",
+  # Discriminating: must differ from oris hard-clamp
+  r_hard <- harvest(df, tgt, method="oris",
                     max_weight=1.8, min_weight=0.1,
                     max_iterations=300, attach_weights=FALSE)
   expect_false(isTRUE(all.equal(as.numeric(r), as.numeric(r_hard), tolerance=1e-10)),
-    label="ieppa_soft weights must differ from ieppa hard-clamp on this tight problem")
+    label="oris_soft weights must differ from oris hard-clamp on this tight problem")
 })
 
 test_that("T5b: degenerate asymmetric bounds — final projection bounded sum drift", {
   set.seed(15); n <- 2000L
   df  <- data.frame(v=factor(sample(c("a","b"), n, TRUE, prob=c(.95,.05))))
   tgt <- list(v=c(a=0.3, b=0.7))
-  r <- harvest(df, tgt, method="ieppa_soft",
+  r <- harvest(df, tgt, method="oris_soft",
                max_weight=8.0, min_weight=0.01,
                max_iterations=200, attach_weights=FALSE, bounds_mode="unit")
   w <- as.numeric(r)
@@ -889,7 +889,7 @@ test_that("T5b: degenerate asymmetric bounds — final projection bounded sum dr
 
 # ── T6: Stepstone benchmark ───────────────────────────────────────────────────
 
-test_that("T6: ieppa_soft max_err <= ieppa on stepstone (skips if no fixture)", {
+test_that("T6: oris_soft max_err <= oris on stepstone (skips if no fixture)", {
   skip_on_cran()
   pq <- "benchmarks/stepstone_fulldata_bench_data.parquet"
   if (!file.exists(pq)) skip("stepstone fixture not available")
@@ -899,8 +899,8 @@ test_that("T6: ieppa_soft max_err <= ieppa on stepstone (skips if no fixture)", 
   tgt <- jsonlite::fromJSON("benchmarks/stepstone_fulldata_bench_targets.json")
   tgt <- lapply(tgt, function(t) { t <- unlist(t); t / sum(t) })
   for (nm in names(tgt)) df[[nm]] <- factor(df[[nm]])
-  r_hard <- harvest(df, tgt, method="ieppa",      max_weight=5, max_iterations=500, attach_weights=FALSE)
-  r_soft <- harvest(df, tgt, method="ieppa_soft", max_weight=5, max_iterations=500, attach_weights=FALSE)
+  r_hard <- harvest(df, tgt, method="oris",      max_weight=5, max_iterations=500, attach_weights=FALSE)
+  r_soft <- harvest(df, tgt, method="oris_soft", max_weight=5, max_iterations=500, attach_weights=FALSE)
   me_hard <- attr(r_hard, "result")$max_error
   me_soft <- attr(r_soft, "result")$max_error
   expect_lte(me_soft, me_hard + 1e-9)
@@ -916,7 +916,7 @@ test_that("T7: adaptive growth fires on tight-bounds problem with small capacity
   df  <- data.frame(v1=factor(sample(5, n, TRUE)))
   tgt <- list(v1=setNames(c(0.4, 0.3, 0.15, 0.1, 0.05), as.character(1:5)))
   r <- suppressWarnings(
-    harvest(df, tgt, method="ieppa_soft",
+    harvest(df, tgt, method="oris_soft",
             capacity_penalty=1e-6,
             max_weight=1.8, min_weight=0, max_iterations=300, attach_weights=FALSE,
             bounds_mode="unit")
@@ -934,32 +934,32 @@ test_that("T7: adaptive growth fires on tight-bounds problem with small capacity
   # bounds_mode="unit" (set via T7 harvest call above) guarantees per-obs bounds
 })
 
-# ── T9: Backward compat — ieppa unchanged ────────────────────────────────────
+# ── T9: Backward compat — oris unchanged ────────────────────────────────────
 
-test_that("T9: method='ieppa' produces bit-identical weights vs pre-ALM fixture", {
-  fixture_path <- testthat::test_path("fixtures/ieppa_pre_alm_ref.rds")
+test_that("T9: method='oris' produces bit-identical weights vs pre-ALM fixture", {
+  fixture_path <- testthat::test_path("fixtures/oris_pre_alm_ref.rds")
   if (!file.exists(fixture_path)) skip("Step 0 fixture not present")
   ref <- readRDS(fixture_path)
-  r <- harvest(ref$df, ref$tgt, method="ieppa",
+  r <- harvest(ref$df, ref$tgt, method="oris",
                max_weight=ref$max_weight, min_weight=ref$min_weight,
                max_iterations=ref$max_iterations,
                convergence=ref$convergence, attach_weights=FALSE)
   w_post <- as.numeric(r)
   expect_equal(w_post, ref$weights, tolerance=1e-12,
-    label="method='ieppa' must produce bit-identical weights pre/post ALM merge")
+    label="method='oris' must produce bit-identical weights pre/post ALM merge")
   res_post <- attr(r, "result")
   expect_equal(res_post$status, ref$result$status)
   expect_equal(res_post$max_error, ref$result$max_error, tolerance=1e-12)
 })
 
-# ── T10: capacity_penalty warning for non-ieppa_soft ─────────────────────────
+# ── T10: capacity_penalty warning for non-oris_soft ─────────────────────────
 
-test_that("T10: capacity_penalty warns when passed to non-ieppa_soft method", {
+test_that("T10: capacity_penalty warns when passed to non-oris_soft method", {
   set.seed(10); n <- 100L
   df  <- data.frame(v=factor(sample(c("a","b"), n, TRUE)))
   tgt <- list(v=c(a=0.5, b=0.5))
   expect_warning(
-    harvest(df, tgt, method="ieppa",   capacity_penalty=0.5, attach_weights=FALSE),
+    harvest(df, tgt, method="oris",   capacity_penalty=0.5, attach_weights=FALSE),
     regexp="capacity_penalty.*ignored"
   )
   expect_warning(

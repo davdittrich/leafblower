@@ -1,4 +1,4 @@
-context("ieppa faithful — non-uniform design weights within cell")
+context("oris faithful — non-uniform design weights within cell")
 
 test_that("marginals hit targets when d[i] varies within cell", {
   set.seed(42)
@@ -18,7 +18,7 @@ test_that("marginals hit targets when d[i] varies within cell", {
   # max_weight=2.0 is tight: within cell a=1 (target 0.7), d=10 obs would land
   # at w=2.55 without clamp — this is the intentional design post-fix. Pre-fix
   # clamp pinned them to 2.0 and distorted the a=1 marginal by ~7.7%.
-  res <- harvest(df, tgt, method = "ieppa",
+  res <- harvest(df, tgt, method = "oris",
                  start_weights = d, max_weight = 2.0, min_weight = 0,
                  convergence = list(absolute = 1e-6))
   w <- res$weights
@@ -28,9 +28,9 @@ test_that("marginals hit targets when d[i] varies within cell", {
   expect_lt(abs(m_a0 - 0.3), 1e-4)
   expect_lt(abs(m_a1 - 0.7), 1e-4)
   # CELL-AGGREGATE assertion: per-cell mean weight respects max_weight. This is
-  # the bound the faithful iEPPA guarantees (X[c] ≤ U_cell[c] = max_weight * n_per_cell[c]).
+  # the bound the faithful ORIS guarantees (X[c] ≤ U_cell[c] = max_weight * n_per_cell[c]).
   # Per-OBS bounds intentionally can leak by d_max/d_mean factor on non-uniform d;
-  # this trade-off is documented in src/ieppa.cpp expansion comment.
+  # this trade-off is documented in src/oris.cpp expansion comment.
   cell_mean_a0 <- mean(w[df$a == 0])
   cell_mean_a1 <- mean(w[df$a == 1])
   expect_lte(cell_mean_a0, 2.0 + 1e-8)

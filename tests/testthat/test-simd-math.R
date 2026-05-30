@@ -21,9 +21,9 @@ test_that("S4: sinkhorn produces same result after bisect_capacity_fast", {
 })
 
 
-test_that("bulk_log correctness: ieppa output matches task2_ieppa_ref within 1e-12", {
+test_that("bulk_log correctness: oris output matches task2_oris_ref within 1e-12", {
   # Verifies that log-vectorization does not change solver output.
-  # Reference was generated with the synthetic DGP used in the iEPPA perf plan.
+  # Reference was generated with the synthetic DGP used in the ORIS perf plan.
   set.seed(42)
   n   <- 10000L
   df  <- data.frame(
@@ -34,8 +34,8 @@ test_that("bulk_log correctness: ieppa output matches task2_ieppa_ref within 1e-
     age = c("18-34" = 0.30, "35-54" = 0.45, "55+" = 0.25),
     sex = c(M = 0.50, F = 0.50)
   )
-  ref    <- readRDS(testthat::test_path("task2_ieppa_ref.rds"))
-  result <- harvest(df, tgt, method = "ieppa")
+  ref    <- readRDS(testthat::test_path("task2_oris_ref.rds"))
+  result <- harvest(df, tgt, method = "oris")
   new_w  <- result$weights
   expect_equal(new_w, ref, tolerance = 1e-10,
                info = "SIMD log introduced weight divergence vs pre-SIMD reference")

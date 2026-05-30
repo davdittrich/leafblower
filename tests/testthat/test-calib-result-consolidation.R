@@ -11,7 +11,7 @@ make_data <- function(n = 50L) {
   list(df = df, pop = pop, wts = wts, n = n)
 }
 
-for (m in c("ieppa", "chebyshev", "raking", "sinkhorn", "greg",
+for (m in c("oris", "chebyshev", "raking", "sinkhorn", "greg",
             "greenkhorn", "logit")) {
   local({
     method <- m

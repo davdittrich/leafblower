@@ -174,16 +174,16 @@ test_that("save_checkpoint leaves no .tmp file on success", {
 # Test 3 (L-BFGS-B path) is skipped until the benchmark runs and
 # Case B constants are confirmed.
 
-test_that("constrained (max_weight=5) always routes to iEPPA", {
+test_that("constrained (max_weight=5) always routes to oris", {
   set.seed(99L)
   n   <- 500L
   df  <- data.frame(x = factor(sample(c("a", "b"), n, replace = TRUE)))
   tgt <- list(x = c(a = 0.5, b = 0.5))
   res <- leafblower::harvest(df, tgt, max_weight = 5)
-  expect_equal(attr(res, "algorithm"), "ieppa")
+  expect_equal(attr(res, "algorithm"), "oris")
 })
 
-test_that("default method (no method arg) routes to ieppa", {
+test_that("default method (no method arg) routes to oris", {
   set.seed(7L)
   n  <- 30000L
   df <- data.frame(
@@ -197,6 +197,6 @@ test_that("default method (no method arg) routes to ieppa", {
   res <- leafblower::harvest(df, tgt,
                               max_weight = Inf, min_weight = 0,
                               convergence = list(absolute = 1e-3))
-  expect_equal(attr(res, "algorithm"), "ieppa")
+  expect_equal(attr(res, "algorithm"), "oris")
 })
 

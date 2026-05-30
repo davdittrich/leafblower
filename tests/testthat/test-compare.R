@@ -1,6 +1,6 @@
 context("cross-algorithm equivalence on feasible inputs")
 
-test_that("ieppa and raking agree to 10% on 20 random feasible datasets", {
+test_that("oris and raking agree to 10% on 20 random feasible datasets", {
   set.seed(20260423)
   for (trial in 1:20) {
     n <- sample(c(1000, 5000, 10000), 1)
@@ -18,9 +18,9 @@ test_that("ieppa and raking agree to 10% on 20 random feasible datasets", {
     names(tgt) <- names(df)
     # Reasonable bounds
     mw <- sample(c(2, 3, 5), 1)
-    r_ieppa  <- suppressWarnings(harvest(df, tgt, method = "ieppa",  max_weight = mw, convergence = list(absolute = 1e-6)))
+    r_oris  <- suppressWarnings(harvest(df, tgt, method = "oris",  max_weight = mw, convergence = list(absolute = 1e-6)))
     r_raking <- suppressWarnings(harvest(df, tgt, method = "raking", max_weight = mw, convergence = list(absolute = 1e-6)))
-    max_diff <- max(abs(r_ieppa$weights - r_raking$weights))
+    max_diff <- max(abs(r_oris$weights - r_raking$weights))
     expect_lt(max_diff, max(0.1, 1e-3),
               label = sprintf("trial %d (n=%d K=%d mw=%.1f): max pairwise diff %.3e",
                               trial, n, K, mw, max_diff))

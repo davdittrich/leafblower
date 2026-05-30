@@ -1,11 +1,11 @@
 # WU-1: persistent-infeas tracker regression test.
-# Pre-fix: iEPPA flags RK_ERR_INFEAS on transient near-zero buckets
+# Pre-fix: ORIS flags RK_ERR_INFEAS on transient near-zero buckets
 #   (stepstone-shape K=5 input with overlapping margins).
 # Post-fix: converges to RK_OK; infeasibility reported only after
 #   kInfeasPersistence=5 consecutive outer iterations with the same
 #   bucket empty (guards against transient-in-settling false positives).
 
-test_that("WU-1: iEPPA converges on structurally feasible K=5 overlapping margins", {
+test_that("WU-1: ORIS converges on structurally feasible K=5 overlapping margins", {
   set.seed(42)
   n <- 2000L
   K <- 5L
@@ -26,7 +26,7 @@ test_that("WU-1: iEPPA converges on structurally feasible K=5 overlapping margin
   )
   # Structurally feasible at max_weight=5; pre-fix latches INFEAS on transient.
   expect_no_error(
-    res <- harvest(df, targets, method = "ieppa",
+    res <- harvest(df, targets, method = "oris",
                    max_weight = 5, min_weight = 0,
                    max_iterations = 500L,
                    convergence = list(absolute = 1e-4),
@@ -49,7 +49,7 @@ test_that("WU-1: truly infeasible input (empty target cell) still reports INFEAS
     b = c(a = 0.5, b = 0.5)
   )
   expect_error(
-    suppressWarnings(harvest(df, targets, method = "ieppa",
+    suppressWarnings(harvest(df, targets, method = "oris",
                              max_weight = 5, min_weight = 0,
                              max_iterations = 500L,
                              convergence = list(absolute = 1e-6))),
@@ -81,7 +81,7 @@ test_that("WU-1: oscillating streak (spec §4 edge case) returns NOCONV not INFE
   )
   # Low max_iter forces solver to exit before streak settles either way.
   res_status <- tryCatch({
-    suppressWarnings(harvest(df, targets, method = "ieppa",
+    suppressWarnings(harvest(df, targets, method = "oris",
                              max_weight = 5, min_weight = 0,
                              max_iterations = 30L,
                              convergence = list(absolute = 1e-10)))

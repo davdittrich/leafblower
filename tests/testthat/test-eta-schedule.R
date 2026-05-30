@@ -10,7 +10,7 @@ test_that("tang_dynamic eta achieves lower errRp vs fixed (robust >5% margin)", 
   # eta_start=10 produced only a 0.7% gap — too fragile for cross-platform CI.
   common <- list(
     data = data, target = target,
-    max_weight = 5, method = "ieppa",
+    max_weight = 5, method = "oris",
     max_iterations = 500,
     convergence = list(absolute = 1e-12),
     homotopy_levels = 5,

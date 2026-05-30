@@ -12,7 +12,7 @@ library(leafblower)
 }
 
 test_that("B4: solver dispatch returns without crashing for each method", {
-  for (m in c("raking", "ieppa", "auto")) {
+  for (m in c("raking", "oris", "auto")) {
     expect_no_error(.mini_harvest(method = m))
   }
 })

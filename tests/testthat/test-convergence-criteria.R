@@ -10,7 +10,7 @@ test_that("convergence=list(absolute=1e-6) is backward compat (max_err criterion
     b = c("1"=0.6, "2"=0.4)
   )
   w <- leafblower::harvest(
-    data, target, max_weight = 3, method = "ieppa",
+    data, target, max_weight = 3, method = "oris",
     convergence = list(absolute = 1e-6),
     attach_weights = FALSE
   )
@@ -32,7 +32,7 @@ test_that("A2: pct=0.001 default converges on smooth synthetic", {
     c = c("1"=0.25, "2"=0.25, "3"=0.25, "4"=0.25)
   )
   w <- leafblower::harvest(
-    data, target, max_weight = 10, method = "ieppa",
+    data, target, max_weight = 10, method = "oris",
     max_iterations = 500,
     attach_weights = FALSE
   )
@@ -46,7 +46,7 @@ test_that("A2: pct=0.001 default converges on smooth synthetic", {
   expect_equal(result$status, 0L)
   # Verify pct_change IS computed: use a barely-converged run (max_iterations=10)
   # where the solver stops before pct threshold is met; l1_weight_change must be > 0
-  w10 <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w10 <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
     max_iterations = 10, attach_weights = FALSE)
   r10 <- attr(w10, "result")
   expect_gt(r10$l1_weight_change, 0)
@@ -60,7 +60,7 @@ test_that("A8a: metric='mean_err' actively stops solver", {
     b = factor(sample(c("1","2"), n, replace = TRUE))
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
-  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
     convergence = list(absolute = 1e-4, metric = "mean_err"),
     max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
@@ -78,7 +78,7 @@ test_that("A8b: metric='kl' actively stops solver", {
     b = factor(sample(c("1","2"), n, replace = TRUE))
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
-  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
     convergence = list(absolute = 1e-6, metric = "kl"),
     max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
@@ -97,7 +97,7 @@ test_that("A8c: metric='chi2' actively stops solver", {
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
   # chi2 scales with n; threshold n-scaled (~1e-3 * 2000 = 2)
-  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
     convergence = list(absolute = 2.0, metric = "chi2"),
     max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
@@ -114,9 +114,9 @@ test_that("harvest accepts sor argument without error", {
     a = factor(sample(c("1","2"), n, replace = TRUE))
   )
   target <- list(a = c("1"=0.5, "2"=0.5))
-  w1 <- leafblower::harvest(data, target, max_weight = 3, method = "ieppa",
+  w1 <- leafblower::harvest(data, target, max_weight = 3, method = "oris",
                             sor = NULL, attach_weights = FALSE)
-  w2 <- leafblower::harvest(data, target, max_weight = 3, method = "ieppa",
+  w2 <- leafblower::harvest(data, target, max_weight = 3, method = "oris",
                             sor = list(auto = TRUE, omega_min = 0.3),
                             attach_weights = FALSE)
   expect_length(as.numeric(w1), n)
@@ -128,7 +128,7 @@ test_that("parse_convergence rejects unknown keys", {
     leafblower::harvest(
       data.frame(a = factor(c("1","2"))),
       list(a = c("1"=0.5, "2"=0.5)),
-      max_weight = 3, method = "ieppa",
+      max_weight = 3, method = "oris",
       convergence = list(pct_tol = 0.001),
       attach_weights = FALSE
     ),
@@ -141,7 +141,7 @@ test_that("parse_convergence rejects non-list convergence", {
     leafblower::harvest(
       data.frame(a = factor(c("1","2"))),
       list(a = c("1"=0.5, "2"=0.5)),
-      max_weight = 3, method = "ieppa",
+      max_weight = 3, method = "oris",
       convergence = 1e-6,
       attach_weights = FALSE
     ),
@@ -154,7 +154,7 @@ test_that("parse_sor rejects unknown keys", {
     leafblower::harvest(
       data.frame(a = factor(c("1","2"))),
       list(a = c("1"=0.5, "2"=0.5)),
-      max_weight = 3, method = "ieppa",
+      max_weight = 3, method = "oris",
       sor = list(omega_minimum = 0.3),
       attach_weights = FALSE
     ),
@@ -162,7 +162,7 @@ test_that("parse_sor rejects unknown keys", {
   )
 })
 
-test_that("hawe: iEPPA does NOT warn PCT stall when metric=pct (l1_weight)", {
+test_that("hawe: ORIS does NOT warn PCT stall when metric=pct (l1_weight)", {
   # Regression guard for S1: stall warning must NOT fire for pct/l1_weight metric.
   # High max_error is EXPECTED when the user chose weight-change convergence —
   # they don't care about error residuals, so firing is a false positive.
@@ -176,7 +176,7 @@ test_that("hawe: iEPPA does NOT warn PCT stall when metric=pct (l1_weight)", {
     var2 = c("1" = 0.95, "2" = 0.05)
   )
   result <- suppressWarnings(
-    leafblower::harvest(data, target, max_weight = 1.5, method = "ieppa",
+    leafblower::harvest(data, target, max_weight = 1.5, method = "oris",
                         max_iterations = 300,
                         convergence = list(pct = 0.001),
                         attach_weights = FALSE)
@@ -184,7 +184,7 @@ test_that("hawe: iEPPA does NOT warn PCT stall when metric=pct (l1_weight)", {
   # Collect only the PCT stall warning specifically
   w <- tryCatch(
     withCallingHandlers(
-      leafblower::harvest(data, target, max_weight = 1.5, method = "ieppa",
+      leafblower::harvest(data, target, max_weight = 1.5, method = "oris",
                           max_iterations = 300,
                           convergence = list(pct = 0.001),
                           attach_weights = FALSE),
@@ -219,16 +219,16 @@ test_that("A1: default convergence (kl+improvement) converges smooth synthetic",
     b = c("1"=0.5, "2"=0.5),
     c = c("1"=0.25, "2"=0.25, "3"=0.25, "4"=0.25)
   )
-  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
                            max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
   expect_equal(result$status, 0L, info = "must converge")
   expect_lt(result$max_error, 1e-3)
-  # ieppa default: rule=improvement, metric=marginal_kl (Task 0 calibration quality)
+  # oris default: rule=improvement, metric=marginal_kl (Task 0 calibration quality)
   expect_equal(result$convergence_used$rule, "improvement",
                info = "default rule must be improvement")
   expect_equal(result$convergence_used$metric, "marginal_kl",
-               info = "ieppa default metric must be marginal_kl (Task 0)")
+               info = "oris default metric must be marginal_kl (Task 0)")
 })
 
 # CONFIRMATORY TEST (not TDD red-green): added in same commit as implementation.
@@ -251,7 +251,7 @@ test_that("A2: oscillating input — best_error < 0.9 * max_error on NOCONV", {
     v4 = c(p=0.7, q=0.3),
     v5 = c(a=0.05,b=0.05,c=0.5,d=0.2,e=0.15,f=0.05)
   )
-  w <- leafblower::harvest(data, target, max_weight = 2, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 2, method = "oris",
                            max_iterations = 500, attach_weights = FALSE)
   result <- attr(w, "result")
   expect_lte(result$best_error, result$max_error)
@@ -317,7 +317,7 @@ test_that("A4-metrics: all 6 metrics present and non-zero in calib_result", {
     b = factor(sample(c("1","2"), n, replace = TRUE))
   )
   target <- list(a = c("1"=0.4,"2"=0.4,"3"=0.2), b = c("1"=0.6,"2"=0.4))
-  w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "oris",
                            max_iterations = 100, attach_weights = FALSE)
   result <- attr(w, "result")
   for (nm in c("max_error","mean_error","kl","chi2","grake_norm","l1_weight_change"))
@@ -332,7 +332,7 @@ test_that("A4b: plateau rule rejects tol >= 1", {
     leafblower::harvest(
       data.frame(a = factor(c("1","2"))),
       list(a = c("1"=0.5,"2"=0.5)),
-      max_weight = 3, method = "ieppa",
+      max_weight = 3, method = "oris",
       convergence = list(rule = "plateau", tol = 1.5),
       attach_weights = FALSE
     ),
@@ -348,7 +348,7 @@ test_that("A5: list(absolute=1e-6) sets convergence_used rule=threshold metric=m
     b = factor(sample(c("1","2"), n, replace = TRUE))
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("1"=0.5,"2"=0.5))
-  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
                            max_iterations = 500,
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
@@ -384,7 +384,7 @@ test_that("lj5j: convergence_used metric/rule are character strings (NA-safe ind
   set.seed(1)
   data <- data.frame(a = factor(sample(c("1","2"), 100, replace=TRUE)))
   target <- list(a = c("1"=0.5, "2"=0.5))
-  w <- leafblower::harvest(data, target, max_weight=3, method="ieppa",
+  w <- leafblower::harvest(data, target, max_weight=3, method="oris",
                            attach_weights=FALSE)
   r <- attr(w, "result")
   expect_true(is.character(r$convergence_used$metric) || is.na(r$convergence_used$metric))
@@ -395,7 +395,7 @@ test_that("we1a: improvement+absolute without stop_when errors with actionable m
   data <- data.frame(a = factor(c("1","2")))
   target <- list(a = c("1"=0.5,"2"=0.5))
   expect_error(
-    leafblower::harvest(data, target, max_weight=3, method="ieppa",
+    leafblower::harvest(data, target, max_weight=3, method="oris",
                         convergence = list(improvement=0.01, absolute=1e-6),
                         attach_weights=FALSE),
     regexp = "stop_when|ambiguous|combine"
@@ -403,13 +403,13 @@ test_that("we1a: improvement+absolute without stop_when errors with actionable m
 })
 
 test_that("B17: PLATEAU rule does not fire when prev=0", {
-  # Indirect: run ieppa on an already-calibrated problem. First iter gives errRp≈0.
+  # Indirect: run oris on an already-calibrated problem. First iter gives errRp≈0.
   # Without fix: PLATEAU fires at iter=2 as "prev=0 → any curr >= 0" is true.
   # With fix: PLATEAU requires prev>0 so it skips at iter=2, let RK_OK fire naturally.
   result <- harvest(
     data.frame(x = c("A","A","B","B","B"), w = rep(1,5)),
     target = list(x = c(A=0.4, B=0.6)),
-    method = "ieppa",
+    method = "oris",
     convergence = list(rule="plateau", pct=0.01),
     max_iterations = 50L
   )
@@ -438,7 +438,7 @@ test_that("vpby: stop_when=ANY prev not mutated to post-halt curr — improvemen
     b = c("1" = 0.5, "2" = 0.5)
   )
   w <- leafblower::harvest(
-    data, target, max_weight = 5, method = "ieppa",
+    data, target, max_weight = 5, method = "oris",
     convergence = list(improvement = 0.01, absolute = 1e-4, stop_when = "any"),
     max_iterations = 500L,
     attach_weights = FALSE
@@ -454,7 +454,7 @@ test_that("vpby: stop_when=ANY prev not mutated to post-halt curr — improvemen
 })
 
 test_that("4jx9: mark_converged stores absolute_tol when abs-only convergence fires (raking)", {
-  # raking uses generic mark_converged; ieppa has its own correct impl.
+  # raking uses generic mark_converged; oris has its own correct impl.
   # With absolute-only convergence, convergence_tol must reflect abs_tol (not pct_tol=0).
   set.seed(7)
   n <- 500

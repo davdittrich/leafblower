@@ -1,4 +1,4 @@
-test_that("A7: all 5 quality metrics present in calib_result for iEPPA", {
+test_that("A7: all 5 quality metrics present in calib_result for oris", {
   set.seed(42)
   n <- 1000
   data <- data.frame(
@@ -6,7 +6,7 @@ test_that("A7: all 5 quality metrics present in calib_result for iEPPA", {
     b = factor(sample(c("1","2","3"), n, replace = TRUE))
   )
   target <- list(a = c("1"=0.5,"2"=0.5), b = c("1"=1/3,"2"=1/3,"3"=1/3))
-  w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "oris",
                            max_iterations = 500,
                            convergence = list(absolute = 1e-6),
                            attach_weights = FALSE)
@@ -48,7 +48,7 @@ test_that("A7: metrics non-zero after max_iter exit (solver exits before kErrChe
   n <- 500
   data <- data.frame(a = factor(sample(c("1","2","3"), n, replace = TRUE)))
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3))
-  w <- leafblower::harvest(data, target, max_weight = 5, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 5, method = "oris",
                            max_iterations = 1,
                            convergence = list(absolute = 1e-20),  # impossible threshold
                            attach_weights = FALSE)
@@ -71,7 +71,7 @@ test_that("a0gk: metrics finite at exit with MAX_ERR criterion (gated path)", {
     b = factor(sample(c("X","Y"),     n, replace = TRUE, prob = c(0.4, 0.6)))
   )
   target <- list(a = c("1"=1/3,"2"=1/3,"3"=1/3), b = c("X"=0.5,"Y"=0.5))
-  w <- leafblower::harvest(data, target, max_weight = 10, method = "ieppa",
+  w <- leafblower::harvest(data, target, max_weight = 10, method = "oris",
                            max_iterations = 100,
                            convergence = list(absolute = 1e-3),
                            attach_weights = FALSE)
@@ -163,7 +163,7 @@ test_that("B1: compute_quality_metrics extraction: values identical to inline", 
     b = factor(sample(c("M","F"), n, TRUE, prob = c(0.55, 0.45)))
   )
   tgt_t <- list(a = c(x=0.4, y=0.35, z=0.25), b = c(M=0.5, F=0.5))
-  r_base <- leafblower::harvest(df_t, tgt_t, method = "ieppa", max_weight = 5,
+  r_base <- leafblower::harvest(df_t, tgt_t, method = "oris", max_weight = 5,
                                 max_iterations = 50L, attach_weights = FALSE)
   w <- r_base
   res <- attr(r_base, "result")

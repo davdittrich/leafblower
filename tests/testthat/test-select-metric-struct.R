@@ -7,7 +7,7 @@ test_that("all solvers produce same output after select_metric struct migration"
   )
   pop <- list(x = c(a = 1/3, b = 1/3, c = 1/3), y = c(p = 0.5, q = 0.5))
 
-  for (m in c("ieppa", "chebyshev", "raking", "sinkhorn")) {
+  for (m in c("oris", "chebyshev", "raking", "sinkhorn")) {
     w <- suppressWarnings(
       leafblower::harvest(df, pop, method = m, max_iterations = 500L,
                           convergence = list(absolute = 1e-3))

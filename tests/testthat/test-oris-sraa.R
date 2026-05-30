@@ -1,4 +1,4 @@
-context("ieppa SRAA-m acceleration")
+context("oris SRAA-m acceleration")
 
 # Shared multi-margin fixture that uses the linear path.
 # stepstone_small: n=10000, K=9, M_cell~5980, compression=1.7x → path=linear.
@@ -17,10 +17,10 @@ load_stepstone <- function() {
 
 ## Test 1 — SRAA activates and accepts AA steps ----------------------------
 
-test_that("ieppa accelerate=TRUE activates SRAA and accepts AA steps (aa_count > 0)", {
+test_that("oris accelerate=TRUE activates SRAA and accepts AA steps (aa_count > 0)", {
   fx <- load_stepstone()
   r  <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = TRUE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 200L, accelerate = TRUE)
   )
   cnt <- attr(r, "result")$aa_accepted_count
   expect_gte(cnt, 1L,
@@ -28,15 +28,15 @@ test_that("ieppa accelerate=TRUE activates SRAA and accepts AA steps (aa_count >
 })
 
 ## Test 2 — Regression: accel produces valid weights at equal budget --------
-# ieppa minimizes marginal KL, not max_err. SRAA can produce higher max_err
+# oris minimizes marginal KL, not max_err. SRAA can produce higher max_err
 # than plain when it converges to a different KL-optimal point. The
 # regression guard checks validity (finite max_error, correct weight sum)
 # rather than max_err parity.
 
-test_that("ieppa accelerate=TRUE produces valid weights at equal budget (regression guard)", {
+test_that("oris accelerate=TRUE produces valid weights at equal budget (regression guard)", {
   fx     <- load_stepstone()
   r_accel <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 100L, accelerate = TRUE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 100L, accelerate = TRUE)
   )
   res <- attr(r_accel, "result")
   expect_true(is.finite(res$max_error),
@@ -47,25 +47,25 @@ test_that("ieppa accelerate=TRUE produces valid weights at equal budget (regress
                label = "sum(weights) == n")
 })
 
-## Test 3 — ieppa_soft runs with accelerate=TRUE ---------------------------
+## Test 3 — oris_soft runs with accelerate=TRUE ---------------------------
 
-test_that("ieppa_soft accelerate=TRUE runs without error on stepstone_small", {
+test_that("oris_soft accelerate=TRUE runs without error on stepstone_small", {
   fx <- load_stepstone()
   r  <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa_soft",
+    harvest(fx$df, fx$tgt, method = "oris_soft",
             max_weight = 5.0, min_weight = 0.0,
             max_iterations = 100L, accelerate = TRUE)
   )
   res <- attr(r, "result")
   expect_true(res$status %in% c(0L, 1L, 4L, 5L),
-              label = sprintf("ieppa_soft + accel: status=%d", res$status))
+              label = sprintf("oris_soft + accel: status=%d", res$status))
   expect_true(is.finite(res$max_error),
-              label = "ieppa_soft + accel: finite max_error")
+              label = "oris_soft + accel: finite max_error")
 })
 
 ## Test 4 — SRAA active on log path with accelerate=TRUE --------------------
 
-test_that("ieppa accelerate=TRUE activates SRAA on log path at verbose=1", {
+test_that("oris accelerate=TRUE activates SRAA on log path at verbose=1", {
   # LL3: sraa_active_lvl = st.accelerate (path-agnostic). This K=2 case uses
   # the log path (compression=50x); SRAA now runs and logs [sraa] lines.
   set.seed(1L); n <- 200L
@@ -73,7 +73,7 @@ test_that("ieppa accelerate=TRUE activates SRAA on log path at verbose=1", {
                     y = factor(sample(c("p","q"), n, TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5), y = c(p=0.4, q=0.6))
   r <- suppressWarnings(
-    harvest(df, tgt, method = "ieppa", scheduler = "greedy",
+    harvest(df, tgt, method = "oris", scheduler = "greedy",
             accelerate = TRUE, max_iterations = 20L, verbose = 1L)
   )
   # SRAA logs go via Rprintf (stdout), not R messages — check aa_accepted_count.
@@ -83,13 +83,13 @@ test_that("ieppa accelerate=TRUE activates SRAA on log path at verbose=1", {
 
 ## Test 5 — Output correlation with plain ----------------------------------
 
-test_that("ieppa accelerate=TRUE produces highly correlated weights with plain", {
+test_that("oris accelerate=TRUE produces highly correlated weights with plain", {
   fx  <- load_stepstone()
   r_p <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = FALSE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 200L, accelerate = FALSE)
   )
   r_a <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = TRUE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 200L, accelerate = TRUE)
   )
   expect_gt(cor(r_p$weights, r_a$weights), 0.95,
             label = "cor(plain, accel) > 0.95")
@@ -100,10 +100,10 @@ test_that("ieppa accelerate=TRUE produces highly correlated weights with plain",
 test_that("aa_accepted_count field is accessible via attr(r, 'result')$aa_accepted_count", {
   fx  <- load_stepstone()
   r_a <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = TRUE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 200L, accelerate = TRUE)
   )
   r_p <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 200L, accelerate = FALSE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 200L, accelerate = FALSE)
   )
   cnt_a <- attr(r_a, "result")$aa_accepted_count
   cnt_p <- attr(r_p, "result")$aa_accepted_count
@@ -115,10 +115,10 @@ test_that("aa_accepted_count field is accessible via attr(r, 'result')$aa_accept
 
 ## Test 7 — Budget regression: accel never catastrophically worse ---------
 
-test_that("ieppa accelerate=TRUE weighted output sum = n (normalization preserved)", {
+test_that("oris accelerate=TRUE weighted output sum = n (normalization preserved)", {
   fx <- load_stepstone()
   r  <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 50L, accelerate = TRUE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 50L, accelerate = TRUE)
   )
   w <- r$weights
   expect_equal(sum(w), nrow(fx$df), tolerance = 1e-6,
@@ -127,7 +127,7 @@ test_that("ieppa accelerate=TRUE weighted output sum = n (normalization preserve
 
 ## Test 8 — SOR coexists with SRAA: adapts on plain (non-AA) steps -----------
 
-test_that("ieppa accelerate=TRUE allows SOR adaptation on plain SRAA steps", {
+test_that("oris accelerate=TRUE allows SOR adaptation on plain SRAA steps", {
   fx <- load_stepstone()
   # Option B: SOR adaptation is re-enabled on plain (non-AA-accepted) SRAA
   # steps to dampen oscillating margins. AA-accepted steps still skip SOR
@@ -135,7 +135,7 @@ test_that("ieppa accelerate=TRUE allows SOR adaptation on plain SRAA steps", {
   # sor_min_omega may drop below 1.0 when SRAA produces oscillating plain
   # steps. The contract: min_omega is in (0, 1] and finite.
   r  <- suppressWarnings(
-    harvest(fx$df, fx$tgt, method = "ieppa", max_iterations = 100L, accelerate = TRUE)
+    harvest(fx$df, fx$tgt, method = "oris", max_iterations = 100L, accelerate = TRUE)
   )
   min_omega <- attr(r, "result")$sor$min_omega
   expect_true(is.finite(min_omega),
@@ -147,14 +147,14 @@ test_that("ieppa accelerate=TRUE allows SOR adaptation on plain SRAA steps", {
 ## Test 9 — Greedy scheduler + accelerate=TRUE downgrades to round_robin ----
 # log goes via Rprintf (stdout), not R message conditions — use capture.output
 
-test_that("ieppa greedy+accelerate downgrades to round_robin and logs at verbose=1", {
+test_that("oris greedy+accelerate downgrades to round_robin and logs at verbose=1", {
   set.seed(1L); n <- 200L
   df  <- data.frame(x = factor(sample(c("a","b"), n, TRUE)),
                     y = factor(sample(c("p","q"), n, TRUE)))
   tgt <- list(x = c(a=0.5, b=0.5), y = c(p=0.4, q=0.6))
   out <- capture.output(
     suppressWarnings(
-      harvest(df, tgt, method = "ieppa", scheduler = "greedy",
+      harvest(df, tgt, method = "oris", scheduler = "greedy",
               accelerate = TRUE, max_iterations = 20L, verbose = 1L)
     )
   )

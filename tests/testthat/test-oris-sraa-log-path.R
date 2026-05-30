@@ -1,8 +1,8 @@
-context("ieppa SRAA-m log-path extension")
+context("oris SRAA-m log-path extension")
 
 ## Test 1 — SRAA activates on forced log path ----------------------------
 
-test_that("SRAA-m activates on log path (LBW_IEPPA_FORCE_PATH=log)", {
+test_that("SRAA-m activates on log path (LBW_ORIS_FORCE_PATH=log)", {
   skip_if_not_installed("withr")
   set.seed(2026L)
   n <- 20000L
@@ -14,9 +14,9 @@ test_that("SRAA-m activates on log path (LBW_IEPPA_FORCE_PATH=log)", {
     a = setNames(rep(0.25, 4L), as.character(1:4)),
     b = setNames(rep(0.2,  5L), as.character(1:5))
   )
-  withr::with_envvar(c(LBW_IEPPA_FORCE_PATH = "log"), {
+  withr::with_envvar(c(LBW_ORIS_FORCE_PATH = "log"), {
     r <- suppressWarnings(
-      harvest(df, tgt, method = "ieppa",
+      harvest(df, tgt, method = "oris",
               max_iterations = 200L, accelerate = TRUE)
     )
   })
@@ -42,9 +42,9 @@ test_that("SRAA-m log path produces valid weights on stepstone_small", {
   ss  <- arrow::read_parquet(pq)
   tgt <- readRDS(rds)
   for (nm in names(tgt)) ss[[nm]] <- factor(ss[[nm]])
-  withr::with_envvar(c(LBW_IEPPA_FORCE_PATH = "log"), {
+  withr::with_envvar(c(LBW_ORIS_FORCE_PATH = "log"), {
     r <- suppressWarnings(
-      harvest(ss, tgt, method = "ieppa",
+      harvest(ss, tgt, method = "oris",
               max_iterations = 100L, accelerate = TRUE)
     )
   })
@@ -59,7 +59,7 @@ test_that("SRAA-m log path produces valid weights on stepstone_small", {
 
 ## Test 3 — Linear-to-log fallback with accelerate=TRUE ------------------
 
-test_that("ieppa SRAA: linear-to-log fallback with accelerate=TRUE stays valid", {
+test_that("oris SRAA: linear-to-log fallback with accelerate=TRUE stays valid", {
   skip_if_not_installed("arrow")
   skip_if_not_installed("withr")
   pq  <- testthat::test_path("fixtures/stepstone_small.parquet")
@@ -70,9 +70,9 @@ test_that("ieppa SRAA: linear-to-log fallback with accelerate=TRUE stays valid",
   tgt <- readRDS(rds)
   for (nm in names(tgt)) ss[[nm]] <- factor(ss[[nm]])
   # Force linear on a high-compression problem: will overflow → fallback to log
-  withr::with_envvar(c(LBW_IEPPA_FORCE_PATH = "linear"), {
+  withr::with_envvar(c(LBW_ORIS_FORCE_PATH = "linear"), {
     r <- suppressWarnings(
-      harvest(ss, tgt, method = "ieppa",
+      harvest(ss, tgt, method = "oris",
               max_iterations = 30L, accelerate = TRUE)
     )
   })

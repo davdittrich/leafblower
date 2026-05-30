@@ -12,7 +12,7 @@ test_that("LBW_TRAJECTORY_AT env var produces probe file", {
     {
       leafblower::harvest(
         data, target, max_weight = 5,
-        method = "ieppa",
+        method = "oris",
         max_iterations = 500,
         convergence = list(absolute = 1e-12),
         attach_weights = FALSE
