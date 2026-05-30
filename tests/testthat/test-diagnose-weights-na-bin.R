@@ -38,11 +38,12 @@ test_that("diagnose_weights: 'NA' bin prop_original ~ na_frac, not 0", {
   expect_equal(sum(d$prop_weighted), 1.0, tolerance = 1e-12)
 })
 
-test_that("diagnose_weights: literal-'NA' string NOT conflated with true missing (4ihf.4)", {
-  ## Collision case: rows whose value is the *literal* string "NA" must not be
-  ## counted into the injected NA bin. The NA bin counts ONLY genuinely-missing
-  ## rows (is.na mask). Before the fix `col_char[is_na] <- "NA"` conflated both,
-  ## inflating the NA-bin share by the literal-"NA" count.
+test_that("diagnose_weights: literal-'NA' string CONFLATED with true missing (4ihf.5)", {
+  ## Collision case: rows whose value is the *literal* string "NA" ARE counted
+  ## into the injected NA bin, together with genuinely-missing rows — matching
+  ## the solver encoding (harvest.R:130-131,475 — both map to the injected NA
+  ## bin). Supersedes the 4ihf.4 mask-only direction, which under-reported the
+  ## NA bin and broke Σshares==1.
   ## Fixture: 3x "X", 2x literal-"NA", 2x true-missing.
   g <- c("X", "X", "NA", "NA", NA, NA, "X")
   n <- length(g)
@@ -54,13 +55,16 @@ test_that("diagnose_weights: literal-'NA' string NOT conflated with true missing
   na_row <- d[d$variable == "g" & d$level == "NA", ]
   x_row  <- d[d$variable == "g" & d$level == "X", ]
 
-  # NA bin counts ONLY the 2 true missings (2/7), NOT the 2 literal-"NA" rows.
-  expect_equal(na_row$prop_original, 2 / n, tolerance = 1e-12)
-  expect_equal(na_row$prop_weighted, 2 / n, tolerance = 1e-12)
+  # NA bin conflates the 2 true missings AND the 2 literal-"NA" rows (4/7).
+  expect_equal(na_row$prop_original, 4 / n, tolerance = 1e-12)
+  expect_equal(na_row$prop_weighted, 4 / n, tolerance = 1e-12)
 
-  # The 3 real "X" rows count as their own category (3/7). Literal-"NA" rows
-  # collide with the injected bin name and are excluded from every bin.
+  # The 3 real "X" rows count as their own category (3/7).
   expect_equal(x_row$prop_original, 3 / n, tolerance = 1e-12)
+
+  # Σ shares == 1 across all bins (all-obs denominator, conflated NA bin).
+  expect_equal(sum(d$prop_original), 1.0, tolerance = 1e-9)
+  expect_equal(sum(d$prop_weighted), 1.0, tolerance = 1e-9)
 })
 
 test_that("diagnose_weights: NO 'NA' bin but data HAS NA -> shares over non-NA, error_weighted ~ 0", {

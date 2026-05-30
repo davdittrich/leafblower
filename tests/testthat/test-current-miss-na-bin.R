@@ -37,22 +37,25 @@ test_that("get_current_miss: 'NA' bin observed share is counted (~ na_frac), not
   expect_equal(obs_na, na_frac, tolerance = 1e-12)
 })
 
-test_that("get_current_miss: literal-'NA' string NOT conflated with true missing (4ihf.4)", {
-  ## Collision case: a row whose value is the literal string "NA" must not be
-  ## counted into the injected NA bin. The NA bin counts ONLY genuinely-missing
-  ## rows (is.na mask). Fixture: 3x "X", 2x literal-"NA", 2x true-missing.
+test_that("get_current_miss: literal-'NA' string CONFLATED with true missing (4ihf.5)", {
+  ## Collision case: the injected NA bin CONFLATES genuinely-missing rows with
+  ## rows whose value is the literal string "NA", matching the solver encoding
+  ## (harvest.R:130-131,475 — both map to the injected NA bin). Supersedes the
+  ## 4ihf.4 mask-only direction. Fixture: 3x "X", 2x literal-"NA", 2x true-missing.
   g <- c("X", "X", "NA", "NA", NA, NA, "X")
   n <- length(g)
   df <- data.frame(g = g, stringsAsFactors = FALSE)
 
-  # Observed all-obs shares under mask-based counting: X = 3/7, NA bin = 2/7
-  # (true missings only). Set the target to these so miss == 0 ONLY when the
-  # NA bin is counted by the mask. With the old conflation the NA bin observed
-  # share is 4/7, giving miss = |4/7 - 2/7| = 2/7.
-  target <- list(g = c(X = 3 / n, `NA` = 2 / n))
+  # Observed all-obs shares under conflation: X = 3/7, NA bin = 4/7
+  # (2 true missings + 2 literal-"NA"). Set the target to these so miss == 0
+  # ONLY when the NA bin conflates both. Σ shares = 3/7 + 4/7 = 1.
+  target <- list(g = c(X = 3 / n, `NA` = 4 / n))
   w <- rep(1.0, n)
   miss <- get_current_miss(df, target, w)
 
+  # miss == 0 against a target that sums to 1 (X=3/7, NA=4/7) proves the conflated
+  # observed shares equal those targets and therefore sum to 1. (Σ=1 is asserted on
+  # real per-bin output in the diagnose_weights NA-bin test, which exposes shares.)
   expect_lt(unname(miss[["g"]]), 1e-12)
 })
 

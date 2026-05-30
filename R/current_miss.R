@@ -12,13 +12,15 @@ get_current_miss <- function(data, target, weights) {
     is_na <- is.na(col)
     has_na_bin <- "NA" %in% names(tgt)
     if (has_na_bin) {
-      # add_na_proportion case: the injected "NA" bin is counted via the
-      # is_na MASK (see lvl loop below), NOT by encoding NAs into the string
-      # "NA". This is collision-safe: a row whose value is the *literal* string
-      # "NA" must never be conflated with a genuinely-missing row (4ihf.4).
-      # Denominator spans ALL observations so shares (incl. NA) sum to 1.
-      # Mirrors Python diagnose_weights() / _compute_sparseness_diag(), which
-      # count the NA bin via pd.isna().
+      # add_na_proportion case: the injected "NA" bin CONFLATES true-missing rows
+      # with rows whose value is the literal string "NA" (is_na OR char=="NA"),
+      # matching the solver's documented encoding (harvest.R:130-131: "real NA
+      # values AND a literal ... 'NA' will collide — both mapped to the injected
+      # NA bin"; solver fill harvest.R:475 `key[is.na(key)] <- "NA"`). Denominator
+      # spans ALL observations, so shares (incl. NA) sum to 1 when every obs falls
+      # in a named level or the NA bin (an out-of-vocabulary value lands in no bin
+      # -> Σ<1). Supersedes 4ihf.4 (mask-only), which under-reported the NA bin
+      # and broke Σshares==1 even with no OOV rows [4ihf.5].
       col_char <- as.character(col)
       col_char[is_na] <- NA_character_
       W <- sum(weights)
@@ -33,10 +35,12 @@ get_current_miss <- function(data, target, weights) {
       W <- sum(weights[!is_na])
     }
     errs <- vapply(names(tgt), function(lv) {
-      # The injected NA bin (lv == "NA" with has_na_bin) is matched on the
-      # is_na mask so true-missings count there and a literal-"NA" category
-      # row does not. Real levels match the (NA-cleared) char vector.
-      mask <- if (has_na_bin && lv == "NA") is_na
+      # The injected NA bin (lv == "NA" with has_na_bin) CONFLATES true-missings
+      # with literal-"NA" rows (is_na OR char=="NA"), matching the solver
+      # encoding (harvest.R:130-131,475). Real levels match the NA-cleared char
+      # vector; a literal-"NA" row falls into the NA bin, not its own level.
+      mask <- if (has_na_bin && lv == "NA")
+                is_na | (!is.na(col) & as.character(col) == "NA")
               else !is.na(col_char) & col_char == lv
       prop <- if (W > 0) sum(weights[mask]) / W else 0.0
       abs(prop - tgt[[lv]])

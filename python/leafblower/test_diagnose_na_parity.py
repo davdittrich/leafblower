@@ -217,20 +217,21 @@ def test_diagnose_weights_no_na_bin_excludes_na_r_python_parity():
         )
 
 
-def test_diagnose_weights_literal_NA_not_conflated_with_missing(tmp_path):
-    """Collision case (leafblower-4ihf.4): a genuinely-missing row and a row
-    whose value is the *literal* string "NA" must NOT be conflated.
+def test_diagnose_weights_literal_NA_conflated_with_missing(tmp_path):
+    """Collision case (leafblower-4ihf.5): a genuinely-missing row and a row
+    whose value is the *literal* string "NA" ARE conflated.
 
-    The injected "NA" bin (add_na_proportion) must count ONLY the true
-    missings (matched on the missingness mask, not a string compare). The
-    literal-"NA" rows must NOT inflate the NA bin. R and Python must agree
-    (rtol=1e-6). Before the fix, R counted literal-"NA" rows into the NA bin
-    (NA share = 4/7) while Python (mask-based) counted 2/7 — a divergence.
+    The injected "NA" bin (add_na_proportion) counts BOTH the true missings AND
+    the literal-"NA" rows, matching the solver encoding (R harvest.R:130-131,475;
+    _harvest.py:404-413 — both map to the injected NA bin). Supersedes the 4ihf.4
+    mask-only direction, which under-reported the NA bin and broke Σshares==1.
+    R and Python must agree (rtol=1e-6): NA share = 4/7 on both sides.
     """
     # 3x "X" (real category), 2x literal-"NA" string, 2x true-missing (None).
     g_raw = ["X", "X", "NA", "NA", None, None, "X"]
     n = len(g_raw)
     n_missing = sum(1 for v in g_raw if v is None)  # 2
+    n_literal_na = sum(1 for v in g_raw if v == "NA")  # 2
     # Injected-NA-bin target: the only "NA" key is the injected bin.
     tgt_used = {"X": 0.5, "NA": 0.5}
 
@@ -239,13 +240,16 @@ def test_diagnose_weights_literal_NA_not_conflated_with_missing(tmp_path):
     diag_py = diagnose_weights(df_py, {"g": tgt_used}, w_py)
     diag_py = diag_py.set_index("level").sort_index()
 
-    # NA bin counts ONLY the true missings (2/7), NOT the literal-"NA" rows.
-    assert abs(diag_py.loc["NA", "prop_original"] - n_missing / n) < 1e-12, (
-        f"Python NA bin conflated literal-'NA': {diag_py.loc['NA','prop_original']}"
+    # NA bin conflates true missings AND literal-"NA" rows (4/7).
+    assert abs(diag_py.loc["NA", "prop_original"] - (n_missing + n_literal_na) / n) < 1e-12, (
+        f"Python NA bin not conflated: {diag_py.loc['NA','prop_original']}"
     )
-    # The 3 real "X" rows are counted as their own category (literal-"NA" rows
-    # are excluded from every bin since they collide with the injected bin name).
+    # The 3 real "X" rows are counted as their own category.
     assert abs(diag_py.loc["X", "prop_original"] - 3 / n) < 1e-12
+
+    # Σ shares == 1 across all bins (all-obs denominator, conflated NA bin).
+    assert abs(diag_py["prop_original"].sum() - 1.0) < 1e-9
+    assert abs(diag_py["prop_weighted"].sum() - 1.0) < 1e-9
 
     # --- R side via subprocess. The literal-"NA" rows stay the string "NA";
     # only the true-missings become R NA. ---
@@ -289,10 +293,13 @@ def test_diagnose_weights_literal_NA_not_conflated_with_missing(tmp_path):
         }
     ).set_index("level").sort_index()
 
-    # R NA bin counts ONLY true missings (mask-based), not literal-"NA".
-    assert abs(diag_r.loc["NA", "prop_original"] - n_missing / n) < 1e-12, (
-        f"R NA bin conflated literal-'NA': {diag_r.loc['NA','prop_original']}"
+    # R NA bin conflates true missings AND literal-"NA" rows (4/7).
+    assert abs(diag_r.loc["NA", "prop_original"] - (n_missing + n_literal_na) / n) < 1e-12, (
+        f"R NA bin not conflated: {diag_r.loc['NA','prop_original']}"
     )
+    # Σ shares == 1 on the R side too.
+    assert abs(diag_r["prop_original"].sum() - 1.0) < 1e-9
+    assert abs(diag_r["prop_weighted"].sum() - 1.0) < 1e-9
 
     # --- Full R<->Python parity (rtol=1e-6, atol=0). ---
     assert set(diag_r.index) == set(diag_py.index)

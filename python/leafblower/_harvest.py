@@ -668,7 +668,9 @@ def diagnose_weights(data, targets, weights):
         has_na_bin = "NA" in {str(lv) for lv in tgt_dict}
         if has_na_bin:
             # add_na_proportion case: all-obs denominators. NA observations are
-            # counted via the explicit "NA" bin so shares sum to 1.
+            # counted via the explicit "NA" bin so shares sum to 1 when every obs
+            # falls in a named level or the NA bin (an out-of-vocabulary value
+            # lands in no bin -> sum < 1).
             w_total = weights.sum()
             n_total = len(series)
         else:
@@ -682,10 +684,14 @@ def diagnose_weights(data, targets, weights):
             w_total = weights[not_na].sum()
             n_total = int(not_na.sum())
         for level, tgt_val in tgt_dict.items():
-            # The injected add_na_proportion bin is literally named "NA"; match
-            # it on the null mask (str(NA) is "nan"/"NaT", never "NA").
+            # The injected add_na_proportion bin (literally named "NA") CONFLATES
+            # true-missing rows with rows whose value is the literal string "NA"
+            # (na_mask OR col_str=="NA"), matching the solver encoding
+            # (R harvest.R:130-131,475; _harvest.py:404-413). A literal-"NA" row
+            # falls into the NA bin, not its own level. Supersedes 4ihf.4
+            # (mask-only), which under-reported the NA bin and broke Σshares==1.
             if str(level) == "NA":
-                mask = na_mask
+                mask = na_mask | (col_str.values == "NA")
             else:
                 mask = (~na_mask) & (col_str.values == str(level))
             n_lvl = mask.sum()
