@@ -1,6 +1,6 @@
 # Rename `ieppa` / `ieppa_soft` → `oris` / `oris_soft` (ORIS)
 
-**Status:** Draft rev 2 (Design Review Gate iteration 2 — round-1 blockers resolved in §8)
+**Status:** Draft rev 3 (Design Review Gate iteration 3 — full-repo sweep added in §8.9)
 **Date:** 2026-05-30
 **Author:** Dennis Alexis Valin Dittrich
 **Type:** Mechanical rename (no behavior change)
@@ -134,3 +134,16 @@ Round-1 panel: PM ✅, Security ✅, CTO ✅, Architect ⚠️, Designer ⚠️.
 8. **Grep-clean gate** (runnable): `grep -rIi ieppa . --include='*.cpp' --include='*.hpp' --include='*.h' --include='*.R' --include='*.Rd' --include='*.py' --include='*.toml' --include='*.in' --include='*.md'` filtered to exclude `.git/`, `_92c4f45.`, `docs/superpowers/specs/2026-04-23-ieppa`, `references.bib` / `chu2022ieppa`, and `/.beads/` — must return only the intentional "renamed from iEPPA" notes in `oris.md` / `00-overview.md` / `CLAUDE.md`.
 9. `static_assert(RK_ALG_ORIS == 1 && RK_ALG_ORIS_SOFT == 8, "enum values frozen")` in a compiled TU.
 10. Suite contains explicit `method="oris"` / `"oris_soft"` calls and asserts the `algorithm_used` string round-trips.
+
+### 8.9 Full-repo sweep (comment-level + cross-references found by grep audit)
+
+An exhaustive `grep -rIi ieppa` (with §8.6 exclusions) surfaces these remaining sites beyond §3 / §8.1–8.5; **all are in scope**:
+
+- **Sibling method docs** cross-referencing IEPPA: `docs/methods/raking.md`, `greg.md`, `newton_kl.md`, `sinkhorn.md` (sinkhorn ×3 — the "vs IEPPA" table/notes + Markdown links to `ieppa.md`). Update prose "IEPPA"→"ORIS" and retarget links `ieppa.md` → `oris.md`.
+- **Agent instructions**: `AGENTS.md` (mirror of CLAUDE.md) — update ieppa mentions alongside CLAUDE.md (§3.6).
+- **C++ comment-level refs** (comments only — no symbol/behavior change): `src/greg.cpp` ("iEPPA-style cell compression", "ieppa diag…"), `src/logit_calib.cpp` ("Mirror of ieppa.cpp pattern"), `src/newton_calib.cpp` ("warm-start from ieppa solution") + `src/newton_calib.hpp`, `src/sraa.hpp`, `src/cell_table.hpp`, `src/calib_validate.hpp`. Update to "oris"/"ORIS".
+- **Generated doc**: `man/effective_sample_size.Rd` — regenerated via `devtools::document()` (§8.8 item 7); its source roxygen block (in `R/`) updated.
+- **Named benchmark scripts** (in addition to `ieppa_vs_raking_bench.R` → `oris_vs_raking_bench.R`, §8.4): `benchmarks/algo_selection_benchmark.R`, `benchmarks/stepstone_benchmark.R` — `method=` / label references.
+- Confirmed: `docs/methods/oris.md` does **not** yet exist; the rename creates it from `ieppa.md` (no stray to reconcile).
+
+With §3 + §8.1–8.9, the site list is exhaustive; the grep-clean gate (§8.8 item 8) is the binding completion check.
