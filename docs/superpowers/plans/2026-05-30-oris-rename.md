@@ -8,7 +8,8 @@
 
 **Tech Stack:** C++17 core (R auto-globs `src/*.cpp`; Python build uses explicit `CORE_SOURCES`), R (roxygen2/testthat), Python (pybind11/pytest).
 
-**Plan rev 2** (plan-review-gate round 1): enumerated the full test-suite touch set incl. `algorithm_used`/`attr(,"algorithm")` assertions + `test-simd-math.R`/`task2_ieppa_ref.rds`; added `R/anesrake.R` roxygen; added `benchmarks/plot_helpers.R`; excluded generated `graphify-out/` from the grep gate and sequence `graphify update .` before it.
+**Plan rev 2** (plan-review-gate round 1): enumerated the full test-suite touch set incl. `attr(,"algorithm")` assertions + `test-simd-math.R`/`task2_ieppa_ref.rds`; added `R/anesrake.R` roxygen; added `benchmarks/plot_helpers.R`; excluded generated `graphify-out/` from the grep gate and run `graphify update .` first.
+**Plan rev 3** (plan-review-gate round 2): corrected `task2_ieppa_ref.rds` path (`tests/testthat/`, not `fixtures/`; opaque blob, no generator → move as-is); fixed dispatch-test accessor to `attr(r,"algorithm")` (was `algorithm_used`); added `src/raking.cpp` to WU1 comment-update list; scoped WU3's test grep to `tests/ python/leafblower/` and named `python/leafblower/test_python.py`.
 
 **Authoritative scope:** `docs/superpowers/specs/2026-05-30-oris-rename-design.md` §3 + §8. Historical records are NOT edited (§8.10). This plan implements that spec; the binding completion check is the §8.10 grep-clean gate.
 
@@ -55,7 +56,7 @@ for s in ieppa.cpp:oris.cpp ieppa.hpp:oris.hpp ieppa_internal.hpp:oris_internal.
 
 - [ ] **Step 5: User-facing C string + comments**:
   - `src/calib_validate.cpp`: error string `"use method='ieppa' or 'raking'"` → `"use method='oris' or 'raking'"`.
-  - Comment-only `ieppa`→`oris`/`ORIS` in: `chebyshev.cpp/.hpp`, `greg.cpp`, `logit_calib.cpp`, `newton_calib.cpp/.hpp`, `sraa.hpp`, `cell_table.hpp`, `calib_validate.hpp`.
+  - Comment-only `ieppa`→`oris`/`ORIS` in: `raking.cpp` (`// … same API as ieppa`), `chebyshev.cpp/.hpp`, `greg.cpp`, `logit_calib.cpp`, `newton_calib.cpp/.hpp`, `sraa.hpp`, `cell_table.hpp`, `calib_validate.hpp`. (Run `grep -rIl -i ieppa src/ | grep -vE 'oris'` after WU1 to confirm none remain.)
 
 - [ ] **Step 6: Build lists**:
   - `python/CMakeLists.txt` `CORE_SOURCES`: `ieppa.cpp`,`ieppa_trajectory.cpp`,`ieppa_finalize.cpp` → `oris.cpp`,`oris_trajectory.cpp`,`oris_finalize.cpp`.
@@ -129,20 +130,20 @@ git mv data-raw/gen_ieppa_pre_alm_ref.R data-raw/gen_oris_pre_alm_ref.R
 
 - [ ] **Step 2b: Enumerate-and-edit ALL other tests referencing `ieppa`** (content only — these files are NOT renamed). First list them:
 ```bash
-grep -rIl -i ieppa tests/ | grep -vE 'test-oris|run_oris' 
+grep -rIl -i ieppa tests/ python/leafblower/ | grep -vE 'test-oris|run_oris'
 ```
-Edit each. As of writing, the set is (verify with the grep above, edit whatever it returns):
-`test-algo-selection.R`, `test-auto-routing-severe-skew.R`, `test-alm-config-grouping.R`, `test-best-iterate.R`, `test-bench-gate.R`, `test-bounded-convergence.R`, `test-calib-linalg.R`, `test-calib-result-consolidation.R`, `test-calibration-solvers.R`, `test-compare.R`, `test-config-defaults.R`, `test-convergence-criteria.R`, `test-convergence-trajectory.R`, `test-eta-schedule.R`, `test-harvest.R`, `test-homotopy.R`, `test-homotopy-enabled-field.R`, `test-method-dispatch.R`, `test-priority-sweep.R`, `test-quality-metrics.R`, `test-rk-params-passthrough.R`, `test-safety.R`, `test-select-metric-struct.R`, `test-simd-math.R`, `test-sor.R`, `tests/test_parity_weights.py`, `tests/testthat/fixtures/stepstone_reference_run.R`.
+Edit each. As of writing, the set is (verify with the grep above — which now ALSO scopes `python/leafblower/` — and edit whatever it returns):
+`test-algo-selection.R`, `test-auto-routing-severe-skew.R`, `test-alm-config-grouping.R`, `test-best-iterate.R`, `test-bench-gate.R`, `test-bounded-convergence.R`, `test-calib-linalg.R`, `test-calib-result-consolidation.R`, `test-calibration-solvers.R`, `test-compare.R`, `test-config-defaults.R`, `test-convergence-criteria.R`, `test-convergence-trajectory.R`, `test-eta-schedule.R`, `test-harvest.R`, `test-homotopy.R`, `test-homotopy-enabled-field.R`, `test-method-dispatch.R`, `test-priority-sweep.R`, `test-quality-metrics.R`, `test-rk-params-passthrough.R`, `test-safety.R`, `test-select-metric-struct.R`, `test-simd-math.R`, `test-sor.R`, `tests/test_parity_weights.py`, **`python/leafblower/test_python.py`** (live `method="ieppa"` at lines ~48/59/70/80 + `("ieppa", …)`/`("ieppa_soft", …)` tuples ~106-107 + `method in ("ieppa", …)` ~158), `tests/testthat/fixtures/stepstone_reference_run.R`, plus `tests/testthat/_problems/*` if present.
   In each, replace: (a) `method = "ieppa"` / `"ieppa_soft"` → `"oris"` / `"oris_soft"`; (b) **result assertions** `attr(res, "algorithm") == "ieppa"` / `algorithm_used == "ieppa"` / `expect_equal(..., "ieppa")` → `"oris"` (these FAIL at runtime if missed); (c) `c("ieppa","ieppa_soft", ...)` lists; (d) variable names like `r_ieppa` and comments. **CRITICAL**: the `algorithm`/`algorithm_used` string assertions are the high-risk class — search each file for `algorithm` near `ieppa`.
 
 - [ ] **Step 3: Rename + regenerate fixtures** (THREE fixtures, incl. `task2_ieppa_ref.rds`):
 ```bash
 git mv tests/testthat/fixtures/ieppa_kl_reference_stepstone.rds tests/testthat/fixtures/oris_kl_reference_stepstone.rds
 git mv tests/testthat/fixtures/ieppa_pre_alm_ref.rds tests/testthat/fixtures/oris_pre_alm_ref.rds
-git mv tests/testthat/fixtures/task2_ieppa_ref.rds tests/testthat/fixtures/task2_oris_ref.rds   # used by test-simd-math.R
+git mv tests/testthat/task2_ieppa_ref.rds tests/testthat/task2_oris_ref.rds   # NOTE: lives at testthat root, NOT fixtures/; opaque blob, no generator; used by test-simd-math.R
 Rscript data-raw/gen_oris_kl_ref.R && Rscript data-raw/gen_oris_pre_alm_ref.R
 ```
-Update every `test_path("fixtures/ieppa_*.rds")` / `test_path("...task2_ieppa_ref.rds")` reference (`test-calibration-solvers.R`, `test-simd-math.R`) → the `oris_*` / `task2_oris_ref.rds` names. If `task2_ieppa_ref.rds` has a generator, rename+rerun it; else the renamed blob is valid (it stores numeric output, not the method string) and only the `test_path` reference must change.
+Update the `test_path(...)` references: `test_path("fixtures/ieppa_*.rds")` → `fixtures/oris_*.rds` (`test-calibration-solvers.R`); `test_path("task2_ieppa_ref.rds")` → `test_path("task2_oris_ref.rds")` (`test-simd-math.R`). The `kl`/`pre_alm` fixtures are regenerated by their generators; `task2_oris_ref.rds` has **no generator** — it is moved as-is (it stores numeric SIMD-reference output; enum values are frozen so the blob stays valid).
 
 - [ ] **Step 4: Add dispatch round-trip test** (new file `tests/testthat/test-oris-dispatch.R`):
 ```r
@@ -151,11 +152,11 @@ test_that("oris and oris_soft dispatch and report their names", {
   tgt <- list(a = c(x = 0.5, y = 0.5))
   r1 <- harvest(d, targets = tgt, weight = "w", method = "oris")
   r2 <- harvest(d, targets = tgt, weight = "w", method = "oris_soft")
-  expect_match(attr(r1, "algorithm_used") %||% r1$algorithm_used, "oris")
-  expect_match(attr(r2, "algorithm_used") %||% r2$algorithm_used, "oris_soft")
+  expect_match(attr(r1, "algorithm"), "oris")
+  expect_match(attr(r2, "algorithm"), "oris_soft")
 })
 ```
-(Adapt `harvest()` call + result accessor to the actual API — check `?harvest`; the assertion target is: the returned algorithm-name string round-trips to `oris`/`oris_soft`.)
+(Accessor verified: `harvest()` sets `attr(weights, "algorithm")` at `R/harvest.R:749` — NOT `algorithm_used` (that is the raw C list element, not exposed on the returned object). The assertion target: the returned `attr(,"algorithm")` string round-trips to `oris`/`oris_soft`. Adapt the `harvest()` arg names to the actual signature via `?harvest`.)
 
 - [ ] **Step 5: Test gate.**
 Run: `Rscript -e 'devtools::test()'`
