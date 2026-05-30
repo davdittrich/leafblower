@@ -38,7 +38,7 @@ log:     lf_new = (1−α·ω)·lf_old + α·ω·(log T_kj·W − log S_kj)
 ```
 
 - `ω` (`eff_omega`) is the SOR relaxation parameter, auto-adapted per margin after a burn-in; `ω = 1` recovers plain IPF (fast path, no `pow()`).
-- `α` is the **infeasibility-streak damping factor** `α = 1/(1 + β·stress)` (`compute_alpha`), where `stress` = longest consecutive infeasible-bucket streak and `β = kAlphaBeta = 0.5`; no stress ⇒ `α = 1` (fast path). It shrinks the step when a margin cannot be satisfied (keeps `α ∈ (0,1]`, preserving Peyré–Cuturi §4.4 convergence).
+- `α` is the **infeasibility-streak damping factor** `α = 1/(1 + β·stress)` (`compute_alpha`), where `stress` = longest consecutive infeasible-bucket streak and `β = kAlphaBeta = 0.5`; no stress ⇒ `α = 1` (fast path). It shrinks the step when a margin cannot be satisfied; with `ω ≤ 2` it keeps the net exponent `α·ω` inside the `(0, 2)` window proven globally convergent for overrelaxed Sinkhorn [thibault2021overrelaxed].
 - `β` is **only** the constant inside that damping map (the η-schedule scales it per homotopy level, `β = 0.5·η`). It is **not** a proximal/entropic term — the core update carries no proximal term.
 - The net exponent on the Sinkhorn ratio is `α·ω`; margins are swept **Gauss–Seidel (BCD-style)**.
 - `ω = 1, α = 1` ⇒ exact Sinkhorn–Knopp.
@@ -83,63 +83,47 @@ Both solve the **same KL/IPF fixed point on the margins** — at `α = ω = 1` t
 
 **One-line summary**: ORIS = *over-relaxed Sinkhorn with bounds pushed to finalize and Anderson acceleration available*; Sinkhorn = *plain Sinkhorn with the bounds folded into every iteration via Dykstra*. ORIS trades exact per-iterate box-feasibility for cheaper, accelerable sweeps; Sinkhorn trades acceleration for a joint, always-feasible KL projection.
 
-## Relationship to the source paper (arXiv:2011.14312)
+## Canonical sources for the over-relaxed scaling approach
 
-> Chu, Liang, Toh & Yang, *"An efficient implementable inexact entropic proximal point algorithm for a class of linear programming problems."* — `docs/iEPPA/arxiv.2011.14312/`. Design contract: `docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md`.
-
-The name was changed **from iEPPA** because the codebase implements the paper's **inner C=0 scaling step** (the algBCD sweep), not its outer inexact-proximal-point contribution — the outer PPA loop is mathematically inert at C=0 (see below).
-
-The codebase implements the paper's **inner algBCD specialized to `C = 0`**. The paper's headline *outer* inexact-proximal-point loop is **not** part of this solver — at `C = 0` it is mathematically inert — so the operative guarantee is Csiszár I-projection, not the paper's outer-PPA theorem.
-
-### What the paper's iEPPA is
-
-The paper solves a **linear program** — capacity-constrained multi-marginal optimal transport (CMOT):
+The defining ingredient of ORIS — multiplicative **successive over-relaxation (SOR)** on the Sinkhorn/IPF scaling step — has a precise canonical literature. The update
 
 ```
-min ⟨C, X⟩   s.t.   A⁽ⁱ⁾(X) = b⁽ⁱ⁾  (i=1..N marginals),   0 ≤ X ≤ U
+f_new = f_old^(1−ω) · naive^ω          (ω = over-relaxation parameter; ω = 1 is plain Sinkhorn/IPF)
 ```
 
-with an **outer inexact Entropic Proximal Point Algorithm**: at each outer step `k` it *approximately* solves a subproblem with a **re-centered** Bregman (Boltzmann–Shannon) proximal term
+is exactly the **overrelaxed Sinkhorn–Knopp** iteration of:
 
-```
-X^{k+1} ≈ argmin_{X∈Ω°}  ⟨C, X⟩ + ε_k · D_φ(X, X^k)        (re-anchored at X^k)
-```
+- **Thibault, Chizat, Dossal & Papadakis (2021)** [thibault2021overrelaxed] — the canonical algorithmic source. They define the multiplicative ω-power step (in log-coordinates, classical additive SOR on the nonlinear fixed point), prove **global convergence for every `ω ∈ (0, 2)`** via a Lyapunov argument (each overrelaxed Bregman/KL projection strictly decreases `KL(γ*, γ)` because `φ_ω(x) = x(1 − x^{−ω}) − ω log x > 0` off `x = 1`), and give an **adaptive-ω** scheme that needs no spectral pre-knowledge — the same adapt-on-the-fly idea ORIS uses for its per-margin `eff_omega`.
+- **Lehmann, von Renesse, Sambale & Uschmajew (2022)** [lehmann2022overrelaxation] — the convergence-rate companion. Via Young's classical SOR theorem applied to the Gauss–Seidel structure of the alternating updates, they derive the **local linear rate** and the **optimal parameter** `ω_opt = 2 / (1 + √(1 − ϑ₂))` (`ϑ₂` = second-largest eigenvalue of the linearised iteration), the a-priori-safe window `1 < ω < 1 + ϑ₂`, and a zero-cost residual-ratio estimator of `ϑ₂`.
+- **Soma & Uschmajew (2024)** [soma2024operator] generalise overrelaxed Sinkhorn to the operator-scaling setting.
 
-Three load-bearing pieces:
-1. **Moving anchor**: `D_φ(X, X^k)` is re-centered on `X^k` each outer iteration, so `ε_k` stays **fixed and moderate** (experiments use `ε = 0.05`) while iterates converge to the **exact** LP optimum — bypassing the `ε → 0` numerical instability that plagues Sinkhorn / DyKL (Dykstra-with-KL).
-2. **Inner dual Block Coordinate Descent (BCD)**: multiplicative update `u⁽ⁱ⁾_j ← b⁽ⁱ⁾_j / (A⁽ⁱ⁾(X̄))_j · u⁽ⁱ⁾_j` then capacity clip `X = min(X̄, U)` — a Sinkhorn/IPF sweep with a `min`-clip. (Paper notes DyKL ≡ this dual BCD, per Tibshirani 2017.)
-3. A **checkable inexact stopping condition** with a **global-convergence theorem** (iterates reach an exact optimum under summable `ν_k, η_k, μ_k`).
+These — not the iEPPA paper — are the algorithmic parent ORIS should be read against. The classical convergence floor underneath (ω = 1) is the Sinkhorn–Knopp / IPF / Csiszár I-projection theory already cited in *Mathematical guarantees* above; over-relaxation is an **orthogonal step-length modification** layered on that floor, and the `ω ∈ (0, 2)` global-convergence guarantee transfers directly to ORIS's core sweep (the in-repo `α` damping keeps the *net* exponent `α·ω ∈ (0, 2)`).
 
-### What the codebase implements
+> **Not the iEPPA paper.** The solver was originally (mis)named "iEPPA" after Chu, Liang, Toh & Yang, *"An efficient implementable inexact entropic proximal point algorithm…"* (arXiv:2011.14312) [chu2022ieppa]. That paper's **headline contribution — an outer inexact entropic-proximal-point loop with a re-centered Bregman term to solve a transport-cost LP (`min⟨C,X⟩`) without `ε → 0` blow-up — is NOT implemented here.** Survey calibration has no transport cost (`C = 0`), at which the outer proximal loop is mathematically inert (it scales the objective but does not move the argmin); only the paper's *inner* Sinkhorn-style scaling sweep survives, and that inner sweep is just IPF. So citing arXiv:2011.14312 as the basis over-claims a contribution the code does not contain. It remains a valid *optimal-transport-context* reference (it wraps the same Sinkhorn/algBCD inner loop), but the canonical sources for what ORIS actually does are the over-relaxed-Sinkhorn papers above plus the classical IPF/I-projection lineage. The rename `iEPPA → ORIS` records exactly this correction; see the design-history note in `docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md` (historical).
 
-`C = 0` is the correct specialization: survey calibration has **no transport cost**, only closeness-to-prior, so the paper's `min⟨C,X⟩ + ε·D_φ` becomes (spec §2.1)
+## Relation to Sinkhorn and Greenkhorn (one principle, three update schemes)
 
-```
-min_X  KL(X ‖ X_init)   s.t.  A(X) = T,  0 ≤ X ≤ U
-```
+ORIS, the [Sinkhorn](sinkhorn.md) solver, and [Greenkhorn](greenkhorn.md) are **three update schemes for the same underlying computation**: alternating KL (Bregman) projection of an initial mass onto marginal-constraint sets — equivalently, **block/coordinate dual ascent on the entropic-OT (maximum-entropy) dual**. Fienberg (1970) and Csiszár (1975) [csiszar1975idivergence] established the shared geometric picture; Cuturi (2013) [cuturi2013sinkhorn] recast it as the entropic-OT inner loop on the kernel `K = exp(−C/ε)` (here `C = 0`, so `K` is the design-weight prior). All three converge to the **same fixed point** — the I-projection satisfying every margin — and differ only on **two orthogonal axes**:
 
-- **No outer proximal-point loop.** At `C = 0` the `ε_k·KL(X‖X^k)` term scales the objective but does **not move the argmin**, so it is mathematically inert (spec §2.1, §9, §11). The calibration solution is the single I-projection of `X_init` onto {margins ∩ box}.
-- **Inner dual algBCD**, over the K margin blocks + a capacity block; each block is a closed-form multiplicative Sinkhorn step, the capacity block being the paper's clip `Γ = min{U/M, 1}` ⇒ in code `X[c] = clamp(X̃[c]·W[c], L_c, U_c)`. The core update is a pure Sinkhorn ratio `f[k][j] = τ_kj·W_total / S_kj` — no `ε`/`β` proximal term.
-- **Engineering modifiers** on top of the core: SOR `ω`, infeasibility damping `α = 1/(1+β·stress)`, homotopy over `max_weight`, SRAA/Anderson acceleration, and ALM capacity (SOFT). All are step-size or scheduling devices; none introduces a proximal bias.
+**Axis 1 — which/how-many constraints per step (coordinate-selection):**
 
-Mapping paper → code:
+| Scheme | Per step | Selection |
+|--------|----------|-----------|
+| **Sinkhorn** (2-marginal) | normalise *all* rows, then *all* columns | full parallel within a margin, strict alternation between the two |
+| **Cyclic / Gauss–Seidel IPF = ORIS core** | normalise margins one at a time, round-robin (or greedy-priority) over the K margins | one margin block per step, sweep order matters (Gauss–Seidel) |
+| **Greenkhorn** | normalise only the **single worst-violated** margin (`argmax_k errRp[k]`) | greedy coordinate descent on the dual |
 
-| Paper component | In `oris_solve` | Evidence |
-|-----------------|------------------|----------|
-| `C = 0` reduction to KL-to-prior calibration | ✅ | spec §2.1 |
-| Inner dual BCD (margin blocks + capacity block, Sinkhorn-like) | ✅ | `oris.cpp` algBCD; capacity clip `Γ = min{U/M,1}` |
-| Entropic proximal term | ❌ none — `f = τ·W/S` is a pure Sinkhorn ratio | spec §2.3 |
-| SOR `ω` + damping `α = 1/(1+β·stress)` | ✅ step-size relaxations (`β` is the damping constant, not a proximal term) | `oris.cpp` `compute_alpha`, `sor_omega`, `kAlphaBeta = 0.5` |
-| Outer moving-anchor PPA loop `KL(X‖X^k)` | ❌ inert at `C = 0`; the outer driver is homotopy over `max_weight` | spec §2.1/§9/§11; `oris.cpp` homotopy driver |
-| Capacity via ALM/ADMM | ✅ ORIS_SOFT only | `use_admm_capacity`, `ALMConfig.capacity_mu` |
-| Convergence guarantee | Csiszár (1975) / Csiszár–Tusnády (1984) cyclic I-projection, linear under Slater — not the paper's outer-PPA theorem | spec §9 |
+In the pure 2-marginal case Sinkhorn and cyclic IPF coincide; with `K > 2` margins they differ in sweep structure. Greenkhorn (Altschuler–Weed–Rigollet 2017 [altschuler2017greenkhorn]) trades the full sweep for a greedy single-coordinate pick and proves the **same asymptotic linear rate** as Sinkhorn with a better near-linear-time constant on sparse problems.
 
-### Appraisal
+**Axis 2 — step length (relaxation), orthogonal to Axis 1:** over-relaxation raises the multiplicative ratio to the power `ω` instead of `1`. This is independent of *which* coordinate is updated — it rescales *how far* each chosen projection moves. ORIS applies `ω` (Thibault-style, [thibault2021overrelaxed]) on top of its cyclic Gauss–Seidel sweep; classical Sinkhorn uses `ω = 1`.
 
-- **Operative guarantee is Csiszár / Csiszár–Tusnády cyclic I-projection** onto affine sets ∩ log-convex box (linear rate under Slater, spec §9) — the paper's outer-PPA theorem does not apply because that loop is inert at `C = 0`.
-- **The core has no entropic-proximal bias.** The update `new_f = f_old^(1−α·ω)·naive^(α·ω)` uses two step-size relaxations (`ω`, `α`); neither moves the fixed point — at a fixed point `naive = 1` regardless of `α`, `ω`, so margins are satisfied exactly. With `ω = 1, α = 1` the solver is plain Sinkhorn/IPF (Sinkhorn–Knopp convergence applies).
+**Why ORIS sits where it does.** Among the three, ORIS is the **cyclic-IPF scheme with over-relaxation on Axis 2 and the optional greedy-priority scheduler on Axis 1** — i.e. it can borrow Greenkhorn's worst-margin-first selection (`scheduler = greedy`) *and* Thibault's over-relaxation simultaneously, which neither the textbook Sinkhorn nor vanilla Greenkhorn does. The key consequences:
 
-*(Confidence: 90 — facts stated in the design spec §2.1/§2.3/§9/§11, source headers, and verified update lines in `oris.cpp`.)*
+- **vs. Sinkhorn (+Dykstra)** — same fixed point; the differences are (a) Axis-2 over-relaxation (ORIS yes, Sinkhorn no) and (b) *box handling*: ORIS defers bounds to finalize (or ALM in SOFT) and stays a pure fixed-point map ⇒ **Anderson/SRAA-accelerable**; the Sinkhorn solver folds bounds into every iterate via stateful **Dykstra** correction vectors ⇒ not SRAA-able. (Full table under *ORIS vs. Sinkhorn* above.)
+- **vs. Greenkhorn** — both can use worst-margin-first selection; the difference is again Axis 2 (ORIS over-relaxes; Greenkhorn takes the plain `ω = 1` ratio) and *objective bookkeeping* (Greenkhorn tracks max-residual `errRp` and does not minimise KL directly; ORIS tracks the KL/metric improvement).
+- **Open caveat (literature).** Over-relaxation theory ([thibault2021overrelaxed], [lehmann2022overrelaxation]) is proven for the **full-sweep** alternation. **No published analysis covers over-relaxation composed with greedy single-coordinate (Greenkhorn-style) selection** (confidence: 85). When ORIS runs `scheduler = greedy` *and* `ω > 1` together it is outside the proven regime — the per-margin `eff_omega` adaptation + stall-revert guards are the engineering safety net, not a theorem.
+
+*(Confidence: 90 on the canonical SOR-Sinkhorn attribution and the three-axis taxonomy — Thibault et al. 2021 and Lehmann et al. 2022 DOIs verified; 85 on the greedy+over-relaxation open-question claim.)*
 
 ## Advantages
 
@@ -163,7 +147,8 @@ Mapping paper → code:
 | Bounded-KL (margins ∩ box) convergence | **Strong** | Csiszár (1975) / Csiszár–Tusnády (1984) cyclic I-projection, linear under Slater (spec §9) |
 | Geometric (linear) convergence rate | **Moderate** | Holds for IPF under positivity; rate depends on the contraction modulus of the margin coupling. Not re-derived in-repo |
 | SOR / damping preserve the fixed point | **Strong** | `α·ω`-step has the same fixed point as IPF (`f_new = f_old` ⇔ `naive = 1` ⇔ marginal satisfied), independent of `α`, `ω` |
-| Convergence *with* adaptive SOR | **Weak** | No formal proof; SOR can diverge for ω outside (0,2) in general; mitigated by burn-in/adaptation |
+| Convergence *with* over-relaxation, full sweep, `ω ∈ (0,2)` | **Strong** | Global convergence proven by Lyapunov descent for overrelaxed Sinkhorn (Thibault et al. 2021 [thibault2021overrelaxed]); local optimal rate `ω_opt = 2/(1+√(1−ϑ₂))` (Lehmann et al. 2022 [lehmann2022overrelaxation]). ORIS's `α` damping keeps net exponent `α·ω ∈ (0,2)` |
+| Convergence with over-relaxation **+ greedy scheduler** | **Weak** | Over-relaxation theory assumes full-sweep alternation; no published analysis of ω>1 composed with greedy single-coordinate (Greenkhorn-style) selection — guarded empirically by per-margin ω-adaptation + stall-revert |
 | SRAA/Anderson acceleration convergence | **Weak/Moderate** | Anderson acceleration has local convergence theory under contraction; here wrapped with a stall-revert guard rather than proven |
 
 **Appraisal (GRADE-style): Strong for the base method, Moderate overall.** The core rests on well-proven Sinkhorn/IPF and cyclic I-projection theory. The acceleration/damping layers are step-size relaxations that preserve the fixed point but are empirically guarded, not formally proven, for rate.
@@ -178,7 +163,8 @@ Mapping paper → code:
 | Trajectory diagnostics | `src/oris_trajectory.cpp` | — |
 | Acceleration | `src/sraa.hpp` | SRAA-m Anderson |
 | Shared finalize | `src/calib_dispatch.hpp` | `finalize_weights`, `finalize_weights_buf` |
-| Source paper + design contract | `docs/iEPPA/arxiv.2011.14312/`, `docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md` | Chu–Liang–Toh–Yang (arXiv:2011.14312); reference MATLAB in `docs/iEPPA/code/` |
+| Canonical algorithm source | [thibault2021overrelaxed], [lehmann2022overrelaxation] | overrelaxed Sinkhorn–Knopp (the SOR step + ω∈(0,2) proof) |
+| Rename history (NOT the algorithm source) | `docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md` | iEPPA→ORIS correction; arXiv:2011.14312 + MATLAB in `docs/iEPPA/` |
 
 ## History & seminal sources
 
@@ -192,7 +178,9 @@ The algorithm at the core of this solver — plain Sinkhorn–Knopp / IPF — ha
 
 **I-divergence geometry.** L.M. Bregman (1967) gave the first proof of necessary and sufficient conditions for convergence of IPF on matrices with zeros using an L1 approach. I. Csiszár (1975) independently established the same conditions via information geometry, showing that IPF computes successive I-projections (KL-projections) onto affine marginal constraint sets [csiszar1975idivergence]. Csiszár and Tusnády (1984) then proved convergence of alternating minimization (the general class containing IPF) from an information-geometry standpoint and derived the linear convergence rate [csiszartusnady1984].
 
-**Optimal-transport context.** Cuturi (2013) recast Sinkhorn iteration as the inner loop for entropy-regularized optimal transport, igniting the modern machine-learning interest in the algorithm and enabling GPU-parallel computation [cuturi2013sinkhorn]. The Chu–Liang–Toh–Yang iEPPA paper (2022) [chu2022ieppa] sits in this lineage, wrapping Sinkhorn/algBCD in an outer proximal-point driver to solve the full capacity-constrained OT LP without the instability of taking the regularisation parameter to zero.
+**Optimal-transport context.** Cuturi (2013) recast Sinkhorn iteration as the inner loop for entropy-regularized optimal transport, igniting the modern machine-learning interest in the algorithm and enabling GPU-parallel computation [cuturi2013sinkhorn]. Peyré & Cuturi (2019) [peyrecuturi2019computational] is the standard reference for the entropic-OT view of the whole family.
+
+**Over-relaxation (the ORIS step).** Thibault, Chizat, Dossal & Papadakis (2021) [thibault2021overrelaxed] introduced the overrelaxed Sinkhorn–Knopp iteration ORIS implements (multiplicative ω-power step, adaptive ω, global convergence for `ω ∈ (0,2)`); Lehmann, von Renesse, Sambale & Uschmajew (2022) [lehmann2022overrelaxation] supplied the local rate and optimal-`ω` analysis via Young's SOR theorem; Soma & Uschmajew (2024) [soma2024operator] extended it to operator scaling. These are the canonical sources for ORIS's distinguishing feature — see *Canonical sources for the over-relaxed scaling approach* above. The Chu–Liang–Toh–Yang iEPPA paper [chu2022ieppa] sits in the same Sinkhorn lineage but contributes an outer proximal-point driver that ORIS does **not** implement (it is inert at `C = 0`); it is retained only as an OT-context reference, not as the algorithm source.
 
 ## Practitioner implementations & use cases
 
@@ -258,7 +246,12 @@ The table below maps standard IPF idioms to leafblower's design choices. All cla
 - [csiszar1975idivergence] I. Csiszár, "I-Divergence Geometry of Probability Distributions and Minimization Problems," *Annals of Probability*, 3(1):146–158, 1975. doi:10.1214/aop/1176996454
 - [csiszartusnady1984] I. Csiszár and G. Tusnády, "Information Geometry and Alternating Minimization Procedures," *Statistics & Decisions*, Supplement 1:205–237, 1984.
 - [chu2022ieppa] H.T.M. Chu, L. Liang, K.-C. Toh, and L. Yang, "An efficient implementable inexact entropic proximal point algorithm for a class of linear programming problems," arXiv:2011.14312v3, 2022. doi:10.48550/arXiv.2011.14312
-- [cuturi2013sinkhorn] M. Cuturi, "Sinkhorn Distances: Lightspeed Computation of Optimal Transport Distances," *Advances in Neural Information Processing Systems* 26, 2013.
+- [cuturi2013sinkhorn] M. Cuturi, "Sinkhorn Distances: Lightspeed Computation of Optimal Transport Distances," *Advances in Neural Information Processing Systems* 26, 2013. arXiv:1306.0895
+- [thibault2021overrelaxed] A. Thibault, L. Chizat, C. Dossal, and N. Papadakis, "Overrelaxed Sinkhorn–Knopp Algorithm for Regularized Optimal Transport," *Algorithms*, 14(5):143, 2021. doi:10.3390/a14050143 (arXiv:1711.01851)
+- [lehmann2022overrelaxation] T. Lehmann, M.-K. von Renesse, A. Sambale, and A. Uschmajew, "A note on overrelaxation in the Sinkhorn algorithm," *Optimization Letters*, 16(8):2209–2220, 2022. doi:10.1007/s11590-021-01830-0 (arXiv:2012.12562)
+- [soma2024operator] T. Soma and A. Uschmajew, "Accelerating operator Sinkhorn iteration with overrelaxation," arXiv:2410.14104, 2024.
+- [altschuler2017greenkhorn] J. Altschuler, J. Weed, and P. Rigollet, "Near-Linear Time Approximation Algorithms for Optimal Transport via Sinkhorn Iteration," *Advances in Neural Information Processing Systems* 30, 2017. arXiv:1705.09634
+- [peyrecuturi2019computational] G. Peyré and M. Cuturi, "Computational Optimal Transport," *Foundations and Trends in Machine Learning*, 11(5–6):355–607, 2019. arXiv:1803.00567
 - [devillesarndal1992] J.-C. Deville and C.-E. Särndal, "Calibration Estimators in Survey Sampling," *Journal of the American Statistical Association*, 87(418):376–382, 1992. doi:10.1080/01621459.1992.10475217
 - [lumley2010survey] T. Lumley, *Complex Surveys: A Guide to Analysis Using R*, Wiley, 2010.
 - [blocker2022ipfp] A.W. Blocker, *ipfp: Fast Implementation of the Iterative Proportional Fitting Procedure in C*, CRAN, 2022. doi:10.32614/CRAN.package.ipfp
