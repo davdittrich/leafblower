@@ -1026,7 +1026,10 @@ compute_quality_metrics <- function(weights, target_list, df) {
         w_v   <- weights[valid]
         Z_k   <- sum(w_v)
         if (Z_k == 0) return(NA_real_)
-        W_k <- tapply(w_v, droplevels(obs_k[valid]), sum) / Z_k
+        obs_kv <- obs_k[valid]
+        # droplevels() has no character method — guard to factor; tapply coerces char/numeric/logical itself [mb06]
+        grp    <- if (is.factor(obs_kv)) droplevels(obs_kv) else obs_kv
+        W_k    <- tapply(w_v, grp, sum) / Z_k
         margin_kl_one(T_k, W_k)
       }), na.rm = FALSE)
     }

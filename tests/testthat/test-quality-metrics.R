@@ -181,3 +181,31 @@ test_that("B1: compute_quality_metrics extraction: values identical to inline", 
   expect_equal(qm$weight_kl, expected_weight_kl, tolerance = 1e-10)
   expect_equal(qm$effective_observations, expected_eff_obs, tolerance = 1e-10)
 })
+
+test_that("mb06: compute_quality_metrics margin_kl finite for CHARACTER margin; bit-equals factor path", {
+  # Regression (function under test = compute_quality_metrics, NOT the solver):
+  # droplevels() has no method for class character -> the K-pass fallback errored
+  # ("no applicable method for 'droplevels' ...") -> tryCatch swallowed it ->
+  # margin_kl = NA + warning. A CHARACTER margin forces the K-pass path
+  # (single-pass requires ALL margin cols be factors). The fix guards droplevels()
+  # to factors; tapply coerces the character index to a factor over present values
+  # only -> bit-identical W_k -> bit-identical margin_kl. Call the helper directly
+  # with a fixed weights vector so NO solver warning can be misattributed here.
+  set.seed(2026L)
+  n     <- 800L
+  cats  <- sample(c("x", "y", "z"), n, TRUE, prob = c(0.5, 0.3, 0.2))
+  w     <- runif(n, 0.5, 2.0)                                # fixed positive weights
+  tgt   <- list(a = c(x = 0.4, y = 0.35, z = 0.25))
+  df_chr <- data.frame(a = cats, stringsAsFactors = FALSE)   # CHARACTER margin -> K-pass
+  df_fac <- data.frame(a = factor(cats))                     # same data, FACTOR margin
+
+  # Only the helper call is wrapped: no solver runs, so no solver warning is possible.
+  qm_chr <- expect_no_warning(leafblower:::compute_quality_metrics(w, tgt, df_chr))
+  mk_chr <- qm_chr$margin_kl
+  expect_true(is.finite(mk_chr))                             # (a) finite / NOT NA
+
+  qm_fac <- leafblower:::compute_quality_metrics(w, tgt, df_fac)
+  mk_fac <- qm_fac$margin_kl
+  # (c) char path feeds bit-identical inputs to the KL helper as the factor path
+  expect_identical(mk_chr, mk_fac)
+})
