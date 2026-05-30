@@ -1,54 +1,32 @@
-<!-- approved: 2026-05-29T11:16:22Z -->
-<!-- gate-iterations: 1 -->
-<!-- user-approved: true -->
-<!-- status: in-progress -->
-<!-- epics: 2lxq,o2o6,nil1,ya85 -->
+# Active Plan — ORIS/OT-family over-relaxation optimizations
+<!-- approved: 2026-05-31 -->
+<!-- design-review-gate: n/a (ticket-creation task, not a design doc) -->
+<!-- plan-review-gate: PASSED 3/3 on iteration 2 (round-1 Completeness blocker resolved) -->
+<!-- user-approved: pending -->
+<!-- status: backlog -->
 
-# Active Plan — codereview remediation, epic-organized by solver file
+Impact-ranked over-relaxation optimizations, grounded in docs/methods/oris.md canonical
+sources (Thibault 2021, Lehmann 2022, Soma-Uschmajew 2024). Two epics by approach; each
+task carries an experiment gate (build + devtools::test + python parity rtol=1e-6 +
+stepstone no-regression, plus a benchmark pass/fail or GO/NO-GO verdict).
 
-## PROGRESS (2026-05-29 session): 11 tickets done, 11 commits (local; no remote)
-- chebyshev (2lxq) 4/4: izql a2547a3, xl44 6d215d7, xiox(rejected) 9e2e913, 0xc5 58448c5
-- ieppa (o2o6) 7/8: l6to d7c7502, jd2f bd2534a, ohi0 1996338, l7sg 92ddb03, vtjf f493cf4, za9r 36f0530, 7emq(rejected) 7c62d50
-- Shared helper added: lbw::finalize_weights[_buf] + kMinSafeTotalWeight (calib_dispatch.hpp)
-- 2 tickets REJECTED as not-a-bug via derivation+sim: xiox (Mehrotra corrector), 7emq (ALM Newton). Guard comments + bd remember added.
-- Spawned: dead-hi (P4), ieppa-adopt-finalize_weights (P3).
+## Epic leafblower-mj1p — ORIS-internal over-relaxation (P1)
+- leafblower-mj1p.1 (P1, Rank1): unlock omega>1 — wire existing types.hpp omega_max into
+  the recovery clamp (src/oris.cpp:837 SRAA, :1564 flat; currently std::min(1.0,...)).
+  HIGH impact / LOW cost. The headline fix: the solver named "over-relaxed" never over-relaxes.
+- leafblower-mj1p.2 (P2, Rank2, DEPENDS-ON mj1p.1): spectral optimal-omega from the
+  successive-residual ratio (Lehmann omega_opt=2/(1+sqrt(1-theta2))) replacing the
+  0.7/1.05 heuristic. NO-GO if it doesn't beat fixed omega_max.
 
-## uu8r PLAN — GATE-APPROVED (plan-review-gate iteration 3/3: Feasibility+Completeness+Scope all PASS)
-Cold-only split — build has NO LTO, so hot ieppa_solve + pack/unpack_lf STAY in ieppa.cpp.
-REORDERED (link-order fix: write_trajectory_csv called by ieppa_finalize → externalize trajectory FIRST):
-- uu8r.1: extract trajectory I/O (parse_trajectory_iters + write_trajectory_csv) -> ieppa_trajectory.cpp + CREATE ieppa_internal.hpp (externalize both).
-- uu8r.2 (dep .1): extract ieppa_finalize -> ieppa_finalize.cpp (links to now-external write_trajectory_csv).
-- uu8r.3 (dep .1,.2): stepstone perf gate (pre/post, 3% tol) + 593 R + 15 py parity byte-identical.
-TWO build sites per move: R src/Makevars.in PKG_SOURCES (R auto-globs src/*.cpp — likely decorative, edit for docs) + python/CMakeLists.txt CORE_SOURCES (EXPLICIT list — MUST add or pybind11 link fails).
-Mechanism: cold-only relocation, byte-identical bodies. Forbidden: moving hot code, -flto, logic changes.
-HONEST SCOPE: ~330 cold lines move; hot ieppa_solve (~1690 lines) stays → modest compile win (cold edits only).
-Gate caught + fixed: (iter1) omitted Python CORE_SOURCES wiring; (iter2) write_trajectory_csv link-order.
-STATUS: DONE. uu8r.1 (8d0a966), uu8r.2 (637198d), uu8r.3 (perf gate, no code). ieppa.cpp 2153->1789. Perf-neutral: ieppa median 3411ms (pre) -> 3341ms (post), -2.0%, single-thread n=11. 593 R/15 py byte-identical pre/post. uu8r + 3 children CLOSED.
+## Epic leafblower-e65t — OT-family transfer (P2, research-gated)
+- leafblower-e65t.1 (P2, Rank3): Anderson(SRAA) x over-relaxation interplay — 4-arm study;
+  currently SOR adaptation is disabled on AA-accepted steps (oris.cpp:822). GO/NO-GO.
+- leafblower-e65t.2 (P3, Rank4): over-relaxed greedy Greenkhorn — research probe; greedy
+  breaks the full-sweep Lyapunov proof; NO-GO is the expected base case.
+- leafblower-e65t.3 (P3, Rank5): over-relaxed Dykstra-Sinkhorn feasibility probe — theory
+  gate first (Dykstra statefulness blocks direct transfer); likely documented NO-GO.
 
-## SESSION FINAL: 14 tickets closed, 13 commits. chebyshev 4/4 + ieppa 7/8 bugs + uu8r split (3 WU). Open: ieppa-adopt-finalize_weights (P3), dead-hi (P4), chebyshev-hi-var (P4) — cosmetic. No git remote (commits local).
-
-# (original plan below)
-
-**Branch:** `feat/codereview-remediation-p2-batch`
-**Mechanism:** Surgical per-ticket correctness fixes; single-exit / Σw=n enforcement mirrors `ieppa_finalize`.
-**Forbidden:** post-normalizing Σw=n (breaks unit water-fill); subagent self-cert of numerics; git add -A; --no-verify.
-**Gate:** plan-review-gate iteration 1 — Feasibility PASS, Completeness PASS, Scope PASS.
-
-## Epic structure (axis = by solver file, all 18 open tickets)
-- **chebyshev** (leafblower-2lxq, P1): izql, xl44, xiox, 0xc5. GUARD: izql+xl44 edit exit region L245–714 → SEQUENTIAL.
-- **ieppa** (leafblower-o2o6, P1): jd2f, l6to, ohi0, vtjf, za9r, 7emq, l7sg, uu8r. All edit ieppa.cpp → SERIAL. uu8r (split) BLOCKED-BY 7 bugs → runs LAST. 7emq SUSPECTED → read paper PDF before patch.
-- **raking/newton/logit** (leafblower-nil1, P2): 24f7, dqs3, 2ce1, xwqy. 4 distinct files → parallelizable.
-- **refactor** (leafblower-ya85, P3): l1p3 (R/harvest.R), yxcg (SIMD). Coordinate yxcg with uu8r line-shift.
-- **distribution** (leafblower-kk1.24, pre-existing feature): untouched.
-
-## Verification gate (per epic)
-R tests (testthat FAIL 0) + Python parity rtol=1e-6 + stepstone no regression. Orchestrator INDEPENDENTLY reruns — no subagent self-cert. Per-file `git add`. One commit per ticket.
-
-## Execution order
-1. chebyshev: **izql (in_progress)** → xl44 → xiox → 0xc5
-2. ieppa bugs (serial) → uu8r split last
-3. raking/newton/logit (parallel)
-4. refactor
-
-## Non-blocker (gate flag)
-yxcg SIMD touches ieppa.cpp:241; left under refactor epic; coupling to uu8r line-shift noted in ya85 body.
+## Global guards (all tickets)
+Fixed point unchanged (weights within 1e-8 of baseline); net exponent alpha*eff_omega in
+(0,2); enum values/bounds semantics/public API frozen; no default behavior change without
+a GO verdict + stepstone no-regression. Full hermetic bodies in beads.
