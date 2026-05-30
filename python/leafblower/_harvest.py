@@ -49,8 +49,14 @@ def _compute_sparseness_diag(df, targets, cat_threshold=0.01, obs_threshold=30,
             lv_str = str(level)
             if lv_str == "NA" and v in na_injected:
                 # NA-bin injected by add_na_proportion: value_counts(dropna=True)
-                # drops NaN/None so they never appear under any string key; count directly.
-                n_kj = int(pd.isna(df[v]).sum())
+                # drops NaN/None so they never appear under any string key; count
+                # directly. Conflate true-NA + literal-string-"NA" into the "NA"
+                # level to mirror the solver encoding (_harvest.py group_ids
+                # else-branch: col.astype(str).where(~isna, other="NA")). The added
+                # literal term is 0 when no row holds the string "NA".
+                n_kj = int(pd.isna(df[v]).sum()) + int(
+                    ((~pd.isna(df[v])) & (df[v].astype(str) == "NA")).sum()
+                )
             else:
                 n_kj = int(counts.get(lv_str, 0))
             if T_kj < cat_threshold or n_kj < obs_threshold:

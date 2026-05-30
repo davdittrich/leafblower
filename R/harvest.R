@@ -321,7 +321,8 @@ harvest <- function(
 
   # --- c8w1: sparseness diagnostic (pre-solve) ---
   sparse_diag <- compute_sparseness_diag(target, data,
-                                         cat_threshold = 0.01, obs_threshold = 30L)
+                                         cat_threshold = 0.01, obs_threshold = 30L,
+                                         na_margins = .na_margins)
   if (length(sparse_diag) > 0) {
     n_flagged <- sum(vapply(sparse_diag, length, FUN.VALUE = integer(1)))
     warning(sprintf(
@@ -760,7 +761,8 @@ harvest <- function(
 
 # --- Helpers (each <= 15 lines, independently testable) ---
 
-compute_sparseness_diag <- function(target, data, cat_threshold = 0.01, obs_threshold = 30L) {
+compute_sparseness_diag <- function(target, data, cat_threshold = 0.01, obs_threshold = 30L,
+                                    na_margins = character(0)) {
   # Pre-hoist: extract data column names once; avoids repeated names(data) in loop.
   data_names  <- names(data)
   sparse_cats <- list()
@@ -771,7 +773,18 @@ compute_sparseness_diag <- function(target, data, cat_threshold = 0.01, obs_thre
     lvs  <- names(tv)             # hoist names() — reused for tabulate and inner loop
     # tabulate(match()) replaces table(): avoids factor()+unique() passes over col,
     # cutting 70% of per-call cost (profile: factor+unique.default = 66% self-time).
-    cnts <- tabulate(match(col, lvs), nbins = length(lvs))
+    if (v %in% na_margins) {
+      # yaye: this margin has an injected "NA" bin. Mirror the solver encoding
+      # (group_ids_r else-branch :475-477): conflate true-NA + literal-string-"NA"
+      # into the "NA" level. match(NA, lvs) returns NA_integer_ and is dropped by
+      # tabulate, so without the as.character()+fill the true-NA bin counts 0
+      # (true-NA-blind) and is mis-flagged sparse on every add_na_proportion run.
+      key  <- as.character(col)
+      key[is.na(key)] <- "NA"
+      cnts <- tabulate(match(key, lvs), nbins = length(lvs))
+    } else {
+      cnts <- tabulate(match(col, lvs), nbins = length(lvs))
+    }
     names(cnts) <- lvs
     for (lv in lvs) {
       T_kj <- tv[[lv]]

@@ -216,3 +216,39 @@ def test_compute_sparseness_diag_na_bin():
     ungated_na = [r for r in result_ungated.get("v1", []) if r["level"] == "NA"]
     assert ungated_na, "Without na_injected, NA-bin should be flagged sparse (n_kj=0)"
     assert ungated_na[0]["n_kj"] == 0, "Without na_injected, NA n_kj must be 0 (counts miss NaN)"
+
+
+def test_compute_sparseness_diag_na_bin_conflates_literal():
+    """NA-bin must conflate true-NA + literal-string-'NA' and match the R diagnostic.
+
+    Mirrors tests/testthat/test-sparseness-na-bin.R: same fixture shape
+    (3 true-NA + 2 literal-'NA' + 5 'x' + 1 'y'); the conflated count is 5.
+    Proves R == Python n_kj('NA').
+    """
+    import pandas as pd
+    from leafblower._harvest import _compute_sparseness_diag
+
+    # 3 true-NA (None) + 2 literal-string "NA" + 5 "x" + 1 "y"  (n = 11)
+    g = pd.array(["x", "x", "x", "x", "x", "y", "NA", "NA", None, None, None],
+                 dtype=object)
+    df = pd.DataFrame({"g": g})
+
+    na_frac = float(pd.isna(df["g"]).mean())  # 3/11
+    tgt = {"g": {"x": 0.7 * (1 - na_frac), "y": 0.3 * (1 - na_frac), "NA": na_frac}}
+
+    # Conflated reference: true-NA + literal-"NA".
+    conflated = int(pd.isna(df["g"]).sum()) + int(
+        ((~pd.isna(df["g"])) & (df["g"].astype(str) == "NA")).sum()
+    )
+    assert conflated == 5  # 3 true-NA + 2 literal-"NA"
+
+    # Low obs_threshold so the NA entry is reported regardless of sparsity.
+    result = _compute_sparseness_diag(df, tgt, cat_threshold=0.99, obs_threshold=100,
+                                      na_injected={"g"})
+    na_entries = [r for r in result.get("g", []) if r["level"] == "NA"]
+    assert na_entries, "NA entry should appear under high cat_threshold"
+    assert na_entries[0]["n_kj"] == conflated, (
+        f"n_kj={na_entries[0]['n_kj']} != conflated {conflated}"
+    )
+    # R parity: tests/testthat/test-sparseness-na-bin.R asserts the same value (5).
+    assert na_entries[0]["n_kj"] == 5
