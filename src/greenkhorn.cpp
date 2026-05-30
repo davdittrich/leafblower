@@ -291,7 +291,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             ? RK_ERR_BUDGET : RK_ERR_STALL;
         if (res.base.status == RK_ERR_STALL) res.base.stall_kind = 2;  // KL plateau (Sinkhorn-class)
         std::snprintf(res.message, sizeof(res.message),
-            "greenkhorn: %s after %d steps; best max_err=%.4e",
+            "greenkhorn: %s after %d steps; best err=%.4e",
             res.base.status == RK_ERR_BUDGET ? "budget exhausted" : "stall",
             res.base.iterations, res.base.best_error);
     }
