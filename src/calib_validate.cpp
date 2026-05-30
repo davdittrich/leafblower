@@ -24,7 +24,7 @@ int calib_validate_preentry(const CellTable& ct,
     if (n_cats_total > kNCatsTotalMax) {
         char msg[256];
         std::snprintf(msg, sizeof(msg),
-            "n_cats_total=%d exceeds limit %d; use method='ieppa' or 'raking'",
+            "n_cats_total=%d exceeds limit %d; use method='oris' or 'raking'",
             n_cats_total, kNCatsTotalMax);
         return fail(RK_ERR_BADARG, msg);
     }

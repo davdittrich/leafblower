@@ -1,10 +1,10 @@
-// Cold trajectory-diagnostics I/O for iEPPA, split out of ieppa.cpp (uu8r.1).
+// Cold trajectory-diagnostics I/O for ORIS, split out of oris.cpp (uu8r.1).
 // Driven by env vars LBW_TRAJECTORY_AT (iters to sample) / LBW_TRAJECTORY_OUT
 // (csv path). Never on the hot path — called once per solve. Externalized from
-// the former file-static definitions so ieppa_finalize.cpp (uu8r.2) can link to
+// the former file-static definitions so oris_finalize.cpp (uu8r.2) can link to
 // write_trajectory_csv.
 
-#include "ieppa_internal.hpp"
+#include "oris_internal.hpp"
 
 #include <algorithm>
 #include <cstdlib>

@@ -15,7 +15,7 @@
 #include "logit.hpp"
 #include "cell_table.hpp"
 #include "types.hpp"
-#include "ieppa.hpp"
+#include "oris.hpp"
 #include "raking.hpp"
 #include "sinkhorn.hpp"
 #include "greg.hpp"
@@ -40,8 +40,8 @@ static inline int scalar_int(SEXP x, const char* name) {
 
 namespace {
 const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
-    {"ieppa",      RK_ALG_IEPPA},
-    {"ieppa_soft", RK_ALG_IEPPA_SOFT},
+    {"oris",       RK_ALG_ORIS},
+    {"oris_soft",  RK_ALG_ORIS_SOFT},
     {"raking",     RK_ALG_RAKING},
     {"greg",       RK_ALG_GREG},
     {"chebyshev",  RK_ALG_CHEBYSHEV},
@@ -329,7 +329,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     const char* method_str = pre_error.empty() ? CHAR(STRING_ELT(method_sexp, 0)) : "";
     const auto alg_it = pre_error.empty() ? kAlgMap.find(method_str) : kAlgMap.end();
     if (pre_error.empty())
-        p.algorithm = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_IEPPA;
+        p.algorithm = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_ORIS;
 
     // Full input validation — shared with c_api.cpp path via validation.hpp.
     if (pre_error.empty()) {
@@ -359,18 +359,18 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     st.newton_tsvd_ratio = scalar_real(newton_tsvd_ratio_sexp, "newton_tsvd_ratio");
     // Tikhonov ridge on dual λ; 0.0 = off.
     st.ridge_lambda = scalar_real(ridge_lambda_sexp, "ridge_lambda");
-    st.ieppa_auto_selected          = false;  // R bridge always resolves method explicitly
+    st.oris_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;
     st.accelerate = (scalar_int(accelerate_sexp, "accelerate") != 0);
 
-    // Resolve capacity_mu for ieppa_soft: harmonized to estimate_M_cell path matching c_api.cpp.
+    // Resolve capacity_mu for oris_soft: harmonized to estimate_M_cell path matching c_api.cpp.
     // leafblower-yh0l.4: T3 benchmark identified Py as winner on fulldata; differentiator was
     // R using exact M_cell/n via build_cell_table (~0.073 at K=9), Py using estimate_M_cell
     // which caps at n for K>8 (capacity_mu=1.0). ~14x scaling difference drove iter-0 divergence.
     // capacity_penalty <= 0.0 (or NULL) selects auto via estimate_M_cell (matches c_api.cpp:380);
     // positive value is used directly. ALM block is gated by st.use_admm_capacity,
-    // so st.alm.capacity_mu is harmless for non-ieppa_soft callers.
+    // so st.alm.capacity_mu is harmless for non-oris_soft callers.
     {
         const double cp_val = Rf_isNull(capacity_penalty_sexp)
             ? -1.0
@@ -401,7 +401,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     int    res_status     = RK_ERR_NOCONV;
     int    res_iterations = 0;
     double res_max_error  = 1.0;
-    int    res_alg_used   = (int)RK_ALG_IEPPA;
+    int    res_alg_used   = (int)RK_ALG_ORIS;
     char   res_message[256] = "";
     int    res_n_xcur_writes = 0;
     double res_min_alpha  = 1.0;
@@ -427,14 +427,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     int    res_sor_n_damped  = 0;
     double res_conv_objective          = 0.0;
     int    res_conv_minimized_metric   = 0;
-    /* ALM diagnostics (populated only in ieppa_soft dispatch; zero elsewhere) */
+    /* ALM diagnostics (populated only in oris_soft dispatch; zero elsewhere) */
     double res_alm_capacity_mu_final   = 0.0;
     int    res_alm_n_growth_events     = 0;
     double res_alm_max_dual_norm       = 0.0;
     double res_alm_sum_drift           = 0.0;
-    /* Acceleration (SRAA) diagnostic (ieppa/ieppa_soft only; zero elsewhere) */
+    /* Acceleration (SRAA) diagnostic (oris/oris_soft only; zero elsewhere) */
     int    res_aa_accepted_count       = 0;
-    /* SRAA scheduler-demotion flag (ieppa/raking only; FALSE elsewhere).
+    /* SRAA scheduler-demotion flag (oris/raking only; FALSE elsewhere).
        TRUE iff accelerate=TRUE AND greedy scheduler was demoted to round_robin. */
     int    res_sraa_demoted            = 0;
     /* Newton-KL TSVD diagnostic (Epic-Dβ WL-1; non-zero only for newton_kl) */
@@ -491,9 +491,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_best_weights = std::move(res.base.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
         // AUTO routing (Epic-H WH-g):
-        //   K<5 OR M_cell/n ≤ 0.9 → raking / iEPPA (compression-based, unchanged)
+        //   K<5 OR M_cell/n ≤ 0.9 → raking / ORIS (compression-based, unchanged)
         //   K≥5, M_cell/n > 0.9, target_skew ≤ 5 → newton_kl  (moderate skew)
-        //   K≥5, M_cell/n > 0.9, target_skew  > 5 → ieppa+SRAA (severe skew)
+        //   K≥5, M_cell/n > 0.9, target_skew  > 5 → oris+SRAA (severe skew)
         //   target_skew = max(targets) / max(min(targets), 1e-12)
         int M_cell_est = lbw::estimate_M_cell(n, K,
             const_cast<const int32_t**>(group_ids.data()),
@@ -517,14 +517,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             const bool severe_skew = (target_skew > 5.0);
             if (severe_skew) {
                 // Epic-H WH-g: kk1204 K=20 evidence — Newton-KL stalls at gap≈6.24e-2
-                // on severe-skew dual landscape; iEPPA+SRAA converges instead.
-                st.ieppa_auto_selected = true;
+                // on severe-skew dual landscape; ORIS+SRAA converges instead.
+                st.oris_auto_selected = true;
                 st.accelerate = true;
-                auto res = lbw::ieppa_solve(st);
+                auto res = lbw::oris_solve(st);
                 res_status     = res.base.status;
                 res_iterations = res.base.iterations;
                 res_max_error  = res.base.max_error;
-                res_alg_used   = (int)RK_ALG_IEPPA;
+                res_alg_used   = (int)RK_ALG_ORIS;
                 res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
                 res_min_alpha             = res.min_alpha_seen;
                 res_final_alpha           = res.final_alpha;
@@ -566,13 +566,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sraa_demoted = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         } else {
-            // Compressed regime: iEPPA (any K)
-            st.ieppa_auto_selected = true;
-            auto res = lbw::ieppa_solve(st);
+            // Compressed regime: ORIS (any K)
+            st.oris_auto_selected = true;
+            auto res = lbw::oris_solve(st);
             res_status     = res.base.status;
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
-            res_alg_used   = (int)RK_ALG_IEPPA;
+            res_alg_used   = (int)RK_ALG_ORIS;
             res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
             res_min_alpha             = res.min_alpha_seen;
             res_final_alpha           = res.final_alpha;
@@ -597,7 +597,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 st.log("auto: primary solver NOCONV/BUDGET; retrying with newton_kl");
             // Restore original weights (only mutated field in CalibState)
             std::copy(weights_backup.begin(), weights_backup.end(), weights.begin());
-            st.ieppa_auto_selected = false;
+            st.oris_auto_selected = false;
             auto fb = lbw::newton_calibrate(st);
             res_status     = fb.base.status;
             res_iterations = fb.base.iterations;
@@ -673,24 +673,24 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         else
             res_best_weights.assign(st.n, 0.0);  // sentinel zeros: violation guard left best_weights empty
     } else {
-        // Dispatch for chebyshev, ieppa_soft, and default ieppa.
+        // Dispatch for chebyshev, oris_soft, and default oris.
 
-        // Run ieppa warm-start BEFORE chebyshev dispatch.
+        // Run oris warm-start BEFORE chebyshev dispatch.
         std::vector<double> w_warm_obs;
         double delta_warm = -1.0;
         if (strcmp(method_str, "chebyshev") == 0) {
-            // SAFETY: weights_copy protects st.weights from ieppa_solve mutation.
+            // SAFETY: weights_copy protects st.weights from oris_solve mutation.
             std::vector<double> weights_copy(st.weights, st.weights + st.n);
             lbw::CalibState st_warm = st;
             st_warm.weights = weights_copy.data();
             st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
-            auto ieppa_res = lbw::ieppa_solve(st_warm);
+            auto oris_res = lbw::oris_solve(st_warm);
             // st_warm must NOT escape this block (dangling pointer after weights_copy destroyed).
-            if (!ieppa_res.base.best_weights.empty() &&
-                static_cast<int>(ieppa_res.base.best_weights.size()) == st.n &&
-                std::isfinite(ieppa_res.base.max_error)) {
-                w_warm_obs = std::move(ieppa_res.base.best_weights);
-                delta_warm = ieppa_res.base.max_error * 1.5;
+            if (!oris_res.base.best_weights.empty() &&
+                static_cast<int>(oris_res.base.best_weights.size()) == st.n &&
+                std::isfinite(oris_res.base.max_error)) {
+                w_warm_obs = std::move(oris_res.base.best_weights);
+                delta_warm = oris_res.base.max_error * 1.5;
             }
         }
 
@@ -710,14 +710,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         };
         if (strcmp(method_str, "chebyshev") == 0) {
             dispatch_cheb(static_cast<int>(RK_ALG_CHEBYSHEV));
-        } else if (strcmp(method_str, "ieppa_soft") == 0) {
-            st.ieppa_auto_selected = false;
+        } else if (strcmp(method_str, "oris_soft") == 0) {
+            st.oris_auto_selected = false;
             st.use_admm_capacity   = true;
-            auto res = lbw::ieppa_solve(st);
+            auto res = lbw::oris_solve(st);
             res_status     = res.base.status;
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
-            res_alg_used   = (int)RK_ALG_IEPPA_SOFT;
+            res_alg_used   = (int)RK_ALG_ORIS_SOFT;
             res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
             res_min_alpha             = res.min_alpha_seen;
             res_final_alpha           = res.final_alpha;
@@ -738,13 +738,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         } else {
-            // Default / ieppa
-            st.ieppa_auto_selected = (strcmp(method_str, "ieppa") != 0);
-            auto res = lbw::ieppa_solve(st);
+            // Default / oris
+            st.oris_auto_selected = (strcmp(method_str, "oris") != 0);
+            auto res = lbw::oris_solve(st);
             res_status     = res.base.status;
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
-            res_alg_used   = (int)RK_ALG_IEPPA;
+            res_alg_used   = (int)RK_ALG_ORIS;
             res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
             res_min_alpha             = res.min_alpha_seen;
             res_final_alpha           = res.final_alpha;
@@ -782,14 +782,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // Indices match enum values in leafblower.h. Update both together.
     static const char* kAlgNames[] = {
         "",           // 0 = RK_ALG_AUTO
-        "ieppa",      // 1 = RK_ALG_IEPPA
+        "oris",       // 1 = RK_ALG_ORIS
         "",           // 2 = (removed lbfgsb slot)
         "raking",     // 3 = RK_ALG_RAKING
         "sinkhorn",   // 4 = RK_ALG_SINKHORN
         "chebyshev",  // 5 = RK_ALG_CHEBYSHEV
         "greg",       // 6 = RK_ALG_GREG
         "",           // 7 = deprecated GRAKE
-        "ieppa_soft", // 8 = RK_ALG_IEPPA_SOFT
+        "oris_soft",  // 8 = RK_ALG_ORIS_SOFT
         "greenkhorn", // 9 = RK_ALG_GREENKHORN
         "logit",      // 10 = RK_ALG_LOGIT
         "newton_kl",  // 11 = RK_ALG_NEWTON_KL
@@ -804,7 +804,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
 
     // greenkhorn and logit do not modify st.weights in-place; copy calibrated
     // weights into the weights vector so raw$weights in harvest.R is correct.
-    // (raking/ieppa already write to st.weights in-place — don't copy.)
+    // (raking/oris already write to st.weights in-place — don't copy.)
     if (!res_best_weights.empty() && (int)res_best_weights.size() == n &&
         (res_alg_used == static_cast<int>(RK_ALG_GREENKHORN) ||
          res_alg_used == static_cast<int>(RK_ALG_LOGIT))) {
@@ -893,7 +893,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SET_STRING_ELT(res_names, 29, Rf_mkChar("convergence_minimized_metric"));
     SET_VECTOR_ELT(res_list,  28, Rf_ScalarReal(res_conv_objective));
     SET_VECTOR_ELT(res_list,  29, Rf_ScalarInteger(res_conv_minimized_metric));
-    /* Elements 30-33: ALM diagnostics (non-zero only for ieppa_soft) */
+    /* Elements 30-33: ALM diagnostics (non-zero only for oris_soft) */
     SET_STRING_ELT(res_names, 30, Rf_mkChar("alm_capacity_mu_final"));
     SET_STRING_ELT(res_names, 31, Rf_mkChar("alm_n_growth_events"));
     SET_STRING_ELT(res_names, 32, Rf_mkChar("alm_max_dual_norm"));
@@ -902,7 +902,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SET_VECTOR_ELT(res_list,  31, Rf_ScalarInteger(res_alm_n_growth_events));
     SET_VECTOR_ELT(res_list,  32, Rf_ScalarReal(res_alm_max_dual_norm));
     SET_VECTOR_ELT(res_list,  33, Rf_ScalarReal(res_alm_sum_drift));
-    /* Element 34: SRAA acceleration diagnostic (ieppa/ieppa_soft only; zero elsewhere) */
+    /* Element 34: SRAA acceleration diagnostic (oris/oris_soft only; zero elsewhere) */
     SET_STRING_ELT(res_names, 34, Rf_mkChar("aa_accepted_count"));
     SET_VECTOR_ELT(res_list,  34, Rf_ScalarInteger(res_aa_accepted_count));
     /* Element 35: Newton-KL TSVD diagnostic (newton_kl only; zero elsewhere) */
@@ -911,14 +911,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     /* Element 36: Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
     SET_STRING_ELT(res_names, 36, Rf_mkChar("lm_mu_final"));
     SET_VECTOR_ELT(res_list,  36, Rf_ScalarReal(res_lm_mu_final));
-    /* Element 37: first-check metric value (ieppa only; Inf elsewhere) */
+    /* Element 37: first-check metric value (oris only; Inf elsewhere) */
     SET_STRING_ELT(res_names, 37, Rf_mkChar("metric_first_check"));
     SET_VECTOR_ELT(res_list,  37, Rf_ScalarReal(res_metric_first_check));
     SET_STRING_ELT(res_names, 38, Rf_mkChar("metric_prev_check"));
     SET_VECTOR_ELT(res_list,  38, Rf_ScalarReal(res_metric_prev_check));
     SET_STRING_ELT(res_names, 39, Rf_mkChar("prev_check_iter"));
     SET_VECTOR_ELT(res_list,  39, Rf_ScalarInteger(res_prev_check_iter));
-    /* Element 40: SRAA scheduler-demotion flag (ieppa/raking only; FALSE elsewhere) */
+    /* Element 40: SRAA scheduler-demotion flag (oris/raking only; FALSE elsewhere) */
     SET_STRING_ELT(res_names, 40, Rf_mkChar("sraa_demoted"));
     SET_VECTOR_ELT(res_list,  40, Rf_ScalarLogical(res_sraa_demoted));
     /* Element 41: solver-emitted stall kind (leafblower-8eod).

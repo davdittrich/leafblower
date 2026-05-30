@@ -1,11 +1,11 @@
 #include "lbw_config.h"
 #include "lbw_math.hpp"
-#include "ieppa.hpp"
+#include "oris.hpp"
 #include "calib_dispatch.hpp"
 #include "cell_table.hpp"
 #include "leafblower.h"
 #include "sraa.hpp"
-#include "ieppa_internal.hpp"
+#include "oris_internal.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -20,7 +20,7 @@
 namespace lbw {
 
 // parse_trajectory_iters() and write_trajectory_csv() moved to
-// ieppa_trajectory.cpp (declared in ieppa_internal.hpp) — uu8r.1.
+// oris_trajectory.cpp (declared in oris_internal.hpp) — uu8r.1.
 
 // Log-space algBCD at C=0 — see design spec §2.3, §8 for math.
 // lf[k][j]: log Sinkhorn factor (per margin k, category j)
@@ -33,7 +33,7 @@ namespace lbw {
 
 // SRAA-m helpers — file-local. lf is the flat per-margin log-factor vector
 // of size cat_offset[K] = Σ_k (cat_counts[k]+1). These helpers are O(M_cell)
-// and pre-allocate nothing; all destination buffers are owned by ieppa_solve.
+// and pre-allocate nothing; all destination buffers are owned by oris_solve.
 //
 // pack_lf: copy lf -> dst (size n_cats_total_with_na). NA slots (j == cat_counts[k])
 // are inert zeros; they participate in the SRAA linear system with ΔX=ΔR=0.
@@ -91,9 +91,9 @@ static inline void unpack_lf(const std::vector<double>& src,
     cell_lf_hwm = hwm;
 }
 
-// ieppa_finalize() moved to ieppa_finalize.cpp (declared in ieppa_internal.hpp) — uu8r.2.
+// oris_finalize() moved to oris_finalize.cpp (declared in oris_internal.hpp) — uu8r.2.
 
-IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
+ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     constexpr int    kErrCheckInterval = 10;
     constexpr double kEmptyBucketThreshold = 1e-15;
     constexpr double kLogClip = 700.0;  // exp(700) < DBL_MAX
@@ -103,9 +103,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     constexpr double kAlphaBeta          = 0.5;   // P2.1 stress→alpha mapping: alpha = 1/(1+β·stress)
     constexpr double kSorOscillationDamp = 0.7;   // SOR sign-flip: reduce omega by this factor
     constexpr double kSorRecoveryGrowth  = 1.05;  // SOR monotone: recover omega by this factor
-    // kInfeasStallRatio defined once in ieppa_finalize() at line 148; this scope
+    // kInfeasStallRatio defined once in oris_finalize() at line 148; this scope
 
-    IEPPAResult res;
+    ORISResult res;
     res.base.status = RK_ERR_NOCONV;
     res.base.iterations = 0;
     res.base.max_error = 1.0;
@@ -130,13 +130,13 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     res.M_cell = ct.M_cell;
 
     // WU-2 dispatch: linear-space path when M_cell/n > 0.5 (i.e., compression <= 2x).
-    // Env var LBW_IEPPA_FORCE_PATH in {"linear", "log"} overrides for tests; always
+    // Env var LBW_ORIS_FORCE_PATH in {"linear", "log"} overrides for tests; always
     // compiled (no #ifdef) -- getenv cost is microseconds, amortized over the solve.
     constexpr double kLinearSpaceThreshold = 2.0;  // compression ratio cutoff
     bool use_linear = (static_cast<double>(st.n) /
                        static_cast<double>(std::max(ct.M_cell, 1))) <
                       kLinearSpaceThreshold;
-    if (const char* force = std::getenv("LBW_IEPPA_FORCE_PATH")) {
+    if (const char* force = std::getenv("LBW_ORIS_FORCE_PATH")) {
         if (std::strcmp(force, "linear") == 0) use_linear = true;
         else if (std::strcmp(force, "log") == 0) use_linear = false;
     }
@@ -218,10 +218,10 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
 
     // ADMM dual variable for capacity constraint.
     // u[c] accumulates X_tilde - z violations; converges to 0 at fixed point.
-    std::vector<double> u;  // allocated only for ieppa_soft (ADMM)
+    std::vector<double> u;  // allocated only for oris_soft (ADMM)
     if (st.use_admm_capacity) u.assign(ct.M_cell, 0.0);
 
-    // ALM persistent state (ieppa_soft only). N_levels-dependent vars set below.
+    // ALM persistent state (oris_soft only). N_levels-dependent vars set below.
     const bool alm_active = st.use_admm_capacity && st.alm.capacity_mu > 0.0;
     const double capacity_mu_base    = st.alm.capacity_mu;
     double capacity_mu_adaptive      = capacity_mu_base;
@@ -251,7 +251,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     //     Drives WU-3 damping auto-trigger. Does NOT latch into persistent set;
     //     transient near-zeros arise from co-margin log-factor drift and often
     //     recover as the Sinkhorn iterates settle. Stepstone probe (commit state:
-    //     mw=5, 500 iters, persistence disabled) confirmed iEPPA reaches
+    //     mw=5, 500 iters, persistence disabled) confirmed ORIS reaches
     //     errRp=2.24e-3 (best of 3 solvers) despite a bucket staying below
     //     threshold for 250+ iters — this is slow settling, not infeasibility.
     constexpr int kInfeasPersistence = 5;  // streak count that engages damping
@@ -280,11 +280,11 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
 
     if (st.verbose >= 1) {
         char msg[256];
-        // Caller (c_api.cpp) sets st.ieppa_auto_selected=true when routing came
-        // via AUTO; solver prepends [AUTO->iEPPA] marker. Otherwise plain entry.
-        const char* prefix = (st.ieppa_auto_selected ? "[AUTO->iEPPA] " : "");
+        // Caller (c_api.cpp) sets st.oris_auto_selected=true when routing came
+        // via AUTO; solver prepends [AUTO->ORIS] marker. Otherwise plain entry.
+        const char* prefix = (st.oris_auto_selected ? "[AUTO->ORIS] " : "");
         std::snprintf(msg, sizeof(msg),
-                      "%siEPPA: n=%d K=%d M_cell=%d compression=%.1fx path=%s",
+                      "%sORIS: n=%d K=%d M_cell=%d compression=%.1fx path=%s",
                       prefix, st.n, st.K, ct.M_cell,
                       (double)st.n / (double)std::max(ct.M_cell, 1),
                       use_linear ? "linear" : "log");
@@ -331,10 +331,10 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     // β is mutable so eta_schedule can vary it per homotopy level.
     double beta  = kAlphaBeta;
     double alpha = 1.0;
-    // Test-only override (parallel to LBW_IEPPA_FORCE_PATH): "on"|"off"|unset.
+    // Test-only override (parallel to LBW_ORIS_FORCE_PATH): "on"|"off"|unset.
     // Always compiled; microsecond getenv cost. Enables falsifiable
     // min_alpha_seen assertion (spec §7, CTO B5).
-    const char* force_damp = std::getenv("LBW_IEPPA_FORCE_DAMPING");
+    const char* force_damp = std::getenv("LBW_ORIS_FORCE_DAMPING");
     bool force_damping_on  = (force_damp != nullptr && std::strcmp(force_damp, "on")  == 0);
     bool force_damping_off = (force_damp != nullptr && std::strcmp(force_damp, "off") == 0);
     auto compute_alpha = [&]() -> double {
@@ -379,7 +379,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     // best.best_weights stores cell-level W ratio (X/X_init) at the best observed metric.
     BestIterTracker best;
 
-    // SOR adaptive under-relaxation state (iEPPA-only).
+    // SOR adaptive under-relaxation state (ORIS-only).
     // Per-margin omega[k] starts at omega_init (1.0 = no damping = fast path).
     // Adaptation: sign-flip in per-margin errRp trajectory → omega *= 0.7 (floor: omega_min).
     // Monotone decrease → omega *= 1.05, capped at 1.0 (recovery).
@@ -463,7 +463,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             }
         }
 
-        // ALM (ieppa_soft) per-level state: scale capacity_mu, reset duals.
+        // ALM (oris_soft) per-level state: scale capacity_mu, reset duals.
         if (alm_active) {
             if (tang_active) {
                 const double scaled_frac = std::pow(frac, st.eta_schedule.schedule_power);
@@ -771,9 +771,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         // sraa_active_lvl=true after LL3 dropped the && use_linear gate).
         if (sraa_active_lvl && st.scheduler.mode == SchedulerMode::GREEDY) {
             if (st.verbose >= 1)
-                st.log("[ieppa] greedy scheduler disabled under SRAA-m; using round_robin");
+                st.log("[oris] greedy scheduler disabled under SRAA-m; using round_robin");
         }
-        lbw::SRAAState ieppa_sraa;
+        lbw::SRAAState oris_sraa;
         std::vector<double> lf_flat;
         std::vector<double> lf_best;
         const std::vector<double> dummy_L;
@@ -786,14 +786,14 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         std::vector<double> w_ratio_scratch(ct.M_cell);
         // ════════════════════ SRAA-m accelerated path ════════════════════
         if (sraa_active_lvl) {
-            ieppa_sraa.init(total_cats, lbw::kSRAAm);
+            oris_sraa.init(total_cats, lbw::kSRAAm);
             lf_flat.assign(total_cats, 0.0);
             lf_best.assign(total_cats, 0.0);
             pack_lf(lf, lf_flat);
             // Seed F_cur ONCE before the loop; sraa_step's Step 1 evaluates F
             // at F_cur. Subsequent steps carry F_cur forward via swap — do
             // NOT reset F_cur inside the loop.
-            ieppa_sraa.F_cur = lf_flat;
+            oris_sraa.F_cur = lf_flat;
 
             int  f_evals_used = 0;
             int  iter_sraa    = 0;   // SRAA-local iteration counter for SOR burnin
@@ -805,9 +805,9 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // swap F_cur holds old_lf and step 1 recomputes F(old_lf)
                 // → R_k=0 → phantom convergence in 1 iteration.
                 // (Mirrors raking.cpp:362: rk_sraa.F_cur = X.)
-                ieppa_sraa.F_cur = lf_flat;
+                oris_sraa.F_cur = lf_flat;
                 auto r = lbw::sraa_step(f_eval_lf, lf_flat, dummy_L, dummy_U,
-                                        ieppa_sraa, /*apply_clamp=*/false);
+                                        oris_sraa, /*apply_clamp=*/false);
                 f_evals_used += r.f_evals;
                 iter_sraa    += r.f_evals;
                 res.base.iterations = total_iters + f_evals_used;
@@ -852,8 +852,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                         lf_flat = lf_best;
                         unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
                                   log_X_init, st.K, cat_offset, cell_lf_hwm);
-                        ieppa_sraa.clear();
-                        ieppa_sraa.F_cur = lf_flat;
+                        oris_sraa.clear();
+                        oris_sraa.F_cur = lf_flat;
                         sraa_outer_stall_count = 0;
                     }
                 } else {
@@ -863,7 +863,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // Convergence check — mirrors the for-loop's kErrCheckInterval
                 // gating. f_eval_lf returns errRp only; full metrics (marginal_kl,
                 // kl, chi2) are computed here at check-interval boundaries so the
-                // configured convergence metric (e.g. MARGINAL_KL for ieppa) is
+                // configured convergence metric (e.g. MARGINAL_KL for oris) is
                 // available. Between check intervals the convergence flag is false.
                 if (f_evals_used == 1 ||
                     f_evals_used % kErrCheckInterval == 0 ||
@@ -921,13 +921,13 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 if (st.verbose >= 1) {
                     char msg[256];
                     std::snprintf(msg, sizeof(msg),
-                                  "iEPPA[sraa] f_evals=%d errRp=%.3e aa=%d",
+                                  "ORIS[sraa] f_evals=%d errRp=%.3e aa=%d",
                                   f_evals_used, r.err_rp,
                                   (int)r.aa_accepted);
                     st.log(msg);
                 }
             }
-            res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
+            res.aa_accepted_count = oris_sraa.aa_accepted_count;
             total_iters += f_evals_used;
             if (converged) {
                 level_converged = true;
@@ -1059,7 +1059,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
             use_greedy = false;
             res.sraa_demoted = true;
             if (st.verbose >= 1)
-                st.log("[ieppa] greedy scheduler disabled under SRAA-m; using round_robin");
+                st.log("[oris] greedy scheduler disabled under SRAA-m; using round_robin");
         }
 
         if (use_linear) {
@@ -1139,7 +1139,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
                 if (st.verbose >= 2) {
                     char msg[128];
-                    std::snprintf(msg, sizeof(msg), "iEPPA T1.B renorm shift=%.2e", shift);
+                    std::snprintf(msg, sizeof(msg), "ORIS T1.B renorm shift=%.2e", shift);
                     st.log(msg);
                 }
             }
@@ -1151,8 +1151,8 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 use_linear = false;
                 // SRAA history from the linear path is stale after fallback.
                 if (sraa_active_lvl) {
-                    res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
-                    ieppa_sraa.clear();
+                    res.aa_accepted_count = oris_sraa.aa_accepted_count;
+                    oris_sraa.clear();
                 }
                 std::fill(lf.begin(), lf.end(), 0.0);
                 std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
@@ -1183,7 +1183,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
                 nat_iter_prev_sraa   = -1;
                 if (st.verbose >= 1) {
-                    st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
+                    st.log("ORIS: linear-space overflow trip; fallback to log-space.");
                 }
                 continue;  // skip the post-sweep X_tilde / capacity / errRp blocks this round
             }
@@ -1279,7 +1279,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     // ALM: linearized Newton step, rho = mu*X_tilde balances KL Hessian.
                     // X = X_tilde * (1 - lambda + mu*z) / (1 + rho); lambda += mu*(X-z).
                     //
-                    // Derivation (iEPPA uses the UN-normalized KL / I-divergence
+                    // Derivation (ORIS uses the UN-normalized KL / I-divergence
                     // D = X*log(X/X_tilde) - X + X_tilde, so dD/dX = log(X/X_tilde),
                     // NOT log(X/X_tilde)+1). Stationarity of
                     //   D + lambda*X + (mu/2)(X-z)^2  is  log(X/X_tilde)+lambda+mu(X-z)=0.
@@ -1289,7 +1289,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     //   X = X_tilde*(1 - lambda + mu*z)/(1 + rho).
                     // This is exactly the line below. leafblower-7emq proposed an
                     // extra "-rho" in the numerator, but that derives from the
-                    // NORMALIZED KL (dD/dX = log+1), which is not iEPPA's generator.
+                    // NORMALIZED KL (dD/dX = log+1), which is not ORIS's generator.
                     // Verified: both forms share the fixed point X=clamp(X_tilde,L,U)
                     // and convergence rate is a wash (2-cell scipy-style sim). Do NOT
                     // add -rho here.
@@ -1302,7 +1302,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     lambda_cell[c] += st.alm.capacity_mu * (X_alm - z);
                     lambda_cell[c]  = std::clamp(lambda_cell[c], -lambda_cap, lambda_cap);
                 } else {
-                    // Hard clamp (ieppa default or X_tilde_c <= 0).
+                    // Hard clamp (oris default or X_tilde_c <= 0).
                     double xc = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
                     X[c] = xc; W[c] = xc / X_tilde_c; X_cur[c] = xc;
                 }
@@ -1327,15 +1327,15 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 use_linear = false;
                 // SRAA history from linear path is stale after path flip.
                 if (sraa_active_lvl && !lf_flat.empty()) {
-                    res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
-                    ieppa_sraa.clear();
+                    res.aa_accepted_count = oris_sraa.aa_accepted_count;
+                    oris_sraa.clear();
                     pack_lf(lf, lf_flat);
-                    ieppa_sraa.F_cur = lf_flat;
+                    oris_sraa.F_cur = lf_flat;
                 }
                 linear_fallback_used = true;
                 // reset X_prev after fallback — X semantics changed (log-path).
                 for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
-                if (st.verbose >= 1) st.log("iEPPA: linear-space overflow trip; fallback to log-space.");
+                if (st.verbose >= 1) st.log("ORIS: linear-space overflow trip; fallback to log-space.");
                 continue;
             }
         } else {
@@ -1364,7 +1364,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 if (st.verbose >= 2) {
                     char msg[256];
                     std::snprintf(msg, sizeof(msg),
-                                  "iEPPA: log-factor overflow (max_log_X_tilde=%.1f > 700) "
+                                  "ORIS: log-factor overflow (max_log_X_tilde=%.1f > 700) "
                                   "indicates ill-conditioning; try looser max_weight or "
                                   "tighter tol_abs, or method=raking.", max_log_X_tilde);
                     st.log(msg);
@@ -1423,16 +1423,16 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     st.alm.capacity_mu = eta_i_current * capacity_mu_adaptive;
                     // SRAA history stale after capacity_mu change — fixed-point shifted.
                     if (sraa_active_lvl && !lf_flat.empty()) {
-                        res.aa_accepted_count = ieppa_sraa.aa_accepted_count;
-                        ieppa_sraa.clear();
+                        res.aa_accepted_count = oris_sraa.aa_accepted_count;
+                        oris_sraa.clear();
                         pack_lf(lf, lf_flat);
-                        ieppa_sraa.F_cur = lf_flat;
+                        oris_sraa.F_cur = lf_flat;
                     }
                     res.alm_n_growth_events++;
                     alm_violation_streak = 0;
                     if (st.verbose >= 2) {
                         char msg[128];
-                        std::snprintf(msg, sizeof(msg), "[ieppa_soft] mu growth: %.4e", capacity_mu_adaptive);
+                        std::snprintf(msg, sizeof(msg), "[oris_soft] mu growth: %.4e", capacity_mu_adaptive);
                         st.log(msg);
                     }
                 }
@@ -1682,7 +1682,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                 char msg[256];
                 // Per design §8b: verbose=1 reports only errRp; n_cap lives in verbose=2.
                 std::snprintf(msg, sizeof(msg),
-                              "iEPPA iter %d: errRp=%.3e", iter, errRp);
+                              "ORIS iter %d: errRp=%.3e", iter, errRp);
                 st.log(msg);
             }
             if (st.verbose >= 2) {
@@ -1755,7 +1755,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
                     if (lvl == N_levels - 1) {
                         res.base.status = structural_infeas_pairs.empty() ? RK_OK : RK_ERR_INFEAS;
                         // za9r: pin the convergence-firing iter here rather than
-                        // letting ieppa_finalize read res.base.iterations at exit
+                        // letting oris_finalize read res.base.iterations at exit
                         // (robust if any post-convergence work advances the counter).
                         res.base.convergence_iter = res.base.iterations;
                     }
@@ -1767,7 +1767,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
         res.final_alpha = alpha;
     }  // end for (iter_in_lvl)
         }  // end if (!sraa_active_lvl)
-        // Log-space overflow: ieppa inner loop sets res.base.status = RK_ERR_NOCONV
+        // Log-space overflow: oris inner loop sets res.base.status = RK_ERR_NOCONV
         // and res.base.max_error = +inf via `break`. Must not proceed to next level.
         if (!std::isfinite(res.base.max_error)) {
             homotopy_break = true;
@@ -1779,7 +1779,7 @@ IEPPAResult ieppa_solve(CalibState& st, std::vector<double>* lf_capture) {
     }  // end homotopy level loop
 
     // ════════════════════ Post-loop: ALM projection + obs expansion + bounds ════════════════════
-    ieppa_finalize(st, res, ct, X, X_init, L_cell, U_cell,
+    oris_finalize(st, res, ct, X, X_init, L_cell, U_cell,
                    alm_active, capacity_mu_adaptive, lambda_cell,
                    best, absolute_tol_fired, structural_infeas_pairs,
                    sor_min_omega, sor_n_damped, probe_samples);

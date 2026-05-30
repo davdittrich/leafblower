@@ -31,7 +31,7 @@ typedef struct {
 /* ── Return codes ── */
 #define RK_OK           0  /* Converged: improvement criterion satisfied */
 #define RK_ERR_NOCONV   1  /* Emitted by: chebyshev.cpp, greenkhorn.cpp, newton_calib.cpp,
-                              sinkhorn.cpp, logit_calib.cpp, greg.cpp, ieppa.cpp */
+                              sinkhorn.cpp, logit_calib.cpp, greg.cpp, oris.cpp */
 #define RK_ERR_INFEAS   2  /* Infeasible: empty cell with positive target */
 #define RK_ERR_BADARG   3  /* Invalid argument */
 #define RK_ERR_BUDGET   4  /* Budget exhausted while loss still decreasing; increase max_iterations */
@@ -40,13 +40,13 @@ typedef struct {
 /* ── Algorithm selector ── */
 typedef enum {
     RK_ALG_AUTO   = 0,
-    RK_ALG_IEPPA  = 1,
+    RK_ALG_ORIS  = 1,
     /* 2 = removed (was RK_ALG_LBFGSB) */
     RK_ALG_RAKING    = 3,
     RK_ALG_SINKHORN  = 4,
     RK_ALG_CHEBYSHEV = 5,
     RK_ALG_GREG      = 6,
-    RK_ALG_IEPPA_SOFT = 8,   /* ieppa + ADMM soft capacity enforcement */
+    RK_ALG_ORIS_SOFT = 8,   /* oris + ADMM soft capacity enforcement */
     RK_ALG_GREENKHORN = 9,   /* greedy coordinate-descent IPF (autumn::harvest style) */
     RK_ALG_LOGIT      = 10,  /* Deville-Sarndal 1992 logit Newton calibration (autumn::calibrate style) */
     RK_ALG_NEWTON_KL  = 11   /* Newton-KL smooth dual calibration (zero-compression regime) */
@@ -61,7 +61,7 @@ typedef struct {
                                        * Note: R bridge sets outer_max_iter = inner_max_iter;
                                        * independent control requires direct C API use. */
     double          tol_abs;         /* convergence tolerance, default 1e-6.
-                                       * iEPPA: max absolute primal error max_k max_j |S_kj/W - tau_kj|.
+                                       * ORIS: max absolute primal error max_k max_j |S_kj/W - tau_kj|.
                                        * (L-BFGS-B reference removed) */
     rk_algorithm_t  algorithm;       /* default RK_ALG_AUTO */
     int             verbose;         /* 0=silent, 1=progress, 2=debug */
@@ -84,14 +84,14 @@ typedef struct {
     int    metric;           /* CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT */
     int    rule;             /* CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU */
     int    stop_when;        /* 0=ANY 1=ALL */
-    /* ── SOR config (iEPPA only) ── */
+    /* ── SOR config (ORIS only) ── */
     int    sor_enabled;
     int    sor_auto;
     double sor_omega_init;
     double sor_omega_min;
     double sor_omega_fixed;  /* -1.0 = use auto */
     int    sor_burnin;
-    double          capacity_penalty;   /* ieppa_soft ALM penalty; <=0.0 = use auto (M_cell/n) */
+    double          capacity_penalty;   /* oris_soft ALM penalty; <=0.0 = use auto (M_cell/n) */
     /* ── End convergence/SOR config ── */
     double          newton_tsvd_ratio;  /* newton_kl TSVD truncation ratio (Epic-H WH-e); default 1e-8.
                                           * Eigenvalues with λ_i < ratio*λ_max are dropped from the
@@ -134,12 +134,12 @@ typedef struct {
     int    convergence_iter;   /* iteration at convergence (-1 if max_iter) */
     double best_error;         /* errRp at best iterate */
     int    best_iter;
-    double sor_min_omega;    /* iEPPA only; non-iEPPA = 1.0 */
-    int    sor_n_damped;     /* iEPPA only; non-iEPPA = 0 */
+    double sor_min_omega;    /* ORIS only; non-ORIS = 1.0 */
+    int    sor_n_damped;     /* ORIS only; non-ORIS = 0 */
     double convergence_solver_objective;  /* solver's mathematical objective at best_iter */
     int    convergence_minimized_metric; /* CalibMetric: which metric was minimized */
-    double          alm_capacity_mu_final;  /* final capacity_mu after adaptive scaling; 0 if not ieppa_soft */
-    int             alm_n_growth_events;    /* adaptive growth fire count; 0 if not ieppa_soft */
+    double          alm_capacity_mu_final;  /* final capacity_mu after adaptive scaling; 0 if not oris_soft */
+    int             alm_n_growth_events;    /* adaptive growth fire count; 0 if not oris_soft */
     double          alm_max_dual_norm;      /* max |lambda_cell[c]| at solver exit */
     double          alm_sum_drift;          /* |sum(X) - n| after final projection */
     /* ── Convergence health checks ── */

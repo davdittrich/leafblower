@@ -17,9 +17,9 @@ set(CORE_SOURCES
     ../src/chebyshev.cpp
     ../src/greenkhorn.cpp
     ../src/greg.cpp
-    ../src/ieppa.cpp
-    ../src/ieppa_trajectory.cpp
-    ../src/ieppa_finalize.cpp
+    ../src/oris.cpp
+    ../src/oris_trajectory.cpp
+    ../src/oris_finalize.cpp
     ../src/logit.cpp
     ../src/logit_calib.cpp
     ../src/newton_calib.cpp
@@ -38,7 +38,7 @@ target_include_directories(_leafblower PRIVATE ../src)
 target_compile_definitions(_leafblower PRIVATE LBW_NO_R)
 find_package(LAPACK REQUIRED)
 target_link_libraries(_leafblower PRIVATE ${LAPACK_LIBRARIES})
-# -mavx2 required: ieppa.cpp, sinkhorn.cpp, chebyshev.cpp use _mm256_* intrinsics
+# -mavx2 required: oris.cpp, sinkhorn.cpp, chebyshev.cpp use _mm256_* intrinsics
 # via bulk_scaled_exp when LBW_HAS_GLIBC_MVEC=1 (default in lbw_config.h).
 # Without it, gcc errors "inlining failed in call to 'always_inline'
 # '_mm256_set1_pd': target specific option mismatch".

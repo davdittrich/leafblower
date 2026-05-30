@@ -1,10 +1,10 @@
-// Cold post-loop finalization for iEPPA, split out of ieppa.cpp (uu8r.2).
-// Called once per ieppa_solve() after the homotopy level loop exits: obs
+// Cold post-loop finalization for ORIS, split out of oris.cpp (uu8r.2).
+// Called once per oris_solve() after the homotopy level loop exits: obs
 // expansion, bounds enforcement, ALM projection, best-iterate fallback, and
 // final diagnostics. Not on the hot path. Body is byte-identical to the former
-// file-static definition in ieppa.cpp.
+// file-static definition in oris.cpp.
 
-#include "ieppa_internal.hpp"
+#include "oris_internal.hpp"
 #include "leafblower.h"
 
 #include <algorithm>
@@ -16,9 +16,9 @@
 
 namespace lbw {
 
-void ieppa_finalize(
+void oris_finalize(
     CalibState&                               st,
-    IEPPAResult&                              res,
+    ORISResult&                               res,
     const CellTable&                          ct,
     std::vector<double>&                      X,
     const std::vector<double>&                X_init,
@@ -68,7 +68,7 @@ void ieppa_finalize(
         }
         if (res.alm_sum_drift > 1e-6 * st.n && st.verbose >= 1) {
             char msg[256];
-            std::snprintf(msg, sizeof(msg), "[ieppa_soft] final projection sum drift = %.2e", res.alm_sum_drift);
+            std::snprintf(msg, sizeof(msg), "[oris_soft] final projection sum drift = %.2e", res.alm_sum_drift);
             st.log(msg);
         }
 
@@ -89,7 +89,7 @@ void ieppa_finalize(
         if (res.base.status == RK_ERR_STALL) {
             // leafblower-8eod: stall_kind driven by actual accelerate state at solver exit.
             // This path is NOT bijective with the user's accelerate flag (harvest.R heuristic
-            // was wrong): ieppa emits status==5 for both SRAA (accelerate=true) and plain-BCD
+            // was wrong): oris emits status==5 for both SRAA (accelerate=true) and plain-BCD
             // (accelerate=false). Set stall_kind from st.accelerate here so harvest.R reads
             // the actual mechanism instead of the user input flag.
             res.base.stall_kind = st.accelerate ? 1 : 2;  // 1=wchange (SRAA), 2=kl (plain-BCD)
@@ -180,7 +180,7 @@ void ieppa_finalize(
         // pathological n_free==0 / free_sum<=0 break path (lines ~1930) leaves
         // the cell sum off by `excess` (all violators pinned at bounds, no free
         // obs to absorb). Likewise, kWaterFillMaxIter exhaustion can leave a
-        // residual. Restore Σ=n (contract; see test-ieppa-bounds-mode L143).
+        // residual. Restore Σ=n (contract; see test-oris-bounds-mode L143).
         // Bounds may be re-broken by this rescale on STALL/BUDGET paths, but
         // that condition was already pathologically infeasible — Σ=n is the
         // stronger contract.
@@ -223,7 +223,7 @@ void ieppa_finalize(
             (res.base.status == RK_ERR_INFEAS) ? "infeasible" : "error";
         char msg[256];
         std::snprintf(msg, sizeof(msg),
-                      "iEPPA %s in %d iters, errRp=%.3e",
+                      "ORIS %s in %d iters, errRp=%.3e",
                       status_label, res.base.iterations, res.base.max_error);
         st.log(msg);
     }
@@ -232,7 +232,7 @@ void ieppa_finalize(
         char msg[256];
         size_t off = 0;
         off += std::snprintf(msg + off, sizeof(msg) - off,
-                             "iEPPA persistent infeasible cells: ");
+                             "ORIS persistent infeasible cells: ");
         size_t idx = 0;
         const size_t total = structural_infeas_pairs.size();
         for (auto it = structural_infeas_pairs.begin();

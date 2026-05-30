@@ -67,19 +67,19 @@ struct CalibSorCfg {
     double omega_init    = 1.0;
     double omega_min     = 0.3;
     double omega_fixed   = -1.0;  // sentinel: use auto
-    int    burnin        = 20;  // iterations before SOR adaptation starts; iEPPA only (raking ignores)
+    int    burnin        = 20;  // iterations before SOR adaptation starts; ORIS only (raking ignores)
 };
 
 struct ALMConfig {
     double lambda      = 0.0;  // dual variable for sum(w)=n; only read when mu > 0
     double mu          = 0.0;  // penalty coefficient; 0.0 = ALM inactive
-    double capacity_mu = 0.0;  // ieppa_soft ALM penalty (capacity box constraint); 0.0 = inactive
+    double capacity_mu = 0.0;  // oris_soft ALM penalty (capacity box constraint); 0.0 = inactive
 };
 
 // ── CalibResult: shared base fields present in every solver result struct ────
 // Solver structs embed CalibResult and add solver-specific extras (message,
-// M_cell, n_factorizations, ALM diagnostics, iEPPA internals, etc.).
-// Invariant: no iEPPA-private diagnostics here.
+// M_cell, n_factorizations, ALM diagnostics, ORIS internals, etc.).
+// Invariant: no ORIS-private diagnostics here.
 struct CalibResult {
     int    status              = RK_ERR_NOCONV;
     int    iterations          = 0;
@@ -122,8 +122,8 @@ struct CalibState {
     int inner_max_iter;
     int outer_max_iter;
     int verbose;
-    bool ieppa_auto_selected  = false;  // true iff AUTO routing selected iEPPA; used for verbose prefix
-    bool use_admm_capacity    = false;  // ieppa_soft: ADMM P1.1; default false = hard clamp
+    bool oris_auto_selected   = false;  // true iff AUTO routing selected ORIS; used for verbose prefix
+    bool use_admm_capacity    = false;  // oris_soft: ADMM P1.1; default false = hard clamp
     ALMConfig alm;  // ALM penalty state: lambda, mu, capacity_mu
     rk_bounds_mode_t bounds_mode = RK_BOUNDS_CELL;  /* P3.1: per-obs vs cell-aggregate bounds */
     // ── Overlay config ──

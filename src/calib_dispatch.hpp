@@ -1,6 +1,6 @@
 #pragma once
 // calib_dispatch.hpp — shared CalibMetric / CalibRule helpers (WU-B).
-// Eliminates triplicated switch blocks across ieppa, raking, and lbfgsb_solver.
+// Eliminates triplicated switch blocks across oris, raking, and lbfgsb_solver.
 //
 // Semantics:
 //   select_metric — map CalibMetric enum → the pre-computed scalar value.
@@ -131,7 +131,7 @@ struct CellMetrics {
 /// Each solver maintains one instance and calls update() every iteration.
 /// Replaces ad-hoc best_metric_seen / best_iter_val / best_objective_seen
 /// variables that were duplicated (with inconsistent init semantics) across
-/// ieppa, raking, sinkhorn, greenkhorn, and newton_calib.
+/// oris, raking, sinkhorn, greenkhorn, and newton_calib.
 struct BestIterTracker {
     double best_metric    = std::numeric_limits<double>::infinity();
     double best_objective = std::numeric_limits<double>::infinity(); // weight-KL at best iter
@@ -151,7 +151,7 @@ struct BestIterTracker {
         return false;
     }
 
-    /// Reset for SRAA path restarts (ieppa calls this mid-run).
+    /// Reset for SRAA path restarts (oris calls this mid-run).
     void reset() {
         best_metric    = std::numeric_limits<double>::infinity();
         best_objective = std::numeric_limits<double>::infinity();
@@ -171,7 +171,7 @@ inline double select_metric(CalibMetric metric, const CellMetrics& m) noexcept {
 }
 
 // Mathematical objective for NON-KL solvers only.
-// KL-minimizing solvers (ieppa, sinkhorn, raking) use compute_weight_kl inline.
+// KL-minimizing solvers (oris, sinkhorn, raking) use compute_weight_kl inline.
 inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
     switch (alg_id) {
     case RK_ALG_GREG:      return m.chi2;
@@ -322,7 +322,7 @@ inline void compute_cell_bounds(
     }
 }
 
-/// Exit-time weight finalization shared by solvers (canonical: ieppa_finalize).
+/// Exit-time weight finalization shared by solvers (canonical: oris_finalize).
 /// (1) Enforces Σw=n via one pre-bounds scale (sanctioned: applied BEFORE bounds
 ///     post-processing so unit-mode water-fill sees final-scale weights — NOT a
 ///     forbidden post-water-fill renormalize).
@@ -357,7 +357,7 @@ inline void finalize_weights_buf(double* w, int n, const CalibState& st,
         return;
     }
 
-    // Unit mode: per-cell water-fill (mirror of ieppa_finalize unit branch).
+    // Unit mode: per-cell water-fill (mirror of oris_finalize unit branch).
     std::vector<std::vector<int>> cells_of_obs(ct.M_cell);
     for (int i = 0; i < n; i++) cells_of_obs[ct.cell_of[i]].push_back(i);
     const int kWaterFillMaxIter = std::max(50, st.K * 10);
@@ -450,7 +450,7 @@ inline int solver_setup_ct(
         std::is_class<typename std::remove_reference<decltype(
             std::declval<ResT>().base)>::type>::value,
         "solver_setup_ct<ResT>: ResT must have a .base member (CalibResultBase). "
-        "Valid types: RakingResult, IEPPAResult, ChebyshevResult, etc."
+        "Valid types: RakingResult, ORISResult, ChebyshevResult, etc."
     );
     if (build_cell_table(st.n, st.K, st.group_ids, st.cat_counts, st.weights, ct) != 0) {
         res.base.status = RK_ERR_BADARG;

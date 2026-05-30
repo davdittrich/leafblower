@@ -103,7 +103,7 @@ RakingResult raking_solve(CalibState& st) {
     std::vector<double> kl_ratio_scratch(ct.M_cell, 0.0);
     std::vector<double> kl_weight_scratch(ct.M_cell, 0.0);
 
-    // SOR: wire st.sor_cfg into raking's IPF step (same API as ieppa).
+    // SOR: wire st.sor_cfg into raking's IPF step (same API as oris).
     // Apply only when bounds are active (oscillation risk).
     const bool sor_active  = st.sor_cfg.enabled &&
                               (st.min_weight > 0.0 || hi < kUnboundedSentinel);

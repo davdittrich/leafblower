@@ -4,9 +4,9 @@
 
 namespace lbw {
 
-struct IEPPAResult {
+struct ORISResult {
     CalibResult base;
-    // ── iEPPA-specific extras ──
+    // ── ORIS-specific extras ──
     int    M_cell                       = 0;   // compression info
     int    n_cap_active                 = 0;   // cells with W[c] != 1 at convergence
     int    n_xcur_writes_per_iter_last = 0;  // 0 outside linear path; counter for P1.1 RED test
@@ -22,12 +22,12 @@ struct IEPPAResult {
     // ── SOR diagnostics ──
     double sor_min_omega                = 1.0;
     int    sor_n_damped                 = 0;
-    // ── iEPPA internal metrics ──
+    // ── ORIS internal metrics ──
     double best_objective_seen          = 0.0;
     double marginal_kl_at_iter          = 0.0;
     // ── SRAA-m diagnostics (Anderson Acceleration; 0 when accelerate=FALSE) ──
     int    aa_accepted_count            = 0;   // cumulative AA-accepted super-steps this solve
-    // ── ALM diagnostics (ieppa_soft only; zero elsewhere) ──
+    // ── ALM diagnostics (oris_soft only; zero elsewhere) ──
     double alm_capacity_mu_final        = 0.0;
     int    alm_n_growth_events          = 0;
     double alm_max_dual_norm            = 0.0;
@@ -37,18 +37,18 @@ struct IEPPAResult {
     // greedy scheduler was demoted to round-robin (greedy is incompatible
     // with SRAA's fixed-point geometry). FALSE in all other cases.
     bool   sraa_demoted                 = false;
-    // ── End iEPPA-specific extras ──
+    // ── End ORIS-specific extras ──
 };
 
-// Faithful iEPPA (paper-faithful algBCD at C=0). See
-// docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md.
+// ORIS (Over-Relaxed Iterative Scaling; paper-faithful algBCD at C=0). See
+// docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md (historical; solver renamed to ORIS).
 //
 // Optional `lf_capture` (default nullptr): if non-null, on solve exit the
 // best-iterate log-Sinkhorn factors `lf` are written to *lf_capture. The
 // snapshot mirrors the W_best best-iterate tracking (NOT the trajectory's
 // final lf). Used by Newton warm-start (WI-2). Default nullptr keeps every
 // existing caller bit-identical.
-IEPPAResult ieppa_solve(CalibState& state,
-                        std::vector<double>* lf_capture = nullptr);
+ORISResult oris_solve(CalibState& state,
+                      std::vector<double>* lf_capture = nullptr);
 
 } // namespace lbw

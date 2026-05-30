@@ -1,7 +1,7 @@
 #include "leafblower.h"
 #include "validation.hpp"
 #include "types.hpp"
-#include "ieppa.hpp"      // faithful (new)
+#include "oris.hpp"       // ORIS (Over-Relaxed Iterative Scaling)
 #include "raking.hpp"     // renamed hybrid
 #include "sinkhorn.hpp"   // KL Bregman Dykstra
 #include "greg.hpp"       // Newton QP chi2 (GREG, Deville-Sarnal 1992)
@@ -19,6 +19,9 @@
 #include <limits>
 #include <algorithm>
 
+static_assert(RK_ALG_ORIS == 1 && RK_ALG_ORIS_SOFT == 8,
+              "ORIS enum values frozen");
+
 #define LBW_NODISCARD [[nodiscard]]
 
 // Single source of truth: algorithm index → display name.
@@ -26,14 +29,14 @@
 // Gaps (2, 7) use "(reserved)" so out-of-enum values are visible.
 static constexpr const char* kAlgNames[] = {
     "auto",         // 0  RK_ALG_AUTO
-    "iEPPA",        // 1  RK_ALG_IEPPA
+    "ORIS",         // 1  RK_ALG_ORIS
     "(reserved)",   // 2  removed LBFGSB
     "raking",       // 3  RK_ALG_RAKING
     "sinkhorn",     // 4  RK_ALG_SINKHORN
     "chebyshev",    // 5  RK_ALG_CHEBYSHEV
     "greg",         // 6  RK_ALG_GREG
-    "(gap)",        // 7  unused gap between GREG=6 and IEPPA_SOFT=8
-    "iEPPA-soft",   // 8  RK_ALG_IEPPA_SOFT
+    "(gap)",        // 7  unused gap between GREG=6 and ORIS_SOFT=8
+    "ORIS-soft",    // 8  RK_ALG_ORIS_SOFT
     "greenkhorn",   // 9  RK_ALG_GREENKHORN
     "logit",        // 10 RK_ALG_LOGIT
     "newton_kl"     // 11 RK_ALG_NEWTON_KL
@@ -116,7 +119,7 @@ void rk_result_init(rk_result_t* r) {
     memset(r, 0, sizeof(*r));
     r->best_error         = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
     r->convergence_solver_objective = std::numeric_limits<double>::infinity();  /* Inf sentinel, consistent with best_error */
-    r->sor_min_omega      = 1.0;    /* non-iEPPA default */
+    r->sor_min_omega      = 1.0;    /* non-ORIS default */
     r->convergence_rule                 = 1;      /* IMPROVEMENT */
     r->convergence_tol                  = 0.001;
     r->convergence_iter                 = -1;     /* -1 = did not converge */
@@ -141,11 +144,11 @@ static int validate_inputs(int n, int K,
 
 // Return contract: on RK_OK or RK_ERR_NOCONV, the output weight vector
 // satisfies Σ weights[i] = n (where n = number of observations). Solvers
-// enforce this invariant internally at exit (see src/ieppa.cpp,
+// enforce this invariant internally at exit (see src/oris.cpp,
 // src/raking.cpp post-exit normalize blocks).
 // Third-party callers should NOT apply their own sum/mean normalization —
 // doing so silently invalidates bounds_mode="unit" strict-bounds guarantees,
-// because ieppa's water-fill clamps would be re-pushed above max_weight.
+// because oris's water-fill clamps would be re-pushed above max_weight.
 // On RK_ERR_INFEAS / RK_ERR_BADARG the output weights are undefined.
 LBW_NODISCARD int rk_calibrate(int n, int K,
                                 double* weights,
@@ -171,8 +174,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     if (cat_counts && K > 0 && n > 0) {
         switch (p->algorithm) {
             case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
-            case RK_ALG_IEPPA:      alg = RK_ALG_IEPPA;      break;
-            case RK_ALG_IEPPA_SOFT: alg = RK_ALG_IEPPA_SOFT; break;
+            case RK_ALG_ORIS:      alg = RK_ALG_ORIS;      break;
+            case RK_ALG_ORIS_SOFT: alg = RK_ALG_ORIS_SOFT; break;
             case RK_ALG_SINKHORN:   alg = RK_ALG_SINKHORN;   break;
             case RK_ALG_GREG:    alg = RK_ALG_GREG; break;
             case RK_ALG_CHEBYSHEV:   alg = RK_ALG_CHEBYSHEV;   break;
@@ -182,9 +185,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_AUTO:
             default: {
                 // Route based on cell table compression ratio, dimension, and target skew.
-                // K<5 OR M_cell/n<0.9   → RK_ALG_IEPPA / RK_ALG_RAKING (unchanged)
+                // K<5 OR M_cell/n<0.9   → RK_ALG_ORIS / RK_ALG_RAKING (unchanged)
                 // K≥5, M_cell/n≥0.9, target_skew ≤ 5 → RK_ALG_NEWTON_KL (moderate skew)
-                // K≥5, M_cell/n≥0.9, target_skew > 5 → RK_ALG_IEPPA + accelerate
+                // K≥5, M_cell/n≥0.9, target_skew > 5 → RK_ALG_ORIS + accelerate
                 //                                       (Epic-H WH-g: severe skew)
                 int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
                 // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
@@ -203,8 +206,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                         const bool severe_skew = (target_skew > 5.0);
                         if (severe_skew) {
                             // Epic-H WH-g: kk1204 K=20 evidence — Newton-KL stalls at gap≈6.24e-2
-                            // on severe-skew dual landscape; iEPPA+SRAA converges instead.
-                            alg = RK_ALG_IEPPA;
+                            // on severe-skew dual landscape; ORIS+SRAA converges instead.
+                            alg = RK_ALG_ORIS;
                             wh_g_severe_skew_accelerate = true;
                         } else {
                             alg = RK_ALG_NEWTON_KL;
@@ -213,7 +216,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                         alg = RK_ALG_RAKING;
                     }
                 } else {
-                    alg = RK_ALG_IEPPA;
+                    alg = RK_ALG_ORIS;
                 }
                 auto_selected = true;
                 break;
@@ -239,7 +242,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.inner_max_iter = p->inner_max_iter;
     st.outer_max_iter = p->outer_max_iter;
     st.verbose       = p->verbose;
-    st.ieppa_auto_selected = auto_selected;  // read by ieppa_solve for verbose prefix
+    st.oris_auto_selected = auto_selected;  // read by oris_solve for verbose prefix
     st.bounds_mode   = p->bounds_mode;
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
@@ -270,7 +273,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.sor_cfg.burnin               = p->sor_burnin;
     st.newton_tsvd_ratio            = p->newton_tsvd_ratio;  /* Epic-H WH-e */
     if (wh_g_severe_skew_accelerate) {
-        // Epic-H WH-g: severe-skew K≥5 AUTO routes to ieppa with SRAA enabled.
+        // Epic-H WH-g: severe-skew K≥5 AUTO routes to oris with SRAA enabled.
         st.accelerate = true;
     }
     if (p->accelerate)                  /* PY-2: explicit opt-in to SRAA */
@@ -288,7 +291,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     rk_algorithm_t used;
 
     if (alg == RK_ALG_RAKING) {
-        // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from iEPPA)
+        // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from ORIS)
         auto res = lbw::raking_solve(st);
         status = res.base.status;
         iterations = res.base.iterations;
@@ -374,7 +377,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         return nkr.base.status;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
-            // ieppa warm-start; mirrors r_bridge.cpp:628-657.
+            // oris warm-start; mirrors r_bridge.cpp:628-657.
             std::vector<double> w_warm;
             double delta_warm = -1.0;
             {   // scoped: weights_copy must not outlive st_warm (dangling ptr)
@@ -382,20 +385,20 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 lbw::CalibState st_warm = st;
                 st_warm.weights = weights_copy.data();
                 st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
-                auto ieppa_res = lbw::ieppa_solve(st_warm);
-                if (!ieppa_res.base.best_weights.empty() &&
-                    static_cast<int>(ieppa_res.base.best_weights.size()) == n &&
-                    std::isfinite(ieppa_res.base.max_error)) {
-                    w_warm     = std::move(ieppa_res.base.best_weights);
-                    delta_warm = ieppa_res.base.max_error * 1.5;
+                auto oris_res = lbw::oris_solve(st_warm);
+                if (!oris_res.base.best_weights.empty() &&
+                    static_cast<int>(oris_res.base.best_weights.size()) == n &&
+                    std::isfinite(oris_res.base.max_error)) {
+                    w_warm     = std::move(oris_res.base.best_weights);
+                    delta_warm = oris_res.base.max_error * 1.5;
                 }
             }
             auto r = lbw::chebyshev_ipm(st, w_warm, delta_warm);
             pack_solver_result(result, r, alg);
             return r.base.status;
-        } else if (alg == RK_ALG_IEPPA_SOFT) {
+        } else if (alg == RK_ALG_ORIS_SOFT) {
             st.use_admm_capacity = true;
-            /* capacity_penalty for ieppa_soft: direct C API callers bypass R-layer validation.
+            /* capacity_penalty for oris_soft: direct C API callers bypass R-layer validation.
                Contract: p.capacity_penalty <= 0.0 selects auto (M_cell/n from estimate_M_cell);
                positive value is used directly. Callers must validate range externally. */
             if (p->capacity_penalty > 0.0) {
@@ -404,11 +407,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
                 st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
             }
-            auto res = lbw::ieppa_solve(st);
+            auto res = lbw::oris_solve(st);
             status = res.base.status;
             iterations = res.base.iterations;
             max_error = res.base.max_error;
-            used = RK_ALG_IEPPA_SOFT;
+            used = RK_ALG_ORIS_SOFT;
             if (result) {
                 result->n_xcur_writes_per_iter_last = res.n_xcur_writes_per_iter_last;
                 result->min_alpha_seen  = res.min_alpha_seen;
@@ -443,12 +446,12 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 result->alm_sum_drift         = res.alm_sum_drift;
             }
         } else {
-            // Default / IEPPA: paper-faithful algBCD at C=0 (new src/ieppa.cpp)
-            auto res = lbw::ieppa_solve(st);
+            // Default / ORIS: paper-faithful algBCD at C=0 (src/oris.cpp)
+            auto res = lbw::oris_solve(st);
             status = res.base.status;
             iterations = res.base.iterations;
             max_error = res.base.max_error;
-            used = RK_ALG_IEPPA;
+            used = RK_ALG_ORIS;
         if (result) {
             result->n_xcur_writes_per_iter_last = res.n_xcur_writes_per_iter_last;
             result->min_alpha_seen  = res.min_alpha_seen;

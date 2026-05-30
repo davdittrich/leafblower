@@ -95,7 +95,7 @@ ChebyshevResult chebyshev_ipm(
             }
     }
 
-    // Warm-start override: aggregate ieppa obs-level weights → cell masses,
+    // Warm-start override: aggregate oris obs-level weights → cell masses,
     // then apply mass-preserving clamp (clamp → rescale → reclamp).
     if (!w_warm_obs.empty() && static_cast<int>(w_warm_obs.size()) == st.n) {
         std::vector<double> X_warm(ct.M_cell, 0.0);
@@ -721,7 +721,7 @@ finalize:
 
     // Obs expansion using X_out (best-errRp iterate). No per-obs clamp here:
     // Σw=n enforcement + bounds_mode post-processing are delegated to the shared
-    // finalize_weights helper (canonical ieppa_finalize contract). This is the
+    // finalize_weights helper (canonical oris_finalize contract). This is the
     // only exit path (early failures goto finalize above), so Σw=n now holds on
     // every path (xl44).
     for (int i = 0; i < st.n; i++) {

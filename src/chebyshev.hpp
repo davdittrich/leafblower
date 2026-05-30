@@ -21,7 +21,7 @@ struct ChebyshevResult {
 ChebyshevResult chebyshev_ipm(
     CalibState& st,
     const std::vector<double>& w_warm_obs = {},  // obs-level warm weights; empty=cold start
-    double      delta_warm = -1.0                // ieppa_max_err*1.5; -1=use default 1.0
+    double      delta_warm = -1.0                // oris_max_err*1.5; -1=use default 1.0
 );
 
 inline ChebyshevResult chebyshev_solve(CalibState& st) {
