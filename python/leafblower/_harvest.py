@@ -182,7 +182,7 @@ def harvest(
     targets: Dict[str, Dict[str, float]],
     min_weight: float = 0.0,
     max_weight: float = 5.0,
-    method: str = "ieppa",
+    method: str = "oris",
     verbose: int = 0,
     max_iterations: int = 500,
     start_weights: Optional[np.ndarray] = None,
@@ -221,8 +221,8 @@ def harvest(
     targets : dict of dicts, e.g. {"age": {"18-34": 0.3, "35+": 0.7}}
     min_weight : float, lower bound on weights (default 0 = no bound)
     max_weight : float, upper bound on weights (default 5)
-    method : str, one of "ieppa" (default), "raking", "sinkhorn",
-        "chebyshev", "greg", "ieppa_soft", "greenkhorn", "logit", "newton_kl"
+    method : str, one of "oris" (default), "raking", "sinkhorn",
+        "chebyshev", "greg", "oris_soft", "greenkhorn", "logit", "newton_kl"
     verbose : int, 0=silent, 1=progress, 2=debug
     max_iterations : int, inner BCD max sweeps per outer iter (default 500)
     start_weights : optional 1D float64 array of initial weights
@@ -241,7 +241,7 @@ def harvest(
         Note: method="chebyshev" ignores "rule" (and "metric"/"stop_when"); its
         interior-point solver stops on its own complementarity-gap criterion,
         falling back to the "pct"/"absolute" tolerance on the max marginal error.
-    sor : dict for SOR adaptive under-relaxation (iEPPA only). None disables SOR. Keys:
+    sor : dict for SOR adaptive under-relaxation (ORIS and raking). None disables SOR. Keys:
         "auto" (bool, default True), "omega_min" (float, default 0.3),
         "omega" (float) for fixed omega, "burnin" (int, default 20).
     bounds_mode : str, "cell" (default) or "unit". "cell": per-cell aggregate bounds —
@@ -323,7 +323,7 @@ def harvest(
     _conv = convergence or {}
     if not any(k in _conv for k in ("metric", "improvement", "pct", "absolute")):
         _method_metric = {
-            "ieppa": "marginal_kl", "ieppa_soft": "marginal_kl",
+            "oris": "marginal_kl", "oris_soft": "marginal_kl",
             "raking": "kl", "greenkhorn": "kl",
             "sinkhorn": "kl", "newton_kl": "kl",
             "greg": "chi2",
@@ -334,9 +334,9 @@ def harvest(
             metric = _METRIC_MAP[_method_metric]
 
     alg_map = {
-        "ieppa": 1, "raking": 3,
+        "oris": 1, "raking": 3,
         "sinkhorn": 4, "chebyshev": 5, "greg": 6,
-        "ieppa_soft": 8, "greenkhorn": 9, "logit": 10, "newton_kl": 11,
+        "oris_soft": 8, "greenkhorn": 9, "logit": 10, "newton_kl": 11,
     }  # "auto" (0) removed from Python user API; "grake" (7) removed; "lbfgsb" (2) removed — enum gap
     if method_lc not in alg_map:
         raise ValueError(f"method must be one of {sorted(alg_map)}; 'auto' is R-only and not supported in Python")
@@ -551,7 +551,7 @@ def harvest(
                 f"leafblower: fixed point at {mstr}={e_final:.2e} "
                 f"(best at iter {b_iter} of {iters}, ratio={stall_ratio:.2f}). "
                 f"More iterations will not improve calibration. "
-                f"Try: accelerate=True, method='newton_kl', or method='ieppa+accel'.",
+                f"Try: accelerate=True, method='newton_kl', or method='oris+accel'.",
                 UserWarning, stacklevel=2)
         else:
             e_prev    = result_dict.get("metric_prev_check", float("inf"))
@@ -582,16 +582,16 @@ def harvest(
                     f"at {iters} iters. Increase max_iterations.",
                     UserWarning, stacklevel=2)
 
-    # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp,
+    # Solver returns sum(weights) = n (enforced in src/oris.cpp, src/raking.cpp,
     # src/lbfgsb_solver.cpp per user directive 2026-04-24). No wrapper-level
     # normalization — removing it preserves the bounds_mode="unit" strict-bounds
-    # guarantee (ieppa's water-fill clamps are final; not re-pushed by post-scale).
+    # guarantee (oris's water-fill clamps are final; not re-pushed by post-scale).
 
     # NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping
     # here would break sum(weights * d) == target totals when per-cell mixing
     # parameters d are non-uniform: individual weights may legitimately exceed
     # per-cell bounds after expansion even when cell aggregates are in range.
-    # The iEPPA/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
+    # The ORIS/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
     # is the invariant that preserves calibration. See
     # tests/testthat/test-ieppa-nonuniform-d.R.
 

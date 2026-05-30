@@ -8,7 +8,7 @@
 #' @param pctlim Deprecated; maps to \code{convergence["pct"]}.
 #' @param cap Upper weight cap; maps to \code{max_weight}.
 #' @param choosemethod Algorithm; \code{"rake"} and \code{"nrake"} are silently
-#'   remapped to \code{"ieppa"} (the recommended method).
+#'   remapped to \code{"oris"} (the recommended method).
 #' @param type Ignored.
 #' @param nlim Max iterations; maps to \code{max_iterations}.
 #' @param iterate Ignored (always iterates).
@@ -34,9 +34,9 @@ anesrake <- function(inputter, targets, weightvec = NULL, caseid = NULL,
     convergence[["pct"]] <- pctlim
   }
 
-  # F7: silently remap legacy "rake"/"nrake" to "ieppa" — avoids deprecation warning.
+  # F7: silently remap legacy "rake"/"nrake" to "oris" — avoids deprecation warning.
   # tolower() guards against caller-passed "Rake"/"NRAKE" etc.
-  if (tolower(choosemethod) %in% c("rake", "nrake")) choosemethod <- "ieppa"
+  if (tolower(choosemethod) %in% c("rake", "nrake")) choosemethod <- "oris"
 
   harvest(
     data           = inputter,

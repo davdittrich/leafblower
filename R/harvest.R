@@ -5,7 +5,7 @@
 #' @param min_weight Lower bound on weights. Default 0 (no lower bound).
 #' @param max_weight Upper bound on weights. Default 5.
 #' @param capacity_penalty Numeric, controls how strongly capacity bounds are
-#'   enforced during ALM optimization in \code{method="ieppa_soft"}. Use
+#'   enforced during ALM optimization in \code{method="oris_soft"}. Use
 #'   \code{NULL} (default) for auto-computed value (\code{estimate\_M\_cell() / n},
 #'   capped at 1.0 for K>8) which gives a balanced blend between unconstrained KL
 #'   minimization and hard-clamp projection.
@@ -13,12 +13,12 @@
 #'   temporary bound violation before the final projection enforces exact bounds.
 #'   Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
 #'   the adaptive schedule hit its ceiling — increase \code{capacity_penalty} by 10x.
-#'   Ignored for methods other than \code{"ieppa_soft"}.
-#' @param method Calibration method. One of \code{"auto"} (default: iEPPA or
-#'   raking based on M_cell/n ratio), \code{"ieppa"} (paper-faithful iEPPA),
-#'   \code{"ieppa_soft"} (iEPPA with augmented Lagrangian soft capacity enforcement;
-#'   better than \code{"ieppa"} on tight-bounds problems where cells hit
-#'   \code{max_weight}),
+#'   Ignored for methods other than \code{"oris_soft"}.
+#' @param method Calibration method (ORIS: Over-Relaxed Iterative Scaling). One of
+#'   \code{"auto"} (default: ORIS or raking based on M_cell/n ratio),
+#'   \code{"oris"} (paper-faithful ORIS), \code{"oris_soft"} (ORIS with augmented
+#'   Lagrangian soft capacity enforcement; better than \code{"oris"} on tight-bounds
+#'   problems where cells hit \code{max_weight}),
 #'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"sinkhorn"} (KL Bregman Dykstra),
 #'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
 #'   (L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
@@ -56,11 +56,11 @@
 #'   }
 #'   Shorthands and explicit keys may be combined; explicit keys override shorthand
 #'   defaults. \code{convergence = list()} uses the default (max_err + improvement +
-#'   tol = 0.001). For \code{method="ieppa"}, the default metric is \code{marginal_kl}
+#'   tol = 0.001). For \code{method="oris"}, the default metric is \code{marginal_kl}
 #'   (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)). For other methods: \code{max_err}.
 #'
 #'   \strong{chi2 cross-solver note:} chi2 is not directly comparable
-#'   across methods. iEPPA uses unnormalized cell mass as \code{W_total};
+#'   across methods. ORIS uses unnormalized cell mass as \code{W_total};
 #'   raking uses \code{n}. Use chi2 as a convergence criterion
 #'   within one method; do not compare values across methods.
 #'
@@ -69,7 +69,7 @@
 #'   own complementarity-gap criterion, falling back to the \code{pct}/\code{absolute}
 #'   tolerance on the max marginal error. Other \code{convergence} keys are no-ops
 #'   for this method.
-#' @param sor Named list for SOR adaptive under-relaxation (iEPPA and raking).
+#' @param sor Named list for SOR adaptive under-relaxation (ORIS and raking).
 #'   Default \code{NULL} disables SOR. Keys:
 #'   \itemize{
 #'     \item \code{auto}: logical, default \code{TRUE}.
@@ -93,14 +93,14 @@
 #' @param eta_schedule_power Power for Tang-eta schedule interpolation (default 0.5).
 #' @param accelerate Logical. Enable Safeguarded Regularized Anderson Acceleration
 #'   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
-#'   \code{"ieppa"}, and \code{"ieppa_soft"}. Default \code{FALSE}.
+#'   \code{"oris"}, and \code{"oris_soft"}. Default \code{FALSE}.
 #'
-#'   \strong{For ieppa and ieppa_soft}, SRAA-m operates in log-factor space
+#'   \strong{For oris and oris_soft}, SRAA-m operates in log-factor space
 #'   (dimension n_cats_total ≈ 50–500, not M_cell), so history matrices are
 #'   small. Expected benefit: ≥30\% fewer outer iterations on tight-bounds
 #'   problems (K≥6, max_weight<3, or skewed margins).
 #'
-#'   \strong{Behavioral changes when accelerate=TRUE for ieppa/ieppa_soft:}
+#'   \strong{Behavioral changes when accelerate=TRUE for oris/oris_soft:}
 #'   \itemize{
 #'     \item \strong{SOR disabled}: adaptive under-relaxation (SOR) is turned
 #'       off; omega stays fixed at omega_init (default 1.0). Use
@@ -150,7 +150,7 @@
 #'         \item \code{max_error}: maximum marginal error at the returned weights.
 #'         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
 #'           For \code{method="lbfgsb"} this is start-to-final (batch solver);
-#'           for iEPPA and raking it is iteration-to-iteration.
+#'           for ORIS and raking it is iteration-to-iteration.
 #'         \item \code{grake_norm}: survey-grake normalized residual
 #'           max_k|misfit|/(1+|pop|).
 #'         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},
@@ -167,14 +167,14 @@
 #'           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
 #'           \code{"stall_wchange"} (SRAA-m weight-change plateau — at constrained optimum),
 #'           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
-#'         \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{ieppa_soft}).
+#'         \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{oris_soft}).
 #'         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
 #'         \item \code{alm_max_dual_norm}: max absolute Lagrange dual at solver exit.
 #'         \item \code{alm_sum_drift}: \code{|sum(weights) - n|} after final projection (bounded by \code{1e-6 * n}).
 #'         \item \code{sraa_demoted}: logical; \code{TRUE} iff SRAA-m
 #'           acceleration was requested with \code{scheduler="greedy"} and the
 #'           greedy scheduler was demoted to round-robin (greedy is incompatible
-#'           with SRAA's fixed-point geometry). \code{FALSE} for non-ieppa /
+#'           with SRAA's fixed-point geometry). \code{FALSE} for non-oris /
 #'           non-raking solvers and whenever no demotion occurred.
 #'       }
 #'     }
@@ -182,10 +182,10 @@
 #'     \item{\code{iterations}}{Convenience alias for \code{result$iterations}.}
 #'   }
 #' @details
-#' \strong{When to use \code{ieppa_soft} vs \code{ieppa}}: Use
-#' \code{method="ieppa_soft"} when \code{ieppa} gives \code{max_error > 1e-3}
-#' and many observations are near \code{max_weight}. \code{ieppa_soft} is
-#' roughly 10-30\% slower than \code{ieppa} but finds a better constrained
+#' \strong{When to use \code{oris_soft} vs \code{oris}}: Use
+#' \code{method="oris_soft"} when \code{oris} gives \code{max_error > 1e-3}
+#' and many observations are near \code{max_weight}. \code{oris_soft} is
+#' roughly 10-30\% slower than \code{oris} but finds a better constrained
 #' optimum by temporarily relaxing bounds during optimization, then projecting
 #' to exact feasibility at exit.
 #'
@@ -220,7 +220,7 @@ harvest <- function(
   max_weight       = 5,
   capacity_penalty = NULL,
   alm_penalty      = NULL,
-  method           = "ieppa",
+  method           = "oris",
   verbose          = 0,
   max_iterations   = 500,
   start_weights    = NULL,
@@ -344,9 +344,9 @@ harvest <- function(
   if (.no_explicit_metric) {
     conv$metric <- switch(method,
       # KL minimizers — marginal_kl is monotone across full sweeps (Csiszar-Tusnady).
-      "ieppa"       = "marginal_kl",
-      "ieppa_soft"  = "marginal_kl",
-      "auto"        = "marginal_kl",  # auto routes to ieppa in most cases
+      "oris"        = "marginal_kl",
+      "oris_soft"   = "marginal_kl",
+      "auto"        = "marginal_kl",  # auto routes to oris in most cases
       # Weight-KL minimizers — kl monotone by Csiszar-Tusnady; marginal_kl not
       # computed in raking/greenkhorn need_extra gate so cannot be used.
       "raking"      = "kl",
@@ -401,10 +401,10 @@ harvest <- function(
   }
 
   sor_cfg <- parse_sor(sor)
-  if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft"))
-    warning("accelerate=TRUE is only supported for method='raking', 'greenkhorn', 'ieppa', or 'ieppa_soft'; ignoring for method='",
+  if (isTRUE(accelerate) && !method %in% c("raking", "greenkhorn", "oris", "oris_soft"))
+    warning("accelerate=TRUE is only supported for method='raking', 'greenkhorn', 'oris', or 'oris_soft'; ignoring for method='",
             method, "'", call. = FALSE)
-  accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn", "ieppa", "ieppa_soft")
+  accelerate_bool <- isTRUE(accelerate) && method %in% c("raking", "greenkhorn", "oris", "oris_soft")
 
   # Validate data: must be a non-empty data.frame
   if (!is.data.frame(data) || nrow(data) == 0L)
@@ -433,8 +433,8 @@ harvest <- function(
   if (accelerate_bool && method == "raking" && scheduler == "greedy")
     scheduler <- "round_robin"
 
-  if (!is.null(capacity_penalty) && !grepl("ieppa_soft", method, fixed = TRUE)) {
-    warning("capacity_penalty is only used by method='ieppa_soft'; ignored for method='",
+  if (!is.null(capacity_penalty) && !grepl("oris_soft", method, fixed = TRUE)) {
+    warning("capacity_penalty is only used by method='oris_soft'; ignored for method='",
             method, "'", call. = FALSE)
   }
 
@@ -579,7 +579,7 @@ harvest <- function(
         # leafblower-8eod: use solver-emitted convergence_stall_kind (set at RK_ERR_STALL
         # emission site) instead of the user-input accelerate_bool heuristic.
         # Audit (2026-05-08): raking.cpp:494 only fires inside the !st.accelerate branch
-        # (raking.cpp:392 else-guard) → stall_kind=2. ieppa.cpp:188 fires for both SRAA
+        # (raking.cpp:392 else-guard) → stall_kind=2. oris.cpp:188 fires for both SRAA
         # (accelerate=TRUE, stall_kind=1) and plain-BCD (accelerate=FALSE, stall_kind=2) —
         # NOT bijective with user flag; required route (a). stall_kind=0 → NA (no stall).
         "5" = {
@@ -612,16 +612,16 @@ harvest <- function(
   if (!is.null(calib_result$status) && calib_result$status == 3L)
     stop("leafblower: invalid arguments \u2014 ", calib_result$message)
 
-  # Solver returns sum(weights) = n (enforced in src/ieppa.cpp, src/raking.cpp).
+  # Solver returns sum(weights) = n (enforced in src/oris.cpp, src/raking.cpp).
   # No wrapper-level
   # normalization — removing it preserves the bounds_mode="unit" strict-bounds
-  # guarantee (ieppa's water-fill clamps are final; not re-pushed by post-scale).
+  # guarantee (oris's water-fill clamps are final; not re-pushed by post-scale).
 
   # NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping
   # here would break sum(weights * d) == target totals when per-cell mixing
   # parameters d are non-uniform: individual weights may legitimately exceed
   # per-cell bounds after expansion even when cell aggregates are in range.
-  # The iEPPA/raking solvers enforce bounds on the cell aggregate X[c], which
+  # The ORIS/raking solvers enforce bounds on the cell aggregate X[c], which
   # is the invariant that preserves calibration. See
   # tests/testthat/test-ieppa-nonuniform-d.R.
 
@@ -638,7 +638,7 @@ harvest <- function(
     if (is.numeric(stall_ratio) && stall_ratio < 0.5 &&
         is.numeric(e_final) && is.finite(e_final)) {
       warning(sprintf(
-        "leafblower: fixed point at %s=%.2e (best at iter %d of %d, ratio=%.2f). More iterations will not improve calibration. Try: accelerate=TRUE, method='newton_kl', or method='ieppa+accel'.",
+        "leafblower: fixed point at %s=%.2e (best at iter %d of %d, ratio=%.2f). More iterations will not improve calibration. Try: accelerate=TRUE, method='newton_kl', or method='oris+accel'.",
         mstr, e_final, b_iter, iters, stall_ratio),
         call. = FALSE)
     } else {
@@ -722,7 +722,7 @@ harvest <- function(
     warning(sprintf(
       paste0("greg converged but max_err=%.4g (>5%%). ",
              "greg may be unreliable for K=%d margins or tight bounds ",
-             "(max_weight=%.4g). Consider method='raking' or 'ieppa'."),
+             "(max_weight=%.4g). Consider method='raking' or 'oris'."),
       calib_result$max_error, length(target), max_weight),
       call. = FALSE)
   }
@@ -834,7 +834,7 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson); using newton_kl", call. = FALSE)
     method <- "newton_kl"
   }
-  match.arg(method, c("auto", "ieppa", "ieppa_soft", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"))
+  match.arg(method, c("auto", "oris", "oris_soft", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"))
 }
 
 parse_convergence <- function(convergence) {
