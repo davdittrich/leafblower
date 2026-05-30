@@ -19,3 +19,12 @@ Named numeric vector of max absolute errors per variable.
 \description{
 Current calibration miss (matching autumn's export name)
 }
+\details{
+An \code{"NA"} entry in \code{target} is treated as the missing-data
+  bin: a row counts toward it if it is \code{NA} \emph{or} its value is the
+  literal string \code{"NA"} (conflation), matching how
+  \code{harvest(add_na_proportion = TRUE)} encodes the injected NA bin. For a
+  hand-built target that names a real category \code{"NA"} without
+  \code{add_na_proportion}, genuinely-missing rows are also counted there (a
+  documented collision; see \code{?harvest}).
+}

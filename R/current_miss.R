@@ -4,6 +4,13 @@
 #' @param target Named list of target proportions.
 #' @param weights Numeric weight vector.
 #' @return Named numeric vector of max absolute errors per variable.
+#' @details An \code{"NA"} entry in \code{target} is treated as the missing-data
+#'   bin: a row counts toward it if it is \code{NA} \emph{or} its value is the
+#'   literal string \code{"NA"} (conflation), matching how
+#'   \code{harvest(add_na_proportion = TRUE)} encodes the injected NA bin. For a
+#'   hand-built target that names a real category \code{"NA"} without
+#'   \code{add_na_proportion}, genuinely-missing rows are also counted there (a
+#'   documented collision; see \code{?harvest}).
 #' @export
 get_current_miss <- function(data, target, weights) {
   vapply(names(target), function(v) {

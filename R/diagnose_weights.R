@@ -7,6 +7,13 @@
 #' @param weights Numeric vector of calibrated weights, length nrow(data).
 #' @return Data frame with columns: variable, level, prop_original, prop_weighted,
 #'   target, error_original, error_weighted.
+#' @details An \code{"NA"} entry in \code{target} is treated as the missing-data
+#'   bin: a row counts toward it if it is \code{NA} \emph{or} its value is the
+#'   literal string \code{"NA"} (conflation), matching how
+#'   \code{harvest(add_na_proportion = TRUE)} encodes the injected NA bin. For a
+#'   hand-built target that names a real category \code{"NA"} without
+#'   \code{add_na_proportion}, genuinely-missing rows are also counted there (a
+#'   documented collision; see \code{?harvest}).
 #' @export
 diagnose_weights <- function(data, target, weights) {
   if (!is.list(target))

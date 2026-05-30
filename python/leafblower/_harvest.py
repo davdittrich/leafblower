@@ -651,6 +651,13 @@ def diagnose_weights(data, targets, weights):
     pd.DataFrame with columns:
         variable, level, prop_original, prop_weighted, target,
         error_original, error_weighted
+
+    Notes
+    -----
+    An "NA" entry in a target is treated as the missing-data bin: a row counts
+    toward it if it is NA or its value is the literal string "NA" (conflation),
+    matching harvest(add_na_proportion=True). A hand-built target naming a real
+    "NA" category therefore also counts genuinely-missing rows in that bin.
     """
     if not _PANDAS_AVAILABLE:
         raise ImportError("pandas required for diagnose_weights; pip install pandas")
