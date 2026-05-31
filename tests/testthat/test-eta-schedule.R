@@ -16,7 +16,7 @@ test_that("tang_dynamic eta achieves lower errRp vs fixed (robust >5% margin)", 
     homotopy_levels = 5,
     homotopy_start_factor = 10,
     homotopy_end_factor = 1,
-    sor = list(auto = TRUE, omega_min = 0.3),
+    sor = list(auto = TRUE, omega_min = 0.3, omega_mode_id = 1L),
     attach_weights = FALSE
   )
   probe_iters <- "50,100,200,500"

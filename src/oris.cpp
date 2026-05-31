@@ -405,8 +405,13 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     // theta2 = (||e_{k+1}|| / ||e_k||)^2 estimated from successive-residual ratio.
     // omega_opt = 2 / (1 + sqrt(1 - theta2)),  theta2 in [0,1).
     // Returns -1 from estimate_theta2 when non-informative (pre-burnin, NaN, ratio>=1).
-    // omega_from_theta2 falls back to omega_max on non-informative theta2.
+    // omega_from_theta2 falls back to ceiling on non-informative theta2.
     // Both functions are call-overhead-free in the common case (stored residuals reused).
+    //
+    // Spectral mode uses kSorSpectralCeiling (1.99) — the Thibault 2021 strict-<2 boundary.
+    // omega_max (default 1.5) is the ceiling for fixed (mode=1) and heuristic (mode=0) only.
+    // These are independent: changing omega_max has NO effect on spectral mode.
+    static constexpr double kSorSpectralCeiling = 1.99;  // Thibault 2021: convergence strict <2
     auto estimate_theta2 = [](double prev, double curr) -> double {
         if (prev <= 0.0 || curr <= 0.0 ||
             prev == std::numeric_limits<double>::infinity() ||
@@ -416,10 +421,11 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         if (ratio >= 1.0 || !std::isfinite(ratio)) return -1.0;
         return ratio * ratio;  // theta2 = (||e_{k+1}||/||e_k||)^2
     };
-    auto omega_from_theta2 = [&](double theta2) -> double {
-        if (theta2 < 0.0) return omega_max_v;  // non-informative -> fallback to omega_max
+    // ceiling: kSorSpectralCeiling for spectral mode, omega_max_v for fixed/heuristic.
+    auto omega_from_theta2 = [&](double theta2, double ceiling) -> double {
+        if (theta2 < 0.0) return ceiling;  // non-informative -> fallback to ceiling
         double omega = 2.0 / (1.0 + std::sqrt(1.0 - theta2));
-        return std::max(omega_min_v, std::min(omega_max_v, omega));
+        return std::max(omega_min_v, std::min(ceiling, omega));
     };
     std::vector<double> sor_omega(st.K, omega_init_v);
     std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
@@ -861,8 +867,9 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         if (omega_mode_v == 2) {
                             // Spectral mode: Lehmann 2022 optimal omega from residual ratio.
                             // SRAA uses global errRp (index [0]) — single theta2 for all k.
+                            // Ceiling = kSorSpectralCeiling (1.99); omega_max is fixed-mode only.
                             double theta2  = estimate_theta2(sor_prev_errRp[0], curr_errRp);
-                            double omega_s = omega_from_theta2(theta2);
+                            double omega_s = omega_from_theta2(theta2, kSorSpectralCeiling);
                             for (int k = 0; k < st.K; k++)
                                 sor_omega[k] = omega_s;
                         } else if (omega_mode_v == 1) {
@@ -1601,8 +1608,9 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         } else if (decreasing) {
                             if (omega_mode_v == 2) {
                                 // Spectral mode: Lehmann 2022 per-margin optimal omega.
+                                // Ceiling = kSorSpectralCeiling (1.99); omega_max is fixed-mode only.
                                 double theta2_k = estimate_theta2(sor_prev_errRp[k], errRp_k);
-                                sor_omega[k] = omega_from_theta2(theta2_k);
+                                sor_omega[k] = omega_from_theta2(theta2_k, kSorSpectralCeiling);
                             } else if (omega_mode_v == 1) {
                                 // Fixed mode: jump to omega_max on monotone convergence.
                                 sor_omega[k] = omega_max_v;
