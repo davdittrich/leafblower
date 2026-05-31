@@ -80,6 +80,10 @@
 #'       (Thibault 2021). ORIS only; ignored for greedy scheduler.
 #'     \item \code{omega}: fixed relaxation factor (disables auto-adapt).
 #'     \item \code{burnin}: iterations before adaptation starts, default \code{20}.
+#'     \item \code{omega_mode_id}: omega adaptation strategy. \code{0} = heuristic
+#'       (0.7 damp / 1.05 grow), \code{1} = fixed (jump to \code{omega_max}),
+#'       \code{2} = spectral (Lehmann 2022 residual-ratio estimator, default).
+#'       String aliases \code{"heuristic"}, \code{"fixed"}, \code{"spectral"} are accepted.
 #'   }
 #' @param bounds_mode One of "cell" (default) or "unit". Controls per-observation
 #'   vs cell-aggregate bound enforcement.
@@ -535,6 +539,7 @@ harvest <- function(
                as.double(sor_cfg$omega_max),
                as.double(sor_cfg$omega_fixed),
                as.integer(sor_cfg$burnin),
+               as.integer(sor_cfg$omega_mode_id),
                ## SRAA-m accelerate flag
                as.integer(accelerate_bool),
                ## Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8)
@@ -916,22 +921,41 @@ parse_sor <- function(sor) {
   `%||%` <- function(a, b) if (is.null(a)) b else a
   if (is.null(sor)) {
     return(list(enabled = 0L, auto = 0L, omega_init = 1.0,
-                omega_min = 0.3, omega_max = 1.5, omega_fixed = -1.0, burnin = 20L))
+                omega_min = 0.3, omega_max = 1.5, omega_fixed = -1.0, burnin = 20L,
+                omega_mode_id = 2L))
   }
-  valid_keys <- c("auto", "omega_min", "omega_max", "omega", "omega_init", "burnin")
+  valid_keys <- c("auto", "omega_min", "omega_max", "omega", "omega_init", "burnin",
+                  "omega_mode_id")
   bad <- setdiff(names(sor), valid_keys)
   if (length(bad))
     stop(sprintf("Unknown sor key(s): %s. Valid keys: %s",
                  paste(bad, collapse = ", "),
                  paste(valid_keys, collapse = ", ")))
+  # omega_mode_id: 0=heuristic (0.7/1.05 nudge), 1=fixed (omega_max),
+  #                2=spectral (Lehmann 2022 residual-ratio estimator). Default 2.
+  raw_mode <- sor[["omega_mode_id"]]
+  omega_mode_id <- if (is.null(raw_mode)) {
+    2L
+  } else if (is.character(raw_mode)) {
+    switch(raw_mode,
+      "heuristic" = 0L,
+      "fixed"     = 1L,
+      "spectral"  = 2L,
+      stop(sprintf("Unknown omega_mode_id string '%s'. Use 'heuristic', 'fixed', or 'spectral'.",
+                   raw_mode))
+    )
+  } else {
+    as.integer(raw_mode)
+  }
   list(
-    enabled     = 1L,
-    auto        = if (isTRUE(sor[["auto"]])) 1L else 0L,
-    omega_init  = as.double(sor[["omega_init"]] %||% 1.0),
-    omega_min   = as.double(sor[["omega_min"]] %||% 0.3),
-    omega_max   = as.double(sor[["omega_max"]] %||% 1.5),
-    omega_fixed = as.double(sor[["omega"]] %||% -1.0),
-    burnin      = as.integer(sor[["burnin"]] %||% 20L)
+    enabled       = 1L,
+    auto          = if (isTRUE(sor[["auto"]])) 1L else 0L,
+    omega_init    = as.double(sor[["omega_init"]] %||% 1.0),
+    omega_min     = as.double(sor[["omega_min"]] %||% 0.3),
+    omega_max     = as.double(sor[["omega_max"]] %||% 1.5),
+    omega_fixed   = as.double(sor[["omega"]] %||% -1.0),
+    burnin        = as.integer(sor[["burnin"]] %||% 20L),
+    omega_mode_id = omega_mode_id
   )
 }
 

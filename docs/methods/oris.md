@@ -143,6 +143,7 @@ In the pure 2-marginal case Sinkhorn and cyclic IPF coincide; with `K > 2` margi
 
 | Claim | Status | Basis |
 |-------|--------|-------|
+| Spectral optimal omega from Lehmann 2022 residual-ratio estimator | **NO-GO (stepstone 2026-05-31)** | Implemented as `omega_mode_id=2` (default). On stepstone: spectral matches fixed (mode 1) exactly — same 30 iters, same marginal_kl, identical weights. The θ₂ estimator triggers during post-burnin convergence but the computed ω_opt is clamped at omega_max=1.5 (the residual ratio is already low enough that ω_opt ≥ 1.5 at the operating point). Heuristic (mode 0) needed 40 iters with marginally better marginal_kl (4.99e-3 vs 5.02e-3). Default set to spectral (mode=2) because it equals fixed exactly and is theoretically motivated; no regression vs fixed. |
 | Converges to the unique KL-projection when a feasible interior point exists and ω=1 | **Strong** | Classical Sinkhorn–Knopp / IPF convergence (Csiszár 1975; Sinkhorn–Knopp 1967); the plain step is exactly IPF |
 | Bounded-KL (margins ∩ box) convergence | **Strong** | Csiszár (1975) / Csiszár–Tusnády (1984) cyclic I-projection, linear under Slater (spec §9) |
 | Geometric (linear) convergence rate | **Moderate** | Holds for IPF under positivity; rate depends on the contraction modulus of the margin coupling. Not re-derived in-repo |

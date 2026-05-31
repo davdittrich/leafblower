@@ -69,6 +69,9 @@ struct CalibSorCfg {
     double omega_max     = 1.5;  // recovery ceiling; 1.5 is in the proven (0,2) window (Thibault 2021)
     double omega_fixed   = -1.0;  // sentinel: use auto
     int    burnin        = 20;  // iterations before SOR adaptation starts; ORIS only (raking ignores)
+    // omega_mode_id: 0=heuristic (0.7 damp/1.05 grow), 1=fixed (omega_max),
+    //                2=spectral (Lehmann 2022 optimal omega from residual-ratio estimator)
+    int    omega_mode_id = 2;
 };
 
 struct ALMConfig {

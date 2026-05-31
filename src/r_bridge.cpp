@@ -60,7 +60,7 @@ SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -118,6 +118,7 @@ static void init_calib_state(lbw::CalibState& st,
     st.sor_cfg.omega_max            = p.sor_omega_max;
     st.sor_cfg.omega_fixed          = p.sor_omega_fixed;
     st.sor_cfg.burnin               = p.sor_burnin;
+    st.sor_cfg.omega_mode_id        = p.sor_omega_mode_id;
 }
 
 extern "C" {
@@ -129,7 +130,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       38},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       39},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {"C_rk_design_effect",           (DL_FUNC)&C_rk_design_effect,           5},
         {NULL, NULL, 0}
@@ -198,6 +199,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     SEXP sor_omega_init_sexp, SEXP sor_omega_min_sexp,
                     SEXP sor_omega_max_sexp,
                     SEXP sor_omega_fixed_sexp, SEXP sor_burnin_sexp,
+                    SEXP sor_omega_mode_id_sexp,
                     /* SQUAREM */
                     SEXP accelerate_sexp,
                     /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
@@ -326,6 +328,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.sor_omega_max       = scalar_real(sor_omega_max_sexp, "sor_omega_max");
     p.sor_omega_fixed     = scalar_real(sor_omega_fixed_sexp, "sor_omega_fixed");
     p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin");
+    p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id");
 
     if (pre_error.empty() && LENGTH(method_sexp) != 1)
         pre_error = "method must be a length-1 character string";

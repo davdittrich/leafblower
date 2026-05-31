@@ -92,6 +92,9 @@ typedef struct {
     double sor_omega_max;    /* recovery ceiling; default 1.5; proven (0,2) (Thibault 2021) */
     double sor_omega_fixed;  /* -1.0 = use auto */
     int    sor_burnin;
+    /* omega_mode_id: 0=heuristic (0.7/1.05 nudge), 1=fixed (omega_max),
+     * 2=spectral (Lehmann 2022 residual-ratio estimator). Default=2. */
+    int    sor_omega_mode_id;
     double          capacity_penalty;   /* oris_soft ALM penalty; <=0.0 = use auto (M_cell/n) */
     /* ── End convergence/SOR config ── */
     double          newton_tsvd_ratio;  /* newton_kl TSVD truncation ratio (Epic-H WH-e); default 1e-8.
@@ -242,7 +245,10 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  * 8aex.3 (2026-05-02): added newton_tsvd_ratio (double) for Epic-H WH-e; +8B → 232B.
  * PY-2 (2026-05-03): added accelerate (int) + _pad (int) + alm_penalty (double); +16B → 248B.
  * ridge (2026-05-06): added ridge_lambda (double); +8B → 256B.
- * mj1p.1 (2026-05-31): added sor_omega_max (double); +8B → 264B. */
+ * mj1p.1 (2026-05-31): added sor_omega_max (double); +8B → 264B.
+ * mj1p.2 (2026-05-31): added sor_omega_mode_id (int, 4B) + capacity_penalty now 8B-aligned
+ *   (int after sor_burnin; sor_burnin was already followed by 4B implicit pad before
+ *   capacity_penalty double, so sor_omega_mode_id fills that pad slot); +0B net → 264B. */
 #define EXPECTED_RK_PARAMS_BYTES 264
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");

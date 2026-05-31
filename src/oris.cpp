@@ -393,11 +393,34 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     // (accelerate=false) keeps the original masked semantics.
     const bool sor_base       = st.sor_cfg.auto_adapt;
     bool sor_auto_v           = sor_base && !st.accelerate;
-    const double omega_init_v = st.sor_cfg.omega_init;    // default 1.0
-    const double omega_min_v  = st.sor_cfg.omega_min;     // default 0.3
-    const double omega_max_v  = st.sor_cfg.omega_max;     // default 1.5; proven (0,2) (Thibault 2021)
-    const double omega_fixed_v = st.sor_cfg.omega_fixed;  // -1.0 = use auto
-    const int    sor_burnin_v  = st.sor_cfg.burnin;       // default 20
+    const double omega_init_v  = st.sor_cfg.omega_init;    // default 1.0
+    const double omega_min_v   = st.sor_cfg.omega_min;     // default 0.3
+    const double omega_max_v   = st.sor_cfg.omega_max;     // default 1.5; proven (0,2) (Thibault 2021)
+    const double omega_fixed_v = st.sor_cfg.omega_fixed;   // -1.0 = use auto
+    const int    sor_burnin_v  = st.sor_cfg.burnin;        // default 20
+    // omega_mode_v: 0=heuristic(0.7/1.05), 1=fixed(omega_max), 2=spectral(Lehmann 2022)
+    const int    omega_mode_v  = st.sor_cfg.omega_mode_id; // default 2
+
+    // Spectral omega helpers — Lehmann et al. 2022 [lehmann2022overrelaxation].
+    // theta2 = (||e_{k+1}|| / ||e_k||)^2 estimated from successive-residual ratio.
+    // omega_opt = 2 / (1 + sqrt(1 - theta2)),  theta2 in [0,1).
+    // Returns -1 from estimate_theta2 when non-informative (pre-burnin, NaN, ratio>=1).
+    // omega_from_theta2 falls back to omega_max on non-informative theta2.
+    // Both functions are call-overhead-free in the common case (stored residuals reused).
+    auto estimate_theta2 = [](double prev, double curr) -> double {
+        if (prev <= 0.0 || curr <= 0.0 ||
+            prev == std::numeric_limits<double>::infinity() ||
+            !std::isfinite(prev) || !std::isfinite(curr))
+            return -1.0;
+        double ratio = curr / prev;
+        if (ratio >= 1.0 || !std::isfinite(ratio)) return -1.0;
+        return ratio * ratio;  // theta2 = (||e_{k+1}||/||e_k||)^2
+    };
+    auto omega_from_theta2 = [&](double theta2) -> double {
+        if (theta2 < 0.0) return omega_max_v;  // non-informative -> fallback to omega_max
+        double omega = 2.0 / (1.0 + std::sqrt(1.0 - theta2));
+        return std::max(omega_min_v, std::min(omega_max_v, omega));
+    };
     std::vector<double> sor_omega(st.K, omega_init_v);
     std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
     std::vector<bool>   sor_prev_decreasing(st.K, false);
@@ -826,6 +849,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     bool decreasing = (curr_errRp < sor_prev_errRp[0]);
                     bool sign_flip  = !decreasing && sor_prev_decreasing[0];
                     if (sign_flip) {
+                        // Oscillation: damp regardless of mode.
                         for (int k = 0; k < st.K; k++) {
                             sor_omega[k] = std::max(omega_min_v,
                                 sor_omega[k] * kSorOscillationDamp);
@@ -834,9 +858,23 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         }
                         sor_n_damped++;
                     } else if (decreasing) {
-                        for (int k = 0; k < st.K; k++) {
-                            sor_omega[k] = std::min(omega_max_v,
-                                sor_omega[k] * kSorRecoveryGrowth);
+                        if (omega_mode_v == 2) {
+                            // Spectral mode: Lehmann 2022 optimal omega from residual ratio.
+                            // SRAA uses global errRp (index [0]) — single theta2 for all k.
+                            double theta2  = estimate_theta2(sor_prev_errRp[0], curr_errRp);
+                            double omega_s = omega_from_theta2(theta2);
+                            for (int k = 0; k < st.K; k++)
+                                sor_omega[k] = omega_s;
+                        } else if (omega_mode_v == 1) {
+                            // Fixed mode: jump to omega_max on monotone convergence.
+                            for (int k = 0; k < st.K; k++)
+                                sor_omega[k] = omega_max_v;
+                        } else {
+                            // Heuristic mode (0): cautious multiplicative grow.
+                            for (int k = 0; k < st.K; k++) {
+                                sor_omega[k] = std::min(omega_max_v,
+                                    sor_omega[k] * kSorRecoveryGrowth);
+                            }
                         }
                     }
                     sor_prev_decreasing[0] = decreasing;
@@ -1557,12 +1595,21 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         bool decreasing = (errRp_k < sor_prev_errRp[k]);
                         bool sign_flip  = !decreasing && sor_prev_decreasing[k];
                         if (sign_flip) {
-                            // Oscillation detected: damp omega by 0.7, clamp to floor.
+                            // Oscillation detected: damp regardless of mode.
                             sor_omega[k] = std::max(omega_min_v, sor_omega[k] * kSorOscillationDamp);
                             sor_n_damped++;
                         } else if (decreasing) {
-                            // Monotone convergence: cautiously recover omega toward omega_max.
-                            sor_omega[k] = std::min(omega_max_v, sor_omega[k] * kSorRecoveryGrowth);
+                            if (omega_mode_v == 2) {
+                                // Spectral mode: Lehmann 2022 per-margin optimal omega.
+                                double theta2_k = estimate_theta2(sor_prev_errRp[k], errRp_k);
+                                sor_omega[k] = omega_from_theta2(theta2_k);
+                            } else if (omega_mode_v == 1) {
+                                // Fixed mode: jump to omega_max on monotone convergence.
+                                sor_omega[k] = omega_max_v;
+                            } else {
+                                // Heuristic mode (0): cautious multiplicative grow.
+                                sor_omega[k] = std::min(omega_max_v, sor_omega[k] * kSorRecoveryGrowth);
+                            }
                         }
                         if (sor_omega[k] < sor_min_omega) sor_min_omega = sor_omega[k];
                         sor_prev_decreasing[k] = decreasing;
