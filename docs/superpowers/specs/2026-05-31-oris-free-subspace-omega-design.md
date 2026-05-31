@@ -130,18 +130,27 @@ Per margin `k`, before computing/using θ₂:
 5. **Converged-denominator gate:** `errF_prev2[k] < kResidFloor (1e-12)` → `ω_k = 1`; no division.
    `kResidFloor` is an **intentional absolute floor** on the relative residual (documented;
    fail-safe direction = under-relaxation). (Security note.)
-6. **Ratio + clamp BEFORE sqrt:** compute the Phase-1 θ₂ from the gated ratio; reject `ratio ≥ 1`
-   (residual grew) → treat as uninformative → drive ω **down toward 1** (NOT clamp-to-ceiling — the
-   mj1p.2 trap); else `θ₂ = clamp(value, 0, 1−1e-9)`. (Security BLOCKING-1.)
-7. **EMA:** smooth θ₂. **On every ω=1 fallback (gates 2–5), decay `sor_theta2_ema[k]` toward 0**
-   (and require lag re-warm-up after any `n_free_k` transition) — prevents stale-EMA over-relaxation
-   after active-set churn. (Security BLOCKING-3.)
-8. **Formula:** `ω_k = 2/(1+√(1−θ₂))`, then `min(ω_k, 1.99)`.
+6. **Residual-grew gate (HARD, before any EMA use):** if `ratio ≥ 1` (free residual did not
+   decrease — the mj1p.2 oscillation signature) → **set `sor_theta2_ema[k] = 0` AND `ω_k = 1`**;
+   skip the formula. A *reset*, not a soft "drive toward 1": a growing free-residual can NEVER
+   produce elevated ω, and no stale EMA survives. Else `θ₂ = clamp(value, 0, 1−1e-9)`. (Security
+   iter-3 BLOCKING-1.)
+7. **EMA:** smooth θ₂ only on the informative path (ratio < 1). **On EVERY ω=1 fallback (gates 2–6),
+   reset/decay `sor_theta2_ema[k]` toward 0** and require lag re-warm-up after any `n_free_k`
+   transition — prevents stale-EMA over-relaxation after active-set churn. (Security BLOCKING-3 +
+   iter-3 BLOCKING-1.)
+8. **Formula + production ceiling:** `ω_k = 2/(1+√(1−θ₂))`, then `min(ω_k, kSorProdCeiling)` with
+   **`kSorProdCeiling = 1.8`** (NOT `kSorSpectralCeiling=1.99`, which IS the mj1p.2 oscillation
+   value — capping at the failure value is no guard). ω may exceed 1.8 only if Phase-1 derives a
+   provably-stable max ω AND the §5 ship gate confirms it; until then 1.8 is the hard shipped cap.
+   (Security iter-3 BLOCKING-2.)
 9. **Oscillation damp** (`kSorOscillationDamp`, `oris.cpp:1616`) still fires on sign-flip and reads
    the **free-subspace residual `errF`** so damp and estimator agree on "diverging".
-10. **Monotone hard-fallback (deterministic, independent of sign-flip):** if `errF_p > errF_prev[k]`
-    for `m=3` consecutive adapted steps → force `ω_k = 1` for a cooldown window. Guarantees no
-    active-set limit cycle (Security BLOCKING-4).
+10. **Monotone hard-fallback + permanent latch (deterministic, sign-flip-independent):** if
+    `errF_p > errF_prev[k]` for `m=3` consecutive adapted steps → force `ω_k = 1` for a
+    `kSorCooldown = 5`-adapted-step window. **Latch:** after `kSorLatchTrips = 3` cooldown trips in
+    one solve, pin `ω_k = 1` PERMANENTLY for that margin (adapt disabled). Makes a limit cycle of
+    ANY period structurally impossible, not merely asserted away. (Security iter-3 BLOCKING-3.)
 
 ### 3.5 Degenerate-state → ω (complete; matches §3.4 arithmetic)
 | State | ω | Note |
