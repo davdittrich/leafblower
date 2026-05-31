@@ -1,7 +1,7 @@
 # ORIS Free-Subspace θ₂ for Box-Constrained Over-Relaxation — Design
 
 **Date:** 2026-05-31
-**Status:** Design (rev 3 — addresses design-review-gate iter 2: Architect/Designer/Security)
+**Status:** Design (rev 4 — addresses design-review-gate iter 3: Designer + Security final tightenings; PM/Architect/CTO approved at iter 3)
 **Predecessor:** leafblower-mj1p.2 (spectral optimal-ω) closed NO-GO — Lehmann's *global* θ₂ estimator was slower (40 iters) than fixed ω=1.5 (30 iters) on bounded stepstone.
 **Research notebook:** NotebookLM `1e3036a1-fcbb-4d05-bc8e-820854f59d8e` (do not delete; 191 sources).
 **Verified code map:** `docs/superpowers/derivations/oris_structure_map.md` (byte-exact, the authoritative anchor — line numbers in THIS spec are advisory; the map + symbol names are load-bearing).
@@ -151,9 +151,10 @@ Per margin `k`, before computing/using θ₂:
 | Cold/warm-up/unfilled lag | 1 | gate 3 |
 | `!isfinite(errF)` / tiny free mass | 1 | gate 4 |
 | `errF_prev2<kResidFloor` (converged) | 1 | gate 5 |
-| `ratio ≥ 1` (residual grew) | driven toward 1 | gate 6 (NOT ceiling) |
-| 3× consecutive `errF` increase | 1 (cooldown) | gate 10 |
-| Normal | `2/(1+√(1−θ₂))`, ≤1.99 | gate 8; **EMA-lagged** — may stay elevated for a few iters after a spike (soft guard) |
+| `ratio ≥ 1` (residual grew) | **1 + EMA reset to 0** | gate 6 (hard reset, NOT ceiling) |
+| 3× consecutive `errF` increase | 1 (cooldown, `kSorCooldown=5`) | gate 10 |
+| ≥3 cooldown trips this solve | 1 **permanently** (latched) | gate 10 latch |
+| Normal | `2/(1+√(1−θ₂))`, **≤1.8 (`kSorProdCeiling`)** | gate 8; EMA-lagged but bounded by 1.8, well below the 1.99 oscillation value |
 
 ### 3.6 Convergence safety (asserted, not just tested)
 ω depends on `I` (feedback loop). Safety rests on three asserted invariants, not just "test no
@@ -166,17 +167,27 @@ flips converged→NOCONV". (CTO note.)
 ### 3.7 No new INPUT ABI; binding parity asserted
 `is_pinned`, `S_lin_free`, `n_free_k`, lag buffers = solve-local; `CalibSorCfg` gains no field;
 `omega_mode_id=2` reused. Logic in `oris.cpp` core, reached identically by `r_bridge.cpp` and
-`c_api.cpp` (no per-binding wiring for the estimator). **Parity test requirement (Designer note):**
-the Python parity suite MUST exercise `omega_mode_id=2` explicitly so a c_api wiring miss (the
-mj1p.1 failure) is caught before merge.
+`c_api.cpp` (no per-binding wiring for the estimator). **Parity test requirement (Designer iter-3
+BLOCKING-2):** the Python parity suite MUST exercise `omega_mode_id=2` on a **pre-registered
+fixture** — use the §5 slow-unconstrained generator (seed 20260531) as the parity input, and assert
+R≡Python on (a) final weights at rtol=1e-6 AND (b) `sor_omega_mean` within a pre-recorded band
+(captured from the R run at fixture-construction time). A bare "tests pass" without a pre-registered
+expected `sor_omega_mean` cannot distinguish a c_api wiring miss from a correct result (the mj1p.1
+failure mode).
 
 ### 3.8 Observability (OUTPUT ABI — additive; Designer BLOCKING + Architect BLOCKING-4)
-Add to the result struct: `sor_omega_mean` (mean realized ω over adapted steps) and **per-gate
-fallback counters** — at minimum `sor_n_pinned_fallback` (gate 2) separate from
-`sor_n_omega1_other` (gates 3–5,10) so a silent all-fallback is diagnosable (pinned-everywhere vs
-warm-up-misconfig vs non-monotone). These are **output-ABI additive** changes: update the result
-struct AND the `leafblower.h` ABI-size comment/`EXPECTED_RK_RESULT_BYTES`, wired through both
-`r_bridge.cpp` and `c_api.cpp`/pybind11, same commit.
+Add to the result struct: `sor_omega_mean` (mean realized ω over adapted steps) plus **one counter
+per distinct fallback cause** so every silent-all-fallback mode is individually diagnosable
+(Designer iter-3 BLOCKING-1):
+- `sor_n_pinned_fallback` — gate 2 (fixture is bounded-trivial; free-subspace irrelevant)
+- `sor_n_warmup_fallback` — gate 3 (actionable: tune `sor_burnin`)
+- `sor_n_converged_fallback` — gates 4–5 (margin already converged; benign)
+- `sor_n_resid_grew` — gate 6 (oscillation signature; the mj1p.2 canary)
+- `sor_n_monotone_cooldown` — gate 10 cooldowns, plus a bool/flag for the permanent latch
+
+These are **output-ABI additive** changes: update the result struct AND the `leafblower.h` ABI-size
+comment/`EXPECTED_RK_RESULT_BYTES`, wired through both `r_bridge.cpp` and `c_api.cpp`/pybind11, same
+commit.
 
 ### 3.9 mode-2 default + docs/migration
 mj1p.2 shipped `omega_mode_id=2` ("spectral global") as DEFAULT. Decision rule, pre-stated and tied
