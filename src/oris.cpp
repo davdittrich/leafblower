@@ -430,6 +430,10 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     std::vector<double> sor_omega(st.K, omega_init_v);
     std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
     std::vector<bool>   sor_prev_decreasing(st.K, false);
+    // EMA theta2: -1.0 = uninformative (pre-burn-in / no informative sample yet).
+    // SRAA uses index [0] (global errRp); flat BCD uses per-margin index [k].
+    std::vector<double> sor_theta2_ema(st.K, -1.0);
+    static constexpr double kSorEmaAlpha = 0.2;  // EMA smoothing; lower = more stable
     double sor_min_omega = 1.0;
     int    sor_n_damped  = 0;
 
@@ -865,11 +869,17 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         sor_n_damped++;
                     } else if (decreasing) {
                         if (omega_mode_v == 2) {
-                            // Spectral mode: Lehmann 2022 optimal omega from residual ratio.
-                            // SRAA uses global errRp (index [0]) — single theta2 for all k.
-                            // Ceiling = kSorSpectralCeiling (1.99); omega_max is fixed-mode only.
-                            double theta2  = estimate_theta2(sor_prev_errRp[0], curr_errRp);
-                            double omega_s = omega_from_theta2(theta2, kSorSpectralCeiling);
+                            // Spectral mode: EMA-smoothed theta2 (SRAA uses global errRp → index [0]).
+                            // EMA stabilizes the noisy point-estimate: alpha=0.2 weights new
+                            // sample lightly, prevents ceiling→damp oscillation on bounded problems.
+                            double theta2_raw = estimate_theta2(sor_prev_errRp[0], curr_errRp);
+                            if (theta2_raw >= 0.0) {
+                                sor_theta2_ema[0] = (sor_theta2_ema[0] < 0.0)
+                                    ? theta2_raw  // first informative sample — seed
+                                    : kSorEmaAlpha * theta2_raw + (1.0 - kSorEmaAlpha) * sor_theta2_ema[0];
+                            }
+                            // omega_from_theta2: returns ceiling when EMA still uninformative (<0)
+                            double omega_s = omega_from_theta2(sor_theta2_ema[0], kSorSpectralCeiling);
                             for (int k = 0; k < st.K; k++)
                                 sor_omega[k] = omega_s;
                         } else if (omega_mode_v == 1) {
@@ -1607,10 +1617,15 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                             sor_n_damped++;
                         } else if (decreasing) {
                             if (omega_mode_v == 2) {
-                                // Spectral mode: Lehmann 2022 per-margin optimal omega.
-                                // Ceiling = kSorSpectralCeiling (1.99); omega_max is fixed-mode only.
-                                double theta2_k = estimate_theta2(sor_prev_errRp[k], errRp_k);
-                                sor_omega[k] = omega_from_theta2(theta2_k, kSorSpectralCeiling);
+                                // Spectral mode: EMA-smoothed theta2, per-margin (flat BCD uses index [k]).
+                                // Point-estimate is noisy on bounded problems; EMA (alpha=0.2) stabilises.
+                                double theta2_raw_k = estimate_theta2(sor_prev_errRp[k], errRp_k);
+                                if (theta2_raw_k >= 0.0) {
+                                    sor_theta2_ema[k] = (sor_theta2_ema[k] < 0.0)
+                                        ? theta2_raw_k  // first informative sample — seed
+                                        : kSorEmaAlpha * theta2_raw_k + (1.0 - kSorEmaAlpha) * sor_theta2_ema[k];
+                                }
+                                sor_omega[k] = omega_from_theta2(sor_theta2_ema[k], kSorSpectralCeiling);
                             } else if (omega_mode_v == 1) {
                                 // Fixed mode: jump to omega_max on monotone convergence.
                                 sor_omega[k] = omega_max_v;
