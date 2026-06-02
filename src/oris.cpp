@@ -444,7 +444,6 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     int    sor_n_damped  = 0;
     // Free-subspace θ₂ estimator state (e18t.3, mode 2, flat path only).
     std::vector<char>   is_pinned(ct.M_cell, 0);              // 1=at bound, 0=free
-    std::vector<double> S_lin_free(max_cat, 0.0);             // free-cell category sums (scratch)
     std::vector<double> errF_prev(st.K, std::numeric_limits<double>::infinity());   // lag-1
     std::vector<double> errF_prev2(st.K, std::numeric_limits<double>::infinity());  // lag-2 warm-up gate
     std::vector<int>    sor_n_consec_up(st.K, 0);             // consecutive errF increases (gate 10)
@@ -1542,35 +1541,29 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     const int nj = st.cat_counts[k];
                     const int off = cat_offset[k];
                     std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
-                    // e18t.3: free-cell category sums (mode-2 free-subspace θ₂).
-                    std::fill(S_lin_free.begin(), S_lin_free.begin() + nj, 0.0);
                     const int* gk = ct.g_per_cell[k].data();
-                    int n_free_k = 0;
+                    int    n_free_k      = 0;
+                    double W_total_free_k = 0.0;
                     for (int c = 0; c < ct.M_cell; c++) {
                         int j = gk[c];
                         if (j >= 0 && j < nj) {
                             S_lin[j] += X[c];
                             if (!is_pinned[c]) {
-                                S_lin_free[j] += X[c];
+                                W_total_free_k += X[c]; // e18t.3: free-cell mass (gate-4 guard)
                                 n_free_k++;
                             }
                         }
                     }
                     double errRp_k = 0.0;                          // 773f.7
-                    double errF_k  = 0.0;                          // e18t.3: free-subspace sq residual
+                    double errF_k  = 0.0;                          // e18t.3: Σ_j (e_j)²
                     for (int j = 0; j < nj; j++) {
                         double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
                         if (e > errRp) errRp = e;
-                        if (e > errRp_k) errRp_k = e;             // 773f.7: capture per-margin
-                        // e18t.3: free marginal error = global marginal error numerically:
-                        // S_lin_free[j]/W_total - pf_j/W_total = S_lin[j]/W_total - target[k][j]
-                        // because pf_j = target[k][j]*W_total - clamped_sum[j] and
-                        // S_lin_free[j] + clamped_sum[j] = S_lin[j].
-                        double ef = S_lin[j] / W_total - st.targets[k][j];
-                        errF_k += ef * ef;
+                        if (e > errRp_k) errRp_k = e;             // 773f.7: per-margin max
+                        errF_k += e * e;                           // e18t.3: squared sum (= free-subspace:
+                        // S_lin_free[j]/W - pf_j/W = S_lin[j]/W - t[j] because
+                        // S_lin_free = S_lin - S_pinned and pf_j = t[j]*W - S_pinned[j])
                     }
-                    double W_total_free_k = 0.0;
-                    for (int j = 0; j < nj; j++) W_total_free_k += S_lin_free[j];
                     per_k_errRp_cache[k]  = errRp_k;              // 773f.7
                     per_k_errF_cache[k]   = errF_k;               // e18t.3
                     per_k_nfree_cache[k]  = n_free_k;             // e18t.3
@@ -1694,13 +1687,14 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                                     wfree_k_v  = 1.0;        // assume non-trivial free mass
                                 }
 
-                                // Gate 2: fully pinned — no free subspace, fall to ω=1.
+                                // Gate 2: fully pinned or permanently latched — fall to ω=1.
                                 if (n_free_k_v == 0 || sor_latched[k]) {
-                                    sor_omega[k] = 1.0;
-                                    if (n_free_k_v == 0) sor_theta2_ema[k] = 0.0;
+                                    sor_omega[k]      = 1.0;
+                                    sor_theta2_ema[k] = 0.0;  // reset EMA on every gate-2 fallback
                                 } else if (sor_cooldown_left[k] > 0) {
-                                    // Gate 10 cooldown active: hold ω=1.
-                                    sor_omega[k] = 1.0;
+                                    // Gate 10 cooldown active: hold ω=1, decay EMA.
+                                    sor_omega[k]      = 1.0;
+                                    sor_theta2_ema[k] = 0.0;  // prevent stale EMA surviving cooldown
                                     sor_cooldown_left[k]--;
                                 } else {
                                     // Gate 3: warm-up — need both lag-1 and lag-2 filled.
