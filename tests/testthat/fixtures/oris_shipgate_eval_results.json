@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-06-02T12:33:45",
+  "ship_decision": "NO-SHIP",
+  "slow_fixture": {
+    "fixed_iters": 350,
+    "spectral_iters": 280,
+    "spectral_status": 0,
+    "omega_mean": 1.1116
+  },
+  "stepstone_mw5": {
+    "fixed_iters": 140,
+    "spectral_iters": 500,
+    "baseline_limit": 300
+  },
+  "converged_fixtures_flipped_to_noconv": 0,
+  "omega_mode_default": 1,
+  "conditions": {
+    "spectral_lt_fixed": true,
+    "stepstone_ok": false,
+    "no_noconv_flip": true,
+    "wall_clock_proxy_ok": true
+  }
+}
