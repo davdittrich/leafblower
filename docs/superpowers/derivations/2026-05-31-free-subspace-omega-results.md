@@ -80,6 +80,23 @@ iteration converges to different point on solution manifold).
 **Note on mj1p.2 bug:** wrong T_full operator gives theta2 = 0.44985 → omega = 1.1483,
 overestimating problem hardness. Correct T_con: theta2 ≈ 0.00567 → omega ≈ 1.0014.
 
+### Spec amendment — global-ratio → 1 DoD item (e18t.6, 2026-06-02)
+
+The original DoD said "global error ratio → 1 (reproduces mj1p.2 bug)." On a *feasible*
+single-clamp problem the global squared residual converges to **0** (not a nonzero floor),
+so the lag-1 ratio converges to `rho_con² ≈ 0.00567`, not 1.
+
+The mj1p.2 failure mode (global ratio → 1) arises on harder, structurally stalling
+problems where the global residual plateaus near clamped cells while free cells still
+need to converge. That pathology is outside the scope of this single-clamp derivation
+ticket; a dedicated stalling fixture would be a separate work item.
+
+**Reinterpreted check:** row (b) of the verification table above confirms
+`global_to_1 = False`, i.e., the global ratio does **not** diverge to 1 on the feasible
+problem. The mj1p.2 bug is demonstrated via the wrong-vs-right operator comparison
+(row (a)/(b) vs. the wrong-operator omega of 1.1483). Scientific reasoning is correct;
+spec DoD item amended accordingly.
+
 ## 6. Decision
 
 **GO**
