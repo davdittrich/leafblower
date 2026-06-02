@@ -72,6 +72,7 @@ struct CalibSorCfg {
     // omega_mode_id: 0=heuristic (0.7 damp/1.05 grow), 1=fixed (omega_max),
     //                2=iterate-change (free-coord ||dX_free||^2 estimator, default; e18t.9 SHIP)
     int    omega_mode_id = 2;
+    bool   corun_aa      = false;  // e65t.1: allow SOR on AA steps; default false = exclusion
 };
 
 struct ALMConfig {
