@@ -112,7 +112,8 @@ void rk_params_init(rk_params_t* p) {
     p->sor_omega_max           = 1.5;
     p->sor_burnin              = 20;
     p->sor_omega_mode_id       = 2;   /* default: iterate-change ||dX_free||^2 (e18t.9 SHIP) */
-    p->sor_corun_aa            = 0;   /* e65t.1: SOR on AA steps disabled by default */
+    p->sor_corun_aa            = 0;   /* e65t.1: SOR on AA steps disabled by default
+                                       * DEAD (e65t.1 NO-GO): never enabled; default 0. See bd leafblower-e65t.1. */
     p->newton_tsvd_ratio       = 1e-8;  /* Epic-H WH-e: newton_kl TSVD truncation default */
     p->ridge_lambda            = 0.0;   /* Tikhonov ridge on dual λ; 0.0 = off */
 }
@@ -277,7 +278,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.sor_cfg.omega_max            = p->sor_omega_max;
     st.sor_cfg.burnin               = p->sor_burnin;
     st.sor_cfg.omega_mode_id        = p->sor_omega_mode_id;
-    st.sor_cfg.corun_aa             = (p->sor_corun_aa != 0);
+    st.sor_cfg.corun_aa             = (p->sor_corun_aa != 0);  // DEAD (e65t.1 NO-GO): see bd leafblower-e65t.1
     st.newton_tsvd_ratio            = p->newton_tsvd_ratio;  /* Epic-H WH-e */
     if (wh_g_severe_skew_accelerate) {
         // Epic-H WH-g: severe-skew K≥5 AUTO routes to oris with SRAA enabled.

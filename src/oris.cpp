@@ -443,6 +443,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     double sor_min_omega = 1.0;
     int    sor_n_damped  = 0;
     int    sraa_total_reverts = 0;  // accumulates across all homotopy levels; incremented when corun_aa fires
+                                    // DEAD (e65t.1 NO-GO): corun_aa never enabled in production. See bd leafblower-e65t.1.
     // Active-set mask: 1=at bound, 0=free. Populated in clamp loops (linear ~:1393, log ~:1485).
     // Reused by both SRAA path and mode-2 v2 global iterate-change estimator.
     std::vector<char>   is_pinned(ct.M_cell, 0);
@@ -883,6 +884,8 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // would fight AA). Uses global errRp from r.err_rp as the
                 // monotonicity proxy — coarser than per-margin errRp_k but
                 // preserves the dampening effect needed to stabilize max_err.
+                // DEAD (e65t.1 NO-GO): corun_aa disjunct never fires (default 0) → reduces to
+                // sor_base && !r.aa_accepted (the original exclusion rule). See bd leafblower-e65t.1.
                 sor_auto_v = sor_base && (!r.aa_accepted || st.sor_cfg.corun_aa);
                 if (sor_auto_v && sor_active && iter_sraa >= sor_burnin_v) {
                     const double curr_errRp = r.err_rp;
@@ -940,7 +943,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                                   log_X_init, st.K, cat_offset, cell_lf_hwm);
                         oris_sraa.clear();
                         oris_sraa.F_cur = lf_flat;
-                        if (st.sor_cfg.corun_aa) sraa_total_reverts++;
+                        if (st.sor_cfg.corun_aa) sraa_total_reverts++;  // DEAD (e65t.1 NO-GO): never increments
                         sraa_outer_stall_count = 0;
                     }
                 } else {
@@ -2029,7 +2032,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                    sor_n_pinned_fb, sor_n_warmup_fb, sor_n_conv_fb,
                    sor_n_resid_grew, sor_n_monotone_cd,
                    probe_samples);
-    res.sraa_corun_reverts = sraa_total_reverts;
+    res.sraa_corun_reverts = sraa_total_reverts;  // DEAD (e65t.1 NO-GO): always 0. See bd leafblower-e65t.1.
     return res;
 }
 

@@ -134,7 +134,7 @@ R_VALS <- list(
   accelerate          = 0L,
   newton_tsvd_ratio   = 1e-8,
   ridge_lambda        = 0.0,
-  sor_corun_aa        = 0L
+  sor_corun_aa        = 0L   # DEAD (e65t.1 NO-GO): co-run never enabled. See bd leafblower-e65t.1.
 )
 
 # Python values (what _harvest.py puts in params dict for same call)
@@ -177,7 +177,7 @@ PY_VALS <- list(
   accelerate          = 0L,      # int(False) = 0
   newton_tsvd_ratio   = 1e-8,
   ridge_lambda        = 0.0,
-  sor_corun_aa        = 0L
+  sor_corun_aa        = 0L   # DEAD (e65t.1 NO-GO): co-run never enabled. See bd leafblower-e65t.1.
 )
 
 # ---- convergence/init path parameters for short-circuit evaluation ----

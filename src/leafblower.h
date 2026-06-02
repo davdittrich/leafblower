@@ -102,7 +102,8 @@ typedef struct {
                                           * pseudoinverse. <=0.0 falls back to internal default 1e-8. */
     int             accelerate;         /* opt-in to SRAA Anderson acceleration; 0=off (default), 1=on */
     int             sor_corun_aa;       /* co-run: allow SOR on AA steps (e65t.1 experiment); default 0 = exclusion
-                                          * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B */
+                                          * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B
+                                          * DEAD (e65t.1 NO-GO): co-run never enabled; default 0. See bd leafblower-e65t.1. */
     double          alm_penalty;        /* ALM penalty coefficient (st.alm.mu); 0.0 = inactive */
     double          ridge_lambda;       /* Tikhonov ridge on dual λ; 0.0 = off.
                                           * newton_kl: H_pre[k,k] += ridge_lambda before LM damping + dsyevd.

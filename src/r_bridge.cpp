@@ -332,7 +332,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.sor_omega_fixed     = scalar_real(sor_omega_fixed_sexp, "sor_omega_fixed");
     p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin");
     p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id");
-    p.sor_corun_aa        = scalar_int(sor_corun_aa_sexp, "sor_corun_aa");
+    p.sor_corun_aa        = scalar_int(sor_corun_aa_sexp, "sor_corun_aa");  // DEAD (e65t.1 NO-GO): see bd leafblower-e65t.1
 
     if (pre_error.empty() && LENGTH(method_sexp) != 1)
         pre_error = "method must be a length-1 character string";
@@ -992,7 +992,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
        Set at RK_ERR_STALL emission site; replaces accelerate_bool heuristic in harvest.R. */
     SET_STRING_ELT(res_names, 48, Rf_mkChar("convergence_stall_kind"));
     SET_VECTOR_ELT(res_list,  48, Rf_ScalarInteger(res_stall_kind));
-    /* Element 49: e65t SRAA corun revert count (oris only; zero elsewhere) */
+    /* Element 49: e65t SRAA corun revert count (oris only; zero elsewhere)
+     * DEAD (e65t.1 NO-GO): always 0 in production (corun_aa never enabled). See bd leafblower-e65t.1. */
     SET_STRING_ELT(res_names, 49, Rf_mkChar("sraa_corun_reverts"));
     SET_VECTOR_ELT(res_list,  49, Rf_ScalarInteger(res_sraa_corun_reverts));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);

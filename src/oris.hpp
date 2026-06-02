@@ -35,6 +35,7 @@ struct ORISResult {
     // ── SRAA-m diagnostics (Anderson Acceleration; 0 when accelerate=FALSE) ──
     int    aa_accepted_count            = 0;   // cumulative AA-accepted super-steps this solve
     // SRAA outer-stall revert count when corun_aa=TRUE; 0 otherwise.
+    // DEAD (e65t.1 NO-GO): always 0 in production (corun_aa never enabled). See bd leafblower-e65t.1.
     int    sraa_corun_reverts           = 0;
     // ── ALM diagnostics (oris_soft only; zero elsewhere) ──
     double alm_capacity_mu_final        = 0.0;
