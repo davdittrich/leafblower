@@ -258,6 +258,7 @@ harvest <- function(
   design_weights   = NULL,
   newton_tsvd_ratio = 1e-8,
   ridge_lambda = 0.0,
+  gk_omega = 1.0,
   ...
 ) {
   # RVAL.2: warn on unknown ... args (typos / removed params)
@@ -551,6 +552,8 @@ harvest <- function(
                ## corun_aa: co-run alternate-arm SOR flag (e65t.1)
                ## DEAD (e65t.1 NO-GO): co-run never enabled; arg always 0. See bd leafblower-e65t.1.
                as.integer(sor_cfg$corun_aa),
+               ## e65t.2: greenkhorn over-relaxation exponent; 1.0=identity
+               as.double(gk_omega),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
