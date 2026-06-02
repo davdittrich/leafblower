@@ -73,7 +73,14 @@ pass).
 ### 2.2 Definition of M
 
 Let `M = diag(1/a) P* diag(1/b) P*ᵀ` (Lehmann 2022, §3). The spectral radius of M minus
-the leading eigenvalue 1 gives `θ₂ = λ₂(M)`. This is the Gauss-Seidel full-step rate.
+the leading eigenvalue 1 gives `θ₂ = λ₂(M)`. This is the Gauss-Seidel full-step rate:
+
+```
+θ₂ = ρ_GS = ρ_J²
+```
+
+where `ρ_J` is the per-sweep Jacobi spectral radius and `ρ_GS` is the full alternating
+Gauss-Seidel sweep rate. **θ₂ is NOT ρ_J itself** — it is the squared Jacobi rate.
 
 ### 2.3 Derivation (Gauss-Seidel vs. Jacobi)
 
@@ -97,9 +104,9 @@ Soma-Uschmajew (Eq. with `β² = ρ`) confirm the un-squared formula.
 **References:**
 - Thibault, Chizat, Dossal, Papadakis (2021). *Overrelaxed Sinkhorn-Knopp Algorithm for
   Regularized Optimal Transport.* Algorithms 14(5):143. Eq. θ* = 2/(1+√η), η = 1−ρ.
-- Lehmann, Lorenz, Vogt (2022). *Accelerating Sinkhorn's Algorithm for Sparse
-  Multi-Marginal Optimal Transport via Fast Fourier Transforms.* ESAIM. Eq. 5.
-- Soma, Uschmajew (2023). ω_opt = 2/(1+√(1−β²)), ρ = β².
+- Lehmann, von Renesse, Sambale, Uschmajew (2022). *A Note on Overrelaxation in
+  the Sinkhorn Algorithm.* Optimization Letters. arXiv:2012.12562. Eq. 5.
+- Soma, Uschmajew (2024). ω_opt = 2/(1+√(1−β²)), ρ = β². arXiv:2410.14104.
 
 ---
 
@@ -148,7 +155,7 @@ the Sinkhorn sweep loop.
 
 ### 4.1 Variable partition
 
-For box-constrained Sinkhorn (capacity upper bounds), at a constrained fixed point the
+For box-constrained Sinkhorn (capacity bounds, lower and upper), at a constrained fixed point the
 cells partition into:
 
 ```
