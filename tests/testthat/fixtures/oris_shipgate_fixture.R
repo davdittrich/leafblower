@@ -26,8 +26,8 @@ res_no_sor <- harvest(df, tgt, method="oris", sor=NULL,
 iters_no_sor <- attr(res_no_sor, "result")$iterations
 cat("no_sor iters:", iters_no_sor, "\n")
 
-# Baseline 2: fixed omega=1.5
-res_fixed <- harvest(df, tgt, method="oris", sor=list(auto=FALSE),
+# Baseline 2: fixed omega=1.5 (mode_id=1: always use omega_max=1.5)
+res_fixed <- harvest(df, tgt, method="oris", sor=list(auto=TRUE, omega_mode_id=1L),
                      max_weight=1000, min_weight=0, max_iterations=2000)
 iters_fixed <- attr(res_fixed, "result")$iterations
 cat("fixed_sor iters:", iters_fixed, "\n")
