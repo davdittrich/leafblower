@@ -453,6 +453,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     std::vector<bool>   sor_latched(st.K, false);             // permanent per-margin latch (gate 10)
     std::vector<double> per_k_errF_cache(st.K, 0.0);         // errF_k per margin, parallel to errRp cache
     std::vector<int>    per_k_nfree_cache(st.K, 0);          // n_free_k per margin
+    std::vector<double> per_k_wfree_cache(st.K, 0.0);        // W_total_free per margin (gate 4)
     bool   per_k_errF_valid = false;
     // Observability accumulators (wired to result in e18t.4).
     double sor_omega_sum    = 0.0;
@@ -1561,14 +1562,19 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
                         if (e > errRp) errRp = e;
                         if (e > errRp_k) errRp_k = e;             // 773f.7: capture per-margin
-                        // e18t.3: S_lin[j]/W_total - target == S_lin_free[j]/W_total - target
-                        // numerically (clamped terms cancel in the ratio); use S_lin directly.
+                        // e18t.3: free marginal error = global marginal error numerically:
+                        // S_lin_free[j]/W_total - pf_j/W_total = S_lin[j]/W_total - target[k][j]
+                        // because pf_j = target[k][j]*W_total - clamped_sum[j] and
+                        // S_lin_free[j] + clamped_sum[j] = S_lin[j].
                         double ef = S_lin[j] / W_total - st.targets[k][j];
                         errF_k += ef * ef;
                     }
-                    per_k_errRp_cache[k] = errRp_k;               // 773f.7
-                    per_k_errF_cache[k]  = errF_k;                // e18t.3
-                    per_k_nfree_cache[k] = n_free_k;              // e18t.3
+                    double W_total_free_k = 0.0;
+                    for (int j = 0; j < nj; j++) W_total_free_k += S_lin_free[j];
+                    per_k_errRp_cache[k]  = errRp_k;              // 773f.7
+                    per_k_errF_cache[k]   = errF_k;               // e18t.3
+                    per_k_nfree_cache[k]  = n_free_k;             // e18t.3
+                    per_k_wfree_cache[k]  = W_total_free_k;       // e18t.3 gate-4
                     // Marginal KL: Σ_k Σ_j t_kj log(t_kj / achieved_kj)
                     for (int j = 0; j < nj; j++) {
                         double tkj = st.targets[k][j];
@@ -1676,13 +1682,16 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                                 // do NOT call estimate_theta2 — that squares the ratio again).
                                 double errF_k_v;
                                 int    n_free_k_v;
+                                double wfree_k_v;
                                 if (per_k_errF_valid) {
                                     errF_k_v   = per_k_errF_cache[k];
                                     n_free_k_v = per_k_nfree_cache[k];
+                                    wfree_k_v  = per_k_wfree_cache[k];
                                 } else {
                                     // Log path / cache miss: proxy via errRp^2 (conservative).
                                     errF_k_v   = errRp_k * errRp_k;
-                                    n_free_k_v = 1;  // assume not fully pinned
+                                    n_free_k_v = 1;          // assume not fully pinned
+                                    wfree_k_v  = 1.0;        // assume non-trivial free mass
                                 }
 
                                 // Gate 2: fully pinned — no free subspace, fall to ω=1.
@@ -1701,8 +1710,9 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                                         sor_omega[k] = 1.0;
                                         sor_theta2_ema[k] = 0.0;
                                     }
-                                    // Gate 4: finiteness of current residual.
-                                    else if (!std::isfinite(errF_k_v)) {
+                                    // Gate 4: finiteness + tiny free mass (kMinSafeTotalWeight).
+                                    else if (!std::isfinite(errF_k_v) ||
+                                             wfree_k_v < kMinSafeTotalWeight) {
                                         sor_omega[k] = 1.0;
                                         sor_theta2_ema[k] = 0.0;
                                     }
