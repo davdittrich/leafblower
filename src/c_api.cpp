@@ -111,7 +111,7 @@ void rk_params_init(rk_params_t* p) {
     p->sor_omega_fixed         = -1.0;
     p->sor_omega_max           = 1.5;
     p->sor_burnin              = 20;
-    p->sor_omega_mode_id       = 2;   /* default: spectral (Lehmann 2022) */
+    p->sor_omega_mode_id       = 2;   /* default: iterate-change ||dX_free||^2 (e18t.9 SHIP) */
     p->newton_tsvd_ratio       = 1e-8;  /* Epic-H WH-e: newton_kl TSVD truncation default */
     p->ridge_lambda            = 0.0;   /* Tikhonov ridge on dual λ; 0.0 = off */
 }

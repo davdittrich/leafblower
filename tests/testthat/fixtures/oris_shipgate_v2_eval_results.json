@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-06-02T15:29:58",
+  "ship_decision": "SHIP",
+  "observable_used": "iterate-change S_dX",
+  "slow_fixture": {
+    "fixed_iters": 350,
+    "iterate_change_iters": 240,
+    "iterate_change_status": 0,
+    "omega_mean": 1.4509
+  },
+  "stepstone_mw5": {
+    "fixed_iters": 140,
+    "iterate_change_iters": 50,
+    "baseline_limit": 300
+  },
+  "converged_fixtures_flipped_to_noconv": 0,
+  "omega_mode_default": 2,
+  "conditions": {
+    "ic_lt_fixed": true,
+    "stepstone_ok": true,
+    "no_noconv_flip": true,
+    "wall_clock_proxy_ok": true
+  }
+}

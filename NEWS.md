@@ -1,5 +1,7 @@
 # leafblower (development)
 
+* ORIS SOR: `omega_mode_id=2` (iterate-change θ₂) is now the default. The v1 marginal-residual estimator stalled on bounded problems (mj1p.2 redux); v2 uses free-coordinate iterate-change ‖ΔX_free‖² which is feasibility-agnostic. Ship gate e18t.9 SHIP: 240 vs 350 iters on T2 unconstrained, 50 vs 140 iters on bounded stepstone. R, Python, and C APIs all default to mode-2.
+
 * BREAKING: solver method "ieppa"/"ieppa_soft" renamed to "oris"/"oris_soft" (ORIS — Over-Relaxed Iterative Scaling). No alias; update calls. Algorithm, numeric output, and enum values unchanged.
 
 # leafblower (development version)

@@ -70,7 +70,7 @@ struct CalibSorCfg {
     double omega_fixed   = -1.0;  // sentinel: use auto
     int    burnin        = 20;  // iterations before SOR adaptation starts; ORIS only (raking ignores)
     // omega_mode_id: 0=heuristic (0.7 damp/1.05 grow), 1=fixed (omega_max),
-    //                2=spectral (Lehmann 2022 optimal omega from residual-ratio estimator)
+    //                2=iterate-change (free-coord ||dX_free||^2 estimator, default; e18t.9 SHIP)
     int    omega_mode_id = 2;
 };
 

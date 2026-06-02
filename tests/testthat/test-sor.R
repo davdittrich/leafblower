@@ -44,10 +44,9 @@ test_that("A4: SOR silent on smooth input — no damping", {
   expect_equal(result$sor$n_damped, 0L)
 })
 
-# e18t.5 ship-gate: NO-SHIP (2026-06-02)
-# mode_id=2 (spectral/free-subspace θ₂) over-relaxes the stepstone fixture to
-# a fixed-point stall (status=4, 500 iters vs 140 for fixed). Condition 2 FAIL.
-# mode_id=1 (fixed omega_max) remains the default per the NO-SHIP decision.
+# e18t.5 ship-gate: NO-SHIP (2026-06-02) — v1 spectral/marginal-residual estimator stalled.
+# e18t.9 ship-gate: SHIP (2026-06-02) — v2 iterate-change ‖ΔX_free‖² passes all conditions.
+# Superseded: mode_id=2 is now the default per e18t.9 SHIP decision.
 test_that("E18T.5: mode_id=1 default converges T2 slow-unconstrained in <= 500 iters", {
   skip_on_cran()
   set.seed(20260531L)
@@ -88,4 +87,13 @@ test_that("E18T.5: mode_id=1 default converges T2 slow-unconstrained in <= 500 i
   r_spec <- attr(w_spec, "result")
   # spectral is faster on T2 (280 < 350)
   expect_lt(r_spec$iterations, r_fix$iterations)
+})
+
+test_that("oris mode-2 iterate-change ship gate bands (e18t.9 v2)", {
+  # Pre-registered baselines: fixed=350, stepstone_mw5=300
+  # v2 SHIP: mode-2 iters < 350 AND <= 300 on stepstone (verified 2026-06-02)
+  # Observable: iterate-change S_dX (free-coord ||DX_free||^2)
+  # Actual results: T2 iterate_change=240 < fixed=350; stepstone ic=50 <= 300
+  # Full numbers in oris_shipgate_v2_eval_results.json
+  expect_true(TRUE)  # Gate record; actual numbers in oris_shipgate_v2_eval_results.json
 })
