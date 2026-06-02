@@ -34,6 +34,8 @@ struct ORISResult {
     double marginal_kl_at_iter          = 0.0;
     // ── SRAA-m diagnostics (Anderson Acceleration; 0 when accelerate=FALSE) ──
     int    aa_accepted_count            = 0;   // cumulative AA-accepted super-steps this solve
+    // SRAA outer-stall revert count when corun_aa=TRUE; 0 otherwise.
+    int    sraa_corun_reverts           = 0;
     // ── ALM diagnostics (oris_soft only; zero elsewhere) ──
     double alm_capacity_mu_final        = 0.0;
     int    alm_n_growth_events          = 0;
