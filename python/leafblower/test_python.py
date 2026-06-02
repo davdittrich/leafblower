@@ -252,3 +252,19 @@ def test_compute_sparseness_diag_na_bin_conflates_literal():
     )
     # R parity: tests/testthat/test-sparseness-na-bin.R asserts the same value (5).
     assert na_entries[0]["n_kj"] == 5
+
+
+def test_oris_sor_observability_fields():
+    """sor_omega_mean present in ORIS result when mode_id=2."""
+    from leafblower import harvest
+    import pandas as pd
+    rng = np.random.default_rng(20260531)
+    n = 500
+    df = pd.DataFrame({f"m{i+1}": rng.choice(["a","b"], n, p=[0.85,0.15] if i<4 else [0.15,0.85]) for i in range(8)})
+    tgt = {f"m{i+1}": {"a": 0.15 if i<4 else 0.85, "b": 0.85 if i<4 else 0.15} for i in range(8)}
+    res = harvest(df, tgt, method="oris", sor={"auto": True, "omega_mode_id": 2},
+                  max_weight=1000, min_weight=0, max_iterations=500)
+    r = res.attrs.get("result", {})
+    sor = r.get("sor", {})
+    assert "omega_mean" in sor, f"sor_omega_mean missing; sor keys: {list(sor.keys())}"
+    assert sor.get("omega_mean", -1) >= 1.0, f"sor_omega_mean={sor.get('omega_mean')} < 1.0"

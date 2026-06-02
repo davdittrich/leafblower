@@ -32,6 +32,13 @@ void oris_finalize(
     const std::set<std::pair<int,int>>&       structural_infeas_pairs,
     double                                    sor_min_omega,
     int                                       sor_n_damped,
+    double                                    sor_omega_mean,
+    int                                       sor_any_latched,
+    int                                       sor_n_pinned_fb,
+    int                                       sor_n_warmup_fb,
+    int                                       sor_n_conv_fb,
+    int                                       sor_n_resid_grew,
+    int                                       sor_n_monotone_cd,
     const std::vector<std::pair<int,double>>& probe_samples
 ) {
     constexpr double kInfeasStallRatio = 10.0;
@@ -248,8 +255,15 @@ void oris_finalize(
     }
 
     // store SOR diagnostics in result.
-    res.sor_min_omega = sor_min_omega;
-    res.sor_n_damped  = sor_n_damped;
+    res.sor_min_omega    = sor_min_omega;
+    res.sor_n_damped     = sor_n_damped;
+    res.sor_omega_mean   = sor_omega_mean;
+    res.sor_any_latched  = sor_any_latched;
+    res.sor_n_pinned_fb  = sor_n_pinned_fb;
+    res.sor_n_warmup_fb  = sor_n_warmup_fb;
+    res.sor_n_conv_fb    = sor_n_conv_fb;
+    res.sor_n_resid_grew = sor_n_resid_grew;
+    res.sor_n_monotone_cd = sor_n_monotone_cd;
 
     write_trajectory_csv(probe_samples);
 }

@@ -555,11 +555,25 @@ harvest <- function(
   # The C bridge always returns sor_min_omega and sor_n_damped as flat fields;
   # wrap them here so callers use result$sor$min_omega and result$sor$n_damped.
   calib_result$sor <- list(
-    min_omega = calib_result$sor_min_omega,
-    n_damped  = calib_result$sor_n_damped
+    min_omega    = calib_result$sor_min_omega,
+    n_damped     = calib_result$sor_n_damped,
+    omega_mean   = calib_result$sor_omega_mean,
+    any_latched  = calib_result$sor_any_latched,
+    n_pinned_fb  = calib_result$sor_n_pinned_fb,
+    n_warmup_fb  = calib_result$sor_n_warmup_fb,
+    n_conv_fb    = calib_result$sor_n_conv_fb,
+    n_resid_grew = calib_result$sor_n_resid_grew,
+    n_monotone_cd = calib_result$sor_n_monotone_cd
   )
-  calib_result$sor_min_omega <- NULL
-  calib_result$sor_n_damped  <- NULL
+  calib_result$sor_min_omega   <- NULL
+  calib_result$sor_n_damped    <- NULL
+  calib_result$sor_omega_mean  <- NULL
+  calib_result$sor_any_latched <- NULL
+  calib_result$sor_n_pinned_fb <- NULL
+  calib_result$sor_n_warmup_fb <- NULL
+  calib_result$sor_n_conv_fb   <- NULL
+  calib_result$sor_n_resid_grew  <- NULL
+  calib_result$sor_n_monotone_cd <- NULL
 
   # WU-E2: nest convergence diagnostics under $convergence_used for clean namespace.
   # metric_names and rule_names mirror CalibMetric/CalibRule enum order in leafblower.h.

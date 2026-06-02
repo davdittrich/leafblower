@@ -429,8 +429,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     int    res_conv_iter         = -1;
     double res_best_error        = std::numeric_limits<double>::infinity();
     int    res_best_iter   = 0;
-    double res_sor_min_omega = 1.0;
-    int    res_sor_n_damped  = 0;
+    double res_sor_min_omega  = 1.0;
+    int    res_sor_n_damped   = 0;
+    double res_sor_omega_mean = 1.0;
+    int    res_sor_any_latched  = 0;
+    int    res_sor_n_pinned_fb  = 0;
+    int    res_sor_n_warmup_fb  = 0;
+    int    res_sor_n_conv_fb    = 0;
+    int    res_sor_n_resid_grew = 0;
+    int    res_sor_n_monotone_cd = 0;
     double res_conv_objective          = 0.0;
     int    res_conv_minimized_metric   = 0;
     /* ALM diagnostics (populated only in oris_soft dispatch; zero elsewhere) */
@@ -541,8 +548,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
                 res_eta_final             = res.eta_final;
                 pack_solver_result(res);
-                res_sor_min_omega    = res.sor_min_omega;
-                res_sor_n_damped     = res.sor_n_damped;
+                res_sor_min_omega     = res.sor_min_omega;
+                res_sor_n_damped      = res.sor_n_damped;
+                res_sor_omega_mean    = res.sor_omega_mean;
+                res_sor_any_latched   = res.sor_any_latched;
+                res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
+                res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
+                res_sor_n_conv_fb     = res.sor_n_conv_fb;
+                res_sor_n_resid_grew  = res.sor_n_resid_grew;
+                res_sor_n_monotone_cd = res.sor_n_monotone_cd;
                 res_aa_accepted_count     = res.aa_accepted_count;
                 res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
                 res_best_weights = std::move(res.base.best_weights);
@@ -589,8 +603,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
             res_eta_final             = res.eta_final;
             pack_solver_result(res);
-            res_sor_min_omega    = res.sor_min_omega;
-            res_sor_n_damped     = res.sor_n_damped;
+            res_sor_min_omega     = res.sor_min_omega;
+            res_sor_n_damped      = res.sor_n_damped;
+            res_sor_omega_mean    = res.sor_omega_mean;
+            res_sor_any_latched   = res.sor_any_latched;
+            res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
+            res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
+            res_sor_n_conv_fb     = res.sor_n_conv_fb;
+            res_sor_n_resid_grew  = res.sor_n_resid_grew;
+            res_sor_n_monotone_cd = res.sor_n_monotone_cd;
             res_aa_accepted_count     = res.aa_accepted_count;
             res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
@@ -734,8 +755,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
             res_eta_final             = res.eta_final;
             pack_solver_result(res);
-            res_sor_min_omega    = res.sor_min_omega;
-            res_sor_n_damped     = res.sor_n_damped;
+            res_sor_min_omega     = res.sor_min_omega;
+            res_sor_n_damped      = res.sor_n_damped;
+            res_sor_omega_mean    = res.sor_omega_mean;
+            res_sor_any_latched   = res.sor_any_latched;
+            res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
+            res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
+            res_sor_n_conv_fb     = res.sor_n_conv_fb;
+            res_sor_n_resid_grew  = res.sor_n_resid_grew;
+            res_sor_n_monotone_cd = res.sor_n_monotone_cd;
             res_alm_capacity_mu_final = res.alm_capacity_mu_final;
             res_alm_n_growth_events   = res.alm_n_growth_events;
             res_alm_max_dual_norm     = res.alm_max_dual_norm;
@@ -761,8 +789,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
             res_eta_final             = res.eta_final;
             pack_solver_result(res);
-            res_sor_min_omega    = res.sor_min_omega;
-            res_sor_n_damped     = res.sor_n_damped;
+            res_sor_min_omega     = res.sor_min_omega;
+            res_sor_n_damped      = res.sor_n_damped;
+            res_sor_omega_mean    = res.sor_omega_mean;
+            res_sor_any_latched   = res.sor_any_latched;
+            res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
+            res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
+            res_sor_n_conv_fb     = res.sor_n_conv_fb;
+            res_sor_n_resid_grew  = res.sor_n_resid_grew;
+            res_sor_n_monotone_cd = res.sor_n_monotone_cd;
             res_aa_accepted_count     = res.aa_accepted_count;
             res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
@@ -825,7 +860,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    constexpr int N_RESULT_FIELDS = 42;
+    constexpr int N_RESULT_FIELDS = 49;
     SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted + 1 convergence_stall_kind
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  N_RESULT_FIELDS));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
@@ -873,65 +908,80 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SET_VECTOR_ELT(res_list, 19, Rf_ScalarInteger(res_best_iter));
     SET_VECTOR_ELT(res_list, 20, Rf_ScalarReal(res_sor_min_omega));
     SET_VECTOR_ELT(res_list, 21, Rf_ScalarInteger(res_sor_n_damped));
-    /* Element 22: best_weights REALSXP (WU-E) */
-    SET_STRING_ELT(res_names, 22, Rf_mkChar("best_weights"));
+    /* Elements 22-28: ORIS SOR observability fields (e18t.4) */
+    SET_STRING_ELT(res_names, 22, Rf_mkChar("sor_omega_mean"));
+    SET_STRING_ELT(res_names, 23, Rf_mkChar("sor_any_latched"));
+    SET_STRING_ELT(res_names, 24, Rf_mkChar("sor_n_pinned_fb"));
+    SET_STRING_ELT(res_names, 25, Rf_mkChar("sor_n_warmup_fb"));
+    SET_STRING_ELT(res_names, 26, Rf_mkChar("sor_n_conv_fb"));
+    SET_STRING_ELT(res_names, 27, Rf_mkChar("sor_n_resid_grew"));
+    SET_STRING_ELT(res_names, 28, Rf_mkChar("sor_n_monotone_cd"));
+    SET_VECTOR_ELT(res_list,  22, Rf_ScalarReal(res_sor_omega_mean));
+    SET_VECTOR_ELT(res_list,  23, Rf_ScalarInteger(res_sor_any_latched));
+    SET_VECTOR_ELT(res_list,  24, Rf_ScalarInteger(res_sor_n_pinned_fb));
+    SET_VECTOR_ELT(res_list,  25, Rf_ScalarInteger(res_sor_n_warmup_fb));
+    SET_VECTOR_ELT(res_list,  26, Rf_ScalarInteger(res_sor_n_conv_fb));
+    SET_VECTOR_ELT(res_list,  27, Rf_ScalarInteger(res_sor_n_resid_grew));
+    SET_VECTOR_ELT(res_list,  28, Rf_ScalarInteger(res_sor_n_monotone_cd));
+    /* Element 29: best_weights REALSXP (WU-E) */
+    SET_STRING_ELT(res_names, 29, Rf_mkChar("best_weights"));
     {
         int bw_n = (int)res_best_weights.size();
         SEXP bw_sxp = PROTECT(Rf_allocVector(REALSXP, bw_n));
         double* bw  = REAL(bw_sxp);
         for (int i = 0; i < bw_n; i++) bw[i] = res_best_weights[i];
-        SET_VECTOR_ELT(res_list, 22, bw_sxp);
+        SET_VECTOR_ELT(res_list, 29, bw_sxp);
         UNPROTECT(1);  // bw_sxp adopted by res_list
     }
-    /* Elements 23-27: convergence diagnostics (WU-A) */
-    SET_STRING_ELT(res_names, 23, Rf_mkChar("grake_norm"));
-    SET_STRING_ELT(res_names, 24, Rf_mkChar("convergence_metric"));
-    SET_STRING_ELT(res_names, 25, Rf_mkChar("convergence_rule"));
-    SET_STRING_ELT(res_names, 26, Rf_mkChar("convergence_tol"));
-    SET_STRING_ELT(res_names, 27, Rf_mkChar("convergence_iter"));
-    SET_VECTOR_ELT(res_list, 23, Rf_ScalarReal(res_grake_norm));
-    SET_VECTOR_ELT(res_list, 24, Rf_ScalarInteger(res_conv_metric));
-    SET_VECTOR_ELT(res_list, 25, Rf_ScalarInteger(res_conv_rule));
-    SET_VECTOR_ELT(res_list, 26, Rf_ScalarReal(res_conv_tol));
-    SET_VECTOR_ELT(res_list, 27, Rf_ScalarInteger(res_conv_iter));
-    /* Elements 28-29: convergence_objective and convergence_minimized_metric (Task 1) */
-    SET_STRING_ELT(res_names, 28, Rf_mkChar("solver_objective"));
-    SET_STRING_ELT(res_names, 29, Rf_mkChar("convergence_minimized_metric"));
-    SET_VECTOR_ELT(res_list,  28, Rf_ScalarReal(res_conv_objective));
-    SET_VECTOR_ELT(res_list,  29, Rf_ScalarInteger(res_conv_minimized_metric));
-    /* Elements 30-33: ALM diagnostics (non-zero only for oris_soft) */
-    SET_STRING_ELT(res_names, 30, Rf_mkChar("alm_capacity_mu_final"));
-    SET_STRING_ELT(res_names, 31, Rf_mkChar("alm_n_growth_events"));
-    SET_STRING_ELT(res_names, 32, Rf_mkChar("alm_max_dual_norm"));
-    SET_STRING_ELT(res_names, 33, Rf_mkChar("alm_sum_drift"));
-    SET_VECTOR_ELT(res_list,  30, Rf_ScalarReal(res_alm_capacity_mu_final));
-    SET_VECTOR_ELT(res_list,  31, Rf_ScalarInteger(res_alm_n_growth_events));
-    SET_VECTOR_ELT(res_list,  32, Rf_ScalarReal(res_alm_max_dual_norm));
-    SET_VECTOR_ELT(res_list,  33, Rf_ScalarReal(res_alm_sum_drift));
-    /* Element 34: SRAA acceleration diagnostic (oris/oris_soft only; zero elsewhere) */
-    SET_STRING_ELT(res_names, 34, Rf_mkChar("aa_accepted_count"));
-    SET_VECTOR_ELT(res_list,  34, Rf_ScalarInteger(res_aa_accepted_count));
-    /* Element 35: Newton-KL TSVD diagnostic (newton_kl only; zero elsewhere) */
-    SET_STRING_ELT(res_names, 35, Rf_mkChar("n_projected_dims"));
-    SET_VECTOR_ELT(res_list,  35, Rf_ScalarInteger(res_n_projected_dims));
-    /* Element 36: Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
-    SET_STRING_ELT(res_names, 36, Rf_mkChar("lm_mu_final"));
-    SET_VECTOR_ELT(res_list,  36, Rf_ScalarReal(res_lm_mu_final));
-    /* Element 37: first-check metric value (oris only; Inf elsewhere) */
-    SET_STRING_ELT(res_names, 37, Rf_mkChar("metric_first_check"));
-    SET_VECTOR_ELT(res_list,  37, Rf_ScalarReal(res_metric_first_check));
-    SET_STRING_ELT(res_names, 38, Rf_mkChar("metric_prev_check"));
-    SET_VECTOR_ELT(res_list,  38, Rf_ScalarReal(res_metric_prev_check));
-    SET_STRING_ELT(res_names, 39, Rf_mkChar("prev_check_iter"));
-    SET_VECTOR_ELT(res_list,  39, Rf_ScalarInteger(res_prev_check_iter));
-    /* Element 40: SRAA scheduler-demotion flag (oris/raking only; FALSE elsewhere) */
-    SET_STRING_ELT(res_names, 40, Rf_mkChar("sraa_demoted"));
-    SET_VECTOR_ELT(res_list,  40, Rf_ScalarLogical(res_sraa_demoted));
-    /* Element 41: solver-emitted stall kind (leafblower-8eod).
+    /* Elements 30-34: convergence diagnostics (WU-A) */
+    SET_STRING_ELT(res_names, 30, Rf_mkChar("grake_norm"));
+    SET_STRING_ELT(res_names, 31, Rf_mkChar("convergence_metric"));
+    SET_STRING_ELT(res_names, 32, Rf_mkChar("convergence_rule"));
+    SET_STRING_ELT(res_names, 33, Rf_mkChar("convergence_tol"));
+    SET_STRING_ELT(res_names, 34, Rf_mkChar("convergence_iter"));
+    SET_VECTOR_ELT(res_list, 30, Rf_ScalarReal(res_grake_norm));
+    SET_VECTOR_ELT(res_list, 31, Rf_ScalarInteger(res_conv_metric));
+    SET_VECTOR_ELT(res_list, 32, Rf_ScalarInteger(res_conv_rule));
+    SET_VECTOR_ELT(res_list, 33, Rf_ScalarReal(res_conv_tol));
+    SET_VECTOR_ELT(res_list, 34, Rf_ScalarInteger(res_conv_iter));
+    /* Elements 35-36: convergence_objective and convergence_minimized_metric (Task 1) */
+    SET_STRING_ELT(res_names, 35, Rf_mkChar("solver_objective"));
+    SET_STRING_ELT(res_names, 36, Rf_mkChar("convergence_minimized_metric"));
+    SET_VECTOR_ELT(res_list,  35, Rf_ScalarReal(res_conv_objective));
+    SET_VECTOR_ELT(res_list,  36, Rf_ScalarInteger(res_conv_minimized_metric));
+    /* Elements 37-40: ALM diagnostics (non-zero only for oris_soft) */
+    SET_STRING_ELT(res_names, 37, Rf_mkChar("alm_capacity_mu_final"));
+    SET_STRING_ELT(res_names, 38, Rf_mkChar("alm_n_growth_events"));
+    SET_STRING_ELT(res_names, 39, Rf_mkChar("alm_max_dual_norm"));
+    SET_STRING_ELT(res_names, 40, Rf_mkChar("alm_sum_drift"));
+    SET_VECTOR_ELT(res_list,  37, Rf_ScalarReal(res_alm_capacity_mu_final));
+    SET_VECTOR_ELT(res_list,  38, Rf_ScalarInteger(res_alm_n_growth_events));
+    SET_VECTOR_ELT(res_list,  39, Rf_ScalarReal(res_alm_max_dual_norm));
+    SET_VECTOR_ELT(res_list,  40, Rf_ScalarReal(res_alm_sum_drift));
+    /* Element 41: SRAA acceleration diagnostic (oris/oris_soft only; zero elsewhere) */
+    SET_STRING_ELT(res_names, 41, Rf_mkChar("aa_accepted_count"));
+    SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(res_aa_accepted_count));
+    /* Element 42: Newton-KL TSVD diagnostic (newton_kl only; zero elsewhere) */
+    SET_STRING_ELT(res_names, 42, Rf_mkChar("n_projected_dims"));
+    SET_VECTOR_ELT(res_list,  42, Rf_ScalarInteger(res_n_projected_dims));
+    /* Element 43: Newton-KL Levenberg-Marquardt diagnostic (newton_kl only; zero elsewhere) */
+    SET_STRING_ELT(res_names, 43, Rf_mkChar("lm_mu_final"));
+    SET_VECTOR_ELT(res_list,  43, Rf_ScalarReal(res_lm_mu_final));
+    /* Element 44: first-check metric value (oris only; Inf elsewhere) */
+    SET_STRING_ELT(res_names, 44, Rf_mkChar("metric_first_check"));
+    SET_VECTOR_ELT(res_list,  44, Rf_ScalarReal(res_metric_first_check));
+    SET_STRING_ELT(res_names, 45, Rf_mkChar("metric_prev_check"));
+    SET_VECTOR_ELT(res_list,  45, Rf_ScalarReal(res_metric_prev_check));
+    SET_STRING_ELT(res_names, 46, Rf_mkChar("prev_check_iter"));
+    SET_VECTOR_ELT(res_list,  46, Rf_ScalarInteger(res_prev_check_iter));
+    /* Element 47: SRAA scheduler-demotion flag (oris/raking only; FALSE elsewhere) */
+    SET_STRING_ELT(res_names, 47, Rf_mkChar("sraa_demoted"));
+    SET_VECTOR_ELT(res_list,  47, Rf_ScalarLogical(res_sraa_demoted));
+    /* Element 48: solver-emitted stall kind (leafblower-8eod).
        0=no stall, 1=wchange (SRAA path), 2=kl (plain-IPF path).
        Set at RK_ERR_STALL emission site; replaces accelerate_bool heuristic in harvest.R. */
-    SET_STRING_ELT(res_names, 41, Rf_mkChar("convergence_stall_kind"));
-    SET_VECTOR_ELT(res_list,  41, Rf_ScalarInteger(res_stall_kind));
+    SET_STRING_ELT(res_names, 48, Rf_mkChar("convergence_stall_kind"));
+    SET_VECTOR_ELT(res_list,  48, Rf_ScalarInteger(res_stall_kind));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
     UNPROTECT(1);  // res_names adopted by res_list
 

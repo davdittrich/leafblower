@@ -22,6 +22,13 @@ struct ORISResult {
     // ── SOR diagnostics ──
     double sor_min_omega                = 1.0;
     int    sor_n_damped                 = 0;
+    double sor_omega_mean               = 1.0;
+    int    sor_any_latched              = 0;
+    int    sor_n_pinned_fb              = 0;
+    int    sor_n_warmup_fb              = 0;
+    int    sor_n_conv_fb                = 0;
+    int    sor_n_resid_grew             = 0;
+    int    sor_n_monotone_cd            = 0;
     // ── ORIS internal metrics ──
     double best_objective_seen          = 0.0;
     double marginal_kl_at_iter          = 0.0;

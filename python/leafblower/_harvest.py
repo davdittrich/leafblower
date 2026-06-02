@@ -627,8 +627,15 @@ def harvest(
         # SOR fields; .pop with default avoids KeyError. R side returns NULL
         # for these; Python returns None inside the nested dict.
         result_dict["sor"] = {
-            "min_omega": result_dict.pop("sor_min_omega", None),
-            "n_damped":  result_dict.pop("sor_n_damped", None),
+            "min_omega":    result_dict.pop("sor_min_omega", None),
+            "n_damped":     result_dict.pop("sor_n_damped", None),
+            "omega_mean":   result_dict.pop("sor_omega_mean", None),
+            "any_latched":  result_dict.pop("sor_any_latched", None),
+            "n_pinned_fb":  result_dict.pop("sor_n_pinned_fb", None),
+            "n_warmup_fb":  result_dict.pop("sor_n_warmup_fb", None),
+            "n_conv_fb":    result_dict.pop("sor_n_conv_fb", None),
+            "n_resid_grew": result_dict.pop("sor_n_resid_grew", None),
+            "n_monotone_cd": result_dict.pop("sor_n_monotone_cd", None),
         }
         out.attrs["result"] = result_dict
         out.attrs["iterations"] = result_dict["iterations"]

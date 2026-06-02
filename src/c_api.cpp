@@ -122,6 +122,7 @@ void rk_result_init(rk_result_t* r) {
     r->best_error         = std::numeric_limits<double>::infinity();  /* Inf sentinel; R sees Inf not finite 1e308 */
     r->convergence_solver_objective = std::numeric_limits<double>::infinity();  /* Inf sentinel, consistent with best_error */
     r->sor_min_omega      = 1.0;    /* non-ORIS default */
+    r->sor_omega_mean     = 1.0;    /* non-ORIS default */
     r->convergence_rule                 = 1;      /* IMPROVEMENT */
     r->convergence_tol                  = 0.001;
     r->convergence_iter                 = -1;     /* -1 = did not converge */
@@ -444,6 +445,13 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 result->prev_check_iter     = res.base.prev_check_iter;
                 result->sor_min_omega       = res.sor_min_omega;
                 result->sor_n_damped        = res.sor_n_damped;
+                result->sor_omega_mean      = res.sor_omega_mean;
+                result->sor_any_latched     = res.sor_any_latched;
+                result->sor_n_pinned_fb     = res.sor_n_pinned_fb;
+                result->sor_n_warmup_fb     = res.sor_n_warmup_fb;
+                result->sor_n_conv_fb       = res.sor_n_conv_fb;
+                result->sor_n_resid_grew    = res.sor_n_resid_grew;
+                result->sor_n_monotone_cd   = res.sor_n_monotone_cd;
                 result->alm_capacity_mu_final = res.alm_capacity_mu_final;
                 result->alm_n_growth_events   = res.alm_n_growth_events;
                 result->alm_max_dual_norm     = res.alm_max_dual_norm;
@@ -484,6 +492,13 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->prev_check_iter     = res.base.prev_check_iter;
             result->sor_min_omega       = res.sor_min_omega;
             result->sor_n_damped        = res.sor_n_damped;
+            result->sor_omega_mean      = res.sor_omega_mean;
+            result->sor_any_latched     = res.sor_any_latched;
+            result->sor_n_pinned_fb     = res.sor_n_pinned_fb;
+            result->sor_n_warmup_fb     = res.sor_n_warmup_fb;
+            result->sor_n_conv_fb       = res.sor_n_conv_fb;
+            result->sor_n_resid_grew    = res.sor_n_resid_grew;
+            result->sor_n_monotone_cd   = res.sor_n_monotone_cd;
             result->alm_capacity_mu_final = res.alm_capacity_mu_final;
             result->alm_n_growth_events   = res.alm_n_growth_events;
             result->alm_max_dual_norm     = res.alm_max_dual_norm;

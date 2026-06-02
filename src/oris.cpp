@@ -458,6 +458,11 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     double sor_omega_sum    = 0.0;
     int    sor_omega_n      = 0;
     bool   sor_any_latched  = false;
+    int    sor_n_pinned_fb  = 0;   // gate-2 fallback count
+    int    sor_n_warmup_fb  = 0;   // gate-3 fallback count
+    int    sor_n_conv_fb    = 0;   // gate-4/5 fallback count
+    int    sor_n_resid_grew = 0;   // gate-6 fallback count
+    int    sor_n_monotone_cd = 0;  // gate-10 cooldown count
 
     // Scratch buffers for compute_weight_kl.
     std::vector<double> kl_ratio_buf(ct.M_cell);
@@ -1691,11 +1696,13 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                                 if (n_free_k_v == 0 || sor_latched[k]) {
                                     sor_omega[k]      = 1.0;
                                     sor_theta2_ema[k] = 0.0;  // reset EMA on every gate-2 fallback
+                                    sor_n_pinned_fb++;
                                 } else if (sor_cooldown_left[k] > 0) {
                                     // Gate 10 cooldown active: hold ω=1, decay EMA.
                                     sor_omega[k]      = 1.0;
                                     sor_theta2_ema[k] = 0.0;  // prevent stale EMA surviving cooldown
                                     sor_cooldown_left[k]--;
+                                    sor_n_monotone_cd++;
                                 } else {
                                     // Gate 3: warm-up — need both lag-1 and lag-2 filled.
                                     bool warmed_up = std::isfinite(errF_prev[k]) &&
@@ -1703,17 +1710,20 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                                     if (!warmed_up) {
                                         sor_omega[k] = 1.0;
                                         sor_theta2_ema[k] = 0.0;
+                                        sor_n_warmup_fb++;
                                     }
                                     // Gate 4: finiteness + tiny free mass (kMinSafeTotalWeight).
                                     else if (!std::isfinite(errF_k_v) ||
                                              wfree_k_v < kMinSafeTotalWeight) {
                                         sor_omega[k] = 1.0;
                                         sor_theta2_ema[k] = 0.0;
+                                        sor_n_conv_fb++;
                                     }
                                     // Gate 5: denominator floor.
                                     else if (errF_prev[k] < kResidFloor) {
                                         sor_omega[k] = 1.0;
                                         sor_theta2_ema[k] = 0.0;
+                                        sor_n_conv_fb++;
                                     } else {
                                         double ratio = errF_k_v / errF_prev[k];
                                         // Gate 6: residual grew — hard-reset EMA, hold ω=1.
@@ -1721,6 +1731,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                                             sor_theta2_ema[k] = 0.0;
                                             sor_omega[k]      = 1.0;
                                             sor_n_consec_up[k]++;
+                                            sor_n_resid_grew++;
                                         } else {
                                             sor_n_consec_up[k] = 0;
                                             // Gate 7: EMA update (clamp theta2 to [0, 1-1e-9)).
@@ -1984,7 +1995,12 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     oris_finalize(st, res, ct, X, X_init, L_cell, U_cell,
                    alm_active, capacity_mu_adaptive, lambda_cell,
                    best, absolute_tol_fired, structural_infeas_pairs,
-                   sor_min_omega, sor_n_damped, probe_samples);
+                   sor_min_omega, sor_n_damped,
+                   (sor_omega_n > 0) ? sor_omega_sum / sor_omega_n : 1.0,
+                   sor_any_latched ? 1 : 0,
+                   sor_n_pinned_fb, sor_n_warmup_fb, sor_n_conv_fb,
+                   sor_n_resid_grew, sor_n_monotone_cd,
+                   probe_samples);
     return res;
 }
 

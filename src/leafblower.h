@@ -140,6 +140,13 @@ typedef struct {
     int    best_iter;
     double sor_min_omega;    /* ORIS only; non-ORIS = 1.0 */
     int    sor_n_damped;     /* ORIS only; non-ORIS = 0 */
+    double sor_omega_mean;   /* ORIS only; mean realized omega (adapted steps); non-ORIS = 1.0 */
+    int    sor_any_latched;  /* ORIS only; 1 if any margin permanently latched (gate 10); non-ORIS = 0 */
+    int    sor_n_pinned_fb;  /* ORIS only; gate-2 fallback count; non-ORIS = 0 */
+    int    sor_n_warmup_fb;  /* ORIS only; gate-3 fallback count; non-ORIS = 0 */
+    int    sor_n_conv_fb;    /* ORIS only; gate-4/5 fallback count; non-ORIS = 0 */
+    int    sor_n_resid_grew; /* ORIS only; gate-6 fallback count; non-ORIS = 0 */
+    int    sor_n_monotone_cd;/* ORIS only; gate-10 cooldown count; non-ORIS = 0 */
     double convergence_solver_objective;  /* solver's mathematical objective at best_iter */
     int    convergence_minimized_metric; /* CalibMetric: which metric was minimized */
     double          alm_capacity_mu_final;  /* final capacity_mu after adaptive scaling; 0 if not oris_soft */
@@ -227,7 +234,7 @@ int rk_calibrate(
 #ifdef __cplusplus
 static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
 /* rk_result_t tripwire. Linux x86_64, verified 2026-05-03: 504 bytes. */
-#define EXPECTED_RK_RESULT_BYTES 504
+#define EXPECTED_RK_RESULT_BYTES 536
 static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
     "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");
 /* ABI layout (2026-04-24): added overlay fields after bounds_mode.

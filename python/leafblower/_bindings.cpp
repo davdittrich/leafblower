@@ -193,6 +193,13 @@ PYBIND11_MODULE(_leafblower, m) {
             result_dict["best_iter"]           = result.best_iter;
             result_dict["sor_min_omega"]       = result.sor_min_omega;
             result_dict["sor_n_damped"]        = result.sor_n_damped;
+            result_dict["sor_omega_mean"]      = result.sor_omega_mean;
+            result_dict["sor_any_latched"]     = result.sor_any_latched;
+            result_dict["sor_n_pinned_fb"]     = result.sor_n_pinned_fb;
+            result_dict["sor_n_warmup_fb"]     = result.sor_n_warmup_fb;
+            result_dict["sor_n_conv_fb"]       = result.sor_n_conv_fb;
+            result_dict["sor_n_resid_grew"]    = result.sor_n_resid_grew;
+            result_dict["sor_n_monotone_cd"]   = result.sor_n_monotone_cd;
             // ALM diagnostic fields (PYR-T2)
             result_dict["alm_capacity_mu_final"] = result.alm_capacity_mu_final;
             result_dict["alm_n_growth_events"]   = result.alm_n_growth_events;
