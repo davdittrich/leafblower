@@ -107,6 +107,10 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.sor_omega_fixed = params_dict["sor_omega_fixed"].cast<double>();
             if (params_dict.contains("sor_burnin"))
                 p.sor_burnin = params_dict["sor_burnin"].cast<int>();
+            if (params_dict.contains("sor_omega_mode_id") &&
+                !params_dict["sor_omega_mode_id"].is_none()) {
+                p.sor_omega_mode_id = params_dict["sor_omega_mode_id"].cast<int>();
+            }
             // Homotopy (PY-1)
             if (params_dict.contains("homotopy_levels"))
                 p.homotopy.n_levels = params_dict["homotopy_levels"].cast<int>();

@@ -268,3 +268,26 @@ def test_oris_sor_observability_fields():
     sor = r.get("sor", {})
     assert "omega_mean" in sor, f"sor_omega_mean missing; sor keys: {list(sor.keys())}"
     assert sor.get("omega_mean", -1) >= 1.0, f"sor_omega_mean={sor.get('omega_mean')} < 1.0"
+
+
+def test_oris_omega_mode_id_live():
+    """omega_mode_id=1 vs 2 must produce different iteration counts — key is live, not inert."""
+    from leafblower import harvest
+    import pandas as pd
+    rng = np.random.default_rng(20260531)
+    n = 500
+    # High-contrast 8-margin problem: mode 2 (iterate-change) tracks curvature, converges differently
+    df = pd.DataFrame({
+        f"m{i+1}": rng.choice(["a", "b"], n, p=[0.85, 0.15] if i < 4 else [0.15, 0.85])
+        for i in range(8)
+    })
+    tgt = {f"m{i+1}": {"a": 0.15 if i < 4 else 0.85, "b": 0.85 if i < 4 else 0.15} for i in range(8)}
+    r1 = harvest(df, tgt, method="oris", sor={"auto": True, "omega_mode_id": 1},
+                 max_weight=1000, min_weight=0, max_iterations=500)
+    r2 = harvest(df, tgt, method="oris", sor={"auto": True, "omega_mode_id": 2},
+                 max_weight=1000, min_weight=0, max_iterations=500)
+    iters1 = r1.attrs.get("result", {}).get("iterations")
+    iters2 = r2.attrs.get("result", {}).get("iterations")
+    # Both converge; iteration counts differ because mode 1 uses fixed omega, mode 2 uses iterate-change
+    assert iters1 != iters2, \
+        f"omega_mode_id not live: mode1={iters1} mode2={iters2}"

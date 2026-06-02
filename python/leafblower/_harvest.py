@@ -133,16 +133,19 @@ def _resolve_sor(sor):
 
 
 def _parse_sor(sor):
-    """Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed, burnin)."""
+    """Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_fixed, burnin, omega_mode_id)."""
     if not sor:  # empty dict = disabled (from _resolve_sor(None) or _resolve_sor(False))
-        return 0, 0, 1.0, 0.3, -1.0, 20
+        return 0, 0, 1.0, 0.3, -1.0, 20, None   # None = let C init default govern
     enabled = 1
     auto = 1 if sor.get("auto", True) else 0
     omega_init = float(sor.get("omega_init", 1.0))
     omega_min = float(sor.get("omega_min", 0.3))
     omega_fixed = float(sor.get("omega", -1.0))
     burnin = int(sor.get("burnin", 20))
-    return enabled, auto, omega_init, omega_min, omega_fixed, burnin
+    omega_mode_id = sor.get("omega_mode_id", None)  # None = C rk_params_init default governs
+    if omega_mode_id is not None:
+        omega_mode_id = int(omega_mode_id)
+    return enabled, auto, omega_init, omega_min, omega_fixed, burnin, omega_mode_id
 
 
 def _parse_target(target, target_map=None):
@@ -298,7 +301,7 @@ def harvest(
 
     # Parse convergence and SOR
     pct_tol, absolute_tol, metric, rule, stop_when = _parse_convergence(convergence)
-    sor_enabled, sor_auto, sor_omega_init, sor_omega_min, sor_omega_fixed, sor_burnin = _parse_sor(
+    sor_enabled, sor_auto, sor_omega_init, sor_omega_min, sor_omega_fixed, sor_burnin, sor_omega_mode_id = _parse_sor(
         _resolve_sor(sor)
     )
 
@@ -467,6 +470,7 @@ def harvest(
         "sor_omega_min":  sor_omega_min,
         "sor_omega_fixed": sor_omega_fixed,
         "sor_burnin":     sor_burnin,
+        "sor_omega_mode_id": sor_omega_mode_id,  # None = omit (C default governs)
         # Homotopy config (PY-1)
         "homotopy_levels":       homotopy_levels,
         "homotopy_start_factor": homotopy_start_factor,
