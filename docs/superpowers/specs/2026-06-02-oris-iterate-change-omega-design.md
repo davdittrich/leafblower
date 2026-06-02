@@ -1,6 +1,6 @@
 # ORIS Iterate-Change θ₂ for Box-Constrained Over-Relaxation — Design (v2)
 
-**Date:** 2026-06-02
+**Date:** 2026-06-02 (rev 2 — plan-review-gate iter 1: cross-language default/Python wiring, §3.7)
 **Epic:** leafblower-e18t (reopened) — Phase-2 v2 remediation
 **Predecessor:** e18t Phase-2 closed **NO-SHIP** — the free-subspace **marginal-residual** θ₂
 estimator (e18t.3) stalled on bounded stepstone mw=5 (500-iter budget vs 140 fixed).
@@ -125,6 +125,28 @@ Applied at each post-burnin check, in order, before writing `ω_global`:
 
 Lag update at end of each check: `S_dX_prev ← S_dX`.
 
+## 3.7 Cross-language default + Python wiring (rev 2 — plan-review-gate iter 1)
+
+**Pre-existing divergence (surfaced by the gate).** `omega_mode_id`'s C default is **2**
+(`src/types.hpp:74`, `src/c_api.cpp:114`). R `parse_sor` (`R/harvest.R`) defaults to **1L**
+since e18t.5's NO-SHIP. The Python binding is asymmetric: `_parse_sor` returns a 6-tuple
+(`enabled,auto,omega_init,omega_min,omega_fixed,burnin`) — **`omega_mode_id` is dropped** —
+and `_bindings.cpp` never forwards it. So a Python `harvest(..., sor=list(auto=TRUE))`
+silently runs the C default (mode-2) while the same R call runs mode-1. e18t.4's Python
+mode-2 test passes only because the C default coincides with the dict value it (inertly)
+passes. This is a real bug e18t.5 left; v2 must not inherit it.
+
+**Two corrections, both in scope (no new ABI — `sor_omega_mode_id` already exists in
+`rk_params_t`; this wires an existing C field that R already forwards):**
+
+1. **Wire `omega_mode_id` through Python (e18t.10).** `_parse_sor` 6-tuple → 7-tuple
+   including `omega_mode_id` (passthrough the dict key, default to the C default);
+   `_bindings.cpp` forwards it to `p.sor_omega_mode_id`. After this, Python can select any
+   mode explicitly, exactly like R — required for deterministic cross-language parity.
+2. **Unify the default decision (e18t.9).** The §4 ship decision flips `omega_mode_id`'s
+   default in **all three sites together**: `R/harvest.R` `parse_sor`, `src/types.hpp:74`,
+   `src/c_api.cpp:114`. SHIP → 2 everywhere; NO-SHIP → 1 everywhere. No site is left behind.
+
 ## 4. Ship gate (re-run; reuse e18t fixtures)
 
 SHIP only if **ALL** pass (TIE = NO-SHIP), per-fixture numbers re-verified by orchestrator:
@@ -138,8 +160,16 @@ SHIP only if **ALL** pass (TIE = NO-SHIP), per-fixture numbers re-verified by or
    (status 0/5) under fixed-ω flips to NOCONV (status 1) under v2.
 4. **Wall-clock not regressed** (iters proxy acceptable).
 
-On SHIP → `omega_mode_id` default = 2. On NO-SHIP → default stays 1 (fixed), v2 opt-in, commit
-the documented negative. Either way the corrected derivation stands.
+On SHIP → `omega_mode_id` default = 2 in **all three sites** (§3.7). On NO-SHIP → default = 1
+everywhere, v2 opt-in (selectable in R *and* Python after e18t.10), commit the documented
+negative. Either way the corrected derivation stands.
+
+**Python parity (resolves gate iter-1 Completeness blocks).** e18t.8's "Python parity" check
+= R(`omega_mode_id=2L`) vs Python weights at rtol=1e-6 (during e18t.8 the C default is still
+2, so Python's SOR-enabled path hits mode-2; the e18t.4 test path is reused). After e18t.10,
+the parity test forces mode-2 **explicitly on both sides**, making it deterministic regardless
+of the eventual default — required because e18t.9 may flip the C default to 1 (NO-SHIP), after
+which only explicit selection can exercise mode-2 in Python.
 
 ## 5. Observability (reuse e18t.4)
 
@@ -154,9 +184,14 @@ result struct, wired R+Python. v2 increments them at the global gate sites. No n
   in `/tmp/e18t_rootcause/`; formalize + commit under `docs/superpowers/derivations/`.)
 - **e18t.8** — Implement: replace mode-2 marginal estimator with global iterate-change in
   `oris.cpp` flat path. `R CMD INSTALL` clean; `devtools::test()` 0 fail; Python parity
-  rtol=1e-6 on the T2 mode-2 fixture.
-- **e18t.9** — Re-run ship gate (§4), decide `omega_mode_id` default, finalize docs/tests/NEWS
-  in one commit cycle. Orchestrator re-verifies all numbers.
+  rtol=1e-6 on the T2 mode-2 fixture (C default still 2 at this point — Python SOR-enabled
+  hits mode-2; reuse the e18t.4 test path).
+- **e18t.10** — Wire `omega_mode_id` through the Python binding (§3.7): `_parse_sor`
+  6-tuple→7-tuple, `_bindings.cpp` forwards `p.sor_omega_mode_id`. No new ABI (existing C
+  field). Adds a Python explicit-mode parity test. Depends on e18t.8.
+- **e18t.9** — Re-run ship gate (§4), decide `omega_mode_id` default, **flip it in all three
+  sites** (`R/harvest.R`, `src/types.hpp`, `src/c_api.cpp`), finalize docs/tests/NEWS in one
+  commit cycle. Depends on e18t.10. Orchestrator re-verifies all numbers.
 
 ## 7. Alternatives considered
 
