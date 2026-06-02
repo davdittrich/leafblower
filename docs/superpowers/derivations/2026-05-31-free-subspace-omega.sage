@@ -460,6 +460,7 @@ def windowed_median_ratio(seq, lo=1e-12, hi=0.5):
 
 # theta2_free and theta2_global from the SMALL perturbation (linear regime)
 theta2_free_small = windowed_median_ratio(rfree_small, lo=1e-12, hi=0.5)
+assert not np.isnan(theta2_free_small), "windowed_median_ratio returned nan — window empty; adjust lo/hi or scale"
 theta2_global_small = windowed_median_ratio(rglob_small, lo=1e-12, hi=0.5)
 
 # theta2_free from LARGE perturbation (nonlinear transient — larger ratio)
