@@ -1,0 +1,99 @@
+{
+  "generated_at": "2026-06-02",
+  "n_fixtures": 7,
+  "n_converged_fixed_omega": 6,
+  "n_converged_no_sor": 6,
+  "fixtures": [
+    {
+      "name": "simple_2margin_balanced",
+      "fixed_omega": {
+        "status": 0,
+        "iters": 10,
+        "max_error": 1.3456e-13
+      },
+      "no_sor": {
+        "status": 0,
+        "iters": 10,
+        "max_error": 1.3456e-13
+      }
+    },
+    {
+      "name": "simple_2margin_skewed",
+      "fixed_omega": {
+        "status": 0,
+        "iters": 40,
+        "max_error": 0.0483
+      },
+      "no_sor": {
+        "status": 0,
+        "iters": 30,
+        "max_error": 0.0667
+      }
+    },
+    {
+      "name": "t2_shipgate_k8_n5000",
+      "fixed_omega": {
+        "status": 0,
+        "iters": 350,
+        "max_error": 0.1799
+      },
+      "no_sor": {
+        "status": 0,
+        "iters": 70,
+        "max_error": 0.1636
+      }
+    },
+    {
+      "name": "stepstone_small",
+      "fixed_omega": {
+        "status": 0,
+        "iters": 140,
+        "max_error": 0.0013
+      },
+      "no_sor": {
+        "status": 0,
+        "iters": 300,
+        "max_error": 0.0019
+      }
+    },
+    {
+      "name": "tight_bounds_mw2",
+      "fixed_omega": {
+        "status": 0,
+        "iters": 140,
+        "max_error": 0.0022
+      },
+      "no_sor": {
+        "status": 0,
+        "iters": 270,
+        "max_error": 0.0021
+      }
+    },
+    {
+      "name": "persistent_infeas",
+      "fixed_omega": {
+        "status": 2,
+        "iters": null,
+        "max_error": null
+      },
+      "no_sor": {
+        "status": 2,
+        "iters": null,
+        "max_error": null
+      }
+    },
+    {
+      "name": "k5_overlapping_margins",
+      "fixed_omega": {
+        "status": 0,
+        "iters": 10,
+        "max_error": 2.8028e-13
+      },
+      "no_sor": {
+        "status": 0,
+        "iters": 10,
+        "max_error": 2.8028e-13
+      }
+    }
+  ]
+}
