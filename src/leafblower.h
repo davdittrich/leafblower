@@ -108,6 +108,8 @@ typedef struct {
     double          ridge_lambda;       /* Tikhonov ridge on dual λ; 0.0 = off.
                                           * newton_kl: H_pre[k,k] += ridge_lambda before LM damping + dsyevd.
                                           * greg: N_factored[j,j] += ridge_lambda before Cholesky. */
+    double          gk_omega;          /* e65t.2: greenkhorn over-relaxation; 1.0=identity */
+    /* ABI: e65t.2 +8B gk_omega appended after ridge_lambda; offset 264, naturally aligned */
 } rk_params_t;
 
 /* ── Result ── */
@@ -258,8 +260,9 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  * mj1p.2 (2026-05-31): added sor_omega_mode_id (int, 4B) + capacity_penalty now 8B-aligned
  *   (int after sor_burnin; sor_burnin was already followed by 4B implicit pad before
  *   capacity_penalty double, so sor_omega_mode_id fills that pad slot); +0B net → 264B.
- * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B. */
-#define EXPECTED_RK_PARAMS_BYTES 264
+ * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B.
+ * e65t.2: + gk_omega (double, 8B); +8B → 272B. */
+#define EXPECTED_RK_PARAMS_BYTES 272
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif

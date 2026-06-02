@@ -115,7 +115,8 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         for (int j = 0; j < st.cat_counts[k_step]; j++) {
             double S_kj = S_flat[k_step * S_stride + j];
             if (S_kj < kEmptyBucketThreshold * W) continue;
-            double f = st.targets[k_step][j] * W / S_kj;
+            const double f_base = st.targets[k_step][j] * W / S_kj;
+            const double f = (st.gk_omega == 1.0) ? f_base : std::pow(f_base, st.gk_omega);
             for (int c : cells_per_cat[k_step][j]) {
                 double X_old = X[c];
                 double X_new = std::clamp(X[c] * f, L_cell[c], U_cell[c]);

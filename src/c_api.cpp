@@ -116,6 +116,7 @@ void rk_params_init(rk_params_t* p) {
                                        * DEAD (e65t.1 NO-GO): never enabled; default 0. See bd leafblower-e65t.1. */
     p->newton_tsvd_ratio       = 1e-8;  /* Epic-H WH-e: newton_kl TSVD truncation default */
     p->ridge_lambda            = 0.0;   /* Tikhonov ridge on dual λ; 0.0 = off */
+    p->gk_omega                = 1.0;   /* e65t.2: greenkhorn over-relaxation; 1.0 = identity */
 }
 
 void rk_result_init(rk_result_t* r) {
@@ -289,6 +290,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     if (p->alm_penalty > 0.0)           /* PY-2: ALM penalty coefficient */
         st.alm.mu = p->alm_penalty;
     st.ridge_lambda = p->ridge_lambda;  /* Tikhonov ridge on dual λ */
+    st.gk_omega     = p->gk_omega;      /* e65t.2: greenkhorn over-relaxation */
     // Only the auto-fallback path needs this; skip O(n) copy for explicit method calls.
     const std::vector<double> weights_backup = (p->algorithm == RK_ALG_AUTO)
         ? std::vector<double>(weights, weights + n)
