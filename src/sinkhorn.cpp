@@ -188,7 +188,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                 if (bucket[j] < 1e-300) continue;
                 double ratio = st.targets[k][j] * W_total / bucket[j];
                 if (ratio <= 0.0) continue;
-                scale[j] = ratio;
+                scale[j] = (st.sk_omega == 1.0) ? ratio : std::pow(ratio, st.sk_omega);
             }
             for (int c = 0; c < ct.M_cell; c++) {
                 int g = ct.g_per_cell[k][c];

@@ -143,6 +143,7 @@ struct CalibState {
     double               newton_tsvd_ratio = 1e-8;  // newton_kl: TSVD truncation ratio (Epic-H WH-e); <=0 falls back to 1e-8
     double               ridge_lambda      = 0.0;   // Tikhonov ridge on dual λ: newton_kl H_pre[k,k]+=, greg N[j,j]+=; 0=off
     double               gk_omega          = 1.0;   // DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
+    double               sk_omega          = 1.0;   // e65t.3: Sinkhorn marginal over-relaxation exponent
     // ── End overlay config ──
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;

@@ -110,6 +110,8 @@ typedef struct {
                                           * greg: N_factored[j,j] += ridge_lambda before Cholesky. */
     double          gk_omega;          /* DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. */
     /* ABI: e65t.2 +8B gk_omega appended after ridge_lambda; offset 264, naturally aligned */
+    /* ABI: e65t.3 +8B sk_omega appended after gk_omega; offset 272, naturally aligned */
+    double          sk_omega;          /* e65t.3: Sinkhorn marginal over-relaxation exponent; default 1.0=identity */
 } rk_params_t;
 
 /* ── Result ── */
@@ -261,8 +263,9 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  *   (int after sor_burnin; sor_burnin was already followed by 4B implicit pad before
  *   capacity_penalty double, so sor_omega_mode_id fills that pad slot); +0B net → 264B.
  * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B.
- * e65t.2: + gk_omega (double, 8B); +8B → 272B. */
-#define EXPECTED_RK_PARAMS_BYTES 272
+ * e65t.2: + gk_omega (double, 8B); +8B → 272B.
+ * e65t.3: + sk_omega (double, 8B); +8B → 280B. */
+#define EXPECTED_RK_PARAMS_BYTES 280
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif
