@@ -31,7 +31,8 @@ cat("Data files verified.\n\n")
 
 MAX_ITER <- 2000L
 MAX_WT   <- 5.0
-CONV     <- list(metric = "marginal_kl", absolute = 1e-4)
+MIN_WT   <- 0.3  # bounded variant: strict per-unit water-fill
+CONV     <- list(metric = "marginal_kl")  # default improvement rule, pct_tol=0.001
 
 # Arms: named list of harvest() extra args
 arms <- list(
@@ -51,30 +52,34 @@ load_dgp <- function(data_path, targets_path) {
   list(df = df, tgt = tgt)
 }
 
-# Configs: (dgp_label, data_path, targets_path, seed)
+# Configs: (label, data, tgt, seed, min_wt, bounds_mode)
 configs <- list(
-  list(label = "small_s1",  data = DATA_SMALL, tgt = TARGETS_SMALL, seed = 1L),
-  list(label = "small_s2",  data = DATA_SMALL, tgt = TARGETS_SMALL, seed = 2L),
-  list(label = "full_s1",   data = DATA_FULL,  tgt = TARGETS_FULL,  seed = 1L),
-  list(label = "full_s2",   data = DATA_FULL,  tgt = TARGETS_FULL,  seed = 2L)
+  list(label = "small_s1_unb",  data = DATA_SMALL, tgt = TARGETS_SMALL, seed = 1L, min_wt = 0.0, bmode = "cell"),
+  list(label = "small_s2_unb",  data = DATA_SMALL, tgt = TARGETS_SMALL, seed = 2L, min_wt = 0.0, bmode = "cell"),
+  list(label = "full_s1_unb",   data = DATA_FULL,  tgt = TARGETS_FULL,  seed = 1L, min_wt = 0.0, bmode = "cell"),
+  list(label = "full_s2_unb",   data = DATA_FULL,  tgt = TARGETS_FULL,  seed = 2L, min_wt = 0.0, bmode = "cell"),
+  list(label = "small_s1_bnd",  data = DATA_SMALL, tgt = TARGETS_SMALL, seed = 1L, min_wt = MIN_WT, bmode = "unit"),
+  list(label = "small_s2_bnd",  data = DATA_SMALL, tgt = TARGETS_SMALL, seed = 2L, min_wt = MIN_WT, bmode = "unit"),
+  list(label = "full_s1_bnd",   data = DATA_FULL,  tgt = TARGETS_FULL,  seed = 1L, min_wt = MIN_WT, bmode = "unit"),
+  list(label = "full_s2_bnd",   data = DATA_FULL,  tgt = TARGETS_FULL,  seed = 2L, min_wt = MIN_WT, bmode = "unit")
 )
 
 STATUS_STR <- c("0" = "OK", "1" = "no_conv", "2" = "infeasible",
                 "3" = "bad_arg", "4" = "budget", "5" = "stall")
 
-run_one <- function(df, tgt, arm_name, arm_args, seed) {
+run_one <- function(df, tgt, arm_name, arm_args, seed, min_wt = 0.0, bmode = "cell") {
   set.seed(seed)
   t0  <- proc.time()[["elapsed"]]
+  base_args <- list(df, tgt,
+                    min_weight     = min_wt,
+                    max_weight     = MAX_WT,
+                    bounds_mode    = bmode,
+                    max_iterations = MAX_ITER,
+                    convergence    = CONV,
+                    attach_weights = FALSE,
+                    verbose        = 0L)
   res <- tryCatch(
-    suppressWarnings(do.call(harvest, c(
-      list(df, tgt,
-           max_weight     = MAX_WT,
-           max_iterations = MAX_ITER,
-           convergence    = CONV,
-           attach_weights = FALSE,
-           verbose        = 0L),
-      arm_args
-    ))),
+    suppressWarnings(do.call(harvest, c(base_args, arm_args))),
     error = function(e) structure(list(), class = "harvest_error",
                                   msg = conditionMessage(e))
   )
@@ -136,7 +141,7 @@ for (cfg in configs) {
                 format(n, big.mark = ",")))
     flush.console()
 
-    row <- run_one(dgp$df, dgp$tgt, arm_name, arms[[arm_name]], cfg$seed)
+    row <- run_one(dgp$df, dgp$tgt, arm_name, arms[[arm_name]], cfg$seed, cfg$min_wt, cfg$bmode)
     row$config <- cfg$label
     row$n      <- n
     results[[idx]] <- row
