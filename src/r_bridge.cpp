@@ -871,7 +871,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
     constexpr int N_RESULT_FIELDS = 50;
-    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted + 1 convergence_stall_kind
+    SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted + 1 convergence_stall_kind + 1 sraa_corun_reverts
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  N_RESULT_FIELDS));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
     SET_STRING_ELT(res_names, 1, Rf_mkChar("iterations"));
