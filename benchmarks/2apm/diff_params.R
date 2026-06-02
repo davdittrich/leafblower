@@ -71,7 +71,7 @@ PARAM_MAP <- data.frame(
                       "scheduler","eta_mode","eta_start","eta_end","eta_schedule_power",
                       "capacity_penalty","alm_penalty",
                       "accelerate","newton_tsvd_ratio","ridge_lambda","sor_corun_aa",
-                      "gk_omega"),
+                      "gk_omega","sk_omega"),
   r_slot_name    = c("min_weight","max_weight","max_iterations","max_iterations","tol_abs",
                       "verbose","method","method","bounds_mode",
                       "pct_tol","absolute_tol","metric","rule","stop_when",
@@ -80,7 +80,7 @@ PARAM_MAP <- data.frame(
                       "scheduler","eta_schedule","eta_start","eta_end","eta_schedule_power",
                       "capacity_penalty","alm_penalty",
                       "accelerate","newton_tsvd_ratio","ridge_lambda","sor_corun_aa",
-                      "gk_omega"),
+                      "gk_omega","sk_omega"),
   py_dict_key    = c("min_weight","max_weight","inner_max_iter","outer_max_iter","tol_abs",
                       "verbose","algorithm","epsilon","bounds_mode",
                       "pct_tol","absolute_tol","metric","rule","stop_when",
@@ -89,7 +89,7 @@ PARAM_MAP <- data.frame(
                       "scheduler","eta_mode","eta_start","eta_end","eta_schedule_power",
                       "capacity_penalty","alm_penalty",
                       "accelerate","newton_tsvd_ratio","ridge_lambda","sor_corun_aa",
-                      "gk_omega"),
+                      "gk_omega","sk_omega"),
   stringsAsFactors = FALSE
 )
 
@@ -138,7 +138,8 @@ R_VALS <- list(
   newton_tsvd_ratio   = 1e-8,
   ridge_lambda        = 0.0,
   sor_corun_aa        = 0L,  # DEAD (e65t.1 NO-GO): co-run never enabled. See bd leafblower-e65t.1.
-  gk_omega            = 1.0  # DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
+  gk_omega            = 1.0,  # DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
+  sk_omega            = 1.0  # e65t.3 GO: active parameter. See bd leafblower-e65t.3.
 )
 
 # Python values (what _harvest.py puts in params dict for same call)
@@ -182,7 +183,9 @@ PY_VALS <- list(
   newton_tsvd_ratio   = 1e-8,
   ridge_lambda        = 0.0,
   sor_corun_aa        = 0L,  # DEAD (e65t.1 NO-GO): co-run never enabled. See bd leafblower-e65t.1.
-  gk_omega            = NULL # DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. Python binding out of scope.
+  gk_omega            = NULL, # DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. Python binding out of scope.
+  # DEAD (e65t.3 NO-GO): sk_omega experiment; default 1.0=identity. See bd leafblower-e65t.3. Python binding out of scope.
+  sk_omega            = NULL
 )
 
 # ---- convergence/init path parameters for short-circuit evaluation ----
@@ -195,7 +198,7 @@ CONVERGENCE_INIT_PARAMS <- c(
 )
 
 # ---- Build TOON rows ----
-# 41 positional SEXP args to C_rk_calibrate (r_bridge.cpp:177-201), in call order.
+# 42 positional SEXP args to C_rk_calibrate (r_bridge.cpp:177-201), in call order.
 # Removed: outer_max_iter (not a SEXP; bridge derives from inner), epsilon (not a SEXP; rk_params_t ABI field only).
 # Added: group_ids_r, cat_counts_r, targets_r (pos 1-3), n_obs (pos 4), sw_vec (pos 10).
 rows <- list()
@@ -210,7 +213,7 @@ params_in_order <- c(
   "pct_tol","absolute_tol","metric","rule","stop_when",
   "sor_enabled","sor_auto","sor_omega_init","sor_omega_min","sor_omega_fixed","sor_burnin",
   "accelerate","newton_tsvd_ratio","ridge_lambda","sor_corun_aa",
-  "gk_omega"
+  "gk_omega","sk_omega"
 )
 
 cat(sprintf("Total params enumerated: %d\n", length(params_in_order)))
@@ -299,7 +302,7 @@ for (p in params_in_order) {
 
 short_circuit <- FALSE
 short_circuit_reason <- paste0(
-  "No true mismatches on any of the 41 positional SEXP args. ",
+  "No true mismatches on any of the 42 positional SEXP args. ",
   "capacity_penalty/alm_penalty differ in sentinel (R=-1.0 vs Py=0.0 memset) but both reach ",
   "the same auto/inactive path (c_api.cpp:376-381, c_api.cpp:254); chebyshev ALM gated by ",
   "st.use_admm_capacity so capacity_mu is harmless. ",
@@ -351,7 +354,7 @@ con <- file(toon_path, "w")
 writeLines("task_id: T1_2apm", con)
 writeLines("success: true", con)
 writeLines("data:", con)
-writeLines("  arity_check: 41", con)
+writeLines("  arity_check: 42", con)
 writeLines("  files_created:", con)
 writeLines("    - benchmarks/2apm/dump_params_R.R", con)
 writeLines("    - benchmarks/2apm/dump_params_py.py", con)
