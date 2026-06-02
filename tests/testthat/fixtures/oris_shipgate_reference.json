@@ -1,0 +1,9 @@
+{
+  "seed": 20260531,
+  "n": 5000,
+  "K": 8,
+  "skew_probs_low_to_high": [0.85, 0.15],
+  "unconstrained_baseline_iters": 70,
+  "fixed_omega_baseline_iters": 70,
+  "stepstone_mw5_fixed_iters": 300
+}
