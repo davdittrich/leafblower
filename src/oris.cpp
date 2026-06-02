@@ -442,18 +442,20 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     static constexpr double kSorEmaAlpha = 0.2;  // EMA smoothing; lower = more stable
     double sor_min_omega = 1.0;
     int    sor_n_damped  = 0;
-    // Free-subspace θ₂ estimator state (e18t.3, mode 2, flat path only).
-    std::vector<char>   is_pinned(ct.M_cell, 0);              // 1=at bound, 0=free
-    std::vector<double> errF_prev(st.K, std::numeric_limits<double>::infinity());   // lag-1
-    std::vector<double> errF_prev2(st.K, std::numeric_limits<double>::infinity());  // lag-2 warm-up gate
-    std::vector<int>    sor_n_consec_up(st.K, 0);             // consecutive errF increases (gate 10)
-    std::vector<int>    sor_cooldown_left(st.K, 0);           // remaining cooldown steps (gate 10)
-    std::vector<int>    sor_n_cooldown_trips(st.K, 0);        // total trips this solve (gate 10 latch)
-    std::vector<bool>   sor_latched(st.K, false);             // permanent per-margin latch (gate 10)
-    std::vector<double> per_k_errF_cache(st.K, 0.0);         // errF_k per margin, parallel to errRp cache
-    std::vector<int>    per_k_nfree_cache(st.K, 0);          // n_free_k per margin
-    std::vector<double> per_k_wfree_cache(st.K, 0.0);        // W_total_free per margin (gate 4)
-    bool   per_k_errF_valid = false;
+    // Active-set mask: 1=at bound, 0=free. Populated in clamp loops (linear ~:1393, log ~:1485).
+    // Reused by both SRAA path and mode-2 v2 global iterate-change estimator.
+    std::vector<char>   is_pinned(ct.M_cell, 0);
+    // Mode-2 v2 global iterate-change state (e18t.8).
+    // Replaces per-k errF machinery from e18t.3 (removed).
+    std::vector<double> X_snapshot(ct.M_cell, 0.0);           // free-cell snapshot at last check
+    double S_dX_prev        = std::numeric_limits<double>::infinity();  // lag-1 iterate-change
+    bool   v2_snap_taken    = false;    // guards warm-up (first post-burnin check inits snapshot)
+    bool   v2_prev_decreasing = false;  // tracks S_dX trend for oscillation gate 9
+    double v2_theta2_ema    = -1.0;     // EMA theta2 for mode-2 flat path (separate from SRAA's [0])
+    int    v2_consec_up     = 0;        // consecutive S_dX increases (gate 10)
+    int    v2_cooldown_left = 0;        // remaining cooldown sweeps (gate 10)
+    int    v2_cooldown_trips = 0;       // total trips this solve (gate 10 latch)
+    bool   v2_latched       = false;    // permanent ω=1 latch (gate 2)
     // Observability accumulators (wired to result in e18t.4).
     double sor_omega_sum    = 0.0;
     int    sor_omega_n      = 0;
@@ -1078,7 +1080,6 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
         per_k_errRp_valid = false;  // T20: reset stale-cache flag at iter start
-        per_k_errF_valid  = false;  // e18t.3: reset free-subspace cache flag
         res.base.iterations = iter;
         alpha = compute_alpha();
         if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
@@ -1547,32 +1548,19 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     const int off = cat_offset[k];
                     std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
                     const int* gk = ct.g_per_cell[k].data();
-                    int    n_free_k      = 0;
-                    double W_total_free_k = 0.0;
                     for (int c = 0; c < ct.M_cell; c++) {
                         int j = gk[c];
                         if (j >= 0 && j < nj) {
                             S_lin[j] += X[c];
-                            if (!is_pinned[c]) {
-                                W_total_free_k += X[c]; // e18t.3: free-cell mass (gate-4 guard)
-                                n_free_k++;
-                            }
                         }
                     }
                     double errRp_k = 0.0;                          // 773f.7
-                    double errF_k  = 0.0;                          // e18t.3: Σ_j (e_j)²
                     for (int j = 0; j < nj; j++) {
                         double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
                         if (e > errRp) errRp = e;
                         if (e > errRp_k) errRp_k = e;             // 773f.7: per-margin max
-                        errF_k += e * e;                           // e18t.3: squared sum (= free-subspace:
-                        // S_lin_free[j]/W - pf_j/W = S_lin[j]/W - t[j] because
-                        // S_lin_free = S_lin - S_pinned and pf_j = t[j]*W - S_pinned[j])
                     }
                     per_k_errRp_cache[k]  = errRp_k;              // 773f.7
-                    per_k_errF_cache[k]   = errF_k;               // e18t.3
-                    per_k_nfree_cache[k]  = n_free_k;             // e18t.3
-                    per_k_wfree_cache[k]  = W_total_free_k;       // e18t.3 gate-4
                     // Marginal KL: Σ_k Σ_j t_kj log(t_kj / achieved_kj)
                     for (int j = 0; j < nj; j++) {
                         double tkj = st.targets[k][j];
@@ -1598,7 +1586,6 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 }
             }
             per_k_errRp_valid = (use_linear && W_total > 0.0);    // 773f.7
-            per_k_errF_valid  = per_k_errRp_valid;               // e18t.3
             res.marginal_kl_at_iter = marg_kl;
             res.base.max_error = errRp;
 
@@ -1637,10 +1624,14 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 }
             }
 
-            // per-margin omega adaptation (both linear and log paths; auto mode only;
-            // suppressed during burnin to let the infeas-streak damping settle first).
+            // Omega adaptation (auto mode only; suppressed during burnin).
+            // modes 0 and 1: per-margin, based on per-margin errRp.
+            // mode 2 (e18t.8 v2): single global ω from free-coordinate iterate-change S_dX.
             if (sor_active && sor_auto_v && iter >= sor_burnin_v) {
                 if (W_total > 0.0) {
+                    // Per-k loop: handle per-margin errRp sign-flip / monotone for modes 0 and 1.
+                    // Mode 2: per-k loop only advances sor_prev_{errRp,decreasing}; ω assigned
+                    // globally below (modes 0/1 skip the global block, mode 2 skips per-k assign).
                     for (int k = 0; k < st.K; k++) {
                         const int nj_k = st.cat_counts[k];
                         double errRp_k;
@@ -1663,123 +1654,158 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         }
                         bool decreasing = (errRp_k < sor_prev_errRp[k]);
                         bool sign_flip  = !decreasing && sor_prev_decreasing[k];
-                        if (sign_flip) {
-                            // Oscillation detected: damp regardless of mode (gate 9 for mode 2).
-                            sor_omega[k] = std::max(omega_min_v, sor_omega[k] * kSorOscillationDamp);
-                            sor_n_damped++;
-                            // Mode 2: advance lag history even on sign_flip to avoid stale lags.
-                            if (omega_mode_v == 2 && per_k_errF_valid) {
-                                errF_prev2[k] = errF_prev[k];
-                                errF_prev[k]  = per_k_errF_cache[k];
-                                sor_theta2_ema[k] = 0.0;  // reset EMA on oscillation
-                            }
-                        } else if (decreasing) {
-                            if (omega_mode_v == 2) {
-                                // Free-subspace θ₂ estimator (e18t.3): 10-gate guard envelope.
-                                // theta2 = errF_k / errF_prev[k] (direct ratio of squared residuals;
-                                // do NOT call estimate_theta2 — that squares the ratio again).
-                                double errF_k_v;
-                                int    n_free_k_v;
-                                double wfree_k_v;
-                                if (per_k_errF_valid) {
-                                    errF_k_v   = per_k_errF_cache[k];
-                                    n_free_k_v = per_k_nfree_cache[k];
-                                    wfree_k_v  = per_k_wfree_cache[k];
+                        if (omega_mode_v == 0 || omega_mode_v == 1) {
+                            // Modes 0 and 1: per-margin ω assignment (unchanged from prior impl).
+                            if (sign_flip) {
+                                sor_omega[k] = std::max(omega_min_v, sor_omega[k] * kSorOscillationDamp);
+                                sor_n_damped++;
+                            } else if (decreasing) {
+                                if (omega_mode_v == 1) {
+                                    sor_omega[k] = omega_max_v;
                                 } else {
-                                    // Log path / cache miss: proxy via errRp^2 (conservative).
-                                    errF_k_v   = errRp_k * errRp_k;
-                                    n_free_k_v = 1;          // assume not fully pinned
-                                    wfree_k_v  = 1.0;        // assume non-trivial free mass
+                                    sor_omega[k] = std::min(omega_max_v, sor_omega[k] * kSorRecoveryGrowth);
                                 }
-
-                                // Gate 2: fully pinned or permanently latched — fall to ω=1.
-                                if (n_free_k_v == 0 || sor_latched[k]) {
-                                    sor_omega[k]      = 1.0;
-                                    sor_theta2_ema[k] = 0.0;  // reset EMA on every gate-2 fallback
-                                    sor_n_pinned_fb++;
-                                } else if (sor_cooldown_left[k] > 0) {
-                                    // Gate 10 cooldown active: hold ω=1, decay EMA.
-                                    sor_omega[k]      = 1.0;
-                                    sor_theta2_ema[k] = 0.0;  // prevent stale EMA surviving cooldown
-                                    sor_cooldown_left[k]--;
-                                    sor_n_monotone_cd++;
-                                } else {
-                                    // Gate 3: warm-up — need both lag-1 and lag-2 filled.
-                                    bool warmed_up = std::isfinite(errF_prev[k]) &&
-                                                     std::isfinite(errF_prev2[k]);
-                                    if (!warmed_up) {
-                                        sor_omega[k] = 1.0;
-                                        sor_theta2_ema[k] = 0.0;
-                                        sor_n_warmup_fb++;
-                                    }
-                                    // Gate 4: finiteness + tiny free mass (kMinSafeTotalWeight).
-                                    else if (!std::isfinite(errF_k_v) ||
-                                             wfree_k_v < kMinSafeTotalWeight) {
-                                        sor_omega[k] = 1.0;
-                                        sor_theta2_ema[k] = 0.0;
-                                        sor_n_conv_fb++;
-                                    }
-                                    // Gate 5: denominator floor.
-                                    else if (errF_prev[k] < kResidFloor) {
-                                        sor_omega[k] = 1.0;
-                                        sor_theta2_ema[k] = 0.0;
-                                        sor_n_conv_fb++;
-                                    } else {
-                                        double ratio = errF_k_v / errF_prev[k];
-                                        // Gate 6: residual grew — hard-reset EMA, hold ω=1.
-                                        if (ratio >= 1.0) {
-                                            sor_theta2_ema[k] = 0.0;
-                                            sor_omega[k]      = 1.0;
-                                            sor_n_consec_up[k]++;
-                                            sor_n_resid_grew++;
-                                        } else {
-                                            sor_n_consec_up[k] = 0;
-                                            // Gate 7: EMA update (clamp theta2 to [0, 1-1e-9)).
-                                            double theta2 = std::min(std::max(ratio, 0.0), 1.0 - 1e-9);
-                                            if (sor_theta2_ema[k] < 0.0) {
-                                                sor_theta2_ema[k] = theta2;  // seed first sample
-                                            } else {
-                                                sor_theta2_ema[k] = kSorEmaAlpha * theta2 +
-                                                    (1.0 - kSorEmaAlpha) * sor_theta2_ema[k];
-                                            }
-                                            // Gate 8: formula + production ceiling 1.8 (NOT 1.99).
-                                            double omega_new = omega_from_theta2(sor_theta2_ema[k],
-                                                                                 kSorProdCeiling);
-                                            sor_omega[k]  = omega_new;
-                                            sor_omega_sum += omega_new;
-                                            sor_omega_n++;
-                                        }
-
-                                        // Gate 10: monotone hard-fallback trigger.
-                                        if (sor_n_consec_up[k] >= 3) {
-                                            sor_omega[k]             = 1.0;
-                                            sor_cooldown_left[k]     = kSorCooldown;
-                                            sor_n_cooldown_trips[k]++;
-                                            sor_n_consec_up[k]       = 0;
-                                            sor_theta2_ema[k]        = 0.0;  // re-warm after cooldown
-                                            if (sor_n_cooldown_trips[k] >= kSorLatchTrips) {
-                                                sor_latched[k]   = true;
-                                                sor_any_latched  = true;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Lag update: shift history forward.
-                                errF_prev2[k] = errF_prev[k];
-                                errF_prev[k]  = errF_k_v;
-                            } else if (omega_mode_v == 1) {
-                                // Fixed mode: jump to omega_max on monotone convergence.
-                                sor_omega[k] = omega_max_v;
-                            } else {
-                                // Heuristic mode (0): cautious multiplicative grow.
-                                sor_omega[k] = std::min(omega_max_v, sor_omega[k] * kSorRecoveryGrowth);
                             }
+                            if (sor_omega[k] < sor_min_omega) sor_min_omega = sor_omega[k];
                         }
-                        if (sor_omega[k] < sor_min_omega) sor_min_omega = sor_omega[k];
+                        // Mode 2: ω written globally below; only update tracking state here.
                         sor_prev_decreasing[k] = decreasing;
                         sor_prev_errRp[k]      = errRp_k;
                     }
+
+                    // Mode-2 v2 global block: free-coordinate iterate-change θ₂ estimator (e18t.8).
+                    // Observable: S_dX = Σ_{c:!pinned} (X[c]-X_snapshot[c])² → ρ(M_II)^(2I) per check.
+                    // I-th root recovers per-sweep rate; single global ω applied to all margins.
+                    if (omega_mode_v == 2) {
+                        // Compute S_dX and n_free in one pass.
+                        double S_dX = 0.0;
+                        int    n_free = 0;
+                        for (int c = 0; c < ct.M_cell; c++) {
+                            if (!is_pinned[c]) {
+                                double dx = X[c] - X_snapshot[c];
+                                S_dX += dx * dx;
+                                n_free++;
+                            }
+                        }
+
+                        // Gate 2: free-set empty OR permanently latched → ω=1, reset EMA.
+                        if (n_free == 0 || v2_latched) {
+                            for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
+                            v2_theta2_ema = -1.0;
+                            sor_n_pinned_fb++;
+                            X_snapshot = X;
+                            S_dX_prev  = S_dX;
+                            goto v2_end;
+                        }
+
+                        // Gate 2b: cooldown active → ω=1, decrement, reset EMA.
+                        if (v2_cooldown_left > 0) {
+                            for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
+                            v2_theta2_ema = -1.0;
+                            v2_cooldown_left--;
+                            sor_n_monotone_cd++;
+                            X_snapshot = X;
+                            S_dX_prev  = S_dX;
+                            goto v2_end;
+                        }
+
+                        // Gate 3: warm-up — first post-burnin check: initialize snapshot, hold ω=1.
+                        if (!v2_snap_taken) {
+                            X_snapshot   = X;
+                            v2_snap_taken = true;
+                            for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
+                            v2_theta2_ema = -1.0;
+                            sor_n_warmup_fb++;
+                            S_dX_prev = std::numeric_limits<double>::infinity();
+                            goto v2_end;
+                        }
+
+                        // Gate 4: finiteness + tiny denominator or tiny free mass.
+                        {
+                            double free_mass = 0.0;
+                            for (int c = 0; c < ct.M_cell; c++)
+                                if (!is_pinned[c]) free_mass += X[c];
+                            if (!std::isfinite(S_dX) ||
+                                S_dX_prev < kResidFloor ||
+                                free_mass < kMinSafeTotalWeight) {
+                                for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
+                                v2_theta2_ema = -1.0;
+                                sor_n_conv_fb++;
+                                X_snapshot = X;
+                                S_dX_prev  = S_dX;
+                                goto v2_end;
+                            }
+                        }
+
+                        {
+                            bool dX_decreasing = (S_dX < S_dX_prev);
+                            bool dX_sign_flip  = !dX_decreasing && v2_prev_decreasing;
+
+                            // Gate 9: oscillation — damp + reset EMA + advance lag.
+                            // Must come BEFORE gate 6 ratio check.
+                            if (dX_sign_flip) {
+                                double omega_global = 1.0;
+                                for (int k = 0; k < st.K; k++) {
+                                    omega_global = std::max(omega_min_v,
+                                        sor_omega[k] * kSorOscillationDamp);
+                                    sor_omega[k] = omega_global;
+                                    if (omega_global < sor_min_omega) sor_min_omega = omega_global;
+                                }
+                                v2_theta2_ema     = -1.0;
+                                v2_prev_decreasing = dX_decreasing;
+                                X_snapshot = X;
+                                S_dX_prev  = S_dX;
+                                goto v2_end;
+                            }
+
+                            double ratio = S_dX / S_dX_prev;
+
+                            // Gate 6: iterate-change grew → reset EMA, ω=1, consec_up++.
+                            if (ratio >= 1.0) {
+                                v2_theta2_ema = -1.0;
+                                v2_consec_up++;
+                                sor_n_resid_grew++;
+                                for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
+                            } else {
+                                // Gates 7+8: I-th root cadence recovery, EMA, formula.
+                                v2_consec_up = 0;
+                                double theta2 = std::pow(ratio, 1.0 / static_cast<double>(kErrCheckInterval));
+                                theta2 = std::min(std::max(theta2, 0.0), 1.0 - 1e-9);
+                                if (v2_theta2_ema < 0.0) {
+                                    v2_theta2_ema = theta2;   // seed first informative sample
+                                } else {
+                                    v2_theta2_ema = kSorEmaAlpha * theta2 +
+                                                    (1.0 - kSorEmaAlpha) * v2_theta2_ema;
+                                }
+                                // Gate 8: formula + production ceiling 1.8 (NOT 1.99).
+                                double omega_global = omega_from_theta2(v2_theta2_ema, kSorProdCeiling);
+                                for (int k = 0; k < st.K; k++) sor_omega[k] = omega_global;
+                                if (omega_global < sor_min_omega) sor_min_omega = omega_global;
+                                sor_omega_sum += omega_global;
+                                sor_omega_n++;
+                            }
+
+                            // Gate 10: monotone latch — cooldown and permanent latch.
+                            if (v2_consec_up >= 3) {
+                                for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
+                                v2_cooldown_left  = kSorCooldown;
+                                v2_cooldown_trips++;
+                                v2_consec_up      = 0;
+                                v2_theta2_ema     = -1.0;
+                                sor_n_monotone_cd++;
+                                if (v2_cooldown_trips >= kSorLatchTrips) {
+                                    v2_latched      = true;
+                                    sor_any_latched = true;
+                                }
+                            }
+
+                            // Update lag.
+                            v2_prev_decreasing = dX_decreasing;
+                        }
+                        X_snapshot = X;
+                        S_dX_prev  = S_dX;
+                        v2_end: ;
+                    }  // end mode-2 global block
                 }
             }
 
