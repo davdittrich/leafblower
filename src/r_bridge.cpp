@@ -58,9 +58,9 @@ SEXP C_logit_F_at_zero(SEXP, SEXP);
 SEXP C_logit_range_check(SEXP, SEXP, SEXP);
 SEXP C_logit_Hprime_check(SEXP, SEXP, SEXP);
 SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+                    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -119,6 +119,7 @@ static void init_calib_state(lbw::CalibState& st,
     st.sor_cfg.omega_fixed          = p.sor_omega_fixed;
     st.sor_cfg.burnin               = p.sor_burnin;
     st.sor_cfg.omega_mode_id        = p.sor_omega_mode_id;
+    st.sor_cfg.corun_aa             = (p.sor_corun_aa != 0);
 }
 
 extern "C" {
@@ -130,7 +131,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       39},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       40},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {"C_rk_design_effect",           (DL_FUNC)&C_rk_design_effect,           5},
         {NULL, NULL, 0}
@@ -205,7 +206,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     /* Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8 from R layer). */
                     SEXP newton_tsvd_ratio_sexp,
                     /* Tikhonov ridge on dual λ; 0.0 = off. */
-                    SEXP ridge_lambda_sexp) {
+                    SEXP ridge_lambda_sexp,
+                    /* e65t: concurrent Anderson-acceleration experiment flag. */
+                    SEXP sor_corun_aa_sexp) {
     int K = LENGTH(group_ids_sexp);
     int n = scalar_int(n_obs_sexp, "n_obs");
 
@@ -329,6 +332,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.sor_omega_fixed     = scalar_real(sor_omega_fixed_sexp, "sor_omega_fixed");
     p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin");
     p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id");
+    p.sor_corun_aa        = scalar_int(sor_corun_aa_sexp, "sor_corun_aa");
 
     if (pre_error.empty() && LENGTH(method_sexp) != 1)
         pre_error = "method must be a length-1 character string";
@@ -447,6 +451,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     double res_alm_sum_drift           = 0.0;
     /* Acceleration (SRAA) diagnostic (oris/oris_soft only; zero elsewhere) */
     int    res_aa_accepted_count       = 0;
+    /* e65t: SRAA corun revert count (oris only; zero elsewhere) */
+    int    res_sraa_corun_reverts      = 0;
     /* SRAA scheduler-demotion flag (oris/raking only; FALSE elsewhere).
        TRUE iff accelerate=TRUE AND greedy scheduler was demoted to round_robin. */
     int    res_sraa_demoted            = 0;
@@ -558,6 +564,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_sor_n_resid_grew  = res.sor_n_resid_grew;
                 res_sor_n_monotone_cd = res.sor_n_monotone_cd;
                 res_aa_accepted_count     = res.aa_accepted_count;
+                res_sraa_corun_reverts    = res.sraa_corun_reverts;
                 res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
                 res_best_weights = std::move(res.base.best_weights);
             } else {
@@ -613,6 +620,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sor_n_resid_grew  = res.sor_n_resid_grew;
             res_sor_n_monotone_cd = res.sor_n_monotone_cd;
             res_aa_accepted_count     = res.aa_accepted_count;
+            res_sraa_corun_reverts    = res.sraa_corun_reverts;
             res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         }
@@ -769,6 +777,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_alm_max_dual_norm     = res.alm_max_dual_norm;
             res_alm_sum_drift         = res.alm_sum_drift;
             res_aa_accepted_count     = res.aa_accepted_count;
+            res_sraa_corun_reverts    = res.sraa_corun_reverts;
             res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         } else {
@@ -799,6 +808,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sor_n_resid_grew  = res.sor_n_resid_grew;
             res_sor_n_monotone_cd = res.sor_n_monotone_cd;
             res_aa_accepted_count     = res.aa_accepted_count;
+            res_sraa_corun_reverts    = res.sraa_corun_reverts;
             res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
             res_best_weights = std::move(res.base.best_weights);
         }
@@ -860,7 +870,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     SEXP wts = PROTECT(Rf_allocVector(REALSXP, n));
     memcpy(REAL(wts), weights.data(), (size_t)n * sizeof(double));
 
-    constexpr int N_RESULT_FIELDS = 49;
+    constexpr int N_RESULT_FIELDS = 50;
     SEXP res_list  = PROTECT(Rf_allocVector(VECSXP,  N_RESULT_FIELDS));  // 14 prior + 8 scalars + best_weights + 7 convergence fields + 4 ALM diagnostics + 1 SRAA diagnostic + 1 Newton-KL TSVD diagnostic + 1 Newton-KL LM diagnostic + 1 metric_first_check + 1 metric_prev_check + 1 prev_check_iter + 1 sraa_demoted + 1 convergence_stall_kind
     SEXP res_names = PROTECT(Rf_allocVector(STRSXP,  N_RESULT_FIELDS));
     SET_STRING_ELT(res_names, 0, Rf_mkChar("status"));
@@ -982,6 +992,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
        Set at RK_ERR_STALL emission site; replaces accelerate_bool heuristic in harvest.R. */
     SET_STRING_ELT(res_names, 48, Rf_mkChar("convergence_stall_kind"));
     SET_VECTOR_ELT(res_list,  48, Rf_ScalarInteger(res_stall_kind));
+    /* Element 49: e65t SRAA corun revert count (oris only; zero elsewhere) */
+    SET_STRING_ELT(res_names, 49, Rf_mkChar("sraa_corun_reverts"));
+    SET_VECTOR_ELT(res_list,  49, Rf_ScalarInteger(res_sraa_corun_reverts));
     Rf_setAttrib(res_list, R_NamesSymbol, res_names);
     UNPROTECT(1);  // res_names adopted by res_list
 
