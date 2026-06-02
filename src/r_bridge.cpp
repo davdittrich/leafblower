@@ -61,7 +61,7 @@ SEXP C_rk_calibrate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
                     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-                    SEXP);
+                    SEXP, SEXP);
 SEXP C_leafblower_cell_table_probe(SEXP, SEXP);
 }
 
@@ -132,7 +132,7 @@ void R_init_leafblower(DllInfo* dll) {
         {"C_logit_F_at_zero",    (DL_FUNC)&C_logit_F_at_zero,    2},
         {"C_logit_range_check",  (DL_FUNC)&C_logit_range_check,  3},
         {"C_logit_Hprime_check", (DL_FUNC)&C_logit_Hprime_check, 3},
-        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       41},
+        {"C_rk_calibrate",       (DL_FUNC)&C_rk_calibrate,       42},
         {"C_leafblower_cell_table_probe", (DL_FUNC)&C_leafblower_cell_table_probe, 2},
         {"C_rk_design_effect",           (DL_FUNC)&C_rk_design_effect,           5},
         {NULL, NULL, 0}
@@ -211,7 +211,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     /* e65t: concurrent Anderson-acceleration experiment flag. */
                     SEXP sor_corun_aa_sexp,
                     /* DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. */
-                    SEXP gk_omega_sexp) {
+                    SEXP gk_omega_sexp,
+                    /* e65t.3: sk_omega — Sinkhorn over-relaxation factor; default 1.0=identity. */
+                    SEXP sk_omega_sexp) {
     int K = LENGTH(group_ids_sexp);
     int n = scalar_int(n_obs_sexp, "n_obs");
 
@@ -337,6 +339,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id");
     p.sor_corun_aa        = scalar_int(sor_corun_aa_sexp, "sor_corun_aa");  // DEAD (e65t.1 NO-GO): see bd leafblower-e65t.1
     p.gk_omega            = scalar_real(gk_omega_sexp, "gk_omega");  // DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
+    p.sk_omega            = scalar_real(sk_omega_sexp, "sk_omega");
 
     if (pre_error.empty() && LENGTH(method_sexp) != 1)
         pre_error = "method must be a length-1 character string";
@@ -374,6 +377,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // Tikhonov ridge on dual λ; 0.0 = off.
     st.ridge_lambda = scalar_real(ridge_lambda_sexp, "ridge_lambda");
     st.gk_omega      = p.gk_omega;
+    st.sk_omega      = p.sk_omega;
     st.oris_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;

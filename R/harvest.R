@@ -260,6 +260,8 @@ harvest <- function(
   ridge_lambda = 0.0,
   # DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
   gk_omega = 1.0,
+  # e65t.3: sk_omega — Sinkhorn over-relaxation factor; default 1.0=identity.
+  sk_omega = 1.0,
   ...
 ) {
   # RVAL.2: warn on unknown ... args (typos / removed params)
@@ -555,6 +557,8 @@ harvest <- function(
                as.integer(sor_cfg$corun_aa),
                ## e65t.2: greenkhorn over-relaxation exponent; 1.0=identity
                as.double(gk_omega),
+               ## e65t.3: sinkhorn over-relaxation factor; 1.0=identity
+               as.double(sk_omega),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
