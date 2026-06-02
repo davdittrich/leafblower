@@ -103,6 +103,12 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     constexpr double kAlphaBeta          = 0.5;   // P2.1 stress→alpha mapping: alpha = 1/(1+β·stress)
     constexpr double kSorOscillationDamp = 0.7;   // SOR sign-flip: reduce omega by this factor
     constexpr double kSorRecoveryGrowth  = 1.05;  // SOR monotone: recover omega by this factor
+    // Free-subspace θ₂ estimator constants (e18t.3, mode 2).
+    static constexpr double kPinTol         = 1e-9;   // relative pinning tolerance for active set
+    static constexpr double kResidFloor     = 1e-12;  // denominator guard for free-subspace theta2
+    static constexpr double kSorProdCeiling = 1.8;    // free-subspace production ceiling (NOT 1.99)
+    static constexpr int    kSorCooldown    = 5;      // gate-10 cooldown window
+    static constexpr int    kSorLatchTrips  = 3;      // gate-10 latch threshold
     // kInfeasStallRatio defined once in oris_finalize() at line 148; this scope
 
     ORISResult res;
@@ -436,6 +442,22 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     static constexpr double kSorEmaAlpha = 0.2;  // EMA smoothing; lower = more stable
     double sor_min_omega = 1.0;
     int    sor_n_damped  = 0;
+    // Free-subspace θ₂ estimator state (e18t.3, mode 2, flat path only).
+    std::vector<char>   is_pinned(ct.M_cell, 0);              // 1=at bound, 0=free
+    std::vector<double> S_lin_free(max_cat, 0.0);             // free-cell category sums (scratch)
+    std::vector<double> errF_prev(st.K, std::numeric_limits<double>::infinity());   // lag-1
+    std::vector<double> errF_prev2(st.K, std::numeric_limits<double>::infinity());  // lag-2 warm-up gate
+    std::vector<int>    sor_n_consec_up(st.K, 0);             // consecutive errF increases (gate 10)
+    std::vector<int>    sor_cooldown_left(st.K, 0);           // remaining cooldown steps (gate 10)
+    std::vector<int>    sor_n_cooldown_trips(st.K, 0);        // total trips this solve (gate 10 latch)
+    std::vector<bool>   sor_latched(st.K, false);             // permanent per-margin latch (gate 10)
+    std::vector<double> per_k_errF_cache(st.K, 0.0);         // errF_k per margin, parallel to errRp cache
+    std::vector<int>    per_k_nfree_cache(st.K, 0);          // n_free_k per margin
+    bool   per_k_errF_valid = false;
+    // Observability accumulators (wired to result in e18t.4).
+    double sor_omega_sum    = 0.0;
+    int    sor_omega_n      = 0;
+    bool   sor_any_latched  = false;
 
     // Scratch buffers for compute_weight_kl.
     std::vector<double> kl_ratio_buf(ct.M_cell);
@@ -1051,6 +1073,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         for (int iter_in_lvl = 1; iter_in_lvl <= budget_lvl; iter_in_lvl++) {
         const int iter = total_iters + iter_in_lvl;
         per_k_errRp_valid = false;  // T20: reset stale-cache flag at iter start
+        per_k_errF_valid  = false;  // e18t.3: reset free-subspace cache flag
         res.base.iterations = iter;
         alpha = compute_alpha();
         if (alpha < res.min_alpha_seen) res.min_alpha_seen = alpha;
@@ -1361,6 +1384,10 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     // Hard clamp (oris default or X_tilde_c <= 0).
                     double xc = std::clamp(X_tilde_c, L_cell[c], U_cell[c]);
                     X[c] = xc; W[c] = xc / X_tilde_c; X_cur[c] = xc;
+                    // e18t.3: record active-set membership for free-subspace θ₂.
+                    is_pinned[c] = static_cast<char>(
+                        (xc >= U_cell[c] * (1.0 - kPinTol)) ||
+                        (xc <= L_cell[c] * (1.0 + kPinTol)) ? 1 : 0);
                 }
                 res.n_xcur_writes_per_iter_last++;
                 if (X[c] != X_tilde_c) n_cap++;
@@ -1448,6 +1475,10 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     } else {
                         W[c] = 1.0;
                     }
+                    // e18t.3: record active-set membership for free-subspace θ₂.
+                    is_pinned[c] = static_cast<char>(
+                        (xc >= U_cell[c] * (1.0 - kPinTol)) ||
+                        (xc <= L_cell[c] * (1.0 + kPinTol)) ? 1 : 0);
                 }
                 if (W[c] != 1.0) n_cap++;
             }
@@ -1510,18 +1541,34 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     const int nj = st.cat_counts[k];
                     const int off = cat_offset[k];
                     std::fill(S_lin.begin(), S_lin.begin() + nj, 0.0);
+                    // e18t.3: free-cell category sums (mode-2 free-subspace θ₂).
+                    std::fill(S_lin_free.begin(), S_lin_free.begin() + nj, 0.0);
                     const int* gk = ct.g_per_cell[k].data();
+                    int n_free_k = 0;
                     for (int c = 0; c < ct.M_cell; c++) {
                         int j = gk[c];
-                        if (j >= 0 && j < nj) S_lin[j] += X[c];
+                        if (j >= 0 && j < nj) {
+                            S_lin[j] += X[c];
+                            if (!is_pinned[c]) {
+                                S_lin_free[j] += X[c];
+                                n_free_k++;
+                            }
+                        }
                     }
                     double errRp_k = 0.0;                          // 773f.7
+                    double errF_k  = 0.0;                          // e18t.3: free-subspace sq residual
                     for (int j = 0; j < nj; j++) {
                         double e = std::fabs(S_lin[j] / W_total - st.targets[k][j]);
                         if (e > errRp) errRp = e;
                         if (e > errRp_k) errRp_k = e;             // 773f.7: capture per-margin
+                        // e18t.3: S_lin[j]/W_total - target == S_lin_free[j]/W_total - target
+                        // numerically (clamped terms cancel in the ratio); use S_lin directly.
+                        double ef = S_lin[j] / W_total - st.targets[k][j];
+                        errF_k += ef * ef;
                     }
                     per_k_errRp_cache[k] = errRp_k;               // 773f.7
+                    per_k_errF_cache[k]  = errF_k;                // e18t.3
+                    per_k_nfree_cache[k] = n_free_k;              // e18t.3
                     // Marginal KL: Σ_k Σ_j t_kj log(t_kj / achieved_kj)
                     for (int j = 0; j < nj; j++) {
                         double tkj = st.targets[k][j];
@@ -1547,6 +1594,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 }
             }
             per_k_errRp_valid = (use_linear && W_total > 0.0);    // 773f.7
+            per_k_errF_valid  = per_k_errRp_valid;               // e18t.3
             res.marginal_kl_at_iter = marg_kl;
             res.base.max_error = errRp;
 
@@ -1612,20 +1660,99 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         bool decreasing = (errRp_k < sor_prev_errRp[k]);
                         bool sign_flip  = !decreasing && sor_prev_decreasing[k];
                         if (sign_flip) {
-                            // Oscillation detected: damp regardless of mode.
+                            // Oscillation detected: damp regardless of mode (gate 9 for mode 2).
                             sor_omega[k] = std::max(omega_min_v, sor_omega[k] * kSorOscillationDamp);
                             sor_n_damped++;
+                            // Mode 2: advance lag history even on sign_flip to avoid stale lags.
+                            if (omega_mode_v == 2 && per_k_errF_valid) {
+                                errF_prev2[k] = errF_prev[k];
+                                errF_prev[k]  = per_k_errF_cache[k];
+                                sor_theta2_ema[k] = 0.0;  // reset EMA on oscillation
+                            }
                         } else if (decreasing) {
                             if (omega_mode_v == 2) {
-                                // Spectral mode: EMA-smoothed theta2, per-margin (flat BCD uses index [k]).
-                                // Point-estimate is noisy on bounded problems; EMA (alpha=0.2) stabilises.
-                                double theta2_raw_k = estimate_theta2(sor_prev_errRp[k], errRp_k);
-                                if (theta2_raw_k >= 0.0) {
-                                    sor_theta2_ema[k] = (sor_theta2_ema[k] < 0.0)
-                                        ? theta2_raw_k  // first informative sample — seed
-                                        : kSorEmaAlpha * theta2_raw_k + (1.0 - kSorEmaAlpha) * sor_theta2_ema[k];
+                                // Free-subspace θ₂ estimator (e18t.3): 10-gate guard envelope.
+                                // theta2 = errF_k / errF_prev[k] (direct ratio of squared residuals;
+                                // do NOT call estimate_theta2 — that squares the ratio again).
+                                double errF_k_v;
+                                int    n_free_k_v;
+                                if (per_k_errF_valid) {
+                                    errF_k_v   = per_k_errF_cache[k];
+                                    n_free_k_v = per_k_nfree_cache[k];
+                                } else {
+                                    // Log path / cache miss: proxy via errRp^2 (conservative).
+                                    errF_k_v   = errRp_k * errRp_k;
+                                    n_free_k_v = 1;  // assume not fully pinned
                                 }
-                                sor_omega[k] = omega_from_theta2(sor_theta2_ema[k], kSorSpectralCeiling);
+
+                                // Gate 2: fully pinned — no free subspace, fall to ω=1.
+                                if (n_free_k_v == 0 || sor_latched[k]) {
+                                    sor_omega[k] = 1.0;
+                                    if (n_free_k_v == 0) sor_theta2_ema[k] = 0.0;
+                                } else if (sor_cooldown_left[k] > 0) {
+                                    // Gate 10 cooldown active: hold ω=1.
+                                    sor_omega[k] = 1.0;
+                                    sor_cooldown_left[k]--;
+                                } else {
+                                    // Gate 3: warm-up — need both lag-1 and lag-2 filled.
+                                    bool warmed_up = std::isfinite(errF_prev[k]) &&
+                                                     std::isfinite(errF_prev2[k]);
+                                    if (!warmed_up) {
+                                        sor_omega[k] = 1.0;
+                                        sor_theta2_ema[k] = 0.0;
+                                    }
+                                    // Gate 4: finiteness of current residual.
+                                    else if (!std::isfinite(errF_k_v)) {
+                                        sor_omega[k] = 1.0;
+                                        sor_theta2_ema[k] = 0.0;
+                                    }
+                                    // Gate 5: denominator floor.
+                                    else if (errF_prev[k] < kResidFloor) {
+                                        sor_omega[k] = 1.0;
+                                        sor_theta2_ema[k] = 0.0;
+                                    } else {
+                                        double ratio = errF_k_v / errF_prev[k];
+                                        // Gate 6: residual grew — hard-reset EMA, hold ω=1.
+                                        if (ratio >= 1.0) {
+                                            sor_theta2_ema[k] = 0.0;
+                                            sor_omega[k]      = 1.0;
+                                            sor_n_consec_up[k]++;
+                                        } else {
+                                            sor_n_consec_up[k] = 0;
+                                            // Gate 7: EMA update (clamp theta2 to [0, 1-1e-9)).
+                                            double theta2 = std::min(std::max(ratio, 0.0), 1.0 - 1e-9);
+                                            if (sor_theta2_ema[k] < 0.0) {
+                                                sor_theta2_ema[k] = theta2;  // seed first sample
+                                            } else {
+                                                sor_theta2_ema[k] = kSorEmaAlpha * theta2 +
+                                                    (1.0 - kSorEmaAlpha) * sor_theta2_ema[k];
+                                            }
+                                            // Gate 8: formula + production ceiling 1.8 (NOT 1.99).
+                                            double omega_new = omega_from_theta2(sor_theta2_ema[k],
+                                                                                 kSorProdCeiling);
+                                            sor_omega[k]  = omega_new;
+                                            sor_omega_sum += omega_new;
+                                            sor_omega_n++;
+                                        }
+
+                                        // Gate 10: monotone hard-fallback trigger.
+                                        if (sor_n_consec_up[k] >= 3) {
+                                            sor_omega[k]             = 1.0;
+                                            sor_cooldown_left[k]     = kSorCooldown;
+                                            sor_n_cooldown_trips[k]++;
+                                            sor_n_consec_up[k]       = 0;
+                                            sor_theta2_ema[k]        = 0.0;  // re-warm after cooldown
+                                            if (sor_n_cooldown_trips[k] >= kSorLatchTrips) {
+                                                sor_latched[k]   = true;
+                                                sor_any_latched  = true;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Lag update: shift history forward.
+                                errF_prev2[k] = errF_prev[k];
+                                errF_prev[k]  = errF_k_v;
                             } else if (omega_mode_v == 1) {
                                 // Fixed mode: jump to omega_max on monotone convergence.
                                 sor_omega[k] = omega_max_v;
