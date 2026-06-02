@@ -210,7 +210,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     SEXP ridge_lambda_sexp,
                     /* e65t: concurrent Anderson-acceleration experiment flag. */
                     SEXP sor_corun_aa_sexp,
-                    /* e65t.2: greenkhorn over-relaxation exponent; 1.0=identity. */
+                    /* DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. */
                     SEXP gk_omega_sexp) {
     int K = LENGTH(group_ids_sexp);
     int n = scalar_int(n_obs_sexp, "n_obs");
@@ -336,7 +336,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin");
     p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id");
     p.sor_corun_aa        = scalar_int(sor_corun_aa_sexp, "sor_corun_aa");  // DEAD (e65t.1 NO-GO): see bd leafblower-e65t.1
-    p.gk_omega            = scalar_real(gk_omega_sexp, "gk_omega");
+    p.gk_omega            = scalar_real(gk_omega_sexp, "gk_omega");  // DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
 
     if (pre_error.empty() && LENGTH(method_sexp) != 1)
         pre_error = "method must be a length-1 character string";

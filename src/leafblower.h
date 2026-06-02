@@ -108,7 +108,7 @@ typedef struct {
     double          ridge_lambda;       /* Tikhonov ridge on dual λ; 0.0 = off.
                                           * newton_kl: H_pre[k,k] += ridge_lambda before LM damping + dsyevd.
                                           * greg: N_factored[j,j] += ridge_lambda before Cholesky. */
-    double          gk_omega;          /* e65t.2: greenkhorn over-relaxation; 1.0=identity */
+    double          gk_omega;          /* DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. */
     /* ABI: e65t.2 +8B gk_omega appended after ridge_lambda; offset 264, naturally aligned */
 } rk_params_t;
 

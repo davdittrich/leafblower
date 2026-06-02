@@ -258,6 +258,7 @@ harvest <- function(
   design_weights   = NULL,
   newton_tsvd_ratio = 1e-8,
   ridge_lambda = 0.0,
+  # DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
   gk_omega = 1.0,
   ...
 ) {

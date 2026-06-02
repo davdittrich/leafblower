@@ -116,6 +116,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             double S_kj = S_flat[k_step * S_stride + j];
             if (S_kj < kEmptyBucketThreshold * W) continue;
             const double f_base = st.targets[k_step][j] * W / S_kj;
+            // DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
             const double f = (st.gk_omega == 1.0) ? f_base : std::pow(f_base, st.gk_omega);
             for (int c : cells_per_cat[k_step][j]) {
                 double X_old = X[c];
