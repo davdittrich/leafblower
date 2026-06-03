@@ -101,9 +101,7 @@ typedef struct {
                                           * Eigenvalues with λ_i < ratio*λ_max are dropped from the
                                           * pseudoinverse. <=0.0 falls back to internal default 1e-8. */
     int             accelerate;         /* opt-in to SRAA Anderson acceleration; 0=off (default), 1=on */
-    int             sor_corun_aa;       /* co-run: allow SOR on AA steps (e65t.1 experiment); default 0 = exclusion
-                                          * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B
-                                          * DEAD (e65t.1 NO-GO): co-run never enabled; default 0. See bd leafblower-e65t.1. */
+    int             _pad_aa_33kz;       /* restored from _pad_accelerate after e65t.1 NO-GO removal (33kz) */
     double          alm_penalty;        /* ALM penalty coefficient (st.alm.mu); 0.0 = inactive */
     double          ridge_lambda;       /* Tikhonov ridge on dual λ; 0.0 = off.
                                           * newton_kl: H_pre[k,k] += ridge_lambda before LM damping + dsyevd.
@@ -258,7 +256,7 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  * mj1p.2 (2026-05-31): added sor_omega_mode_id (int, 4B) + capacity_penalty now 8B-aligned
  *   (int after sor_burnin; sor_burnin was already followed by 4B implicit pad before
  *   capacity_penalty double, so sor_omega_mode_id fills that pad slot); +0B net → 264B.
- * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B.
+ * 33kz: sor_corun_aa (mj1p.3 _pad_accelerate repurpose) reversed → _pad_aa_33kz; 264B unchanged.
  * m02h.3: - gk_omega/sk_omega/sk_omega_mode_id/_pad_e65t4_3 (3×8B+pad removed); → 264B. */
 #define EXPECTED_RK_PARAMS_BYTES 264
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,

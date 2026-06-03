@@ -1,7 +1,7 @@
 task_id: T1_2apm
 success: true
 data:
-  arity_check: 40
+  arity_check: 39
   files_created:
     - benchmarks/2apm/dump_params_R.R
     - benchmarks/2apm/dump_params_py.py
@@ -270,19 +270,12 @@ data:
       mismatch: false
       confidence: 98
       note: ''
-    - param: sor_corun_aa
-      r_value: 0
-      py_value: 0
-      py_default_when_missing: null
-      mismatch: false
-      confidence: 98
-      note: ''
 
   mismatches:
     []
 
   short_circuit: false
   short_circuit_reason: >-
-    No true mismatches on any of the 40 positional SEXP args. capacity_penalty/alm_penalty differ in sentinel (R=-1.0 vs Py=0.0 memset) but both reach the same auto/inactive path (c_api.cpp:376-381, c_api.cpp:254); chebyshev ALM gated by st.use_admm_capacity so capacity_mu is harmless. metric=0 (max_err) on both sides: chebyshev absent from method-override map in both R and Py. Data args identical. T2 trajectory bisect not required.
+    No true mismatches on any of the 39 positional SEXP args. capacity_penalty/alm_penalty differ in sentinel (R=-1.0 vs Py=0.0 memset) but both reach the same auto/inactive path (c_api.cpp:376-381, c_api.cpp:254); chebyshev ALM gated by st.use_admm_capacity so capacity_mu is harmless. metric=0 (max_err) on both sides: chebyshev absent from method-override map in both R and Py. Data args identical. T2 trajectory bisect not required.
 
 error_log: null

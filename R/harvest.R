@@ -548,9 +548,6 @@ harvest <- function(
                as.double(newton_tsvd_ratio),
                ## Tikhonov ridge on dual λ (default 0.0 = off)
                as.double(ridge_lambda),
-               ## corun_aa: co-run alternate-arm SOR flag (e65t.1)
-               ## DEAD (e65t.1 NO-GO): co-run never enabled; arg always 0. See bd leafblower-e65t.1.
-               as.integer(sor_cfg$corun_aa),
                PACKAGE = "leafblower")
 
   weights <- raw$weights
@@ -941,11 +938,10 @@ parse_sor <- function(sor) {
   if (is.null(sor)) {
     return(list(enabled = 0L, auto = 0L, omega_init = 1.0,
                 omega_min = 0.3, omega_max = 1.5, omega_fixed = -1.0, burnin = 20L,
-                omega_mode_id = 2L, corun_aa = 0L))
+                omega_mode_id = 2L))
   }
   valid_keys <- c("auto", "omega_min", "omega_max", "omega", "omega_init", "burnin",
-                  "omega_mode_id",
-                  "corun_aa") # DEAD (e65t.1 NO-GO): co-run never enabled; accepted but inert. See bd leafblower-e65t.1.
+                  "omega_mode_id")
   bad <- setdiff(names(sor), valid_keys)
   if (length(bad))
     stop(sprintf("Unknown sor key(s): %s. Valid keys: %s",
@@ -976,8 +972,7 @@ parse_sor <- function(sor) {
     omega_max     = as.double(sor[["omega_max"]] %||% 1.5),
     omega_fixed   = as.double(sor[["omega"]] %||% -1.0),
     burnin        = as.integer(sor[["burnin"]] %||% 20L),
-    omega_mode_id = omega_mode_id,
-    corun_aa      = as.integer(isTRUE(sor[["corun_aa"]]))  # DEAD (e65t.1 NO-GO): see bd leafblower-e65t.1
+    omega_mode_id = omega_mode_id
   )
 }
 
