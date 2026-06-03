@@ -263,6 +263,8 @@ harvest <- function(
   # e65t.3: sk_omega — Sinkhorn over-relaxation factor; default 1.0=identity.
   sk_omega = 1.0,
   # e65t.4.4: sk_omega_mode_id — adaptive-omega mode selector; 0=fixed, 1=spectral.
+  # e65t.4.5: adaptive NO-SHIP — see benchmarks/e65t4_results.txt for evidence.
+  # adaptive 42% slower unbounded, 10% slower bounded, 100% slower vs best-fixed (omega=1.4).
   sk_omega_mode_id = 0L,
   ...
 ) {

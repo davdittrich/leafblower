@@ -1,0 +1,75 @@
+Welcome back dd!
+Working directory is: /home/dd/Gemini/leafblower
+unbounded_K3         seed=42 baseline     iters=  80 kl=5.602e-16 status=0
+unbounded_K3         seed=42 fixed_1.2    iters=  70 kl=8.503e-17 status=0
+unbounded_K3         seed=42 fixed_1.4    iters=  50 kl=6.204e-17 status=0
+unbounded_K3         seed=42 adaptive     iters=  80 kl=3.638e-17 status=0
+unbounded_K3         seed=123 baseline     iters=  90 kl=9.606e-02 status=0
+unbounded_K3         seed=123 fixed_1.2    iters=  90 kl=9.826e-02 status=0
+unbounded_K3         seed=123 fixed_1.4    iters=  80 kl=1.003e-01 status=0
+unbounded_K3         seed=123 adaptive     iters= 220 kl=1.017e-01 status=0
+unbounded_K3         seed=999 baseline     iters=  50 kl=1.503e-02 status=0
+unbounded_K3         seed=999 fixed_1.2    iters=  40 kl=1.507e-02 status=0
+unbounded_K3         seed=999 fixed_1.4    iters=  40 kl=1.510e-02 status=0
+unbounded_K3         seed=999 adaptive     iters=  50 kl=1.504e-02 status=0
+unbounded_K6         seed=42 baseline     iters= 150 kl=5.673e-02 status=0
+unbounded_K6         seed=42 fixed_1.2    iters= 110 kl=5.841e-02 status=0
+unbounded_K6         seed=42 fixed_1.4    iters= 110 kl=5.972e-02 status=0
+unbounded_K6         seed=42 adaptive     iters= 140 kl=5.972e-02 status=0
+unbounded_K6         seed=123 baseline     iters= 110 kl=6.435e-02 status=0
+unbounded_K6         seed=123 fixed_1.2    iters=  60 kl=7.904e-02 status=0
+unbounded_K6         seed=123 fixed_1.4    iters=  80 kl=6.455e-02 status=0
+unbounded_K6         seed=123 adaptive     iters= 140 kl=6.488e-02 status=0
+unbounded_K6         seed=999 baseline     iters= 100 kl=9.905e-02 status=0
+unbounded_K6         seed=999 fixed_1.2    iters= 110 kl=1.027e-01 status=0
+unbounded_K6         seed=999 fixed_1.4    iters=  10 kl=1.067e-01 status=0
+unbounded_K6         seed=999 adaptive     iters= 130 kl=1.049e-01 status=0
+bounded_K6           seed=42 baseline     iters= 110 kl=1.294e-01 status=0
+bounded_K6           seed=42 fixed_1.2    iters= 100 kl=1.316e-01 status=0
+bounded_K6           seed=42 fixed_1.4    iters=  80 kl=1.340e-01 status=0
+bounded_K6           seed=42 adaptive     iters= 360 kl=1.361e-01 status=0
+bounded_K6           seed=123 baseline     iters= 100 kl=1.291e-01 status=0
+bounded_K6           seed=123 fixed_1.2    iters=  90 kl=1.284e-01 status=0
+bounded_K6           seed=123 fixed_1.4    iters=  70 kl=1.260e-01 status=0
+bounded_K6           seed=123 adaptive     iters= 110 kl=1.264e-01 status=0
+bounded_K6           seed=999 baseline     iters= 130 kl=1.737e-01 status=0
+bounded_K6           seed=999 fixed_1.2    iters=  90 kl=1.743e-01 status=0
+bounded_K6           seed=999 fixed_1.4    iters= 100 kl=1.778e-01 status=0
+bounded_K6           seed=999 adaptive     iters= 110 kl=1.777e-01 status=0
+bounded_K9           seed=42 baseline     iters= 100 kl=2.157e-01 status=0
+bounded_K9           seed=42 fixed_1.2    iters=  80 kl=2.144e-01 status=0
+bounded_K9           seed=42 fixed_1.4    iters=  20 kl=2.512e-01 status=0
+bounded_K9           seed=42 adaptive     iters= 310 kl=2.088e-01 status=0
+bounded_K9           seed=123 baseline     iters=  50 kl=3.731e-01 status=0
+bounded_K9           seed=123 fixed_1.2    iters=  50 kl=3.723e-01 status=0
+bounded_K9           seed=123 fixed_1.4    iters=  50 kl=3.732e-01 status=0
+bounded_K9           seed=123 adaptive     iters=  50 kl=3.732e-01 status=0
+bounded_K9           seed=999 baseline     iters=  70 kl=2.920e-01 status=0
+bounded_K9           seed=999 fixed_1.2    iters=  60 kl=2.926e-01 status=0
+bounded_K9           seed=999 fixed_1.4    iters=  40 kl=2.932e-01 status=0
+bounded_K9           seed=999 adaptive     iters=  60 kl=2.923e-01 status=0
+Warning messages:
+1: leafblower: 1 sparse categories detected (T_kj < 1% or n_kj < 30); see result$diagnostics$sparseness 
+2: leafblower: 1 sparse categories detected (T_kj < 1% or n_kj < 30); see result$diagnostics$sparseness 
+3: leafblower: 1 sparse categories detected (T_kj < 1% or n_kj < 30); see result$diagnostics$sparseness 
+4: leafblower: 1 sparse categories detected (T_kj < 1% or n_kj < 30); see result$diagnostics$sparseness 
+
+=== SHIP-GATE ANALYSIS ===
+  unbounded  baseline     median_iters=95
+  unbounded  fixed_1.2    median_iters=80
+  unbounded  fixed_1.4    median_iters=65
+  unbounded  adaptive     median_iters=135
+  bounded    baseline     median_iters=100
+  bounded    fixed_1.2    median_iters=85
+  bounded    fixed_1.4    median_iters=60
+  bounded    adaptive     median_iters=110
+
+divergence_count=0  bracket_failures=0  noconv_flips=0
+adaptive_vs_baseline_unbounded_pct = 42.1%
+adaptive_vs_baseline_bounded_pct   = 10.0%
+adaptive_vs_bestfixed_pct          = 100.0%
+
+GATE1(ub<0): FALSE  GATE2(bd<=5%): FALSE  GATE3(bf<=5%): FALSE
+GATE4(div=0): TRUE  GATE5(brf=0): TRUE  GATE6(noconv=0): TRUE
+
+VERDICT: NO-SHIP
