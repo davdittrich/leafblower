@@ -301,7 +301,10 @@ inline constexpr double kUnboundedSentinel = 1e300;
 /// unchanged rather than scaled by an enormous norm (a subnormal total_w ~1e-310
 /// would overflow norm to +inf). 1e-100 keeps n/total_w well within double range
 /// for any realistic n while rejecting only physically-meaningless near-zero sums.
+#ifndef LBW_KMIN_SAFE_TOTAL_WEIGHT_DEFINED
+#define LBW_KMIN_SAFE_TOTAL_WEIGHT_DEFINED
 inline constexpr double kMinSafeTotalWeight = 1e-100;
+#endif
 
 /// Returns st.max_weight if finite, else kUnboundedSentinel.
 inline double resolve_hi(const CalibState& st) noexcept {

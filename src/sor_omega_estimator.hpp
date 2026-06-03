@@ -17,8 +17,10 @@ static constexpr int    kSorCooldown         = 5;       // gate-10 cooldown wind
 static constexpr int    kSorLatchTrips       = 3;       // gate-10 latch threshold
 static constexpr double kPinTol              = 1e-9;    // relative pinning tolerance
 static constexpr double kSorOmegaMin         = 0.3;     // omega floor (sor_cfg.omega_min default)
-// kMinSafeTotalWeight intentionally not re-declared here;
-// calib_dispatch.hpp (always included before this header in the lbw build) provides it.
+#ifndef LBW_KMIN_SAFE_TOTAL_WEIGHT_DEFINED
+#define LBW_KMIN_SAFE_TOTAL_WEIGHT_DEFINED
+inline constexpr double kMinSafeTotalWeight  = 1e-100;  // degenerate free-mass guard
+#endif
 static constexpr int    kSkOmegaBurnin       = 20;      // sinkhorn-local burnin; NOT from sor_cfg.burnin
 
 /// Optimal SOR omega from spectral radius estimate theta2 in [0,1).
