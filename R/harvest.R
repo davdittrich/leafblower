@@ -262,6 +262,8 @@ harvest <- function(
   gk_omega = 1.0,
   # e65t.3: sk_omega — Sinkhorn over-relaxation factor; default 1.0=identity.
   sk_omega = 1.0,
+  # e65t.4.4: sk_omega_mode_id — adaptive-omega mode selector; 0=fixed, 1=spectral.
+  sk_omega_mode_id = 0L,
   ...
 ) {
   # RVAL.2: warn on unknown ... args (typos / removed params)
@@ -559,6 +561,8 @@ harvest <- function(
                as.double(gk_omega),
                ## e65t.3: sinkhorn over-relaxation factor; 1.0=identity
                as.double(sk_omega),
+               ## e65t.4.4: sk_omega_mode_id — adaptive-omega mode selector; 0=fixed
+               as.integer(sk_omega_mode_id),  # 43: sk_omega_mode_id
                PACKAGE = "leafblower")
 
   weights <- raw$weights
