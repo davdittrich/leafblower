@@ -127,8 +127,18 @@ Default \code{NULL} disables SOR. Keys:
 \itemize{
   \item \code{auto}: logical, default \code{TRUE}.
   \item \code{omega_min}: lower bound on relaxation factor, default \code{0.3}.
+  \item \code{omega_max}: upper bound (recovery ceiling) on relaxation factor,
+    default \code{1.5}. Values in (1, 2) enable over-relaxation, which reduces
+    iteration count; global convergence is guaranteed for all omega in (0, 2)
+    (Thibault 2021). ORIS only; ignored for greedy scheduler.
   \item \code{omega}: fixed relaxation factor (disables auto-adapt).
   \item \code{burnin}: iterations before adaptation starts, default \code{20}.
+  \item \code{omega_mode_id}: omega adaptation strategy. \code{0} = heuristic
+    (0.7 damp / 1.05 grow), \code{1} = fixed (jump to \code{omega_max}),
+    \code{2} = iterate-change (free-coordinate \eqn{\|\Delta X_{\rm free}\|^2}
+    estimator, \strong{default}; feasibility-agnostic; e18t.9 SHIP — 240 vs 350
+    iters on T2 unconstrained, 50 vs 140 on bounded stepstone).
+    String aliases \code{"heuristic"}, \code{"fixed"}, \code{"spectral"} are accepted.
 }}
 
 \item{bounds_mode}{One of "cell" (default) or "unit". Controls per-observation

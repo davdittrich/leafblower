@@ -1,6 +1,6 @@
 # leafblower (development)
 
-* Sinkhorn adaptive omega available via `sk_omega_mode_id=1L` (opt-in; default remains fixed `sk_omega_mode_id=0L`). Ship gate e65t.4.5 NO-SHIP: adaptive was 42% slower than baseline on unbounded configs, 10% slower on bounded, and 100% slower than best-fixed (omega=1.4). divergence_count=0, bracket_failures=0, noconv_flips=0. Results in `benchmarks/e65t4_results.txt`.
+* Removed dead over-relaxation knobs `gk_omega`, `sk_omega`, and `sk_omega_mode_id` (e65t.2/e65t.3/e65t.4 NO-GO experiments). ABI shrunk from 288B to 264B; `harvest()` arity reduced from 43 to 40 positional C args.
 
 * ORIS SOR: `omega_mode_id=2` (iterate-change θ₂) is now the default. The v1 marginal-residual estimator stalled on bounded problems (mj1p.2 redux); v2 uses free-coordinate iterate-change ‖ΔX_free‖² which is feasibility-agnostic. Ship gate e18t.9 SHIP: 240 vs 350 iters on T2 unconstrained, 50 vs 140 iters on bounded stepstone. R, Python, and C APIs all default to mode-2.
 

@@ -258,14 +258,6 @@ harvest <- function(
   design_weights   = NULL,
   newton_tsvd_ratio = 1e-8,
   ridge_lambda = 0.0,
-  # DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
-  gk_omega = 1.0,
-  # e65t.3: sk_omega — Sinkhorn over-relaxation factor; default 1.0=identity.
-  sk_omega = 1.0,
-  # e65t.4.4: sk_omega_mode_id — adaptive-omega mode selector; 0=fixed, 1=spectral.
-  # e65t.4.5: adaptive NO-SHIP — see benchmarks/e65t4_results.txt for evidence.
-  # adaptive 42% slower unbounded, 10% slower bounded, 100% slower vs best-fixed (omega=1.4).
-  sk_omega_mode_id = 0L,
   ...
 ) {
   # RVAL.2: warn on unknown ... args (typos / removed params)
@@ -559,12 +551,6 @@ harvest <- function(
                ## corun_aa: co-run alternate-arm SOR flag (e65t.1)
                ## DEAD (e65t.1 NO-GO): co-run never enabled; arg always 0. See bd leafblower-e65t.1.
                as.integer(sor_cfg$corun_aa),
-               ## e65t.2: greenkhorn over-relaxation exponent; 1.0=identity
-               as.double(gk_omega),
-               ## e65t.3: sinkhorn over-relaxation factor; 1.0=identity
-               as.double(sk_omega),
-               ## e65t.4.4: sk_omega_mode_id — adaptive-omega mode selector; 0=fixed
-               as.integer(sk_omega_mode_id),  # 43: sk_omega_mode_id
                PACKAGE = "leafblower")
 
   weights <- raw$weights
