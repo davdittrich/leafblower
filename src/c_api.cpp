@@ -118,6 +118,7 @@ void rk_params_init(rk_params_t* p) {
     p->ridge_lambda            = 0.0;   /* Tikhonov ridge on dual λ; 0.0 = off */
     p->gk_omega                = 1.0;   /* DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. */
     p->sk_omega                = 1.0;   /* e65t.3: Sinkhorn marginal over-relaxation exponent; 1.0=identity */
+    p->sk_omega_mode_id        = 0;     /* e65t.4.3: mode 0=fixed(default) */
 }
 
 void rk_result_init(rk_result_t* r) {
@@ -293,6 +294,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.ridge_lambda = p->ridge_lambda;  /* Tikhonov ridge on dual λ */
     st.gk_omega     = p->gk_omega;      /* DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2. */
     st.sk_omega     = p->sk_omega;      /* e65t.3: Sinkhorn marginal over-relaxation exponent */
+    st.sk_omega_mode_id = p->sk_omega_mode_id; /* e65t.4.3 */
     // Only the auto-fallback path needs this; skip O(n) copy for explicit method calls.
     const std::vector<double> weights_backup = (p->algorithm == RK_ALG_AUTO)
         ? std::vector<double>(weights, weights + n)

@@ -144,6 +144,7 @@ struct CalibState {
     double               ridge_lambda      = 0.0;   // Tikhonov ridge on dual λ: newton_kl H_pre[k,k]+=, greg N[j,j]+=; 0=off
     double               gk_omega          = 1.0;   // DEAD (e65t.2 NO-GO): gk_omega experiment; default 1.0=identity. See bd leafblower-e65t.2.
     double               sk_omega          = 1.0;   // e65t.3: Sinkhorn marginal over-relaxation exponent
+    int                  sk_omega_mode_id  = 0;     // e65t.4.3: 0=fixed(default), 1=adaptive iterate-change
     // ── End overlay config ──
     void (*log_fn)(const char* msg, void* ctx);
     void* log_ctx;

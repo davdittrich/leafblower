@@ -3,6 +3,7 @@
 #include "calib_dispatch.hpp"
 #include "calib_validate.hpp"
 #include "leafblower.h"
+#include "sor_omega_estimator.hpp"
 #include <cmath>
 #include <cstring>
 #include <algorithm>
@@ -174,6 +175,13 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     // Stability: frozen cells' exp_a[c] stays at last valid value; bisect still
     // clamps them correctly. Release occurs when bisect raises X[c] above L_cell[c].
     std::vector<bool> at_lower(ct.M_cell, false);
+    // e65t.4.3: upper-bound active set + unified pinning mask for adaptive omega estimator.
+    std::vector<bool> at_upper(ct.M_cell, false);
+    std::vector<bool> is_pinned(ct.M_cell, false);
+    // e65t.4.3: solve-local effective omega; mode 0 = st.sk_omega (identity/fixed); mode 1 = adaptive.
+    double eff_sk_omega = st.sk_omega;
+    // e65t.4.3: adaptive omega estimator — constructed only in mode 1, but declaration is unconditional.
+    lbw::SorOmegaEstimator sor_estimator;
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.base.iterations = iter;
@@ -188,7 +196,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                 if (bucket[j] < 1e-300) continue;
                 double ratio = st.targets[k][j] * W_total / bucket[j];
                 if (ratio <= 0.0) continue;
-                scale[j] = (st.sk_omega == 1.0) ? ratio : std::pow(ratio, st.sk_omega);
+                scale[j] = (eff_sk_omega == 1.0) ? ratio : std::pow(ratio, eff_sk_omega);
             }
             for (int c = 0; c < ct.M_cell; c++) {
                 int g = ct.g_per_cell[k][c];
@@ -245,6 +253,14 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                 if (X[c] <= L_cell[c] + 1e-12) at_lower[c] = true;
                 else if (X[c] >= L_cell[c] + 1e-9) at_lower[c] = false;  // tsyw: release
             }
+            // e65t.4.3: symmetric additive deadband for upper bound (additive, NOT multiplicative).
+            // Dykstra a[c] correction intentionally NOT gated on at_upper — upper-clamped cells
+            // do not accumulate Dykstra drift in the same unbounded manner as at_lower.
+            for (int c = 0; c < ct.M_cell; c++) {
+                if (X[c] >= U_cell[c] - 1e-12) at_upper[c] = true;
+                else if (X[c] <= U_cell[c] - 1e-9) at_upper[c] = false;
+                is_pinned[c] = at_lower[c] || at_upper[c];
+            }
         }
         // B10: On non-projection path, X unchanged — do NOT zero a[]. Accumulated correction from prior
         // projected iterations is valid history; zeroing would corrupt subsequent bisect_capacity calls.
@@ -276,6 +292,11 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
                             lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n,
                                                    kl_ratio_buf.data(), kl_weight_buf.data()),
                             iter, X);
+            }
+
+            // e65t.4.3: adaptive omega update (mode 1 only; kSkOmegaBurnin=20 sinkhorn-local).
+            if (st.sk_omega_mode_id == 1 && iter >= lbw::kSkOmegaBurnin) {
+                eff_sk_omega = sor_estimator.update(X, is_pinned, ct.M_cell);
             }
 
             if (lbw::check_convergence(st.convergence_cfg, m, prev_metric_for_rule, st.tol_abs)) {

@@ -112,6 +112,8 @@ typedef struct {
     /* ABI: e65t.2 +8B gk_omega appended after ridge_lambda; offset 264, naturally aligned */
     /* ABI: e65t.3 +8B sk_omega appended after gk_omega; offset 272, naturally aligned */
     double          sk_omega;          /* e65t.3: Sinkhorn marginal over-relaxation exponent; default 1.0=identity */
+    int             sk_omega_mode_id;  /* e65t.4.3: 0=fixed(default,backward-compatible), 1=adaptive iterate-change; offset 280 */
+    int             _pad_e65t4_3;      /* 4B padding: maintains 8B struct alignment; offset 284 */
 } rk_params_t;
 
 /* ── Result ── */
@@ -264,8 +266,9 @@ static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
  *   capacity_penalty double, so sor_omega_mode_id fills that pad slot); +0B net → 264B.
  * mj1p.3 (e65t.1): _pad_accelerate repurposed as sor_corun_aa; +0B net → 264B.
  * e65t.2: + gk_omega (double, 8B); +8B → 272B.
- * e65t.3: + sk_omega (double, 8B); +8B → 280B. */
-#define EXPECTED_RK_PARAMS_BYTES 280
+ * e65t.3: + sk_omega (double, 8B); +8B → 280B.
+ * e65t.4.3: + sk_omega_mode_id (int, 4B) + pad (4B); +8B → 288B. */
+#define EXPECTED_RK_PARAMS_BYTES 288
 static_assert(sizeof(rk_params_t) == EXPECTED_RK_PARAMS_BYTES,
               "rk_params_t size changed; check ABI consumers");
 #endif
