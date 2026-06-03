@@ -1,0 +1,55 @@
+=== ADVERSARIAL FIXTURE (n=5000, K=8, inverted targets) ===
+unbounded  seed= 42 baseline   iters=  100 status=0 kl=3.801e-01
+unbounded  seed= 42 fixed_1.4  iters=  100 status=0 kl=4.027e-01
+unbounded  seed= 42 adaptive   iters=  170 status=0 kl=4.328e-01
+unbounded  seed=123 baseline   iters=   70 status=0 kl=6.487e-01
+unbounded  seed=123 fixed_1.4  iters=   50 status=0 kl=6.083e-01
+unbounded  seed=123 adaptive   iters= 2000 status=1 kl=7.251e-01
+unbounded  seed=999 baseline   iters=  120 status=0 kl=4.690e-01
+unbounded  seed=999 fixed_1.4  iters=   40 status=0 kl=5.343e-01
+unbounded  seed=999 adaptive   iters=  220 status=0 kl=4.328e-01
+bounded    seed= 42 baseline   iters=   30 status=0 kl=9.291e-01
+bounded    seed= 42 fixed_1.4  iters=   20 status=0 kl=1.004e+00
+bounded    seed= 42 adaptive   iters=   30 status=0 kl=9.291e-01
+bounded    seed=123 baseline   iters=   10 status=0 kl=9.513e-01
+bounded    seed=123 fixed_1.4  iters=   60 status=0 kl=1.134e+00
+bounded    seed=123 adaptive   iters=   10 status=0 kl=9.513e-01
+bounded    seed=999 baseline   iters=   30 status=0 kl=1.031e+00
+bounded    seed=999 fixed_1.4  iters=   20 status=0 kl=1.184e+00
+bounded    seed=999 adaptive   iters=   30 status=0 kl=1.031e+00
+
+=== STEPSTONE_SMALL (10000 rows, 9 margins, mw=5) ===
+stepstone_mw5 baseline   iters=   60 status=0 kl=1.404e-03
+stepstone_mw5 fixed_1.4  iters=   60 status=0 kl=1.586e-03
+stepstone_mw5 adaptive   iters=  220 status=0 kl=1.414e-03
+
+=== GATE ANALYSIS (median iters per regime x arm) ===
+  unbounded  baseline=100  fixed_1.4=50  adaptive=220  | adaptive_vs_baseline=+120.0%  adaptive_vs_fixed=+340.0%
+  bounded    baseline=30  fixed_1.4=20  adaptive=30  | adaptive_vs_baseline=+0.0%  adaptive_vs_fixed=+50.0%
+  stepstone  baseline=60  fixed_1.4=60  adaptive=220  | adaptive_vs_baseline=+266.7%  adaptive_vs_fixed=+266.7%
+
+divergence/NA=0  noconv(status=1)=1
+
+=== OMEGA TRACE (LBW_SK_OMEGA_TRACE=1, stepstone_mw5, mode=1) ===
+# n_pinned=3/5980 throughout => effectively UNBOUNDED; NOT a clamp issue.
+iter=20  omega=1.0000 theta2=-1.0000  (warmup)
+iter=40  omega=1.0476 theta2=0.1734
+iter=50  omega=0.7333 theta2=RESET    (gate-9 oscillation damp)
+iter=70  omega=1.6704 theta2=0.9611   (overshoot)
+iter=80  omega=1.1693 theta2=RESET
+iter=110 omega=1.8000 theta2=0.9957   (CEILING)
+iter=120 omega=1.2600 theta2=RESET
+iter=130 omega=1.8000 theta2=0.9881   (CEILING)
+... limit cycle 1.0 <-> 1.8 to iter=220 (FINAL, status=0)
+
+MECHANISM: theta2_ema never settles. Reads 0.96-0.99 => prescribes omega~1.88
+(clamped 1.8) => power-law over-relaxation overshoots => S_dX grows => gate-6/9
+reset to omega=1.0 => converges briefly => theta2 high again => overshoot. Limit
+cycle, never converges to a stable omega. ORIS (water-fill) settles omega_mean=1.45.
+
+ROOT CAUSE: S_dX in Sinkhorn conflates (1) genuine SOR slowness (omega helps) with
+(2) Dykstra/bisection correction grind (omega destabilizes). ORIS water-fill has only
+(1). Estimator reads combined slowness as theta2~0.99, prescribes ceiling omega,
+overshoots the part omega cannot accelerate. Confirmed unbounded (n_pinned=3/5980).
+
+VERDICT: NO-SHIP confirmed on ORIS shipping fixtures. Not a gate artifact.

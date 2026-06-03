@@ -286,3 +286,53 @@ implementation (e65t.4.2 through e65t.4.6) may proceed.
 the ORIS implementation (which uses `2/(1+√(1−theta2))` with `theta2 = ρ_fullstep`) is
 correct and consistent with Thibault 2021. The Sinkhorn implementation must use the same
 un-squared formula.
+
+---
+
+## 6. POST-HOC CORRECTION (e65t.4.5 empirical re-gate, 2026-06-03)
+
+The GO verdict above was **empirically refuted** for Sinkhorn. The estimator is sound
+(it ships in ORIS, omega_mode_id=2, e18t.9) but does NOT transfer to leafblower's
+Sinkhorn solver. Verified NO-SHIP on ORIS's own shipping fixtures.
+
+### 6.1 What was verified (self-run, benchmarks/e65t4_stepstone_results.txt)
+
+| fixture (ORIS shipping conditions) | baseline | fixed_1.4 | adaptive |
+|---|---|---|---|
+| stepstone mw5 (the fixture ORIS shipped on) | 60 | 60 | **220 (+267%)** |
+| adversarial unbounded (n=5000,K=8 inverted) | 100 | 50 | 220 (+120%), 1 NOCONV flip |
+
+ORIS adaptive on stepstone mw5: 140→**50** (win). Sinkhorn adaptive: 60→**220** (loss).
+Same fixture, same estimator, opposite outcome.
+
+### 6.2 Why §1 (power-law ≡ log-SOR) does not hold for THIS Sinkhorn
+
+§1 proves the equivalence for the **unprojected alternating-scaling skeleton**.
+leafblower's `sinkhorn_solve` is scaling **+ capacity bisection + Dykstra correction
+vectors `a[c]`** carried across iterations. Under active projection/correction (the
+bounded AND adversarial regimes), the equivalence breaks.
+
+### 6.3 Mechanism (LBW_SK_OMEGA_TRACE, stepstone, n_pinned=3/5980 — UNBOUNDED)
+
+theta2_ema never settles: reads 0.96–0.99 → prescribes ω≈1.88 (clamped to 1.8 ceiling)
+→ power-law over-relaxation overshoots → S_dX grows → gate-6/gate-9 reset to ω=1.0 →
+brief convergence → theta2 high again → overshoot. **Limit cycle ω∈{1.0,1.8}, never
+settles.** ORIS settles at a stable omega_mean=1.45.
+
+**Root cause:** the iterate-change observable S_dX conflates (1) genuine SOR slowness
+(ω accelerates) with (2) Dykstra/bisection correction grind (ω destabilizes). ORIS
+water-fill is stateless → only source (1). Sinkhorn has both → estimator reads combined
+slowness as θ₂≈0.99, prescribes ceiling ω, overshoots the part ω cannot accelerate.
+n_pinned=3/5980 proves this is the projection/correction dynamics, NOT the bound clamp.
+
+### 6.4 Also corrected
+
+§3.3's "SHIP-gated in ORIS (e18t.9)" is **accurate** (verified harvest.R:970 — e18t.5
+NO-SHIP was rescinded, v2 iterate-change ships as omega_mode_id=2 default). The transfer
+failure is Sinkhorn-specific, not an ORIS-estimator defect.
+
+**REVISED DECISION: NO-SHIP.** Sinkhorn is the wrong host operator for the iterate-change
+estimator. Closed-form θ₂ remains unobtainable (circular unconstrained / ill-posed
+piecewise-linear bounded); online estimation works only for stateless-projection solvers
+(ORIS), not for Dykstra-corrected Sinkhorn. Fixed ω likewise does not generalize past
+near-identity targets (e65t.3 GO is a toy-regime artifact — see e65t.3 flag ticket).
