@@ -74,6 +74,10 @@ flowchart TD
 - `errRp` recomputation across all margins each step partly offsets the per-step saving.
 - First-order; no second-order curvature use.
 
+## Why over-relaxation does not apply to this solver
+
+The over-relaxation that accelerates ORIS (`scale = ratio^ω`, `ω > 1`) has no analogue here. Both the global-convergence guarantee for `ω ∈ (0, 2)` [thibault2021overrelaxed] and the optimal-ω rate theory [lehmann2022overrelaxation] are proven only for the **full alternating sweep**. Greenkhorn updates a **single greedy-chosen margin** per step (`argmax_k errRp[k]`), which lies outside that regime — and no published analysis covers over-relaxation composed with greedy single-coordinate selection (an open question, confirmed against a 260+ source optimal-transport literature review, NotebookLM notebook 1e3036a1). Empirically, raising the step exponent above 1 yields **no iteration-count improvement** on the calibration fixtures (K ∈ {3, 6, 9}, tight and loose bounds, multiple seeds) and never diverges — i.e. it is inert. The solver therefore uses the plain `ω = 1` greedy IPF step described above. See the [overview](00-overview.md) for how the three IPF-family solvers differ on over-relaxation.
+
 ## Mathematical guarantees and proofs
 
 | Claim | Status | Basis |

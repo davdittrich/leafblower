@@ -37,7 +37,15 @@ linear:  f_new = f_old^(1−α·ω) · naive^(α·ω)
 log:     lf_new = (1−α·ω)·lf_old + α·ω·(log T_kj·W − log S_kj)
 ```
 
-- `ω` (`eff_omega`) is the SOR relaxation parameter, auto-adapted per margin after a burn-in; `ω = 1` recovers plain IPF (fast path, no `pow()`). The adaptive scheme grows ω toward `omega_max` (default **1.5**; configurable via `sor = list(omega_max = ...)`) when errRp decreases, and damps toward `omega_min` (default 0.3) on sign-flip oscillation. The default `omega_max = 1.5` places ω in the proven acceleration zone ω ∈ (1, 2) [thibault2021overrelaxed]; it is capped at 1.99 by design.
+- `ω` (`eff_omega`) is the SOR relaxation parameter; `ω = 1` recovers plain IPF (fast path, no `pow()`). Over-relaxation is **opt-in** via `sor = list(auto = TRUE)` — the bare `harvest(method = "oris")` call runs plain IPF (`ω = 1`). When enabled, `ω` is chosen by one of three strategies (`sor = list(omega_mode_id = ...)`), all confined to the globally convergent window `ω ∈ (0, 2)` [thibault2021overrelaxed]:
+
+  | `omega_mode_id` | Strategy | ω rule | Ceiling |
+  |---|---|---|---|
+  | `0` heuristic | per-margin nudge | grow ×1.05 on errRp decrease, damp ×0.7 on sign-flip | `omega_max` (1.5) |
+  | `1` fixed | per-margin jump | snap to `omega_max` while errRp decreases | `omega_max` (1.5) |
+  | `2` iterate-change (**default**) | single global ω | `ω_opt = 2/(1+√(1−θ₂))` from the free-coordinate estimator below | `kSorProdCeiling` (1.8) |
+
+  Mode 2 is the shipped default — see *Adaptive ω — the iterate-change θ₂ estimator* below. All modes start after a burn-in (`burnin`, default 20) and damp toward `omega_min` (default 0.3) on oscillation.
 - `α` is the **infeasibility-streak damping factor** `α = 1/(1 + β·stress)` (`compute_alpha`), where `stress` = longest consecutive infeasible-bucket streak and `β = kAlphaBeta = 0.5`; no stress ⇒ `α = 1` (fast path). It shrinks the step when a margin cannot be satisfied; with `ω ≤ 2` it keeps the net exponent `α·ω` inside the `(0, 2)` window proven globally convergent for overrelaxed Sinkhorn [thibault2021overrelaxed].
 - `β` is **only** the constant inside that damping map (the η-schedule scales it per homotopy level, `β = 0.5·η`). It is **not** a proximal/entropic term — the core update carries no proximal term.
 - The net exponent on the Sinkhorn ratio is `α·ω`; margins are swept **Gauss–Seidel (BCD-style)**.
@@ -46,6 +54,23 @@ log:     lf_new = (1−α·ω)·lf_old + α·ω·(log T_kj·W − log S_kj)
 ### ORIS_SOFT variant (enum 8)
 
 Adds an **augmented-Lagrangian / ADMM** soft-capacity term: per-cell capacity bounds are not hard-clamped each sweep but enforced through a penalty `μ` driven up across outer iterations, with the KL Newton step `X̃(1−λ+μz)/(1+ρ)` for the un-normalized-KL generator. (Do **not** "correct" this formula — it is right for this generator; see `CLAUDE.md`.)
+
+### Adaptive ω — the iterate-change θ₂ estimator (default)
+
+The optimal over-relaxation parameter is `ω_opt = 2/(1 + √(1 − θ₂))`, where `θ₂ = ρ_GS` is the asymptotic linear rate of the unrelaxed (Gauss–Seidel) sweep — the second-largest eigenvalue of the linearised iteration [lehmann2022overrelaxation]. The formula is **un-squared** in `θ₂` (the full-step rate already equals `ρ_J²`; squaring again, as in some statements, over-damps) — confirmed against Thibault et al. and Soma–Uschmajew.
+
+`θ₂` is never known in closed form, so mode 2 estimates it online from the **free-coordinate iterate change**. Every `kErrCheckInterval` sweeps after burn-in:
+
+```
+S_dX   = Σ_{c : !is_pinned[c]} (X[c] − X_snapshot[c])²     # squared move of free cells only
+ratio  = S_dX(m) / S_dX(m−1)            → ρ(M_II)^(2·I)
+θ₂     = ratio^(1/I)                     → ρ(M_II)²         # I = kErrCheckInterval
+ω      = 2 / (1 + √(1 − clamp(θ₂_ema, 0, 1−1e-9)))         # EMA-smoothed, α = 0.2
+```
+
+A single global `ω` is applied to every margin. State carried: `X_snapshot[M_cell]` and a scalar `S_dX_prev`. Guard gates (in order: free-set-empty → cooldown → warm-up → finiteness → oscillation-damp → residual-grew → formula → monotone-latch) fall back to `ω = 1` whenever the estimate is uninformative or the iterate diverges; a permanent latch disables over-relaxation after repeated trips. Ceiling `kSorProdCeiling = 1.8`.
+
+**Why the free-coordinate restriction matters (feasibility-agnostic).** Once the active set stabilises, projection clamps the bound cells (`is_pinned[c]`) and eliminates their error instantly, so error propagates only on the free subspace, governed by the principal submatrix `M_II` with `ρ(M_II) < 1`. Restricting `S_dX` to free cells therefore tracks `ρ(M_II)` **regardless of whether the clamped cells sit at an infeasible margin** — on an infeasible problem the marginal residual plateaus at a nonzero floor (ratio → 1, ω → 2, oscillation), but `S_dX → 0` and the estimate stays well-behaved. This is why the iterate-change observable is used instead of the marginal-residual ratio. (Corroborated by literature review: NotebookLM notebook 1e3036a1, Q1–Q2.)
 
 ## Architecture
 
@@ -143,7 +168,7 @@ In the pure 2-marginal case Sinkhorn and cyclic IPF coincide; with `K > 2` margi
 
 | Claim | Status | Basis |
 |-------|--------|-------|
-| Spectral optimal omega from Lehmann 2022 residual-ratio estimator | **NO-GO (stepstone 2026-05-31)** | Implemented as `omega_mode_id=2`. Bug fix (commit after dcaab76): spectral mode was erroneously capped at `omega_max=1.5` (the fixed-mode ceiling); now correctly capped at `kSorSpectralCeiling=1.99` (Thibault 2021 strict-<2 boundary). Post-fix stepstone experiment: no-SOR=50 iters, fixed-1.5=30 iters, spectral=40 iters; all three reach identical `solver_objective=0.3398`. Spectral does **not** beat fixed on iteration count for this dataset (bounded problem with 36k weights hitting bounds creates irregular θ₂ estimates). EMA theta2 stabilisation (commit fix(oris): EMA theta2, alpha=0.2): replaced the point-estimate `theta2=(curr/prev)^2` with an exponential moving average per-margin (`sor_theta2_ema[k]`, `kSorEmaAlpha=0.2`). Sensitivity sweep (alpha ∈ {0.1, 0.2, 0.3, 0.5}) produced identical results: spectral-EMA=40 iters vs fixed-1.5=30 iters for all alpha values. Root cause: on bounded problems the EMA theta2 quickly converges to values near 1 (fast asymptotic rate), yielding omega ≈ 1.9 which overshoots the fixed point, triggering oscillation damp at the iter-30 check interval; recovery costs 10 extra iterations regardless of EMA smoothing. NO-GO verdict confirmed and preserved. EMA code committed as a correctness improvement (prevents cold-start ceiling=1.99 before any informative sample) even though it does not close the iteration-count gap. |
+| Optimal-ω rate `ω_opt = 2/(1+√(1−θ₂))` via the iterate-change θ₂ estimator (`omega_mode_id=2`, default) | **Moderate** | Rate formula proven for the linearised iteration (Lehmann et al. 2022 [lehmann2022overrelaxation]); `θ₂` is estimated online from the free-coordinate squared iterate change `S_dX` (block-root over `kErrCheckInterval`). The free-coordinate restriction makes the estimate feasibility-agnostic — error on free cells is governed by `ρ(M_II)` independent of clamped-bound feasibility (NotebookLM 1e3036a1, Q2). Shipped default: fewer iterations than fixed-ω and no-SOR on the regression fixtures (≈240 vs 350 unconstrained, ≈50 vs 140 bounded). The estimator is sound for ORIS's stateless fixed-point sweep; it does **not** transfer to the stateful Sinkhorn+Dykstra solver (see [sinkhorn.md](sinkhorn.md)). |
 | Converges to the unique KL-projection when a feasible interior point exists and ω=1 | **Strong** | Classical Sinkhorn–Knopp / IPF convergence (Csiszár 1975; Sinkhorn–Knopp 1967); the plain step is exactly IPF |
 | Bounded-KL (margins ∩ box) convergence | **Strong** | Csiszár (1975) / Csiszár–Tusnády (1984) cyclic I-projection, linear under Slater (spec §9) |
 | Geometric (linear) convergence rate | **Moderate** | Holds for IPF under positivity; rate depends on the contraction modulus of the margin coupling. Not re-derived in-repo |
@@ -159,6 +184,7 @@ In the pure 2-marginal case Sinkhorn and cyclic IPF coincide; with `K > 2` margi
 | Component | File | Key symbols |
 |-----------|------|-------------|
 | Core solve | `src/oris.cpp` | `oris_solve`, `eff_omega`, `compute_alpha`, `naive`, `f_lin`, `S_lin` |
+| Adaptive ω (iterate-change, mode 2) | `src/oris.cpp` | `S_dX`, `X_snapshot`, `is_pinned`, `v2_theta2_ema`, `omega_from_theta2`, `kSorProdCeiling` |
 | Log/linear switch | `src/oris.cpp` | `kLinearSpaceThreshold` |
 | Finalize / bounds / obs-expand | `src/oris_finalize.cpp` | unit/cell branch |
 | Trajectory diagnostics | `src/oris_trajectory.cpp` | — |

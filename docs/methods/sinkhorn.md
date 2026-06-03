@@ -76,6 +76,15 @@ flowchart TD
 - First-order convergence; Dykstra can be slow when many cells are simultaneously bound.
 - More moving parts than plain raking for the same KL objective.
 
+## Why over-relaxation does not apply to this solver
+
+ORIS accelerates its sweep with successive over-relaxation (`scale = ratio^ω`, `ω > 1`); on the **unprojected** alternating-scaling skeleton this power-law step is *exactly* log-domain SOR on the dual potentials [thibault2021overrelaxed]. The same trick does **not** transfer to leafblower's Sinkhorn, for a structural reason:
+
+- **The equivalence breaks under projection.** This solver is not a bare scaling iteration — every sweep carries the stateful **Dykstra correction vectors `a[c]`** plus a capacity **μ-bisection**. Over-relaxing the marginal rescale does not over-relax the projection/correction it is interleaved with, so the clean power-law ≡ SOR identity holds only for the correction-free skeleton, not for the combined iteration.
+- **The ORIS θ₂ estimator does not port.** ORIS's adaptive ω reads the squared move of free cells (`S_dX`) as a proxy for the sweep's spectral rate (see *Adaptive ω* in [oris.md](oris.md)). There the move is produced by a **stateless** fixed-point map, so it cleanly reflects `ρ(M_II)`. Here the same observable conflates genuine sweep slowness — which ω could accelerate — with **Dykstra/bisection correction grind**, which ω only destabilises. The estimate is inflated toward 1, prescribes a near-ceiling ω, overshoots the part it cannot accelerate, and the iterate enters a limit cycle instead of converging faster.
+
+The recommended and shipped configuration is therefore **plain Sinkhorn (`ω = 1`)** — the joint margin+capacity KL projection described above. Over-relaxation is the distinguishing win of the *stateless* ORIS solver, not of this *stateful* one; see the [overview](00-overview.md) for the family-level summary.
+
 ## Mathematical guarantees and proofs
 
 | Claim | Status | Basis |
