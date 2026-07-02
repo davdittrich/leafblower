@@ -47,7 +47,7 @@ get_current_miss <- function(data, target, weights) {
       # encoding (harvest.R:130-131,475). Real levels match the NA-cleared char
       # vector; a literal-"NA" row falls into the NA bin, not its own level.
       mask <- if (has_na_bin && lv == "NA")
-                is_na | (!is.na(col) & as.character(col) == "NA")
+                .encode_na_bin_mask(col, TRUE)
               else !is.na(col_char) & col_char == lv
       prop <- if (W > 0) sum(weights[mask]) / W else 0.0
       abs(prop - tgt[[lv]])

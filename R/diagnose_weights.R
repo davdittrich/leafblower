@@ -64,7 +64,7 @@ diagnose_weights <- function(data, target, weights) {
       # encoding (harvest.R:130-131,475). A literal-"NA" row falls into the NA
       # bin, not its own level.
       mask      <- if (has_na_bin && lvl == "NA")
-                     is_na | (!is.na(col) & as.character(col) == "NA")
+                     .encode_na_bin_mask(col, TRUE)
                    else !is.na(col_char) & col_char == lvl
       prop_orig <- if (n_total > 0L) sum(mask) / n_total else 0.0
       prop_wtd  <- if (w_total > 0.0) sum(weights[mask]) / w_total else 0.0
