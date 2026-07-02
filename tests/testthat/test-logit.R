@@ -298,17 +298,52 @@ test_that("eb79.22: cleanly-converging collinear-feasible problem reports OK, no
   expect_lt(amax, 1e-6 * n)
 })
 
-test_that("eb79.22: genuinely-infeasible tight-bounds still fails (no false OK)", {
+test_that("eb79.22/23: genuinely-infeasible tight-bounds does not report false OK", {
   library(leafblower)
-  # margin y unreachable: ~80 obs * max_weight 1.5 = 120 < target 0.6*400=240.
+  # margin y unreachable: sum of U_cell (max mass at max_weight 1.5) < target 0.6*400=240.
+  # eb79.22 ensured this never falsely reports OK; eb79.23 now classifies it structurally as
+  # RK_ERR_INFEAS pre-loop => harvest() STOPS (relax-bounds signal), a strictly stronger
+  # "no false OK" than the prior status!=0 return.
   set.seed(41); n <- 400
   av <- factor(sample(c("x", "y"), n, TRUE, prob = c(0.8, 0.2)))
   bv <- factor(sample(c("p", "q"), n, TRUE, prob = c(0.75, 0.25)))
   d <- data.frame(a1 = av, a2 = av, a3 = av, a4 = av, b = bv)
   t <- list(a1 = c(x = 0.4, y = 0.6), a2 = c(x = 0.4, y = 0.6),
             a3 = c(x = 0.4, y = 0.6), a4 = c(x = 0.4, y = 0.6), b = c(p = 0.5, q = 0.5))
-  w <- suppressWarnings(harvest(d, t, method = "logit", min_weight = 0.1, max_weight = 1.5,
-               max_iterations = 50L, attach_weights = FALSE))
-  r <- attr(w, "result")
-  expect_true(r$status != 0L, label = "infeasible must NOT report OK (eb79.22)")
+  expect_error(
+    harvest(d, t, method = "logit", min_weight = 0.1, max_weight = 1.5,
+            max_iterations = 50L, attach_weights = FALSE))
+})
+
+test_that("eb79.23: structurally-infeasible logit reports INFEAS (harvest stops), not BUDGET", {
+  library(leafblower)
+  # margin y is UNREACHABLE: its cells' Σ U_cell (max mass at max_weight=1.5) < target y count
+  # (0.6·400=240). Pre-eb79.23 this ran to the 50-iter cap and returned status=4 BUDGET
+  # ("increase iterations", futile). Now the pre-loop interval-sum check returns RK_ERR_INFEAS
+  # (status=2) ⇒ harvest() stops (relax-bounds signal). One-shot, before the Newton loop.
+  set.seed(41); n <- 400
+  av <- factor(sample(c("x", "y"), n, TRUE, prob = c(0.8, 0.2)))
+  bv <- factor(sample(c("p", "q"), n, TRUE, prob = c(0.75, 0.25)))
+  d <- data.frame(a1 = av, a2 = av, a3 = av, a4 = av, b = bv)
+  t <- list(a1 = c(x = 0.4, y = 0.6), a2 = c(x = 0.4, y = 0.6),
+            a3 = c(x = 0.4, y = 0.6), a4 = c(x = 0.4, y = 0.6), b = c(p = 0.5, q = 0.5))
+  expect_error(
+    harvest(d, t, method = "logit", min_weight = 0.1, max_weight = 1.5,
+            max_iterations = 50L, attach_weights = FALSE))
+})
+
+test_that("eb79.23: feasible / borderline-corner logit NOT flagged infeasible (no false INFEAS)", {
+  library(leafblower)
+  set.seed(41); n <- 400
+  av <- factor(sample(c("x", "y"), n, TRUE, prob = c(0.8, 0.2)))
+  bv <- factor(sample(c("p", "q"), n, TRUE, prob = c(0.75, 0.25)))
+  d <- data.frame(a1 = av, a2 = av, a3 = av, a4 = av, b = bv)
+  t <- list(a1 = c(x = 0.4, y = 0.6), a2 = c(x = 0.4, y = 0.6),
+            a3 = c(x = 0.4, y = 0.6), a4 = c(x = 0.4, y = 0.6), b = c(p = 0.5, q = 0.5))
+  # mw=3 makes y reachable (borderline: max y mass ≈ target); must NOT be flagged INFEAS —
+  # solvable, falls through to the Newton loop (status 0/4/5, NOT the 2/3 error path).
+  w <- suppressWarnings(harvest(d, t, method = "logit", min_weight = 0.1, max_weight = 3,
+                                max_iterations = 50L, attach_weights = FALSE))
+  expect_true(attr(w, "result")$status %in% c(0L, 4L, 5L),
+              label = "feasible/corner NOT flagged INFEAS(2)/BADARG(3)")
 })

@@ -74,6 +74,38 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     int max_cats = lbw::max_cats_count(K, st.cat_counts);
     auto cells_per_cat = lbw::build_cells_per_cat(ct, K, st.cat_counts);
 
+    // eb79.23: structural feasibility pre-check. Each margin bucket (k,j) can hold at most
+    // Σ U_cell and at least Σ L_cell (cells are independently box-clampable), so its achievable
+    // mass is exactly [Σ L_cell, Σ U_cell]. If the target count st.targets[k][j]*n lies STRICTLY
+    // outside that interval, NO weighting can meet that margin — report INFEAS (relax bounds)
+    // instead of iterating to the cap and mis-reporting BUDGET ("increase iterations", futile).
+    // NECESSARY but not SUFFICIENT: a jointly-infeasible problem where every margin is
+    // individually reachable is NOT caught here and correctly falls through to the Newton loop's
+    // BUDGET/STALL (full joint feasibility is an LP, out of scope). Matches the sinkhorn
+    // bisect_capacity / oris structural_infeas convention. One-shot O(M·K).
+    {
+        constexpr double kFeasEps = 1e-9;  // relative FP margin: exact-corner is NOT flagged
+        for (int k = 0; k < K; k++) {
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                double min_mass = 0.0, max_mass = 0.0;
+                for (int c : cells_per_cat[k][j]) { min_mass += L_cell[c]; max_mass += U_cell[c]; }
+                const double target_count = st.targets[k][j] * static_cast<double>(st.n);
+                const bool infeasible =
+                    (target_count > max_mass * (1.0 + kFeasEps)) ||
+                    (target_count < min_mass * (1.0 - kFeasEps)) ||
+                    (cells_per_cat[k][j].empty() && target_count > 0.0);
+                if (infeasible) {
+                    res.base.status = RK_ERR_INFEAS;
+                    std::snprintf(res.message, sizeof(res.message),
+                        "logit: infeasible — margin %d category %d: target %.6g outside "
+                        "achievable [%.6g, %.6g] (relax min_weight/max_weight)",
+                        k, j, target_count, min_mass, max_mass);
+                    return res;
+                }
+            }
+        }
+    }
+
     // Newton state
     std::vector<double> lambda(nct, 0.0);   // dual variables; initialized below from design-weight logit-inverse
     std::vector<double> w(M, 0.0);          // calibrated cell masses

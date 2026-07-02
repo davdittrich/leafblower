@@ -1107,7 +1107,7 @@ test_that("T5: logit available and calibrates", {
   expect_equal(attr(r,"result")$algorithm_used, "logit")
 })
 
-test_that("T6: logit produces bounds-respecting weights; honestly budgets on tight+skewed K=2 (eb79.16)", {
+test_that("T6: logit reports INFEAS on structurally-infeasible tight+skewed K=2 (eb79.16->eb79.23)", {
   set.seed(6); n <- 5000L
   df  <- data.frame(
     v=factor(sample(5, n, TRUE)),
@@ -1115,20 +1115,12 @@ test_that("T6: logit produces bounds-respecting weights; honestly budgets on tig
   )
   tgt <- list(v=setNames(c(0.4,0.3,0.15,0.1,0.05),as.character(1:5)),
               g=c(M=0.55, F=0.45))
-  r   <- harvest(df, tgt, method="logit", max_weight=1.5, min_weight=0.1)
-  w   <- r$weights
-  # Bounds-by-construction: the sigmoid link keeps every weight in [min,max]. Still true.
-  expect_true(max(w) <= 1.5 + 1e-9)
-  expect_true(min(w) >= 0.1 - 1e-9)
-  # eb79.16: under absolute-count convergence, logit HONESTLY reports budget
-  # (status=4) on this tight+skewed problem — it does NOT satisfy the absolute
-  # margin constraints (max_err~0.11, Sum(w) drifts ~5% from n) within the 50-iter
-  # cap. Pre-eb79.16 the scale-blind proportion metric falsely certified this as
-  # fast convergence ("Newton steps < raking rounds") — that speed claim was an
-  # artifact of the misreport and is retired. logit's convergence QUALITY on
-  # tight/skewed problems is tracked by eb79.18 (E2).
-  n_iters <- attr(r,"result")$iterations
-  expect_lte(n_iters, 50L)  # outer-iter budget cap
+  # v=1 target 0.4*5000=2000, but only ~1000 obs have v=1, each capped at max_weight=1.5, so
+  # max achievable mass ~1500 < 2000: margin v=1 is STRUCTURALLY INFEASIBLE. eb79.16 first made
+  # logit report this honestly (was scale-blind status=0); eb79.23 now classifies it precisely
+  # as RK_ERR_INFEAS pre-loop => harvest() STOPS (relax bounds) instead of BUDGET at the cap.
+  # Bounds-respecting weights (sigmoid link) are covered by the feasible T5/T7 logit tests.
+  expect_error(harvest(df, tgt, method="logit", max_weight=1.5, min_weight=0.1))
 })
 
 test_that("T7: logit max_err < 1e-4 on 2-margin unconstrained problem", {

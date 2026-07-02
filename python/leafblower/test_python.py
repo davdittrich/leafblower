@@ -194,6 +194,29 @@ def test_logit_collinear_feasible_converges_ok_eb79_22():
     assert result["iterations"] < 50, "must converge before the iteration cap"
 
 
+def test_logit_infeasible_reports_margin_message_eb79_23():
+    """eb79.23: structurally-infeasible logit raises with the margin-named message (not BUDGET,
+    not the sinkhorn-hardcoded status==2 string). margin y unreachable (Sigma U_cell < target).
+    Verifies WU1a (C++ pre-check) + WU1b (_harvest.py surfaces result_dict['message'])."""
+    import pandas as pd
+    import numpy as np
+    import pytest
+    from leafblower import harvest
+    rng = np.random.RandomState(41)
+    n = 400
+    a = np.where(rng.rand(n) < 0.8, "x", "y")
+    b = np.where(rng.rand(n) < 0.75, "p", "q")
+    df = pd.DataFrame({"a1": a, "a2": a, "a3": a, "a4": a, "b": b})
+    tg = {"a1": {"x": 0.4, "y": 0.6}, "a2": {"x": 0.4, "y": 0.6},
+          "a3": {"x": 0.4, "y": 0.6}, "a4": {"x": 0.4, "y": 0.6}, "b": {"p": 0.5, "q": 0.5}}
+    with pytest.raises(Exception) as ei:
+        harvest(df, tg, method="logit", min_weight=0.1, max_weight=1.5, max_iterations=50)
+    msg = str(ei.value)
+    assert "infeasible" in msg and "margin" in msg, (
+        f"expected the logit margin-named INFEAS message, got: {msg!r}")
+    assert "persistent empty cell" not in msg, "must NOT be the hardcoded sinkhorn string"
+
+
 def test_logit_l1_and_objective_populated_eb79_20():
     """eb79.20: logit populates l1_weight_change + convergence_solver_objective.
 

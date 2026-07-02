@@ -607,9 +607,13 @@ def harvest(
             f"to [{min_weight:.3f}, {max_weight:.3f}] during per-cell water-filling.",
             UserWarning, stacklevel=2)
     if result_dict["status"] == 2:
+        # eb79.23: surface the solver's own message (naming the infeasible margin, e.g.
+        # logit's structural pre-check), matching R harvest.R:645 and the status==3 branch
+        # below. Fall back to a generic string only when the solver set no message (sinkhorn/
+        # oris currently leave it empty on INFEAS — behavior unchanged for them).
+        msg = result_dict.get("message") or ""
         raise RuntimeError(
-            "leafblower: infeasible problem — persistent empty cell with positive target "
-            "(detected after 5 consecutive outer iterations)"
+            f"leafblower: {msg}" if msg else "leafblower: infeasible problem"
         )
     elif result_dict["status"] == 3:
         raise ValueError(f"leafblower: invalid arguments — {result_dict['message']}")
