@@ -447,6 +447,15 @@ def harvest(
     else:
         w = np.ones(n, dtype=np.float64)
 
+    # Mirror R harvest.R:414-417: accelerate only supported for these methods.
+    _ACCELERATE_METHODS = {"raking", "greenkhorn", "oris", "oris_soft"}
+    if accelerate and method_lc not in _ACCELERATE_METHODS:
+        warnings.warn(
+            f"accelerate=True is only supported for method='raking', 'greenkhorn', "
+            f"'oris', or 'oris_soft'; ignoring for method='{method}'",
+            UserWarning, stacklevel=2)
+        accelerate = False
+
     params = {
         "min_weight":     min_weight,
         "max_weight":     max_weight,

@@ -372,3 +372,59 @@ def test_oris_mode2_r_python_parity():
     # status=0|5 + weights-sum=n is the correct convergence proof; no absolute threshold to check.
     assert r.get("iterations", 2001) < 2000, \
         f"mode-2 used all budget (iters={r.get('iterations')}): iterate-change estimator not converging"
+
+
+def test_accelerate_gating_by_method():
+    """eb79.5: accelerate=True only supported for method in {raking, greenkhorn,
+    oris, oris_soft} (mirrors R/harvest.R:414-417). Unsupported methods must warn
+    and be downgraded to accelerate=0; supported methods pass through as 1, silently."""
+    import warnings
+    import leafblower._harvest as _h
+
+    df, tgts = _make_fixture(n=200)
+    _orig_calibrate = _h.calibrate
+    captured = {}
+
+    def _mock_calibrate(n, K, w, gids, cats, tgts_, params, log_fn):
+        captured["accelerate"] = params["accelerate"]
+        weights = np.ones(n, dtype=np.float64)
+        result = {
+            "status": 0, "iterations": 1, "max_error": 0.0,
+            "algorithm_used": 0, "message": "", "n_bounds_violated": 0,
+            "n_bounds_clamped": 0, "mean_error": 0.0, "kl": 0.0, "chi2": 0.0,
+            "l1_weight_change": 0.0, "grake_norm": 0.0,
+            "convergence_metric": params["metric"], "convergence_rule": params["rule"],
+            "convergence_tol": params["pct_tol"], "convergence_iter": 1,
+            "convergence_solver_objective": 0.0,
+            "convergence_minimized_metric": params["metric"],
+            "best_error": 0.0, "best_iter": 1,
+            "sor_min_omega": 1.0, "sor_n_damped": 0,
+            "alm_capacity_mu_final": 0.0, "alm_n_growth_events": 0,
+            "alm_max_dual_norm": 0.0, "alm_sum_drift": 0.0,
+            "metric_first_check": 0.0, "metric_prev_check": 0.0, "prev_check_iter": 0,
+        }
+        return 0, weights, result
+
+    try:
+        _h.calibrate = _mock_calibrate
+
+        # (a) method='chebyshev' (unsupported): must warn AND downgrade accelerate to 0.
+        captured.clear()
+        with pytest.warns(UserWarning, match="accelerate=True is only supported"):
+            _h.harvest(df, tgts, method="chebyshev", accelerate=True,
+                       max_iterations=1, verbose=0, attach_weights=False)
+        assert captured.get("accelerate") == 0, (
+            f"chebyshev: expected accelerate downgraded to 0, got {captured.get('accelerate')}"
+        )
+
+        # (b) method='raking' (supported): no warning, accelerate passes through as 1.
+        captured.clear()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _h.harvest(df, tgts, method="raking", accelerate=True,
+                       max_iterations=1, verbose=0, attach_weights=False)
+        assert captured.get("accelerate") == 1, (
+            f"raking: expected accelerate=1 passed through, got {captured.get('accelerate')}"
+        )
+    finally:
+        _h.calibrate = _orig_calibrate
