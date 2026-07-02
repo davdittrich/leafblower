@@ -143,6 +143,41 @@ def test_logit_collinear_honest_stall_parity():
     )
 
 
+def test_logit_l1_and_objective_populated_eb79_20():
+    """eb79.20: logit populates l1_weight_change + convergence_solver_objective.
+
+    Before eb79.20 both stayed at struct defaults (l1_weight_change=0,
+    convergence_solver_objective=+inf sentinel from c_api.cpp:124). Now logit_calib.cpp
+    computes l1 = Sigma_i|w_out-w_in|/n and the midpoint-referenced Fermi-Dirac logit
+    distance D_L. Deterministic fixture bit-identical to R's test-logit.R eb79.20 case.
+    """
+    import pandas as pd
+    from leafblower import harvest
+    n = 400
+    a = ["x"] * 240 + ["y"] * 160
+    b = ["p" if (i % 100) < 60 else "q" for i in range(n)]
+    df = pd.DataFrame({"a": a, "b": b})
+    tg = {"a": {"x": 0.45, "y": 0.55}, "b": {"p": 0.45, "q": 0.55}}
+
+    r = harvest(df, tg, method="logit", min_weight=0.2, max_weight=5,
+                max_iterations=500, attach_weights=False)
+    result = r["result"]
+    w = r["weights"]
+    assert result["status"] == 0, f"skewed-feasible must converge, got {result['status']}"
+
+    # l1_weight_change = Sigma_i|Delta w|/n; design weights default to 1 (Sigma w=n).
+    l1 = result["l1_weight_change"]
+    assert np.isfinite(l1) and l1 > 0.0, f"l1_weight_change must be finite+positive, got {l1}"
+    assert abs(l1 - np.mean(np.abs(w - 1.0))) < 1e-6, (
+        f"l1_weight_change {l1} != mean(|w-1|) {np.mean(np.abs(w - 1.0))}")
+
+    # convergence_solver_objective = Sigma_c D_L(w_best[c]) >= 0; must have overwritten
+    # the +inf default (proves the field is now populated, not the c_api sentinel).
+    obj = result["convergence_solver_objective"]
+    assert np.isfinite(obj), f"convergence_solver_objective must be finite (was +inf), got {obj}"
+    assert obj >= 0.0, f"D_L is >= 0 (midpoint minimum), got {obj}"
+
+
 def _make_fixture(n=1000):
     """Balanced 2-level fixture for parity tests."""
     import pandas as pd

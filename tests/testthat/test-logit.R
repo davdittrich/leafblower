@@ -205,3 +205,28 @@ test_that("eb79.16: tight-but-feasible fixture converges (status=0, Sum(w)=n)", 
   expect_equal(r$status, 0L, label = "tight-but-feasible: status RK_OK=0")
   expect_equal(sum(w), n, tolerance = 1e-6)
 })
+
+test_that("eb79.20: logit populates l1_weight_change = mean(|w - 1|) (was struct default)", {
+  library(leafblower)
+  # Deterministic skewed-but-feasible fixture (no RNG) — bit-identical to the Python
+  # parity test (test_python.py test_logit_l1_and_objective_populated_eb79_20): data
+  # 60/40, targets 45/55 → calibration moves weights off the design value of 1, so
+  # l1_weight_change is strictly positive and the hand-check below is real (not 0==0).
+  n <- 400
+  data <- data.frame(
+    a = factor(c(rep("x", 240), rep("y", 160))),
+    b = factor(ifelse((seq_len(n) - 1L) %% 100L < 60L, "p", "q"))
+  )
+  target <- list(a = c(x = 0.45, y = 0.55), b = c(p = 0.45, q = 0.55))
+  w <- harvest(data, target, method = "logit", min_weight = 0.2, max_weight = 5,
+               max_iterations = 500L, attach_weights = FALSE)
+  r <- attr(w, "result")
+  expect_equal(r$status, 0L, label = "skewed-feasible: status RK_OK=0")
+
+  # l1_weight_change = Σ_i|Δw|/n. Default design weights are 1 (Σw=n), so the
+  # calibrated-minus-design L1 equals mean(|w - 1|). Was left at 0 (struct default)
+  # before eb79.20; now populated in logit_calib.cpp exit block.
+  expect_true(is.finite(r$l1_weight_change))
+  expect_gt(r$l1_weight_change, 0)                                   # weights actually moved
+  expect_equal(r$l1_weight_change, mean(abs(w - 1)), tolerance = 1e-6)
+})

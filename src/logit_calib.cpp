@@ -389,6 +389,27 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     res.base.chi2       = m_best.chi2;
     res.base.grake_norm = abs_grake;
 
+    // eb79.20: convergence_solver_objective = Σ_c D_L(w_best[c]), the midpoint-referenced
+    // Fermi-Dirac logit distance the solver actually minimizes. Its gradient
+    // log((w−L)/(U−w)) = z matches the forward map w = L + range·σ(z) (main loop above),
+    // so the reference is the MIDPOINT (σ(0)=½ ⇒ w=(L+U)/2), NOT X_init — the sigmoid
+    // carries no z_target offset (lambda_0=z_target is a warm start only). Closed form:
+    //   D_L(w) = range·[p·log p + (1−p)·log(1−p) + log2],  p = (w−L)/range ∈ [0,1]
+    // = range·(log2 − H(p)) ∈ [0, range·log2]; convex, 0 at the midpoint. Derivation
+    // independently verified (agy). select_solver_objective (calib_dispatch.hpp) does NOT
+    // cover logit (default branch returns NaN) — computed inline.
+    double solver_obj = 0.0;
+    for (int c = 0; c < M; c++) {
+        double range = U_cell[c] - L_cell[c];
+        if (range < 1e-12) continue;                  // degenerate L==U cell: contributes 0
+        double p = std::clamp((w_best[c] - L_cell[c]) / range, 0.0, 1.0);
+        double t = std::log(2.0);                     // log2 − H(½) = 0 at the midpoint
+        if (p > 1e-300)         t += p * std::log(p);           // x·log x → 0 as x → 0
+        if (1.0 - p > 1e-300)   t += (1.0 - p) * std::log(1.0 - p);
+        solver_obj += range * t;
+    }
+    res.base.convergence_solver_objective = solver_obj;
+
     // Weight reconstruction
     res.base.best_weights.resize(st.n);
     for (int i = 0; i < st.n; i++) {
@@ -397,6 +418,14 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             ? st.weights[i] * w_best[c] / X_init[c]
             : st.weights[i];
     }
+
+    // eb79.20: l1_weight_change = Σ_i|Δw|/n (leafblower.h:133), obs-level calibrated −
+    // input design weight. Both vectors are length st.n (obs-level) regardless of
+    // bounds_mode, so the n denominator is st.n unambiguously.
+    double l1_wc = 0.0;
+    for (int i = 0; i < st.n; i++)
+        l1_wc += std::fabs(res.base.best_weights[i] - st.weights[i]);
+    res.base.l1_weight_change = l1_wc / static_cast<double>(st.n);
 
     return res;
 }
