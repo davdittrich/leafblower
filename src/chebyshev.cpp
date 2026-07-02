@@ -95,6 +95,11 @@ ChebyshevResult chebyshev_ipm(
             }
     }
 
+    // Design cell masses (Σ_{i∈c} st.weights[i]) — the exit-expansion denominator.
+    // Populated only on the warm-start path, where the swap below overwrites X_init
+    // with warm masses; empty ⇒ no warm start ⇒ X_init still holds the design masses.
+    std::vector<double> X_design_agg;
+
     // Warm-start override: aggregate oris obs-level weights → cell masses,
     // then apply mass-preserving clamp (clamp → rescale → reclamp).
     if (!w_warm_obs.empty() && static_cast<int>(w_warm_obs.size()) == st.n) {
@@ -112,7 +117,8 @@ ChebyshevResult chebyshev_ipm(
             for (int c = 0; c < ct.M_cell; c++)
                 X_warm[c] = std::clamp(X_warm[c] * scale, L_cell[c], U_cell[c]);
         }
-        X_warm.swap(X_init);  // O(1) — X_init now holds warm-start masses
+        X_warm.swap(X_init);  // O(1) — X_init ← warm masses, X_warm ← design masses
+        X_design_agg = std::move(X_warm);  // keep design masses for the exit denom
     }
     // delta_warm is reserved for future use; do NOT apply directly as LP delta
     // (units differ from max_m |S[m]/W - T[m]| / w_kj[m]).
@@ -724,9 +730,15 @@ finalize:
     // finalize_weights helper (canonical oris_finalize contract). This is the
     // only exit path (early failures goto finalize above), so Σw=n now holds on
     // every path (xl44).
+    // Denominator MUST be the design cell mass Σ_{i∈c} st.weights[i]: st.weights
+    // still hold design weights, so mult = X_out/X_design gives Σ_{i∈c} w_i =
+    // X_out[c]. On the warm-start path X_init was overwritten with warm masses,
+    // so use the preserved design aggregate there (X_init[c]/X_warm[c] would
+    // return ≈ design weights, since a good warm start makes mult ≈ 1).
+    const std::vector<double>& X_den = X_design_agg.empty() ? X_init : X_design_agg;
     for (int i = 0; i < st.n; i++) {
         int c = ct.cell_of[i];
-        double mult = (X_init[c] > kEpsChebyshev) ? X_out[c]/X_init[c] : 1.0;
+        double mult = (X_den[c] > kEpsChebyshev) ? X_out[c]/X_den[c] : 1.0;
         st.weights[i] = st.weights[i] * mult;
     }
     int nbv = 0, nbc = 0;  // ChebyshevResult does not surface bounds diagnostics

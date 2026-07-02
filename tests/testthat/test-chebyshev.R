@@ -112,3 +112,45 @@ test_that("T_cheby_K9: chebyshev K=9 stepstone max_err <= greenkhorn", {
   expect_lte(me_c, me_g * 1.001 + 1e-10,
     label=sprintf("chebyshev (%.4e) must not exceed greenkhorn (%.4e)", me_c, me_g))
 })
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CR-A2 (mxcl.2): the returned per-obs weights must REALIZE the calibrated cell
+# masses X_out, i.e. Σ_{i∈c} w_i = X_out[c], so the achieved margins match the
+# reported metrics. The default chebyshev path warm-starts unconditionally
+# (r_bridge.cpp:738). The bug: X_warm.swap(X_init) (chebyshev.cpp:115) makes the
+# exit denominator the WARM masses while st.weights are still design weights, so
+# the exit mult = X_out/X_warm ≈ 1 returns ≈ the UNCALIBRATED design weights while
+# res$max_error (from X_out) reports calibrated quality — a silent mismatch.
+# Discriminator: recompute achieved margins from the RETURNED weights. Bug ⇒
+# ≈ design proportions (err ≈ |design−target|, large). Fix ⇒ ≈ target (err small,
+# matching res$max_error). Targets are chosen far from the design proportions.
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("chebyshev warm-start: returned weights realize the calibrated margins, not design (CR-A2)", {
+  set.seed(20260703)
+  n <- 800L
+  # Design proportions deliberately skewed FAR from the targets.
+  a <- factor(sample(c("A", "B", "C"), n, replace = TRUE, prob = c(0.60, 0.25, 0.15)))
+  b <- factor(sample(c("X", "Y"),      n, replace = TRUE, prob = c(0.70, 0.30)))
+  data <- data.frame(a = a, b = b)
+  target <- list(a = c(A = 0.40, B = 0.35, C = 0.25),
+                 b = c(X = 0.50, Y = 0.50))
+
+  w <- harvest(data, target, method = "chebyshev",
+               min_weight = 0.01, max_weight = 100,
+               attach_weights = FALSE, verbose = 0)
+  r <- attr(w, "result")
+  expect_equal(r$status, 0L, info = "chebyshev converges")
+
+  # Achieved margins recomputed from the RETURNED per-obs weights.
+  Wt <- sum(w)
+  ach_a <- tapply(w, data$a, sum)[names(target$a)] / Wt
+  ach_b <- tapply(w, data$b, sum)[names(target$b)] / Wt
+  achieved_err <- max(abs(ach_a - target$a), abs(ach_b - target$b))
+
+  # The returned weights must actually hit the targets (matching the reported
+  # metric); the design proportions are ~0.2 away, so the bug fails this hard.
+  expect_lt(achieved_err, 1e-3)
+  # And the returned-weight error must agree with the reported X_out error.
+  expect_lt(abs(achieved_err - r$max_error), 1e-3)
+})
