@@ -95,6 +95,16 @@ def test_sor_omega_mode_id_bad_string_raises():
         _parse_sor({"omega_mode_id": "bogus"})
 
 
+def test_empty_data_raises():
+    """eb79.12: empty data must fail fast, matching R harvest.R:420-421."""
+    import pandas as pd
+    from leafblower import harvest
+    df = pd.DataFrame({"x": pd.Series([], dtype=str)})
+    tgts = {"x": {"a": 0.5, "b": 0.5}}
+    with pytest.raises(ValueError, match="must be a non-empty"):
+        harvest(df, tgts)
+
+
 def _make_fixture(n=1000):
     """Balanced 2-level fixture for parity tests."""
     import pandas as pd

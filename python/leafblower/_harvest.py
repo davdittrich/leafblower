@@ -359,6 +359,8 @@ def harvest(
         raise TypeError("data must be a dict when pandas is not installed")
 
     n = len(data)
+    if n == 0:  # mirror R harvest.R:420-421
+        raise ValueError("leafblower: 'data' must be a non-empty data.frame")
 
     # Method mapping
     method_lc = method.lower()
