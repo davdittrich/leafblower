@@ -11,8 +11,21 @@
 #include <numeric>
 #ifndef LBW_NO_R
 #  include <R_ext/Print.h>
+#  include <R_ext/Lapack.h>
+#  include <R_ext/RS.h>     // F77_CALL
+#  ifndef FCONE
+#    define FCONE
+#  endif
 #else
 #  define Rprintf(...) fprintf(stderr, __VA_ARGS__)
+// System LAPACK declaration for the Python build (eb79.18 min-norm warm-start).
+extern "C" {
+    void dsyevd_(const char* jobz, const char* uplo, int* n, double* A, int* lda,
+                 double* w, double* work, int* lwork, int* iwork,
+                 int* liwork, int* info);
+}
+#  define F77_CALL(x) x ## _
+#  define FCONE
 #endif
 
 namespace lbw {
@@ -118,21 +131,62 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             for (int j = 0; j < st.cat_counts[k]; j++)
                 for (int c : cells_per_cat[k][j])
                     b_init[cat_offset[k] + j] += z_target[c];
-        // Normal equations with D_eff=1 (uniform: purely geometric initialization)
+        // Normal equations with D_eff=1 (uniform: purely geometric initialization).
+        // N_init = A·A^T is rank-deficient when margins are collinear/redundant
+        // (rank < nct). eb79.18: solve (AA^T)λ0 = b_init via a MIN-NORM pseudo-inverse
+        // (symmetric eigendecomposition, dsyevd), NOT ridge-Cholesky. The old ridge
+        // solve put ≈z_target on EACH redundant dual, so z_c = Σ_k λ0[k] summed the
+        // SAME z_target over the R redundant margins ⇒ z_c = R·z_target ⇒ σ→0 ⇒ every
+        // cell collapsed to L at iter 0 ⇒ D_eff floor ⇒ non-descent Newton ⇒ STALL
+        // (verified: eb79.18 WU1 trace — max|λ0|=2.303=|z_target|, w=[L,L], resid≈90).
+        // The min-norm solution distributes z_target across the redundant duals (each
+        // = z_target/R), so z_c = z_target and the start sits at the feasible design
+        // point. Exact (residual-0) start holds iff z_target ∈ range(A^T); otherwise
+        // this is the best L2 projection — still a bounded, well-conditioned start.
         std::vector<double> D_ones(M, 1.0);
-        std::vector<double> N_init(nct * nct, 0.0);
+        std::vector<double> N_init(static_cast<size_t>(nct) * nct, 0.0);
         if (compute_normal_equations(ct, D_ones.data(), N_init.data(),
-                                     cat_offset.data(), K, (size_t)nct) == RK_OK &&
-            cholesky_factor_inplace(N_init.data(), (size_t)nct, 1e-10) == RK_OK) {
-            cholesky_solve(N_init.data(), (size_t)nct, b_init.data());
-            // Sanity: ill-conditioned AA^T (redundant margins) can produce huge lambda_0
-            // which saturates all cells and makes the main Newton step degenerate.
-            // Reject if any component exceeds 10 (z_c shifts >10*K would saturate sigma).
-            double max_lambda_init = 0.0;
-            for (double lj : b_init) max_lambda_init = std::max(max_lambda_init, std::abs(lj));
-            if (max_lambda_init <= kLambdaInitRejectAbs) lambda = std::move(b_init);
+                                     cat_offset.data(), K, (size_t)nct) == RK_OK) {
+            // Symmetric eigendecomposition N_init = V diag(σ) V^T. dsyevd overwrites
+            // N_init with V (column-major: V[:,i] = N_init[i*nct .. i*nct+nct-1]);
+            // eigvals ascending in `eigvals`.
+            std::vector<double> eigvals(nct, 0.0);
+            int dsy_n = nct, dsy_lda = nct, dsy_info = 0;
+            double wkopt = 0.0; int iwkopt = 0, lwork = -1, liwork = -1;
+            F77_CALL(dsyevd)("V", "U", &dsy_n, N_init.data(), &dsy_lda, eigvals.data(),
+                             &wkopt, &lwork, &iwkopt, &liwork, &dsy_info FCONE FCONE);
+            if (dsy_info == 0) {
+                lwork = static_cast<int>(wkopt); liwork = iwkopt;
+                std::vector<double> work(std::max(1, lwork));
+                std::vector<int>    iwork(std::max(1, liwork));
+                F77_CALL(dsyevd)("V", "U", &dsy_n, N_init.data(), &dsy_lda, eigvals.data(),
+                                 work.data(), &lwork, iwork.data(), &liwork, &dsy_info FCONE FCONE);
+            }
+            if (dsy_info == 0 && eigvals[nct - 1] > 0.0) {
+                // Min-norm pseudo-inverse: λ0 = Σ_{σ_i > tol} (v_i^T b_init / σ_i) v_i.
+                // tol = kEigRankRtol·σ_max separates the true spectrum from the
+                // rank-deficiency null space (machine-noise eigenvalues ~1e-13·σ_max).
+                // 1e-10 is a conservative double-precision rank cutoff (well above FP
+                // noise, well below any genuine eigenvalue of a scaled A·A^T).
+                constexpr double kEigRankRtol = 1e-10;
+                const double tol = kEigRankRtol * eigvals[nct - 1];
+                std::vector<double> lam0(nct, 0.0);
+                for (int i = 0; i < nct; i++) {
+                    if (eigvals[i] <= tol) continue;              // null-space direction
+                    const double* v = &N_init[static_cast<size_t>(i) * nct];
+                    double vtb = 0.0;
+                    for (int r = 0; r < nct; r++) vtb += v[r] * b_init[r];
+                    const double coef = vtb / eigvals[i];
+                    for (int r = 0; r < nct; r++) lam0[r] += coef * v[r];
+                }
+                // Backstop: reject a still-pathological λ0 (min-norm should not trip
+                // this on consistent problems) — lambda stays zero, Armijo handles it.
+                double max_lambda_init = 0.0;
+                for (double lj : lam0) max_lambda_init = std::max(max_lambda_init, std::abs(lj));
+                if (max_lambda_init <= kLambdaInitRejectAbs) lambda = std::move(lam0);
+            }
         }
-        // if factor fails or lambda_0 is ill-conditioned: lambda stays zero (Armijo handles it)
+        // if eigendecomposition fails or λ0 is ill-conditioned: lambda stays zero.
     }
 
     // Armijo scratch buffers (pre-allocated to avoid per-halving allocation)

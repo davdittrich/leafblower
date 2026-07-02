@@ -105,16 +105,16 @@ def test_empty_data_raises():
         harvest(df, tgts)
 
 
-def test_logit_collinear_honest_stall_parity():
-    """eb79.16: collinear logit fixture must report honest infeasibility.
+def test_logit_collinear_consistent_converges_parity():
+    """eb79.18: consistent collinear logit fixture converges to the feasible optimum.
 
-    Mirrors R's tests/testthat/test-logit.R eb79.16 collinear case (seed 23,
-    n=200, min_weight=0.1, 6 collinear margins). Before eb79.16 the scale-blind
-    proportion metric certified this rank-deficient stall as status=0/
-    max_error=0 in BOTH R and Python. The absolute-count convergence gate now
-    refuses to declare success on a violated absolute constraint, so status is
-    honestly STALL/INFEAS (!= 0) and the reported max_error reflects the real
-    ~0.45 violation — matching R, not a silent success.
+    Mirrors R's tests/testthat/test-logit.R eb79.18 collinear case (seed 23,
+    n=200, min_weight=0.1, 6 collinear margins). base/base2 each split 50/50, so
+    w==1 satisfies all 6 redundant margins with Sum(w)==n. E1 (eb79.16) made the
+    rank-deficient collapse an HONEST stall; E2 (eb79.18) replaced the ridge-
+    Cholesky warm-start with a min-norm dsyevd pseudo-inverse, so logit now starts
+    at the feasible design point and converges there (status=0, Sum(w)=n) —
+    matching raking/oris and the R side (R/Python parity).
     """
     import pandas as pd
     from leafblower import harvest
@@ -133,14 +133,36 @@ def test_logit_collinear_honest_stall_parity():
     r = harvest(df, tg, method="logit", min_weight=0.1, max_weight=10,
                 max_iterations=500, attach_weights=False)
     result = r["result"]
+    w = r["weights"]
+    assert result["status"] == 0, (
+        f"consistent collinear must converge (eb79.18), got status={result['status']}"
+    )
+    assert abs(w.sum() - n) < 1e-6, f"Sum(w) must equal n={n}, got {w.sum()}"
+    assert result["max_error"] < 1e-6, (
+        f"all margins met in absolute space, got max_error={result['max_error']:.4g}"
+    )
+
+
+def test_logit_collinear_inconsistent_stays_infeasible():
+    """eb79.18: INCONSISTENT redundant margins must stay honestly STALL/INFEAS.
+
+    Same variable with contradictory targets (0.5/0.5 vs 0.8/0.2) — genuinely
+    infeasible. The min-norm warm-start must not let projection-onto-range be
+    misread as convergence.
+    """
+    import pandas as pd
+    from leafblower import harvest
+    n = 200
+    base = ["A"] * (n // 2) + ["B"] * (n // 2)
+    df = pd.DataFrame({"v1": base, "v2": base})
+    tg = {"v1": {"A": 0.5, "B": 0.5}, "v2": {"A": 0.8, "B": 0.2}}
+    r = harvest(df, tg, method="logit", min_weight=0.1, max_weight=10,
+                max_iterations=500, attach_weights=False)
+    result = r["result"]
     assert result["status"] != 0, (
-        f"collinear logit fixture must honestly STALL/INFEAS, got status="
-        f"{result['status']} (scale-blind silent success regressed)"
+        f"inconsistent collinear must STALL/INFEAS, got status={result['status']}"
     )
-    assert result["max_error"] > 0.1, (
-        f"collinear logit fixture max_error must reflect the real ~0.45 "
-        f"violation, got {result['max_error']:.4g} (scale-blind 0 regressed)"
-    )
+    assert result["max_error"] > 0.05
 
 
 def test_logit_l1_and_objective_populated_eb79_20():

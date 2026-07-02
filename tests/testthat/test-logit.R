@@ -87,9 +87,10 @@ test_that("eb79.3: collinear K>=6 fixture — no λ null-space blowup (agy RISK)
   base <- factor(c(rep("A", n/2), rep("B", n/2)))
   base2 <- factor(rep(c("P", "Q", "P", "Q"), length.out = n))  # 50/50, orthogonal-ish to base
   # 6 margins, deliberately rank-deficient: v1..v3 are identical copies of base
-  # (perfectly collinear), v4..v6 identical copies of base2 → AA^T is rank-2 but
-  # embedded in a 12-column dual space, i.e. a large null space. This is exactly
-  # the setting the signed-Δz cap could expose to dual drift.
+  # (perfectly collinear), v4..v6 identical copies of base2 → AA^T is rank-3
+  # (basis {1_A,1_B,1_P,1_Q} with the single dependency 1_A+1_B=1_P+1_Q=𝟙) embedded
+  # in a 12-column dual space, i.e. a large null space. This is exactly the setting
+  # the signed-Δz cap could expose to dual drift.
   data <- data.frame(
     v1 = base, v2 = base, v3 = base,
     v4 = base2, v5 = base2, v6 = base2
@@ -109,23 +110,20 @@ test_that("eb79.3: collinear K>=6 fixture — no λ null-space blowup (agy RISK)
   expect_true(all(w >= 0.1 - 1e-9 & w <= 10 + 1e-9),
               label = "collinear fixture: weights within bounds (no null-space λ drift blowup)")
 
-  # This fully-collinear fixture is DEGENERATE for the logit link: the solver
-  # settles to all weights at min_weight (z_c -> -inf) in 1 iteration, which
-  # preserves each margin as a PROPORTION (0.5/0.5) but leaves Sum(w) != n. That
-  # is a pre-existing logit behavior (tracked separately — see epic eb79), NOT a
-  # product of the signed-Δz change, so we do NOT assert Sum(w)==n here.
-  #
-  # eb79.16: collinear result was always infeasible; status now honestly reports
-  # STALL. Pre-fix the scale-blind proportion metric certified this
-  # rank-deficient stall as status=0/max_error=0. The absolute-count convergence
-  # gate now refuses to declare success on a violated absolute constraint (the
-  # true margin residual is ~90 counts, ~0.45 in proportion units), so status is
-  # honestly STALL/INFEAS (!= 0). The finite + in-bounds guards above still hold.
-  expect_true(r$status != 0L,
-    label = "collinear fixture: honest STALL/INFEAS (was misreported status=0 pre-eb79.16)")
-  # The honest reported error reflects the true absolute-count violation, not 0.
-  expect_true(r$max_error > 0.1,
-    label = "collinear fixture: reported max_error reflects real violation (~0.45), not 0")
+  # This fully-collinear fixture is CONSISTENT and feasible: base and base2 each
+  # split 50/50, so the design weights (w == 1) already satisfy all 6 redundant
+  # margins with Sum(w) == n. eb79.18 (E2) replaced the rank-deficient ridge-
+  # Cholesky warm-start with a MIN-NORM (dsyevd) pseudo-inverse, which distributes
+  # z_target across the redundant duals (each = z_target/R) instead of summing R
+  # copies of z_target. logit now starts at the feasible design point and
+  # converges to it — matching raking/oris — rather than collapsing every cell to
+  # min_weight (the pre-eb79.18 STALL). E1 (eb79.16) had made that collapse an
+  # HONEST failure (status!=0); E2 makes the consistent case SUCCEED.
+  expect_equal(r$status, 0L,
+    label = "collinear (consistent): converges to feasible optimum (eb79.18 E2)")
+  expect_equal(sum(w), n, tolerance = 1e-6)
+  # Every margin met in absolute-count space (design weights w==1 are optimal).
+  expect_lt(r$max_error, 1e-6)
 })
 
 # ---------------------------------------------------------------------------
@@ -135,7 +133,7 @@ test_that("eb79.3: collinear K>=6 fixture — no λ null-space blowup (agy RISK)
 # total n, not the current weight sum. kl/chi2 stay proportion-space.
 # ---------------------------------------------------------------------------
 
-test_that("eb79.16: collinear fixture reports honest infeasibility (status != 0, max_error > 0.1)", {
+test_that("eb79.18: consistent collinear fixture converges to the feasible optimum (Sum(w)==n)", {
   library(leafblower)
   set.seed(23)
   n <- 200
@@ -154,9 +152,53 @@ test_that("eb79.16: collinear fixture reports honest infeasibility (status != 0,
                max_iterations = 500L, attach_weights = FALSE)
   r <- attr(w, "result")
 
-  expect_true(r$status != 0L, label = "collinear: honest STALL/INFEAS")
-  expect_true(r$max_error > 0.1,
-              label = "collinear: absolute-space max_error ~0.45, not scale-blind 0")
+  # E1 (eb79.16) made the rank-deficient collapse an honest STALL; E2 (eb79.18)
+  # makes the CONSISTENT collinear case succeed: the min-norm dsyevd warm-start
+  # starts at the feasible design point (w==1 satisfies all 6 redundant margins,
+  # Sum(w)==n) and converges there — matching raking/oris.
+  expect_equal(r$status, 0L, label = "consistent collinear: converges (eb79.18 E2)")
+  expect_equal(sum(w), n, tolerance = 1e-6)
+  expect_lt(r$max_error, 1e-6)
+})
+
+test_that("eb79.18: INCONSISTENT redundant margins stay honestly infeasible (STALL, not false success)", {
+  library(leafblower)
+  set.seed(23)
+  n <- 200
+  base <- factor(c(rep("A", n/2), rep("B", n/2)))
+  # v1 and v2 are the SAME variable (base) with CONTRADICTORY targets: 0.5/0.5 vs
+  # 0.8/0.2. No weighting can satisfy both — genuinely infeasible. The min-norm
+  # warm-start must NOT let projection-onto-range be misread as convergence.
+  data <- data.frame(v1 = base, v2 = base)
+  target <- list(v1 = c(A = 0.5, B = 0.5), v2 = c(A = 0.8, B = 0.2))
+
+  w <- suppressWarnings(harvest(data, target, method = "logit", min_weight = 0.1,
+               max_weight = 10, max_iterations = 500L, attach_weights = FALSE))
+  r <- attr(w, "result")
+  expect_true(r$status != 0L, label = "inconsistent collinear: honest STALL/INFEAS")
+  expect_gt(r$max_error, 0.05)
+})
+
+test_that("eb79.18: consistent collinear with HETEROGENEOUS design weights still reaches feasibility", {
+  library(leafblower)
+  set.seed(23)
+  n <- 200
+  base <- factor(c(rep("A", n/2), rep("B", n/2)))
+  base2 <- factor(rep(c("P", "Q", "P", "Q"), length.out = n))
+  data <- data.frame(v1 = base, v2 = base, v3 = base2, v4 = base2)
+  target <- list(v1 = c(A = 0.5, B = 0.5), v2 = c(A = 0.5, B = 0.5),
+                 v3 = c(P = 0.5, Q = 0.5), v4 = c(P = 0.5, Q = 0.5))
+  # Heterogeneous per-obs design weights ⇒ z_target is NOT constant across cells,
+  # so min-norm gives the best L2 projection rather than an exact iter-0 solution.
+  # It must still reach the feasible optimum (Sum(w)==sum(base_w), margins met).
+  base_w <- runif(n, 0.5, 2.0)
+  w <- suppressWarnings(harvest(data, target, method = "logit", weights = base_w,
+               min_weight = 0.05, max_weight = 20, max_iterations = 500L,
+               attach_weights = FALSE))
+  r <- attr(w, "result")
+  # Feasible (consistent) redundant margins: solver must converge, not STALL.
+  expect_equal(r$status, 0L, label = "heterogeneous consistent collinear: converges (eb79.18)")
+  expect_lt(r$max_error, 1e-4)
 })
 
 test_that("eb79.16: non-default convergence cfg on a feasible fixture still converges (no spurious STALL)", {
