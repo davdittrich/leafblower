@@ -23,6 +23,15 @@
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
+#include <type_traits>
+
+// eb79.25: detect a top-level `message` member on a solver result type. Some result
+// structs (RakingResult, ORISResult) have NO message field, so pack_solver_result (a
+// generic lambda instantiated over all result types) must gate the message capture with
+// `if constexpr (has_message<T>::value)` to compile for every instantiation.
+template <class T, class = void> struct has_message : std::false_type {};
+template <class T>
+struct has_message<T, std::void_t<decltype(std::declval<T&>().message)>> : std::true_type {};
 
 static inline double scalar_real(SEXP x, const char* name) {
     if (TYPEOF(x) != REALSXP || LENGTH(x) != 1)
@@ -410,6 +419,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     double res_max_error  = 1.0;
     int    res_alg_used   = (int)RK_ALG_ORIS;
     char   res_message[256] = "";
+    char   res_solver_message[256] = "";  // eb79.25: captured solver res.message (error statuses)
     int    res_n_xcur_writes = 0;
     double res_min_alpha  = 1.0;
     double res_final_alpha = 1.0;
@@ -482,6 +492,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_metric_prev_check        = res.base.metric_prev_check;
         res_prev_check_iter          = res.base.prev_check_iter;
         res_stall_kind               = res.base.stall_kind;
+        // eb79.25: capture the solver's own message (top-level field on message-bearing
+        // result types; RakingResult/ORISResult have none → skipped via has_message).
+        // UNCONDITIONAL overwrite (with else-clear): the LAST pack call wins, always the
+        // winning solver whose res_status is set at the same dispatch site → no stale
+        // message (esp. in the auto-fallback where fb supersedes the primary).
+        if constexpr (has_message<std::decay_t<decltype(res)>>::value)
+            std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", res.message);
+        else
+            res_solver_message[0] = '\0';
     };
 
     std::string solver_error;
@@ -841,8 +860,17 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     const char* alg_name_cstr = (res_alg_used >= 0 && res_alg_used < kAlgNamesLen)
         ? kAlgNames[res_alg_used]
         : "unknown";
-    std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
-                  alg_name_cstr, res_iterations, res_max_error);
+    // eb79.25: for ERROR statuses, surface the solver's own message (e.g. logit's
+    // structural-INFEAS margin name, a specific BADARG reason) when it set one — instead
+    // of the generic 'alg: N iters, max_error' summary that discarded it. Empty-message
+    // error paths (sinkhorn/greg INFEAS/BADARG) and non-error statuses keep the summary.
+    if ((res_status == RK_ERR_INFEAS || res_status == RK_ERR_BADARG)
+        && res_solver_message[0] != '\0') {
+        std::snprintf(res_message, 256, "%s", res_solver_message);
+    } else {
+        std::snprintf(res_message, 256, "%s: %d iters, max_error=%.2e",
+                      alg_name_cstr, res_iterations, res_max_error);
+    }
 
     // greenkhorn and logit do not modify st.weights in-place; copy calibrated
     // weights into the weights vector so raw$weights in harvest.R is correct.

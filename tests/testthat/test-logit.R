@@ -347,3 +347,27 @@ test_that("eb79.23: feasible / borderline-corner logit NOT flagged infeasible (n
   expect_true(attr(w, "result")$status %in% c(0L, 4L, 5L),
               label = "feasible/corner NOT flagged INFEAS(2)/BADARG(3)")
 })
+
+
+test_that("eb79.25: R surfaces logit structural-INFEAS margin-named message (not the generic summary)", {
+  library(leafblower)
+  # eb79.23 made logit report RK_ERR_INFEAS with a margin-named message on structurally-
+  # infeasible bounds; that message reached Python but NOT R, because r_bridge reconstructed a
+  # generic 'alg: N iters, max_error' summary for every solver (discarding res.message). eb79.25
+  # captures res.message in pack_solver_result and surfaces it for error statuses. R now shows
+  # the margin name (parity with Python). (The BADARG branch shares the same code path; logit's
+  # own BADARGs are pre-validated by harvest.R before the C layer, so this asserts the INFEAS win.)
+  set.seed(41); n <- 400
+  av <- factor(sample(c("x", "y"), n, TRUE, prob = c(0.8, 0.2)))
+  bv <- factor(sample(c("p", "q"), n, TRUE, prob = c(0.75, 0.25)))
+  d <- data.frame(a1 = av, a2 = av, a3 = av, a4 = av, b = bv)
+  t <- list(a1 = c(x = 0.4, y = 0.6), a2 = c(x = 0.4, y = 0.6),
+            a3 = c(x = 0.4, y = 0.6), a4 = c(x = 0.4, y = 0.6), b = c(p = 0.5, q = 0.5))
+  msg <- tryCatch(
+    harvest(d, t, method = "logit", min_weight = 0.1, max_weight = 1.5,
+            max_iterations = 50L, attach_weights = FALSE),
+    error = function(e) conditionMessage(e))
+  expect_true(grepl("infeasible", msg), label = "R INFEAS message names the failure")
+  expect_true(grepl("margin", msg), label = "R INFEAS message names the margin (eb79.25)")
+  expect_false(grepl("iters, max_error", msg), label = "NOT the generic reconstructed summary")
+})
