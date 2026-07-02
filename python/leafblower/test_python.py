@@ -105,6 +105,44 @@ def test_empty_data_raises():
         harvest(df, tgts)
 
 
+def test_logit_collinear_honest_stall_parity():
+    """eb79.16: collinear logit fixture must report honest infeasibility.
+
+    Mirrors R's tests/testthat/test-logit.R eb79.16 collinear case (seed 23,
+    n=200, min_weight=0.1, 6 collinear margins). Before eb79.16 the scale-blind
+    proportion metric certified this rank-deficient stall as status=0/
+    max_error=0 in BOTH R and Python. The absolute-count convergence gate now
+    refuses to declare success on a violated absolute constraint, so status is
+    honestly STALL/INFEAS (!= 0) and the reported max_error reflects the real
+    ~0.45 violation — matching R, not a silent success.
+    """
+    import pandas as pd
+    from leafblower import harvest
+    n = 200
+    base = ["A"] * (n // 2) + ["B"] * (n // 2)
+    base2 = [["P", "Q", "P", "Q"][i % 4] for i in range(n)]
+    df = pd.DataFrame({
+        "v1": base, "v2": base, "v3": base,
+        "v4": base2, "v5": base2, "v6": base2,
+    })
+    tgt_ab = {"A": 0.5, "B": 0.5}
+    tgt_pq = {"P": 0.5, "Q": 0.5}
+    tg = {"v1": tgt_ab, "v2": tgt_ab, "v3": tgt_ab,
+          "v4": tgt_pq, "v5": tgt_pq, "v6": tgt_pq}
+
+    r = harvest(df, tg, method="logit", min_weight=0.1, max_weight=10,
+                max_iterations=500, attach_weights=False)
+    result = r["result"]
+    assert result["status"] != 0, (
+        f"collinear logit fixture must honestly STALL/INFEAS, got status="
+        f"{result['status']} (scale-blind silent success regressed)"
+    )
+    assert result["max_error"] > 0.1, (
+        f"collinear logit fixture max_error must reflect the real ~0.45 "
+        f"violation, got {result['max_error']:.4g} (scale-blind 0 regressed)"
+    )
+
+
 def _make_fixture(n=1000):
     """Balanced 2-level fixture for parity tests."""
     import pandas as pd

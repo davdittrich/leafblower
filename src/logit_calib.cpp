@@ -314,7 +314,23 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         double W_total = 0.0;
         for (int c = 0; c < M; c++) W_total += w[c];
         lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, w, W_total, bucket_scratch);
-        bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs);
+        // eb79.16: gate on the ABSOLUTE-count residual (the quantity Newton minimizes)
+        // in addition to the proportion metric. compute_cell_metrics normalizes by the
+        // current total W (scale-blind), so it certifies a rank-deficient stall — all
+        // weights at min, absolute margin violation ~90 — as max_error=0. Recompute the
+        // residual FRESH from the post-step w[] (b was overwritten by cholesky_solve into
+        // delta_lambda; the max_b tracker at iter-top is one iteration lagged).
+        double max_abs_resid = 0.0;
+        for (int k = 0; k < K; k++) {
+            for (int j = 0; j < st.cat_counts[k]; j++) {
+                double target = st.targets[k][j] * static_cast<double>(st.n);
+                double S_kj = 0.0;
+                for (int c : cells_per_cat[k][j]) S_kj += w[c];
+                max_abs_resid = std::max(max_abs_resid, std::fabs(target - S_kj));
+            }
+        }
+        bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs)
+                         && (max_abs_resid <= st.tol_abs * static_cast<double>(st.n));
         if (converged) {
             lbw::mark_converged(res, cfg, iter + 1);
             w_best = w;
@@ -337,12 +353,41 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     double W_best = 0.0;
     for (int c = 0; c < M; c++) W_best += w_best[c];
     lbw::CellMetrics m_best = lbw::compute_cell_metrics(st, ct, w_best, W_best, bucket_scratch);
-    res.base.max_error  = m_best.errRp;
-    res.base.best_error = m_best.errRp;
-    res.base.mean_error = m_best.mean_err;
+    // eb79.16: recompute the RESIDUAL-class reported fields in ABSOLUTE-count space
+    // (pop = targets[k][j]*n, NOT *W). compute_cell_metrics normalizes by the current
+    // total W, so on a rank-deficient stall it reports max_error=0 despite a large true
+    // margin violation. Mirror EXACTLY the per-metric aggregation compute_cell_metrics
+    // uses, only against the true target total n:
+    //   errRp     -> MAX over all (k,j) of r_kj                       (max_error/best_error)
+    //   mean_err  -> MEAN over K margins of (MAX over j within margin) of r_kj
+    //   grake     -> MAX over all (k,j) of r_kj / (1 + targets*n)
+    // where r_kj = |targets[k][j]*n - Σ_{c in bucket} w_best[c]|.
+    // kl and chi2 are proportion-space divergence metrics (compare probability mass) —
+    // legitimately scale-relative — so they are LEFT UNCHANGED from compute_cell_metrics.
+    const double n_d = static_cast<double>(st.n);
+    double abs_max      = 0.0;   // errRp analogue: global MAX of r_kj
+    double abs_mean_sum = 0.0;   // mean_err analogue: sum over margins of per-margin MAX
+    double abs_grake    = 0.0;   // grake_norm analogue: global MAX of normalized r_kj
+    for (int k = 0; k < K; k++) {
+        double max_k = 0.0;      // per-margin MAX over categories (mirror compute_cell_metrics)
+        for (int j = 0; j < st.cat_counts[k]; j++) {
+            double pop = st.targets[k][j] * n_d;
+            double S_kj = 0.0;
+            for (int c : cells_per_cat[k][j]) S_kj += w_best[c];
+            double r_kj = std::fabs(pop - S_kj);
+            if (r_kj > max_k)   max_k = r_kj;
+            if (r_kj > abs_max) abs_max = r_kj;
+            double nm = r_kj / (1.0 + std::fabs(pop));
+            if (nm > abs_grake) abs_grake = nm;
+        }
+        abs_mean_sum += max_k;
+    }
+    res.base.max_error  = abs_max / n_d;
+    res.base.best_error = abs_max / n_d;
+    res.base.mean_error = (K > 0) ? (abs_mean_sum / static_cast<double>(K)) / n_d : 0.0;
     res.base.kl         = m_best.kl;
     res.base.chi2       = m_best.chi2;
-    res.base.grake_norm = m_best.grake_norm;
+    res.base.grake_norm = abs_grake;
 
     // Weight reconstruction
     res.base.best_weights.resize(st.n);

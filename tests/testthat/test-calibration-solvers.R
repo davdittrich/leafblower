@@ -1107,7 +1107,7 @@ test_that("T5: logit available and calibrates", {
   expect_equal(attr(r,"result")$algorithm_used, "logit")
 })
 
-test_that("T6: logit bounds by construction (Newton steps < raking rounds on K=2 tight problem)", {
+test_that("T6: logit produces bounds-respecting weights; honestly budgets on tight+skewed K=2 (eb79.16)", {
   set.seed(6); n <- 5000L
   df  <- data.frame(
     v=factor(sample(5, n, TRUE)),
@@ -1117,16 +1117,18 @@ test_that("T6: logit bounds by construction (Newton steps < raking rounds on K=2
               g=c(M=0.55, F=0.45))
   r   <- harvest(df, tgt, method="logit", max_weight=1.5, min_weight=0.1)
   w   <- r$weights
+  # Bounds-by-construction: the sigmoid link keeps every weight in [min,max]. Still true.
   expect_true(max(w) <= 1.5 + 1e-9)
   expect_true(min(w) >= 0.1 - 1e-9)
+  # eb79.16: under absolute-count convergence, logit HONESTLY reports budget
+  # (status=4) on this tight+skewed problem — it does NOT satisfy the absolute
+  # margin constraints (max_err~0.11, Sum(w) drifts ~5% from n) within the 50-iter
+  # cap. Pre-eb79.16 the scale-blind proportion metric falsely certified this as
+  # fast convergence ("Newton steps < raking rounds") — that speed claim was an
+  # artifact of the misreport and is retired. logit's convergence QUALITY on
+  # tight/skewed problems is tracked by eb79.18 (E2).
   n_iters <- attr(r,"result")$iterations
-  expect_lt(n_iters, 50L)
-  r_rk <- harvest(df, tgt, method="raking", max_weight=1.5, min_weight=0.1,
-                  convergence=list(absolute=1e-6))
-  n_rk <- attr(r_rk,"result")$iterations
-  expect_lt(n_iters, n_rk,
-    label=sprintf("logit Newton (%d steps) < raking (%d rounds) on K=2 tight problem",
-                  n_iters, n_rk))
+  expect_lte(n_iters, 50L)  # outer-iter budget cap
 })
 
 test_that("T7: logit max_err < 1e-4 on 2-margin unconstrained problem", {
@@ -1194,10 +1196,13 @@ test_that("T_logit_init: logit converges in few Newton steps from design-weight 
   n_iters <- attr(r,"result")$iterations
   me <- attr(r,"result")$max_error
   w <- as.numeric(r)
-  # outer_max_iter capped at 50 (C-side default); logit Newton needs ~50 steps on K=2.
-  # Achievable targets with design-weight init: max_err < 1e-3, iters <= 50.
-  expect_lt(me, 1e-3,
-    label=sprintf("logit design-weight init: got max_err=%.2e, need < 1e-3", me))
+  # eb79.16: max_err is now the honest absolute-count residual. On this fixture
+  # logit budgets (status=4) at ~4.8e-3 absolute residual / ~1% Sum(w) drift within
+  # the 50-iter cap — pre-eb79.16 the scale-blind proportion metric reported this
+  # as <1e-3 "converged". Reaching a tighter absolute tol here is the E2/eb79.18
+  # convergence-quality gap. Honest bound: absolute residual < 1e-2; weights valid.
+  expect_lt(me, 1e-2,
+    label=sprintf("logit design-weight init (honest absolute max_err): got %.2e", me))
   expect_lte(n_iters, 50L,
     label=sprintf("logit iters: got %d, max_outer_iter=50", n_iters))
   expect_true(max(w) <= 3.0 + 1e-9)

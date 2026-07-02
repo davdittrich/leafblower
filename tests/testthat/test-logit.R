@@ -115,13 +115,93 @@ test_that("eb79.3: collinear K>=6 fixture — no λ null-space blowup (agy RISK)
   # is a pre-existing logit behavior (tracked separately — see epic eb79), NOT a
   # product of the signed-Δz change, so we do NOT assert Sum(w)==n here.
   #
-  # agy RISK closure (orchestrator, independent pre/post-fix builds on this exact
-  # fixture): results are BYTE-IDENTICAL — pre-fix and post-fix both give
-  #   status=0, iters=1, sum_w=20.00, min_w=max_w=0.1.
-  # Signed-Δz does not alter collinear behavior, so no null-space λ drift is
-  # introduced and no auxiliary per-margin cap is needed. The finite + in-bounds
-  # guards above are the observable proxy for "no catastrophic cancellation".
-  expect_equal(r$status, 0L,
-    label = "collinear fixture: solver still exits cleanly (no NaN/divergence)")
-  expect_equal(r$status, 0L, label = "collinear fixture must converge (RK_OK=0)")
+  # eb79.16: collinear result was always infeasible; status now honestly reports
+  # STALL. Pre-fix the scale-blind proportion metric certified this
+  # rank-deficient stall as status=0/max_error=0. The absolute-count convergence
+  # gate now refuses to declare success on a violated absolute constraint (the
+  # true margin residual is ~90 counts, ~0.45 in proportion units), so status is
+  # honestly STALL/INFEAS (!= 0). The finite + in-bounds guards above still hold.
+  expect_true(r$status != 0L,
+    label = "collinear fixture: honest STALL/INFEAS (was misreported status=0 pre-eb79.16)")
+  # The honest reported error reflects the true absolute-count violation, not 0.
+  expect_true(r$max_error > 0.1,
+    label = "collinear fixture: reported max_error reflects real violation (~0.45), not 0")
+})
+
+# ---------------------------------------------------------------------------
+# eb79.16 (E1): scale-aware logit convergence + absolute-space reported error.
+# The convergence gate and residual-class reported fields (max_error,
+# best_error, mean_error, grake_norm) are computed against the true target
+# total n, not the current weight sum. kl/chi2 stay proportion-space.
+# ---------------------------------------------------------------------------
+
+test_that("eb79.16: collinear fixture reports honest infeasibility (status != 0, max_error > 0.1)", {
+  library(leafblower)
+  set.seed(23)
+  n <- 200
+  base <- factor(c(rep("A", n/2), rep("B", n/2)))
+  base2 <- factor(rep(c("P", "Q", "P", "Q"), length.out = n))
+  data <- data.frame(
+    v1 = base, v2 = base, v3 = base,
+    v4 = base2, v5 = base2, v6 = base2
+  )
+  tgt_ab <- c(A = 0.5, B = 0.5)
+  tgt_pq <- c(P = 0.5, Q = 0.5)
+  target <- list(v1 = tgt_ab, v2 = tgt_ab, v3 = tgt_ab,
+                 v4 = tgt_pq, v5 = tgt_pq, v6 = tgt_pq)
+
+  w <- harvest(data, target, method = "logit", min_weight = 0.1, max_weight = 10,
+               max_iterations = 500L, attach_weights = FALSE)
+  r <- attr(w, "result")
+
+  expect_true(r$status != 0L, label = "collinear: honest STALL/INFEAS")
+  expect_true(r$max_error > 0.1,
+              label = "collinear: absolute-space max_error ~0.45, not scale-blind 0")
+})
+
+test_that("eb79.16: non-default convergence cfg on a feasible fixture still converges (no spurious STALL)", {
+  library(leafblower)
+  set.seed(11)
+  n <- 300
+  data <- data.frame(
+    a = factor(sample(c("1", "2", "3"), n, replace = TRUE)),
+    b = factor(sample(c("x", "y"), n, replace = TRUE))
+  )
+  target <- list(a = c("1" = 1/3, "2" = 1/3, "3" = 1/3), b = c(x = 0.5, y = 0.5))
+
+  # metric = "kl": absolute gate must not flip a legitimately-converged case.
+  w_kl <- harvest(data, target, method = "logit", min_weight = 0.2, max_weight = 5,
+                  max_iterations = 500L, attach_weights = FALSE,
+                  convergence = list(metric = "kl"))
+  r_kl <- attr(w_kl, "result")
+  expect_equal(r_kl$status, 0L, label = "metric=kl feasible fixture: status RK_OK=0")
+  expect_equal(sum(w_kl), n, tolerance = 1e-6)
+
+  # absolute shorthand (metric="max_err", rule="threshold"): the absolute gate
+  # scales with the user tol and must NOT spuriously flip a feasible case.
+  w_thr <- harvest(data, target, method = "logit", min_weight = 0.2, max_weight = 5,
+                   max_iterations = 500L, attach_weights = FALSE,
+                   convergence = list(absolute = 1e-3))
+  r_thr <- attr(w_thr, "result")
+  expect_equal(r_thr$status, 0L, label = "absolute-rule feasible fixture: status RK_OK=0")
+  # Loose user tol (absolute=1e-3): the absolute gate stops at max_abs_resid<=1e-3*n,
+  # so Sum(w) is within the user's chosen tolerance of n (NOT machine-exact) — the
+  # point of this test is that a feasible case is NOT spuriously flipped to STALL.
+  expect_equal(sum(w_thr), n, tolerance = 1e-2)
+})
+
+test_that("eb79.16: tight-but-feasible fixture converges (status=0, Sum(w)=n)", {
+  library(leafblower)
+  set.seed(11)
+  n <- 300
+  data <- data.frame(
+    a = factor(sample(c("1", "2", "3"), n, replace = TRUE)),
+    b = factor(sample(c("x", "y"), n, replace = TRUE))
+  )
+  target <- list(a = c("1" = 1/3, "2" = 1/3, "3" = 1/3), b = c(x = 0.5, y = 0.5))
+  w <- harvest(data, target, method = "logit", min_weight = 0.2, max_weight = 5,
+               max_iterations = 500L, attach_weights = FALSE)
+  r <- attr(w, "result")
+  expect_equal(r$status, 0L, label = "tight-but-feasible: status RK_OK=0")
+  expect_equal(sum(w), n, tolerance = 1e-6)
 })
