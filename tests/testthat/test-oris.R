@@ -96,3 +96,42 @@ test_that("B12: oris greedy scheduler produces finite errRp (not 0 sentinel) on 
   # Greedy scheduler must converge to correct solution, not silently return 0.
   expect_lt(attr(result,"result")$max_error, 1e-4)
 })
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CR-A6 (mxcl.6): the SRAA (accelerate=TRUE) path must report max_error consistent
+# with the RETURNED, capacity-clamped weights. The SRAA sweep is unconstrained
+# (capacity enforced only by the level-exit mass-preserving clamp), so
+# res.base.max_error = r.err_rp (oris.cpp:877) is the UNCONSTRAINED pre-clamp
+# errRp. On a tight/infeasible problem it reported ~2e-16 ("converged") while the
+# returned weights miss margins by ~0.26 — a silent false-convergence. The
+# non-SRAA (accelerate=FALSE) path already reports the honest constrained residual.
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("oris SRAA reports max_error consistent with returned weights (CR-A6)", {
+  set.seed(99)
+  n <- 1000L
+  # n/M_cell ~ 83 -> log SRAA path under natural dispatch; tight max_weight makes
+  # the unconstrained sweep and the bounds-clamped output diverge.
+  x <- factor(sample(c("H", "L"), n, replace = TRUE, prob = c(0.7, 0.3)))
+  y <- factor(sample(c("P", "Q"), n, replace = TRUE, prob = c(0.3, 0.7)))
+  z <- factor(sample(c("M", "N", "O"), n, replace = TRUE, prob = c(0.5, 0.3, 0.2)))
+  data <- data.frame(x = x, y = y, z = z)
+  target <- list(x = c(H = 0.4, L = 0.6),
+                 y = c(P = 0.7, Q = 0.3),
+                 z = c(M = 0.4, N = 0.35, O = 0.25))
+
+  w <- suppressWarnings(harvest(data, target, method = "oris", accelerate = TRUE,
+                                max_iterations = 500L, min_weight = 0.5, max_weight = 1.5,
+                                attach_weights = FALSE, verbose = 0))
+  r <- attr(w, "result")
+
+  # Achieved max margin error recomputed from the RETURNED weights.
+  Wt <- sum(w)
+  achieved <- max(vapply(names(target), function(v) {
+    max(abs(tapply(w, data[[v]], sum)[names(target[[v]])] / Wt - target[[v]]))
+  }, numeric(1)))
+
+  # Reported max_error must reflect the returned weights, not the unconstrained
+  # pre-clamp iterate (bug reported ~2e-16 while achieved ~0.26).
+  expect_lt(abs(r$max_error - achieved), 1e-6)
+})

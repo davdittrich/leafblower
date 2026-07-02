@@ -103,27 +103,6 @@ void oris_finalize(
         }
     }
 
-    // PCT stall detection: pct_change < pct_tol (PCT converged) but max_error >> pct_tol
-    // signals infeasible problem. Threshold 10x: well-posed problems have
-    // errRp/pct_change ratio 1-5x; infeasible stalls show 100x+; 10x separates them.
-    // Warning only — status unchanged for backward compatibility.
-    {
-        const auto& cfg = st.convergence_cfg;
-        if (res.base.status != RK_OK &&
-            (cfg.metric == CalibMetric::MAX_ERR || cfg.metric == CalibMetric::MEAN_ERR) &&
-            cfg.pct_tol > 0.0 &&
-            res.base.max_error > kInfeasStallRatio * cfg.pct_tol &&
-            st.log_fn != nullptr) {
-            char msg[256];
-            std::snprintf(msg, sizeof(msg),
-                "PCT convergence stall: pct_change < %.3g but max_error=%.3g "
-                "(%.0fx pct_tol). Possible contradictory or infeasible targets.",
-                cfg.pct_tol, res.base.max_error,
-                res.base.max_error / cfg.pct_tol);
-            st.log_fn(msg, st.log_ctx);
-        }
-    }
-
     // populate convergence diagnostics at solver exit.
     res.base.convergence_metric             = static_cast<int>(st.convergence_cfg.metric);
     res.base.convergence_rule               = static_cast<int>(st.convergence_cfg.rule);
@@ -208,6 +187,61 @@ void oris_finalize(
         // Callers must tolerate Σ ≈ n (within double-precision rounding) in this path.
         for (int i = 0; i < st.n; i++) {
             st.weights[i] = std::max(st.min_weight, std::min(st.max_weight, st.weights[i]));
+        }
+    }
+
+    // CR-A6 (mxcl.6): recompute the reported error on the FINAL, capacity-clamped
+    // weights on the SRAA path. The SRAA sweep is unconstrained (capacity is
+    // enforced only by the level-exit mass-preserving clamp), so res.base.max_error
+    // was set to the per-step UNCONSTRAINED errRp (oris.cpp:877) — on a tight/
+    // infeasible problem it reads ~2e-16 ("converged") while the bounds-clamped
+    // returned weights miss margins badly. Mirror the non-SRAA path, which already
+    // reports the constrained per-iter errRp (oris.cpp:1863). Aggregate the returned
+    // obs weights back to cell masses so the recomputed errRp reflects exactly the
+    // returned margins (bounds_mode-agnostic). Guarded to accelerate=TRUE so the
+    // non-SRAA path stays byte-identical.
+    if (st.accelerate) {
+        std::vector<double> X_final(ct.M_cell, 0.0);
+        for (int i = 0; i < st.n; i++) X_final[ct.cell_of[i]] += st.weights[i];
+        double W_total = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) W_total += X_final[c];
+        if (W_total > 0.0) {
+            std::vector<double> S_scratch(lbw::max_cats_count(st.K, st.cat_counts));
+            const lbw::CellMetrics cm =
+                lbw::compute_cell_metrics(st, ct, X_final, W_total, S_scratch);
+            res.base.max_error = cm.errRp;
+        } else {
+            // Degenerate/NaN return (Σw ≤ 0): every achieved proportion is 0, so the
+            // honest max margin error is the largest target. Do NOT keep the stale
+            // unconstrained errRp (it would falsely read "converged").
+            double max_t = 0.0;
+            for (int k = 0; k < st.K; k++)
+                for (int j = 0; j < st.cat_counts[k]; j++)
+                    max_t = std::max(max_t, st.targets[k][j]);
+            res.base.max_error = max_t;
+        }
+    }
+
+    // PCT stall detection: pct_change < pct_tol (PCT converged) but max_error >> pct_tol
+    // signals infeasible problem. Threshold 10x: well-posed problems have
+    // errRp/pct_change ratio 1-5x; infeasible stalls show 100x+; 10x separates them.
+    // Warning only — status unchanged for backward compatibility. Placed AFTER the
+    // SRAA max_error recompute above so it sees the honest constrained error (the
+    // stale unconstrained ~2e-16 would suppress the warning on infeasible SRAA runs).
+    {
+        const auto& cfg = st.convergence_cfg;
+        if (res.base.status != RK_OK &&
+            (cfg.metric == CalibMetric::MAX_ERR || cfg.metric == CalibMetric::MEAN_ERR) &&
+            cfg.pct_tol > 0.0 &&
+            res.base.max_error > kInfeasStallRatio * cfg.pct_tol &&
+            st.log_fn != nullptr) {
+            char msg[256];
+            std::snprintf(msg, sizeof(msg),
+                "PCT convergence stall: pct_change < %.3g but max_error=%.3g "
+                "(%.0fx pct_tol). Possible contradictory or infeasible targets.",
+                cfg.pct_tol, res.base.max_error,
+                res.base.max_error / cfg.pct_tol);
+            st.log_fn(msg, st.log_ctx);
         }
     }
 
