@@ -165,6 +165,35 @@ def test_logit_collinear_inconsistent_stays_infeasible():
     assert result["max_error"] > 0.05
 
 
+def test_logit_collinear_feasible_converges_ok_eb79_22():
+    """eb79.22: cleanly-converging collinear-feasible logit reports OK, not spurious BUDGET.
+
+    Same structure as R's test-logit.R eb79.22 case (skewed 4x-collinear feasible; RNG
+    differs from R so the data is not byte-identical, but the assertion is structural).
+    The residual shrinks monotonically to ~0 (feasible) but pre-eb79.22 the default gate
+    also required the improvement/plateau rule (which never fires on monotone convergence),
+    so it ran to the 50-iter cap = status 4. eb79.22 makes absolute-count feasibility
+    sufficient for OK-convergence (the gate is in the shared C++ core, so R and Python
+    both get the fix).
+    """
+    import pandas as pd
+    import numpy as np
+    from leafblower import harvest
+    rng = np.random.RandomState(41)
+    n = 400
+    a = np.where(rng.rand(n) < 0.6, "x", "y")
+    b = np.where(rng.rand(n) < 0.6, "p", "q")
+    df = pd.DataFrame({"a1": a, "a2": a, "a3": a, "a4": a, "b": b})
+    tg = {"a1": {"x": 0.45, "y": 0.55}, "a2": {"x": 0.45, "y": 0.55},
+          "a3": {"x": 0.45, "y": 0.55}, "a4": {"x": 0.45, "y": 0.55}, "b": {"p": 0.5, "q": 0.5}}
+    r = harvest(df, tg, method="logit", min_weight=0.1, max_weight=3,
+                max_iterations=50, attach_weights=False)
+    result = r["result"]
+    assert result["status"] == 0, (
+        f"feasible collinear must report OK (eb79.22), got status={result['status']}")
+    assert result["iterations"] < 50, "must converge before the iteration cap"
+
+
 def test_logit_l1_and_objective_populated_eb79_20():
     """eb79.20: logit populates l1_weight_change + convergence_solver_objective.
 

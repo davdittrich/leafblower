@@ -272,3 +272,43 @@ test_that("eb79.20: logit populates l1_weight_change = mean(|w - 1|) (was struct
   expect_gt(r$l1_weight_change, 0)                                   # weights actually moved
   expect_equal(r$l1_weight_change, mean(abs(w - 1)), tolerance = 1e-6)
 })
+
+test_that("eb79.22: cleanly-converging collinear-feasible problem reports OK, not spurious BUDGET", {
+  library(leafblower)
+  # Skewed-but-feasible with 4 collinear (redundant) margins. The residual shrinks
+  # monotonically to ~0 (feasible), but pre-eb79.22 the default gate ALSO required the
+  # improvement/plateau rule — which never fires on monotone convergence — so the solver
+  # reached the optimum yet ran to the 50-iter cap and reported status=4 (BUDGET). eb79.22
+  # makes absolute-count feasibility SUFFICIENT for OK-convergence.
+  set.seed(41); n <- 400
+  av <- factor(sample(c("x", "y"), n, TRUE, prob = c(0.6, 0.4)))
+  bv <- factor(sample(c("p", "q"), n, TRUE, prob = c(0.6, 0.4)))
+  d <- data.frame(a1 = av, a2 = av, a3 = av, a4 = av, b = bv)
+  t <- list(a1 = c(x = 0.45, y = 0.55), a2 = c(x = 0.45, y = 0.55),
+            a3 = c(x = 0.45, y = 0.55), a4 = c(x = 0.45, y = 0.55), b = c(p = 0.5, q = 0.5))
+  w <- harvest(d, t, method = "logit", min_weight = 0.1, max_weight = 3,
+               max_iterations = 50L, attach_weights = FALSE)
+  r <- attr(w, "result")
+  expect_equal(r$status, 0L, label = "feasible collinear: OK, not BUDGET (eb79.22)")
+  expect_lt(r$iterations, 50L)                        # converged before the cap
+  # margins met in absolute-count space (the OK criterion)
+  amax <- 0
+  for (v in names(t)) for (lv in names(t[[v]]))
+    amax <- max(amax, abs(sum(w[d[[v]] == lv]) - t[[v]][[lv]] * n))
+  expect_lt(amax, 1e-6 * n)
+})
+
+test_that("eb79.22: genuinely-infeasible tight-bounds still fails (no false OK)", {
+  library(leafblower)
+  # margin y unreachable: ~80 obs * max_weight 1.5 = 120 < target 0.6*400=240.
+  set.seed(41); n <- 400
+  av <- factor(sample(c("x", "y"), n, TRUE, prob = c(0.8, 0.2)))
+  bv <- factor(sample(c("p", "q"), n, TRUE, prob = c(0.75, 0.25)))
+  d <- data.frame(a1 = av, a2 = av, a3 = av, a4 = av, b = bv)
+  t <- list(a1 = c(x = 0.4, y = 0.6), a2 = c(x = 0.4, y = 0.6),
+            a3 = c(x = 0.4, y = 0.6), a4 = c(x = 0.4, y = 0.6), b = c(p = 0.5, q = 0.5))
+  w <- suppressWarnings(harvest(d, t, method = "logit", min_weight = 0.1, max_weight = 1.5,
+               max_iterations = 50L, attach_weights = FALSE))
+  r <- attr(w, "result")
+  expect_true(r$status != 0L, label = "infeasible must NOT report OK (eb79.22)")
+})

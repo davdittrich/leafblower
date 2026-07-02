@@ -85,7 +85,6 @@ LogitCalibResult logit_calibrate(CalibState& st) {
 
     double initial_resid = std::numeric_limits<double>::infinity();
     double best_resid    = std::numeric_limits<double>::infinity();
-    double prev_metric   = std::numeric_limits<double>::infinity();
     const CalibConvergenceCfg& cfg = st.convergence_cfg;
 
     const int kMaxNewtonIters = std::min(50, st.inner_max_iter);
@@ -364,16 +363,9 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         }
         wDeff_cache_valid = true;
 
-        // (5) Convergence check via shared infrastructure
-        double W_total = 0.0;
-        for (int c = 0; c < M; c++) W_total += w[c];
-        lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, w, W_total, bucket_scratch);
-        // eb79.16: gate on the ABSOLUTE-count residual (the quantity Newton minimizes)
-        // in addition to the proportion metric. compute_cell_metrics normalizes by the
-        // current total W (scale-blind), so it certifies a rank-deficient stall — all
-        // weights at min, absolute margin violation ~90 — as max_error=0. Recompute the
-        // residual FRESH from the post-step w[] (b was overwritten by cholesky_solve into
-        // delta_lambda; the max_b tracker at iter-top is one iteration lagged).
+        // (5) Convergence check: gate on the ABSOLUTE-count residual (the quantity Newton
+        // minimizes), recomputed FRESH from the post-step w[] (b was overwritten by
+        // cholesky_solve into delta_lambda; the max_b tracker at iter-top is one iter lagged).
         double max_abs_resid = 0.0;
         for (int k = 0; k < K; k++) {
             for (int j = 0; j < st.cat_counts[k]; j++) {
@@ -383,8 +375,18 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 max_abs_resid = std::max(max_abs_resid, std::fabs(target - S_kj));
             }
         }
-        bool converged = lbw::check_convergence(cfg, m, prev_metric, st.tol_abs)
-                         && (max_abs_resid <= st.tol_abs * static_cast<double>(st.n));
+        // eb79.22: absolute feasibility is SUFFICIENT for OK-convergence — margins met in
+        // absolute-count space ⇒ solved. The prior gate ALSO AND-required the improvement/
+        // plateau rule, which never fires while the residual is still monotonically shrinking;
+        // cleanly-converging problems (esp. rank-deficient / collinear ones, which shrink to
+        // machine-zero without plateauing) therefore reached the optimum yet ran to the
+        // iteration cap and mis-reported BUDGET. eb79.16's scale-blind guard is PRESERVED: OK
+        // still REQUIRES the absolute-count residual to be met, so a proportion-only match
+        // under scale drift cannot certify success (the proportion metric — compute_cell_metrics
+        // normalized by the current total W — is exactly what would falsely certify a stall as
+        // max_error=0, so it must NOT gate OK). A metric plateau WITHOUT feasibility stays a
+        // STALL (post-loop status below).
+        bool converged = (max_abs_resid <= st.tol_abs * static_cast<double>(st.n));
         if (converged) {
             lbw::mark_converged(res, cfg, iter + 1);
             w_best = w;
