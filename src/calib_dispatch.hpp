@@ -213,7 +213,7 @@ inline bool check_convergence(
     }
     if (have_pct) return c_pct;
     if (have_abs) return c_abs;
-    return (m.errRp < tol_abs_fallback);
+    return (curr < tol_abs_fallback);
 }
 
 /// Aggregate cell masses X[] into margin k bucket[0..nj).

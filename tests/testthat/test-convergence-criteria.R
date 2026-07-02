@@ -453,6 +453,55 @@ test_that("vpby: stop_when=ANY prev not mutated to post-halt curr — improvemen
   expect_true(r$iterations >= 1L)
 })
 
+test_that("eb79.2: fallback branch (both tolerances 0) halts on configured metric, not errRp", {
+  # Regression for check_convergence's both-tolerances-zero fallback
+  # (src/calib_dispatch.hpp:216), which used to `return (m.errRp < tol_abs_fallback)`
+  # instead of `return (curr < tol_abs_fallback)`, silently ignoring cfg.metric.
+  #
+  # Trigger the fallback: convergence=list(absolute=0, metric="kl") produces
+  # pct_tol=0 AND absolute_tol=0 in parse_convergence() (R/harvest.R:895-898),
+  # so both have_pct and have_abs are false in check_convergence and the
+  # both-zero fallback at :216 is the only branch that can halt the solver.
+  # tol_abs_fallback in that case is the hardcoded 1e-6 (R/harvest.R:519).
+  #
+  # method="raking" because check_convergence() (src/calib_dispatch.hpp) is the
+  # ACTUAL termination gate for raking (raking.cpp:402/491), sinkhorn, greenkhorn
+  # and logit. oris has its own primary convergence loop (check_convergence only
+  # governs its SRAA sub-path at oris.cpp:969), so oris does NOT exercise the
+  # :216 fallback as the stopping rule.
+  #
+  # Measured on this fixture (orchestrator, pre/post-fix builds):
+  #   PRE-FIX  (m.errRp): status=0 iters=10 kl=1.1e-16 max_err=5.6e-17
+  #                       -> halts on max_err<1e-6, so max_error is NOT >1e-6 -> RED
+  #   POST-FIX (curr=kl): status=0 iters=1  kl=4.1e-7  max_err=4.0e-4
+  #                       -> halts on kl<1e-6 while max_err=4e-4>>1e-6 -> GREEN
+  # The `expect_gt(max_error, 1e-6)` assertion is the clean discriminator: it can
+  # only hold if the halt was driven by kl (curr), not by max_err (errRp).
+  set.seed(2026)
+  n <- 1000
+  data <- data.frame(
+    a = factor(sample(c("1","2","3"), n, replace = TRUE)),
+    b = factor(sample(c("1","2"), n, replace = TRUE))
+  )
+  target <- list(
+    a = c("1" = 0.34, "2" = 0.33, "3" = 0.33),
+    b = c("1" = 0.51, "2" = 0.49)
+  )
+  w <- leafblower::harvest(
+    data, target, max_weight = 10, method = "raking",
+    convergence = list(absolute = 0, metric = "kl"),
+    max_iterations = 200, attach_weights = FALSE
+  )
+  result <- attr(w, "result")
+  expect_equal(result$status, 0L,
+    label = "fallback must halt on the configured kl metric within budget")
+  expect_lt(result$kl, 1e-6,
+    label = "halt must be driven by kl < tol_abs_fallback (curr), not errRp")
+  expect_gt(result$max_error, 1e-6,
+    label = paste("at true halt, errRp (max_error) has NOT yet crossed tol_abs_fallback --",
+                  "proves the fallback used curr (kl), not m.errRp"))
+})
+
 test_that("4jx9: mark_converged stores absolute_tol when abs-only convergence fires (raking)", {
   # raking uses generic mark_converged; oris has its own correct impl.
   # With absolute-only convergence, convergence_tol must reflect abs_tol (not pct_tol=0).
