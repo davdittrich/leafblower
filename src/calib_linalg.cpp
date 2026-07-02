@@ -44,13 +44,17 @@ int compute_normal_equations(const CellTable& ct,
             if (j1 < 0) continue;
             size_t row = static_cast<size_t>(cat_offset[k1]) +
                          static_cast<size_t>(j1);
-            // G2: only fill lower triangle (row >= col); dpotrf(uplo='L') reads lower only.
+            // Full symmetric fill (X'DX). dpotrf/dpotrs read uplo='L' = column-major
+            // lower = the row-major UPPER of this buffer, so a half (lower-only) fill
+            // would zero the off-diagonals LAPACK actually reads and degenerate the
+            // solve to diag(N)^-1 b (Jacobi). Symmetric ⇒ A_rowmajor == A_colmajor,
+            // so the full fill is correct for either uplo. (Restores pre-61da14b.)
             for (int k2 = 0; k2 < K; k2++) {
                 int j2 = ct.g_per_cell[k2][c];
                 if (j2 < 0) continue;
                 size_t col = static_cast<size_t>(cat_offset[k2]) +
                              static_cast<size_t>(j2);
-                if (row >= col) N[row * n_cats_total + col] += D[c];
+                N[row * n_cats_total + col] += D[c];
             }
         }
     }

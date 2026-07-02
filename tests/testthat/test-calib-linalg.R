@@ -126,6 +126,54 @@ test_that("calib_linalg: GMW bound prevents L blow-up on nearly-singular margins
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
+# CR-A1 (mxcl.1): cholesky_solve must be a TRUE symmetric solve, not a diagonal
+# (Jacobi) solve. Regression from commit 61da14b (G2): the normal-equations
+# writer fills the row-major LOWER triangle (= column-major UPPER), while dpotrf/
+# dpotrs read uplo='L' (= column-major LOWER = zeros off-diagonal) → the solve
+# silently degenerates to diag(N)^-1 b.
+#
+# Discriminator: greg convergence is active-set based (!any_clamped), NOT
+# residual based. On an UNBOUNDED, feasible, correlated 2-margin problem one
+# full-Newton step (correct X'DX solve) satisfies every margin EXACTLY, so greg
+# breaks at iteration 1 with max_error ~ 1e-8. The diagonal-solve bug drops the
+# a<->b off-diagonal coupling, so the same iteration-1 break leaves margins
+# unmet (max_error >> 1e-3). Both report status=0; max_error separates them.
+# ──────────────────────────────────────────────────────────────────────────────
+
+test_that("calib_linalg: cholesky_solve is a full symmetric solve, not diagonal (CR-A1)", {
+  set.seed(20260703)
+  n <- 600L
+  a <- factor(sample(c("1", "2", "3"), n, replace = TRUE, prob = c(0.5, 0.3, 0.2)))
+  # b moderately correlated with a: copy a, flip ~20% to a random level so the
+  # a<->b off-diagonal blocks of X'DX are clearly non-negligible. (X'DX is exactly
+  # rank-deficient by 1 — two complete margins share the sum constraint — but its
+  # smallest NONZERO eigenvalue stays large, and the RHS b ⊥ the null vector, so
+  # the GMW-regularized correct solve still lands the residual near machine eps.)
+  b_chr <- as.character(a)
+  flip <- runif(n) < 0.20
+  b_chr[flip] <- sample(c("1", "2", "3"), sum(flip), replace = TRUE)
+  b <- factor(b_chr, levels = c("1", "2", "3"))
+  data <- data.frame(a = a, b = b)
+
+  # Feasible targets shifted a few points off the sample proportions; mild enough
+  # that the unbounded Newton weights never touch the loose [0.01, 100] bounds.
+  target <- list(
+    a = c("1" = 0.45, "2" = 0.33, "3" = 0.22),
+    b = c("1" = 0.44, "2" = 0.34, "3" = 0.22)
+  )
+
+  w_greg <- harvest(data, target, method = "greg",
+                    min_weight = 0.01, max_weight = 100,
+                    attach_weights = FALSE)
+  r_greg <- attr(w_greg, "result")
+
+  expect_equal(r_greg$status, 0L, info = "greg reports OK (active-set converged)")
+  # A TRUE symmetric solve nails every margin in one Newton step; a diagonal
+  # (Jacobi) solve drops the a<->b coupling and leaves a large residual here.
+  expect_lt(r_greg$max_error, 1e-6)
+})
+
+# ──────────────────────────────────────────────────────────────────────────────
 # chebyshev nu-fix: reference elimination makes schur_nu > 0
 # ──────────────────────────────────────────────────────────────────────────────
 
