@@ -428,3 +428,90 @@ def test_accelerate_gating_by_method():
         )
     finally:
         _h.calibrate = _orig_calibrate
+
+
+# eb79.10: positive-finite-scalar validation for alm_penalty, capacity_penalty,
+# newton_tsvd_ratio (mirrors R harvest.R:372-411). Bad values must raise
+# ValueError before reaching the C solver; good values must pass through.
+@pytest.mark.parametrize("bad", [float("nan"), -1.0, 1e20])
+def test_capacity_penalty_rejects_bad_values(bad):
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=200)
+    with pytest.raises(ValueError, match="capacity_penalty must be"):
+        harvest(df, tgts, capacity_penalty=bad, max_iterations=1)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), -1.0, 1e20])
+def test_alm_penalty_rejects_bad_values(bad):
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=200)
+    with pytest.raises(ValueError, match="alm_penalty must be"):
+        harvest(df, tgts, alm_penalty=bad, max_iterations=1)
+
+
+# newton_tsvd_ratio has NO upper bound in R (harvest.R:406-411) — only non-finite
+# / <=0 are rejected, so 1e20 is NOT bad (unlike capacity/alm).
+@pytest.mark.parametrize("bad", [float("nan"), -1.0])
+def test_newton_tsvd_ratio_rejects_bad_values(bad):
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=200)
+    with pytest.raises(ValueError, match="newton_tsvd_ratio must be"):
+        harvest(df, tgts, newton_tsvd_ratio=bad, max_iterations=1)
+
+
+def test_newton_tsvd_ratio_large_value_accepted():
+    """R has no >1e15 stop for newton_tsvd_ratio; a large value must NOT raise
+    at validation (unlike capacity/alm which reject >1e15)."""
+    from leafblower import harvest
+    df, tgts = _make_fixture(n=200)
+    # Must run without a ValueError from validation (real solver, 1 iter).
+    harvest(df, tgts, newton_tsvd_ratio=1e20, max_iterations=1,
+            attach_weights=False)
+
+
+def test_alm_penalty_none_not_rejected_and_valid_passthrough():
+    """None (disabled, default) must NOT raise; valid values reach params unchanged.
+
+    Matches R (harvest.R:395): alm_penalty validated whenever not NULL, NO -1.0
+    exemption — explicit -1.0 is rejected (<=0), covered by the bad-values test.
+    None (the disable path) skips validation and is absent from params.
+    """
+    import leafblower._harvest as _h
+    df, tgts = _make_fixture(n=200)
+    _orig_calibrate = _h.calibrate
+    captured = {}
+
+    def _mock_calibrate(n, K, w, gids, cats, tgts_, params, log_fn):
+        captured["params"] = params
+        weights = np.ones(n, dtype=np.float64)
+        result = {
+            "status": 0, "iterations": 1, "max_error": 0.0,
+            "algorithm_used": 0, "message": "", "n_bounds_violated": 0,
+            "n_bounds_clamped": 0, "mean_error": 0.0, "kl": 0.0, "chi2": 0.0,
+            "l1_weight_change": 0.0, "grake_norm": 0.0,
+            "convergence_metric": params["metric"], "convergence_rule": params["rule"],
+            "convergence_tol": params["pct_tol"], "convergence_iter": 1,
+            "convergence_solver_objective": 0.0,
+            "convergence_minimized_metric": params["metric"],
+            "best_error": 0.0, "best_iter": 1,
+            "sor_min_omega": 1.0, "sor_n_damped": 0,
+            "alm_capacity_mu_final": 0.0, "alm_n_growth_events": 0,
+            "alm_max_dual_norm": 0.0, "alm_sum_drift": 0.0,
+            "metric_first_check": 0.0, "metric_prev_check": 0.0, "prev_check_iter": 0,
+        }
+        return 0, weights, result
+
+    try:
+        _h.calibrate = _mock_calibrate
+        # alm_penalty=None (default): no validation, no exception.
+        _h.harvest(df, tgts, alm_penalty=None, max_iterations=1, attach_weights=False)
+        assert "alm_penalty" not in captured["params"]
+
+        # Valid values pass through unchanged for all three params.
+        _h.harvest(df, tgts, capacity_penalty=2.5, alm_penalty=0.1,
+                   newton_tsvd_ratio=1e-6, max_iterations=1, attach_weights=False)
+        assert captured["params"]["capacity_penalty"] == 2.5
+        assert captured["params"]["alm_penalty"] == 0.1
+        assert captured["params"]["newton_tsvd_ratio"] == 1e-6
+    finally:
+        _h.calibrate = _orig_calibrate

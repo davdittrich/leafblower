@@ -17,6 +17,29 @@ from ._leafblower import calibrate
 
 _TARGET_SUM_TOL = 5e-7  # matches R harvest() tolerance for target proportions summing to 1
 
+
+def _validate_pos_scalar(name: str, val: float, *, null_clause: str = "",
+                         warn_suffix: str = None, check_upper: bool = True) -> None:
+    """Mirror R harvest.R positive-finite-scalar validation, per-param (R has 3
+    distinct rules — capacity_penalty:378-393, alm_penalty:395-405,
+    newton_tsvd_ratio:406-411).
+
+    - Raises ValueError on non-finite / <=0 (all three); and on >1e15 when
+      check_upper (capacity/alm only — newton_tsvd_ratio has no upper bound in R).
+    - null_clause is R's per-param stop-message prefix: "NULL (auto) or " for
+      capacity, "NULL (disabled) or " for alm, "" for newton_tsvd_ratio.
+    - warn_suffix (when not None) mirrors R's per-param warning() for 0<val<1e-15;
+      newton_tsvd_ratio has no such warning in R, so it passes warn_suffix=None.
+    """
+    if not math.isfinite(val) or val <= 0 or (check_upper and val > 1e15):
+        raise ValueError(
+            f"{name} must be {null_clause}a positive finite scalar; got: {val!r}"
+        )
+    if warn_suffix is not None and val < 1e-15:
+        warnings.warn(
+            f"{name}={val} is below recommended range; {warn_suffix}",
+            UserWarning, stacklevel=2)
+
 _METRIC_MAP = {
     "max_err": 0, "mean_err": 1, "kl": 2, "chi2": 3,
     "grake_norm": 4, "l1_weight": 5, "marginal_kl": 6,
@@ -455,6 +478,23 @@ def harvest(
             f"'oris', or 'oris_soft'; ignoring for method='{method}'",
             UserWarning, stacklevel=2)
         accelerate = False
+
+    # Positive-finite-scalar validation, per-param to match R exactly.
+    # capacity_penalty / alm_penalty are validated only when not None (their
+    # disable path); an explicit -1.0 is rejected (<=0) just like R. Each mirrors
+    # R's distinct message/rules: capacity (harvest.R:378-393, "NULL (auto)"),
+    # alm (395-405, "NULL (disabled)", "objective penalty"), newton_tsvd_ratio
+    # (406-411, unconditional, NOT nullable, no upper bound, no small-value warn).
+    if capacity_penalty is not None:
+        _validate_pos_scalar("capacity_penalty", capacity_penalty,
+                             null_clause="NULL (auto) or ",
+                             warn_suffix="constraint enforcement may be ineffective")
+    if alm_penalty is not None:
+        _validate_pos_scalar("alm_penalty", alm_penalty,
+                             null_clause="NULL (disabled) or ",
+                             warn_suffix="objective penalty may be ineffective")
+    _validate_pos_scalar("newton_tsvd_ratio", newton_tsvd_ratio,
+                         null_clause="", warn_suffix=None, check_upper=False)
 
     params = {
         "min_weight":     min_weight,
