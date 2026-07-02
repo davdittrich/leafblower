@@ -73,6 +73,28 @@ def test_sor_omega_max_is_wired():
     )
 
 
+def test_sor_unknown_key_raises():
+    """eb79.11: _parse_sor must reject unknown keys (typo guard), mirroring R's parse_sor."""
+    from leafblower._harvest import _parse_sor
+    with pytest.raises(ValueError, match="Unknown sor key"):
+        _parse_sor({"omga_min": 0.3})
+
+
+def test_sor_omega_mode_id_string_alias():
+    """eb79.11: omega_mode_id accepts R-style string aliases (heuristic/fixed/spectral)."""
+    from leafblower._harvest import _parse_sor
+    result = _parse_sor({"omega_mode_id": "fixed"})
+    omega_mode_id = result[-1]
+    assert omega_mode_id == 1
+
+
+def test_sor_omega_mode_id_bad_string_raises():
+    """eb79.11: unknown omega_mode_id string must raise, mirroring R's parse_sor."""
+    from leafblower._harvest import _parse_sor
+    with pytest.raises(ValueError, match="Unknown omega_mode_id string"):
+        _parse_sor({"omega_mode_id": "bogus"})
+
+
 def _make_fixture(n=1000):
     """Balanced 2-level fixture for parity tests."""
     import pandas as pd

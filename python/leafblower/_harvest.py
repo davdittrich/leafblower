@@ -49,6 +49,11 @@ _STOP_WHEN_MAP = {"any": 0, "all": 1}
 _KNOWN_CONVERGENCE_KEYS = frozenset({
     "metric", "rule", "tol", "pct", "absolute", "improvement", "stop_when",
 })
+_KNOWN_SOR_KEYS = frozenset({
+    "auto", "omega_min", "omega_max", "omega", "omega_init", "burnin",
+    "omega_mode_id",
+})
+_OMEGA_MODE_MAP = {"heuristic": 0, "fixed": 1, "spectral": 2}
 # Reverse-lookup arrays mirror CalibMetric/CalibRule enum order in leafblower.h
 _METRIC_NAMES = ["max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl"]
 _RULE_NAMES   = ["threshold", "improvement", "plateau"]
@@ -159,6 +164,12 @@ def _parse_sor(sor):
     """Mirror R parse_sor(): returns (enabled, auto, omega_init, omega_min, omega_max, omega_fixed, burnin, omega_mode_id)."""
     if not sor:  # empty dict = disabled (from _resolve_sor(None) or _resolve_sor(False))
         return 0, 0, 1.0, 0.3, 1.5, -1.0, 20, None   # None = let C init default govern
+    # bad keys in user-input order; valid keys in R's declared order (harvest.R:943-949)
+    unknown = [k for k in sor if k not in _KNOWN_SOR_KEYS]
+    if unknown:
+        raise ValueError(
+            f"Unknown sor key(s): {', '.join(unknown)}. "
+            f"Valid keys: auto, omega_min, omega_max, omega, omega_init, burnin, omega_mode_id")
     enabled = 1
     auto = 1 if sor.get("auto", True) else 0
     omega_init = float(sor.get("omega_init", 1.0))
@@ -168,7 +179,14 @@ def _parse_sor(sor):
     burnin = int(sor.get("burnin", 20))
     omega_mode_id = sor.get("omega_mode_id", None)  # None = C rk_params_init default governs
     if omega_mode_id is not None:
-        omega_mode_id = int(omega_mode_id)
+        if isinstance(omega_mode_id, str):
+            if omega_mode_id not in _OMEGA_MODE_MAP:
+                raise ValueError(
+                    f"Unknown omega_mode_id string '{omega_mode_id}'. "
+                    f"Use 'heuristic', 'fixed', or 'spectral'.")
+            omega_mode_id = _OMEGA_MODE_MAP[omega_mode_id]
+        else:
+            omega_mode_id = int(omega_mode_id)
     return enabled, auto, omega_init, omega_min, omega_max, omega_fixed, burnin, omega_mode_id
 
 
