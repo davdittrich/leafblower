@@ -74,3 +74,42 @@ test_that("CXX.1: target vector shorter than cat_counts[k] errors gracefully (no
   args[[4]] <- tg
   expect_error(do_call_bridge(args), "length != cat_counts")
 })
+
+# eb79.4: TYPEOF guards on group_ids/method/start_weights. Pre-fix, a wrong
+# TYPEOF here (e.g. LENGTH()/VECTOR_ELT() on a non-VECSXP, or REAL() on an
+# INTSXP) can segfault the R process rather than raise a graceful error, so
+# the check runs in a callr subprocess: a crash there surfaces as a callr
+# error in this process instead of aborting the whole testthat suite.
+run_wrong_typeof <- function(args) {
+  library(leafblower)
+  do.call(.Call, c(args, list(PACKAGE = "leafblower")))
+}
+
+expect_error_isolated <- function(args, regexp) {
+  if (requireNamespace("callr", quietly = TRUE)) {
+    expect_error(
+      callr::r(run_wrong_typeof, args = list(args = args)),
+      regexp
+    )
+  } else {
+    expect_error(run_wrong_typeof(args), regexp)
+  }
+}
+
+test_that("CXX.1: group_ids as non-list (atomic vector) errors gracefully (no crash)", {
+  args <- make_call_args()
+  args[[2]] <- as.integer(rep(0L, 12))  # wrong TYPEOF: INTSXP vector, not VECSXP list
+  expect_error_isolated(args, "group_ids must be a list")
+})
+
+test_that("CXX.1: method as non-character (integer) errors gracefully (no crash)", {
+  args <- make_call_args()
+  args[[8]] <- 1L  # wrong TYPEOF: INTSXP, not STRSXP
+  expect_error_isolated(args, "method must be a length-1 character string")
+})
+
+test_that("CXX.1: start_weights as non-numeric (integer vector) errors gracefully (no crash)", {
+  args <- make_call_args()
+  args[[11]] <- as.integer(rep(1L, 12))  # wrong TYPEOF: INTSXP, not REALSXP
+  expect_error_isolated(args, "start_weights must be numeric")
+})

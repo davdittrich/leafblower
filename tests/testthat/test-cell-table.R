@@ -57,3 +57,25 @@ test_that("cell compression: sort determinism (same input → same cell ids)", {
   expect_equal(out1$M_cell, out2$M_cell)
   expect_equal(out1$cell_of, out2$cell_of)
 })
+
+# eb79.4: TYPEOF guard on r_group_ids_list in the probe entry point. Pre-fix,
+# a non-list group_ids goes straight into Rf_length()/VECTOR_ELT() on a
+# non-VECSXP, which can segfault; isolate the check in a callr subprocess so
+# a crash there doesn't abort the suite.
+test_that("cell compression: non-list group_ids errors gracefully (no crash)", {
+  n <- 100
+  bad_group_ids <- as.integer(rep(0L, n))  # wrong TYPEOF: INTSXP vector, not a list
+  run_wrong_typeof <- function(bad_group_ids, n) {
+    library(leafblower)
+    .Call("C_leafblower_cell_table_probe", bad_group_ids, as.integer(n),
+          PACKAGE = "leafblower")
+  }
+  if (requireNamespace("callr", quietly = TRUE)) {
+    expect_error(
+      callr::r(run_wrong_typeof, args = list(bad_group_ids = bad_group_ids, n = n)),
+      "group_ids must be a list"
+    )
+  } else {
+    expect_error(run_wrong_typeof(bad_group_ids, n), "group_ids must be a list")
+  }
+})

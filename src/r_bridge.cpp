@@ -206,10 +206,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                     SEXP newton_tsvd_ratio_sexp,
                     /* Tikhonov ridge on dual λ; 0.0 = off. */
                     SEXP ridge_lambda_sexp) {
-    int K = LENGTH(group_ids_sexp);
-    int n = scalar_int(n_obs_sexp, "n_obs");
-
     std::string pre_error;
+    if (TYPEOF(group_ids_sexp) != VECSXP)
+        pre_error = "group_ids must be a list";
+    int K = pre_error.empty() ? LENGTH(group_ids_sexp) : 0;
+    int n = scalar_int(n_obs_sexp, "n_obs");
 
     std::vector<std::vector<int32_t>> gids_storage(K);
     std::vector<const int32_t*> group_ids(K);
@@ -217,7 +218,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     std::vector<std::vector<double>> tgt_storage(K);
     std::vector<const double*> targets(K);
 
-    {
+    if (pre_error.empty()) {  // skip container validation if group_ids already failed (first-error-wins)
         if (TYPEOF(cat_counts_sexp) != INTSXP)
             pre_error = "cat_counts must be an integer vector";
         // CXX.1: bound-check container lengths vs K (=LENGTH(group_ids_sexp))
@@ -263,11 +264,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     if (Rf_isNull(start_weights_sexp)) {
         for (int i = 0; i < n; i++) weights[i] = 1.0;
     } else {
-        if (LENGTH(start_weights_sexp) != n) {
+        if (TYPEOF(start_weights_sexp) != REALSXP || LENGTH(start_weights_sexp) != n) {
             char buf[128];
             std::snprintf(buf, sizeof(buf),
-                "leafblower: start_weights length %d != n=%d",
-                (int)LENGTH(start_weights_sexp), n);
+                "leafblower: start_weights must be numeric of length n=%d (got type %s length %d)",
+                n, Rf_type2char(TYPEOF(start_weights_sexp)), (int)LENGTH(start_weights_sexp));
             pre_error = buf;
         } else {
             const double* sw = REAL(start_weights_sexp);
@@ -330,7 +331,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin");
     p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id");
 
-    if (pre_error.empty() && LENGTH(method_sexp) != 1)
+    if (pre_error.empty() && (TYPEOF(method_sexp) != STRSXP || LENGTH(method_sexp) != 1))
         pre_error = "method must be a length-1 character string";
     const char* method_str = pre_error.empty() ? CHAR(STRING_ELT(method_sexp, 0)) : "";
     const auto alg_it = pre_error.empty() ? kAlgMap.find(method_str) : kAlgMap.end();
@@ -1002,6 +1003,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
 
 // test-only: exposes CellTable internals for unit tests
 extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
+    if (TYPEOF(r_group_ids_list) != VECSXP)
+        Rf_error("group_ids must be a list");
     int n = scalar_int(r_n, "r_n");
     int K = Rf_length(r_group_ids_list);
     if (K > lbw::K_MAX) {
