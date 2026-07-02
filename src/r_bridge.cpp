@@ -387,6 +387,12 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // capacity_penalty <= 0.0 (or NULL) selects auto via estimate_M_cell (matches c_api.cpp:380);
     // positive value is used directly. ALM block is gated by st.use_admm_capacity,
     // so st.alm.capacity_mu is harmless for non-oris_soft callers.
+    // eb79.15: lazy cache for estimate_M_cell (O(n·K)). This site (A) and the AUTO-routing
+    // site below (B) call it with identical args; on the method="auto" + capacity_penalty≤0
+    // path both run, redundantly. Sentinel -1 = uncomputed; whichever site runs first stores
+    // its result, the other reuses it. Each site keeps its OWN guard (A's CXX.1 length-validity
+    // skip is NOT hoisted), so B still computes fresh when A's branch was skipped.
+    int m_cell_est_cache = -1;
     {
         const double cp_val = Rf_isNull(capacity_penalty_sexp)
             ? -1.0
@@ -398,10 +404,10 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             // length-validation error is already pending (the throw at the deferred
             // check below converts pre_error into a graceful R error). Filling these
             // with malformed input would OOB-read.
-            int M_cell_est = lbw::estimate_M_cell(n, K,
+            m_cell_est_cache = lbw::estimate_M_cell(n, K,
                 const_cast<const int32_t**>(group_ids.data()),
                 cat_counts.data());
-            st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
+            st.alm.capacity_mu = (n > 0) ? static_cast<double>(m_cell_est_cache) / n : 1.0;
         }
     }
 
@@ -528,9 +534,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         //   K≥5, M_cell/n > 0.9, target_skew ≤ 5 → newton_kl  (moderate skew)
         //   K≥5, M_cell/n > 0.9, target_skew  > 5 → oris+SRAA (severe skew)
         //   target_skew = max(targets) / max(min(targets), 1e-12)
-        int M_cell_est = lbw::estimate_M_cell(n, K,
-            const_cast<const int32_t**>(group_ids.data()),
-            cat_counts.data());
+        // eb79.15: reuse the site-A value when it ran (both-run path); else compute fresh
+        // (B-only path — method="auto" with capacity_penalty>0, where A's branch was skipped).
+        int M_cell_est = (m_cell_est_cache >= 0)
+            ? m_cell_est_cache
+            : lbw::estimate_M_cell(n, K,
+                const_cast<const int32_t**>(group_ids.data()),
+                cat_counts.data());
         // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
         // PAR.1: use >= to match c_api.cpp:190; > diverged at the exact 0.9 boundary.
         const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9);
@@ -958,7 +968,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         int bw_n = (int)res_best_weights.size();
         SEXP bw_sxp = PROTECT(Rf_allocVector(REALSXP, bw_n));
         double* bw  = REAL(bw_sxp);
-        for (int i = 0; i < bw_n; i++) bw[i] = res_best_weights[i];
+        // eb79.14: memcpy the contiguous REALSXP from the contiguous std::vector<double>
+        // (matches the nearby weights memcpy); 0-length is a no-op.
+        if (bw_n > 0) std::memcpy(bw, res_best_weights.data(), (size_t)bw_n * sizeof(double));
         SET_VECTOR_ELT(res_list, 29, bw_sxp);
         UNPROTECT(1);  // bw_sxp adopted by res_list
     }
