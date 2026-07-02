@@ -447,9 +447,11 @@ RakingResult raking_solve(CalibState& st) {
                 // when last_F_metrics-write iter ≠ converging iter).
                 const lbw::CalibMetric metric = st.convergence_cfg.metric;
                 double mean_err = 0.0, kl_max = 0.0, chi2_total = 0.0, grake_norm = 0.0;
+                double marginal_kl_sum = 0.0;
                 const bool need_extra = (metric == lbw::CalibMetric::MAX_ERR ||
                                          metric == lbw::CalibMetric::MEAN_ERR ||
                                          metric == lbw::CalibMetric::KL ||
+                                         metric == lbw::CalibMetric::MARGINAL_KL ||
                                          metric == lbw::CalibMetric::CHI2 ||
                                          metric == lbw::CalibMetric::GRAKE_NORM ||
                                          iter == st.inner_max_iter);
@@ -463,6 +465,7 @@ RakingResult raking_solve(CalibState& st) {
                         kl_max     = m.kl;
                         chi2_total = m.chi2;
                         grake_norm = m.grake_norm;
+                        marginal_kl_sum = m.marginal_kl;
                         if (metric != lbw::CalibMetric::MAX_ERR) {
                             const double curr_best = lbw::select_metric(metric, m);
                             if (std::isfinite(curr_best) && curr_best < best.best_metric) {
@@ -488,6 +491,7 @@ RakingResult raking_solve(CalibState& st) {
                 m_conv.errRp = errRp; m_conv.mean_err = mean_err;
                 m_conv.kl = kl_max; m_conv.chi2 = chi2_total;
                 m_conv.grake_norm = grake_norm; m_conv.l1 = l1_weight;
+                m_conv.marginal_kl = marginal_kl_sum;
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
                     // Converged — do NOT override with INFEAS here. water_fill_cat may

@@ -119,12 +119,13 @@ inline bool apply_rule(
 }
 
 struct CellMetrics {
-    double errRp      = 0.0;
-    double mean_err   = 0.0;
-    double kl         = 0.0;
-    double chi2       = 0.0;
-    double grake_norm = 0.0;
-    double l1         = 0.0;
+    double errRp       = 0.0;
+    double mean_err    = 0.0;
+    double kl          = 0.0;   // MAX over margins of per-margin KL (back-compat)
+    double chi2        = 0.0;
+    double grake_norm  = 0.0;
+    double l1          = 0.0;
+    double marginal_kl = 0.0;   // SUM over margins of per-margin KL (flat-path marginal_kl)
 };
 
 /// Unified best-iterate tracker shared across all solvers.
@@ -163,11 +164,11 @@ struct BestIterTracker {
 };
 
 /// Convenience overload: select the convergence metric value from a CellMetrics struct.
-/// marginal_kl defaults to 0.0 (not tracked in CellMetrics).
 inline double select_metric(CalibMetric metric, const CellMetrics& m) noexcept {
     return select_metric(metric, m.errRp, m.mean_err, m.kl, m.chi2,
-                         m.grake_norm, m.l1);
-    // marginal_kl omitted — defaults to 0.0 in the 7-arg overload
+                         m.grake_norm, m.l1, m.marginal_kl);
+    // marginal_kl now tracked (Σ_k per-margin KL) — previously omitted, which
+    // defaulted to 0.0 and instant-triggered convergence for metric="marginal_kl".
 }
 
 // Mathematical objective for NON-KL solvers only.
@@ -265,7 +266,8 @@ inline CellMetrics compute_cell_metrics(
             if (nm > m.grake_norm)  m.grake_norm = nm;
         }
         mean_sum += max_k;
-        if (kl_k > m.kl) m.kl = kl_k;
+        if (kl_k > m.kl) m.kl = kl_k;   // MAX over margins (back-compat)
+        m.marginal_kl += kl_k;          // SUM over margins (flat-path marginal_kl)
     }
     m.mean_err = (st.K > 0) ? mean_sum / static_cast<double>(st.K) : 0.0;
     return m;
