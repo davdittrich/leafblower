@@ -103,6 +103,8 @@ PYBIND11_MODULE(_leafblower, m) {
                 p.sor_omega_init = params_dict["sor_omega_init"].cast<double>();
             if (params_dict.contains("sor_omega_min"))
                 p.sor_omega_min = params_dict["sor_omega_min"].cast<double>();
+            if (params_dict.contains("sor_omega_max"))
+                p.sor_omega_max = params_dict["sor_omega_max"].cast<double>();
             if (params_dict.contains("sor_omega_fixed"))
                 p.sor_omega_fixed = params_dict["sor_omega_fixed"].cast<double>();
             if (params_dict.contains("sor_burnin"))

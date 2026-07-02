@@ -32,6 +32,47 @@ def test_min_weight_badarg_python():
         harvest(df, tgts, min_weight=5.0, max_weight=5.0)
 
 
+def test_sor_omega_max_is_wired():
+    """eb79.1: sor_omega_max must reach the C solver (regression guard).
+
+    Before eb79.1, _parse_sor / the params dict / _bindings.cpp all dropped
+    sor_omega_max, so Python silently pinned it to the C default and diverged
+    from R (which passes it) whenever a user set a non-default omega_max. This
+    guard runs the SOR recovery-ceiling mode (omega_mode_id=1 = fixed jump to
+    omega_max) on a tight-bounds fixture where SOR engages, and asserts the
+    parameter is LOAD-BEARING: omega_max=1.7 must produce a different result
+    than omega_max=1.0. If the wiring regresses (or a stale build drops the
+    binding), both runs collapse to the C default and this test fails.
+    """
+    import pandas as pd
+    from leafblower import harvest
+    n = 600
+    df = pd.DataFrame({
+        "a": [["1", "2", "3"][i % 3] for i in range(n)],
+        "b": [["x", "y"][i % 2] for i in range(n)],
+        "c": [["p", "q", "r", "s"][i % 4] for i in range(n)],
+    })
+    tg = {"a": {"1": 0.5, "2": 0.3, "3": 0.2},
+          "b": {"x": 0.6, "y": 0.4},
+          "c": {"p": 0.4, "q": 0.3, "r": 0.2, "s": 0.1}}
+
+    def run(omax):
+        r = harvest(df, tg, method="oris", min_weight=0.5, max_weight=1.6,
+                    sor={"auto": True, "omega_mode_id": 1, "omega_max": omax},
+                    max_iterations=1000, attach_weights=False)
+        w = r.get("weights") if isinstance(r, dict) else r
+        return np.asarray(w, dtype=float)
+
+    w_hi = run(1.7)
+    w_lo = run(1.0)
+    effect = float(np.max(np.abs(w_hi - w_lo)))
+    assert effect > 1e-6, (
+        f"sor_omega_max not reaching solver: omega_max 1.7 vs 1.0 gave "
+        f"identical weights (max|diff|={effect:.3e}). Wiring regressed or "
+        f"the pybind extension is a stale build."
+    )
+
+
 def _make_fixture(n=1000):
     """Balanced 2-level fixture for parity tests."""
     import pandas as pd
