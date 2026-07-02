@@ -284,14 +284,23 @@ harvest <- function(
       rare <- setdiff(rare, "NA")   # never collapse the NA bin
       if (length(rare) == 0L) next
       other_mass <- sum(unlist(target[[v]][rare]))
-      target[[v]][rare] <- NULL
-      existing_other <- target[[v]][["__other__"]]
-      target[[v]][["__other__"]] <- (if (is.null(existing_other)) 0 else existing_other) +
-                                     other_mass
+      target[[v]] <- target[[v]][setdiff(names(target[[v]]), rare)]
+      # target[[v]] is a named numeric vector, not a list: `[[missing]]` errors
+      # (subscript out of bounds) rather than returning NULL, so guard the lookup.
+      existing_other <- if ("__other__" %in% names(target[[v]]))
+                          target[[v]][["__other__"]] else 0
+      target[[v]][["__other__"]] <- existing_other + other_mass
       # Recode observations: rare values → "__other__"
+      n0  <- sum(is.na(data_local[[v]]))
       col <- as.character(data_local[[v]])
       col[col %in% rare] <- "__other__"
       data_local[[v]] <- factor(col, levels = names(target[[v]]))
+      n1  <- sum(is.na(data_local[[v]]))
+      if (n1 - n0 > 0L)
+        warning(sprintf(
+          "auto_collapse: %d row(s) of '%s' became NA (value not in collapsed target levels)",
+          n1 - n0, v
+        ), call. = FALSE)
       data_modified   <- TRUE
     }
     if (data_modified) data <- data_local
