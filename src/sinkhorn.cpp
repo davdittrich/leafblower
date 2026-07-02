@@ -10,63 +10,6 @@
 
 namespace lbw {
 
-// Bisect on log-scale multiplier μ to project X onto capacity box preserving KL geometry.
-// Finds μ s.t. Σ_c clamp(X[c]*exp(a[c]+μ), L[c], U[c]) = target_mass.
-// f(μ) = Σ clamp(X*exp(a+μ), L, U) - target is strictly increasing → bisection valid.
-static bool bisect_capacity(const std::vector<double>& X,
-                             const std::vector<double>& a,
-                             const std::vector<double>& L,
-                             const std::vector<double>& U,
-                             int M_cell,
-                             double target_mass,
-                             double& mu_out,
-                             std::vector<double>& X_proj)
-{
-    double sum_L = 0.0, sum_U = 0.0;
-    for (int c = 0; c < M_cell; c++) { sum_L += L[c]; sum_U += U[c]; }
-    if (sum_L > target_mass + 1e-9 || sum_U < target_mass - 1e-9) return false;
-
-    auto f = [&](double mu) -> double {
-        double s = 0.0;
-        for (int c = 0; c < M_cell; c++)
-            s += std::clamp(X[c] * std::exp(a[c] + mu), L[c], U[c]);
-        return s - target_mass;
-    };
-
-    // Data-derived bracket: guarantees f(lo) <= 0 and f(hi) >= 0.
-    // f(mu) = sum_c clamp(X[c]*exp(a[c]+mu), L[c], U[c]) - target_mass.
-    // Each c is fully clamped to L[c] when mu <= log(L[c])-log(X[c])-a[c],
-    // and fully clamped to U[c] when mu >= log(U[c])-log(X[c])-a[c].
-    // Taking lo = min over c of the lower thresholds (minus margin) clamps
-    // every term to L[c] => f(lo) = sum_L - target <= 0 (caller ensured
-    // sum_L <= target).  Symmetric for hi.  Replaces the broken
-    // lo*=2.0 expansion (doubling a negative makes it MORE negative,
-    // and the loop capped at -800 truncates problems needing mu < -800).
-    constexpr double kEpsLU = 1e-300;
-    double lo = std::numeric_limits<double>::infinity();
-    double hi = -std::numeric_limits<double>::infinity();
-    for (int c = 0; c < M_cell; c++) {
-        const double Xc = std::max(X[c], kEpsLU);
-        const double lo_c = std::log(std::max(L[c], kEpsLU)) - std::log(Xc) - a[c];
-        const double hi_c = std::log(std::max(U[c], kEpsLU)) - std::log(Xc) - a[c];
-        if (lo_c < lo) lo = lo_c;
-        if (hi_c > hi) hi = hi_c;
-    }
-    lo -= 1.0;  // safety margin
-    hi += 1.0;
-    if (!std::isfinite(lo) || !std::isfinite(hi) || lo >= hi) return false;
-    if (f(lo) > 0.0 || f(hi) < 0.0) return false;  // bracket failed — infeasible
-    for (int i = 0; i < 80; i++) {
-        double mid = 0.5 * (lo + hi);
-        if (f(mid) < 0.0) lo = mid; else hi = mid;
-        if (hi - lo < 1e-12) break;
-    }
-    mu_out = 0.5 * (lo + hi);
-    for (int c = 0; c < M_cell; c++)
-        X_proj[c] = std::clamp(X[c] * std::exp(a[c] + mu_out), L[c], U[c]);
-    return true;
-}
-
 // Fast variant: accepts pre-computed exp_a[c]=exp(a[c]) so bisection eval is
 // exp_a[c]*exp(mu) — one scalar exp per step instead of M_cell vector exps.
 static bool bisect_capacity_fast(
