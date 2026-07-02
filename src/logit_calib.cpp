@@ -240,12 +240,17 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         // (b = delta_lambda after cholesky_solve)
         double max_delta_z = 0.0;
         for (int c = 0; c < M; c++) {
+            // Cell logit coordinate is the SIGNED margin sum z_c = Σ_k λ[k,g]
+            // (matches the z-accumulation at the Armijo recompute below), so the
+            // per-step shift is Δz_c = Σ_k Δλ[k,g]. Accumulate signed, |·| once:
+            // an abs-per-margin sum over-estimates |Δz_c| (triangle inequality)
+            // and throttles alpha smaller than necessary on every K>=2 cell.
             double dz = 0.0;
             for (int k = 0; k < K; k++) {
                 int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) dz += std::abs(b[cat_offset[k] + g]);
+                if (g >= 0 && g < st.cat_counts[k]) dz += b[cat_offset[k] + g];
             }
-            max_delta_z = std::max(max_delta_z, dz);
+            max_delta_z = std::max(max_delta_z, std::fabs(dz));
         }
         double alpha = (max_delta_z > 0.0) ? std::min(1.0, kMaxDeltaZ / max_delta_z) : 1.0;
 

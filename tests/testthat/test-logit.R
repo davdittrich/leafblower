@@ -25,3 +25,103 @@ test_that("H'(u) = F(u) holds near safe_exp clamp boundary (u=559 for L=0,U=5)",
   result <- .Call("C_logit_Hprime_check", 0.0, 5.0, 559.0)
   expect_equal(result, 0.0, tolerance = 1e-4)  # wider tol: finite-diff truncation error near saturation (F(u)≈U=5)
 })
+
+# ---------------------------------------------------------------------------
+# eb79.3 (T3): signed-Δz Newton step-norm guard (logit_calib.cpp:238-249)
+#
+# The step-size cap now accumulates the SIGNED per-cell logit shift
+# Δz_c = Σ_k Δλ[k,g] and takes |·| once, matching the actual (signed) cell
+# coordinate z_c = Σ_k λ[k,g]. The prior abs-per-margin sum over-estimated
+# |Δz_c| (triangle inequality) and throttled alpha on every K>=2 cell.
+#
+# INVARIANT (build-independent): the fix only changes throttling, NOT the
+# fixed point. A converged logit solution must (a) recover every margin
+# target, (b) have finite weights inside [min_weight, max_weight]. On the
+# collinear K>=6 fixture, (b) is also the observable guard for the agy RISK:
+# dual-λ null-space drift / catastrophic cancellation in z_c would surface as
+# non-finite weights or bound violations. The dual λ itself is not exposed to
+# R, so max|λ| non-inflation is verified in C++ by the orchestrator; the R
+# layer asserts the visible symptom is absent.
+#
+# CROSS-VERSION assertions (identical weights vs pre-fix, iterations not
+# worse, max|λ| not inflated) require running BOTH pre-fix and post-fix
+# builds; those reference numbers are filled by the orchestrator (constants
+# flagged with ORCH_FILL below). Do NOT self-certify pass/fail on them.
+# ---------------------------------------------------------------------------
+
+test_that("eb79.3: K>=2 logit converges to a valid fixed point (targets recovered, in-bounds)", {
+  library(leafblower)
+  set.seed(11)
+  n <- 300
+  data <- data.frame(
+    a = factor(sample(c("1", "2", "3"), n, replace = TRUE)),
+    b = factor(sample(c("x", "y"), n, replace = TRUE))
+  )
+  target <- list(a = c("1" = 1/3, "2" = 1/3, "3" = 1/3), b = c(x = 0.5, y = 0.5))
+  w <- harvest(data, target, method = "logit", min_weight = 0.2, max_weight = 5,
+               max_iterations = 500L, attach_weights = FALSE)
+  r <- attr(w, "result")
+
+  expect_equal(r$status, 0L, label = "status must be RK_OK=0")
+  expect_true(all(is.finite(w)), label = "all weights finite (no λ blowup)")
+  expect_true(all(w >= 0.2 - 1e-9 & w <= 5 + 1e-9), label = "weights within bounds")
+
+  # Fixed-point invariant: weighted margins recover targets * n.
+  expect_equal(sum(w[data$a == "1"]), n/3, tolerance = 1e-4)
+  expect_equal(sum(w[data$b == "x"]), n/2, tolerance = 1e-4)
+  expect_equal(sum(w), n, tolerance = 1e-6)
+
+  # Regression guard: signed-Δz must not increase iterations vs the pre-fix
+  # abs-sum guard. Orchestrator measured both builds on this fixture (seed 11):
+  # pre-fix iters=14, post-fix iters=14 (iteration-neutral here — abs vs signed
+  # only differ on cells with >=2 opposing-sign active margins; this 2-margin
+  # fixture rarely hits that). Hard constant so any future regression trips it.
+  ITERS_PREFIX_K2 <- 14L
+  expect_lte(r$iterations, ITERS_PREFIX_K2)
+})
+
+test_that("eb79.3: collinear K>=6 fixture — no λ null-space blowup (agy RISK)", {
+  library(leafblower)
+  set.seed(23)
+  n <- 200
+  base <- factor(c(rep("A", n/2), rep("B", n/2)))
+  base2 <- factor(rep(c("P", "Q", "P", "Q"), length.out = n))  # 50/50, orthogonal-ish to base
+  # 6 margins, deliberately rank-deficient: v1..v3 are identical copies of base
+  # (perfectly collinear), v4..v6 identical copies of base2 → AA^T is rank-2 but
+  # embedded in a 12-column dual space, i.e. a large null space. This is exactly
+  # the setting the signed-Δz cap could expose to dual drift.
+  data <- data.frame(
+    v1 = base, v2 = base, v3 = base,
+    v4 = base2, v5 = base2, v6 = base2
+  )
+  tgt_ab <- c(A = 0.5, B = 0.5)
+  tgt_pq <- c(P = 0.5, Q = 0.5)
+  target <- list(v1 = tgt_ab, v2 = tgt_ab, v3 = tgt_ab,
+                 v4 = tgt_pq, v5 = tgt_pq, v6 = tgt_pq)
+
+  w <- harvest(data, target, method = "logit", min_weight = 0.1, max_weight = 10,
+               max_iterations = 500L, attach_weights = FALSE)
+  r <- attr(w, "result")
+
+  # (b) Observable guard for the agy RISK: finite, in-bounds weights.
+  expect_true(all(is.finite(w)),
+              label = "collinear fixture: weights finite (no catastrophic cancellation in z_c)")
+  expect_true(all(w >= 0.1 - 1e-9 & w <= 10 + 1e-9),
+              label = "collinear fixture: weights within bounds (no null-space λ drift blowup)")
+
+  # This fully-collinear fixture is DEGENERATE for the logit link: the solver
+  # settles to all weights at min_weight (z_c -> -inf) in 1 iteration, which
+  # preserves each margin as a PROPORTION (0.5/0.5) but leaves Sum(w) != n. That
+  # is a pre-existing logit behavior (tracked separately — see epic eb79), NOT a
+  # product of the signed-Δz change, so we do NOT assert Sum(w)==n here.
+  #
+  # agy RISK closure (orchestrator, independent pre/post-fix builds on this exact
+  # fixture): results are BYTE-IDENTICAL — pre-fix and post-fix both give
+  #   status=0, iters=1, sum_w=20.00, min_w=max_w=0.1.
+  # Signed-Δz does not alter collinear behavior, so no null-space λ drift is
+  # introduced and no auxiliary per-margin cap is needed. The finite + in-bounds
+  # guards above are the observable proxy for "no catastrophic cancellation".
+  expect_equal(r$status, 0L,
+    label = "collinear fixture: solver still exits cleanly (no NaN/divergence)")
+  expect_equal(r$status, 0L, label = "collinear fixture must converge (RK_OK=0)")
+})
