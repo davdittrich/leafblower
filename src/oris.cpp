@@ -340,6 +340,10 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     // Test-only override (parallel to LBW_ORIS_FORCE_PATH): "on"|"off"|unset.
     // Always compiled; microsecond getenv cost. Enables falsifiable
     // min_alpha_seen assertion (spec §7, CTO B5).
+    // CR-B6 (y2ks.6): compute_alpha() below is invoked ONLY from the flat BCD loop.
+    // The SRAA path leaves alpha at 1.0 by design (damping shown inert there — see the
+    // apply_single_margin_linear comment), so LBW_ORIS_FORCE_DAMPING is a flat-path-only
+    // override and has no effect under accelerate=TRUE.
     const char* force_damp = std::getenv("LBW_ORIS_FORCE_DAMPING");
     bool force_damping_on  = (force_damp != nullptr && std::strcmp(force_damp, "on")  == 0);
     bool force_damping_off = (force_damp != nullptr && std::strcmp(force_damp, "off") == 0);
@@ -569,9 +573,18 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         // SRAA-m linear-path acceleration — outer-loop replacement.
         // The lambdas below are hoisted out of the inner for-loop so f_eval_lf
         // can be invoked from the SRAA while-loop branch.
-        // apply_single_margin_linear captures alpha (declared at line 319,
-        // outside the for-loop) and writes through it via compute_alpha; it
-        // does NOT reference iter_in_lvl or iter directly.
+        // apply_single_margin_linear reads alpha (declared outside the for-loop);
+        // it does NOT reference iter_in_lvl or iter directly.
+        // CR-B6 (y2ks.6): alpha is UPDATED only by compute_alpha() at the flat-loop
+        // call site — the SRAA while-loop never calls it, so alpha stays 1.0 there
+        // and infeasibility damping is intentionally INERT under accelerate=TRUE.
+        // Measured (accelerate=TRUE, bound-pinned infeasibility fixture): force-wiring
+        // compute_alpha() into the SRAA loop engaged damping (min_alpha 1.0→0.667) yet
+        // left status/iters/max_error and the final weights byte-identical — SRAA's own
+        // accept/reject safeguard (sraa.hpp) already provides step-size control, so
+        // flat-style damping is redundant. Decision: retire (do not wire in). Hence
+        // res.min_alpha_seen / res.final_alpha are 1.0 == N/A on the SRAA path (see
+        // oris.hpp), and LBW_ORIS_FORCE_DAMPING is a flat-path-only override.
         // ────────────────────────────────────────────────────────────────────
         auto apply_single_margin_linear = [&](int k) -> bool {
             const int nj = st.cat_counts[k];

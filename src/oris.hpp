@@ -10,8 +10,13 @@ struct ORISResult {
     int    M_cell                       = 0;   // compression info
     int    n_cap_active                 = 0;   // cells with W[c] != 1 at convergence
     int    n_xcur_writes_per_iter_last = 0;  // 0 outside linear path; counter for P1.1 RED test
-    double min_alpha_seen               = 1.0; // min alpha over all sweeps
-    double final_alpha                  = 1.0; // alpha at solver exit
+    // Infeasibility-damping diagnostics. FLAT-PATH ONLY: compute_alpha() runs only in
+    // the non-accelerated BCD loop, so under accelerate=TRUE (SRAA) both stay 1.0 by
+    // design — 1.0 means "damping not applicable on this path", NOT "no damping needed"
+    // (CR-B6/y2ks.6: damping shown inert under SRAA; the accept/reject safeguard is the
+    // step control). Do not interpret 1.0 as a convergence signal on the SRAA path.
+    double min_alpha_seen               = 1.0; // min alpha over all sweeps (flat path)
+    double final_alpha                  = 1.0; // alpha at solver exit (flat path)
     int    n_bounds_violated            = 0;   // cell-mode diagnostic: count of w_i outside bounds
     int    n_bounds_clamped             = 0;   // unit-mode action: count of w_i clamped
     // ── Overlay diagnostics ──
