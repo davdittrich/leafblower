@@ -247,7 +247,10 @@ test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused b
   result_info <- attr(res, "result")
   expect_true(!is.null(result_info$n_xcur_writes_per_iter_last))
   stopifnot(result_info$iterations > 0)
-  writes_per_iter <- result_info$n_xcur_writes_per_iter_last / result_info$iterations
+  # CR-B8 (y2ks.8): n_xcur_writes_per_iter_last is now a true PER-ITERATION count
+  # (reset each iteration), not the cumulative iters*M it used to be — so the old
+  # `/ iterations` normalization is gone. The fused linear block writes every cell
+  # once per iteration, so the last iteration's count equals M_cell directly.
   # M_cell via probe. All 9 cells populated with high certainty at n=100k.
   gid_list <- lapply(names(targets), function(nm) {
     lv <- names(targets[[nm]])
@@ -257,7 +260,8 @@ test_that("P1.1: linear path writes X_cur exactly M_cell times per iter (fused b
   })
   probe <- .Call("C_leafblower_cell_table_probe", gid_list, n, PACKAGE = "leafblower")
   expect_equal(probe$M_cell, 9L)            # deterministic saturation
-  expect_equal(writes_per_iter, probe$M_cell)  # fused block hits every cell once
+  # per-iteration count == M_cell (fused block hits every cell once per iteration)
+  expect_equal(result_info$n_xcur_writes_per_iter_last, probe$M_cell)
 })
 
 test_that("WU-3: damped mode takes strictly more iters than stable on same input (spec §7)", {

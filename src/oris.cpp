@@ -1427,6 +1427,12 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         if (use_linear) {
             // P1.1 fused block: X_tilde derived inline as X_cur / W; capacity + X_cur rebuild fused.
             bool overflow_detected = false;
+            // CR-B8 (y2ks.8): reset per flat-BCD iteration so the field reports a true
+            // per-iteration write count (its name/oris.hpp semantics), not a cumulative
+            // ~iters·M total. This block runs once per iteration on the linear path; the
+            // counter increments once per X_cur write in the cell loop below. (The
+            // overflow-reset at the mid-loop break is a separate, still-needed reset.)
+            res.n_xcur_writes_per_iter_last = 0;
             int n_cap = 0;
             for (int c = 0; c < ct.M_cell; c++) {
                 if (X_init[c] <= 0.0 || W[c] <= 0.0) {

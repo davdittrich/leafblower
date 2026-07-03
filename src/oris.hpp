@@ -9,7 +9,9 @@ struct ORISResult {
     // ── ORIS-specific extras ──
     int    M_cell                       = 0;   // compression info
     int    n_cap_active                 = 0;   // cells with W[c] != 1 at convergence
-    int    n_xcur_writes_per_iter_last = 0;  // 0 outside linear path; counter for P1.1 RED test
+    int    n_xcur_writes_per_iter_last = 0;  // X_cur writes in the LAST linear-path
+                                             // iteration (reset per iteration, y2ks.8);
+                                             // 0 outside the linear path
     // Infeasibility-damping diagnostics. FLAT-PATH ONLY: compute_alpha() runs only in
     // the non-accelerated BCD loop, so under accelerate=TRUE (SRAA) both stay 1.0 by
     // design — 1.0 means "damping not applicable on this path", NOT "no damping needed"
