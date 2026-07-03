@@ -6,7 +6,7 @@ test_that("T1a: chebyshev is implemented; grake is removed", {
   )
   expect_error(
     leafblower::harvest(data, target, max_weight=3, method="grake", attach_weights=FALSE),
-    regexp = "should be one of"
+    regexp = "must be exactly one of"
   )
 })
 
@@ -283,7 +283,7 @@ test_that("E2: grake is deprecated and removed (errors on dispatch)", {
   target <- list(a = c("1"=0.5, "2"=0.5))
   expect_error(
     leafblower::harvest(data, target, method="grake"),
-    regexp = "should be one of"
+    regexp = "must be exactly one of"
   )
 })
 

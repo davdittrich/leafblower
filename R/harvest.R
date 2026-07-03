@@ -881,6 +881,19 @@ parse_bounds_mode <- function(x = c("cell", "unit")) {
   match.arg(x)
 }
 
+# CR-F8 (dtkn.8): exact-match validation for user-facing string arguments. base
+# match.arg partial-matches (method="sink" -> "sinkhorn", metric="max" -> "max_err"),
+# silently accepting typos/abbreviations, and emits an opaque "'arg' matches multiple
+# formal arguments" error on ambiguous partials (method="or" -> oris/oris_soft).
+# Require an exact choice, else raise a clear error naming the valid choices.
+match_exact <- function(value, choices, arg_name) {
+  if (length(value) != 1L || !is.character(value) || !(value %in% choices))
+    stop(sprintf("%s must be exactly one of: %s; got: %s", arg_name,
+                 paste0("\"", choices, "\"", collapse = ", "), deparse(value)),
+         call. = FALSE)
+  value
+}
+
 map_method <- function(method, verbose = 0) {
   method <- tolower(method)
   if (method %in% c("rake", "nrake")) {
@@ -890,7 +903,9 @@ map_method <- function(method, verbose = 0) {
     warning("method='nr' (Newton-Raphson); using newton_kl", call. = FALSE)
     method <- "newton_kl"
   }
-  match.arg(method, c("auto", "oris", "oris_soft", "raking", "sinkhorn", "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"))
+  match_exact(method, c("auto", "oris", "oris_soft", "raking", "sinkhorn",
+                        "chebyshev", "greg", "greenkhorn", "logit", "newton_kl"),
+              "method")
 }
 
 parse_convergence <- function(convergence) {
@@ -932,8 +947,9 @@ parse_convergence <- function(convergence) {
                 (if (explicit_pct) "pct" else "max_err")
   # META.2: resolve pct alias to l1_weight before metric_int lookup
   if (!is.null(metric_raw) && identical(metric_raw, "pct")) metric_raw <- "l1_weight"
-  metric <- match.arg(metric_raw,
-    c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl"))
+  metric <- match_exact(metric_raw,
+    c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl"),
+    "convergence$metric")
 
   # pct is autumn/anesrake compatible: stops when Σ|Δw| STOPS IMPROVING (plateau).
   # Default its rule to "plateau" when pct is specified without an explicit rule.
@@ -943,7 +959,8 @@ parse_convergence <- function(convergence) {
                    else if (!rule_explicit && explicit_abs && !explicit_pct) "threshold"
                    else "improvement"
   rule_raw      <- convergence[["rule"]] %||% rule_default
-  rule         <- match.arg(rule_raw, c("threshold", "improvement", "plateau"))
+  rule         <- match_exact(rule_raw, c("threshold", "improvement", "plateau"),
+                              "convergence$rule")
 
   # "tol" shorthand: overrides pct_tol for threshold rule, pct_tol otherwise.
   if (explicit_tol) {
@@ -965,7 +982,8 @@ parse_convergence <- function(convergence) {
   if (explicit_pct && rule == "plateau" && (pct_tol <= 0 || pct_tol >= 1))
     stop("convergence$pct must be in (0,1) for rule='plateau'")
 
-  stop_when <- match.arg(convergence[["stop_when"]] %||% "any", c("any", "all"))
+  stop_when <- match_exact(convergence[["stop_when"]] %||% "any", c("any", "all"),
+                           "convergence$stop_when")
   list(pct_tol = pct_tol, absolute_tol = absolute_tol,
        metric = metric, rule = rule, stop_when = stop_when)
 }

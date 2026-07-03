@@ -43,7 +43,7 @@ test_that("AUTO path completes quickly on hard input (no lbfgsb hang)", {
 test_that("unknown method rejected by R layer (C++ kAlgMap fallback not reachable via harvest)", {
   # harvest.R validates method via match.arg before reaching C++.
   # This test confirms the R-level guard works (catching unknown methods with
-  # "should be one of" error). The C++ RK_ALG_RAKING fallback is a safety net
+  # "must be exactly one of" error). The C++ RK_ALG_RAKING fallback is a safety net
   # for direct C API callers only and is intentionally not tested from R.
   n   <- 20L
   df  <- data.frame(x = factor(rep(c("a", "b"), n / 2L)))
@@ -51,6 +51,6 @@ test_that("unknown method rejected by R layer (C++ kAlgMap fallback not reachabl
   expect_error(
     harvest(df, tgt, method = "nonexistent_method", max_iterations = 10L,
             convergence = list(absolute = 0.1)),
-    regexp = "should be one of"
+    regexp = "must be exactly one of"
   )
 })

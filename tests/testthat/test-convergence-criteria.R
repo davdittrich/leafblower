@@ -536,3 +536,24 @@ test_that("dtkn.9: pct shorthand out-of-range errors like explicit tol (CR-F9)",
   expect_error(leafblower:::parse_convergence(list(pct = 1)),  "in \\(0,1\\)")
   expect_error(leafblower:::parse_convergence(list(pct = 0)),  "in \\(0,1\\)")
 })
+
+test_that("dtkn.8: method + convergence keys reject partial matches (CR-F8)", {
+  df <- data.frame(a = factor(sample(c("x", "y"), 100, TRUE)))
+  tg <- list(a = c(x = 0.5, y = 0.5))
+  # method partial "sink" was silently accepted as "sinkhorn"; "or" gave opaque ambiguity.
+  expect_error(harvest(df, tg, method = "sink"), "method must be exactly one of")
+  expect_error(harvest(df, tg, method = "or"),   "method must be exactly one of")
+  # convergence-key partials
+  expect_error(leafblower:::parse_convergence(list(metric = "max")),
+               "convergence\\$metric must be exactly one of")
+  expect_error(leafblower:::parse_convergence(list(rule = "thresh", pct = 0.01)),
+               "convergence\\$rule must be exactly one of")
+  # "a" is an ambiguous prefix of both "any" and "all" (old match.arg gave an opaque
+  # multiple-match error). NB: not combined with improvement=, which early-returns
+  # before stop_when is validated.
+  expect_error(leafblower:::parse_convergence(list(stop_when = "a")),
+               "convergence\\$stop_when must be exactly one of")
+  # exact values still accepted
+  expect_silent(leafblower:::parse_convergence(list(metric = "max_err")))
+  expect_identical(leafblower:::map_method("sinkhorn"), "sinkhorn")
+})
