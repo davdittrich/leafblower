@@ -662,6 +662,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9);
         // Save for auto-fallback: only st.weights is mutated by solvers in-place
         const std::vector<double> weights_backup(weights);
+        // CR-D5 (j7x8.5): the severe-skew branch forces st.accelerate=true for ORIS;
+        // capture the user's original value to restore before a newton_kl fallback.
+        const bool accel_backup = st.accelerate;
         if (zero_compression && K >= 5) {
             // Compute target_skew on the AUTO dispatch path.
             double max_target = 0.0, min_target = 1.0;
@@ -729,6 +732,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             // Restore original weights (only mutated field in CalibState)
             std::copy(weights_backup.begin(), weights_backup.end(), weights.begin());
             st.oris_auto_selected = false;
+            st.accelerate = accel_backup;  // CR-D5: undo severe-skew ORIS override
             auto fb = lbw::newton_calibrate(st);
             res_status     = fb.base.status;
             res_iterations = fb.base.iterations;
@@ -736,7 +740,30 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_alg_used   = (int)RK_ALG_NEWTON_KL;
             res_n_projected_dims = fb.n_projected_dims;
             res_lm_mu_final      = fb.lm_mu_final;
-            pack_solver_result(fb);
+            pack_solver_result(fb);  // sets the shared conv/metric fields + message + n_bounds (has_n_bounds trait)
+            // CR-D5 (j7x8.5): when the abandoned primary was ORIS, pack_oris_result
+            // populated the ORIS-only diagnostics; newton owns none of them. Reset to
+            // their documented non-ORIS defaults (leafblower.h) so the exported result
+            // reflects the winning solver, not stale ORIS state. (n_bounds_violated is
+            // NOT reset — pack_solver_result already surfaced newton's real value.)
+            res_n_xcur_writes         = 0;
+            res_min_alpha             = 1.0;
+            res_final_alpha           = 1.0;
+            res_homotopy_levels_used  = 0;
+            res_homotopy_final_factor = 1.0;
+            res_greedy_sweeps_taken   = 0;
+            res_eta_final             = 0.0;
+            res_sor_min_omega     = 1.0;
+            res_sor_n_damped      = 0;
+            res_sor_omega_mean    = 1.0;
+            res_sor_any_latched   = 0;
+            res_sor_n_pinned_fb   = 0;
+            res_sor_n_warmup_fb   = 0;
+            res_sor_n_conv_fb     = 0;
+            res_sor_n_resid_grew  = 0;
+            res_sor_n_monotone_cd = 0;
+            res_aa_accepted_count = 0;
+            res_sraa_demoted      = 0;
             if (!fb.base.best_weights.empty())
                 res_best_weights = std::move(fb.base.best_weights);
             else
