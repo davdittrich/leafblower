@@ -34,9 +34,9 @@ template <class T>
 struct has_message<T, std::void_t<decltype(std::declval<T&>().message)>> : std::true_type {};
 
 // CR-D11 (j7x8.11): same void_t detection for top-level n_bounds_violated (a
-// TOP-LEVEL field on oris/newton and now raking/greg/sinkhorn results; absent
-// on chebyshev/logit/greenkhorn which pass their own locals). Lets the shared
-// pack lambda surface the bound-violation diagnostic generically.
+// TOP-LEVEL field on oris/newton, raking/greg/sinkhorn, and — since CR-D11b
+// (j7x8.16) — chebyshev/logit/greenkhorn too). Lets the shared pack lambda
+// surface the bound-violation diagnostic generically.
 template <class T, class = void> struct has_n_bounds : std::false_type {};
 template <class T>
 struct has_n_bounds<T, std::void_t<decltype(std::declval<T&>().n_bounds_violated)>> : std::true_type {};
@@ -589,10 +589,9 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         // CR-D11 (j7x8.11): surface the bound-violation diagnostic for any result
         // carrying it (oris/newton and now raking/greg/sinkhorn). Under the
         // no-clamp cell contract, cell mode can return per-obs violations; this
-        // reports their true count instead of a misleading 0. chebyshev/logit/
-        // greenkhorn results lack the field (they compute nbv/nbc into locals and
-        // do not persist them) → trait is false → they still surface 0 (a
-        // pre-existing gap, unchanged here; tracked separately).
+        // reports their true count instead of a misleading 0. Since CR-D11b
+        // (j7x8.16) chebyshev/logit/greenkhorn also carry the field and persist
+        // finalize's out-params, so the trait now fires for every solver.
         if constexpr (has_n_bounds<std::decay_t<decltype(res)>>::value) {
             res_n_bounds_violated = res.n_bounds_violated;
             res_n_bounds_clamped  = res.n_bounds_clamped;

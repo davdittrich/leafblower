@@ -13,6 +13,8 @@ struct ChebyshevResult {
     //   convergence_solver_objective=inf
     int    n_factorizations             = 0;   // Mehrotra audit counter (populated in T5)
     int    M_cell                       = 0;
+    int    n_bounds_violated            = 0;   // CR-D11b (j7x8.16): cell-mode bound-active count
+    int    n_bounds_clamped             = 0;   // CR-D11b (j7x8.16): unit-mode clamp count
     char   message[256]                 = {};
     // ── End extras ──
 };

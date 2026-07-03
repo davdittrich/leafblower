@@ -349,10 +349,8 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // (normalize→bounds order), matching oris_finalize. W is maintained purely
     // incrementally (W += delta) and never rescaled at exit, so without this
     // greenkhorn silently violates Σw=n whenever max_weight clamps bind.
-    {
-        int nbv = 0, nbc = 0;
-        lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct, nbv, nbc);
-    }
+    lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct,
+                              res.n_bounds_violated, res.n_bounds_clamped);
 
     // Unchanged (CXX.2 contract; CR-C3 deferred): best-iterate configured-metric scale.
     res.base.max_error = best.best_metric;

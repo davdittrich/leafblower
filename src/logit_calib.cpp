@@ -500,10 +500,8 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             ? st.weights[i] * w_best[c] / X_init[c]
             : st.weights[i];
     }
-    {
-        int nbv = 0, nbc = 0;
-        lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct, nbv, nbc);
-    }
+    lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct,
+                              res.n_bounds_violated, res.n_bounds_clamped);
 
     // Final metrics — computed from the RETURNED weights (finalized obs weights remassed to
     // cells), NOT the pre-finalize cell iterate, so returned≡reported (mxcl.5) on BUDGET too.

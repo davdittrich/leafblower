@@ -743,9 +743,7 @@ finalize:
         double mult = (X_den[c] > kEpsChebyshev) ? X_out[c]/X_den[c] : 1.0;
         st.weights[i] = st.weights[i] * mult;
     }
-    int nbv = 0, nbc = 0;  // ChebyshevResult does not surface bounds diagnostics
-    lbw::finalize_weights(st, ct, nbv, nbc);
-    (void)nbv; (void)nbc;
+    lbw::finalize_weights(st, ct, res.n_bounds_violated, res.n_bounds_clamped);
 
     res.base.best_weights.resize(st.n);
     std::copy(st.weights, st.weights+st.n, res.base.best_weights.begin());

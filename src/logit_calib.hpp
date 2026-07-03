@@ -14,6 +14,8 @@ struct LogitCalibResult {
     //   convergence_rule=0, convergence_tol=0.0, convergence_iter=1,
     //   convergence_metric=CHI2, convergence_minimized_metric=CHI2, best_iter=1
     int    M_cell                       = 0;
+    int    n_bounds_violated            = 0;   // CR-D11b (j7x8.16): cell-mode bound-active count
+    int    n_bounds_clamped             = 0;   // CR-D11b (j7x8.16): unit-mode clamp count
     char   message[256]                 = {0};
     // ALM telemetry (logit does not use ALM — kept zero for schema parity).
     double alm_capacity_mu_final  = 0.0;
