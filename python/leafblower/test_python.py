@@ -753,3 +753,14 @@ def test_harvest_rejects_nan_bounds():
         harvest(df, tg, max_weight=float("nan"))
     with pytest.raises(ValueError):
         harvest(df, tg, min_weight=float("nan"))
+
+
+def test_stall_advice_names_only_valid_methods():
+    # CR-F3b (dtkn.14): the stall/BUDGET advice must not suggest
+    # method='oris+accel', which _harvest's method validation rejects.
+    # Mirror of R dtkn.3 (harvest.R).
+    import inspect
+    import leafblower._harvest as H
+    src = inspect.getsource(H)
+    assert "oris+accel" not in src
+    assert "method='oris' with accelerate=True" in src

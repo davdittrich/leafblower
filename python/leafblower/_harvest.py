@@ -652,7 +652,7 @@ def harvest(
                 f"leafblower: fixed point at {mstr}={e_final:.2e} "
                 f"(best at iter {b_iter} of {iters}, ratio={stall_ratio:.2f}). "
                 f"More iterations will not improve calibration. "
-                f"Try: accelerate=True, method='newton_kl', or method='oris+accel'.",
+                f"Try: accelerate=True, method='newton_kl', or method='oris' with accelerate=True.",
                 UserWarning, stacklevel=2)
         else:
             e_prev    = result_dict.get("metric_prev_check", float("inf"))
