@@ -210,6 +210,18 @@ void oris_finalize(
             const lbw::CellMetrics cm =
                 lbw::compute_cell_metrics(st, ct, X_final, W_total, S_scratch);
             res.base.max_error = cm.errRp;
+            // CR-B13 (y2ks.13): best_error had the same honesty gap max_error had
+            // before mxcl.6 — L122 copies best.best_metric, tracked on the PRE-clamp
+            // accepted masses, so on a tight/infeasible BUDGET exit it reads ~2e-16
+            // ("fixed point") while the returned bounds-clamped weights miss margins.
+            // harvest.R:728,740 surfaces best_error verbatim in the BUDGET warning
+            // LABELLED with convergence_used$metric, and harvest.R:754-757 divides it
+            // by metric_prev_check (oris.cpp:1176, tracked as select_metric(metric,cm)).
+            // Report the metric-FAMILY value of the returned solution — NOT cm.errRp,
+            // which would mislabel units under the default metric (marginal_kl) and
+            // corrupt the extrapolation ratio. Reuses the SAME cm (no second
+            // aggregation); reduces to cm.errRp when metric=max_err.
+            res.base.best_error = lbw::select_metric(st.convergence_cfg.metric, cm);
         } else {
             // Degenerate/NaN return (Σw ≤ 0): every achieved proportion is 0, so the
             // honest max margin error is the largest target. Do NOT keep the stale
@@ -219,6 +231,7 @@ void oris_finalize(
                 for (int j = 0; j < st.cat_counts[k]; j++)
                     max_t = std::max(max_t, st.targets[k][j]);
             res.base.max_error = max_t;
+            res.base.best_error = max_t;  // CR-B13: keep best_error honest too
         }
     }
 
