@@ -236,6 +236,16 @@ PYBIND11_MODULE(_leafblower, m) {
             result_dict["metric_first_check"]  = result.metric_first_check;
             result_dict["metric_prev_check"]   = result.metric_prev_check;
             result_dict["prev_check_iter"]     = result.prev_check_iter;
+            // CR-E8 (5ye4.8): solver-outcome fields present in R (r_bridge.cpp) but
+            // previously dropped by the Python binding, despite harvest() accepting
+            // homotopy_levels/scheduler/eta params that drive them. Flat rk_result_t
+            // fields (leafblower.h) — snake_case names match R's exposure.
+            result_dict["homotopy_levels_used"]  = result.homotopy_levels_used;
+            result_dict["homotopy_final_factor"] = result.homotopy_final_factor;
+            result_dict["greedy_sweeps_taken"]   = result.greedy_sweeps_taken;
+            result_dict["eta_final"]             = result.eta_final;
+            result_dict["min_alpha_seen"]        = result.min_alpha_seen;
+            result_dict["final_alpha"]           = result.final_alpha;
 
             return py::make_tuple(rc, weights_out, result_dict);
         },

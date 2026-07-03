@@ -2,16 +2,8 @@ from __future__ import annotations
 import math
 import warnings
 import numpy as np
-from typing import TYPE_CHECKING, Dict, Optional
-
-if TYPE_CHECKING:
-    import pandas as pd  # only for type checker; runtime import below
-
-try:
-    import pandas as pd  # type: ignore[no-redef]
-    _PANDAS_AVAILABLE = True
-except ImportError:
-    _PANDAS_AVAILABLE = False
+import pandas as pd
+from typing import Dict, Optional
 
 from ._leafblower import calibrate
 
@@ -192,9 +184,6 @@ def _parse_sor(sor):
 
 def _parse_target(target, target_map=None):
     """Mirror R parse_target(): convert DataFrame target to dict. No normalization."""
-    if not _PANDAS_AVAILABLE:
-        return target  # pandas not available, target must be dict
-    import pandas as pd
     if not isinstance(target, pd.DataFrame):
         return target  # already dict
     if target_map is not None:
@@ -297,29 +286,6 @@ def harvest(
     -------
     pd.DataFrame (if attach_weights=True) or np.ndarray
     """
-    # 81bx: auto_collapse — merge rare categories into __other__
-    if auto_collapse is True or (collapse_vars is not None and auto_collapse is not False):
-        vars_to_collapse = collapse_vars if collapse_vars is not None else list(targets.keys())
-        data = data.copy()  # avoid mutating caller's DataFrame
-        # Deep-copy targets too: targets[v].pop() below permanently corrupts
-        # caller's dict (parity with the data.copy() above).
-        targets = {k: (dict(v) if isinstance(v, dict) else v) for k, v in targets.items()}
-        for v in vars_to_collapse:
-            if v not in targets:
-                continue
-            rare = [
-                lv for lv, t_kj in targets[v].items()
-                if (t_kj < 0.01 or int((data[v].astype(str) == str(lv)).sum()) < 30)
-                and str(lv) != "NA"
-            ]
-            if not rare:
-                continue
-            other_mass = sum(targets[v].pop(lv) for lv in rare)
-            targets[v]["__other__"] = targets[v].get("__other__", 0.0) + other_mass
-            rare_set = {str(lv) for lv in rare}
-            col = data[v].astype(str)
-            data[v] = col.where(~col.isin(rare_set), other="__other__")
-
     # Removed autumn legacy params — raise TypeError with migration hint
     _REMOVED_PARAMS = {
         "select_params":  "use method= and scheduler= instead",
@@ -331,6 +297,16 @@ def harvest(
     for _p, _hint in _REMOVED_PARAMS.items():
         if _p in _kwargs:
             raise TypeError(f"harvest() got removed autumn param '{_p}': {_hint}")
+
+    # CR-E4 (5ye4.4): reject any remaining unrecognized kwargs. The catch-all
+    # **_kwargs previously swallowed typos (max_weigth=3.0, bounds_mod="unit")
+    # silently, producing wrong results with no signal the argument was ignored.
+    # Known forward-compat names are the _REMOVED_PARAMS above (raised already);
+    # anything left is a caller mistake.
+    if _kwargs:
+        raise TypeError(
+            f"harvest() got unexpected keyword argument(s): {sorted(_kwargs)}"
+        )
 
     # design_weights: alias for start_weights (mirrors R harvest.R lines 332-338)
     if design_weights is not None:
@@ -349,14 +325,9 @@ def harvest(
 
     # Convert dict data to DataFrame; validate input type.
     if isinstance(data, dict):
-        if not _PANDAS_AVAILABLE:
-            raise ImportError("pandas required to use dict input; install with pip install pandas")
         data = pd.DataFrame(data)
-    elif _PANDAS_AVAILABLE:
-        if not isinstance(data, pd.DataFrame):
-            raise TypeError("data must be a pd.DataFrame or dict")
-    else:
-        raise TypeError("data must be a dict when pandas is not installed")
+    elif not isinstance(data, pd.DataFrame):
+        raise TypeError("data must be a pd.DataFrame or dict")
 
     n = len(data)
     if n == 0:  # mirror R harvest.R:420-421
@@ -408,9 +379,39 @@ def harvest(
     # Convert DataFrame target to dict (mirrors R parse_target())
     targets = _parse_target(targets, target_map)
 
+    # 81bx: auto_collapse — merge rare categories into __other__.
+    # CR-E5 (5ye4.5): runs AFTER dict→DataFrame coercion and _parse_target so
+    # data[v].astype(str) and targets[v].items() operate on real DataFrame
+    # columns / parsed dict-of-floats (was crashing on dict-data / DataFrame-targets).
+    # CR-E7 (5ye4.7): bool(auto_collapse) — truthy 1 enables, 0/False/None disable
+    # (was `is True`, which silently ignored auto_collapse=1).
+    if bool(auto_collapse) or (collapse_vars is not None and auto_collapse is not False):
+        vars_to_collapse = collapse_vars if collapse_vars is not None else list(targets.keys())
+        data = data.copy()  # avoid mutating caller's DataFrame
+        # Deep-copy targets too: targets[v].pop() below permanently corrupts
+        # caller's dict (parity with the data.copy() above).
+        targets = {k: (dict(v) if isinstance(v, dict) else v) for k, v in targets.items()}
+        for v in vars_to_collapse:
+            if v not in targets:
+                continue
+            rare = [
+                lv for lv, t_kj in targets[v].items()
+                if (t_kj < 0.01 or int((data[v].astype(str) == str(lv)).sum()) < 30)
+                and str(lv) != "NA"
+            ]
+            if not rare:
+                continue
+            other_mass = sum(targets[v].pop(lv) for lv in rare)
+            targets[v]["__other__"] = targets[v].get("__other__", 0.0) + other_mass
+            rare_set = {str(lv) for lv in rare}
+            col = data[v].astype(str)
+            data[v] = col.where(~col.isin(rare_set), other="__other__")
+
     # yaye: add_na_proportion — renormalize targets and add explicit NA bin
     _na_vars: set = set()
-    if add_na_proportion is not False:
+    # CR-E7 (5ye4.7): bool() — 0/False/None disable NA-bin injection (was
+    # `is not False`, which treated 0 and None as enabled, the opposite of intent).
+    if bool(add_na_proportion):
         for v in list(targets.keys()):
             if v not in data.columns:
                 continue
@@ -453,28 +454,16 @@ def harvest(
         col = data[varname]
         ncat = len(levels)
 
-        if _PANDAS_AVAILABLE:
-            # Vectorized encoding via pandas Categorical: O(n) in C, ~6x faster than
-            # a Python for-loop. col.astype(str) handles mixed-type columns; pd.isna
-            # entries map to codes=-1 automatically when observed=False.
-            # yaye: for NA-bin margins, fill NAs with "NA" so they map to the NA bin.
-            if varname in _na_vars:
-                col_enc = col.astype(str).where(~pd.isna(col), other="NA")
-            else:
-                col_enc = col.astype(str).where(~pd.isna(col), other=np.nan)
-            cat = pd.Categorical(col_enc, categories=[str(lv) for lv in levels])
-            gid = cat.codes.astype(np.int32)  # -1 for NA/unknown levels
+        # Vectorized encoding via pandas Categorical: O(n) in C, ~6x faster than
+        # a Python for-loop. col.astype(str) handles mixed-type columns; pd.isna
+        # entries map to codes=-1 automatically when observed=False.
+        # yaye: for NA-bin margins, fill NAs with "NA" so they map to the NA bin.
+        if varname in _na_vars:
+            col_enc = col.astype(str).where(~pd.isna(col), other="NA")
         else:
-            level_to_idx = {str(lv): j for j, lv in enumerate(levels)}
-            gid = np.empty(n, dtype=np.int32)
-            for i, val in enumerate(col):
-                is_na = val is None or (isinstance(val, float) and np.isnan(val))
-                if is_na and varname in _na_vars:
-                    gid[i] = level_to_idx.get("NA", -1)
-                elif is_na:
-                    gid[i] = -1
-                else:
-                    gid[i] = level_to_idx.get(str(val), -1)
+            col_enc = col.astype(str).where(~pd.isna(col), other=np.nan)
+        cat = pd.Categorical(col_enc, categories=[str(lv) for lv in levels])
+        gid = cat.codes.astype(np.int32)  # -1 for NA/unknown levels
 
         if len(gid) != n:
             raise ValueError(f"group_ids for '{varname}' has wrong length")
@@ -660,6 +649,21 @@ def harvest(
                     f"leafblower: budget exhausted — {mstr}={e_final:.2e} "
                     f"at {iters} iters. Increase max_iterations.",
                     UserWarning, stacklevel=2)
+    if result_dict["status"] == 5:  # RK_ERR_STALL
+        # CR-E3 (5ye4.3): surface STALL (was silent — only statuses 1-4 branched).
+        # Mirrors R harvest.R:729-734: constrained-optimum plateau; weights valid.
+        # accelerate=True → SRAA-m weight-change plateau variant; else loss-function
+        # plateau variant. (R checks the same `accelerate` flag.)
+        if accelerate:
+            warnings.warn(
+                "leafblower: SRAA-m weight-change plateau — at constrained optimum; "
+                "weights are valid; no further improvement is achievable",
+                UserWarning, stacklevel=2)
+        else:
+            warnings.warn(
+                "leafblower: loss function plateau — at constrained optimum given bounds; "
+                "weights are valid; no further improvement is achievable",
+                UserWarning, stacklevel=2)
 
     # Solver returns sum(weights) = n (enforced in src/oris.cpp, src/raking.cpp,
     # src/lbfgsb_solver.cpp per user directive 2026-04-24). No wrapper-level
@@ -697,29 +701,27 @@ def harvest(
             "result": result_dict,
         }
 
-    if _PANDAS_AVAILABLE:
-        out = data.copy()
-        out[weight_column] = weights_out
-        # Expose calibration diagnostics via DataFrame.attrs (PEP 526 / pandas 1.0+).
-        # Nest SOR fields to match R's result$sor namespace.
-        # Non-SOR solvers (newton_kl, chebyshev, greg, etc.) don't populate
-        # SOR fields; .pop with default avoids KeyError. R side returns NULL
-        # for these; Python returns None inside the nested dict.
-        result_dict["sor"] = {
-            "min_omega":    result_dict.pop("sor_min_omega", None),
-            "n_damped":     result_dict.pop("sor_n_damped", None),
-            "omega_mean":   result_dict.pop("sor_omega_mean", None),
-            "any_latched":  result_dict.pop("sor_any_latched", None),
-            "n_pinned_fb":  result_dict.pop("sor_n_pinned_fb", None),
-            "n_warmup_fb":  result_dict.pop("sor_n_warmup_fb", None),
-            "n_conv_fb":    result_dict.pop("sor_n_conv_fb", None),
-            "n_resid_grew": result_dict.pop("sor_n_resid_grew", None),
-            "n_monotone_cd": result_dict.pop("sor_n_monotone_cd", None),
-        }
-        out.attrs["result"] = result_dict
-        out.attrs["iterations"] = result_dict["iterations"]
-        return out
-    return weights_out
+    out = data.copy()
+    out[weight_column] = weights_out
+    # Expose calibration diagnostics via DataFrame.attrs (PEP 526 / pandas 1.0+).
+    # Nest SOR fields to match R's result$sor namespace.
+    # Non-SOR solvers (newton_kl, chebyshev, greg, etc.) don't populate
+    # SOR fields; .pop with default avoids KeyError. R side returns NULL
+    # for these; Python returns None inside the nested dict.
+    result_dict["sor"] = {
+        "min_omega":    result_dict.pop("sor_min_omega", None),
+        "n_damped":     result_dict.pop("sor_n_damped", None),
+        "omega_mean":   result_dict.pop("sor_omega_mean", None),
+        "any_latched":  result_dict.pop("sor_any_latched", None),
+        "n_pinned_fb":  result_dict.pop("sor_n_pinned_fb", None),
+        "n_warmup_fb":  result_dict.pop("sor_n_warmup_fb", None),
+        "n_conv_fb":    result_dict.pop("sor_n_conv_fb", None),
+        "n_resid_grew": result_dict.pop("sor_n_resid_grew", None),
+        "n_monotone_cd": result_dict.pop("sor_n_monotone_cd", None),
+    }
+    out.attrs["result"] = result_dict
+    out.attrs["iterations"] = result_dict["iterations"]
+    return out
 
 
 def diagnose_weights(data, targets, weights):
@@ -745,9 +747,6 @@ def diagnose_weights(data, targets, weights):
     matching harvest(add_na_proportion=True). A hand-built target naming a real
     "NA" category therefore also counts genuinely-missing rows in that bin.
     """
-    if not _PANDAS_AVAILABLE:
-        raise ImportError("pandas required for diagnose_weights; pip install pandas")
-
     weights = np.asarray(weights, dtype=float)
     if len(weights) != len(data):
         raise ValueError("weights length must equal len(data)")

@@ -10,7 +10,7 @@ name = "leafblower"
 version = "0.1.0"
 description = "High-performance survey calibration (ORIS, raking, Sinkhorn, Chebyshev IPM, GREG)"
 requires-python = ">=3.9"
-dependencies = ["numpy>=1.21"]
+dependencies = ["numpy>=1.21", "pandas>=1.3"]
 license = {text = "MIT"}
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -23,8 +23,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-pandas = ["pandas>=1.3"]
-test   = ["pytest", "pandas>=1.3"]
+test   = ["pytest"]
 
 [tool.scikit-build]
 cmake.build-type = "Release"
