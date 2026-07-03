@@ -159,11 +159,41 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     // weight or a structurally-infeasible bound set would reach log()/the sweep and
     // burn the full NOCONV budget instead of returning instant INFEAS/BADARG.
     // n_cats_total=0 skips the cat-count-limit gate (ORIS is the high-cardinality
-    // fallback). tmp.message is discarded (ORISResult has no message field). The
-    // check uses base max_weight (final homotopy level) — the correct feasibility U.
+    // fallback). tmp.message is discarded (ORISResult has no message field).
+    // CR-D4b (j7x8.20): the homotopy final-level upper bound is
+    // max_weight * end_factor; when end_factor>1 the final level is LOOSER than base,
+    // so validate the sum_U capacity against the LOOSEST achievable bound to avoid a
+    // false-positive INFEAS on a problem feasible at the actual final level. Override
+    // st.max_weight transiently for the check only (restored immediately; the solver
+    // recomputes per-level bounds from current_max_weight). For end_factor<=1 (default
+    // 'tighten' homotopy) the lift is a no-op -> base-max_weight check, which is
+    // CONSERVATIVE: for end_factor<1 the true final bound is end_factor*max_weight<base,
+    // so a problem infeasible only at that tighter final bound is not pre-rejected here
+    // (pre-existing; the solver still exits NOCONV -- see CR-D4b follow-up).
     {
         rk_result_t tmp = {};
-        if (calib_validate_preentry(ct, st, &tmp, X_init.data(), /*n_cats_total=*/0) != RK_OK) {
+        const double mw_save = st.max_weight;
+        // Homotopy only APPLIES end_factor when active (N_levels>1 forces factor=1.0
+        // otherwise), so lift the capacity (sum_U) bound to the loosest final level
+        // ONLY then — else validate against base max_weight and correctly reject a
+        // genuinely base-infeasible problem.
+        const bool homotopy_on = (st.homotopy.n_levels > 1);
+        // The per-cell min<=max relationship must hold at the TIGHTEST level the
+        // solver runs (min(start,end)*max_weight); lifting max_weight for the capacity
+        // check would otherwise let a min_weight in (tightest, max*end_factor] slip
+        // past as inverted bounds at early levels. Check the tightest level explicitly.
+        if (homotopy_on) {
+            const double tightest =
+                mw_save * std::min(st.homotopy.start_factor, st.homotopy.end_factor);
+            if (st.min_weight > tightest) {
+                res.base.status = RK_ERR_BADARG;
+                return res;
+            }
+        }
+        st.max_weight = mw_save * (homotopy_on ? std::max(1.0, st.homotopy.end_factor) : 1.0);
+        const int vrc = calib_validate_preentry(ct, st, &tmp, X_init.data(), /*n_cats_total=*/0);
+        st.max_weight = mw_save;
+        if (vrc != RK_OK) {
             res.base.status = tmp.status;
             return res;
         }
