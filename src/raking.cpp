@@ -40,6 +40,18 @@ RakingResult raking_solve(CalibState& st) {
     static constexpr double kRelativeZeroFraction  = 1e-15;  // bucket[j] < fraction * W_total
     static constexpr int    kErrCheckInterval     = 10;
     static constexpr int    kMaxNoImprove         = 5;
+    // CR-C5b (jy0m): feasibility bar for accepting a metric-plateau as RK_OK.
+    // errRp = max_kj |S_p − T| (compute_cell_metrics: fabs(S_p−T)) is the max
+    // ABSOLUTE proportion-point margin miss, NOT a relative residual. A calibration
+    // is USABLE when every marginal constraint is met to within 1 percentage point —
+    // a standard practical acceptance tolerance for survey weighting. This clears the
+    // structural floor of feasible problems (stepstone K=9 flat plateaus at
+    // errRp≈1.6–2.3e-3; near-identity fixtures at ≈4e-4) with margin, while catching
+    // bounds-blocked plateaus (errRp≈0.1–0.5). NOT tol_abs (1e-6): that would force
+    // feasible runs to over-iterate and mislabel usable structural-floor results as
+    // STALL. LIMITATION (jy0m.1): being absolute, a rare-category infeasibility whose
+    // pp miss is < 1pp (e.g. target 0.005 pinned at 0.014) still passes — tracked.
+    static constexpr double kRakingFeasTol        = 1e-2;  // 1 percentage point
 
     RakingResult res;
     res.base.status     = RK_ERR_BUDGET;  // initial; overwritten by criterion/stall; remains if budget exhausted
@@ -412,8 +424,28 @@ RakingResult raking_solve(CalibState& st) {
                 // no need to override with proxy.
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
-                    lbw::mark_converged(res, st.convergence_cfg, f_evals_used);
-                    break;
+                    // CR-C5b (jy0m): same feasibility gate as the flat loop — a
+                    // scale-blind metric plateau is only RK_OK if margins are met
+                    // (errRp ≤ 1pp) or the user's explicit absolute tol is met.
+                    // A bounds-blocked plateau here does NOT mark_converged; the SRAA
+                    // loop then runs to f_evals exhaustion → BUDGET (this path has no
+                    // STALL emitter; promoting it to STALL(5) like the flat path is
+                    // tracked in jy0m.2). Either way the false RK_OK is removed.
+                    // PRE-EXISTING GAP (jy0m.3, NOT introduced here): m_conv=last_F_metrics
+                    // and compute_cell_metrics never writes .l1, so with metric="l1_weight"
+                    // (or "pct" alias) + absolute_tol>0, user_abs_met reads a phantom 0 and
+                    // is spuriously true — bypassing this gate. check_convergence's own
+                    // c_abs fires on the same phantom, so main already false-OK'd that
+                    // config; this gate is neutral, not a regression. Fixed via l1 in
+                    // last_F_metrics under jy0m.3. Flat site is immune (m_conv.l1 real).
+                    const bool user_abs_met =
+                        st.convergence_cfg.absolute_tol > 0.0 &&
+                        lbw::select_metric(st.convergence_cfg.metric, m_conv)
+                            < st.convergence_cfg.absolute_tol;
+                    if (last_F_metrics.errRp <= kRakingFeasTol || user_abs_met) {
+                        lbw::mark_converged(res, st.convergence_cfg, f_evals_used);
+                        break;
+                    }
                 }
             }
 
@@ -505,11 +537,39 @@ RakingResult raking_solve(CalibState& st) {
                 m_conv.marginal_kl = marginal_kl_sum;
                 if (lbw::check_convergence(st.convergence_cfg, m_conv,
                                            prev_metric_for_rule, st.tol_abs)) {
-                    // Converged — do NOT override with INFEAS here. water_fill_cat may
-                    // transiently set is_infeasible when cells temporarily hit U_cell during
-                    // convergence. INFEAS only overrides on stall (post-loop check below).
-                    lbw::mark_converged(res, st.convergence_cfg, iter);
-                    break;
+                    // CR-C5b (jy0m): the improvement/pct rule fires on a metric
+                    // PLATEAU, which is scale-blind — it cannot tell a feasibly-
+                    // converged run (margins met) from a bounds-blocked one whose
+                    // metric froze because weights are pinned at their bounds
+                    // (X≈X_init from iter 1, residual never falls). Mirroring the
+                    // logit eb79.22 fix: accepting the plateau as RK_OK requires
+                    // feasibility — the max abs marginal margin miss errRp within the
+                    // practical bar kRakingFeasTol (1pp). Feasible IPF plateaus with
+                    // margins met well inside 1pp (stepstone ≈2.3e-3, near-identity
+                    // ≈4e-4), so this never demotes a genuine convergence; a plateau
+                    // with materially unmet margins (errRp≫1pp, e.g. bounds-blocked at
+                    // 0.1–0.5) falls through to the STALL detector below (constrained
+                    // optimum, status=5), instead of a false RK_OK. user_abs_met: an
+                    // EXPLICIT user absolute tolerance that is genuinely met is the
+                    // user's own feasibility bar — respect it, do NOT override with 1pp
+                    // (else convergence=list(absolute=0.05) on errRp=0.03 wrongly STALLs).
+                    const bool user_abs_met =
+                        st.convergence_cfg.absolute_tol > 0.0 &&
+                        lbw::select_metric(st.convergence_cfg.metric, m_conv)
+                            < st.convergence_cfg.absolute_tol;
+                    if (errRp <= kRakingFeasTol || user_abs_met) {
+                        // Converged — do NOT override with INFEAS here. water_fill_cat may
+                        // transiently set is_infeasible when cells temporarily hit U_cell during
+                        // convergence. INFEAS only overrides on stall (post-loop check below).
+                        lbw::mark_converged(res, st.convergence_cfg, iter);
+                        break;
+                    }
+                    // else: metric plateaued but margins unmet — fall through to STALL.
+                    // prev_metric_for_rule is intentionally left frozen here: the STALL
+                    // detector below tracks its OWN independent min_loss_window/n_no_improve,
+                    // so termination does not depend on advancing the improvement-rule
+                    // baseline; the rule simply re-fires (≈0 improvement) each check and is
+                    // re-gated on errRp until n_no_improve trips.
                 }
 
                 // Stall detection: track the active convergence metric (not always wkl).
