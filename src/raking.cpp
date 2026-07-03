@@ -375,6 +375,17 @@ RakingResult raking_solve(CalibState& st) {
             res.base.max_error  = last_F_metrics.errRp;
             res.base.iterations = f_evals_used;
 
+            // CR-C6 (kxna.6): l1 weight change on the SRAA path (last_F_metrics has
+            // no l1 — obs-level, not computed by compute_cell_metrics). Mirrors the
+            // flat loop (:437-442) reusing the function-scope X_prev; final value is
+            // the last accepted step's Σ|ΔX|/n.
+            {
+                double l1_sraa = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) l1_sraa += std::fabs(X[c] - X_prev[c]);
+                res.base.l1_weight_change = l1_sraa / static_cast<double>(st.n);
+                for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+            }
+
             // Best-iterate tracking (uses cfg-specified metric, not max_err proxy)
             if (sraa_metric_val < best.best_metric) {
                 best.update(sraa_metric_val,
@@ -505,10 +516,13 @@ RakingResult raking_solve(CalibState& st) {
                 // wkl is monotone for KL-configured runs (Csiszar-Tusnady); for other metrics
                 // (MAX_ERR, MEAN_ERR, etc.) use select_metric so stall detection matches the
                 // user's convergence criterion.
-                // wkl_flat already computed above (6uyk.2).
-                if (st.convergence_cfg.metric == lbw::CalibMetric::KL && wkl_flat <= st.tol_abs) {
-                    res.base.status = RK_OK; res.base.convergence_iter = iter; break;
-                }
+                // CR-C5 (kxna.5): removed the `metric==KL && wkl_flat <= tol_abs`
+                // RK_OK shortcut. wkl_flat = Σ X·log(X/X_init)/n measures distance
+                // FROM the design weights, not the achieved-margin KL, so when
+                // max_weight clamps bind (X ≈ X_init ⇒ wkl_flat ≈ 0) it declared
+                // RK_OK on grossly unmet margins and bypassed mark_converged. Real
+                // convergence is already caught by check_convergence above; unmet
+                // margins now correctly fall through to STALL detection below.
                 const double active_metric = lbw::select_metric(st.convergence_cfg.metric, m_conv);
                 if (!std::isfinite(min_loss_window)) {
                     min_loss_window = active_metric; n_no_improve = 0;
@@ -547,7 +561,17 @@ RakingResult raking_solve(CalibState& st) {
     //   SRAA loop:   f_eval_full_metrics is always true → F_eval refreshes last_F_metrics
     //     every iter; this line is the ONLY chi2 assignment on the SRAA path.
     // Test guard: test-raking-chi2-freshness.R verifies all scenarios.
-    if (best.has_best()) res.base.chi2 = last_F_metrics.chi2;
+    if (best.has_best()) {
+        // CR-C6 (kxna.6): assign the full diagnostic set from last_F_metrics so the
+        // SRAA path returns the same completeness as the flat path (which sets these
+        // at :478-482). Redundant-but-equal for the flat path — same X, W≈n as the
+        // convergence-iter compute_cell_metrics (see chi2 audit above). l1_weight_change
+        // is set per-path (flat :482; SRAA in-loop, as last_F_metrics has no l1).
+        res.base.chi2       = last_F_metrics.chi2;
+        res.base.mean_error = last_F_metrics.mean_err;
+        res.base.kl         = last_F_metrics.kl;
+        res.base.grake_norm = last_F_metrics.grake_norm;
+    }
 
     // Water-filling detects partial infeasibility (some categories can't reach targets
     // within bounds). With Dykstra this was silently masked by bound violations.
