@@ -788,7 +788,12 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                 break;
             }
         }
-        res.base.iterations = iter + 1;
+        // CR-C12 (kxna.12): on budget exhaustion the loop `for(iter=0; iter<max_iter_inner)`
+        // exits with iter==max_iter_inner (the ++iter past the last EXECUTED step 0..max−1),
+        // so iter+1 = max_iter_inner+1 over-counts the actual max_iter_inner steps. On a break
+        // (iter<max_iter_inner) iter+1 is the true count. Cap at max_iter_inner to fix the
+        // no-break case without disturbing the break paths.
+        res.base.iterations = std::min(iter + 1, max_iter_inner);
 
         // ── 5l. Best-iterate restoration ──────────────────────────────────────
         // If the loop's final λ has a worse gap than the best one seen, restore.

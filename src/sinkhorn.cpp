@@ -5,6 +5,7 @@
 #include "leafblower.h"
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 #include <algorithm>
 #include <limits>
 
@@ -69,7 +70,15 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     SinkhornResult res;
     res.base.status               = RK_ERR_NOCONV;
     res.base.convergence_rule     = 0;    // sinkhorn: no improvement criterion
-    res.base.convergence_tol      = 0.001;
+    // CR-C10 (kxna.10): report the tolerance that actually governs the run on EVERY
+    // exit path (STALL/BUDGET/INFEAS), not a hardcoded 0.001. Precedence mirrors
+    // check_convergence (used at the convergence check below): pct_tol, else
+    // absolute_tol, else the st.tol_abs fallback. mark_converged overwrites this on OK.
+    res.base.convergence_tol      = st.convergence_cfg.pct_tol > 0.0
+                                        ? st.convergence_cfg.pct_tol
+                                        : (st.convergence_cfg.absolute_tol > 0.0
+                                               ? st.convergence_cfg.absolute_tol
+                                               : st.tol_abs);
     res.base.convergence_solver_objective = std::numeric_limits<double>::infinity();
 
     CellTable ct;
@@ -163,6 +172,36 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         if (needs_projection) {
             if (!bisect_capacity_fast(X, exp_a.data(), L_cell, U_cell, ct.M_cell, target_mass, mu, X_proj)) {
                 res.base.status = RK_ERR_INFEAS;
+                // CR-C11 (kxna.11): the check-interval block below runs only every
+                // kErrCheckInterval iters, so res.base metrics are up to 9 iters stale
+                // vs X at this mid-iteration break. Recompute from the actual exit iterate
+                // X (bisect failed before the X<-X_proj copy, so X is the last good iterate,
+                // the same masses obs-expanded into the returned weights). Mirror the check
+                // block exactly, including the l1 obs-level denominator.
+                double W_exit = 0.0;
+                for (int c = 0; c < ct.M_cell; ++c) W_exit += X[c];
+                auto m = lbw::compute_cell_metrics(st, ct, X, W_exit, bucket);
+                double l1_sum = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) l1_sum += std::fabs(X[c] - X_prev[c]);
+                res.base.max_error        = m.errRp;
+                res.base.kl               = m.kl;
+                res.base.mean_error       = m.mean_err;
+                res.base.chi2             = m.chi2;
+                res.base.grake_norm       = m.grake_norm;
+                res.base.l1_weight_change = l1_sum / static_cast<double>(st.n);
+                // CR-C11: populate the (previously empty) message with the capacity reason.
+                // The feasible cell-mass interval is [Σ L_cell, Σ U_cell]; infeasible iff it
+                // excludes target_mass. (r_bridge.cpp:876 documented the empty-message case.)
+                double sum_L = 0.0, sum_U = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) { sum_L += L_cell[c]; sum_U += U_cell[c]; }
+                if (sum_L > target_mass + 1e-9 || sum_U < target_mass - 1e-9)
+                    std::snprintf(res.message, sizeof(res.message),
+                        "sinkhorn: infeasible — cell capacity interval [%.6g, %.6g] excludes "
+                        "target mass %.6g; loosen weight bounds", sum_L, sum_U, target_mass);
+                else
+                    std::snprintf(res.message, sizeof(res.message),
+                        "sinkhorn: infeasible — capacity bisection failed to bracket the "
+                        "scaling at target mass %.6g", target_mass);
                 break;
             }
             // Dykstra correction: accumulate log-space adjustment.
