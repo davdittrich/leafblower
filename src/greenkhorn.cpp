@@ -85,12 +85,12 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // Cadence of the `best` update is metric-dependent, BY DESIGN:
     //  * cfg.metric == MAX_ERR (default): select_metric == max(errRp) == the
     //    per-iteration `curr_max` we already maintain cheaply. `best` is updated
-    //    EVERY iteration from curr_max, EXACTLY reproducing the historical greenkhorn
-    //    code (same best_iter / best_weights, incl. non-interval iterations). The
-    //    default path therefore stays byte-identical. We deliberately do NOT update
-    //    `best` from the interval-block fresh m.errRp (from-scratch bucket sums differ
-    //    from the incrementally-maintained errRp at the ~1e-15 floor, which would pick
-    //    a different best_iter than the historical path).
+    //    EVERY iteration from curr_max (NOT the interval-block fresh m.errRp), so the
+    //    best-iterate is chosen on the per-iteration scale, incl. non-interval iters.
+    //    NOTE (kxna.4): W is now re-anchored to exact ΣX at each interval check, which
+    //    perturbs the subsequent incremental errRp at the ~1e-15 floor — so this path is
+    //    NO LONGER byte-identical to the historical incremental-only-W code. The rebuilt
+    //    W is the more-accurate value; R and Python rebuild identically, so parity holds.
     //  * cfg.metric != MAX_ERR (kl/chi2/…): the per-iteration errRp is the WRONG
     //    scale, so `best` is updated ONLY in the kErrCheckInterval block where the
     //    full CellMetrics `m` exists, via select_metric(cfg.metric, m) — mirroring
@@ -252,6 +252,13 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
 
         // Convergence check every kErrCheckInterval iters
         if ((iter + 1) % kErrCheckInterval == 0 || iter == st.inner_max_iter - 1) {
+            // CR-C4 (kxna.4): rebuild W from scratch instead of trusting the running
+            // W += delta accumulated since iter 0. compute_cell_metrics divides by W;
+            // FP drift in the incremental sum would corrupt every derived metric (and
+            // the convergence decision). The block already pays O(M) here, the SRAA path
+            // rebuilds identically, and re-anchoring W also bounds forward drift.
+            W = 0.0;
+            for (int c = 0; c < M; c++) W += X[c];
             lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, X, W, bucket_scratch);
             double current_errRp = *std::max_element(errRp.begin(), errRp.end());
             if (first_errRp < 0.0) first_errRp = current_errRp;  // B5: capture at first check
@@ -266,8 +273,9 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             // sinkhorn.cpp). This is where the scale-correct `best` is built for
             // kl/chi2/… For MAX_ERR we SKIP it: the per-iteration block already
             // tracks max(errRp) on the metric scale, and the fresh m.errRp recompute
-            // here can differ from the incremental errRp at ~1e-15, which would pick
-            // a different best_iter and break the byte-identical default path.
+            // here can differ from the incremental errRp at ~1e-15 (kxna.4's W
+            // re-anchoring perturbs both at that floor), so best_iter is chosen from
+            // the incremental curr_max for consistency, not this interval-block value.
             if (!metric_is_max_err &&
                 std::isfinite(curr_metric) && curr_metric < best.best_metric) {
                 best.update(curr_metric, std::numeric_limits<double>::infinity(),
