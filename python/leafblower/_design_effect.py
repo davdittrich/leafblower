@@ -39,6 +39,15 @@ def design_effect(
     byte-identical output by construction.
     """
     weights = np.ascontiguousarray(weights, dtype=np.float64)
+    # CR-F7b (5ye4.16): enforce the documented weight contract (no NA, all finite,
+    # sum > 0) on BOTH the 1-arg and 4-arg paths, mirroring R design_effect.R:41-46.
+    # Previously neither path validated weights, silently passing NaN/Inf/zero-sum to C.
+    if np.isnan(weights).any():
+        raise ValueError("design_effect: weights must not contain NA values")
+    if not np.isfinite(weights).all():
+        raise ValueError("design_effect: weights must all be finite")
+    if weights.sum() <= 0:
+        raise ValueError("design_effect: sum(weights) must be positive")
     if outcome is None:
         return float(_c_design_effect(weights, None, None, None, 0)["deff_K"])
     if data is None or target is None:
