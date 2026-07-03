@@ -76,7 +76,13 @@ int validate_calibrate_inputs(int n, int K,
             return err("targets[k] does not sum to 1 (within 1e-6)");
     }
 
-    // group_ids range validation — full O(n*K) pass before any weight modification
+    // group_ids range validation fused with the B13 seen-bitmap — one O(n*K)
+    // pass. CR-H12: was a k-outer sequential range scan followed by a separate
+    // i-outer STRIDED bitmap pass; the strided pass is folded into the
+    // sequential one (same (k,g) set marked, so verdicts are byte-identical).
+    // B13: NA-only category with positive target → structural INFEAS.
+    std::vector<std::vector<bool>> seen(K);
+    for (int k = 0; k < K; k++) seen[k].assign(cat_counts[k], false);
     for (int k = 0; k < K; k++) {
         if (!group_ids[k]) return err("group_ids[k] is NULL");
         for (int i = 0; i < n; i++) {
@@ -85,20 +91,10 @@ int validate_calibrate_inputs(int n, int K,
                 return err("group_ids[k][i] < -1: only -1 (NA) is valid");
             if (g >= cat_counts[k])
                 return err("group_ids[k][i] >= cat_counts[k]");
+            if (g >= 0) seen[k][g] = true;  // g in [0, cat_counts): B13 mark
         }
     }
-
-    // B13: NA-only category with positive target → structural INFEAS.
-    // O(n×K) two-pass bitmap: replaces O(K×ΣC×n) triple-nested scan.
-    // Pass 1: mark which (k,j) combinations appear in data — O(n×K)
-    std::vector<std::vector<bool>> seen(K);
-    for (int k = 0; k < K; k++) seen[k].assign(cat_counts[k], false);
-    for (int i = 0; i < n; i++)
-        for (int k = 0; k < K; k++) {
-            int g = group_ids[k][i];
-            if (g >= 0 && g < cat_counts[k]) seen[k][g] = true;
-        }
-    // Pass 2: check targeted but not-in-data categories — O(K×max_cats)
+    // B13 check: targeted but not-in-data categories — O(K×max_cats)
     for (int k = 0; k < K; k++) {
         for (int j = 0; j < cat_counts[k]; j++) {
             if (!seen[k][j] && targets[k][j] > 1e-12) {
