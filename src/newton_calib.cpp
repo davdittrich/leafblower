@@ -269,16 +269,17 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         // Best-iterate tracking: rank-deficient near-optimum can drift λ to ∞ even
         // while Armijo accepts (model under-predicts decrease). Save λ at lowest
         // gap seen; restore before recovery if the loop exits in a worse state.
-        // lam_best/best_Z/best_u_max: dual-space state for λ recovery (NOT replaced
-        //   by BestIterTracker — dual iterate is separate from weight-space output).
-        // G8d: BestIterTracker best carries best_objective (dual_gap at best iter)
-        //   for convergence_solver_objective output; weights stored post-loop.
+        // lam_best/best_Z/best_u_max: dual-space state for λ recovery (dual
+        //   iterate is separate from weight-space output). best_gap is the
+        //   lowest dual_gap seen; it also feeds convergence_solver_objective
+        //   directly (CR-H7 removed the redundant BestIterTracker copy — it
+        //   recorded dual_gap==best_gap on every iter, so its best_objective
+        //   was provably identical to best_gap).
         std::vector<double> lam_best(lam);
         double best_gap     = std::numeric_limits<double>::infinity();
         double best_Z       = Z_curr;
         double best_u_max   = u_max_curr;
         int    best_iter_id = 0;
-        BestIterTracker best;
 
         // dk9l.2: hoist dsyevd workspace query + allocation outside iter loop.
         // Workspace sizes depend only on n_lam (constant per solve), so the
@@ -447,8 +448,8 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             res.dual_gap = dual_gap;
 
             // Track best λ (lowest gap seen) for end-of-loop fallback recovery.
-            // G8d: best.update() records dual_gap as solver objective for output;
-            //   empty weights — actual obs weights computed post-loop from lam.
+            // best_gap doubles as the solver objective for output; actual obs
+            // weights are computed post-loop from lam.
             if (dual_gap < best_gap) {
                 best_gap     = dual_gap;
                 best_Z       = Z;
@@ -456,7 +457,6 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                 best_iter_id = iter;
                 lam_best     = lam;
             }
-            best.update(dual_gap, dual_gap, iter, {});
 
             if (dual_gap < tol_abs) {
                 res.lm_mu_final = lm_mu;
@@ -645,8 +645,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                     }
                     res.base.best_error = best_gap;
                     res.base.best_iter  = best_iter_id;
-                    res.base.convergence_solver_objective =
-                        best.has_best() ? best.best_objective : best_gap;
+                    res.base.convergence_solver_objective = best_gap;
                     return false;
                 }
             }
@@ -840,9 +839,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         // best_error = best dual gap seen (Newton's objective); best_iter = that iteration.
         res.base.best_error = best_gap;
         res.base.best_iter  = best_iter_id;
-        res.base.convergence_solver_objective =
-            best.has_best() ? best.best_objective
-                            : best_gap;  // fall back to dual-gap tracker
+        res.base.convergence_solver_objective = best_gap;
         return res.base.status == RK_OK;
     };
 
