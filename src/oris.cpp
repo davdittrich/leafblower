@@ -988,13 +988,17 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     if (W_total > 0.0) {
                         auto cm = lbw::compute_cell_metrics(st, ct, X_cur, W_total,
                                                             S_lin);
-                        // MARGINAL_KL is not stored in CellMetrics.marginal_kl
-                        // (returns 0.0 → spurious "trivially converged" on first
-                        // check). CellMetrics.kl IS Σ_k T_kj*log(T_kj/S_kj) =
-                        // the marginal calibration KL. Remap for the struct call.
+                        // CR-B3 (y2ks.3): use the configured metric directly — no
+                        // remap. compute_cell_metrics now populates cm.marginal_kl
+                        // (Σ_k per-margin KL, calib_dispatch.hpp), which
+                        // select_metric/check_convergence read for MARGINAL_KL,
+                        // matching the flat-path definition (oris.cpp marg_kl). The old
+                        // remap sent MARGINAL_KL to cm.kl — which is the MAX over
+                        // margins (calib_dispatch.hpp), NOT the sum — so accelerate=TRUE
+                        // ranked best-iterate/convergence on a different objective than
+                        // accelerate=FALSE for metric=marginal_kl (a silent correctness
+                        // break). cm.kl remains available as CalibMetric::KL.
                         lbw::CalibConvergenceCfg sraa_cfg = st.convergence_cfg;
-                        if (sraa_cfg.metric == lbw::CalibMetric::MARGINAL_KL)
-                            sraa_cfg.metric = lbw::CalibMetric::KL;
                         converged = lbw::check_convergence(sraa_cfg, cm,
                                                            prev_metric_for_rule,
                                                            st.tol_abs);
