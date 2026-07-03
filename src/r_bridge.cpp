@@ -581,6 +581,36 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         }
     };
 
+    // xc1s.1: single ORIS diagnostic-field pack. Replaces four near-identical
+    // ~21-line copy blocks (severe-skew-auto, compressed-auto, explicit oris,
+    // oris_soft). oris_soft additionally sets the alm_* fields after this call
+    // (only it runs ALM); the other three leave alm_* at their defaults, so this
+    // helper deliberately does NOT touch alm_*.
+    auto pack_oris_result = [&](lbw::ORISResult& res) {
+        res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
+        res_min_alpha             = res.min_alpha_seen;
+        res_final_alpha           = res.final_alpha;
+        res_n_bounds_violated     = res.n_bounds_violated;
+        res_n_bounds_clamped      = res.n_bounds_clamped;
+        res_homotopy_levels_used  = res.homotopy_levels_used;
+        res_homotopy_final_factor = res.homotopy_final_factor;
+        res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
+        res_eta_final             = res.eta_final;
+        pack_solver_result(res);
+        res_sor_min_omega     = res.sor_min_omega;
+        res_sor_n_damped      = res.sor_n_damped;
+        res_sor_omega_mean    = res.sor_omega_mean;
+        res_sor_any_latched   = res.sor_any_latched;
+        res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
+        res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
+        res_sor_n_conv_fb     = res.sor_n_conv_fb;
+        res_sor_n_resid_grew  = res.sor_n_resid_grew;
+        res_sor_n_monotone_cd = res.sor_n_monotone_cd;
+        res_aa_accepted_count     = res.aa_accepted_count;
+        res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
+        res_best_weights = std::move(res.base.best_weights);
+    };
+
     std::string solver_error;
     {  // Rf_error longjmp skips C++ dtors; destroy all RAII objects before calling it (R-exts §5.5)
     try {
@@ -643,28 +673,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_iterations = res.base.iterations;
                 res_max_error  = res.base.max_error;
                 res_alg_used   = (int)RK_ALG_ORIS;
-                res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
-                res_min_alpha             = res.min_alpha_seen;
-                res_final_alpha           = res.final_alpha;
-                res_n_bounds_violated     = res.n_bounds_violated;
-                res_n_bounds_clamped      = res.n_bounds_clamped;
-                res_homotopy_levels_used  = res.homotopy_levels_used;
-                res_homotopy_final_factor = res.homotopy_final_factor;
-                res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
-                res_eta_final             = res.eta_final;
-                pack_solver_result(res);
-                res_sor_min_omega     = res.sor_min_omega;
-                res_sor_n_damped      = res.sor_n_damped;
-                res_sor_omega_mean    = res.sor_omega_mean;
-                res_sor_any_latched   = res.sor_any_latched;
-                res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
-                res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
-                res_sor_n_conv_fb     = res.sor_n_conv_fb;
-                res_sor_n_resid_grew  = res.sor_n_resid_grew;
-                res_sor_n_monotone_cd = res.sor_n_monotone_cd;
-                res_aa_accepted_count     = res.aa_accepted_count;
-                res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
-                res_best_weights = std::move(res.base.best_weights);
+                pack_oris_result(res);
             } else {
                 auto res = lbw::newton_calibrate(st);
                 pack_solver_result(res);
@@ -698,28 +707,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_ORIS;
-            res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
-            res_min_alpha             = res.min_alpha_seen;
-            res_final_alpha           = res.final_alpha;
-            res_n_bounds_violated     = res.n_bounds_violated;
-            res_n_bounds_clamped      = res.n_bounds_clamped;
-            res_homotopy_levels_used  = res.homotopy_levels_used;
-            res_homotopy_final_factor = res.homotopy_final_factor;
-            res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
-            res_eta_final             = res.eta_final;
-            pack_solver_result(res);
-            res_sor_min_omega     = res.sor_min_omega;
-            res_sor_n_damped      = res.sor_n_damped;
-            res_sor_omega_mean    = res.sor_omega_mean;
-            res_sor_any_latched   = res.sor_any_latched;
-            res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
-            res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
-            res_sor_n_conv_fb     = res.sor_n_conv_fb;
-            res_sor_n_resid_grew  = res.sor_n_resid_grew;
-            res_sor_n_monotone_cd = res.sor_n_monotone_cd;
-            res_aa_accepted_count     = res.aa_accepted_count;
-            res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
-            res_best_weights = std::move(res.base.best_weights);
+            pack_oris_result(res);
         }
         // Auto-fallback: if primary solver NOCONVs or exhausts budget (still
         // improving), retry with newton_kl.  STALL(5) is excluded: the solver
@@ -850,32 +838,11 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_ORIS_SOFT;
-            res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
-            res_min_alpha             = res.min_alpha_seen;
-            res_final_alpha           = res.final_alpha;
-            res_n_bounds_violated     = res.n_bounds_violated;
-            res_n_bounds_clamped      = res.n_bounds_clamped;
-            res_homotopy_levels_used  = res.homotopy_levels_used;
-            res_homotopy_final_factor = res.homotopy_final_factor;
-            res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
-            res_eta_final             = res.eta_final;
-            pack_solver_result(res);
-            res_sor_min_omega     = res.sor_min_omega;
-            res_sor_n_damped      = res.sor_n_damped;
-            res_sor_omega_mean    = res.sor_omega_mean;
-            res_sor_any_latched   = res.sor_any_latched;
-            res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
-            res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
-            res_sor_n_conv_fb     = res.sor_n_conv_fb;
-            res_sor_n_resid_grew  = res.sor_n_resid_grew;
-            res_sor_n_monotone_cd = res.sor_n_monotone_cd;
+            pack_oris_result(res);
             res_alm_capacity_mu_final = res.alm_capacity_mu_final;
             res_alm_n_growth_events   = res.alm_n_growth_events;
             res_alm_max_dual_norm     = res.alm_max_dual_norm;
             res_alm_sum_drift         = res.alm_sum_drift;
-            res_aa_accepted_count     = res.aa_accepted_count;
-            res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
-            res_best_weights = std::move(res.base.best_weights);
         } else {
             // Default / oris
             st.oris_auto_selected = (strcmp(method_str, "oris") != 0);
@@ -884,28 +851,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_iterations = res.base.iterations;
             res_max_error  = res.base.max_error;
             res_alg_used   = (int)RK_ALG_ORIS;
-            res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
-            res_min_alpha             = res.min_alpha_seen;
-            res_final_alpha           = res.final_alpha;
-            res_n_bounds_violated     = res.n_bounds_violated;
-            res_n_bounds_clamped      = res.n_bounds_clamped;
-            res_homotopy_levels_used  = res.homotopy_levels_used;
-            res_homotopy_final_factor = res.homotopy_final_factor;
-            res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
-            res_eta_final             = res.eta_final;
-            pack_solver_result(res);
-            res_sor_min_omega     = res.sor_min_omega;
-            res_sor_n_damped      = res.sor_n_damped;
-            res_sor_omega_mean    = res.sor_omega_mean;
-            res_sor_any_latched   = res.sor_any_latched;
-            res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
-            res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
-            res_sor_n_conv_fb     = res.sor_n_conv_fb;
-            res_sor_n_resid_grew  = res.sor_n_resid_grew;
-            res_sor_n_monotone_cd = res.sor_n_monotone_cd;
-            res_aa_accepted_count     = res.aa_accepted_count;
-            res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
-            res_best_weights = std::move(res.base.best_weights);
+            pack_oris_result(res);
         }
     }
     } catch (const std::exception& e) {

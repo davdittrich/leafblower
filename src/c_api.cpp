@@ -87,6 +87,53 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     }
 }
 
+// xc1s.1: shared ORIS result-field pack. The ORIS and ORIS_SOFT dispatch
+// branches set an identical 38-field block (incl. the alm_* diagnostics).
+// ORISResult has no `message`, so this cannot use the pack_solver_result
+// template (which unconditionally copies src.message); the common tail
+// synthesizes the message when it is left empty.
+static void pack_oris_result_c(rk_result_t* dst, const lbw::ORISResult& res) noexcept {
+    if (!dst) return;
+    dst->n_xcur_writes_per_iter_last = res.n_xcur_writes_per_iter_last;
+    dst->min_alpha_seen  = res.min_alpha_seen;
+    dst->final_alpha     = res.final_alpha;
+    dst->n_bounds_violated = res.n_bounds_violated;
+    dst->n_bounds_clamped  = res.n_bounds_clamped;
+    dst->homotopy_levels_used  = res.homotopy_levels_used;
+    dst->homotopy_final_factor = res.homotopy_final_factor;
+    dst->greedy_sweeps_taken   = res.greedy_sweeps_taken;
+    dst->eta_final             = res.eta_final;
+    dst->mean_error          = res.base.mean_error;
+    dst->kl                  = res.base.kl;
+    dst->chi2                = res.base.chi2;
+    dst->l1_weight_change    = res.base.l1_weight_change;
+    dst->grake_norm          = res.base.grake_norm;
+    dst->convergence_metric  = res.base.convergence_metric;
+    dst->convergence_rule    = res.base.convergence_rule;
+    dst->convergence_tol     = res.base.convergence_tol;
+    dst->convergence_iter                = res.base.convergence_iter;
+    dst->convergence_solver_objective    = res.base.convergence_solver_objective;
+    dst->convergence_minimized_metric    = res.base.convergence_minimized_metric;
+    dst->best_error          = res.base.best_error;
+    dst->best_iter           = res.base.best_iter;
+    dst->metric_first_check  = res.base.metric_first_check;
+    dst->metric_prev_check   = res.base.metric_prev_check;
+    dst->prev_check_iter     = res.base.prev_check_iter;
+    dst->sor_min_omega       = res.sor_min_omega;
+    dst->sor_n_damped        = res.sor_n_damped;
+    dst->sor_omega_mean      = res.sor_omega_mean;
+    dst->sor_any_latched     = res.sor_any_latched;
+    dst->sor_n_pinned_fb     = res.sor_n_pinned_fb;
+    dst->sor_n_warmup_fb     = res.sor_n_warmup_fb;
+    dst->sor_n_conv_fb       = res.sor_n_conv_fb;
+    dst->sor_n_resid_grew    = res.sor_n_resid_grew;
+    dst->sor_n_monotone_cd   = res.sor_n_monotone_cd;
+    dst->alm_capacity_mu_final = res.alm_capacity_mu_final;
+    dst->alm_n_growth_events   = res.alm_n_growth_events;
+    dst->alm_max_dual_norm     = res.alm_max_dual_norm;
+    dst->alm_sum_drift         = res.alm_sum_drift;
+}
+
 extern "C" {
 
 void rk_params_init(rk_params_t* p) {
@@ -441,46 +488,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             iterations = res.base.iterations;
             max_error = res.base.max_error;
             used = RK_ALG_ORIS_SOFT;
-            if (result) {
-                result->n_xcur_writes_per_iter_last = res.n_xcur_writes_per_iter_last;
-                result->min_alpha_seen  = res.min_alpha_seen;
-                result->final_alpha     = res.final_alpha;
-                result->n_bounds_violated = res.n_bounds_violated;
-                result->n_bounds_clamped  = res.n_bounds_clamped;
-                result->homotopy_levels_used  = res.homotopy_levels_used;
-                result->homotopy_final_factor = res.homotopy_final_factor;
-                result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
-                result->eta_final             = res.eta_final;
-                result->mean_error          = res.base.mean_error;
-                result->kl                  = res.base.kl;
-                result->chi2                = res.base.chi2;
-                result->l1_weight_change    = res.base.l1_weight_change;
-                result->grake_norm          = res.base.grake_norm;
-                result->convergence_metric  = res.base.convergence_metric;
-                result->convergence_rule    = res.base.convergence_rule;
-                result->convergence_tol     = res.base.convergence_tol;
-                result->convergence_iter                = res.base.convergence_iter;
-                result->convergence_solver_objective    = res.base.convergence_solver_objective;
-                result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
-                result->best_error          = res.base.best_error;
-                result->best_iter           = res.base.best_iter;
-                result->metric_first_check  = res.base.metric_first_check;
-                result->metric_prev_check   = res.base.metric_prev_check;
-                result->prev_check_iter     = res.base.prev_check_iter;
-                result->sor_min_omega       = res.sor_min_omega;
-                result->sor_n_damped        = res.sor_n_damped;
-                result->sor_omega_mean      = res.sor_omega_mean;
-                result->sor_any_latched     = res.sor_any_latched;
-                result->sor_n_pinned_fb     = res.sor_n_pinned_fb;
-                result->sor_n_warmup_fb     = res.sor_n_warmup_fb;
-                result->sor_n_conv_fb       = res.sor_n_conv_fb;
-                result->sor_n_resid_grew    = res.sor_n_resid_grew;
-                result->sor_n_monotone_cd   = res.sor_n_monotone_cd;
-                result->alm_capacity_mu_final = res.alm_capacity_mu_final;
-                result->alm_n_growth_events   = res.alm_n_growth_events;
-                result->alm_max_dual_norm     = res.alm_max_dual_norm;
-                result->alm_sum_drift         = res.alm_sum_drift;
-            }
+            if (result) pack_oris_result_c(result, res);
         } else {
             // Default / ORIS: paper-faithful algBCD at C=0 (src/oris.cpp)
             auto res = lbw::oris_solve(st);
@@ -488,46 +496,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             iterations = res.base.iterations;
             max_error = res.base.max_error;
             used = RK_ALG_ORIS;
-        if (result) {
-            result->n_xcur_writes_per_iter_last = res.n_xcur_writes_per_iter_last;
-            result->min_alpha_seen  = res.min_alpha_seen;
-            result->final_alpha     = res.final_alpha;
-            result->n_bounds_violated = res.n_bounds_violated;
-            result->n_bounds_clamped  = res.n_bounds_clamped;
-            result->homotopy_levels_used  = res.homotopy_levels_used;
-            result->homotopy_final_factor = res.homotopy_final_factor;
-            result->greedy_sweeps_taken   = res.greedy_sweeps_taken;
-            result->eta_final             = res.eta_final;
-            result->mean_error          = res.base.mean_error;
-            result->kl                  = res.base.kl;
-            result->chi2                = res.base.chi2;
-            result->l1_weight_change    = res.base.l1_weight_change;
-            result->grake_norm          = res.base.grake_norm;
-            result->convergence_metric  = res.base.convergence_metric;
-            result->convergence_rule    = res.base.convergence_rule;
-            result->convergence_tol     = res.base.convergence_tol;
-            result->convergence_iter                = res.base.convergence_iter;
-            result->convergence_solver_objective           = res.base.convergence_solver_objective;
-            result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
-            result->best_error          = res.base.best_error;
-            result->best_iter           = res.base.best_iter;
-            result->metric_first_check  = res.base.metric_first_check;
-            result->metric_prev_check   = res.base.metric_prev_check;
-            result->prev_check_iter     = res.base.prev_check_iter;
-            result->sor_min_omega       = res.sor_min_omega;
-            result->sor_n_damped        = res.sor_n_damped;
-            result->sor_omega_mean      = res.sor_omega_mean;
-            result->sor_any_latched     = res.sor_any_latched;
-            result->sor_n_pinned_fb     = res.sor_n_pinned_fb;
-            result->sor_n_warmup_fb     = res.sor_n_warmup_fb;
-            result->sor_n_conv_fb       = res.sor_n_conv_fb;
-            result->sor_n_resid_grew    = res.sor_n_resid_grew;
-            result->sor_n_monotone_cd   = res.sor_n_monotone_cd;
-            result->alm_capacity_mu_final = res.alm_capacity_mu_final;
-            result->alm_n_growth_events   = res.alm_n_growth_events;
-            result->alm_max_dual_norm     = res.alm_max_dual_norm;
-            result->alm_sum_drift         = res.alm_sum_drift;
-        }
+        if (result) pack_oris_result_c(result, res);
         }
     }
 
