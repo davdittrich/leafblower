@@ -34,6 +34,12 @@
 #'   equivalent to \code{autumn::calibrate()}).
 #' @param verbose Integer verbosity: 0=silent, 1=progress, 2=debug.
 #' @param max_iterations Maximum inner BCD iterations per outer step. Default 500.
+#'   Under \code{accelerate = TRUE} (SRAA) the budget is denominated consistently in
+#'   FUNCTION EVALUATIONS across \code{raking} and \code{greenkhorn} (CR-C19): each
+#'   accelerated step spends ~1-2 f_evals, one f_eval is a full margin sweep, and the
+#'   reported \code{iterations} field counts f_evals for both. The pure
+#'   (non-accelerated) paths report their native unit: \code{greenkhorn} counts single
+#'   greedy margin steps, other solvers count full BCD sweeps.
 #' @param start_weights Starting weights vector or NULL (uniform).
 #' @param attach_weights If TRUE, return data frame with weights column. Default TRUE.
 #' @param weight_column Name of weight column. Default "weights".

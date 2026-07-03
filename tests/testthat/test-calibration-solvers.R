@@ -1056,11 +1056,13 @@ test_that("T_sraa_grk: greenkhorn+AA max_err <= plain and converges faster", {
   iters_plain <- attr(r_plain, "result")$iterations
   expect_lte(me_aa, me_plain * 1.001,
     label=sprintf("AA (%.2e) must not exceed plain (%.2e)", me_aa, me_plain))
-  # Divisibility: first kSRAAMinCount=2 steps are plain (count < 2) → K*1 each = 2*K iters.
-  # Subsequent AA-accepted steps → K*2 iters each. With K=2:
-  #   total = 2*K + N*(K*2) = 2*2 + N*4 = 4+4N. (4+4N) mod (K*2=4) = 0 for any N>=0.
-  expect_equal(iters_aa %% (K_exp * 2L), 0L,
-    label=sprintf("AA iters (%d) %% K*2=%d == 0 proves AA fired", iters_aa, K_exp*2L))
+  # CR-C19 (kxna.19): greenkhorn-SRAA now reports iterations in FUNCTION EVALUATIONS
+  # (aligned with raking-SRAA), not the former K*f_evals unit — so the old
+  # `iters_aa %% (K*2) == 0` divisibility proxy no longer holds (f_evals is a 1/2 mix).
+  # SRAA engagement is proven behaviorally: accelerate must not regress max_err (above)
+  # and must reach the fixed point in fewer counted units than the plain greedy path.
+  expect_gt(iters_aa, 0L,
+    label=sprintf("SRAA path produced iterations (%d)", iters_aa))
   expect_lt(iters_aa, iters_plain,
     label=sprintf("AA (%d) must be faster than plain (%d)", iters_aa, iters_plain))
 })

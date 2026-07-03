@@ -183,6 +183,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
 
     // Main loop
     int outer_stall_count = 0;
+    int grk_f_evals = 0;  // CR-C19: SRAA budget/reporting in f_evals (raking-SRAA parity)
     for (int iter = 0; iter < st.inner_max_iter; iter++) {
         // W<=0 guard
         if (W <= 0.0) {
@@ -207,7 +208,14 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
                 }
             }
             for (int k = 0; k < K; k++) errRp[k] = compute_errRp_k(k);
-            res.base.iterations += K * r.f_evals;  // B6: f_evals=1 (plain) or 2 (AA attempted)
+            // CR-C19 (kxna.19): align the SRAA budget + reporting to raking-SRAA
+            // (raking.cpp:374) — spend inner_max_iter as FUNCTION EVALUATIONS, not outer
+            // sweeps, and report f_evals (was K*f_evals, a ~2K x inflated unit). Each
+            // greenkhorn f_eval is one full K-margin sweep = one raking f_eval, so f_evals
+            // is the common cross-method budget unit. The f_eval-budget break at the loop
+            // tail exits when the budget is spent; post-loop classifies BUDGET/STALL.
+            grk_f_evals += r.f_evals;              // B6: f_evals=1 (plain) or 2 (AA attempted)
+            res.base.iterations = grk_f_evals;
         } else {
             // Pure Greenkhorn: single margin per step
             int k_star = (int)(std::max_element(errRp.begin(), errRp.end()) - errRp.begin());
@@ -286,6 +294,10 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
                 break;
             }
         }
+
+        // CR-C19: SRAA budget is denominated in f_evals — stop when spent (parity with
+        // raking-SRAA). Pure path keeps the outer-iter bound (single greedy margin/step).
+        if (st.accelerate && K > 0 && grk_f_evals >= st.inner_max_iter) break;
     }
 
     // CXX.2: for non-MAX_ERR metrics `best` is updated only at interval checks

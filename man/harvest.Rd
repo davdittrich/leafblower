@@ -82,7 +82,13 @@ equivalent to \code{autumn::calibrate()}).}
 
 \item{verbose}{Integer verbosity: 0=silent, 1=progress, 2=debug.}
 
-\item{max_iterations}{Maximum inner BCD iterations per outer step. Default 500.}
+\item{max_iterations}{Maximum inner BCD iterations per outer step. Default 500.
+Under \code{accelerate = TRUE} (SRAA) the budget is denominated consistently in
+FUNCTION EVALUATIONS across \code{raking} and \code{greenkhorn} (CR-C19): each
+accelerated step spends ~1-2 f_evals, one f_eval is a full margin sweep, and the
+reported \code{iterations} field counts f_evals for both. The pure
+(non-accelerated) paths report their native unit: \code{greenkhorn} counts single
+greedy margin steps, other solvers count full BCD sweeps.}
 
 \item{start_weights}{Starting weights vector or NULL (uniform).}
 
