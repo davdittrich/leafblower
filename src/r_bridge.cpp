@@ -272,6 +272,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // guarded alloc below then stays empty so nothing throws before the deferred throw.
     if (pre_error.empty() && n <= 0)
         pre_error = "n_obs must be a positive integer";
+    // CR-D9a (j7x8.17): with K=0 (group_ids=list()) there are no per-margin
+    // LENGTH(gid)!=n cross-checks to constrain n, so a huge positive n_obs would
+    // still reach the pre-try weights(n) alloc -> bad_alloc -> std::terminate. A
+    // zero-margin calibration is degenerate anyway; reject it via the same deferred
+    // path so the guarded alloc below stays empty.
+    if (pre_error.empty() && K <= 0)
+        pre_error = "at least one margin is required (group_ids is empty)";
 
     // CR-H6 (xc1s.6): alias R's INTSXP data directly instead of a K×n deep copy.
     // Audit (all 8 solvers + cell_table/validation/newton) confirms group_ids is
