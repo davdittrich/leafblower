@@ -10,7 +10,6 @@ struct GregResult {
     // GREG defaults differ from CalibResult: set in greg.cpp init block.
     //   convergence_rule=0, convergence_tol=0.0, convergence_iter=1,
     //   convergence_metric=CHI2, convergence_minimized_metric=CHI2, best_iter=1
-    double best_objective_seen          = std::numeric_limits<double>::infinity();
     int    M_cell                       = 0;
     char   message[256]                 = {};
     // CR-D11 (j7x8.11): cell-mode per-obs bound-violation diagnostic (count-only)

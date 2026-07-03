@@ -7,7 +7,6 @@ namespace lbw {
 struct SinkhornResult {
     CalibResult base;
     // ── Sinkhorn-specific extras ──
-    double best_objective_seen = std::numeric_limits<double>::infinity();
     int    M_cell              = 0;
     char   message[256]        = {};
     // CR-D11 (j7x8.11): cell-mode per-obs bound-violation diagnostic (count-only)

@@ -13,7 +13,6 @@ struct LogitCalibResult {
     // Logit defaults differ from CalibResult: set in logit_calib.cpp init block.
     //   convergence_rule=0, convergence_tol=0.0, convergence_iter=1,
     //   convergence_metric=CHI2, convergence_minimized_metric=CHI2, best_iter=1
-    double best_objective_seen          = std::numeric_limits<double>::infinity();
     int    M_cell                       = 0;
     char   message[256]                 = {0};
     // ALM telemetry (logit does not use ALM — kept zero for schema parity).

@@ -101,9 +101,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
     int max_cats = lbw::max_cats_count(st.K, st.cat_counts);
 
-    // G8c: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
-    // Fixes 0.0 sentinel bug: best_objective_seen was init'd to 0.0, making
-    // "no best recorded" indistinguishable from "objective == 0".
+    // G8c: best-iterate tracking via BestIterTracker (replaces ad-hoc sentinel vars).
     BestIterTracker best;
 
     // Scratch buffers for compute_weight_kl.

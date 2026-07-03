@@ -11,7 +11,6 @@ struct ChebyshevResult {
     // Chebyshev defaults differ from CalibResult: set in chebyshev.cpp init block.
     //   convergence_rule=0, convergence_tol=0.0, best_iter=1,
     //   convergence_solver_objective=inf
-    double best_objective_seen          = std::numeric_limits<double>::infinity();  // reserved; never written in chebyshev.cpp
     int    n_factorizations             = 0;   // Mehrotra audit counter (populated in T5)
     int    M_cell                       = 0;
     char   message[256]                 = {};

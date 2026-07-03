@@ -37,7 +37,6 @@ struct ORISResult {
     int    sor_n_resid_grew             = 0;
     int    sor_n_monotone_cd            = 0;
     // ── ORIS internal metrics ──
-    double best_objective_seen          = 0.0;
     double marginal_kl_at_iter          = 0.0;
     // ── SRAA-m diagnostics (Anderson Acceleration; 0 when accelerate=FALSE) ──
     int    aa_accepted_count            = 0;   // cumulative AA-accepted super-steps this solve
