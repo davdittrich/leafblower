@@ -460,11 +460,32 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             res.base.iterations);
     }
 
-    // Final metrics
     if (w_best.empty()) w_best = w;
+
+    // CR-C7b (dtk8): reconstruct the obs-level weights from the best cell iterate, then
+    // route them through finalize_weights_buf so the Σw=n + bounds_mode contract holds on
+    // ALL exit paths (mirror greenkhorn kxna.1 / oris_finalize). Without this, logit's cell
+    // iterate was returned unscaled → Σw≠n on BUDGET/STALL exit (measured 802/800), and the
+    // reported cell best_error diverged from the residual the RETURNED weights realize.
+    res.base.best_weights.resize(st.n);
+    for (int i = 0; i < st.n; i++) {
+        int c = ct.cell_of[i];
+        res.base.best_weights[i] = (X_init[c] > 0.0)
+            ? st.weights[i] * w_best[c] / X_init[c]
+            : st.weights[i];
+    }
+    {
+        int nbv = 0, nbc = 0;
+        lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct, nbv, nbc);
+    }
+
+    // Final metrics — computed from the RETURNED weights (finalized obs weights remassed to
+    // cells), NOT the pre-finalize cell iterate, so returned≡reported (mxcl.5) on BUDGET too.
+    std::vector<double> w_ret(M, 0.0);
+    for (int i = 0; i < st.n; i++) w_ret[ct.cell_of[i]] += res.base.best_weights[i];
     double W_best = 0.0;
-    for (int c = 0; c < M; c++) W_best += w_best[c];
-    lbw::CellMetrics m_best = lbw::compute_cell_metrics(st, ct, w_best, W_best, bucket_scratch);
+    for (int c = 0; c < M; c++) W_best += w_ret[c];
+    lbw::CellMetrics m_best = lbw::compute_cell_metrics(st, ct, w_ret, W_best, bucket_scratch);
     // eb79.16: recompute the RESIDUAL-class reported fields in ABSOLUTE-count space
     // (pop = targets[k][j]*n, NOT *W). compute_cell_metrics normalizes by the current
     // total W, so on a rank-deficient stall it reports max_error=0 despite a large true
@@ -473,7 +494,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     //   errRp     -> MAX over all (k,j) of r_kj                       (max_error/best_error)
     //   mean_err  -> MEAN over K margins of (MAX over j within margin) of r_kj
     //   grake     -> MAX over all (k,j) of r_kj / (1 + targets*n)
-    // where r_kj = |targets[k][j]*n - Σ_{c in bucket} w_best[c]|.
+    // where r_kj = |targets[k][j]*n - Σ_{c in bucket} w_ret[c]| (RETURNED cell masses).
     // kl and chi2 are proportion-space divergence metrics (compare probability mass) —
     // legitimately scale-relative — so they are LEFT UNCHANGED from compute_cell_metrics.
     const double n_d = static_cast<double>(st.n);
@@ -485,7 +506,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         for (int j = 0; j < st.cat_counts[k]; j++) {
             double pop = st.targets[k][j] * n_d;
             double S_kj = 0.0;
-            for (int c : cells_per_cat[k][j]) S_kj += w_best[c];
+            for (int c : cells_per_cat[k][j]) S_kj += w_ret[c];
             double r_kj = std::fabs(pop - S_kj);
             if (r_kj > max_k)   max_k = r_kj;
             if (r_kj > abs_max) abs_max = r_kj;
@@ -501,12 +522,12 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     res.base.chi2       = m_best.chi2;
     res.base.grake_norm = abs_grake;
 
-    // eb79.20: convergence_solver_objective = Σ_c D_L(w_best[c]), the midpoint-referenced
-    // Fermi-Dirac logit distance the solver actually minimizes. Its gradient
-    // log((w−L)/(U−w)) = z matches the forward map w = L + range·σ(z) (main loop above),
-    // so the reference is the MIDPOINT (σ(0)=½ ⇒ w=(L+U)/2), NOT X_init — the sigmoid
-    // carries no z_target offset (lambda_0=z_target is a warm start only). Closed form:
-    //   D_L(w) = range·[p·log p + (1−p)·log(1−p) + log2],  p = (w−L)/range ∈ [0,1]
+    // eb79.20: convergence_solver_objective = Σ_c D_L(w_ret[c]), the midpoint-referenced
+    // Fermi-Dirac logit distance the solver minimizes, evaluated on the RETURNED cell
+    // masses. Its gradient log((w−L)/(U−w)) = z matches the forward map w = L + range·σ(z)
+    // (main loop above), so the reference is the MIDPOINT (σ(0)=½ ⇒ w=(L+U)/2), NOT X_init —
+    // the sigmoid carries no z_target offset (lambda_0=z_target is a warm start only). Closed
+    // form: D_L(w) = range·[p·log p + (1−p)·log(1−p) + log2],  p = (w−L)/range ∈ [0,1]
     // = range·(log2 − H(p)) ∈ [0, range·log2]; convex, 0 at the midpoint. Derivation
     // independently verified (agy). select_solver_objective (calib_dispatch.hpp) does NOT
     // cover logit (default branch returns NaN) — computed inline.
@@ -514,22 +535,13 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     for (int c = 0; c < M; c++) {
         double range = U_cell[c] - L_cell[c];
         if (range < 1e-12) continue;                  // degenerate L==U cell: contributes 0
-        double p = std::clamp((w_best[c] - L_cell[c]) / range, 0.0, 1.0);
+        double p = std::clamp((w_ret[c] - L_cell[c]) / range, 0.0, 1.0);
         double t = std::log(2.0);                     // log2 − H(½) = 0 at the midpoint
         if (p > 1e-300)         t += p * std::log(p);           // x·log x → 0 as x → 0
         if (1.0 - p > 1e-300)   t += (1.0 - p) * std::log(1.0 - p);
         solver_obj += range * t;
     }
     res.base.convergence_solver_objective = solver_obj;
-
-    // Weight reconstruction
-    res.base.best_weights.resize(st.n);
-    for (int i = 0; i < st.n; i++) {
-        int c = ct.cell_of[i];
-        res.base.best_weights[i] = (X_init[c] > 0.0)
-            ? st.weights[i] * w_best[c] / X_init[c]
-            : st.weights[i];
-    }
 
     // eb79.20: l1_weight_change = Σ_i|Δw|/n (leafblower.h:133), obs-level calibrated −
     // input design weight. Both vectors are length st.n (obs-level) regardless of
