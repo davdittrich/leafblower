@@ -263,6 +263,15 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         pre_error = "group_ids must be a list";
     int K = pre_error.empty() ? LENGTH(group_ids_sexp) : 0;
     int n = scalar_int(n_obs_sexp, "n_obs", pre_error);
+    // CR-D7 (j7x8.7): range-check n BEFORE any n-sized allocation. A direct .Call
+    // with n_obs=-1 or NA_integer_ (=INT_MIN) reaches the std::vector<double>
+    // weights(n) below — OUTSIDE the solver try block — so a bad_alloc/length_error
+    // there would be uncaught → std::terminate → R session abort. Deferring via
+    // pre_error (not Rf_error) keeps the CR-D9 RAII-clean-unwind contract (every
+    // pre-dispatch error unwinds the live std::string/vectors before one throw); the
+    // guarded alloc below then stays empty so nothing throws before the deferred throw.
+    if (pre_error.empty() && n <= 0)
+        pre_error = "n_obs must be a positive integer";
 
     // CR-H6 (xc1s.6): alias R's INTSXP data directly instead of a K×n deep copy.
     // Audit (all 8 solvers + cell_table/validation/newton) confirms group_ids is
@@ -318,8 +327,10 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         }
     }
 
-    // Build weights (start_weights already normalized to mean=1 by R layer)
-    std::vector<double> weights(n);
+    // Build weights (start_weights already normalized to mean=1 by R layer).
+    // CR-D7: size 0 when a pre_error is pending (e.g. n<=0) so this pre-try alloc
+    // never receives a negative/huge n — the deferred throw at :~623 handles it.
+    std::vector<double> weights(pre_error.empty() ? n : 0);
     if (pre_error.empty()) {
     if (Rf_isNull(start_weights_sexp)) {
         for (int i = 0; i < n; i++) weights[i] = 1.0;
