@@ -329,10 +329,15 @@ harvest <- function(
         stop(sprintf(
           "add_na_proportion: target for variable '%s' must sum to 1 before rescaling (observed sum = %.8g)",
           v, s), call. = FALSE)
-      # Renormalize existing targets by (1 - na_frac) then add NA bin
+      # Renormalize existing targets by (1 - na_frac) then add NA bin.
+      # CR-F1 (dtkn.1): must stay a named NUMERIC vector — the old
+      # c(lapply(...), list("NA"=)) built a LIST, so downstream margin_kl_one
+      # arithmetic hit "non-numeric argument to binary operator", was swallowed
+      # by tryCatch, and every add_na_proportion=TRUE run reported margin_kl=NA.
+      # unlist() preserves the level names for both list- and vector-typed targets.
       target[[v]] <- c(
-        lapply(target[[v]], function(t) t * (1 - na_frac)),
-        list("NA" = na_frac)
+        unlist(target[[v]]) * (1 - na_frac),
+        "NA" = na_frac
       )
       .na_margins <- c(.na_margins, v)
     }
