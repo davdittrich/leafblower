@@ -170,12 +170,16 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     }
 
     // Resolve algorithm before validation so the singularity guard knows which
-    // link function will be used. Guard against null cat_counts or invalid K/n
-    // — validate_inputs will reject those cases with a proper error message.
+    // link function will be used. Guard against null cat_counts/group_ids/targets
+    // or invalid K/n — AUTO routing dereferences group_ids (estimate_M_cell) and
+    // targets[k][j] before validate_inputs runs (CR-D1/j7x8.1: direct C-ABI callers
+    // with algorithm=AUTO + NULL pointers segfaulted here; pybind pre-validates but
+    // other FFI callers do not). On a failed guard we fall through to the else and
+    // let validate_inputs reject the NULL/invalid inputs with RK_ERR_BADARG.
     rk_algorithm_t alg;
     bool auto_selected = false;
     bool wh_g_severe_skew_accelerate = false;  // Epic-H WH-g: AUTO target-skew gate
-    if (cat_counts && K > 0 && n > 0) {
+    if (cat_counts && group_ids && targets && K > 0 && n > 0) {
         switch (p->algorithm) {
             case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
             case RK_ALG_ORIS:      alg = RK_ALG_ORIS;      break;
