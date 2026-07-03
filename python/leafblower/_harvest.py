@@ -376,6 +376,15 @@ def harvest(
         raise ValueError(f"eta_schedule must be 'fixed' or 'tang_dynamic', got {eta_schedule!r}")
     _eta_mode_int = _eta_map[eta_schedule]
 
+    # CR-C15 (kxna.15): reject max_iterations < 1, mirroring R harvest.R. R's wrapper
+    # already guards this; Python bypassed it, so max_iterations=0 collapsed the solver
+    # loop to zero iterations and (for logit) returned all-zero weights with STALL — a
+    # silently wrong result rather than an error.
+    if not isinstance(max_iterations, (int, np.integer)) or max_iterations < 1:
+        raise ValueError(
+            f"max_iterations must be a positive integer; got: {max_iterations!r}"
+        )
+
     # Convert DataFrame target to dict (mirrors R parse_target())
     targets = _parse_target(targets, target_map)
 

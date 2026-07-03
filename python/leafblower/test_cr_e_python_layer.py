@@ -194,3 +194,20 @@ def test_design_effect_1d_unchanged():
     from leafblower._design_effect import design_effect
     d = design_effect(np.array([1.0, 1.0, 1.0, 1.0]))
     assert abs(d - 1.0) < 1e-12  # equal weights → deff == 1
+
+
+# ── kxna.15 (CR-C15): Python rejects max_iterations < 1 (parity with R) ──────
+@pytest.mark.parametrize("mi", [0, -1])
+def test_max_iterations_below_one_rejected(mi):
+    """R harvest guards max_iterations>=1; Python bypassed it, so max_iterations=0
+    collapsed the loop and (logit) returned all-zero weights + STALL. Must raise."""
+    df, tgts = _simple()
+    with pytest.raises(ValueError, match="max_iterations must be a positive integer"):
+        harvest(df, tgts, method="logit", max_iterations=mi)
+
+
+def test_max_iterations_valid_still_runs():
+    df, tgts = _simple()
+    out = harvest(df, tgts, method="logit", max_iterations=50, attach_weights=False)
+    import numpy as np
+    assert abs(float(np.sum(out["weights"])) - out["weights"].shape[0]) < 1e-6  # Σw==n, not zeros
