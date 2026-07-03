@@ -1099,6 +1099,26 @@ compute_quality_metrics <- function(weights, target_list, df) {
       sum(sapply(margin_cols, function(k) {
         T_k   <- target_list[[k]]
         obs_k <- df[[k]]
+        # CR-F1b (dtkn.12): under add_na_proportion=TRUE the target gains an "NA"
+        # level (na_frac>0) and the solver encodes NA obs AS the "NA" level (the
+        # NA->"NA" recode at ~line 507-516). Mirror that here: recode NA -> "NA"
+        # and normalize over ALL obs, so W_k gains an "NA" mass matching the target
+        # (else margin_kl_one sees a positive target "NA" with no W_k "NA" -> Inf).
+        # SIGNAL = target level name "NA" present (all this helper receives). For the
+        # in-scope add_na_proportion path this matches the solver encoding exactly.
+        # LIMITATION (dtkn.13): a HAND-BUILT "NA" target level WITHOUT
+        # add_na_proportion diverges — the solver factor path maps real NAs to gid
+        # -1 (excluded), while this counts them into the "NA" bin. Hand-built "NA"
+        # targets are ambiguous (harvest.R:141 doc); tracked separately, not fixed
+        # here (this helper cannot see the injected-NA-margins set).
+        if ("NA" %in% names(T_k)) {
+          obs_chr <- as.character(obs_k)
+          obs_chr[is.na(obs_k)] <- "NA"
+          Z_k <- sum(weights)
+          if (Z_k == 0) return(NA_real_)
+          W_k <- tapply(weights, obs_chr, sum) / Z_k
+          return(margin_kl_one(T_k, W_k))
+        }
         valid <- !is.na(obs_k)                  # exclude NA-coded observations
         w_v   <- weights[valid]
         Z_k   <- sum(w_v)

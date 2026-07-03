@@ -209,3 +209,46 @@ test_that("mb06: compute_quality_metrics margin_kl finite for CHARACTER margin; 
   # (c) char path feeds bit-identical inputs to the KL helper as the factor path
   expect_identical(mk_chr, mk_fac)
 })
+
+test_that("dtkn.12: add_na_proportion 'NA' bin -> FINITE margin_kl (NA obs counted)", {
+  # Regression (function under test = compute_quality_metrics, NOT the solver).
+  # When the target carries an injected "NA" level (add_na_proportion), the
+  # K-pass fallback used to exclude is.na(obs) -> W_k had no "NA" level while
+  # T_k did -> margin_kl_one() returned +Inf. Fix: recode NA -> "NA" and
+  # normalize over ALL obs so W_k gains an "NA" mass ~ target's NA fraction.
+  set.seed(7L)
+  n   <- 400L
+  a   <- sample(c("x", "y", "z"), n, TRUE, prob = c(0.5, 0.3, 0.2))
+  a[sample(n, 40L)] <- NA                              # 10% NA
+  df  <- data.frame(a = factor(a))                     # NA kept as NA
+  w   <- runif(n, 0.5, 2.0)                            # fixed positive weights
+  tgt <- list(a = c(x = 0.45, y = 0.27, z = 0.18, "NA" = 0.10))  # sums to 1
+
+  qm <- leafblower:::compute_quality_metrics(w, tgt, df)
+  expect_true(is.finite(qm$margin_kl))                 # (a) finite, was +Inf
+
+  # (b) NA-bin contributes ~0 to KL: weighted NA mass ≈ target 0.10, so the
+  # NA term T*log(T/W) is small. Full margin_kl stays modest, not blown up.
+  expect_lt(qm$margin_kl, 1.0)
+})
+
+test_that("dtkn.12: no 'NA' target level -> NA obs still EXCLUDED (unchanged path)", {
+  # Guard: the fix keys ONLY on a target level literally named "NA". A margin
+  # with NA data but NO "NA" target level must keep the old exclude-NA behavior
+  # (normalize over non-NA obs), bit-identical to pre-fix.
+  set.seed(11L)
+  n   <- 300L
+  a   <- sample(c("x", "y", "z"), n, TRUE, prob = c(0.5, 0.3, 0.2))
+  a[sample(n, 30L)] <- NA
+  df  <- data.frame(a = factor(a))
+  w   <- runif(n, 0.5, 2.0)
+  tgt <- list(a = c(x = 0.5, y = 0.3, z = 0.2))        # NO "NA" level
+
+  qm <- leafblower:::compute_quality_metrics(w, tgt, df)
+  # Reconstruct the exclude-NA expectation independently:
+  valid <- !is.na(a); Z <- sum(w[valid])
+  Wk <- tapply(w[valid], droplevels(factor(a[valid])), sum) / Z
+  T_k <- tgt$a
+  exp_kl <- sum(T_k * log(T_k / Wk[names(T_k)]))
+  expect_equal(qm$margin_kl, exp_kl, tolerance = 1e-12)
+})
