@@ -399,6 +399,20 @@ inline void finalize_weights_buf(double* w, int n, const CalibState& st,
                 if (w[i] > st.min_weight && w[i] < st.max_weight)
                     w[i] *= factor;
         }
+        // CR-D11a (j7x8.15): on kWaterFillMaxIter exhaustion the final
+        // redistribution multiply can leave a free weight past a bound with no
+        // trailing clamp — the loop's clamp runs at the TOP of the next iter,
+        // which never comes. This final clamp-only pass enforces the unit-mode
+        // bound contract for every finite weight. No-op when the loop converged
+        // (all weights already in bounds); in the rare non-converged case bounds
+        // win over an O(excess) Σ drift for this one cell (bounds are the hard
+        // promise of bounds_mode="unit"). NaN iterates are deliberately NOT
+        // clamped here — a NaN weight is a solver failure that must surface, not
+        // be masked into a valid-looking bound.
+        for (int i : idxs) {
+            if (w[i] > st.max_weight)      { w[i] = st.max_weight; ++total_clamped; }
+            else if (w[i] < st.min_weight) { w[i] = st.min_weight; ++total_clamped; }
+        }
     }
     n_bounds_violated = 0;
     n_bounds_clamped  = total_clamped;

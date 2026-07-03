@@ -35,3 +35,24 @@ test_that("all cell-table solvers preserve Sw=n and marginals in cell mode (CR-D
     expect_lt(max(dev_x, dev_y), 5e-3)
   }
 })
+
+test_that("unit-mode weights always respect per-obs bounds, incl. heavy skew (CR-D11a)", {
+  # CR-D11a (j7x8.15): water-fill's redistribution multiply runs before the
+  # next iteration's clamp; on kWaterFillMaxIter exhaustion that left a free
+  # weight past a bound. The final clamp-only pass makes the per-obs bound
+  # guarantee unconditional. Stress it with heavy within-cell design-weight skew
+  # + a tight cap so redistribution churns hard.
+  set.seed(11)
+  n <- 3000L
+  df <- data.frame(g = factor(sample(c("a", "b"), n, replace = TRUE)))
+  dw <- 2 ^ (rnorm(n))            # log-normal design weights: heavy skew per cell
+  dw[sample(n, 60L)] <- 50.0      # extreme outliers force cascading clamps
+  target <- list(g = c(a = 0.5, b = 0.5))
+  for (m in c("raking", "sinkhorn", "greg", "oris", "chebyshev")) {
+    w <- as.numeric(harvest(df, target, method = m, design_weights = dw,
+                            max_weight = 2.0, min_weight = 0.3, bounds_mode = "unit",
+                            max_iterations = 1000L, attach_weights = FALSE))
+    expect_true(all(w <= 2.0 + 1e-9),  info = sprintf("%s: max=%.6f > 2.0", m, max(w)))
+    expect_true(all(w >= 0.3 - 1e-9),  info = sprintf("%s: min=%.6f < 0.3", m, min(w)))
+  }
+})
