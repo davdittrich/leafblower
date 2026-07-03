@@ -1,6 +1,6 @@
 #pragma once
 // src/sraa.hpp — Safeguarded Regularized Anderson Acceleration (Type II AA)
-// Used by greenkhorn.cpp and raking.cpp to replace SQUAREM CBB acceleration.
+// Used by oris.cpp (primary), greenkhorn.cpp, and raking.cpp to replace SQUAREM CBB acceleration.
 #include "calib_linalg.hpp"
 #include "lbw_config.h"
 #ifndef LBW_NO_R

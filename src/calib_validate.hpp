@@ -20,6 +20,7 @@ constexpr int kNCatsTotalMax = 2048;
  * 3. X_init[c]==0 && L_c>0 for any cell   → RK_ERR_INFEAS  ("structural zero")
  * 4. sum(L_c) <= n <= sum(U_c)             → RK_ERR_INFEAS  ("total capacity")
  * 5. |sum(T_kj) - 1| <= 1e-6 for all k   → RK_ERR_BADARG  (normalize before calling)
+ *    (check 5 is enforced upstream in validate_calibrate_inputs, NOT in preentry)
  */
 int calib_validate_preentry(const CellTable& ct,
                              const CalibState& st,

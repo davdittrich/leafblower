@@ -109,7 +109,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     static constexpr double kSorProdCeiling = 1.8;    // free-subspace production ceiling (NOT 1.99)
     static constexpr int    kSorCooldown    = 5;      // gate-10 cooldown window
     static constexpr int    kSorLatchTrips  = 3;      // gate-10 latch threshold
-    // kInfeasStallRatio defined once in oris_finalize() at line 148; this scope
+    // kInfeasStallRatio defined once in oris_finalize.cpp:44; this scope
 
     ORISResult res;
     res.base.status = RK_ERR_NOCONV;
@@ -441,7 +441,8 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
     std::vector<bool>   sor_prev_decreasing(st.K, false);
     // EMA theta2: -1.0 = uninformative (pre-burn-in / no informative sample yet).
-    // SRAA uses index [0] (global errRp); flat BCD uses per-margin index [k].
+    // SRAA uses sor_theta2_ema[0] (global errRp); the flat BCD mode-2 path uses the
+    // separate SCALAR v2_theta2_ema (the per-margin [k] errF machinery was removed, e18t.3).
     std::vector<double> sor_theta2_ema(st.K, -1.0);
     static constexpr double kSorEmaAlpha = 0.2;  // EMA smoothing; lower = more stable
     double sor_min_omega = 1.0;

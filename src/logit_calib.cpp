@@ -82,7 +82,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     // NECESSARY but not SUFFICIENT: a jointly-infeasible problem where every margin is
     // individually reachable is NOT caught here and correctly falls through to the Newton loop's
     // BUDGET/STALL (full joint feasibility is an LP, out of scope). Matches the sinkhorn
-    // bisect_capacity / oris structural_infeas convention. One-shot O(M·K).
+    // bisect_capacity_fast / oris structural_infeas convention. One-shot O(M·K).
     {
         constexpr double kFeasEps = 1e-9;  // relative FP margin: exact-corner is NOT flagged
         for (int k = 0; k < K; k++) {

@@ -121,7 +121,7 @@ typedef struct {
     int             n_bounds_violated;  /* cell-mode diagnostic: count of w_i outside bounds (no action) */
     int             n_bounds_clamped;   /* unit-mode action: count of w_i clamped after water-fill exhausted */
     /* ── Overlay diagnostics ── */
-    int             homotopy_levels_used;   /* 0 = homotopy disabled */
+    int             homotopy_levels_used;   /* actual levels run; 1 for single-pass (n_levels=1), not 0 */
     double          homotopy_final_factor;  /* max_weight multiplier at last level */
     int             greedy_sweeps_taken;    /* greedy scheduler sweeps per last inner pass */
     double          eta_final;             /* alm_mu multiplier at exit; 0.0 = N/A */

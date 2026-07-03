@@ -18,7 +18,7 @@ struct GregResult {
 
 // Newton QP for chi2 calibration (GREG — Deville-Sarnal 1992).
 // Minimizes sum_c (X[c] - X_init[c])^2 / X_init[c] subject to margin constraints + capacity.
-// One Newton iteration (exact when no bounds active). Active-set for bounds: <=10 iterations.
+// One Newton iteration (exact when no bounds active). Active-set for bounds: up to kMaxNewtonIters=50 iterations.
 GregResult greg_solve(CalibState& st);
 
 } // namespace lbw

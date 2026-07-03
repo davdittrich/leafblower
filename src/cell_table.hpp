@@ -13,7 +13,7 @@ struct CellTable {
     double capacity_mu_auto = 0.0;  // auto-computed ALM default: M_cell/n (set by build_cell_table)
 };
 
-// Build cell table from group_ids. Returns 0 on success, -1 if K > 64.
+// Build cell table from group_ids. Returns 0 on success, -1 on invalid dims (K > 64, or K <= 0 / n <= 0).
 // Caller owns all input memory; function allocates output vectors.
 // NA (group_ids[k][i] = -1) is treated as category `cat_counts[k]` internally
 // (distinct bucket per margin).
@@ -24,7 +24,8 @@ int build_cell_table(int n, int K,
                      CellTable& out);
 
 // Quick O(n) cell count estimate without building the full CellTable.
-// Returns n if K > 8 or bit-packing is not feasible. Used for AUTO routing.
+// Returns the capped distinct-cell product, clamped to n (so it returns n once the
+// product of cat_counts reaches n — e.g. the K > 8 fast-exit path). Used for AUTO routing.
 int estimate_M_cell(int n, int K,
                     const int32_t* const* group_ids,
                     const int* cat_counts);

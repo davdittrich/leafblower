@@ -35,7 +35,7 @@ static bool bisect_capacity_fast(
 
     // Data-derived bracket: in this fast path the per-cell coefficient is
     // X[c]*exp_a_data[c]; clamp threshold is mu = log(L_or_U[c]) - log(coef).
-    // See bisect_capacity for derivation; same fix replaces the broken
+    // See bisect_capacity_fast (this file) for derivation; same fix replaces the broken
     // lo*=2.0 negative-doubling expansion.
     constexpr double kEpsLU = 1e-300;
     double lo = std::numeric_limits<double>::infinity();
