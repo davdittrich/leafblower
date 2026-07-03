@@ -222,7 +222,15 @@ SRAAStepResult sraa_step(
     // On K>=3 overlapping-margin problems, SRAA may still converge to a
     // KL-optimal (vs max_err-optimal) fixed point — this is a known limitation.
     // Full fix requires outer quality tracking from the adaptive-sort greenkhorn loop.
-    if (err_AA <= err_plain) {
+    //
+    // CR-B4b (y2ks.11): require a FINITE plain baseline. When the plain F-step
+    // overflows (err_plain=+inf, linear-space) but the AA trial happens to land
+    // finite, `err_AA <= +inf` is vacuously true — the safeguard is defeated and a
+    // possibly-bad AA gets accepted, keeping the solve on the broken linear path
+    // (the y2ks.4 fallback never fires because it keys on a non-accepted +inf
+    // err_rp). Rejecting here returns err_plain=+inf, so that fallback fires and the
+    // level restarts in log space. No effect on the normal case (isfinite(finite)).
+    if (err_AA <= err_plain && std::isfinite(err_plain)) {
         std::swap(X, state.scratch);    // O(1); X = F(X_AA)
         state.aa_accepted_count++;
         return {true, 2, err_AA};
