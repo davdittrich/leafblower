@@ -833,6 +833,13 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         // linear and log SRAA paths (was inside for-loop, unreachable when
         // sraa_active_lvl=true after LL3 dropped the && use_linear gate).
         if (sraa_active_lvl && st.scheduler.mode == SchedulerMode::GREEDY) {
+            // CR-B5 (y2ks.5): set the public sraa_demoted flag at the LIVE demotion
+            // site. The only prior assignment (in the flat loop) was dead: it is
+            // guarded by st.accelerate, but the flat loop runs only when
+            // sraa_active_lvl==st.accelerate is false, so it never fired — every
+            // accelerate=TRUE+greedy run reported sraa_demoted=FALSE, breaking the
+            // result contract (oris.hpp) that r_bridge exports. Mirrors raking.cpp:127.
+            res.sraa_demoted = true;
             if (st.verbose >= 1)
                 st.log("[oris] greedy scheduler disabled under SRAA-m; using round_robin");
         }
@@ -1238,13 +1245,11 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         // wiring). Inside this for-loop it remains in scope but is unused on
         // the non-SRAA path.
 
+        // CR-B5 (y2ks.5): the accelerate+greedy demotion block that used to live here
+        // was dead — this flat path runs only when sraa_active_lvl==st.accelerate is
+        // false, so its `st.accelerate` guard never held. The flag is now set at the
+        // live SRAA-scope demotion site (~L835). Greedy stays valid on the flat path.
         bool use_greedy = (st.scheduler.mode == SchedulerMode::GREEDY);
-        if (st.accelerate && use_greedy) {
-            use_greedy = false;
-            res.sraa_demoted = true;
-            if (st.verbose >= 1)
-                st.log("[oris] greedy scheduler disabled under SRAA-m; using round_robin");
-        }
 
         if (use_linear) {
             // WU-2 prefactored linear-space sweep (spec rev 5 §5).
