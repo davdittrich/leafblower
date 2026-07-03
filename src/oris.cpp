@@ -267,6 +267,16 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     // High-water mark: max_c(log_X_init[c] + cell_lf[c]) ≈ max_c log(X_tilde[c]).
     // Monotone-nondecreasing between corrections — stale-high is intentional.
     double cell_lf_hwm = std::numeric_limits<double>::lowest();
+    // CR-H10(c): K_active(c) = #{k : g_per_cell[k][c] >= 0} is fixed by the cell
+    // topology (ct.g_per_cell is immutable per solve), so precompute it once
+    // instead of the O(K) recount inside every T1.B renorm trip.
+    std::vector<int> K_active_cell(ct.M_cell, 0);
+    for (int c = 0; c < ct.M_cell; c++) {
+        int cnt = 0;
+        for (int k = 0; k < st.K; k++)
+            if (ct.g_per_cell[k][c] >= 0) cnt++;
+        K_active_cell[c] = cnt;
+    }
 
     // ADMM dual variable for capacity constraint.
     // u[c] accumulates X_tilde - z violations; converges to 0 at fixed point.
@@ -422,7 +432,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     std::deque<int> probe_queue(probe_targets.begin(), probe_targets.end());
     std::vector<std::pair<int,double>> probe_samples;
 
-    // X_prev tracks X[c] at the last convergence check for pct_change computation.
+    // X_prev tracks X[c] at the last convergence check for l1_weight_change.
     // Initialized from X_init (uniform W[c]=1 at entry, X[c] = X_init[c]).
     std::vector<double> X_prev(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X_init[c];
@@ -469,8 +479,9 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     // These are independent: changing omega_max has NO effect on spectral mode.
     static constexpr double kSorSpectralCeiling = 1.99;  // Thibault 2021: convergence strict <2
     auto estimate_theta2 = [](double prev, double curr) -> double {
+        // CR-H10(e): !isfinite(prev) already subsumes prev==+inf (and also NaN),
+        // so the explicit +inf test was redundant.
         if (prev <= 0.0 || curr <= 0.0 ||
-            prev == std::numeric_limits<double>::infinity() ||
             !std::isfinite(prev) || !std::isfinite(curr))
             return -1.0;
         double ratio = curr / prev;
@@ -487,9 +498,10 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     std::vector<double> sor_prev_errRp(st.K, std::numeric_limits<double>::infinity());
     std::vector<bool>   sor_prev_decreasing(st.K, false);
     // EMA theta2: -1.0 = uninformative (pre-burn-in / no informative sample yet).
-    // SRAA uses sor_theta2_ema[0] (global errRp); the flat BCD mode-2 path uses the
-    // separate SCALAR v2_theta2_ema (the per-margin [k] errF machinery was removed, e18t.3).
-    std::vector<double> sor_theta2_ema(st.K, -1.0);
+    // SRAA uses a single global-errRp EMA; the flat BCD mode-2 path uses the
+    // separate SCALAR v2_theta2_ema (the per-margin [k] errF machinery was removed,
+    // e18t.3). CR-H10(b): only index [0] was ever used, so this is a plain scalar.
+    double sor_theta2_ema = -1.0;
     static constexpr double kSorEmaAlpha = 0.2;  // EMA smoothing; lower = more stable
     double sor_min_omega = 1.0;
     int    sor_n_damped  = 0;
@@ -605,8 +617,8 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         bool level_converged = false;
 
         // reset X_prev at the start of each homotopy level so that
-        // pct_change measures iteration-to-iteration shift within a level, not
-        // cross-level drift from the previous level's final X.
+        // l1_weight_change measures iteration-to-iteration shift within a level,
+        // not cross-level drift from the previous level's final X.
         // B11: At lvl=0, X is still all-zeros (not yet populated); the X_prev
         // initialization from X_init above is the correct baseline. Only reset
         // for subsequent levels where X holds the warm-start from the prior level.
@@ -1047,12 +1059,12 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                             // sample lightly, prevents ceiling→damp oscillation on bounded problems.
                             double theta2_raw = estimate_theta2(sor_prev_errRp[0], curr_errRp);
                             if (theta2_raw >= 0.0) {
-                                sor_theta2_ema[0] = (sor_theta2_ema[0] < 0.0)
+                                sor_theta2_ema = (sor_theta2_ema < 0.0)
                                     ? theta2_raw  // first informative sample — seed
-                                    : kSorEmaAlpha * theta2_raw + (1.0 - kSorEmaAlpha) * sor_theta2_ema[0];
+                                    : kSorEmaAlpha * theta2_raw + (1.0 - kSorEmaAlpha) * sor_theta2_ema;
                             }
                             // omega_from_theta2: returns ceiling when EMA still uninformative (<0)
-                            double omega_s = omega_from_theta2(sor_theta2_ema[0], kSorSpectralCeiling);
+                            double omega_s = omega_from_theta2(sor_theta2_ema, kSorSpectralCeiling);
                             for (int k = 0; k < st.K; k++)
                                 sor_omega[k] = omega_s;
                         } else if (omega_mode_v == 1) {
@@ -1420,10 +1432,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // Likewise X_cur[c] = X_init[c] * Π_{active k} f_lin[k][g_k(c)] scales
                 // by exp(K_active * lf_correction), not exp(-shift).
                 for (int c = 0; c < ct.M_cell; c++) {
-                    int K_active = 0;
-                    for (int k = 0; k < st.K; k++)
-                        if (ct.g_per_cell[k][c] >= 0) K_active++;
-                    const double cell_corr = static_cast<double>(K_active) * lf_correction;
+                    const double cell_corr = static_cast<double>(K_active_cell[c]) * lf_correction;
                     cell_lf[c] += cell_corr;
                     X_cur[c]   *= std::exp(cell_corr);
                 }
@@ -1876,14 +1885,20 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     // Observable: S_dX = Σ_{c:!pinned} (X[c]-X_snapshot[c])² → ρ(M_II)^(2I) per check.
                     // I-th root recovers per-sweep rate; single global ω applied to all margins.
                     if (omega_mode_v == 2) {
-                        // Compute S_dX and n_free in one pass.
+                        // Compute S_dX, n_free and free_mass in one pass.
+                        // CR-H10(d): free_mass (used by gate 4) was a second O(M)
+                        // pass over the same !is_pinned cells — fused here. X is not
+                        // modified between here and gate 4 (gates 2/2b/3 only goto
+                        // v2_end), so the accumulation order/value is identical.
                         double S_dX = 0.0;
                         int    n_free = 0;
+                        double free_mass = 0.0;
                         for (int c = 0; c < ct.M_cell; c++) {
                             if (!is_pinned[c]) {
                                 double dx = X[c] - X_snapshot[c];
                                 S_dX += dx * dx;
                                 n_free++;
+                                free_mass += X[c];
                             }
                         }
 
@@ -1920,20 +1935,16 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         }
 
                         // Gate 4: finiteness + tiny denominator or tiny free mass.
-                        {
-                            double free_mass = 0.0;
-                            for (int c = 0; c < ct.M_cell; c++)
-                                if (!is_pinned[c]) free_mass += X[c];
-                            if (!std::isfinite(S_dX) ||
-                                S_dX_prev < kResidFloor ||
-                                free_mass < kMinSafeTotalWeight) {
-                                for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
-                                v2_theta2_ema = -1.0;
-                                sor_n_conv_fb++;
-                                X_snapshot = X;
-                                S_dX_prev  = S_dX;
-                                goto v2_end;
-                            }
+                        // free_mass computed in the fused first pass above (CR-H10(d)).
+                        if (!std::isfinite(S_dX) ||
+                            S_dX_prev < kResidFloor ||
+                            free_mass < kMinSafeTotalWeight) {
+                            for (int k = 0; k < st.K; k++) sor_omega[k] = 1.0;
+                            v2_theta2_ema = -1.0;
+                            sor_n_conv_fb++;
+                            X_snapshot = X;
+                            S_dX_prev  = S_dX;
+                            goto v2_end;
                         }
 
                         {
@@ -2005,15 +2016,6 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                         S_dX_prev  = S_dX;
                         v2_end: ;
                     }  // end mode-2 global block
-                }
-            }
-
-            // Compute pct_change (max relative shift in cell mass since last check).
-            double pct_change = 0.0;
-            if (W_total > 0.0) {
-                for (int c = 0; c < ct.M_cell; c++) {
-                    double rel = std::fabs(X[c] - X_prev[c]) / std::max(X_prev[c], 1e-12);
-                    if (rel > pct_change) pct_change = rel;
                 }
             }
 
@@ -2094,13 +2096,13 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
 
             // Store metrics in result struct (unconditional — intermediate checks
             // store 0 for gated metrics; final iter always populates all fields).
-            res.base.l1_weight_change = l1_weight;    // real Σ|ΔX|/W_input (replaces pct_change stub)
+            res.base.l1_weight_change = l1_weight;    // real Σ|ΔX|/W_input
             res.base.grake_norm       = grake_norm;   // max_kj normalized margin residual
             res.base.mean_error       = mean_err;
             res.base.kl               = kl_max;
             res.base.chi2             = chi2_total;
 
-            // Update X_prev AFTER computing pct_change.
+            // Update X_prev AFTER computing l1_weight.
             for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
 
             // Trajectory probe: capture at requested iterations (captured on the
