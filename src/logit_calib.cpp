@@ -222,8 +222,22 @@ LogitCalibResult logit_calibrate(CalibState& st) {
 
     // Armijo scratch buffers (pre-allocated to avoid per-halving allocation)
     std::vector<double> w_trial(M, 0.0);        // trial weights for Armijo
+    std::vector<double> sig_trial(M, 0.0);      // xc1s.2: trial sigmoids, reused on the accepted step
     std::vector<double> b_trial(nct, 0.0);      // trial residuals for Armijo
     std::vector<double> lambda_trial(nct, 0.0); // trial lambda for Armijo
+
+    // xc1s.2: the logit link's per-cell z-accumulation
+    // z_c = clamp(Σ_k λ[cat_offset[k] + g_per_cell[k][c]], ±700)  (±700 guards exp
+    // overflow) was triplicated (iter-0 init, Armijo trial, post-step recompute).
+    // Fold it into one closure parameterised on the active lambda vector.
+    auto cell_z = [&](const std::vector<double>& lam, int c) -> double {
+        double z = 0.0;
+        for (int k = 0; k < K; k++) {
+            int g = ct.g_per_cell[k][c];
+            if (g >= 0 && g < st.cat_counts[k]) z += lam[cat_offset[k] + g];
+        }
+        return std::clamp(z, -700.0, 700.0);
+    };
 
     // Cache for w[]+D_eff[]: L4 writes these after accepting a Newton step; L1 reads them
     // on iter>=1, skipping the redundant O(M*K) recompute. Invalidated only at iter==0.
@@ -259,12 +273,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             // handled: kDeffFloor keeps D_eff>0 (no divide-by-zero as sig→0/1), and a solution
             // pinned at the bounds lands in the STALL/BUDGET constrained-optimum classification.
             for (int c = 0; c < M; c++) {
-                double z = 0.0;
-                for (int k = 0; k < K; k++) {
-                    int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < st.cat_counts[k]) z += lambda[cat_offset[k] + g];
-                }
-                z = std::clamp(z, -700.0, 700.0);  // prevent exp overflow
+                double z     = cell_z(lambda, c);
                 double sig   = 1.0 / (1.0 + std::exp(-z));
                 double range = U_cell[c] - L_cell[c];
                 w[c]          = L_cell[c] + range * sig;
@@ -351,16 +360,12 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         double best_trial_resid_sq = std::numeric_limits<double>::infinity();
         for (int halv = 0; halv < kMaxHalvings; halv++) {
             for (int j = 0; j < nct; j++) lambda_trial[j] = lambda[j] + alpha * b[j];
-            // Recompute w_trial from lambda_trial (logit link)
+            // Recompute w_trial (+ retain sig_trial) from lambda_trial (logit link).
             for (int c = 0; c < M; c++) {
-                double z = 0.0;
-                for (int k = 0; k < K; k++) {
-                    int g = ct.g_per_cell[k][c];
-                    if (g >= 0 && g < st.cat_counts[k]) z += lambda_trial[cat_offset[k] + g];
-                }
-                z = std::clamp(z, -700.0, 700.0);
+                double z = cell_z(lambda_trial, c);
                 double sig = 1.0 / (1.0 + std::exp(-z));
                 double range = U_cell[c] - L_cell[c];
+                sig_trial[c] = sig;
                 w_trial[c] = L_cell[c] + range * sig;
             }
             // Compute b_trial residuals from w_trial
@@ -392,23 +397,40 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 Rprintf("[logit] Newton step: Armijo exhausted, accepting best tested alpha=%.2e\n",
                         alpha);
         }
-        for (int j = 0; j < nct; j++) lambda[j] += alpha * b[j];
-
-        // Recompute w+D_eff from updated lambda so convergence check sees post-step weights.
-        // Also fills cache so next iter's L1 can skip the O(M*K) recompute.
-        for (int c = 0; c < M; c++) {
-            double z = 0.0;
-            for (int k = 0; k < K; k++) {
-                int g = ct.g_per_cell[k][c];
-                if (g >= 0 && g < st.cat_counts[k]) z += lambda[cat_offset[k] + g];
+        // Apply the accepted step and refresh w+D_eff (+ cache) for the convergence
+        // check and next iter's L1.
+        if (armijo_improved) {
+            // xc1s.2: adopt the accepted Armijo trial wholesale. lambda_trial is
+            // lambda + alpha*b at the accepted alpha, and w_trial/sig_trial are its
+            // logit weights — all computed together, so this is the self-consistent
+            // post-step state. Reusing it skips a redundant O(M*K) z-accumulation +
+            // O(M) exp per accepted step. Adopting lambda_trial (rather than a
+            // separate `lambda += alpha*b`) keeps lambda, w and D_eff mutually
+            // consistent; it equals the += form up to FP rounding of the SAME
+            // quantity lambda+alpha*b — mathematically equivalent, not a regression.
+            std::copy(lambda_trial.begin(), lambda_trial.end(), lambda.begin());
+            for (int c = 0; c < M; c++) {
+                double range = U_cell[c] - L_cell[c];
+                double sig   = sig_trial[c];
+                w[c]          = w_trial[c];
+                D_eff[c]      = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
+                w_cached[c]     = w[c];
+                D_eff_cached[c] = D_eff[c];
             }
-            z = std::clamp(z, -700.0, 700.0);
-            double sig   = 1.0 / (1.0 + std::exp(-z));
-            double range = U_cell[c] - L_cell[c];
-            w[c]          = L_cell[c] + range * sig;
-            D_eff[c]      = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
-            w_cached[c]     = w[c];
-            D_eff_cached[c] = D_eff[c];
+        } else {
+            // Armijo exhausted: alpha (best_trial_alpha) differs from the last
+            // trial's alpha, so lambda_trial/w_trial/sig_trial are stale — apply
+            // the step and recompute w+D_eff from the updated lambda.
+            for (int j = 0; j < nct; j++) lambda[j] += alpha * b[j];
+            for (int c = 0; c < M; c++) {
+                double z     = cell_z(lambda, c);
+                double sig   = 1.0 / (1.0 + std::exp(-z));
+                double range = U_cell[c] - L_cell[c];
+                w[c]          = L_cell[c] + range * sig;
+                D_eff[c]      = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
+                w_cached[c]     = w[c];
+                D_eff_cached[c] = D_eff[c];
+            }
         }
         wDeff_cache_valid = true;
 
