@@ -122,3 +122,75 @@ def test_marshalled_result_fields():
 def test_pandas_available_flag_gone():
     assert not hasattr(H, "_PANDAS_AVAILABLE"), \
         "_PANDAS_AVAILABLE dead-fallback machinery should be removed"
+
+
+# ── 5ye4.6: hoist value_counts in auto_collapse (behavior-identical) ─────────
+def test_auto_collapse_hoist_identical_with_nan():
+    """Hoisted value_counts must flag the same rare levels, incl. a NaN-bearing
+    column. 'rare' (count 1 < 30) folds into __other__; 'a'/'b' stay; the NaN
+    rows are untouched (no level named for them in targets)."""
+    df = pd.DataFrame({"x": ["a"] * 40 + ["rare"] + ["b"] * 40 + [None] * 19})
+    tgts = {"x": {"a": 0.5, "b": 0.49, "rare": 0.01}}
+    out = harvest(df, tgts, auto_collapse=True)
+    levels = set(out["x"].astype(str).unique())
+    assert "__other__" in levels          # rare folded
+    assert "rare" not in levels
+    assert {"a", "b"} <= levels           # frequent levels retained
+
+
+# ── 5ye4.10: start_weights validation (fail fast, named param) ───────────────
+def test_start_weights_wrong_length():
+    df, tgts = _simple()  # n == 6
+    with pytest.raises(ValueError, match="start_weights has length"):
+        harvest(df, tgts, start_weights=[1.0, 1.0, 1.0])
+
+
+def test_start_weights_all_zero():
+    df, tgts = _simple()
+    with pytest.raises(ValueError, match="sums to zero"):
+        harvest(df, tgts, start_weights=[0.0] * 6)
+
+
+def test_start_weights_negative():
+    df, tgts = _simple()
+    with pytest.raises(ValueError, match="negative"):
+        harvest(df, tgts, start_weights=[1.0, 1.0, 1.0, 1.0, 1.0, -1.0])
+
+
+def test_start_weights_nonfinite():
+    df, tgts = _simple()
+    with pytest.raises(ValueError, match="non-finite"):
+        harvest(df, tgts, start_weights=[1.0, 1.0, float("nan"), 1.0, 1.0, 1.0])
+
+
+def test_start_weights_valid_unchanged():
+    """Smoke test: a valid (positive, finite, right-length) start_weights passes
+    the new guards and still solves, preserving the Σw==n exit invariant. Note
+    finalize_weights enforces Σw=n at solver exit regardless of start scaling, so
+    this asserts the guards don't reject valid input — the rescale arithmetic
+    itself is unchanged by code identity (`w * len(w) / w_sum`, w_sum==w.sum())."""
+    import numpy as np
+    df, tgts = _simple()  # n == 6
+    out = harvest(df, tgts, start_weights=[2.0] * 6, attach_weights=False)
+    w = out["weights"]
+    assert w.shape[0] == 6
+    assert abs(float(np.sum(w)) - 6.0) < 1e-9  # Σw == n invariant, guard-passing path
+
+
+# ── 5ye4.11: _design_effect 0-d input → clean error, not OOB ─────────────────
+def test_design_effect_scalar_input_raises():
+    """Raw binding is directly callable and forcecast does NOT promote rank, so a
+    0-d array reaches C++ with ndim==0 → previously an OOB shape[0] read. The
+    public design_effect() wrapper pre-promotes via ascontiguousarray, so this
+    targets the raw _leafblower._design_effect surface the guard actually defends."""
+    import numpy as np
+    from leafblower._leafblower import _design_effect as raw
+    with pytest.raises((ValueError, TypeError), match="1-D"):
+        raw(np.asarray(np.float64(1.0)), None, None, None, 0)  # ndim==0
+
+
+def test_design_effect_1d_unchanged():
+    import numpy as np
+    from leafblower._design_effect import design_effect
+    d = design_effect(np.array([1.0, 1.0, 1.0, 1.0]))
+    assert abs(d - 1.0) < 1e-12  # equal weights → deff == 1

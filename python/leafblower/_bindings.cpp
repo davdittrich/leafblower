@@ -263,6 +263,14 @@ PYBIND11_MODULE(_leafblower, m) {
            py::object cat_counts_obj,
            int K) -> py::dict {
             py::buffer_info w_info = weights.request();
+            // CR-E11 (5ye4.11): forcecast casts dtype but does NOT promote rank,
+            // so a 0-d input (e.g. np.asarray(np.float64(1.0)) or a bare float)
+            // reaches here with ndim==0 and shape[0] is then an OOB read (UB).
+            // The public design_effect() wrapper pre-promotes via ascontiguousarray
+            // (ndim>=1), but the raw binding is directly callable — guard it here.
+            if (w_info.ndim != 1)
+                throw py::value_error("w must be a 1-D array, got ndim=" +
+                                      std::to_string(w_info.ndim));
             const int n = static_cast<int>(w_info.shape[0]);
             const double* w_ptr = static_cast<const double*>(w_info.ptr);
 

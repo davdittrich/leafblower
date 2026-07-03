@@ -394,9 +394,17 @@ def harvest(
         for v in vars_to_collapse:
             if v not in targets:
                 continue
+            # CR-E6 (5ye4.6): hoist the O(n) column scan out of the per-level
+            # loop — one value_counts() per variable, reused across levels,
+            # instead of a full `astype(str) == lv` rescan per level (was
+            # O(n × levels)). Matches the _compute_sparseness_diag pattern.
+            # dropna=True is irrelevant here: astype(str) already turns NaN into
+            # the "nan" string, and "NA" levels are excluded from `rare` below,
+            # so no separate pd.isna() count is needed for rare determination.
+            counts = data[v].astype(str).value_counts(dropna=True)
             rare = [
                 lv for lv, t_kj in targets[v].items()
-                if (t_kj < 0.01 or int((data[v].astype(str) == str(lv)).sum()) < 30)
+                if (t_kj < 0.01 or int(counts.get(str(lv), 0)) < 30)
                 and str(lv) != "NA"
             ]
             if not rare:
@@ -475,7 +483,23 @@ def harvest(
     # Build initial weights
     if start_weights is not None:
         w = np.ascontiguousarray(start_weights, dtype=np.float64)
-        w = w * len(w) / w.sum()
+        # CR-E10 (5ye4.10): validate BEFORE the rescale. `w * len(w) / w.sum()`
+        # silently yields all-NaN when w.sum()==0, and a mis-length / negative /
+        # non-finite start_weights otherwise surfaces as a confusing error far
+        # from the bad-input site. Fail fast, naming the parameter.
+        if w.shape[0] != n:
+            raise ValueError(
+                f"start_weights has length {w.shape[0]}, expected {n} "
+                "(one per observation)"
+            )
+        if not np.isfinite(w).all():
+            raise ValueError("start_weights contains non-finite values (NaN or inf)")
+        if (w < 0).any():
+            raise ValueError("start_weights contains negative values")
+        w_sum = w.sum()
+        if w_sum <= 0.0:
+            raise ValueError("start_weights sums to zero or less; cannot rescale to n")
+        w = w * len(w) / w_sum
     else:
         w = np.ones(n, dtype=np.float64)
 
