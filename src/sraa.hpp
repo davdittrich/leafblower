@@ -208,7 +208,12 @@ SRAAStepResult sraa_step(
     if (!std::isfinite(err_AA)) {
         state.clear();
         std::swap(X, state.F_cur);
-        return {false, 1, err_plain};
+        // CR-B1 (y2ks.1): 2 f_evals were consumed (err_plain + the step-9 AA
+        // trial err_AA above) before this guard fires — matching the accept/reject
+        // siblings below. Returning 1 undercounted f_evals_used, corrupting SOR
+        // burn-in counters and the check-interval parity CR-B2 depends on. (The
+        // cholesky-fail path returns 1 correctly — it aborts BEFORE the AA eval.)
+        return {false, 2, err_plain};
     }
 
     // --- Step 10: Safeguard ---
