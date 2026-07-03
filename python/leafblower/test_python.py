@@ -694,3 +694,50 @@ def test_alm_penalty_none_not_rejected_and_valid_passthrough():
         assert captured["params"]["newton_tsvd_ratio"] == 1e-6
     finally:
         _h.calibrate = _orig_calibrate
+
+
+# CR-E2 (5ye4.2): raw calibrate() must validate per-margin container sizes vs K
+# BEFORE taking any pointer. Before the fix these malformed inputs caused
+# out-of-bounds vector indexing (segfault) or a short-targets OOB read.
+def _valid_args(K=1):
+    n = 100
+    w = np.ones(n, dtype=np.float64)
+    g = [np.zeros(n, dtype=np.int32) for _ in range(K)]
+    c = [2] * K
+    t = [np.array([0.5, 0.5]) for _ in range(K)]
+    return n, K, w, g, c, t
+
+
+def test_calibrate_rejects_short_group_ids_list():
+    from leafblower._leafblower import calibrate
+    n, K, w, g, c, t = _valid_args(K=2)
+    g = g[:1]  # K=2 but only one group_ids array -> was a segfault
+    with pytest.raises(ValueError, match="group_ids_list must have length K"):
+        calibrate(n, K, w, g, c, t, {}, None)
+
+
+def test_calibrate_rejects_short_targets_list():
+    from leafblower._leafblower import calibrate
+    n, K, w, g, c, t = _valid_args(K=2)
+    t = t[:1]  # K=2 but only one targets array -> was a segfault
+    with pytest.raises(ValueError, match="targets_list must have length K"):
+        calibrate(n, K, w, g, c, t, {}, None)
+
+
+def test_calibrate_rejects_target_catcount_length_mismatch():
+    from leafblower._leafblower import calibrate
+    n, K, w, g, c, t = _valid_args(K=1)
+    c = [3]                       # claims 3 categories
+    t = [np.array([0.5, 0.5])]    # but only 2 targets -> was a silent OOB read
+    with pytest.raises(ValueError, match=r"targets_list\[0\] length 2 but cat_counts_list\[0\] expects 3"):
+        calibrate(n, K, w, g, c, t, {}, None)
+
+
+def test_calibrate_valid_input_still_works():
+    """Regression: the new size checks must not reject valid input."""
+    from leafblower._leafblower import calibrate
+    n, K, w, g, c, t = _valid_args(K=1)
+    g[0][50:] = 1
+    status, weights_out, res = calibrate(n, K, w, g, c, t, {}, None)
+    assert status == 0
+    assert len(weights_out) == n

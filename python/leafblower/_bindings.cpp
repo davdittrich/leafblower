@@ -45,6 +45,20 @@ PYBIND11_MODULE(_leafblower, m) {
             // Copy weights (so we can return a new array without aliasing)
             std::vector<double> weights_copy(weights_np.data(), weights_np.data() + n);
 
+            // CR-E2 (5ye4.2): validate per-margin container sizes vs K BEFORE any
+            // pointer is taken. std::vector::operator[] is UB out of bounds, and
+            // the C solver reads cat_counts[k] elements from targets[k]; a raw
+            // calibrate() call with a short list otherwise segfaults / reads garbage.
+            if ((int)group_ids_list.size() != K)
+                throw py::value_error("group_ids_list must have length K=" +
+                    std::to_string(K) + " (got " + std::to_string(group_ids_list.size()) + ")");
+            if ((int)cat_counts_list.size() != K)
+                throw py::value_error("cat_counts_list must have length K=" +
+                    std::to_string(K) + " (got " + std::to_string(cat_counts_list.size()) + ")");
+            if ((int)targets_list.size() != K)
+                throw py::value_error("targets_list must have length K=" +
+                    std::to_string(K) + " (got " + std::to_string(targets_list.size()) + ")");
+
             // Build group_ids pointers
             std::vector<const int32_t*> gid_ptrs(K);
             // group_ids_list elements outlive rk_calibrate() — raw pointer capture is safe.
@@ -59,6 +73,13 @@ PYBIND11_MODULE(_leafblower, m) {
             // Build targets pointers
             std::vector<const double*> tgt_ptrs(K);
             for (int k = 0; k < K; k++) {
+                // CR-E2: the C solver reads cat_counts[k] doubles from tgt_ptrs[k];
+                // a shorter targets array reads out of bounds.
+                if ((int)targets_list[k].size() != cat_counts_list[k])
+                    throw py::value_error("targets_list[" + std::to_string(k) +
+                        "] length " + std::to_string(targets_list[k].size()) +
+                        " but cat_counts_list[" + std::to_string(k) + "] expects " +
+                        std::to_string(cat_counts_list[k]));
                 tgt_ptrs[k] = targets_list[k].data();
             }
 
