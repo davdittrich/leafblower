@@ -229,7 +229,16 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     int K = pre_error.empty() ? LENGTH(group_ids_sexp) : 0;
     int n = scalar_int(n_obs_sexp, "n_obs");
 
-    std::vector<std::vector<int32_t>> gids_storage(K);
+    // CR-H6 (xc1s.6): alias R's INTSXP data directly instead of a K×n deep copy.
+    // Audit (all 8 solvers + cell_table/validation/newton) confirms group_ids is
+    // read-only (int g = group_ids[k][i]; zero writes, zero const_cast to mutable
+    // int32). The R INTSXP args stay PROTECT'd for the whole .Call and solvers run
+    // synchronously, so the aliased pointers outlive their use.
+    // is_same (not just sizeof) makes the reinterpret_cast a provable no-op —
+    // closes any strict-aliasing question. Holds on every R platform (glibc/musl/
+    // macOS/MinGW all typedef int32_t as int).
+    static_assert(std::is_same<int, std::int32_t>::value,
+                  "R INTSXP (C int) must be int32_t to alias as const int32_t*");
     std::vector<const int32_t*> group_ids(K);
     std::vector<int> cat_counts(K);
     std::vector<std::vector<double>> tgt_storage(K);
@@ -256,9 +265,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 pre_error = "group_ids[[" + std::to_string(k + 1) + "]] length != n";
                 break;
             }
-            const int* gp = INTEGER(gid_vec);
-            gids_storage[k].assign(gp, gp + n);
-            group_ids[k] = gids_storage[k].data();
+            const int* gp = INTEGER_RO(gid_vec);
+            group_ids[k] = reinterpret_cast<const int32_t*>(gp);  // alias, no copy
             SEXP tgt_vec = VECTOR_ELT(targets_sexp, k);
             if (TYPEOF(tgt_vec) != REALSXP) {
                 pre_error = "targets[[" + std::to_string(k + 1) + "]] must be a numeric vector";
