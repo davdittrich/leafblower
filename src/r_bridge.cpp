@@ -973,6 +973,19 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         std::copy(res_best_weights.begin(), res_best_weights.end(), weights.begin());
     }
 
+    // CR-D9b (j7x8.18): the result-list build below calls Rf_allocVector/Rf_mkChar,
+    // any of which can Rf_error (OOM) and longjmp past every function-scope C++ local
+    // -> leak. Only `weights` (->wts) and `res_best_weights` (->best_weights field)
+    // still feed the result; the input-side locals are dead. Swap-release them now
+    // (mirrors the error-site release above), shrinking the OOM-leak surface to just
+    // the two still-live result vectors (weights, res_best_weights).
+    std::string().swap(pre_error);
+    std::string().swap(solver_error);
+    std::vector<const int32_t*>().swap(group_ids);
+    std::vector<int>().swap(cat_counts);
+    std::vector<std::vector<double>>().swap(tgt_storage);
+    std::vector<const double*>().swap(targets);
+
     // Build return list: list(weights=numeric[n], result=list(42 fields))
     // PROTECT out first so wts/res_list/res_names sit above it on the stack;
     // each is UNPROTECTed immediately after adoption, in LIFO order.
