@@ -395,10 +395,22 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             for (int a = 0; a < n_lam; ++a) G[a] *= inv_Z;
             for (size_t idx = 0; idx < H.size(); ++idx) H[idx] *= inv_Z;
 
-            // 5d. Subtract outer product G⊗G from H (Schur complement, upper triangle).
-            for (int a = 0; a < n_lam; ++a)
-                for (int b = a; b < n_lam; ++b)
-                    H[a * n_lam + b] -= G[a] * G[b];
+            // 5d. Form the Schur-complement Hessian H = M2 − G⊗G (covariance, upper tri).
+            // CR-C18 (kxna.18): the DIAGONAL variance p_a − p_a² is a catastrophic
+            // cancellation as p_a→1 (near-equal-magnitude subtraction). Compute it
+            // cancellation-free as p_a·(1−p_a) — one rounding (~0.5 ulp) instead of the
+            // subtraction's O(1/(1−p)) relative blow-up. Pre-subtraction H[a][a] holds
+            // M2[a][a]=p_a=G[a], so the variance is exactly G[a]·(1−G[a]). Off-diagonals
+            // p_ab − p_a·p_b are a genuine difference of two INDEPENDENT quantities (not a
+            // p→1 self-cancellation), with no cheap algebraic reformulation; their residual
+            // noise (~eps·O(1)) stays far below the TSVD threshold ratio_tsvd·λ_max
+            // (ratio_tsvd=1e-8, :480/:510) and is left as the plain subtraction.
+            for (int a = 0; a < n_lam; ++a) {
+                const size_t row_off = static_cast<size_t>(a) * n_lam;
+                H[row_off + a] = G[a] * (1.0 - G[a]);        // cancellation-free variance
+                for (int b = a + 1; b < n_lam; ++b)
+                    H[row_off + b] -= G[a] * G[b];            // off-diagonal covariance
+            }
 
             // 5e. Mirror upper triangle to lower.
             for (int a = 0; a < n_lam; ++a)
