@@ -286,7 +286,11 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         // lwork=-1 query and work/iwork vector allocations are invariant.
         // The actual eigendecomposition still runs every iter (eigvals/vecs
         // change with H — must recompute). dsyevd writes work[0]/iwork[0] on
-        // query; do query against a scratch buffer (matrix not needed for query).
+        // query. CR-H8: the lwork=-1 query path never dereferences A or W
+        // (netlib dsyevd.f: arg-check lda>=n, compute LWMIN/LIWMIN, set
+        // WORK(1)/IWORK(1), RETURN — all before any A/W access), so a
+        // single-element scratch with lda=n_lam suffices; avoids a transient
+        // n_lam² (up to ~33MB) allocation that would otherwise never be read.
         int dsy_lwork_cache = -1, dsy_liwork_cache = -1;
         std::vector<double> dsy_work;
         std::vector<int>    dsy_iwork;
@@ -295,10 +299,10 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             int q_lwork = -1, q_liwork = -1;
             double work_query = 0.0;
             int    iwork_query = 0;
-            std::vector<double> H_query_scratch(static_cast<size_t>(n_lam) * n_lam, 0.0);
-            std::vector<double> eigvals_query_scratch(n_lam, 0.0);
-            F77_CALL(dsyevd)("V", "U", &dsy_n_q, H_query_scratch.data(), &dsy_lda_q,
-                             eigvals_query_scratch.data(),
+            double H_query_scratch = 0.0;      // query never reads A (lda=n_lam)
+            double eigvals_query_scratch = 0.0; // query never reads W
+            F77_CALL(dsyevd)("V", "U", &dsy_n_q, &H_query_scratch, &dsy_lda_q,
+                             &eigvals_query_scratch,
                              &work_query, &q_lwork, &iwork_query, &q_liwork,
                              &dsy_info_q FCONE FCONE);
             if (dsy_info_q == 0) {
