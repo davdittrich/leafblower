@@ -127,14 +127,34 @@ SRAAStepResult sraa_step(
 
     // --- Step 3: Append DX, DR to circular buffer (only when has_prev) ---
     if (state.has_prev) {
-        double* dX_s = state.dX_buf.data() + state.head * M;
-        double* dR_s = state.dR_buf.data() + state.head * M;
+        const int p = state.head;                 // slot being (over)written
+        double* dX_s = state.dX_buf.data() + p * M;
+        double* dR_s = state.dR_buf.data() + p * M;
         for (int c = 0; c < M; c++) {
             dX_s[c] = X[c]              - state.X_prev[c];
             dR_s[c] = state.scratch[c]  - state.R_prev[c];  // R_k - R_{k-1}
         }
         state.head  = (state.head + 1) % state.m;
         state.count = std::min(state.count + 1, state.m);
+
+        // xc1s.5: incremental Gram. Exactly one column (slot p) changed this
+        // step, so only its row/col of G[i][j]=dR_i·dR_j needs recomputing
+        // against the active set [0,count); every other entry is unchanged
+        // because its two dR columns are immutable until overwritten (and each
+        // overwrite refreshes that slot's row/col here, keeping the invariant
+        // G[i][j] == current dR_i·dR_j). Bit-identical to the former full
+        // rebuild: FP multiply commutes and the per-cell accumulation order
+        // (c=0..M) is unchanged, so dR_p·dR_j == dR_j·dR_p exactly. Cuts the
+        // O(count²/2) Step-6 rebuild to O(count) dots (~60% of SRAA linalg at
+        // m=5). Runs every append (incl. warmup) so G is fully valid the first
+        // time Step 6 reads it; state.clear() leaves G stale but count resets to
+        // 0 so nothing reads it until it is rebuilt slot-by-slot.
+        for (int j = 0; j < state.count; j++) {
+            const double* dRj = state.dR_buf.data() + j * M;
+            double dot = 0.0;
+            for (int c = 0; c < M; c++) dot += dR_s[c] * dRj[c];
+            state.gram[p * kSRAAMaxM + j] = state.gram[j * kSRAAMaxM + p] = dot;
+        }
     }
 
     // --- Step 4: Update prev state ---
@@ -151,19 +171,13 @@ SRAAStepResult sraa_step(
         return {false, 1, err_plain};
     }
 
-    // --- Step 6: Gram matrix G[i][j] = DR[i].DR[j]; RHS rhs[i] = DR[i].R_k ---
+    // --- Step 6: Gram G[i][j]=DR[i].DR[j] is maintained incrementally in Step 3
+    //     (xc1s.5); here we only scan the active diagonal for regularization and
+    //     build the per-step RHS rhs[i] = DR[i].R_k (R_k changes every step). ---
     const int n = state.count;
     double max_diag = 0.0;
-    for (int i = 0; i < n; i++) {
-        const double* dRi = state.dR_buf.data() + i * M;
-        for (int j = i; j < n; j++) {
-            const double* dRj = state.dR_buf.data() + j * M;
-            double dot = 0.0;
-            for (int c = 0; c < M; c++) dot += dRi[c] * dRj[c];
-            state.gram[i * kSRAAMaxM + j] = state.gram[j * kSRAAMaxM + i] = dot;
-        }
+    for (int i = 0; i < n; i++)
         max_diag = std::max(max_diag, state.gram[i * kSRAAMaxM + i]);
-    }
     for (int i = 0; i < n; i++) {
         const double* dRi = state.dR_buf.data() + i * M;
         double dot = 0.0;
