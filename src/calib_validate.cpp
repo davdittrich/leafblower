@@ -29,6 +29,15 @@ int calib_validate_preentry(const CellTable& ct,
         return fail(RK_ERR_BADARG, msg);
     }
 
+    // CR-D2 (j7x8.2): reject non-finite bounds before they propagate to NaN
+    // per-cell bounds (lo*n_per_cell) and garbage weights returned as RK_OK. The R
+    // bridge reaches only this pre-entry path (not validation.cpp). min_weight must
+    // be finite; max_weight may be +Inf (legal unbounded) but not NaN.
+    if (!std::isfinite(st.min_weight))
+        return fail(RK_ERR_BADARG, "min_weight must be finite");
+    if (std::isnan(st.max_weight))
+        return fail(RK_ERR_BADARG, "max_weight must not be NaN");
+
     // Compute per-cell bounds
     const double lo = st.min_weight;
     const double hi = st.max_weight;

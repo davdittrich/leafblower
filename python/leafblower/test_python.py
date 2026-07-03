@@ -741,3 +741,15 @@ def test_calibrate_valid_input_still_works():
     status, weights_out, res = calibrate(n, K, w, g, c, t, {}, None)
     assert status == 0
     assert len(weights_out) == n
+
+
+# CR-D2 (j7x8.2): validation.cpp must reject NaN bounds (they slip past min>=max).
+def test_harvest_rejects_nan_bounds():
+    import pandas as pd
+    from leafblower import harvest
+    df = pd.DataFrame({"a": pd.Categorical(np.random.default_rng(1).choice(["A", "B"], 200))})
+    tg = {"a": {"A": 0.5, "B": 0.5}}
+    with pytest.raises(ValueError):
+        harvest(df, tg, max_weight=float("nan"))
+    with pytest.raises(ValueError):
+        harvest(df, tg, min_weight=float("nan"))

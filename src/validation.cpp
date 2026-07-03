@@ -28,6 +28,14 @@ int validate_calibrate_inputs(int n, int K,
     if (K <= 0)     return err("K must be > 0");
     if (K > 64)     return err("K exceeds maximum (64); too many margin columns");
 
+    // CR-D2 (j7x8.2): NaN bounds slip past the min>=max check (all NaN comparisons
+    // are false) and propagate to garbage weights returned as RK_OK. min_weight must
+    // be finite; max_weight may be +Inf (legal unbounded) but not NaN. A -Inf
+    // max_weight is caught by the min>=max check below (finite min >= -Inf).
+    if (!std::isfinite(p->min_weight))
+        return err("min_weight must be finite");
+    if (std::isnan(p->max_weight))
+        return err("max_weight must not be NaN");
     if (p->min_weight >= p->max_weight)
         return err("min_weight must be strictly less than max_weight");
 

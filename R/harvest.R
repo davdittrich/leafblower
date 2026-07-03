@@ -378,6 +378,22 @@ harvest <- function(
       conv$metric   # keep max_err default
     )
   }
+  # CR-D2 (dtkn/j7x8.2): reject NA/non-finite iteration budgets and bounds before
+  # they reach the C layer as INT_MIN / NaN and return garbage weights as RK_OK.
+  if (length(max_iterations) != 1L || is.na(max_iterations) ||
+      !is.finite(max_iterations) || max_iterations < 1) {
+    stop("max_iterations must be a single positive integer; got: ",
+         deparse(max_iterations), call. = FALSE)
+  }
+  if (length(min_weight) != 1L || is.na(min_weight) || !is.finite(min_weight)) {
+    stop("min_weight must be a single finite number; got: ",
+         deparse(min_weight), call. = FALSE)
+  }
+  if (length(max_weight) != 1L || is.na(max_weight)) {   # +Inf allowed (unbounded)
+    stop("max_weight must be a single non-NA number (Inf allowed); got: ",
+         deparse(max_weight), call. = FALSE)
+  }
+
   if (!is.null(capacity_penalty)) {
     if (!is.numeric(capacity_penalty) || length(capacity_penalty) != 1L ||
         !is.finite(capacity_penalty) || capacity_penalty <= 0) {

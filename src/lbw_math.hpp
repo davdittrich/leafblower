@@ -35,8 +35,13 @@ inline void bulk_scaled_exp(double scale,
 // bulk_log: out[i] = log(in[i]) for i in [0, n). in[i] must be > 0.
 // Guard: non-positive values are clamped to 1e-300 floor (log(1e-300) ≈ -690,
 // finite) to prevent NaN/-Inf from propagating into convergence logic.
-inline void bulk_log(const double* __restrict__ in,
-                     double*       __restrict__ out,
+// CR-D3 (j7x8.3): NOT __restrict__ — compute_weight_kl (calib_dispatch.hpp) calls
+// this in-place as bulk_log(ratio_buf, ratio_buf, n). The map is per-element
+// (out[i] = log(clamp(in[i])), same index, idempotent clamp) so aliasing is
+// functionally safe, but __restrict__ made it formal UB. Removing it is free: the
+// SIMD log dominates and the distinct-buffer oris callsites are unaffected.
+inline void bulk_log(const double* in,
+                     double*       out,
                      int n) {
 #if LBW_HAS_GLIBC_MVEC
     // MVEC path: pre-scan scalar to clamp non-positives before SIMD log.
