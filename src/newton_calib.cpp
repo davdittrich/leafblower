@@ -69,12 +69,11 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         res.base.iterations = 0;
         return res;
     }
-    if (n_lam > 4096) {
-        res.base.status = RK_ERR_BADARG;
-        std::snprintf(res.message, sizeof(res.message),
-            "newton_kl: n_lambda=%d exceeds 4096 (sum of free categories)", n_lam);
-        return res;
-    }
+    // CR-C13 (kxna.13): the old `if (n_lam > 4096) BADARG` guard was unreachable and
+    // is removed. solver_setup_ct (above, return-checked) runs calib_validate_preentry,
+    // which rejects n_cats_total > kNCatsTotalMax=2048 (calib_validate.cpp) before we get
+    // here. n_lam = Σ_k max(0, cat_counts[k]−1) ≤ Σ_k cat_counts[k] = n_cats_total ≤ 2048
+    // < 4096, so the branch could never fire (bound holds regardless of per-margin counts).
 
     // ── 3. State allocation ──────────────────────────────────────────────────
     std::vector<double> lam(n_lam, 0.0);
@@ -221,7 +220,18 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
                 const double bq = 2.0 * xp;
                 const double cq = xx - Delta * Delta;
                 const double disc = std::max(0.0, bq * bq - 4.0 * aq * cq);
-                const double tau = (-bq + std::sqrt(disc)) / (2.0 * aq);
+                // CR-C14 (kxna.14): numerically stable positive root. The naive
+                // (−bq+√disc)/(2aq) loses precision to catastrophic cancellation when
+                // bq>0 and the CG iterate already sits near the trust boundary
+                // (cq=xx−Δ²→0⁻ ⇒ √disc→|bq|). Citardauq form (Numerical Recipes §5.6):
+                // q = −½(bq + sign(bq)·√disc); the two roots are q/aq and cq/q. Here
+                // aq=pp>0 and cq=xx−Δ²<0 (the iterate is strictly interior on entry), so
+                // the product cq/aq<0 ⇒ exactly one root is positive; pick it by sign(q),
+                // which never subtracts near-equal magnitudes.
+                const double q = -0.5 * (bq + std::copysign(std::sqrt(disc), bq));
+                const double tau = (q > 0.0) ? (q / aq)
+                                 : (q < 0.0) ? (cq / q)
+                                 : (-bq / (2.0 * aq));  // q==0 ⇔ bq==cq==0 (both roots 0)
                 for (int i = 0; i < n_kp; ++i) x[i] += tau * p[i];
                 return x;
             }
