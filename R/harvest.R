@@ -703,7 +703,8 @@ harvest <- function(
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.
   # NULL-guard required: `NULL == 2L` returns logical(0), and `if (logical(0))`
-  # silently skips the branch — leaking garbage weights to caller.
+  # throws "argument is of length zero" (it does NOT silently skip). The C layer
+  # always returns a status, so these guards are defensive-parity only.
   if (!is.null(calib_result$status) && calib_result$status == 2L)
     stop("leafblower: ", if (nchar(calib_result$message) > 0) calib_result$message
          else "infeasible problem")
@@ -723,7 +724,7 @@ harvest <- function(
   # is the invariant that preserves calibration. See
   # tests/testthat/test-oris-nonuniform-d.R.
 
-  if (calib_result$status == 4L) {
+  if (!is.null(calib_result$status) && calib_result$status == 4L) {
     e_final  <- calib_result$best_error
     b_iter   <- calib_result$best_iter
     iters    <- calib_result$iterations
