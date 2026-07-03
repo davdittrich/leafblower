@@ -243,8 +243,21 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 D_eff[c] = D_eff_cached[c];
             }
         } else {
-            // iter==0 path: compute from scratch, fill cache, run saturation check.
-            int n_saturated = 0;
+            // iter==0 path: compute w[]+D_eff[] from scratch and fill the cache.
+            // CR-C9 (kxna.9): the old ">50% cells saturated (|z|>650) → NOCONV" early-exit
+            // was REMOVED as provably dead + misplaced. It ran ONLY here (cache invalid at
+            // iter 0), so it inspected the INITIAL z only. z = A^T·λ0 is the orthogonal
+            // projection of z_target onto range(A^T) (λ0 = truncated-pinv(AA^T)·A·z_target),
+            // so ‖z‖₂ ≤ ‖z_target‖₂, and each z_target component is clipped to
+            // ≤ log((1−1e-4)/1e-4) ≈ 9.21. Firing needs |z|>650 on >M/2 cells, i.e.
+            // ‖z‖₂² > (M/2)·650² ≈ 2.1e5·M, contradicting ‖z‖₂² ≤ M·9.21² ≈ 85·M — impossible
+            // for ANY K, M (a rejected warm-start leaves λ=0, so z=0). The check never saw the
+            // LATER iterates where λ grows and cells actually saturate; re-wiring it to run
+            // every iteration would spuriously fail TRANSIENT Newton overshoot the next step
+            // corrects (and the old exit returned BEFORE best_weights reconstruction, so it
+            // would have returned empty weights had it fired). Genuine saturation is already
+            // handled: kDeffFloor keeps D_eff>0 (no divide-by-zero as sig→0/1), and a solution
+            // pinned at the bounds lands in the STALL/BUDGET constrained-optimum classification.
             for (int c = 0; c < M; c++) {
                 double z = 0.0;
                 for (int k = 0; k < K; k++) {
@@ -258,17 +271,8 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 D_eff[c]      = std::max(kDeffFloor * range, range * sig * (1.0 - sig));
                 w_cached[c]     = w[c];
                 D_eff_cached[c] = D_eff[c];
-                if (std::fabs(z) > 650.0) ++n_saturated;
             }
             wDeff_cache_valid = true;
-
-            // Early-exit: if >50% of cells saturated (|z|>650), lambda is too large to recover
-            if (n_saturated > M / 2) {
-                res.base.status = RK_ERR_NOCONV;
-                std::snprintf(res.message, sizeof(res.message),
-                    "logit: >50%% of cells saturated (|z|>650) — lambda too large; reduce bounds");
-                return res;
-            }
         }
 
         // (2) Residuals b[cat_offset[k]+j] = tau*n - sum_{c in bucket} w[c]
