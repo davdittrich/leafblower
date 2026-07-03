@@ -498,21 +498,21 @@ RakingResult raking_solve(CalibState& st) {
                                          metric == lbw::CalibMetric::GRAKE_NORM ||
                                          iter == st.inner_max_iter);
                 if (need_extra) {
-                    // R2: was ~40-line duplicate of lbw::compute_cell_metrics.
-                    double W_tot2 = 0.0;
-                    for (int c = 0; c < ct.M_cell; c++) W_tot2 += X[c];
-                    if (W_tot2 > 0.0) {
-                        const lbw::CellMetrics m = lbw::compute_cell_metrics(st, ct, X, W_tot2, bucket);
-                        mean_err   = m.mean_err;
-                        kl_max     = m.kl;
-                        chi2_total = m.chi2;
-                        grake_norm = m.grake_norm;
-                        marginal_kl_sum = m.marginal_kl;
-                        if (metric != lbw::CalibMetric::MAX_ERR) {
-                            const double curr_best = lbw::select_metric(metric, m);
-                            if (std::isfinite(curr_best) && curr_best < best.best_metric) {
-                                best.update(curr_best, wkl_flat, iter, X);
-                            }
+                    // xc1s.4: reuse F_eval's full-metrics result instead of a second
+                    // O(K·M_cell) compute_cell_metrics pass. F_eval already computed
+                    // last_F_metrics for this same post-hyperplane X, normalized by
+                    // W=st.n — matching errRp's basis (the prior recompute used
+                    // W=ΣX≈n, a ~1e-13 inconsistency; max_error is unaffected).
+                    const lbw::CellMetrics& m = last_F_metrics;
+                    mean_err   = m.mean_err;
+                    kl_max     = m.kl;
+                    chi2_total = m.chi2;
+                    grake_norm = m.grake_norm;
+                    marginal_kl_sum = m.marginal_kl;
+                    if (metric != lbw::CalibMetric::MAX_ERR) {
+                        const double curr_best = lbw::select_metric(metric, m);
+                        if (std::isfinite(curr_best) && curr_best < best.best_metric) {
+                            best.update(curr_best, wkl_flat, iter, X);
                         }
                     }
                 }
