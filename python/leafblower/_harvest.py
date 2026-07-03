@@ -500,11 +500,15 @@ def harvest(
 
     # Build initial weights
     if start_weights is not None:
-        w = np.ascontiguousarray(start_weights, dtype=np.float64)
-        # CR-E10 (5ye4.10): validate BEFORE the rescale. `w * len(w) / w.sum()`
-        # silently yields all-NaN when w.sum()==0, and a mis-length / negative /
-        # non-finite start_weights otherwise surfaces as a confusing error far
-        # from the bad-input site. Fail fast, naming the parameter.
+        w = np.atleast_1d(np.ascontiguousarray(start_weights, dtype=np.float64))
+        # CR-E10b (5ye4.14): a length-1 start_weights broadcasts to n (parity with R's
+        # normalize_start_weights rep()). CR-E10 (5ye4.10): validate BEFORE the rescale
+        # (`w * len(w) / w.sum()` yields all-NaN when the sum is ~0), failing fast and
+        # naming the parameter. R and Python agree on accept/reject (5ye4.14).
+        if w.ndim != 1:
+            raise ValueError("start_weights must be a 1-D array")
+        if w.shape[0] == 1:
+            w = np.full(n, w[0], dtype=np.float64)
         if w.shape[0] != n:
             raise ValueError(
                 f"start_weights has length {w.shape[0]}, expected {n} "
@@ -515,8 +519,8 @@ def harvest(
         if (w < 0).any():
             raise ValueError("start_weights contains negative values")
         w_sum = w.sum()
-        if w_sum <= 0.0:
-            raise ValueError("start_weights sums to zero or less; cannot rescale to n")
+        if w_sum < 1e-15:
+            raise ValueError("start_weights must sum to a positive value")
         w = w * len(w) / w_sum
     else:
         w = np.ones(n, dtype=np.float64)

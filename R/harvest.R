@@ -1080,6 +1080,10 @@ parse_sor <- function(sor) {
 
 normalize_start_weights <- function(start_weights, n) {
   if (is.null(start_weights)) return(NULL)
+  # CR-E10b (5ye4.14): reject a 2-D (matrix/array) start_weights for parity with the
+  # Python 1-D guard; as.double() would otherwise silently flatten it.
+  if (!is.null(dim(start_weights)) && length(dim(start_weights)) > 1L)
+    stop("start_weights must be a 1-D vector")
   if (length(start_weights) == 1) {
     sw <- rep(as.double(start_weights), n)
   } else {
@@ -1087,6 +1091,12 @@ normalize_start_weights <- function(start_weights, n) {
       stop("start_weights length must equal nrow(data)")
     sw <- as.double(start_weights)
   }
+  # CR-E10b (5ye4.14): parity with Python — reject non-finite and negative entries
+  # (R previously accepted both). Length-1 broadcast above already matches Python.
+  if (!all(is.finite(sw)))
+    stop("start_weights contains non-finite values (NaN or inf)")
+  if (any(sw < 0))
+    stop("start_weights contains negative values")
   if (sum(sw) < 1e-15)
     stop("start_weights must sum to a positive value")
   sw * length(sw) / sum(sw)

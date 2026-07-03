@@ -147,7 +147,8 @@ def test_start_weights_wrong_length():
 
 def test_start_weights_all_zero():
     df, tgts = _simple()
-    with pytest.raises(ValueError, match="sums to zero"):
+    # CR-E10b (5ye4.14): message aligned with R for parity ("must sum to a positive value").
+    with pytest.raises(ValueError, match="positive value"):
         harvest(df, tgts, start_weights=[0.0] * 6)
 
 
