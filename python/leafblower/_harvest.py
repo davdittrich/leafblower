@@ -140,6 +140,16 @@ def _parse_convergence(conv):
         pct_tol      = tol
         absolute_tol = abs_tol_raw
 
+    # CR-F9b (5ye4.15): mirror R harvest.R:1021-1030 — the plateau rule's tol lives
+    # in (0,1); enforce it on BOTH the explicit `tol` and the `pct` shorthand entry
+    # paths (R applies the identical range check to each). Without this Python
+    # silently accepted convergence={'pct':5} / {'tol':5,'rule':'plateau'} that R rejects.
+    if rule_str == "plateau":
+        if "tol" in conv and not (0.0 < tol < 1.0):
+            raise ValueError("convergence['tol'] must be in (0,1) for rule='plateau'")
+        if explicit_pct and not (0.0 < pct_tol < 1.0):
+            raise ValueError("convergence['pct'] must be in (0,1) for rule='plateau'")
+
     return pct_tol, absolute_tol, _METRIC_MAP[metric_str], _RULE_MAP[rule_str], _STOP_WHEN_MAP[stop_when_str]
 
 
