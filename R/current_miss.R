@@ -15,6 +15,10 @@
 get_current_miss <- function(data, target, weights) {
   vapply(names(target), function(v) {
     col <- data[[v]]
+    # CR-F5 (dtkn.5): fail loudly on an absent variable instead of silently
+    # returning max(tgt) as a fabricated "miss" (NULL col → logical(0) → W=0).
+    # Matches diagnose_weights().
+    if (is.null(col)) stop("Variable '", v, "' not found in data")
     tgt <- target[[v]]
     is_na <- is.na(col)
     has_na_bin <- "NA" %in% names(tgt)

@@ -699,13 +699,13 @@ harvest <- function(
         } else {
           warning(sprintf(
             "leafblower: budget exhausted — %s=%.2e at %d iters. Increase max_iterations.",
-            mstr, e_final %||% NaN, iters),
+            mstr, e_final, iters),
             call. = FALSE)
         }
       } else {
         warning(sprintf(
           "leafblower: budget exhausted — %s=%.2e at %d iters. Increase max_iterations.",
-          mstr, e_final %||% NaN, iters),
+          mstr, e_final, iters),
           call. = FALSE)
       }
     }
