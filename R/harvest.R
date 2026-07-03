@@ -139,8 +139,14 @@
 #'   \strong{Known limitation:} a column that simultaneously contains real
 #'   \code{NA} values \emph{and} a literal factor level or character value named
 #'   \code{"NA"} will collide — both will be mapped to the injected NA bin.
-#' @param auto_collapse Not supported in v1; raises error if TRUE.
-#' @param collapse_vars Not supported in v1; raises error if TRUE.
+#' @param auto_collapse When \code{TRUE}, automatically merge rare categories
+#'   (target proportion < 0.01 or fewer than 30 observations) into an
+#'   \code{"__other__"} bin across all target variables. Default \code{FALSE}.
+#' @param collapse_vars Optional character vector of target variable names to
+#'   collapse. When supplied it \emph{always} takes effect (rare categories in
+#'   those variables are merged into \code{"__other__"}), independent of
+#'   \code{auto_collapse}. \code{NULL} (default) collapses nothing unless
+#'   \code{auto_collapse = TRUE}, in which case all target variables are scanned.
 #' @param target_map Passed through for data-frame target format handling.
 #' @param design_weights Optional design weights vector. When non-NULL and
 #'   \code{start_weights} is NULL, used as starting weights (normalized to
@@ -270,8 +276,20 @@ harvest <- function(
   target  <- parse_target(target, target_map)
 
   # --- 81bx: auto_collapse — merge rare categories into __other__ ---
-  if (isTRUE(auto_collapse) || (!is.null(collapse_vars) && !isFALSE(auto_collapse))) {
+  # CR-F2 (dtkn.2): explicit collapse_vars ALWAYS takes effect. The prior
+  # `!isFALSE(auto_collapse)` guard was dead — auto_collapse defaults FALSE, so
+  # `!isFALSE(FALSE)` is FALSE and a bare collapse_vars silently no-op'd.
+  if (isTRUE(auto_collapse) || !is.null(collapse_vars)) {
     vars_to_collapse <- if (!is.null(collapse_vars)) collapse_vars else names(target)
+    # CR-F2 (dtkn.2): a collapse_vars entry naming no target variable is the same
+    # silent-no-op class this ticket fixes — surface it loudly.
+    if (!is.null(collapse_vars)) {
+      unknown_cv <- setdiff(collapse_vars, names(target))
+      if (length(unknown_cv) > 0L)
+        warning("collapse_vars: no target margin named ",
+                paste0("'", unknown_cv, "'", collapse = ", "),
+                "; ignored", call. = FALSE)
+    }
     data_modified    <- FALSE
     data_local       <- data
     for (v in intersect(vars_to_collapse, names(target))) {
@@ -698,7 +716,7 @@ harvest <- function(
     if (is.numeric(stall_ratio) && stall_ratio < 0.5 &&
         is.numeric(e_final) && is.finite(e_final)) {
       warning(sprintf(
-        "leafblower: fixed point at %s=%.2e (best at iter %d of %d, ratio=%.2f). More iterations will not improve calibration. Try: accelerate=TRUE, method='newton_kl', or method='oris+accel'.",
+        "leafblower: fixed point at %s=%.2e (best at iter %d of %d, ratio=%.2f). More iterations will not improve calibration. Try: accelerate=TRUE, method='newton_kl', or method='oris' with accelerate=TRUE.",
         mstr, e_final, b_iter, iters, stall_ratio),
         call. = FALSE)
     } else {
