@@ -307,6 +307,28 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             res.base.iterations, res.base.best_error);
     }
 
+    // CR-C2 (kxna.2): recompute honest cell metrics on the best-iterate masses so
+    // the reported diagnostics reflect the RETURNED weights. Pre-fix
+    // res.base.{kl,chi2,mean_error,grake_norm} were never assigned (default 0.0 =
+    // phantom "perfect fit") via pack_solver_result. Field order mirrors
+    // sinkhorn.cpp. NOTE: res.base.max_error is intentionally left on the
+    // best-iterate configured-metric scale (best.best_metric) below — see CXX.2
+    // (test-greenkhorn-best-metric.R); CR-C3 proposes changing it to errRp scale
+    // but that conflicts with CXX.2 and is deferred pending resolution.
+    {
+        double W_best = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) W_best += best.best_weights[c];
+        if (W_best > 0.0) {
+            const lbw::CellMetrics mb =
+                lbw::compute_cell_metrics(st, ct, best.best_weights, W_best, bucket_scratch);
+            res.base.kl               = mb.kl;
+            res.base.mean_error       = mb.mean_err;
+            res.base.chi2             = mb.chi2;
+            res.base.grake_norm       = mb.grake_norm;
+            res.base.l1_weight_change = mb.l1;       // 0: greenkhorn keeps no prev-weight snapshot
+        }
+    }
+
     // Weight reconstruction from best.best_weights (cell-level X snapshot at best iter)
     res.base.best_weights.resize(st.n);
     for (int i = 0; i < st.n; i++) {
@@ -315,6 +337,16 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             ? st.weights[i] * best.best_weights[c] / X_init[c]
             : st.weights[i];
     }
+    // CR-C1 (kxna.1): enforce the Σw=n + bounds_mode contract via the shared helper
+    // (normalize→bounds order), matching oris_finalize. W is maintained purely
+    // incrementally (W += delta) and never rescaled at exit, so without this
+    // greenkhorn silently violates Σw=n whenever max_weight clamps bind.
+    {
+        int nbv = 0, nbc = 0;
+        lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct, nbv, nbc);
+    }
+
+    // Unchanged (CXX.2 contract; CR-C3 deferred): best-iterate configured-metric scale.
     res.base.max_error = best.best_metric;
 
     return res;
