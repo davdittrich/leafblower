@@ -54,6 +54,41 @@ static inline int scalar_int(SEXP x, const char* name) {
     return INTEGER(x)[0];
 }
 
+// CR-D9 (j7x8.9): deferred-throw variants for the C_rk_calibrate hot path. The
+// direct-Rf_error versions above longjmp past live C++ destructors (group_ids,
+// tgt_storage, weights, res_best_weights, pre_error/solver_error) -- a leak on
+// every bad-scalar arg. These set pre_error (first-error-wins) and return a
+// harmless 0 instead; the single deferred error exit at the end of
+// C_rk_calibrate releases all heap-backed locals before its Rf_error, so this
+// path is leak-free. The throwing 2-arg forms are kept only for the tiny
+// test-bridge helpers with no live RAII.
+static inline double scalar_real(SEXP x, const char* name, std::string& pre_error) {
+    if (TYPEOF(x) != REALSXP || LENGTH(x) != 1) {
+        if (pre_error.empty()) {
+            char buf[128];
+            std::snprintf(buf, sizeof(buf),
+                "leafblower: '%s' must be a length-1 numeric (got type %s length %d)",
+                name, Rf_type2char(TYPEOF(x)), (int)LENGTH(x));
+            pre_error = buf;
+        }
+        return 0.0;
+    }
+    return REAL(x)[0];
+}
+static inline int scalar_int(SEXP x, const char* name, std::string& pre_error) {
+    if (TYPEOF(x) != INTSXP || LENGTH(x) != 1) {
+        if (pre_error.empty()) {
+            char buf[128];
+            std::snprintf(buf, sizeof(buf),
+                "leafblower: '%s' must be a length-1 integer (got type %s length %d)",
+                name, Rf_type2char(TYPEOF(x)), (int)LENGTH(x));
+            pre_error = buf;
+        }
+        return 0;
+    }
+    return INTEGER(x)[0];
+}
+
 
 namespace {
 const std::unordered_map<std::string_view, rk_algorithm_t> kAlgMap = {
@@ -227,7 +262,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     if (TYPEOF(group_ids_sexp) != VECSXP)
         pre_error = "group_ids must be a list";
     int K = pre_error.empty() ? LENGTH(group_ids_sexp) : 0;
-    int n = scalar_int(n_obs_sexp, "n_obs");
+    int n = scalar_int(n_obs_sexp, "n_obs", pre_error);
 
     // CR-H6 (xc1s.6): alias R's INTSXP data directly instead of a K×n deep copy.
     // Audit (all 8 solvers + cell_table/validation/newton) confirms group_ids is
@@ -305,26 +340,26 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // Set calibration params
     rk_params_t p;
     rk_params_init(&p);
-    p.min_weight     = scalar_real(min_weight_sexp, "min_weight");
-    p.max_weight     = scalar_real(max_weight_sexp, "max_weight");
-    p.verbose        = scalar_int(verbose_sexp, "verbose");
-    p.inner_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
+    p.min_weight     = scalar_real(min_weight_sexp, "min_weight", pre_error);
+    p.max_weight     = scalar_real(max_weight_sexp, "max_weight", pre_error);
+    p.verbose        = scalar_int(verbose_sexp, "verbose", pre_error);
+    p.inner_max_iter = scalar_int(inner_max_iter_sexp, "max_iter", pre_error);
     // newton_kl: 2nd-order outer loop defaults to 50 (see newton_calib.cpp:90).
     // Other solvers: outer = inner (outer_max_iter is ignored for non-newton_kl paths).
     if (LENGTH(method_sexp) == 1 && TYPEOF(method_sexp) == STRSXP &&
         strcmp(CHAR(STRING_ELT(method_sexp, 0)), "newton_kl") == 0) {
         p.outer_max_iter = 0;  // triggers C-side 50-default in newton_calib.cpp:90
     } else {
-        p.outer_max_iter = scalar_int(inner_max_iter_sexp, "max_iter");
+        p.outer_max_iter = scalar_int(inner_max_iter_sexp, "max_iter", pre_error);
     }
-    p.tol_abs        = scalar_real(tol_abs_sexp, "tol_abs");
-    p.bounds_mode    = (rk_bounds_mode_t) scalar_int(bounds_mode_sexp, "bounds_mode");
+    p.tol_abs        = scalar_real(tol_abs_sexp, "tol_abs", pre_error);
+    p.bounds_mode    = (rk_bounds_mode_t) scalar_int(bounds_mode_sexp, "bounds_mode", pre_error);
     p.log_fn         = (p.verbose > 0) ? r_log_trampoline : nullptr;
     /* Overlay knobs */
-    p.homotopy.n_levels        = scalar_int(homotopy_levels_sexp, "homotopy_levels");
-    p.homotopy.start_factor    = scalar_real(homotopy_start_factor_sexp, "homotopy_start_factor");
-    p.homotopy.end_factor      = scalar_real(homotopy_end_factor_sexp, "homotopy_end_factor");
-    p.homotopy.budget_split_p  = scalar_real(homotopy_budget_p_sexp, "homotopy_budget_p");
+    p.homotopy.n_levels        = scalar_int(homotopy_levels_sexp, "homotopy_levels", pre_error);
+    p.homotopy.start_factor    = scalar_real(homotopy_start_factor_sexp, "homotopy_start_factor", pre_error);
+    p.homotopy.end_factor      = scalar_real(homotopy_end_factor_sexp, "homotopy_end_factor", pre_error);
+    p.homotopy.budget_split_p  = scalar_real(homotopy_budget_p_sexp, "homotopy_budget_p", pre_error);
     {
         if (pre_error.empty() && (TYPEOF(scheduler_sexp) != STRSXP || LENGTH(scheduler_sexp) != 1))
             pre_error = "scheduler must be a length-1 character string";
@@ -337,24 +372,24 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         const char* eta_str = pre_error.empty() ? CHAR(STRING_ELT(eta_schedule_sexp, 0)) : "";
         p.eta_mode = (strcmp(eta_str, "tang_dynamic") == 0) ? RK_ETA_TANG_DYNAMIC : RK_ETA_FIXED;
     }
-    p.eta_start           = scalar_real(eta_start_sexp, "eta_start");
-    p.eta_end             = scalar_real(eta_end_sexp, "eta_end");
-    p.eta_schedule_power  = scalar_real(eta_schedule_power_sexp, "eta_schedule_power");
+    p.eta_start           = scalar_real(eta_start_sexp, "eta_start", pre_error);
+    p.eta_end             = scalar_real(eta_end_sexp, "eta_end", pre_error);
+    p.eta_schedule_power  = scalar_real(eta_schedule_power_sexp, "eta_schedule_power", pre_error);
     /* Convergence config (WU-A) */
-    p.pct_tol             = scalar_real(pct_tol_sexp, "pct_tol");
-    p.absolute_tol        = scalar_real(absolute_tol_sexp, "absolute_tol");
-    p.metric              = scalar_int(metric_sexp, "metric");
-    p.rule                = scalar_int(rule_sexp, "rule");
-    p.stop_when           = scalar_int(stop_when_sexp, "stop_when");
+    p.pct_tol             = scalar_real(pct_tol_sexp, "pct_tol", pre_error);
+    p.absolute_tol        = scalar_real(absolute_tol_sexp, "absolute_tol", pre_error);
+    p.metric              = scalar_int(metric_sexp, "metric", pre_error);
+    p.rule                = scalar_int(rule_sexp, "rule", pre_error);
+    p.stop_when           = scalar_int(stop_when_sexp, "stop_when", pre_error);
     /* SOR config (WU-A) */
-    p.sor_enabled         = scalar_int(sor_enabled_sexp, "sor_enabled");
-    p.sor_auto            = scalar_int(sor_auto_sexp, "sor_auto");
-    p.sor_omega_init      = scalar_real(sor_omega_init_sexp, "sor_omega_init");
-    p.sor_omega_min       = scalar_real(sor_omega_min_sexp, "sor_omega_min");
-    p.sor_omega_max       = scalar_real(sor_omega_max_sexp, "sor_omega_max");
-    p.sor_omega_fixed     = scalar_real(sor_omega_fixed_sexp, "sor_omega_fixed");
-    p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin");
-    p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id");
+    p.sor_enabled         = scalar_int(sor_enabled_sexp, "sor_enabled", pre_error);
+    p.sor_auto            = scalar_int(sor_auto_sexp, "sor_auto", pre_error);
+    p.sor_omega_init      = scalar_real(sor_omega_init_sexp, "sor_omega_init", pre_error);
+    p.sor_omega_min       = scalar_real(sor_omega_min_sexp, "sor_omega_min", pre_error);
+    p.sor_omega_max       = scalar_real(sor_omega_max_sexp, "sor_omega_max", pre_error);
+    p.sor_omega_fixed     = scalar_real(sor_omega_fixed_sexp, "sor_omega_fixed", pre_error);
+    p.sor_burnin          = scalar_int(sor_burnin_sexp, "sor_burnin", pre_error);
+    p.sor_omega_mode_id   = scalar_int(sor_omega_mode_id_sexp, "sor_omega_mode_id", pre_error);
 
     if (pre_error.empty() && (TYPEOF(method_sexp) != STRSXP || LENGTH(method_sexp) != 1))
         pre_error = "method must be a length-1 character string";
@@ -398,13 +433,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     lbw::CalibState st;
     init_calib_state(st, n, K, p, weights, group_ids, cat_counts, targets);
     // Epic-H WH-e: newton_kl TSVD truncation ratio. <=0 falls back to internal default 1e-8.
-    st.newton_tsvd_ratio = scalar_real(newton_tsvd_ratio_sexp, "newton_tsvd_ratio");
+    st.newton_tsvd_ratio = scalar_real(newton_tsvd_ratio_sexp, "newton_tsvd_ratio", pre_error);
     // Tikhonov ridge on dual λ; 0.0 = off.
-    st.ridge_lambda = scalar_real(ridge_lambda_sexp, "ridge_lambda");
+    st.ridge_lambda = scalar_real(ridge_lambda_sexp, "ridge_lambda", pre_error);
     st.oris_auto_selected          = false;  // R bridge always resolves method explicitly
     st.alm.lambda = 0.0;
     st.alm.mu     = 0.0;
-    st.accelerate = (scalar_int(accelerate_sexp, "accelerate") != 0);
+    st.accelerate = (scalar_int(accelerate_sexp, "accelerate", pre_error) != 0);
 
     // Resolve capacity_mu for oris_soft: harmonized to estimate_M_cell path matching c_api.cpp.
     // leafblower-yh0l.4: T3 benchmark identified Py as winner on fulldata; differentiator was
@@ -422,7 +457,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     {
         const double cp_val = Rf_isNull(capacity_penalty_sexp)
             ? -1.0
-            : (LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
+            : (TYPEOF(capacity_penalty_sexp) == REALSXP && LENGTH(capacity_penalty_sexp) == 1 ? REAL(capacity_penalty_sexp)[0] : -1.0);
         if (cp_val > 0.0) {
             st.alm.capacity_mu = cp_val;
         } else if (pre_error.empty()) {
@@ -441,7 +476,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     {
         const double alm_penalty_val = Rf_isNull(alm_penalty_sexp)
             ? -1.0
-            : (LENGTH(alm_penalty_sexp) == 1 ? REAL(alm_penalty_sexp)[0] : -1.0);
+            : (TYPEOF(alm_penalty_sexp) == REALSXP && LENGTH(alm_penalty_sexp) == 1 ? REAL(alm_penalty_sexp)[0] : -1.0);
         st.alm.mu = (alm_penalty_val > 0.0) ? alm_penalty_val : 0.0;
     }
 
@@ -551,7 +586,10 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     try {
     // A1b: pre-dispatch validation errors are deferred to here so all std::vectors
     // above are still in scope; throw converts them into solver_error and they are
-    // destroyed at '}' below before Rf_error fires (R-exts §5.5).
+    // destroyed at '}' below before Rf_error fires (R-exts §5.5). CR-D9 (j7x8.9):
+    // this now includes bad-scalar-arg errors — scalar_real/scalar_int(...,
+    // pre_error) set pre_error instead of calling Rf_error directly, so EVERY
+    // pre-dispatch error path unwinds RAII cleanly (no leak).
     if (!pre_error.empty()) throw std::runtime_error(pre_error);
 #ifdef __GLIBC__
     malloc_trim(0);  // compact heap before solver — reduces fragmentation-induced LLC cache misses
@@ -877,13 +915,30 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     }
     }
     if (!solver_error.empty()) {
-        // pre_error messages are already fully-qualified; solver errors get the
-        // "internal solver error" prefix so callers can distinguish the two.
+        // CR-D9 (j7x8.9): make this the single leak-free error exit. Rf_error
+        // longjmps past C++ dtors (R-exts §5.5), so copy the message to a stack
+        // buffer and explicitly release EVERY heap-backed function-scope local
+        // before it fires. CalibState/rk_params_t own no heap (verified), so the
+        // vectors + strings below are the complete set. Only runs on the error
+        // path (solver_error non-empty) — the success path keeps them intact for
+        // building the result. pre_error messages are already fully-qualified;
+        // solver errors get the "internal solver error" prefix.
+        char msg[512];
         if (!pre_error.empty())
-            Rf_error("%s", solver_error.c_str());
+            std::snprintf(msg, sizeof(msg), "%s", solver_error.c_str());
         else
-            Rf_error("leafblower: internal solver error \xe2\x80\x94 %s",
-                     solver_error.c_str());
+            std::snprintf(msg, sizeof(msg),
+                          "leafblower: internal solver error \xe2\x80\x94 %s",
+                          solver_error.c_str());
+        std::string().swap(pre_error);
+        std::string().swap(solver_error);
+        std::vector<const int32_t*>().swap(group_ids);
+        std::vector<int>().swap(cat_counts);
+        std::vector<std::vector<double>>().swap(tgt_storage);
+        std::vector<const double*>().swap(targets);
+        std::vector<double>().swap(weights);
+        std::vector<double>().swap(res_best_weights);
+        Rf_error("%s", msg);
     }
 
     // Single source of truth for rk_algorithm_t → R-visible name.

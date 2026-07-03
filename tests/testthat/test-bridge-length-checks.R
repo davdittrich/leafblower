@@ -131,3 +131,22 @@ test_that("CR-D10: recognized method strings still calibrate (regression)", {
     expect_no_error(do_call_bridge(args))
   }
 })
+
+# CR-D9 (j7x8.9): bad scalar args (wrong type / length) now route through the
+# deferred-throw path (scalar_real/scalar_int set pre_error, the single throw ->
+# catch -> Rf_error site fires AFTER the RAII scope unwinds) instead of calling
+# Rf_error directly mid-parse (which longjmp-leaked live std::vectors). Verify
+# the graceful error still fires and names the offending parameter.
+test_that("CR-D9: bad scalar arg errors gracefully via deferred throw", {
+  args <- make_call_args()
+  args[[6]] <- "x"  # slot 5: min_weight as character (not REALSXP)
+  expect_error(do_call_bridge(args), "min_weight.*must be a length-1 numeric")
+
+  args <- make_call_args()
+  args[[7]] <- c(1.0, 2.0)  # slot 6: max_weight length 2 (not length-1)
+  expect_error(do_call_bridge(args), "max_weight.*must be a length-1 numeric")
+
+  args <- make_call_args()
+  args[[9]] <- as.double(50)  # slot 8: verbose (scalar_int) given a double
+  expect_error(do_call_bridge(args), "verbose.*must be a length-1 integer")
+})
