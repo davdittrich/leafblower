@@ -79,3 +79,29 @@ test_that("cell compression: non-list group_ids errors gracefully (no crash)", {
     expect_error(run_wrong_typeof(bad_group_ids, n), "group_ids must be a list")
   }
 })
+
+# CR-D8 (j7x8.8): the probe entry point is .Call-registered and callable
+# directly, bypassing the R wrapper's coercion. Validate each group_ids vector's
+# TYPEOF/LENGTH and n>=0 before dereferencing, else a short/wrong-type vector
+# OOB-reads (INTEGER(v)[i] for i<n) and a negative n feeds a huge allocation.
+# Isolated in callr so a regression (crash) doesn't abort the suite.
+test_that("cell probe: short/wrong-type gid vector + negative n error gracefully (CR-D8)", {
+  probe <- function(gid_list, n) {
+    library(leafblower)
+    .Call("C_leafblower_cell_table_probe", gid_list, as.integer(n),
+          PACKAGE = "leafblower")
+  }
+  iso <- function(gid_list, n, pattern) {
+    if (requireNamespace("callr", quietly = TRUE))
+      expect_error(callr::r(probe, args = list(gid_list = gid_list, n = n)), pattern)
+    else
+      expect_error(probe(gid_list, n), pattern)
+  }
+  n <- 100L
+  # (a) gid vector shorter than n -> would OOB-read
+  iso(list(as.integer(rep(0L, n)), as.integer(rep(0L, 10L))), n, "length \\(10\\) < n")
+  # (b) non-INTSXP gid element (REALSXP) -> would misread via INTEGER()
+  iso(list(as.integer(rep(0L, n)), as.double(rep(0, n))), n, "must be an integer vector")
+  # (c) negative n -> would feed a huge std::vector allocation
+  iso(list(as.integer(rep(0L, 5L))), -5L, "non-negative")
+})

@@ -1076,10 +1076,27 @@ extern "C" SEXP C_leafblower_cell_table_probe(SEXP r_group_ids_list, SEXP r_n) {
         Rf_error("group_ids must be a list");
     int n = scalar_int(r_n, "r_n");
     int K = Rf_length(r_group_ids_list);
-    if (K > lbw::K_MAX) {
+    // CR-D8 (j7x8.8): validate ALL inputs in a leak-free pre-pass (nothing
+    // allocated yet) before any dereference. This registered entry point is
+    // .Call-able directly, bypassing the R wrapper's coercion — a short or
+    // non-INTSXP vector previously OOB-read (the loop reads INTEGER(v)[i] for
+    // i<n) or hit an accessor error, and a negative/huge n fed a std::vector
+    // allocation. Mirrors the main entry's CXX.1 discipline.
+    if (n < 0)
+        Rf_error("n must be non-negative, got %d", n);
+    if (K == 0 && n > 0)
+        Rf_error("group_ids is empty but n (%d) > 0", n);
+    if (K > lbw::K_MAX)
         Rf_error("K (%d) exceeds K_MAX (%d)", K, lbw::K_MAX);
+    for (int k = 0; k < K; k++) {
+        SEXP v = VECTOR_ELT(r_group_ids_list, k);
+        if (TYPEOF(v) != INTSXP)
+            Rf_error("group_ids[[%d]] must be an integer vector", k + 1);
+        if (Rf_length(v) < n)
+            Rf_error("group_ids[[%d]] length (%d) < n (%d)", k + 1,
+                     (int) Rf_length(v), n);
     }
-    // Extract pointers
+    // Extract pointers (all inputs validated above).
     std::vector<const int32_t*> gid_ptrs(K);
     std::vector<int> cat_counts(K);
     for (int k = 0; k < K; k++) {
