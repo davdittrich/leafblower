@@ -73,7 +73,7 @@ cd python && pip install -e . && pytest        # Python parity tests (rtol=1e-6 
 - `calib_dispatch.hpp` = canonical home for shared solver helpers. Do NOT add shared logic to individual solver files. CellTable-specific helpers → `cell_table.hpp`. Both use `lbw` namespace.
 - `CalibResult` fields live at `res.base.*` (not `res.*`) since ztid.4 — direct field access breaks silently.
 - Algorithm slot 2 is reserved (LBFGSB removed). Do not reuse in `rk_algorithm_t` enum.
-- `-O3` lives in `OPT_FLAGS` (set by `configure`), NOT `PKG_CXXFLAGS` — CRAN portability check rejects `-O` flags in `PKG_CXXFLAGS`.
+- The package sets **no `-O` optimization level** of its own (`configure` and `Makevars.in` both note this intentionally): R supplies the user/site `-O` via `$(CXXFLAGS)` in `$(ALL_CXXFLAGS)`. CRAN portability check (`tools:::.check_make_vars`) rejects `-O` flags in `PKG_CXXFLAGS`, so a user wanting `-O3` sets it in `~/.R/Makevars`.
 - **Two build sites for `src/*.cpp`:** R auto-globs `src/*.cpp` (the `PKG_SOURCES` list in `Makevars.in` is decorative — R ignores it). The Python build does NOT glob: `python/CMakeLists.txt` has an explicit `CORE_SOURCES` list. A new `src/*.cpp` MUST be added to `CORE_SOURCES` or the pybind11 link fails with undefined symbols.
 - **No LTO** (`-flto` absent from `configure`/`Makevars`). A TU split only stays perf-neutral if HOT code (per-iteration loops, `static inline` kernels) stays co-located with its caller — cross-TU calls don't inline. Move only COLD (once-per-solve) code to new TUs. `oris.cpp` is split this way (`oris_finalize.cpp`, `oris_trajectory.cpp`, `oris_internal.hpp`); the hot `oris_solve` stays in `oris.cpp`.
 
@@ -86,7 +86,7 @@ cd python && pip install -e . && pytest        # Python parity tests (rtol=1e-6 
 4. R wrapper function + roxygen2 docs
 5. Python binding
 6. R test fixture (`.rds`)
-7. Python parity test in `python/parity/`
+7. Python parity test in `python/leafblower/test_*_parity.py` (e.g. `test_solver_parity.py`)
 8. Benchmark fixture for stepstone regression gate
 
 - **Version sync:** bump `DESCRIPTION` AND `python/pyproject.toml` manually — no automation.
