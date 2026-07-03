@@ -120,9 +120,21 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         }
         return u;
     };
+    // CR-C17 (kxna.17): u_max is the LSE stabilization shift and must be the max u
+    // over rows that CONTRIBUTE to Z_stable = Σ st.weights[i]·exp(u_i−u_max) — i.e. the
+    // positive-design-weight rows. A zero-weight (d_i=0) row adds 0 to Z_stable, so if
+    // it held the max u it would only inflate the shift; and if its u exceeded every
+    // positive row by >745, Z_stable would underflow to exactly 0 (log(0)=−inf;
+    // scale=n/0=inf; w_i=0·inf=NaN in recovery). Filtering d_i>0 here makes the shift
+    // correct BY CONSTRUCTION. Zero-weight rows are excluded from the ENTIRE LSE — this
+    // scan, the Z_stable sums (eval_dual + step 5b) and weight recovery — so they have
+    // zero effect: no underflow (positive rows define the shift) and no 0·inf overflow
+    // (their terms are never evaluated). Byte-identical whenever a positive row already
+    // holds the max (the norm). Σd_i>0 is validated upstream, so ≥1 row survives.
     auto compute_u_max = [&](const std::vector<double>& lam_v) -> double {
         double u_max = -std::numeric_limits<double>::infinity();
         for (int i = 0; i < n; ++i) {
+            if (st.weights[i] <= 0.0) continue;   // only positive-weight rows enter Z_stable
             const double u = compute_u(lam_v, i);
             if (u > u_max) u_max = u;
         }
@@ -134,6 +146,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
         const double u_max = compute_u_max(lam_v);
         double Z_stable = 0.0;
         for (int i = 0; i < n; ++i) {
+            if (st.weights[i] <= 0.0) continue;   // CR-C17: d=0 row adds 0; skip (no 0*inf)
             Z_stable += st.weights[i] * std::exp(compute_u(lam_v, i) - u_max);
         }
         Z_stable_out = Z_stable;
@@ -355,6 +368,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             const double u_max_step = compute_u_max(lam);
             // active_a hoisted pre-loop (lqex.1); capacity already reserved.
             for (int i = 0; i < n; ++i) {
+                if (st.weights[i] <= 0.0) continue;   // CR-C17: d=0 row contributes 0 to Z/G/H
                 // Per-obs hoist: active dual-index list and u in one pass.
                 double u = 0.0;
                 active_a.clear();
@@ -847,6 +861,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     const double scale = static_cast<double>(n) / Z_curr;
     int n_violated = 0;
     for (int i = 0; i < n; ++i) {
+        if (st.weights[i] <= 0.0) { w[i] = 0.0; continue; }  // CR-C17: d=0 obs → w=0 (not in sample)
         const double u = compute_u(lam, i);
         const double w_i = st.weights[i] * std::exp(u - u_max_curr) * scale;
         w[i] = w_i;
