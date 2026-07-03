@@ -523,7 +523,11 @@ harvest <- function(
   for (i in seq_along(margins)) {
     v    <- margins[[i]]
     gids <- group_ids_r[[i]]
-    n_oov <- sum(gids == -1L)
+    # CR-F6 (dtkn.6): plain NAs fold to gid==-1 too (as.integer(factor) -> NA -> -1L,
+    # match(NA) -> 0 -> -1L). When add_na_proportion=FALSE these are ORDINARY missing
+    # data, not a vocabulary problem — exclude them so the OOV warning counts only
+    # GENUINE out-of-vocabulary values (present in data, absent from the target).
+    n_oov <- sum(gids == -1L & !is.na(data[[v]]))
     if (n_oov > 0L)
       warning(sprintf(
         "harvest: %d out-of-vocabulary observation(s) for variable '%s' — these levels are absent from target and will not contribute to calibration",

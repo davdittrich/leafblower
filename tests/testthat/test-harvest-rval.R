@@ -117,3 +117,19 @@ test_that("META.2: convergence list(pct=0.005) still works (pct shorthand)", {
             convergence = list(pct = 0.005))
   )
 })
+
+test_that("dtkn.6: plain NAs do NOT trigger the OOV warning (add_na_proportion=FALSE) (CR-F6)", {
+  set.seed(1L); n <- 200L
+  a <- factor(sample(c("x", "y", "z"), n, TRUE)); a[sample(n, 20L)] <- NA
+  df <- data.frame(a = a); tg <- list(a = c(x = 0.34, y = 0.33, z = 0.33))
+  # 20 plain NAs (normal missingness) must NOT warn about out-of-vocabulary.
+  expect_no_warning(suppressMessages(harvest(df, tg, attach_weights = FALSE)))
+})
+
+test_that("dtkn.6: GENUINE out-of-vocabulary values still warn (CR-F6)", {
+  # A factor level present in data but absent from the target IS a vocabulary problem.
+  df <- data.frame(a = factor(c(rep("x", 90), rep("y", 90), rep("zzz", 20))))
+  tg <- list(a = c(x = 0.5, y = 0.5))  # 'zzz' not in target
+  expect_warning(suppressMessages(harvest(df, tg, attach_weights = FALSE)),
+                 "out-of-vocabulary")
+})

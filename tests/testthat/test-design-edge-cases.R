@@ -109,3 +109,19 @@ test_that("design_effect 4-arg collinear margins returns finite deff_H", {
   expect_true(is.finite(d))
   expect_gt(d, 0)
 })
+
+
+test_that("dtkn.7: 4-arg design_effect enforces the weight contract like 1-arg (CR-F7)", {
+  set.seed(2L); n <- 100L
+  y <- rnorm(n); data <- data.frame(g = factor(sample(c("a", "b"), n, TRUE)))
+  target <- list(g = c(a = 0.5, b = 0.5))
+  good <- rep(1.0, n)
+  # 4-arg path (outcome+data+target) previously bypassed these checks -> silent to C.
+  expect_error(design_effect(c(good[-1], NA),   outcome = y, data = data, target = target), "NA")
+  expect_error(design_effect(c(good[-1], Inf),  outcome = y, data = data, target = target), "finite")
+  expect_error(design_effect(rep(0, n),         outcome = y, data = data, target = target), "positive")
+  expect_error(design_effect(as.character(good), outcome = y, data = data, target = target), "numeric")
+  # valid weights still work on both paths
+  expect_true(is.finite(design_effect(good)))
+  expect_true(is.finite(design_effect(good, outcome = y, data = data, target = target)))
+})
