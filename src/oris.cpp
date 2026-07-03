@@ -954,6 +954,24 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 if (f_evals_used == 1 ||
                     f_evals_used % kErrCheckInterval == 0 ||
                     f_evals_used >= budget_lvl) {
+                    // mxcl.4: re-sync X_cur to the ACCEPTED iterate (lf_flat)
+                    // before evaluating convergence / best-iterate. On the LOG
+                    // path (use_linear==false) f_eval_lf refreshes X_tilde but
+                    // leaves X_cur one BCD sweep behind (it holds the unpack of
+                    // the PRE-sweep input, oris.cpp:762). On the LINEAR path
+                    // X_cur is maintained in place and is correct EXCEPT after a
+                    // rejected AA step, where the globals still hold the rejected
+                    // X_AA masses while lf_flat reverted to the plain step
+                    // (sraa.hpp:226). Re-unpacking lf_flat rebuilds
+                    // X_cur = X_init·exp(Σ lf_flat) = the accepted masses on both
+                    // paths. Check-interval-only → no per-f_eval hot-loop cost;
+                    // the linear-accepted case skips the re-unpack and stays
+                    // byte-identical.
+                    const bool masses_stale =
+                        (!use_linear) || (r.f_evals == 2 && !r.aa_accepted);
+                    if (masses_stale)
+                        unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
+                                  log_X_init, st.K, cat_offset, cell_lf_hwm);
                     double W_total = 0.0;
                     for (int c = 0; c < ct.M_cell; c++) W_total += X_cur[c];
                     if (W_total > 0.0) {
@@ -1037,8 +1055,13 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
             // [Σ L_cell, Σ U_cell] (mass-saturated/infeasible) r saturates and X
             // pins at the reachable bound (best effort) — the honest outcome.
             {
-                const std::vector<double>& src_cells = use_linear ? X_cur
-                    : (!X_tilde.empty() ? X_tilde : X_cur);
+                // mxcl.4 (Amendment A): clamp the ACCEPTED masses on both paths.
+                // The check block re-syncs X_cur to lf_flat at every check
+                // interval, and both loop-exit routes (converged / budget) pass
+                // through that block, so X_cur == the accepted iterate here.
+                // Previously the log path read X_tilde, which after a rejected AA
+                // final step holds the rejected X_AA masses while lf_flat reverted.
+                const std::vector<double>& src_cells = X_cur;
                 const double target = static_cast<double>(st.n);
                 auto clamped_sum = [&](double r) {
                     double s = 0.0;
