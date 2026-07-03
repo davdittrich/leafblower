@@ -134,6 +134,44 @@ static void pack_oris_result_c(rk_result_t* dst, const lbw::ORISResult& res) noe
     dst->alm_sum_drift         = res.alm_sum_drift;
 }
 
+// CR-D6 (j7x8.6): single newton_kl result pack used by BOTH the explicit
+// RK_ALG_NEWTON_KL branch and the AUTO-fallback branch, so newton_kl produces
+// identical fields regardless of how it is reached (also closes xc1s.1.1's
+// explicit-vs-fallback base-field divergence). Base fields go through the shared
+// pack; newton's TSVD/LM diagnostics have no rk_result_t counterpart (see inline
+// note below); and the ORIS-only fields are reset to documented non-ORIS defaults
+// (leafblower.h: 1.0/0) so
+// a fallback after an ORIS primary does not surface stale sor_*/alm_*/homotopy_*.
+// The 1.0/0 defaults also match r_bridge's explicit-newton output → R/Python parity.
+template <typename R>
+static void pack_newton_result_c(rk_result_t* dst, const R& nkr, rk_algorithm_t alg) noexcept {
+    if (!dst) return;
+    pack_solver_result(dst, nkr, alg);   // base fields + message + n_bounds (trait)
+    // (n_projected_dims / lm_mu_final are NewtonCalibResult-only; rk_result_t does
+    //  not carry them, so nothing newton-specific to copy into the C result here.)
+    // ORIS-only diagnostics → documented non-ORIS defaults
+    dst->n_xcur_writes_per_iter_last = 0;
+    dst->min_alpha_seen        = 1.0;
+    dst->final_alpha           = 1.0;
+    dst->homotopy_levels_used  = 0;
+    dst->homotopy_final_factor = 1.0;
+    dst->greedy_sweeps_taken   = 0;
+    dst->eta_final             = 0.0;
+    dst->sor_min_omega     = 1.0;
+    dst->sor_n_damped      = 0;
+    dst->sor_omega_mean    = 1.0;
+    dst->sor_any_latched   = 0;
+    dst->sor_n_pinned_fb   = 0;
+    dst->sor_n_warmup_fb   = 0;
+    dst->sor_n_conv_fb     = 0;
+    dst->sor_n_resid_grew  = 0;
+    dst->sor_n_monotone_cd = 0;
+    dst->alm_capacity_mu_final = 0.0;
+    dst->alm_n_growth_events   = 0;
+    dst->alm_max_dual_norm     = 0.0;
+    dst->alm_sum_drift         = 0.0;
+}
+
 extern "C" {
 
 void rk_params_init(rk_params_t* p) {
@@ -432,23 +470,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         max_error = res.base.max_error;
     } else if (alg == RK_ALG_NEWTON_KL) {
         auto nkr = lbw::newton_calibrate(st);
-        if (result) {
-            result->status     = nkr.base.status;
-            result->iterations = nkr.base.iterations;
-            result->max_error  = nkr.base.max_error;
-            result->convergence_metric  = nkr.base.convergence_metric;
-            result->convergence_rule    = nkr.base.convergence_rule;
-            result->convergence_tol     = nkr.base.convergence_tol;
-            result->convergence_iter    = nkr.base.convergence_iter;
-            result->best_error          = nkr.base.best_error;
-            result->best_iter           = nkr.base.best_iter;
-            result->algorithm_used      = RK_ALG_NEWTON_KL;
-            result->metric_first_check  = nkr.base.metric_first_check;
-            result->metric_prev_check   = nkr.base.metric_prev_check;
-            result->prev_check_iter     = nkr.base.prev_check_iter;
-            std::strncpy(result->message, nkr.message, sizeof(result->message) - 1);
-            result->message[sizeof(result->message) - 1] = '\0';  // CXX.4: NUL-terminate
-        }
+        // CR-D6 (j7x8.6): route through the shared newton pack — previously this
+        // branch hand-copied a partial field set (omitting mean_error/kl/chi2/
+        // l1_weight_change/grake_norm/convergence_solver_objective/
+        // convergence_minimized_metric), diverging from the AUTO-fallback branch.
+        pack_newton_result_c(result, nkr, RK_ALG_NEWTON_KL);
         for (int i = 0; i < n; i++) weights[i] = st.weights[i];
         return nkr.base.status;
     } else {
@@ -514,27 +540,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = fb.base.iterations;
         max_error  = fb.base.max_error;
         used       = RK_ALG_NEWTON_KL;
-        if (result) {
-            result->status            = fb.base.status;
-            result->iterations        = fb.base.iterations;
-            result->max_error         = fb.base.max_error;
-            result->algorithm_used    = RK_ALG_NEWTON_KL;
-            result->convergence_metric = fb.base.convergence_metric;
-            result->convergence_rule   = fb.base.convergence_rule;
-            result->convergence_tol    = fb.base.convergence_tol;
-            result->convergence_iter   = fb.base.convergence_iter;
-            result->best_error         = fb.base.best_error;
-            result->best_iter          = fb.base.best_iter;
-            result->metric_first_check = fb.base.metric_first_check;
-            result->metric_prev_check  = fb.base.metric_prev_check;
-            result->prev_check_iter    = fb.base.prev_check_iter;
-            result->mean_error         = fb.base.mean_error;
-            result->kl                 = fb.base.kl;
-            result->chi2               = fb.base.chi2;
-            result->l1_weight_change   = fb.base.l1_weight_change;
-            std::strncpy(result->message, fb.message, sizeof(result->message)-1);
-            result->message[sizeof(result->message) - 1] = '\0';  // CXX.4: NUL-terminate
-        }
+        // CR-D6 (j7x8.6): same shared pack as the explicit branch → identical fields,
+        // plus it resets the ORIS-only diagnostics the abandoned primary populated via
+        // pack_oris_result_c (grake_norm/convergence_solver_objective/
+        // convergence_minimized_metric were also previously dropped here).
+        pack_newton_result_c(result, fb, RK_ALG_NEWTON_KL);
         for (int i = 0; i < n; i++) weights[i] = st.weights[i];
     }
 
