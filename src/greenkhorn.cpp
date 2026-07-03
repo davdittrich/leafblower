@@ -282,7 +282,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
                             res.base.iterations, X);
             }
             if (lbw::check_convergence(cfg, m, prev_metric, st.tol_abs)) {
-                lbw::mark_converged(res, cfg, res.base.iterations);
+                lbw::mark_converged(res, cfg, res.base.iterations, st.tol_abs);
                 break;
             }
         }

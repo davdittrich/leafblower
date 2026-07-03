@@ -454,12 +454,18 @@ inline int max_cats_count(int K, const int* cat_counts) noexcept {
 ///                 .base.convergence_rule (int), .base.convergence_tol (double),
 ///                 .base.convergence_iter (int).
 template <typename ResT>
-inline void mark_converged(ResT& res, const CalibConvergenceCfg& cfg, int iter) noexcept {
+inline void mark_converged(ResT& res, const CalibConvergenceCfg& cfg, int iter,
+                           double tol_abs_fallback) noexcept {
     res.base.status             = RK_OK;
     res.base.convergence_metric = static_cast<int>(cfg.metric);
     res.base.convergence_rule   = static_cast<int>(cfg.rule);
-    res.base.convergence_tol    = (cfg.absolute_tol > 0.0 && cfg.pct_tol == 0.0)
-                                  ? cfg.absolute_tol : cfg.pct_tol;
+    // CR-C10b (kxna.22): when NEITHER cfg tol is set, check_convergence halts on the
+    // st.tol_abs fallback (`curr < tol_abs_fallback`), so report that same value here
+    // instead of a misleading pct_tol=0.0. Other cases unchanged (abs-only -> abs;
+    // any pct set -> pct), preserving existing reporting.
+    res.base.convergence_tol    = (cfg.absolute_tol > 0.0 && cfg.pct_tol == 0.0) ? cfg.absolute_tol
+                                : (cfg.pct_tol > 0.0)                            ? cfg.pct_tol
+                                : tol_abs_fallback;
     res.base.convergence_iter   = iter;
 }
 

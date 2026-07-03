@@ -434,7 +434,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
 
             if (dual_gap < tol_abs) {
                 res.lm_mu_final = lm_mu;
-                mark_converged(res, st.convergence_cfg, iter);
+                mark_converged(res, st.convergence_cfg, iter, tol_abs);  // CR-C10b: local tol_abs is the governing fallback (1e-6 floor)
                 break;
             }
 
@@ -784,7 +784,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             // Secondary stop: step too small to make progress.
             if (res.step_norm < 1e-14) {
                 res.lm_mu_final = lm_mu;
-                mark_converged(res, st.convergence_cfg, iter);
+                mark_converged(res, st.convergence_cfg, iter, tol_abs);  // CR-C10b: local tol_abs is the governing fallback (1e-6 floor)
                 break;
             }
         }

@@ -481,7 +481,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         // STALL (post-loop status below).
         bool converged = (max_abs_resid <= st.tol_abs * static_cast<double>(st.n));
         if (converged) {
-            lbw::mark_converged(res, cfg, iter + 1);
+            lbw::mark_converged(res, cfg, iter + 1, st.tol_abs * static_cast<double>(st.n));  // CR-C10b: governing threshold is tol_abs*n
             w_best = w;
             break;
         }

@@ -442,7 +442,7 @@ RakingResult raking_solve(CalibState& st) {
                         lbw::select_metric(st.convergence_cfg.metric, m_conv)
                             < st.convergence_cfg.absolute_tol;
                     if (last_F_metrics.errRp <= kRakingFeasTol || user_abs_met) {
-                        lbw::mark_converged(res, st.convergence_cfg, f_evals_used);
+                        lbw::mark_converged(res, st.convergence_cfg, f_evals_used, st.tol_abs);
                         break;
                     }
                 }
@@ -560,7 +560,7 @@ RakingResult raking_solve(CalibState& st) {
                         // Converged — do NOT override with INFEAS here. water_fill_cat may
                         // transiently set is_infeasible when cells temporarily hit U_cell during
                         // convergence. INFEAS only overrides on stall (post-loop check below).
-                        lbw::mark_converged(res, st.convergence_cfg, iter);
+                        lbw::mark_converged(res, st.convergence_cfg, iter, st.tol_abs);
                         break;
                     }
                     // else: metric plateaued but margins unmet — fall through to STALL.

@@ -1220,7 +1220,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // in the non-SRAA for-loop. Without this, status stays at
                 // RK_ERR_NOCONV and is later mis-classified as RK_ERR_BUDGET.
                 if (lvl == N_levels - 1) {
-                    lbw::mark_converged(res, st.convergence_cfg, res.base.iterations);
+                    lbw::mark_converged(res, st.convergence_cfg, res.base.iterations, st.tol_abs);
                 }
             }
             // Clamp cell masses to [L_cell, U_cell] before syncing to X.

@@ -258,7 +258,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             }
 
             if (lbw::check_convergence(st.convergence_cfg, m, prev_metric_for_rule, st.tol_abs)) {
-                lbw::mark_converged(res, st.convergence_cfg, iter);
+                lbw::mark_converged(res, st.convergence_cfg, iter, st.tol_abs);
                 break;
             }
         }

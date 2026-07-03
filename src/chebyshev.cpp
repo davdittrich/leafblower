@@ -303,7 +303,7 @@ ChebyshevResult chebyshev_ipm(
                 converged = (best_errRp < cfg.pct_tol);
 
             if (converged) {
-                lbw::mark_converged(res, cfg, iter+1);
+                lbw::mark_converged(res, cfg, iter+1, st.tol_abs);
                 break;
             }
         }
