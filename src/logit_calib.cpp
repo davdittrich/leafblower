@@ -56,6 +56,17 @@ LogitCalibResult logit_calibrate(CalibState& st) {
             st.min_weight, st.max_weight);
         return res;
     }
+    // CR-C15b (kxna.21): defense-in-depth for the low-level/direct-c_api path — the
+    // R/Python wrappers guard max_iterations>=1, but a direct caller with
+    // inner_max_iter=0 makes kMaxNewtonIters=min(50,0)=0, the loop never runs, and
+    // w_best stays value-initialized (all zeros) => degenerate all-zero weights + STALL.
+    // Reject up front (consistent with the wrapper semantics and chebyshev kxna.16).
+    if (st.inner_max_iter < 1) {
+        res.base.status = RK_ERR_BADARG;
+        std::snprintf(res.message, sizeof(res.message),
+            "logit: inner_max_iter (%d) must be >= 1", st.inner_max_iter);
+        return res;
+    }
 
     CellTable ct;
     std::vector<double> X_init;
