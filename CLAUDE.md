@@ -145,3 +145,11 @@ Rules:
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+
+# Metaswarm
+
+Configured via `/metaswarm:setup` (profile: `.metaswarm/project-profile.json`). Minimal scaffolding — the repo's existing `CLAUDE.md`, `.beads`, `.wolf`, and `model-routing` conventions remain authoritative.
+
+- **Quality gate is BEHAVIORAL, not line-coverage.** The orchestrated-execution VALIDATE phase reads `.coverage-thresholds.json` → `enforcement.command`, which runs the real Definition of Done: `R CMD INSTALL --preclean .` + R testthat (0 FAIL) + Python `pytest` (0 FAIL), single-thread BLAS. Stepstone no-regression is opt-in via `LBW_BENCH_GATE=1` (heavy, local-only). Do NOT add a `--cov-fail-under` gate — no `covr`/`pytest-cov` is wired and it would only cover the Python layer.
+- **External tools:** `.metaswarm/external-tools.yaml` — `gemini` enabled (CLI present), `codex` disabled (not installed). Delegated implementer = Gemini, consistent with the `model-routing` skill (Tier-2 → Gemini, Tier-3 → Opus; route web research to `agy-delegate`).
+- **Orchestrated execution:** the 4-phase loop (implement → orchestrator independently validates → FRESH adversarial reviewer → commit) is the standing methodology; pair with `planning-with-beads` for 3+-file work. Commit with explicit pathspec to avoid `.beads/issues.jsonl` hook-leak; no git remote (local-only).

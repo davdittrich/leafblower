@@ -1,0 +1,27 @@
+# External Tools Configuration (leafblower)
+# Verified at setup: gemini CLI 1.0.16 present; codex CLI NOT installed.
+# Aligns with the repo's model-routing skill (route Tier-2 delegated work to
+# Gemini, Tier-3 to Opus; agy-delegate for web-grounded research).
+
+adapters:
+  codex:
+    enabled: false                   # codex CLI not installed on this machine
+    model: "gpt-5.3-codex"
+    timeout_seconds: 300
+    sandbox: none
+    auth_env_var: "OPENAI_API_KEY"
+  gemini:
+    enabled: true                    # gemini CLI 1.0.16 verified present
+    model: "pro"                     # pro | flash | flash-lite
+    timeout_seconds: 300
+    sandbox: none
+    auth_env_var: "GEMINI_API_KEY"   # or Google login (no key needed)
+
+routing:
+  # cheapest-available | round-robin | <tool-name>
+  default_implementer: "gemini"      # codex unavailable; Gemini is the delegated implementer
+  escalation_order: ["gemini", "claude"]
+
+budget:
+  per_task_usd: 2.00
+  per_session_usd: 20.00
