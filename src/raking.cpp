@@ -86,8 +86,6 @@ RakingResult raking_solve(CalibState& st) {
 
     // No Dykstra correction vectors: water-filling enforces bounds within F_eval.
 
-    bool is_infeasible = false;
-
     // Pre-computed reciprocals: n_per_cell is constant; avoids division per cell per super-step.
     std::vector<double> inv_n_per_cell(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++)
@@ -151,7 +149,6 @@ RakingResult raking_solve(CalibState& st) {
         if (n == 0) return;
         if (bucket_j < kAbsoluteZeroThreshold) {
             if (T_kj > 0.0) {
-                is_infeasible = true;
                 // Zero cells to lower bounds — do not leave stale values that
                 // survive post-normalization and silently violate the constraint.
                 for (int ci = 0; ci < n; ++ci)
@@ -178,7 +175,7 @@ RakingResult raking_solve(CalibState& st) {
         // 0 < free_sum < eps as infeasible — a case the post-loop handler
         // (free_sum <= 0.0) would correctly treat as best-effort.
         for (int pass = 0; pass < n; ++pass) {
-            if (free_sum < kAbsoluteZeroThreshold) { is_infeasible = true; break; }
+            if (free_sum < kAbsoluteZeroThreshold) { break; }
             const double T_free = T_kj - clamped_sum;
             if (T_free <= 0.0) break;
             const double m = T_free / free_sum;
@@ -213,7 +210,6 @@ RakingResult raking_solve(CalibState& st) {
         }
         // All passes exhausted (infeasible category) — commit best-effort values
         if (free_sum <= 0.0) {
-            is_infeasible = true;
             return;  // cannot redistribute — leave cells at bounds
         }
         const double T_final = T_kj - clamped_sum;
@@ -276,7 +272,6 @@ RakingResult raking_solve(CalibState& st) {
                 double Tkj = st.targets[k][j] * W_total;
                 if (bucket[j] < kRelativeZeroFraction * W_total) {
                     if (Tkj > 0.0) {
-                        is_infeasible = true;
                         // Clamp cells to lower bounds — stale Xv values would survive
                         // the post-normalization step and silently violate the margin.
                         const auto& cells_kj = cells_per_cat[k][j];
