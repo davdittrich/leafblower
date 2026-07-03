@@ -497,8 +497,10 @@ inline int solver_setup_ct(
     return RK_OK;
 }
 
-// Partial cell-table setup for raking: build_cell_table + X_init + bounds only.
-// No cat_offset, no validate. ResT only needs res.base.status (no message field required).
+// Partial cell-table setup for raking: build_cell_table + X_init + bounds +
+// capacity/negativity pre-entry validation. No cat_offset. ResT only needs
+// res.base.status (no message field required — the validate message is dropped
+// because RakingResult carries none, matching ORISResult).
 // Returns RK_OK on success, otherwise sets res.base.status and returns error code.
 template <typename ResT>
 inline int solver_setup_ct_base(
@@ -518,6 +520,18 @@ inline int solver_setup_ct_base(
     for (int i = 0; i < st.n; i++) X_init[ct.cell_of[i]] += st.weights[i];
     hi_eff = lbw::resolve_hi(st);
     lbw::compute_cell_bounds(ct, st.min_weight, hi_eff, L_cell, U_cell);
+    // CR-D4 (j7x8.4): run the same capacity/negativity feasibility check the 6
+    // full-setup solvers run, so raking rejects negative-weight / structurally-
+    // infeasible input up front (RK_ERR_BADARG/INFEAS) instead of letting a negative
+    // mass reach log() and burning the full NOCONV budget. n_cats_total=0 skips the
+    // cat-count-limit gate — raking IS the high-cardinality fallback, so it does not
+    // apply. tmp.message is discarded (RakingResult has no message field).
+    rk_result_t tmp = {};
+    int vrc = calib_validate_preentry(ct, st, &tmp, X_init.data(), /*n_cats_total=*/0);
+    if (vrc != RK_OK) {
+        res.base.status = tmp.status;
+        return vrc;
+    }
     return RK_OK;
 }
 

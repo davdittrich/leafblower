@@ -153,6 +153,22 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         X_init[ct.cell_of[i]] += st.weights[i];
     }
 
+    // CR-D4 (j7x8.4): run the same capacity/negativity feasibility check the 6
+    // full-setup solvers run (via solver_setup_ct). ORIS builds its own cell table
+    // for the homotopy path, so it did not previously call it — a negative start
+    // weight or a structurally-infeasible bound set would reach log()/the sweep and
+    // burn the full NOCONV budget instead of returning instant INFEAS/BADARG.
+    // n_cats_total=0 skips the cat-count-limit gate (ORIS is the high-cardinality
+    // fallback). tmp.message is discarded (ORISResult has no message field). The
+    // check uses base max_weight (final homotopy level) — the correct feasibility U.
+    {
+        rk_result_t tmp = {};
+        if (calib_validate_preentry(ct, st, &tmp, X_init.data(), /*n_cats_total=*/0) != RK_OK) {
+            res.base.status = tmp.status;
+            return res;
+        }
+    }
+
     // Precompute log(X_init[c]) once; reused in margin sweep + X_tilde.
     std::vector<double> log_X_init(ct.M_cell);
     for (int c = 0; c < ct.M_cell; c++) {
