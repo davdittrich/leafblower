@@ -1068,6 +1068,11 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                     if (W_total > 0.0) {
                         auto cm = lbw::compute_cell_metrics(st, ct, X_cur, W_total,
                                                             S_lin);
+                        // CR-B9 (y2ks.9): expose marginal_kl on the SRAA path too. The
+                        // flat loop sets res.marginal_kl_at_iter = marg_kl each iter;
+                        // under accelerate=TRUE it stayed 0.0 for the whole solve.
+                        // cm.marginal_kl is the Σ_k per-margin KL (y2ks.3).
+                        res.marginal_kl_at_iter = cm.marginal_kl;
                         // CR-B3 (y2ks.3): use the configured metric directly — no
                         // remap. compute_cell_metrics now populates cm.marginal_kl
                         // (Σ_k per-margin KL, calib_dispatch.hpp), which
@@ -1113,6 +1118,22 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                             lf_best          = lf_flat;
                             lf_best_snap     = lf_flat;
                             lf_best_snap_set = true;
+                        }
+                        // CR-B9 (y2ks.9): service LBW_TRAJECTORY_AT probes on the SRAA
+                        // path (was flat-loop only → empty CSV under accelerate=TRUE).
+                        // Mirrors the flat block: trigger on the reported iter, push
+                        // errRp. probe_queue/probe_samples are function-scoped and the
+                        // trajectory CSV writer at solve exit is shared across both paths.
+                        const int traj_iter = res.base.iterations;
+                        if (!probe_queue.empty() && traj_iter >= probe_queue.front()) {
+                            bool first_write = true;
+                            while (!probe_queue.empty() && traj_iter >= probe_queue.front()) {
+                                if (first_write) {
+                                    probe_samples.push_back({traj_iter, cm.errRp});
+                                    first_write = false;
+                                }
+                                probe_queue.pop_front();
+                            }
                         }
                     }
                 }
