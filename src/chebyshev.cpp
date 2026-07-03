@@ -225,14 +225,16 @@ ChebyshevResult chebyshev_ipm(
     // primal is far from the LP optimum; errRp directly measures calibration quality.
     double best_errRp = std::numeric_limits<double>::infinity();
     std::vector<double> X_best(X);
-    // Convergence rule state — uses CalibState cfg (not hardcoded tol)
-    double prev_metric_for_rule = std::numeric_limits<double>::infinity();
     int slack_violations = 0;  // consecutive iterations with negative s_up or s_dn
 
     const int max_ipm = std::min(kMaxIpm, st.inner_max_iter);
     for (int iter = 0; iter < max_ipm; iter++) {
         res.base.iterations = iter+1;
-        compute_S(X, S);
+        // CR-H9 (xc1s.9): the loop-top compute_S(X, S) was removed as redundant. The
+        // primal X IS updated each iteration (Mehrotra step below), but the compute_S at
+        // the END of the loop body (post-primal-update) already refreshes S from the new X,
+        // and nothing writes X between there and the next loop top — so S is already current
+        // on entry. Pre-loop compute_S (~line 151) seeds S for the first iteration.
 
         // Recompute μ from actual complementarity
         {
@@ -258,19 +260,19 @@ ChebyshevResult chebyshev_ipm(
         // If X has gone NaN (numerical drift in ill-conditioned system), stop iterating.
         // Use whatever X_best was saved before NaN propagated.
         if (!std::isfinite(cm.errRp)) break;
-        double errRp = cm.errRp, mean_err = cm.mean_err;
-        double kl_max = cm.kl, chi2_total = cm.chi2, grake_norm = cm.grake_norm;
-        double l1_weight = 0.0;  // not tracked per IPM step (no prev weights)
+        // CR-H9 (xc1s.9): six per-iteration locals (errRp/mean_err/kl_max/chi2_total/
+        // grake_norm/l1_weight) were copied out of cm and never read — removed; cm is
+        // consulted directly (via select_metric) below.
 
-        // Convergence dispatch — uses CalibState cfg (metric+rule+tol), same as all other solvers.
-        // apply_rule updates prev_metric_for_rule in-place (tracks improvement across iterations).
+        // Convergence dispatch — uses CalibState cfg (metric + absolute_tol).
         {
             const auto& cfg = st.convergence_cfg;
             const double curr_metric = lbw::select_metric(cfg.metric, cm);
             bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
-            const bool converged_pct = lbw::apply_rule(
-                cfg.rule, curr_metric, prev_metric_for_rule, cfg.pct_tol);
-            // apply_rule updates prev_metric_for_rule in-place — no separate assignment needed
+            // CR-H9 (xc1s.9): removed the orphaned apply_rule()/converged_pct result +
+            // prev_metric_for_rule — the rule result was never read (the pct branch below
+            // keys on best_errRp, not the rule) and the state had no other consumer. The
+            // IPM-vs-CalibRule rationale is documented just below.
             bool have_pct = (cfg.pct_tol > 0.0), have_abs = (cfg.absolute_tol > 0.0);
             // IPM convergence: μ → 0 is the correct criterion (not improvement on errRp).
             // CalibRule (improvement/plateau) is designed for iterative projection methods;
