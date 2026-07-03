@@ -1682,6 +1682,20 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
             // WU-E / g4oj: BLOCK 1 — MAX_ERR best-iterate (errRp always valid here,
             // outside need_extra_metrics gate). Tracks min errRp when MAX_ERR is active.
             if (st.convergence_cfg.metric == lbw::CalibMetric::MAX_ERR) {
+                // CR-B7 (y2ks.7): trajectory bookkeeping was missing on this default
+                // MAX_ERR path — metric_first_check/metric_prev_check/prev_check_iter
+                // exported their Inf/-1 sentinels via c_api for the most common config.
+                // Same idiom as BLOCK 1b (below) and BLOCK 2; errRp is the MAX_ERR
+                // metric. The nat_*_nonavec / prev-check fields are shared, but the
+                // metric branches are mutually exclusive so only one writes per solve.
+                if (iter == 1 && res.base.metric_first_check == std::numeric_limits<double>::infinity())
+                    res.base.metric_first_check = errRp;
+                if (std::isfinite(nat_metric_prev_nonavec)) {
+                    res.base.metric_prev_check = nat_metric_prev_nonavec;
+                    res.base.prev_check_iter   = nat_iter_prev_nonavec;
+                }
+                nat_metric_prev_nonavec = errRp;
+                nat_iter_prev_nonavec   = iter;
                 if (errRp < best.best_metric) {
                     for (int c = 0; c < ct.M_cell; c++)
                         w_ratio[c] = (X_init[c] > 0.0) ? X[c] / X_init[c] : 0.0;
