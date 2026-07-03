@@ -344,14 +344,24 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         pre_error = "method must be a length-1 character string";
     const char* method_str = pre_error.empty() ? CHAR(STRING_ELT(method_sexp, 0)) : "";
     const auto alg_it = pre_error.empty() ? kAlgMap.find(method_str) : kAlgMap.end();
-    if (pre_error.empty())
-        p.algorithm = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_ORIS;
+    // CR-D10 (j7x8.10): reject unrecognized method instead of silently running
+    // ORIS. Direct .Call bypasses R's match.arg(), so an unknown string (typo
+    // "grg") previously validated as RAKING but executed ORIS — a silent
+    // contract mismatch. Name the offending string in a graceful pre_error.
+    if (pre_error.empty()) {
+        if (alg_it == kAlgMap.end())
+            pre_error = std::string("method: unrecognized algorithm \"") + method_str + "\"";
+        else
+            p.algorithm = alg_it->second;
+    }
 
     // Full input validation — shared with c_api.cpp path via validation.hpp.
     if (pre_error.empty()) {
         rk_result_t validation_result;
         rk_result_init(&validation_result);
-        rk_algorithm_t alg_for_validation = (alg_it != kAlgMap.end()) ? alg_it->second : RK_ALG_RAKING;
+        // After CR-D10 (j7x8.10), pre_error.empty() here implies the method was
+        // recognized (a miss sets pre_error above), so p.algorithm is resolved.
+        rk_algorithm_t alg_for_validation = p.algorithm;
         int vrc = lbw::validate_calibrate_inputs(
             n, K,
             weights.data(),

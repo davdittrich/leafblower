@@ -113,3 +113,21 @@ test_that("CXX.1: start_weights as non-numeric (integer vector) errors gracefull
   args[[11]] <- as.integer(rep(1L, 12))  # wrong TYPEOF: INTSXP, not REALSXP
   expect_error_isolated(args, "start_weights must be numeric")
 })
+
+# CR-D10 (j7x8.10): direct .Call bypasses R's match.arg(). An unrecognized
+# method string previously validated as RAKING but executed ORIS (silent
+# contract mismatch). The bridge must now reject it, naming the bad string.
+test_that("CR-D10: unrecognized method string errors gracefully naming it", {
+  args <- make_call_args()
+  args[[8]] <- "grg"  # slot 7: method, not in kAlgMap
+  expect_error(do_call_bridge(args), "unrecognized algorithm.*grg")
+})
+
+test_that("CR-D10: recognized method strings still calibrate (regression)", {
+  for (m in c("auto", "oris", "oris_soft", "raking", "sinkhorn", "greg",
+              "greenkhorn", "logit", "newton_kl", "chebyshev")) {
+    args <- make_call_args()
+    args[[8]] <- m
+    expect_no_error(do_call_bridge(args))
+  }
+})
