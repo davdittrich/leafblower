@@ -39,6 +39,19 @@ ChebyshevResult chebyshev_ipm(
 
     // L1_WEIGHT is not computable by IPM (no prev-weight reference).
     // Fall back to MAX_ERR so the improvement rule tracks the actual objective.
+    // CR-C16 (kxna.16): reject a non-positive inner iteration budget up front, BEFORE
+    // any mutation of the caller-owned st (side-effect-free reject). Otherwise
+    // max_ipm = min(kMaxIpm, inner_max_iter) <= 0 runs the IPM loop zero times and
+    // returns the interior-shifted init as X_best with best_error=inf, NOCONV and an
+    // empty message. Matches the public-wrapper guard (max_iterations>=1, kxna.15) and
+    // logit's low-level BADARG for the same misconfiguration (kxna.21).
+    if (st.inner_max_iter < 1) {
+        res.base.status = RK_ERR_BADARG;
+        std::snprintf(res.message, sizeof(res.message),
+            "chebyshev: inner_max_iter (%d) must be >= 1", st.inner_max_iter);
+        return res;
+    }
+
     if (st.convergence_cfg.metric == lbw::CalibMetric::L1_WEIGHT)
         st.convergence_cfg.metric = lbw::CalibMetric::MAX_ERR;
 
