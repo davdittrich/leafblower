@@ -339,7 +339,12 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         }
         double alpha = (max_delta_z > 0.0) ? std::min(1.0, kMaxDeltaZ / max_delta_z) : 1.0;
 
+        // CR-C8 (kxna.8): remember the best TESTED trial so that if Armijo exhausts
+        // all kMaxHalvings we accept the argmin-residual tested step, not the 11th
+        // never-evaluated (further-halved) alpha the loop would otherwise leave.
         bool armijo_improved = false;
+        double best_trial_alpha = alpha;
+        double best_trial_resid_sq = std::numeric_limits<double>::infinity();
         for (int halv = 0; halv < kMaxHalvings; halv++) {
             for (int j = 0; j < nct; j++) lambda_trial[j] = lambda[j] + alpha * b[j];
             // Recompute w_trial from lambda_trial (logit link)
@@ -365,15 +370,23 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 }
             double resid_sq_trial = 0.0;
             for (double bj : b_trial) resid_sq_trial += bj * bj;
+            if (resid_sq_trial < best_trial_resid_sq) {
+                best_trial_resid_sq = resid_sq_trial;
+                best_trial_alpha = alpha;
+            }
             if (resid_sq_trial < resid_sq_0 * (1.0 - kArmijoC * alpha)) {
                 armijo_improved = true;
                 break;
             }
             alpha *= kArmijoHalving;
         }
-        if (!armijo_improved && st.verbose >= 1) {
-            Rprintf("[logit] Newton step: Armijo exhausted (alpha=%.2e), accepting best available\n",
-                alpha);
+        if (!armijo_improved) {
+            // Armijo exhausted: apply the best TESTED trial, not the further-halved
+            // (never-evaluated) alpha the loop's final halving would leave.
+            alpha = best_trial_alpha;
+            if (st.verbose >= 1)
+                Rprintf("[logit] Newton step: Armijo exhausted, accepting best tested alpha=%.2e\n",
+                        alpha);
         }
         for (int j = 0; j < nct; j++) lambda[j] += alpha * b[j];
 
@@ -406,6 +419,17 @@ LogitCalibResult logit_calibrate(CalibState& st) {
                 for (int c : cells_per_cat[k][j]) S_kj += w[c];
                 max_abs_resid = std::max(max_abs_resid, std::fabs(target - S_kj));
             }
+        }
+        // CR-C7 (kxna.7): incorporate the POST-step residual into best-iterate
+        // tracking. The iter-top update (pre-step max_b) lags by one iteration and
+        // never sees the FINAL accepted step's improvement, so on BUDGET/STALL exits
+        // that step was silently discarded (logit returns w_best) and the stale
+        // best_resid biased the BUDGET-vs-STALL classification. max_abs_resid is the
+        // fresh post-step absolute-count residual.
+        if (max_abs_resid < best_resid) {
+            best_resid = max_abs_resid;
+            w_best = w;
+            res.base.best_iter = iter + 1;
         }
         // eb79.22: absolute feasibility is SUFFICIENT for OK-convergence — margins met in
         // absolute-count space ⇒ solved. The prior gate ALSO AND-required the improvement/
