@@ -859,6 +859,9 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
             oris_sraa.F_cur = lf_flat;
 
             int  f_evals_used = 0;
+            int  next_check   = kErrCheckInterval;  // CR-B2 (y2ks.2): parity-robust
+                                                    // check threshold (replaces the
+                                                    // f_evals_used % interval gate)
             int  iter_sraa    = 0;   // SRAA-local iteration counter for SOR burnin
             bool converged    = false;
             while (f_evals_used < budget_lvl && !converged) {
@@ -952,8 +955,16 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 // configured convergence metric (e.g. MARGINAL_KL for oris) is
                 // available. Between check intervals the convergence flag is false.
                 if (f_evals_used == 1 ||
-                    f_evals_used % kErrCheckInterval == 0 ||
+                    f_evals_used >= next_check ||
                     f_evals_used >= budget_lvl) {
+                    // CR-B2 (y2ks.2): advance the threshold one interval past the
+                    // current f_evals so the next check fires ~kErrCheckInterval
+                    // later regardless of +1/+2 f_eval parity. The old
+                    // `f_evals_used % kErrCheckInterval == 0` gate silently skipped
+                    // EVERY mid-level check once an odd bump (9→11→13…) desynced the
+                    // sequence from the multiples of 10, so converged problems burnt
+                    // the full budget with only the terminal check firing.
+                    while (next_check <= f_evals_used) next_check += kErrCheckInterval;
                     // mxcl.4: re-sync X_cur to the ACCEPTED iterate (lf_flat)
                     // before evaluating convergence / best-iterate. On the LOG
                     // path (use_linear==false) f_eval_lf refreshes X_tilde but
