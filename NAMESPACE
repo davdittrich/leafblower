@@ -1,7 +1,6 @@
 useDynLib(leafblower, .registration = TRUE)
-importFrom("stats", "setNames", "var")
+importFrom("stats", "setNames")
 export(harvest)
-export(parse_bounds_mode)
 export(anesrake)
 export(diagnose_weights)
 export(design_effect)

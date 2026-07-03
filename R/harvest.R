@@ -14,6 +14,10 @@
 #'   Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
 #'   the adaptive schedule hit its ceiling — increase \code{capacity_penalty} by 10x.
 #'   Ignored for methods other than \code{"oris_soft"}.
+#' @param alm_penalty Numeric or \code{NULL} (default, disabled). When supplied it
+#'   must be a positive finite scalar; values above \code{1e15} are rejected and
+#'   values below \code{1e-15} warn that the objective penalty may be ineffective.
+#'   Sets the augmented-Lagrangian penalty weight used by the ALM path.
 #' @param method Calibration method (ORIS: Over-Relaxed Iterative Scaling). One of
 #'   \code{"auto"} (default: ORIS or raking based on M_cell/n ratio),
 #'   \code{"oris"} (paper-faithful ORIS), \code{"oris_soft"} (ORIS with augmented
@@ -55,9 +59,17 @@
 #'       \code{tol=improvement}. Example: \code{list(improvement = 0.001)}.
 #'   }
 #'   Shorthands and explicit keys may be combined; explicit keys override shorthand
-#'   defaults. \code{convergence = list()} uses the default (max_err + improvement +
-#'   tol = 0.001). For \code{method="oris"}, the default metric is \code{marginal_kl}
-#'   (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)). For other methods: \code{max_err}.
+#'   defaults. \code{convergence = list()} selects a per-method default metric equal
+#'   to that solver's natural objective (applied only when none of \code{metric},
+#'   \code{criterion}, \code{improvement}, \code{pct}, or \code{absolute} is set;
+#'   \code{rule="improvement"}, \code{tol = 0.001}). Defaults by method:
+#'   \itemize{
+#'     \item \code{oris}, \code{oris_soft}, \code{auto}: \code{marginal_kl}
+#'       (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)).
+#'     \item \code{raking}, \code{greenkhorn}, \code{sinkhorn}, \code{newton_kl}: \code{kl}.
+#'     \item \code{greg}: \code{chi2}.
+#'     \item \code{chebyshev}, \code{logit}: \code{max_err}.
+#'   }
 #'
 #'   \strong{chi2 cross-solver note:} chi2 is not directly comparable
 #'   across methods. ORIS uses unnormalized cell mass as \code{W_total};
@@ -101,6 +113,10 @@
 #' @param eta_start Starting ALM penalty multiplier (default 1.0).
 #' @param eta_end Ending ALM penalty multiplier (default 1.0).
 #' @param eta_schedule_power Power for Tang-eta schedule interpolation (default 0.5).
+#' @param newton_tsvd_ratio Positive finite scalar (default \code{1e-8}); the
+#'   truncated-SVD singular-value cutoff ratio for the \code{method="newton_kl"}
+#'   Newton solve — singular values below this fraction of the largest are dropped
+#'   for pseudo-inverse regularization. Ignored by all other methods.
 #' @param accelerate Logical. Enable Safeguarded Regularized Anderson Acceleration
 #'   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
 #'   \code{"oris"}, and \code{"oris_soft"}. Default \code{FALSE}.
@@ -165,8 +181,12 @@
 #'         \item \code{iterations}: number of outer iterations completed.
 #'         \item \code{max_error}: maximum marginal error at the returned weights.
 #'         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
-#'           For \code{method="lbfgsb"} this is start-to-final (batch solver);
-#'           for ORIS and raking it is iteration-to-iteration.
+#'           Measured over the last convergence-check interval: Σ|ΔX|/W_input
+#'           (total input weight) for \code{oris}, and Σ|Δw|/n for \code{raking}
+#'           and \code{sinkhorn}. Computed start-to-final (calibrated minus input,
+#'           Σ|Δw|/n) for \code{logit}. Reported as \code{0} for \code{greg},
+#'           \code{chebyshev}, \code{newton_kl}, and \code{greenkhorn} (not tracked
+#'           by those solvers).
 #'         \item \code{grake_norm}: survey-grake normalized residual
 #'           max_k|misfit|/(1+|pop|).
 #'         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},

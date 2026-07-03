@@ -1,18 +1,21 @@
 Package: leafblower
-Title: High-Performance Survey Calibration via iEPPA and L-BFGS-B
+Title: High-Performance Bounded Survey Weight Calibration
 Version: 0.1.0
 Authors@R: person("Dennis Alexis Valin", "Dittrich",
     email = "davdittrich@gmail.com", role = c("aut", "cre"))
 Author: Dennis Alexis Valin Dittrich [aut, cre]
 Maintainer: Dennis Alexis Valin Dittrich <davdittrich@gmail.com>
-Description: Drop-in replacement for autumn::harvest() implementing iEPPA
-    (Sinkhorn block-coordinate descent) and L-BFGS-B over the Deville-Sarndal
-    logit dual. Adds min_weight lower bound; shares a single C++17 core with
-    the Python bindings.
+Description: Drop-in replacement for autumn::harvest() providing multiple
+    bounded survey-weight calibration solvers: ORIS (box-constrained Sinkhorn
+    block-coordinate descent), raking, Sinkhorn, Greenkhorn, GREG and logit
+    (Deville-Sarndal linear and logit duals), Chebyshev interior-point, and
+    Newton-KL. Adds min_weight and max_weight bounds; shares a single C++17
+    core with the Python bindings.
 License: MIT + file LICENSE
 Encoding: UTF-8
 NeedsCompilation: yes
 SystemRequirements: C++17 compiler, OpenMP (optional, for SIMD exp vectorisation)
+Imports: stats
 Suggests: autumn (>= 0.2.0), testthat (>= 3.0.0), bench, lhs, DiceKriging, ggplot2, rprojroot,
     survey, PracTools (>= 1.4.0)
 RoxygenNote: 7.3.3

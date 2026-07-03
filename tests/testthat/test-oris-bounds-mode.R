@@ -174,7 +174,7 @@ test_that("P3.1: cross-language ABI — raw integer bounds_mode agrees with stri
   # but parse_bounds_mode + the .Call bridge ultimately passes an integer.
   # We test equivalence by constructing a second run with bounds_mode="unit"
   # and verifying the PARSED integer is 1L (checked via the helper directly):
-  expect_equal(parse_bounds_mode("unit"), "unit")        # helper returns char
+  expect_equal(leafblower:::parse_bounds_mode("unit"), "unit")  # internal helper returns char
   expect_equal(match("unit", c("cell", "unit")) - 1L, 1L)  # helper → int mapping
   expect_equal(match("cell", c("cell", "unit")) - 1L, 0L)
   # End-to-end: re-run with the string path and verify output matches the first run bit-for-bit

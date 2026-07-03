@@ -81,7 +81,7 @@ typedef struct {
     /* ── Convergence config ── */
     double pct_tol;          /* threshold for IMPROVEMENT/PLATEAU rules (default 0.001) */
     double absolute_tol;     /* threshold for THRESHOLD rule + stop_when secondary (default 0.0) */
-    int    metric;           /* CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT */
+    int    metric;           /* CalibMetric: 0=MAX_ERR 1=MEAN_ERR 2=KL 3=CHI2 4=GRAKE_NORM 5=L1_WEIGHT 6=MARGINAL_KL */
     int    rule;             /* CalibRule: 0=THRESHOLD 1=IMPROVEMENT 2=PLATEAU */
     int    stop_when;        /* 0=ANY 1=ALL */
     /* ── SOR config (ORIS only) ── */
@@ -166,9 +166,12 @@ typedef struct {
  */
 typedef struct {
     double deff_K;        /* Kish (1965) Eq 2.4: n * Σw² / [Σw]². Always finite. */
-    double deff_H;        /* H&V (2015) Eq 3.5: deff_K · σ̂²_u / σ̂²_y. NaN if outcome=NULL or K=0. */
+    double deff_H;        /* H&V (2015) Eq 3.5: deff_K · σ̂²_u / σ̂²_y. NaN only if
+                             outcome=NULL; when K==0 it equals deff_K (not NaN). */
     int    rank_def;      /* 1 if X^T W X singular (deff_H falls back to deff_K); else 0. */
-    char   message[128];  /* Diagnostic on RK_ERR_BADARG; empty on RK_OK. */
+    char   message[128];  /* Diagnostic string. Set on RK_ERR_BADARG, and also on the
+                             rank-deficient RK_OK path ("...rank-deficient; deff_H=deff_K"),
+                             so a non-empty message does NOT imply an error. */
 } rk_design_effect_result_t;
 
 /*
@@ -210,10 +213,15 @@ void rk_result_init(rk_result_t* r);
  *   targets    : [K] array of pointers; targets[k][j] = target proportion for cat j
  *   params     : calibration parameters (NULL = use defaults)
  *   result     : output result struct (NULL = ignore)
- * Returns RK_OK, RK_ERR_NOCONV, RK_ERR_INFEAS, or RK_ERR_BADARG.
+ * Returns one of: RK_OK, RK_ERR_NOCONV, RK_ERR_INFEAS, RK_ERR_BADARG,
+ * RK_ERR_BUDGET (budget exhausted; loss still decreasing) or RK_ERR_STALL
+ * (loss plateau at a constrained optimum). The solver's status is propagated
+ * verbatim (c_api.cpp returns it unchanged).
  *
- * C++17 note: the C++ compilation unit (c_api.cpp) applies [[nodiscard]] to
- * this function via a wrapper; the C header stays C99-clean.
+ * C++17 note: [[nodiscard]] (LBW_NODISCARD) is applied to the rk_calibrate
+ * DEFINITION in c_api.cpp, not to this header declaration. It is therefore
+ * honoured only within c_api.cpp's own translation unit and is NOT visible to
+ * external callers that compile against this C99-clean header alone.
  */
 int rk_calibrate(
     int n, int K,
@@ -233,7 +241,7 @@ int rk_calibrate(
  * update this value after auditing ABI consumers. */
 #ifdef __cplusplus
 static_assert(RK_ALG_AUTO == 0, "memset(0) default must equal RK_ALG_AUTO");
-/* rk_result_t tripwire. Linux x86_64, verified 2026-05-03: 504 bytes. */
+/* rk_result_t tripwire. Linux x86_64, verified 2026-07-03: 536 bytes. */
 #define EXPECTED_RK_RESULT_BYTES 536
 static_assert(sizeof(rk_result_t) == EXPECTED_RK_RESULT_BYTES,
     "rk_result_t size changed; update EXPECTED_RK_RESULT_BYTES and ABI consumers");

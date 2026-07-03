@@ -698,8 +698,9 @@ def harvest(
                 "weights are valid; no further improvement is achievable",
                 UserWarning, stacklevel=2)
 
-    # Solver returns sum(weights) = n (enforced in src/oris.cpp, src/raking.cpp,
-    # src/lbfgsb_solver.cpp per user directive 2026-04-24). No wrapper-level
+    # Solver returns sum(weights) = n (enforced at exit by
+    # lbw::finalize_weights / lbw::finalize_weights_buf in src/calib_dispatch.hpp).
+    # No wrapper-level
     # normalization — removing it preserves the bounds_mode="unit" strict-bounds
     # guarantee (oris's water-fill clamps are final; not re-pushed by post-scale).
 
@@ -707,7 +708,7 @@ def harvest(
     # here would break sum(weights * d) == target totals when per-cell mixing
     # parameters d are non-uniform: individual weights may legitimately exceed
     # per-cell bounds after expansion even when cell aggregates are in range.
-    # The ORIS/LBFGSB solvers enforce bounds on the cell aggregate X[c], which
+    # The ORIS solver enforces bounds on the cell aggregate X[c], which
     # is the invariant that preserves calibration. See
     # tests/testthat/test-oris-nonuniform-d.R.
 

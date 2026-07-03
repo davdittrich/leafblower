@@ -86,7 +86,7 @@ if eval $CXX -mavx2 ${_lbw_tmp}/mvec_test.cpp \
     LBW_HAS_GLIBC_MVEC=1
     MVEC_LIBS="-lm -lmvec"
     MAVX2_FLAG="-mavx2"
-    echo "configure: glibc libmvec detected — vectorised exp enabled for L-BFGS-B"
+    echo "configure: glibc libmvec detected — vectorised exp enabled for the solver core"
 else
     echo "configure: glibc libmvec not available — scalar exp fallback"
 fi
