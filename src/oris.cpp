@@ -847,6 +847,47 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         int    nat_iter_prev_sraa   = -1;
         // Shared scratch — SRAA and flat-BCD are mutually exclusive; one buffer serves both.
         std::vector<double> w_ratio_scratch(ct.M_cell);
+
+        // CR-B4 (y2ks.4): shared one-shot linear→log fallback reset, used by BOTH
+        // the SRAA while-loop and the flat BCD loop (mutually exclusive per level).
+        // Resets all solver state to a clean log-space start from X_init. The
+        // loop-restart (iter counter reset + `continue`) stays at each call site.
+        // sraa_active_lvl gates the SRAA-history clear, so this is a no-op branch in
+        // the flat context (where sraa_active_lvl==false) and live in the SRAA one.
+        auto apply_linear_fallback = [&]() {
+            linear_fallback_used = true;
+            use_linear = false;
+            // SRAA history from the linear path is stale after fallback.
+            if (sraa_active_lvl) {
+                res.aa_accepted_count = oris_sraa.aa_accepted_count;
+                oris_sraa.clear();
+            }
+            std::fill(lf.begin(), lf.end(), 0.0);
+            std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
+            cell_lf_hwm = std::numeric_limits<double>::lowest();
+            if (st.use_admm_capacity) std::fill(u.begin(), u.end(), 0.0);
+            if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
+            std::fill(f_lin.begin(), f_lin.end(), 1.0);
+            std::fill(X_cur.begin(), X_cur.end(), 0.0);
+            std::fill(W.begin(), W.end(), 1.0);
+            std::fill(log_W.begin(), log_W.end(), 0.0);
+            if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
+            for (int c = 0; c < ct.M_cell; c++) {
+                X_tilde[c] = X_init[c];
+                X[c] = X_init[c];
+            }
+            std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
+            // structural_infeas_pairs NOT cleared — static bucket topology.
+            // reset X_prev after fallback — X semantics changed (log-path).
+            for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+            // Reset best-iterate: pre-fallback snapshot is degenerate linear-space.
+            best.reset();
+            sraa_best_errRp      = std::numeric_limits<double>::infinity();
+            nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
+            nat_iter_prev_sraa   = -1;
+            if (st.verbose >= 1)
+                st.log("ORIS: linear-space overflow trip; fallback to log-space.");
+        };
         // ════════════════════ SRAA-m accelerated path ════════════════════
         if (sraa_active_lvl) {
             oris_sraa.init(total_cats, lbw::kSRAAm);
@@ -878,6 +919,25 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 iter_sraa    += r.f_evals;
                 res.base.iterations = total_iters + f_evals_used;
                 res.base.max_error  = r.err_rp;
+
+                // CR-B4 (y2ks.4): one-shot linear→log fallback. A NON-accepted step
+                // with a +inf err_rp means the PLAIN F-step overflowed in linear
+                // space — f_eval_lf returns +inf and sraa_step's NaN-guard returns
+                // {false, 2, err_plain=+inf}. An AA-only overshoot leaves err_plain
+                // finite and is simply rejected (err_rp finite), so it never reaches
+                // here. Without this fallback the level keeps retrying linear, every
+                // AA is NaN-rejected, and it exits bound-pinned with a spurious
+                // STALL/BUDGET. Mirror the flat loop's one-shot reset, then restart the
+                // level in log space. One-shot per solve via linear_fallback_used.
+                if (use_linear && !r.aa_accepted && !std::isfinite(r.err_rp)
+                        && !linear_fallback_used) {
+                    apply_linear_fallback();
+                    pack_lf(lf, lf_flat);              // sync SRAA iterate to the reset lf
+                    f_evals_used = 0;                  // fresh budget for the log restart
+                    next_check   = kErrCheckInterval;  // B2 threshold reset for the level
+                    iter_sraa    = 0;
+                    continue;                          // re-enter the while-loop in log space
+                }
 
                 // B-narrow SOR coexistence: enable SOR adaptation on plain
                 // (non-AA-accepted) SRAA steps, disable on AA-accepted steps
@@ -1269,46 +1329,15 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
             }
 
             if (overflow_trip && !linear_fallback_used) {
-                // One-shot fallback: reset all solver state, switch to log-space,
-                // restart outer loop from iter 0. State-clean list per spec rev 5 §5.
-                linear_fallback_used = true;
-                use_linear = false;
-                // SRAA history from the linear path is stale after fallback.
-                if (sraa_active_lvl) {
-                    res.aa_accepted_count = oris_sraa.aa_accepted_count;
-                    oris_sraa.clear();
-                }
-                std::fill(lf.begin(), lf.end(), 0.0);
-                std::fill(cell_lf.begin(), cell_lf.end(), 0.0);
-                cell_lf_hwm = std::numeric_limits<double>::lowest();
-                if (st.use_admm_capacity) std::fill(u.begin(), u.end(), 0.0);
-                if (alm_active) std::fill(lambda_cell.begin(), lambda_cell.end(), 0.0);
-                std::fill(f_lin.begin(), f_lin.end(), 1.0);
-                std::fill(X_cur.begin(), X_cur.end(), 0.0);
-                std::fill(W.begin(), W.end(), 1.0);
-                std::fill(log_W.begin(), log_W.end(), 0.0);
-                if (X_tilde.empty()) X_tilde.assign(ct.M_cell, 0.0);
-                for (int c = 0; c < ct.M_cell; c++) {
-                    X_tilde[c] = X_init[c];
-                    X[c] = X_init[c];
-                }
-                std::fill(infeas_streak.begin(), infeas_streak.end(), 0);
-                // structural_infeas_pairs NOT cleared — static bucket topology.
-                // alpha recomputed at top of next iter by compute_alpha().
+                // One-shot fallback: shared state reset (apply_linear_fallback), then
+                // restart the flat loop from iter 0 in log space. CR-B4 (y2ks.4)
+                // hoisted the reset into the lambda so the SRAA while-loop reuses the
+                // identical state-clean list; behaviour here is unchanged.
+                apply_linear_fallback();
                 // Reset iter_in_lvl: for-loop increment makes iter_in_lvl=1 next round
                 // (preserves prior iter=0 semantics; global iter counter may regress
                 // by one level's worth of iters but that matches pre-refactor behaviour).
                 iter_in_lvl = 0;
-                // reset X_prev after fallback — X semantics changed (log-path).
-                for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
-                // Reset best-iterate: pre-fallback snapshot from degenerate linear-space
-                best.reset();
-                sraa_best_errRp     = std::numeric_limits<double>::infinity();
-                nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
-                nat_iter_prev_sraa   = -1;
-                if (st.verbose >= 1) {
-                    st.log("ORIS: linear-space overflow trip; fallback to log-space.");
-                }
                 continue;  // skip the post-sweep X_tilde / capacity / errRp blocks this round
             }
         } else {
