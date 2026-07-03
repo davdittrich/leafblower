@@ -955,6 +955,13 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
             for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
             // Reset best-iterate: pre-fallback snapshot is degenerate linear-space.
             best.reset();
+            // CR-B12 (y2ks.12): best.reset() clears best.has_best() but NOT the SRAA
+            // snapshot (sraa_has_best/lf_best), which independently gates the outer-stall
+            // revert (see below). Leaving sraa_has_best=true lets a post-fallback revert
+            // restore the stale pre-fallback (linear-space) lf_best onto the log path.
+            // Clear both here (no-op in the flat context: lf_best is empty, revert SRAA-only).
+            sraa_has_best = false;
+            std::fill(lf_best.begin(), lf_best.end(), 0.0);
             sraa_best_errRp      = std::numeric_limits<double>::infinity();
             nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
             nat_iter_prev_sraa   = -1;
