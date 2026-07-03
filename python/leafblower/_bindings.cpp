@@ -36,9 +36,16 @@ PYBIND11_MODULE(_leafblower, m) {
            py::dict params_dict,
            py::object log_callable)
         -> py::tuple {
-            // Validate dtype and layout
-            if (weights_np.dtype().kind() != 'f' || weights_np.itemsize() != 8)
-                throw py::value_error("weights must be float64");
+            // CR-E12 (5ye4.12): the former float64 dtype guard here was dead code —
+            // py::array::forcecast on weights_np has already coerced any numeric input
+            // to float64 by this point, so kind!='f'/itemsize!=8 was unreachable.
+            // NOTE: group_ids_list uses forcecast to int32, so an int64 group_ids array
+            // is value-truncated to int32. group_ids MUST be category codes in
+            // [0, cat_counts[k]) or -1 (=NA) — always well within int32. A direct
+            // calibrate() caller passing raw IDs above 2^31 will have them truncated:
+            // wraps landing outside [-1, cat_counts[k]) are REJECTED as RK_ERR_BADARG by
+            // the C solver's range check (validation.cpp), but wraps landing in-range
+            // (incl. 2^32-1 -> -1 = silent NA) silently corrupt group assignment. Pass codes.
             if (weights_np.ndim() != 1 || weights_np.size() != n)
                 throw py::value_error("weights must be 1D array of length n");
 
