@@ -520,3 +520,19 @@ test_that("4jx9: mark_converged stores absolute_tol when abs-only convergence fi
   # convergence_used$tol must equal abs_tol, not 0 (the bugged pct_tol default).
   expect_equal(r$convergence_used$tol, abs_tol, tolerance = 1e-12)
 })
+
+test_that("dtkn.9: pct shorthand out-of-range errors like explicit tol (CR-F9)", {
+  # The (0,1) plateau range check was gated on the explicit-tol entry path only;
+  # convergence=list(pct=5) resolved to rule='plateau' pct_tol=5 and was silently
+  # accepted while list(tol=5, rule='plateau') errored. Both must reject now.
+  expect_error(leafblower:::parse_convergence(list(tol = 5, rule = "plateau")),
+               "convergence\\$tol must be in \\(0,1\\)")
+  expect_error(leafblower:::parse_convergence(list(pct = 5)),
+               "convergence\\$pct must be in \\(0,1\\)")
+  expect_error(leafblower:::parse_convergence(list(pct = 500, rule = "plateau")),
+               "convergence\\$pct must be in \\(0,1\\)")
+  # Valid pct shorthand still accepted; boundary 0/1 rejected.
+  expect_silent(leafblower:::parse_convergence(list(pct = 0.001)))
+  expect_error(leafblower:::parse_convergence(list(pct = 1)),  "in \\(0,1\\)")
+  expect_error(leafblower:::parse_convergence(list(pct = 0)),  "in \\(0,1\\)")
+})

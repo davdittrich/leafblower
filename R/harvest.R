@@ -958,6 +958,13 @@ parse_convergence <- function(convergence) {
       stop("convergence$tol must be in (0,1) for rule='plateau'")
   }
 
+  # CR-F9 (dtkn.9): the (0,1) plateau range check above guarded ONLY the explicit
+  # `tol` entry path. The `pct` shorthand (convergence=list(pct=5)) resolves to the
+  # same plateau pct_tol but bypassed it, silently admitting values the long form
+  # rejects. Apply the identical range check to the resolved pct-shorthand tol.
+  if (explicit_pct && rule == "plateau" && (pct_tol <= 0 || pct_tol >= 1))
+    stop("convergence$pct must be in (0,1) for rule='plateau'")
+
   stop_when <- match.arg(convergence[["stop_when"]] %||% "any", c("any", "all"))
   list(pct_tol = pct_tol, absolute_tol = absolute_tol,
        metric = metric, rule = rule, stop_when = stop_when)
