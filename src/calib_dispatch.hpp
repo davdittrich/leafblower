@@ -178,7 +178,15 @@ inline double select_solver_objective(int alg_id, const lbw::CellMetrics& m) {
     case RK_ALG_GREG:      return m.chi2;
     case RK_ALG_CHEBYSHEV: return m.errRp;
     default:
+        // CR-D12 (j7x8.12): CRAN forbids R packages writing to stderr directly.
+        // Route through REprintf under the R build; keep stderr for the LBW_NO_R
+        // (Python/standalone) build where REprintf is unavailable — matching the
+        // established convention in types.hpp.
+#ifndef LBW_NO_R
+        REprintf("internal: unknown alg_id %d in select_solver_objective\n", alg_id);
+#else
         std::fprintf(stderr, "internal: unknown alg_id %d in select_solver_objective\n", alg_id);
+#endif
         return std::numeric_limits<double>::quiet_NaN();
     }
 }
