@@ -202,6 +202,15 @@ def _parse_target(target, target_map=None):
     result = {}
     for v in target[vcol].unique():
         sub = target[target[vcol] == v]
+        # CR-E13 (5ye4.13): a duplicated (variable, level) row is ambiguous input;
+        # dict(zip(...)) would silently keep only the last. Reject in both R + Python.
+        # Use pandas duplicated() (NaN==NaN, matching R's anyDuplicated) — a plain
+        # set() would treat distinct np.nan objects as unique and miss NaN-level dups.
+        dup_mask = sub[lcol].duplicated(keep=False)
+        if dup_mask.any():
+            dups = sorted(sub[lcol][dup_mask].unique(), key=str)
+            raise ValueError(
+                f"target for '{v}' has duplicate level(s): {dups}")
         d = dict(zip(sub[lcol], sub[pcol]))
         total = sum(d.values())
         if abs(total - 1.0) > _TARGET_SUM_TOL:

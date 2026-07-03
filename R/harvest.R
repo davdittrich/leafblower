@@ -915,6 +915,11 @@ parse_target <- function(target, target_map) {
   vars <- unique(target[[vcol]])
   lapply(stats::setNames(vars, vars), function(v) {
     sub <- target[target[[vcol]] == v, , drop = FALSE]
+    # CR-E13 (5ye4.13): a duplicated (variable, level) row is ambiguous; setNames would
+    # keep both under duplicate names. Reject in both R + Python.
+    if (anyDuplicated(sub[[lcol]]))
+      stop(sprintf("target for '%s' has duplicate level(s): %s", v,
+                   paste(unique(sub[[lcol]][duplicated(sub[[lcol]])]), collapse = ", ")))
     stats::setNames(sub[[pcol]], sub[[lcol]])
   })
 }
