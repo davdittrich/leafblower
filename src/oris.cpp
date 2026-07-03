@@ -859,6 +859,12 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
         lbw::SRAAState oris_sraa;
         std::vector<double> lf_flat;
         std::vector<double> lf_best;
+        // CR-B10 (y2ks.10): true once a real best-iterate has been recorded into
+        // lf_best. lf_best is zero-filled at SRAA entry (= the initial iterate), so
+        // an outer-stall revert before any best is recorded would silently reset the
+        // solve to the identity-factor start, discarding progress — this flag gates
+        // that revert.
+        bool sraa_has_best = false;
         const std::vector<double> dummy_L;
         const std::vector<double> dummy_U;
         int sraa_outer_stall_count = 0;
@@ -1018,12 +1024,23 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 sraa_best_errRp = std::min(sraa_best_errRp, r.err_rp);
                 if (r.err_rp > sraa_best_errRp * (1.0 + lbw::kSRAAOuterSlack)) {
                     if (++sraa_outer_stall_count >= lbw::kSRAAOuterStallWindow) {
-                        lf_flat = lf_best;
-                        unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
-                                  log_X_init, st.K, cat_offset, cell_lf_hwm);
-                        oris_sraa.clear();
-                        oris_sraa.F_cur = lf_flat;
-                                    sraa_outer_stall_count = 0;
+                        // CR-B10 (y2ks.10): only revert once a REAL best-iterate exists.
+                        // lf_best is zero-filled at SRAA entry (= the identity-factor
+                        // initial iterate), so a revert before any best is recorded would
+                        // silently reset the solve to that start, discarding progress —
+                        // NOT a crash (lf_best is never empty), a regression. Reachable
+                        // when the first checks fail to record a best: the best-record is
+                        // gated on W_total>0 AND std::isfinite(nat_metric), so a
+                        // non-finite metric on early checks leaves sraa_has_best=false
+                        // while finite-err_rp degradations accumulate to the window.
+                        if (sraa_has_best) {
+                            lf_flat = lf_best;
+                            unpack_lf(lf_flat, lf, f_lin, cell_lf, X_cur, ct, X_init,
+                                      log_X_init, st.K, cat_offset, cell_lf_hwm);
+                            oris_sraa.clear();
+                            oris_sraa.F_cur = lf_flat;
+                        }
+                        sraa_outer_stall_count = 0;
                     }
                 } else {
                     sraa_outer_stall_count = 0;
@@ -1118,6 +1135,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                             lf_best          = lf_flat;
                             lf_best_snap     = lf_flat;
                             lf_best_snap_set = true;
+                            sraa_has_best    = true;  // CR-B10 (y2ks.10): real best recorded
                         }
                         // CR-B9 (y2ks.9): service LBW_TRAJECTORY_AT probes on the SRAA
                         // path (was flat-loop only → empty CSV under accelerate=TRUE).
