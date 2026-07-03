@@ -212,10 +212,13 @@ test_that("mb06: compute_quality_metrics margin_kl finite for CHARACTER margin; 
 
 test_that("dtkn.12: add_na_proportion 'NA' bin -> FINITE margin_kl (NA obs counted)", {
   # Regression (function under test = compute_quality_metrics, NOT the solver).
-  # When the target carries an injected "NA" level (add_na_proportion), the
-  # K-pass fallback used to exclude is.na(obs) -> W_k had no "NA" level while
-  # T_k did -> margin_kl_one() returned +Inf. Fix: recode NA -> "NA" and
-  # normalize over ALL obs so W_k gains an "NA" mass ~ target's NA fraction.
+  # When add_na_proportion injected an "NA" level for margin 'a', the K-pass
+  # fallback used to exclude is.na(obs) -> W_k had no "NA" level while T_k did ->
+  # margin_kl_one() returned +Inf. Fix: recode NA -> "NA" and normalize over ALL
+  # obs so W_k gains an "NA" mass ~ target's NA fraction. dtkn.13: the recode now
+  # keys on na_margins (the actual injected set the solver used) rather than the
+  # target level name, so the injection signal is supplied here as harvest() does
+  # via .na_margins (harvest.R:832).
   set.seed(7L)
   n   <- 400L
   a   <- sample(c("x", "y", "z"), n, TRUE, prob = c(0.5, 0.3, 0.2))
@@ -224,7 +227,7 @@ test_that("dtkn.12: add_na_proportion 'NA' bin -> FINITE margin_kl (NA obs count
   w   <- runif(n, 0.5, 2.0)                            # fixed positive weights
   tgt <- list(a = c(x = 0.45, y = 0.27, z = 0.18, "NA" = 0.10))  # sums to 1
 
-  qm <- leafblower:::compute_quality_metrics(w, tgt, df)
+  qm <- leafblower:::compute_quality_metrics(w, tgt, df, na_margins = "a")
   expect_true(is.finite(qm$margin_kl))                 # (a) finite, was +Inf
 
   # (b) NA-bin contributes ~0 to KL: weighted NA mass ≈ target 0.10, so the
@@ -233,9 +236,9 @@ test_that("dtkn.12: add_na_proportion 'NA' bin -> FINITE margin_kl (NA obs count
 })
 
 test_that("dtkn.12: no 'NA' target level -> NA obs still EXCLUDED (unchanged path)", {
-  # Guard: the fix keys ONLY on a target level literally named "NA". A margin
-  # with NA data but NO "NA" target level must keep the old exclude-NA behavior
-  # (normalize over non-NA obs), bit-identical to pre-fix.
+  # Guard: recode fires only for an injected margin (k %in% na_margins, dtkn.13).
+  # A margin with NA data but no injection (and no "NA" target level) keeps the
+  # exclude-NA behavior (normalize over non-NA obs), bit-identical to pre-fix.
   set.seed(11L)
   n   <- 300L
   a   <- sample(c("x", "y", "z"), n, TRUE, prob = c(0.5, 0.3, 0.2))

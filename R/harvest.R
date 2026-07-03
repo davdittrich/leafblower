@@ -829,7 +829,7 @@ harvest <- function(
   # Tier-1/2 calibration quality metrics.
   # Computed post-solver at O(nK) cost via helper: margin_kl (Tier 1),
   # weight_kl / design_effect / effective_observations (Tier 2).
-  qm <- compute_quality_metrics(weights, target, data)
+  qm <- compute_quality_metrics(weights, target, data, na_margins = .na_margins)
   calib_result[names(qm)] <- qm
 
   # --- c8w1: attach sparseness diagnostics to result ---
@@ -1103,7 +1103,7 @@ normalize_start_weights <- function(start_weights, n) {
   sw * length(sw) / sum(sw)
 }
 
-compute_quality_metrics <- function(weights, target_list, df) {
+compute_quality_metrics <- function(weights, target_list, df, na_margins = character(0)) {
   # Compute Tier-1/2 calibration quality metrics.
   # Returns list: design_effect, effective_observations, weight_kl, margin_kl.
   # Called post-solver at O(nK) cost from main harvest() body.
@@ -1197,14 +1197,16 @@ compute_quality_metrics <- function(weights, target_list, df) {
         # NA->"NA" recode at ~line 507-516). Mirror that here: recode NA -> "NA"
         # and normalize over ALL obs, so W_k gains an "NA" mass matching the target
         # (else margin_kl_one sees a positive target "NA" with no W_k "NA" -> Inf).
-        # SIGNAL = target level name "NA" present (all this helper receives). For the
-        # in-scope add_na_proportion path this matches the solver encoding exactly.
-        # LIMITATION (dtkn.13): a HAND-BUILT "NA" target level WITHOUT
-        # add_na_proportion diverges — the solver factor path maps real NAs to gid
-        # -1 (excluded), while this counts them into the "NA" bin. Hand-built "NA"
-        # targets are ambiguous (harvest.R:141 doc); tracked separately, not fixed
-        # here (this helper cannot see the injected-NA-margins set).
-        if ("NA" %in% names(T_k)) {
+        # SIGNAL = actual injection (k %in% na_margins), NOT the target level name.
+        # dtkn.13: keying on "NA" %in% names(T_k) mis-fired for a HAND-BUILT "NA"
+        # target level (add_na_proportion=FALSE) — the solver maps real NAs to gid
+        # -1 (excluded), so counting them into an "NA" bin reported a KL for an
+        # encoding the solver never used. na_margins carries exactly the variables
+        # the solver recoded (harvest.R:352/554), so the metric now matches it: only
+        # injected margins recode; a hand-built "NA" target falls through to the
+        # valid-mask path below (NA excluded), where an unmatched "NA" target
+        # surfaces as Inf — the honest signal that the solver did not fit it.
+        if (k %in% na_margins) {
           obs_chr <- as.character(obs_k)
           obs_chr[is.na(obs_k)] <- "NA"
           Z_k <- sum(weights)
