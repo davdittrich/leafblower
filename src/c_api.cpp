@@ -46,6 +46,14 @@ static_assert(RK_ALG_NEWTON_KL == 11,
 static_assert(sizeof(kAlgNames)/sizeof(kAlgNames[0]) == 12,
     "kAlgNames must cover all 12 enum slots 0..11");
 
+// CR-D11 (j7x8.11): void_t detection for a top-level n_bounds_violated field, so
+// the shared pack template surfaces the bound-violation diagnostic (parity with
+// r_bridge's has_n_bounds) instead of leaving Python/C callers at a stale 0 for
+// raking/greg/sinkhorn under the no-clamp cell contract.
+template <class T, class = void> struct has_n_bounds_c : std::false_type {};
+template <class T>
+struct has_n_bounds_c<T, std::void_t<decltype(std::declval<T&>().n_bounds_violated)>> : std::true_type {};
+
 template <typename R>
 static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t alg) noexcept {
     if (!dst) return;
@@ -71,6 +79,12 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     dst->prev_check_iter              = src.base.prev_check_iter;
     std::strncpy(dst->message, src.message, sizeof(dst->message) - 1);
     dst->message[sizeof(dst->message) - 1] = '\0';  // CXX.4: strncpy may not NUL-terminate
+    // CR-D11 (j7x8.11): surface the bound-violation diagnostic for results that
+    // carry it (raking/greg/sinkhorn now do); oris keeps its manual set below.
+    if constexpr (has_n_bounds_c<R>::value) {
+        dst->n_bounds_violated = src.n_bounds_violated;
+        dst->n_bounds_clamped  = src.n_bounds_clamped;
+    }
 }
 
 extern "C" {
@@ -324,6 +338,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             result->metric_first_check  = res.base.metric_first_check;
             result->metric_prev_check   = res.base.metric_prev_check;
             result->prev_check_iter     = res.base.prev_check_iter;
+            // CR-D11 (j7x8.11): raking uses a manual field copy (not the pack
+            // template), so surface the bound-violation diagnostic explicitly —
+            // parity with sinkhorn/greg (which go through pack_solver_result).
+            result->n_bounds_violated   = res.n_bounds_violated;
+            result->n_bounds_clamped    = res.n_bounds_clamped;
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
         }
     } else if (alg == RK_ALG_SINKHORN) {

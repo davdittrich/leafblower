@@ -13,6 +13,10 @@ struct GregResult {
     double best_objective_seen          = std::numeric_limits<double>::infinity();
     int    M_cell                       = 0;
     char   message[256]                 = {};
+    // CR-D11 (j7x8.11): cell-mode per-obs bound-violation diagnostic (count-only)
+    // / unit-mode water-fill clamp count. Surfaced via has_n_bounds in r_bridge.
+    int    n_bounds_violated            = 0;
+    int    n_bounds_clamped             = 0;
     // ── End extras ──
 };
 

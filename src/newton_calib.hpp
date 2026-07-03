@@ -12,6 +12,7 @@ struct NewtonCalibResult {
     double lm_mu_final = 0.0;
     int    n_projected_dims  = 0;  // Epic-Dβ: count of TSVD-truncated null-space dims per last solve
     int    n_bounds_violated = 0;  // obs that violate [min,max] bounds after weight recovery
+    int    n_bounds_clamped  = 0;  // CR-D11: unset by newton (unit-mode clamp count); kept for has_n_bounds uniformity
     char   message[256] = {0};
 };
 

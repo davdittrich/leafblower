@@ -33,7 +33,6 @@ GregResult greg_solve(CalibState& st) {
                               cat_offset, n_cats_total, res) != RK_OK)
         return res;
     res.M_cell = ct.M_cell;
-    const double lo = st.min_weight;
     const double hi = hi_eff;
 
     std::vector<bool> fixed_lo(ct.M_cell, false), fixed_hi(ct.M_cell, false);
@@ -156,9 +155,11 @@ GregResult greg_solve(CalibState& st) {
         res.base.best_error = m.chi2;
     }
 
-    // Obs expansion + clamp
-    const double hi_obs = lbw::resolve_hi(st);
-    apply_obs_expansion(ct, X, X_init, st.n, lo, hi_obs, st.weights);
+    // CR-D11 (j7x8.11): obs expansion with NO per-obs clamp; finalize_weights
+    // enforces Σw=n + the bounds_mode contract (cell: count-only; unit:
+    // water-fill). Clamping per-obs here distorts marginals (measured 13pp).
+    lbw::expand_obs(ct, X, X_init, st.n, st.weights);
+    lbw::finalize_weights(st, ct, res.n_bounds_violated, res.n_bounds_clamped);
 
     res.base.best_weights.resize(st.n);
     std::copy(st.weights, st.weights + st.n, res.base.best_weights.begin());

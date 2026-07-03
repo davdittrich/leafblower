@@ -92,7 +92,6 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
         return res;
     res.M_cell = ct.M_cell;
     std::vector<double> X(X_init);  // working copy; X_init kept for obs-expansion
-    const double lo = st.min_weight;
     const double hi = hi_eff;
 
     // log-domain Dykstra correction for capacity box
@@ -282,20 +281,24 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
             for (int c = 0; c < ct.M_cell; c++) w_snap[c] *= sc;
         }
         res.base.best_weights.resize(st.n);
-        const double hi_obs = lbw::resolve_hi(st);
         for (int i = 0; i < st.n; i++) {
             int c = ct.cell_of[i];
             double mult = (X_init[c] > 0.0) ? w_snap[c] / X_init[c] : 1.0;
-            res.base.best_weights[i] = std::clamp(st.weights[i] * mult, lo, hi_obs);
+            res.base.best_weights[i] = st.weights[i] * mult;   // no per-obs clamp
         }
+        // CR-D11 (j7x8.11): Σw=n + bounds_mode dispatch via finalize_weights.
+        int b_nbv = 0, b_nbc = 0;
+        lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct, b_nbv, b_nbc);
     } else {
         res.base.best_weights.assign(st.n, 0.0);
     }
 
-    // Obs expansion: w_i = d_i × X[c]/X_init[c], hard clamp.
-    // sum(X[c])=n preserved by Sinkhorn+bisection → no normalization needed.
-    const double hi_obs = lbw::resolve_hi(st);
-    apply_obs_expansion(ct, X, X_init, st.n, lo, hi_obs, st.weights);
+    // CR-D11 (j7x8.11): obs expansion with NO per-obs clamp. sum(X[c])=n is
+    // preserved by Sinkhorn+bisection and by the expansion; finalize_weights
+    // applies the bounds_mode contract (cell: count-only; unit: water-fill).
+    // Clamping per-obs here distorts marginals (measured 13pp drift).
+    lbw::expand_obs(ct, X, X_init, st.n, st.weights);
+    lbw::finalize_weights(st, ct, res.n_bounds_violated, res.n_bounds_clamped);
     return res;
 }
 

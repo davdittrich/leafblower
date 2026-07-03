@@ -134,8 +134,10 @@ test_that("A5: raking cell-table: correct + speedup vs obs-level reference", {
               label="all weights within [1/5, 5] bounds")
 })
 
-test_that("R-bounds: raking respects min_weight/max_weight exactly after fix", {
-  # Tight bounds + skewed targets force clamping; normalization after clamp would violate bounds.
+test_that("R-bounds: raking cell-mode preserves Sw=n; unit-mode enforces per-obs bounds (CR-D11)", {
+  # CR-D11 (j7x8.11): cell mode does NOT clamp per-obs — that distorts marginals
+  # and breaks Sw=n. It guarantees Sw=n + margin fidelity; per-obs bounds are a
+  # soft diagnostic. Strict per-obs bounds require bounds_mode='unit' (water-fill).
   set.seed(7)
   n <- 1000
   data <- data.frame(
@@ -146,13 +148,20 @@ test_that("R-bounds: raking respects min_weight/max_weight exactly after fix", {
     a = c("1"=0.5, "2"=0.2, "3"=0.15, "4"=0.1, "5"=0.05),
     b = c("1"=0.8, "2"=0.2)
   )
-  out <- leafblower::harvest(data, target, min_weight=0.5, max_weight=1.5,
-                             method="raking", max_iterations=500, attach_weights=TRUE)
-  w <- out$weights
-  expect_true(all(w >= 0.5 - 1e-10),
-              info=sprintf("min weight %.6f < 0.5", min(w)))
-  expect_true(all(w <= 1.5 + 1e-10),
-              info=sprintf("max weight %.6f > 1.5", max(w)))
+  # Cell mode (default): Sw=n exactly; per-obs bounds are soft (may exceed).
+  wc <- as.numeric(leafblower::harvest(data, target, min_weight=0.5, max_weight=1.5,
+                     method="raking", bounds_mode="cell", max_iterations=500,
+                     attach_weights=FALSE))
+  expect_equal(sum(wc), n, tolerance=1e-6)
+  # Unit mode: strict per-obs bounds enforced via water-fill. This fixture is
+  # intentionally infeasible under the strict cap (level a="1" target 0.5 needs
+  # ~500 mass but ~200 obs x 1.5 = 300), so Sw < n by design — we assert only the
+  # per-obs bound guarantee here, not Sw=n.
+  wu <- as.numeric(leafblower::harvest(data, target, min_weight=0.5, max_weight=1.5,
+                     method="raking", bounds_mode="unit", max_iterations=500,
+                     attach_weights=FALSE))
+  expect_true(all(wu >= 0.5 - 1e-10), info=sprintf("unit min %.6f < 0.5", min(wu)))
+  expect_true(all(wu <= 1.5 + 1e-10), info=sprintf("unit max %.6f > 1.5", max(wu)))
 })
 
 test_that("T-overflow: AUTO routing + algorithm_used populated", {

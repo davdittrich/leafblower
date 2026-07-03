@@ -273,21 +273,26 @@ inline CellMetrics compute_cell_metrics(
     return m;
 }
 
-// Post-solve obs expansion: w[i] ← clamp(w[i] × X[cell]/X_init[cell], lo, hi)
+// Post-solve obs expansion (NO per-obs clamp): w[i] ← w[i] × X[cell]/X_init[cell].
+// Yields Σw = Σ_c X[c] (since Σ_{i∈c} w_init[i] = X_init[c]); finalize_weights
+// then enforces Σw=n and the bounds_mode contract (cell: count-only diagnostic;
+// unit: per-cell water-fill, which restores Σw=n when redistribution capacity
+// suffices). Per the canonical cell contract (see finalize_weights doc),
+// clamping per-obs HERE distorts marginals and breaks Σw=n whenever it binds
+// (CR-D11 / j7x8.11: measured 13pp margin drift, Σw 3392 vs n 4000).
 // Guard: X_init[c] > 1e-10 matches greg's kEps and chebyshev's hardcoded threshold.
 // Functionally identical to > 0.0 for all realistic inputs (X_init[c] = sum of initial
 // weights for obs in cell c; always >= min_weight when the cell is non-empty).
-inline void apply_obs_expansion(
+inline void expand_obs(
     const CellTable& ct,
     const std::vector<double>& X,
     const std::vector<double>& X_init,
-    int n, double lo, double hi,
-    double* weights) noexcept
+    int n, double* weights) noexcept
 {
     for (int i = 0; i < n; i++) {
         int c = ct.cell_of[i];
         double mult = (X_init[c] > 1e-10) ? X[c] / X_init[c] : 1.0;
-        weights[i] = std::clamp(weights[i] * mult, lo, hi);
+        weights[i] *= mult;
     }
 }
 
