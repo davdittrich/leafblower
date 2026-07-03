@@ -1121,8 +1121,13 @@ compute_quality_metrics <- function(weights, target_list, df) {
 
   # Per-margin KL helper: shared finalization across both single-pass and K-pass.
   # Inputs: T_k (named target probs), W_k (named observed probs aligned to a level set).
+  # A targeted level absent from the observed set signals infeasibility (Inf) —
+  # EXCEPT a numerically-zero target (<= 1e-12, the B13 zero-target validation
+  # boundary), whose KL contribution is ~0. Treat such a level as negligible so a
+  # solve that survived feasibility is not spuriously reported Inf. Any target
+  # > 1e-12 with no observations is genuine infeasibility and still returns Inf.
   margin_kl_one <- function(T_k, W_k) {
-    if (any(T_k[setdiff(names(T_k), names(W_k))] > 0)) return(Inf)
+    if (any(T_k[setdiff(names(T_k), names(W_k))] > 1e-12)) return(Inf)
     common <- intersect(names(T_k), names(W_k))
     T_sub  <- T_k[common]; W_sub <- W_k[common]
     pos    <- T_sub > 0                          # limit: 0 * log(0/W) = 0
@@ -1174,6 +1179,11 @@ compute_quality_metrics <- function(weights, target_list, df) {
         # Aggregate cell-level weights to margin-k levels.
         cell_levels_k <- df[[k]][cell_to_row]
         W_k <- tapply(vec_w_cell, cell_levels_k, sum) / Z
+        # tapply over a factor emits NA for a level with zero observations; drop it
+        # so the level reads as "absent" (matching the K-pass droplevels() path),
+        # letting margin_kl_one treat a zero-obs level uniformly across both paths
+        # (dtkn.11: was NA here vs Inf in K-pass for a zero-obs/zero-target level).
+        W_k <- W_k[!is.na(W_k)]
         margin_kl_one(T_k, W_k)
       }, numeric(1)))
     } else {
