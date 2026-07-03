@@ -17,6 +17,16 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     GreenkornResult res;
     res.base.status = RK_ERR_NOCONV;
 
+    // CR-A7: greenkhorn drives convergence through compute_cell_metrics +
+    // select_metric, which never populates CellMetrics.l1 (the obs-level weight
+    // change, written only by raking/sinkhorn). metric="l1_weight" would feed a
+    // phantom l1 == 0.0 into check_convergence and spuriously converge on the
+    // first check interval. The greedy coordinate-wise loop keeps no per-check
+    // prev-weight snapshot, so fall back to MAX_ERR to track the real objective
+    // — mirrors chebyshev.cpp.
+    if (st.convergence_cfg.metric == lbw::CalibMetric::L1_WEIGHT)
+        st.convergence_cfg.metric = lbw::CalibMetric::MAX_ERR;
+
     CellTable ct;
     std::vector<double> X_init;
     double hi_eff;
