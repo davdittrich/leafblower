@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cstdint>
 #include <limits>
 #include <vector>
 
@@ -100,11 +101,26 @@ int design_effect_compute(
                 "cat_counts[%d]=%d must be >= 2", k, cat_counts[k]);
             return RK_ERR_BADARG;
         }
+        // CR-D14: cap cat_counts at n (mirror validation.cpp:47) so the int `p`
+        // accumulation below cannot overflow before the n*p guard runs.
+        if (cat_counts[k] > n) {
+            std::snprintf(out->message, sizeof(out->message),
+                "cat_counts[%d]=%d > n=%d: more categories than observations", k, cat_counts[k], n);
+            return RK_ERR_BADARG;
+        }
         p += cat_counts[k] - 1;
+    }
+    // CR-D14 (j7x8.14): guard n*K (data_codes index) and n*p (design matrix) against
+    // size_t overflow before any indexing, mirroring validation.cpp's overflow guard.
+    if ((K > 0 && static_cast<std::size_t>(n) > SIZE_MAX / static_cast<std::size_t>(K)) ||
+        (p > 0 && static_cast<std::size_t>(n) > SIZE_MAX / static_cast<std::size_t>(p))) {
+        std::snprintf(out->message, sizeof(out->message),
+            "n=%d * (K=%d, p=%d) overflows size_t: problem too large for platform", n, K, p);
+        return RK_ERR_BADARG;
     }
     for (int i = 0; i < n; ++i) {
         for (int k = 0; k < K; ++k) {
-            const int c = data_codes[i * K + k];
+            const int c = data_codes[static_cast<std::size_t>(i) * K + k];
             if (c < 0 || c >= cat_counts[k]) {
                 std::snprintf(out->message, sizeof(out->message),
                     "data_codes[%d,%d]=%d out of range [0,%d)", i, k, c, cat_counts[k]);
@@ -119,7 +135,7 @@ int design_effect_compute(
         int col_off = 0;
         for (int k = 0; k < K; ++k) {
             for (int i = 0; i < n; ++i) {
-                const int c = data_codes[i * K + k];
+                const int c = data_codes[static_cast<std::size_t>(i) * K + k];
                 if (c >= 1) X[static_cast<std::size_t>(col_off + c - 1) * n + i] = 1.0;
             }
             col_off += cat_counts[k] - 1;
