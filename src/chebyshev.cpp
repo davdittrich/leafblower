@@ -67,13 +67,8 @@ ChebyshevResult chebyshev_ipm(
 
     const double n_d = static_cast<double>(st.n);
 
-    // w_kj scaling
-    std::vector<double> w_kj(nct);
-    for (int k = 0; k < st.K; k++)
-        for (int j = 0; j < st.cat_counts[k]; j++) {
-            int m = cat_offset[k] + j;
-            w_kj[m] = n_d;
-        }
+    // Margin scaling w_kj[m] is the run-constant scalar n_d for every (k,j)
+    // (folded from a per-margin vector — xc1s.14). Used directly as n_d below.
 
     std::vector<double> Tgt(nct);
     for (int k = 0; k < st.K; k++)
@@ -164,7 +159,7 @@ ChebyshevResult chebyshev_ipm(
     for (int c = 0; c < ct.M_cell; c++) W_init_pre += X[c];
     double delta = 0.0;
     for (int m = 0; m < nct; m++)
-        delta = std::max(delta, std::fabs(S[m]-T_flat[m]*W_init_pre) / w_kj[m]);
+        delta = std::max(delta, std::fabs(S[m]-T_flat[m]*W_init_pre) / n_d);
     delta = 1.1*delta + 1e-8;
 
     // Primal slacks
@@ -175,8 +170,8 @@ ChebyshevResult chebyshev_ipm(
     }
     std::vector<double> s_up(nct), s_dn(nct);
     for (int m = 0; m < nct; m++) {
-        s_up[m] = std::max(T_flat[m]*W_init_pre+w_kj[m]*delta-S[m], kEps);
-        s_dn[m] = std::max(S[m]-T_flat[m]*W_init_pre+w_kj[m]*delta, kEps);
+        s_up[m] = std::max(T_flat[m]*W_init_pre+n_d*delta-S[m], kEps);
+        s_dn[m] = std::max(S[m]-T_flat[m]*W_init_pre+n_d*delta, kEps);
     }
     double s_delta = delta;
 
@@ -197,7 +192,7 @@ ChebyshevResult chebyshev_ipm(
 
     // Reduced normal equations + reduced Newton vectors (reference-cat elim → schur_nu > 0)
     std::vector<double> N_red((size_t)nct_red * (size_t)nct_red);
-    std::vector<double> u_red(nct_red), v_red(nct_red);
+    std::vector<double> v_red(nct_red);
     std::vector<double> e_red(nct_red), w_e_red(nct_red), tmp_red(nct_red);
     std::vector<double> rhs_A_red(nct_red), rhs_B_red(nct_red);
     std::vector<double> dlambda_A_red(nct_red), dlambda_B_red(nct_red);
@@ -210,13 +205,9 @@ ChebyshevResult chebyshev_ipm(
         for (int m = 0; m < nct; m++) if (full_to_red[m] >= 0) red_to_full[nr++] = m;
     }
 
-    // Pre-fill u_red[nr] = w_kj[red_to_full[nr]] (constant across iterations: w_kj[m] = n_d)
-    for (int nr = 0; nr < nct_red; nr++) u_red[nr] = w_kj[red_to_full[nr]];
-
-    // w_kj[m] = n_d (margin denominator) is constant per IPM run; precompute squares
-    // to avoid recomputation in the Theta accumulation each iteration.
-    std::vector<double> w_kj_sq(nct);
-    for (int m = 0; m < nct; m++) w_kj_sq[m] = w_kj[m] * w_kj[m];
+    // The reduced Sherman-Morrison update vector u_red[nr] == w_kj[red_to_full[nr]] == n_d
+    // and the squared margin scale w_kj_sq[m] == n_d*n_d are both run-constant scalars
+    // (folded from vectors — xc1s.14); used directly as n_d / n_d*n_d below.
 
     static constexpr double kSchurNuMin = 1e-8;  // tight; D_nu = O(n_d·M_cell)
 
@@ -331,14 +322,15 @@ ChebyshevResult chebyshev_ipm(
         // r_delta_stat: invariant across Phase A/B — no dual update between phases.
         double r_delta_stat_acc = 1.0 - y_delta;
         for (int m = 0; m < nct; m++)
-            r_delta_stat_acc -= w_kj[m]*(y_up[m]+y_dn[m]);
+            r_delta_stat_acc -= n_d*(y_up[m]+y_dn[m]);
         const double r_delta_stat = r_delta_stat_acc;
 
-        // Sherman-Morrison: u_red[nr]=w_kj[red_to_full[nr]] (pre-filled); Theta = 1/alpha_sm
-        // w_kj_sq[m] = w_kj[m]^2 precomputed before IPM loop (w_kj[m]=n_d constant per run).
+        // Sherman-Morrison: the reduced update vector is the constant scalar n_d
+        // (== w_kj[red_to_full[nr]]); Theta = 1/alpha_sm. The squared margin scale
+        // n_d*n_d (== w_kj_sq[m]) is a run-constant per multi-cat margin.
         double Theta = y_delta / s_delta;
         for (int m = 0; m < nct; m++)
-            Theta += w_kj_sq[m] * (y_up[m]/s_up[m] + y_dn[m]/s_dn[m]);
+            Theta += n_d*n_d * (y_up[m]/s_up[m] + y_dn[m]/s_dn[m]);
         double alpha_sm = (Theta > 1e-300) ? 1.0/Theta : 0.0;
 
         // N_red = A_red * D_eff * A_red^T (reduced nct_red×nct_red) — rebuilt fresh each iteration
@@ -392,7 +384,7 @@ ChebyshevResult chebyshev_ipm(
             // margin_delta_center sums over full nct (δ stationarity uses all margins)
             double margin_delta_center_A = 0.0;
             for (int m = 0; m < nct; m++)
-                margin_delta_center_A += w_kj[m]*(-y_up[m] - y_dn[m]);
+                margin_delta_center_A += n_d*(-y_up[m] - y_dn[m]);
             double rmu_delta_A = -s_delta*y_delta;
 
             // Solve N_red · dlambda_A_red = rhs_A_red (Jacobi-scaled)
@@ -401,13 +393,13 @@ ChebyshevResult chebyshev_ipm(
             for (int nr = 0; nr < nct_red; nr++) dlambda_A_red[nr] = D_jac_red[nr] * rhs_A_red[nr];
 
             // δ-SM correction on dlambda_A_red (first SM)
-            for (int nr = 0; nr < nct_red; nr++) tmp_red[nr] = D_jac_red[nr] * u_red[nr];
+            for (int nr = 0; nr < nct_red; nr++) tmp_red[nr] = D_jac_red[nr] * n_d;
             cholesky_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
             for (int nr = 0; nr < nct_red; nr++) v_red[nr] = D_jac_red[nr] * tmp_red[nr];
             double utv = 0.0, utw_A = 0.0;
             for (int nr = 0; nr < nct_red; nr++) {
-                utv   += u_red[nr]*v_red[nr];
-                utw_A += u_red[nr]*dlambda_A_red[nr];
+                utv   += n_d*v_red[nr];
+                utw_A += n_d*dlambda_A_red[nr];
             }
             double sm_denom = 1.0 + alpha_sm*utv;
             double sm_coeff_A = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw_A/sm_denom) : 0.0;
@@ -418,7 +410,7 @@ ChebyshevResult chebyshev_ipm(
             cholesky_solve(N_red.data(), static_cast<size_t>(nct_red), tmp_red.data());
             for (int nr = 0; nr < nct_red; nr++) w_e_red[nr] = D_jac_red[nr] * tmp_red[nr];
             double ute_A = 0.0;
-            for (int nr = 0; nr < nct_red; nr++) ute_A += u_red[nr] * w_e_red[nr];
+            for (int nr = 0; nr < nct_red; nr++) ute_A += n_d * w_e_red[nr];
             double sm_coeff_e_A = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm * ute_A / sm_denom) : 0.0;
             for (int nr = 0; nr < nct_red; nr++) w_e_red[nr] -= sm_coeff_e_A * v_red[nr];
 
@@ -457,7 +449,7 @@ ChebyshevResult chebyshev_ipm(
             // w_dot_dlambda_A AFTER ν correction
             double w_dot_dlambda_A = 0.0;
             for (int nr = 0; nr < nct_red; nr++)
-                w_dot_dlambda_A += w_kj[red_to_full[nr]] * dlambda_A_red[nr];
+                w_dot_dlambda_A += n_d * dlambda_A_red[nr];
             double d_delta_A = alpha_sm * (
                 rmu_delta_A/s_delta
               + margin_delta_center_A
@@ -474,8 +466,8 @@ ChebyshevResult chebyshev_ipm(
                         delta_S[cat_offset[k]+g] += dX_A[c];
                 }
             for (int m = 0; m < nct; m++) {
-                dS_up_A[m] = w_kj[m]*d_delta_A - delta_S[m];
-                dS_dn_A[m] = delta_S[m] + w_kj[m]*d_delta_A;
+                dS_up_A[m] = n_d*d_delta_A - delta_S[m];
+                dS_dn_A[m] = delta_S[m] + n_d*d_delta_A;
             }
 
             // α_aff: max α s.t. (x+α·dx_A ≥ 0) AND (s+α·ds_A ≥ 0) with 0.99 damping
@@ -543,7 +535,7 @@ ChebyshevResult chebyshev_ipm(
                 double corr_dn = y_dn[m]*dS_dn_A[m] + y_dn[m]*dS_dn_A[m]*dS_dn_A[m]/s_dn[m];
                 double rmu_up_B = sigma_mu - s_up[m]*y_up[m] + corr_up;
                 double rmu_dn_B = sigma_mu - s_dn[m]*y_dn[m] + corr_dn;
-                margin_delta_center_B += w_kj[m]*(rmu_up_B/s_up[m] + rmu_dn_B/s_dn[m]);
+                margin_delta_center_B += n_d*(rmu_up_B/s_up[m] + rmu_dn_B/s_dn[m]);
             }
 
             // Solve in reduced space — REUSE factored N_red (no refactor)
@@ -553,7 +545,7 @@ ChebyshevResult chebyshev_ipm(
 
             // δ-SM correction on dlambda_B_red (same v_red and sm_denom from Phase A)
             double utw_B = 0.0;
-            for (int nr = 0; nr < nct_red; nr++) utw_B += u_red[nr]*dlambda_B_red[nr];
+            for (int nr = 0; nr < nct_red; nr++) utw_B += n_d*dlambda_B_red[nr];
             double sm_coeff_B = (std::fabs(sm_denom) > 1e-300) ? (alpha_sm*utw_B/sm_denom) : 0.0;
             for (int nr = 0; nr < nct_red; nr++) dlambda_B_red[nr] -= sm_coeff_B * v_red[nr];
 
@@ -582,7 +574,7 @@ ChebyshevResult chebyshev_ipm(
 
             double w_dot_dlambda_B = 0.0;
             for (int nr = 0; nr < nct_red; nr++)
-                w_dot_dlambda_B += w_kj[red_to_full[nr]] * dlambda_B_red[nr];
+                w_dot_dlambda_B += n_d * dlambda_B_red[nr];
             double d_delta_B = alpha_sm * (
                 rmu_delta_B/s_delta
               + margin_delta_center_B
@@ -602,8 +594,8 @@ ChebyshevResult chebyshev_ipm(
                         delta_S[cat_offset[k]+g] += dX_B[c];
                 }
             for (int m = 0; m < nct; m++) {
-                dS_up[m] = w_kj[m]*d_delta_B - delta_S[m];
-                dS_dn[m] = delta_S[m] + w_kj[m]*d_delta_B;
+                dS_up[m] = n_d*d_delta_B - delta_S[m];
+                dS_dn[m] = delta_S[m] + n_d*d_delta_B;
             }
 
             // Dual Newton steps using Phase B centering residuals (same second-order correction)
@@ -659,8 +651,8 @@ ChebyshevResult chebyshev_ipm(
                 for (int c = 0; c < ct.M_cell; c++) W_upd += X[c];
                 int viol_this_iter = 0;
                 for (int m = 0; m < nct; m++) {
-                    double raw_sup = T_flat[m]*W_upd + w_kj[m]*delta - S[m];
-                    double raw_sdn = S[m] - T_flat[m]*W_upd + w_kj[m]*delta;
+                    double raw_sup = T_flat[m]*W_upd + n_d*delta - S[m];
+                    double raw_sdn = S[m] - T_flat[m]*W_upd + n_d*delta;
                     if (raw_sup < 0.0 || raw_sdn < 0.0) viol_this_iter++;
                     s_up[m] = std::max(raw_sup, kEps);
                     s_dn[m] = std::max(raw_sdn, kEps);
