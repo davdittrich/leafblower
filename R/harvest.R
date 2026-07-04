@@ -319,10 +319,15 @@ harvest <- function(
     data_modified    <- FALSE
     data_local       <- data
     for (v in intersect(vars_to_collapse, names(target))) {
+      # xc1s.13(j): one tabulate(match()) pass for all per-level counts (mirrors
+      # _compute_sparseness_diag) instead of L separate O(n) sum(col == lv) scans.
+      # tabulate ignores NA/out-of-vocab, so cnts_v[[lv]] == old sum(col==lv, na.rm=TRUE).
+      lvs_v  <- names(target[[v]])
+      cnts_v <- tabulate(match(data_local[[v]], lvs_v), nbins = length(lvs_v))
+      names(cnts_v) <- lvs_v
       rare <- names(which(
-        vapply(names(target[[v]]), function(lv) {
-          target[[v]][[lv]] < 0.01 ||
-          sum(data_local[[v]] == lv, na.rm = TRUE) < 30L
+        vapply(lvs_v, function(lv) {
+          target[[v]][[lv]] < 0.01 || cnts_v[[lv]] < 30L
         }, logical(1))
       ))
       rare <- setdiff(rare, "NA")   # never collapse the NA bin
@@ -581,7 +586,10 @@ harvest <- function(
   targets_r    <- lapply(target, function(t) as.double(unname(t)))
   n_obs        <- nrow(data)
 
-  raw <- .Call("C_rk_calibrate",
+  # xc1s.13(b): registered-symbol form (matches design_effect.R's .Call(C_rk_design_effect,
+  # ...)); NAMESPACE useDynLib(.registration = TRUE) binds C_rk_calibrate as a symbol object,
+  # so the string lookup + PACKAGE= are unnecessary.
+  raw <- .Call(C_rk_calibrate,
                group_ids_r,
                cat_counts_r,
                targets_r,
@@ -625,8 +633,7 @@ harvest <- function(
                ## Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8)
                as.double(newton_tsvd_ratio),
                ## Tikhonov ridge on dual λ (default 0.0 = off)
-               as.double(ridge_lambda),
-               PACKAGE = "leafblower")
+               as.double(ridge_lambda))
 
   weights <- raw$weights
   calib_result    <- raw$result
@@ -645,15 +652,11 @@ harvest <- function(
     n_resid_grew = calib_result$sor_n_resid_grew,
     n_monotone_cd = calib_result$sor_n_monotone_cd
   )
-  calib_result$sor_min_omega   <- NULL
-  calib_result$sor_n_damped    <- NULL
-  calib_result$sor_omega_mean  <- NULL
-  calib_result$sor_any_latched <- NULL
-  calib_result$sor_n_pinned_fb <- NULL
-  calib_result$sor_n_warmup_fb <- NULL
-  calib_result$sor_n_conv_fb   <- NULL
-  calib_result$sor_n_resid_grew  <- NULL
-  calib_result$sor_n_monotone_cd <- NULL
+  # xc1s.13(c): drop the now-nested flat fields in one assignment (list `[<-` with a
+  # character vector removes each named element — identical to the per-field `$x <- NULL`).
+  calib_result[c("sor_min_omega", "sor_n_damped", "sor_omega_mean", "sor_any_latched",
+                 "sor_n_pinned_fb", "sor_n_warmup_fb", "sor_n_conv_fb",
+                 "sor_n_resid_grew", "sor_n_monotone_cd")] <- NULL
 
   # WU-E2: nest convergence diagnostics under $convergence_used for clean namespace.
   # metric_names and rule_names mirror CalibMetric/CalibRule enum order in leafblower.h.
@@ -682,10 +685,11 @@ harvest <- function(
         "1" = "legacy",
         # leafblower-8eod: use solver-emitted convergence_stall_kind (set at RK_ERR_STALL
         # emission site) instead of the user-input accelerate_bool heuristic.
-        # Audit (2026-05-08): raking.cpp:494 only fires inside the !st.accelerate branch
-        # (raking.cpp:392 else-guard) → stall_kind=2. oris.cpp:188 fires for both SRAA
-        # (accelerate=TRUE, stall_kind=1) and plain-BCD (accelerate=FALSE, stall_kind=2) —
-        # NOT bijective with user flag; required route (a). stall_kind=0 → NA (no stall).
+        # Audit (2026-05-08; jy0m.2 2026-07-04): raking's flat (!st.accelerate) branch
+        # emits stall_kind=2, its SRAA (accelerate=TRUE) branch emits stall_kind=1.
+        # oris.cpp fires for both SRAA (accelerate=TRUE, stall_kind=1) and plain-BCD
+        # (accelerate=FALSE, stall_kind=2) — NOT bijective with the user flag; required
+        # route (a). stall_kind=0 → NA (no stall).
         "5" = {
           sk <- calib_result$convergence_stall_kind
           if (is.null(sk) || is.na(sk)) sk <- 0L
@@ -699,12 +703,10 @@ harvest <- function(
       )
     }
   )
-  calib_result$convergence_metric           <- NULL
-  calib_result$convergence_rule             <- NULL
-  calib_result$convergence_tol              <- NULL
-  calib_result$convergence_iter             <- NULL
-  calib_result$solver_objective             <- NULL
-  calib_result$convergence_minimized_metric <- NULL
+  # xc1s.13(c): drop the now-nested flat fields in one assignment.
+  calib_result[c("convergence_metric", "convergence_rule", "convergence_tol",
+                 "convergence_iter", "solver_objective",
+                 "convergence_minimized_metric")] <- NULL
 
   # Check hard-stop statuses before normalization: status 2/3 mean weights are
   # meaningless; normalizing near-zero weights before stopping produces NaN.

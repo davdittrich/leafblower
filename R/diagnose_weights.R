@@ -58,16 +58,29 @@ diagnose_weights <- function(data, target, weights) {
       w_total <- sum(weights[!is_na])
     }
 
+    # xc1s.13(g): precompute all per-level counts + weighted sums in one pass (was an
+    # O(n·L) mask per level). tabulate ignores NA & out-of-vocab ⇒ integer counts equal
+    # the old sum(mask). Weighted sums use tapply+base sum() (long-double accumulation,
+    # bit-identical to the old sum(weights[mask]); NOT rowsum, whose C kernel sums in
+    # plain double). The injected "NA" bin (is_na OR literal char=="NA") is then
+    # overridden with its conflation mask.
+    lvs    <- names(tgt)
+    counts <- tabulate(match(col_char, lvs), nbins = length(lvs))
+    ws     <- tapply(weights, factor(col_char, levels = lvs), sum)
+    ws[is.na(ws)] <- 0
+    wsums  <- as.numeric(ws)
+    if (has_na_bin) {
+      na_mask <- .encode_na_bin_mask(col, TRUE)
+      na_i    <- match("NA", lvs)
+      counts[na_i] <- sum(na_mask)
+      wsums[na_i]  <- sum(weights[na_mask])
+    }
+    names(counts) <- lvs
+    names(wsums)  <- lvs
+
     for (lvl in names(tgt)) {
-      # Injected NA bin (lvl == "NA" with has_na_bin) CONFLATES true-missings
-      # with literal-"NA" rows (is_na OR char=="NA"), matching the solver
-      # encoding (harvest.R:130-131,475). A literal-"NA" row falls into the NA
-      # bin, not its own level.
-      mask      <- if (has_na_bin && lvl == "NA")
-                     .encode_na_bin_mask(col, TRUE)
-                   else !is.na(col_char) & col_char == lvl
-      prop_orig <- if (n_total > 0L) sum(mask) / n_total else 0.0
-      prop_wtd  <- if (w_total > 0.0) sum(weights[mask]) / w_total else 0.0
+      prop_orig <- if (n_total > 0L) counts[[lvl]] / n_total else 0.0
+      prop_wtd  <- if (w_total > 0.0) wsums[[lvl]] / w_total else 0.0
       tgt_val   <- tgt[[lvl]]
       row_idx   <- row_idx + 1L
       rows[[row_idx]] <- data.frame(

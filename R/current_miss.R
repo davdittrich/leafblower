@@ -45,16 +45,24 @@ get_current_miss <- function(data, target, weights) {
       col_char[is_na] <- NA_character_
       W <- sum(weights[!is_na])
     }
-    errs <- vapply(names(tgt), function(lv) {
-      # The injected NA bin (lv == "NA" with has_na_bin) CONFLATES true-missings
-      # with literal-"NA" rows (is_na OR char=="NA"), matching the solver
-      # encoding (harvest.R:130-131,475). Real levels match the NA-cleared char
-      # vector; a literal-"NA" row falls into the NA bin, not its own level.
-      mask <- if (has_na_bin && lv == "NA")
-                .encode_na_bin_mask(col, TRUE)
-              else !is.na(col_char) & col_char == lv
-      prop <- if (W > 0) sum(weights[mask]) / W else 0.0
-      abs(prop - tgt[[lv]])
+    # xc1s.13(g): one split+sum pass for per-level weighted sums (was an O(n·L) mask
+    # per level). tapply groups by level (NA/out-of-vocab excluded) and totals each with
+    # base sum(), so the sums are bit-identical to the old sum(weights[!is.na(col_char)
+    # & col_char==lv]) — long-double accumulation (NOT rowsum, which sums in plain
+    # double). The injected "NA" bin (is_na OR literal char=="NA") is overridden with
+    # its conflation mask (harvest.R:130-131,475). A literal-"NA" row lands in the NA
+    # bin, not its own level.
+    lvs   <- names(tgt)
+    ws    <- tapply(weights, factor(col_char, levels = lvs), sum)
+    ws[is.na(ws)] <- 0
+    wsums <- as.numeric(ws)
+    if (has_na_bin) {
+      na_i <- match("NA", lvs)
+      wsums[na_i] <- sum(weights[.encode_na_bin_mask(col, TRUE)])
+    }
+    errs <- vapply(seq_along(lvs), function(i) {
+      prop <- if (W > 0) wsums[i] / W else 0.0
+      abs(prop - tgt[[lvs[i]]])
     }, numeric(1))
     if (length(errs) == 0L) return(0.0)
     max(errs)
