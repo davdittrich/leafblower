@@ -13,8 +13,7 @@ namespace lbw {
 
 ChebyshevResult chebyshev_ipm(
     CalibState& st,
-    const std::vector<double>& w_warm_obs,
-    double      delta_warm)
+    const std::vector<double>& w_warm_obs)
 {
     static constexpr int    kMaxIpm    = 500;   // hard cap; K=9 overlapping margins don't converge
                                                 // regardless of budget — Mehrotra needs LP stability
@@ -133,9 +132,6 @@ ChebyshevResult chebyshev_ipm(
         X_warm.swap(X_init);  // O(1) — X_init ← warm masses, X_warm ← design masses
         X_design_agg = std::move(X_warm);  // keep design masses for the exit denom
     }
-    // delta_warm is reserved for future use; do NOT apply directly as LP delta
-    // (units differ from max_m |S[m]/W - T[m]| / w_kj[m]).
-    (void)delta_warm;
 
     // Marginal sum helper
     auto compute_S = [&](const std::vector<double>& Xv, std::vector<double>& Sv) {

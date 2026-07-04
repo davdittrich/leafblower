@@ -377,6 +377,16 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     p.homotopy.n_levels        = scalar_int(homotopy_levels_sexp, "homotopy_levels", pre_error);
     p.homotopy.start_factor    = scalar_real(homotopy_start_factor_sexp, "homotopy_start_factor", pre_error);
     p.homotopy.end_factor      = scalar_real(homotopy_end_factor_sexp, "homotopy_end_factor", pre_error);
+    // j7x8.21: scalar_real validates only TYPEOF/LENGTH. A non-finite / non-positive
+    // homotopy factor flows into the geometric schedule k_start*pow(k_end/k_start,frac)
+    // → NaN current_max_weight (oris.cpp), and a NaN start_factor silently disables the
+    // CR-D20 tightest-level guard (min(NaN,end)=NaN). Reject via the deferred-throw
+    // pre_error idiom (leak-free per CR-D9).
+    if (pre_error.empty() &&
+        (!std::isfinite(p.homotopy.start_factor) || p.homotopy.start_factor <= 0.0 ||
+         !std::isfinite(p.homotopy.end_factor)   || p.homotopy.end_factor   <= 0.0))
+        pre_error = "leafblower: 'homotopy_start_factor' and 'homotopy_end_factor' "
+                    "must be finite and > 0";
     p.homotopy.budget_split_p  = scalar_real(homotopy_budget_p_sexp, "homotopy_budget_p", pre_error);
     {
         if (pre_error.empty() && (TYPEOF(scheduler_sexp) != STRSXP || LENGTH(scheduler_sexp) != 1))
@@ -841,7 +851,6 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
 
         // Run oris warm-start BEFORE chebyshev dispatch.
         std::vector<double> w_warm_obs;
-        double delta_warm = -1.0;
         if (strcmp(method_str, "chebyshev") == 0) {
             // SAFETY: weights_copy protects st.weights from oris_solve mutation.
             std::vector<double> weights_copy(st.weights, st.weights + st.n);
@@ -853,15 +862,13 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             if (!oris_res.base.best_weights.empty() &&
                 static_cast<int>(oris_res.base.best_weights.size()) == st.n &&
                 std::isfinite(oris_res.base.max_error)) {
-                w_warm_obs = std::move(oris_res.base.best_weights);
-                delta_warm = oris_res.base.max_error * 1.5;
+                w_warm_obs = std::move(oris_res.base.best_weights);  // xc1s.15: delta_warm was dead
             }
         }
 
         auto dispatch_cheb = [&](int alg_code) {
             const std::vector<double>& warm_ref = w_warm_obs;
-            const double d_warm = delta_warm;
-            auto res = lbw::chebyshev_ipm(st, warm_ref, d_warm);
+            auto res = lbw::chebyshev_ipm(st, warm_ref);   // xc1s.15: delta_warm param removed
             pack_solver_result(res);
             res_status     = res.base.status;
             res_iterations = res.base.iterations;
@@ -1229,9 +1236,15 @@ SEXP C_rk_design_effect(SEXP weights_sexp, SEXP outcome_sexp,
         if (TYPEOF(data_codes_sexp) != INTSXP)
             Rf_error("design_effect: 'data_codes' must be INTSXP (got TYPEOF=%d)",
                      TYPEOF(data_codes_sexp));
-        if (Rf_length(data_codes_sexp) != n * K)
-            Rf_error("design_effect: length(data_codes) must be n*K = %d (got %d)",
-                     n * K, Rf_length(data_codes_sexp));
+        // j7x8.24: n*K is a long-vector length. Rf_length returns int and TRUNCATES a
+        // vector longer than INT_MAX (exactly the overflow case), and int n*K overflows.
+        // Use XLENGTH (R_xlen_t) on both sides; (R_xlen_t)n * K (n,K <= INT_MAX) fits the
+        // signed 64-bit R_xlen_t without overflow.
+        const R_xlen_t expected_len = static_cast<R_xlen_t>(n) * static_cast<R_xlen_t>(K);
+        if (XLENGTH(data_codes_sexp) != expected_len)
+            Rf_error("design_effect: length(data_codes) must be n*K = %lld (got %lld)",
+                     static_cast<long long>(expected_len),
+                     static_cast<long long>(XLENGTH(data_codes_sexp)));
         if (TYPEOF(cat_counts_sexp) != INTSXP || Rf_length(cat_counts_sexp) != K)
             Rf_error("design_effect: 'cat_counts' must be INTSXP of length K=%d", K);
         data_codes = INTEGER(data_codes_sexp);

@@ -336,6 +336,18 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     int rc = validate_inputs(n, K, weights, group_ids, cat_counts, targets, p, result, alg);
     if (rc != RK_OK) return rc;
 
+    // j7x8.21: reject non-finite / non-positive homotopy factors at the c_api boundary
+    // (mirrors the r_bridge .Call check). A NaN/Inf factor flows into the geometric
+    // schedule k_start*pow(k_end/k_start,frac) → NaN current_max_weight; a NaN
+    // start_factor also silently disables the CR-D20 tightest-level guard.
+    if (!std::isfinite(p->homotopy.start_factor) || p->homotopy.start_factor <= 0.0 ||
+        !std::isfinite(p->homotopy.end_factor)   || p->homotopy.end_factor   <= 0.0) {
+        if (result)
+            std::snprintf(result->message, sizeof(result->message),
+                "homotopy start/end factor must be finite and > 0");
+        return RK_ERR_BADARG;
+    }
+
     // Build CalibState
     lbw::CalibState st;
     st.n = n; st.K = K;
@@ -479,9 +491,19 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         return nkr.base.status;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
+            // kxna.23: reject inner_max_iter < 1 BEFORE the ~5-iter ORIS warm-start
+            // below (chebyshev_ipm guards this too, but only AFTER the wasted warm-start
+            // solve). Mirror chebyshev_ipm's exact message.
+            if (st.inner_max_iter < 1) {
+                lbw::ChebyshevResult r;
+                r.base.status = RK_ERR_BADARG;
+                std::snprintf(r.message, sizeof(r.message),
+                    "chebyshev: inner_max_iter (%d) must >= 1", st.inner_max_iter);
+                pack_solver_result(result, r, alg);
+                return r.base.status;
+            }
             // oris warm-start; mirrors r_bridge.cpp:628-657.
             std::vector<double> w_warm;
-            double delta_warm = -1.0;
             {   // scoped: weights_copy must not outlive st_warm (dangling ptr)
                 std::vector<double> weights_copy(weights, weights + n);
                 lbw::CalibState st_warm = st;
@@ -491,11 +513,10 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 if (!oris_res.base.best_weights.empty() &&
                     static_cast<int>(oris_res.base.best_weights.size()) == n &&
                     std::isfinite(oris_res.base.max_error)) {
-                    w_warm     = std::move(oris_res.base.best_weights);
-                    delta_warm = oris_res.base.max_error * 1.5;
+                    w_warm = std::move(oris_res.base.best_weights);  // xc1s.15: delta_warm was dead
                 }
             }
-            auto r = lbw::chebyshev_ipm(st, w_warm, delta_warm);
+            auto r = lbw::chebyshev_ipm(st, w_warm);   // xc1s.15: delta_warm param removed
             pack_solver_result(result, r, alg);
             return r.base.status;
         } else if (alg == RK_ALG_ORIS_SOFT) {

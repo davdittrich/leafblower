@@ -21,8 +21,7 @@ struct ChebyshevResult {
 
 ChebyshevResult chebyshev_ipm(
     CalibState& st,
-    const std::vector<double>& w_warm_obs = {},  // obs-level warm weights; empty=cold start
-    double      delta_warm = -1.0                // reserved, currently unused (see chebyshev.cpp (void)delta_warm)
+    const std::vector<double>& w_warm_obs = {}   // obs-level warm weights; empty=cold start
 );
 
 inline ChebyshevResult chebyshev_solve(CalibState& st) {
