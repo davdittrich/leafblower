@@ -1,0 +1,11 @@
+oris               wall=  2.24s status=0 iters=50
+oris_soft          wall=  2.12s status=0 iters=50
+raking             wall=  2.21s status=5 iters=70
+sinkhorn           wall=  2.16s status=0 iters=90
+greenkhorn         wall=  4.58s status=0 iters=4560
+logit              wall=  1.69s ERROR: leafblower: logit: infeasible — margin 0 category 144: target 1900.42 outside achievable [0, 1425] (relax min_weight/max_weight)
+greg               wall=  2.33s status=1 iters=50
+chebyshev          wall=  9.99s status=1 iters=500
+oris+greedy        wall=  2.05s status=0 iters=20
+raking+sraa        wall=  1.92s status=5 iters=20
+greenkhorn+sraa    wall=  2.91s status=0 iters=179
