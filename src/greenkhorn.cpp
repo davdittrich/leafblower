@@ -330,11 +330,11 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // CR-C2 (kxna.2): recompute honest cell metrics on the best-iterate masses so
     // the reported diagnostics reflect the RETURNED weights. Pre-fix
     // res.base.{kl,chi2,mean_error,grake_norm} were never assigned (default 0.0 =
-    // phantom "perfect fit") via pack_solver_result. Field order mirrors
-    // sinkhorn.cpp. NOTE: res.base.max_error is intentionally left on the
-    // best-iterate configured-metric scale (best.best_metric) below — see CXX.2
-    // (test-greenkhorn-best-metric.R); CR-C3 proposes changing it to errRp scale
-    // but that conflicts with CXX.2 and is deferred pending resolution.
+    // phantom "perfect fit") via pack_solver_result. Field order mirrors sinkhorn.cpp.
+    // kxna.3 (CR-C3): also capture the best-iterate errRp (max marginal-residual
+    // PROPORTION) here to report as max_error below — the errRp scale that every
+    // other solver and the r_bridge consumer expect (see max_error assignment).
+    double best_iter_errRp = 0.0;
     {
         double W_best = 0.0;
         for (int c = 0; c < ct.M_cell; c++) W_best += best.best_weights[c];
@@ -346,6 +346,13 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             res.base.chi2             = mb.chi2;
             res.base.grake_norm       = mb.grake_norm;
             res.base.l1_weight_change = mb.l1;       // 0: greenkhorn keeps no prev-weight snapshot
+            best_iter_errRp           = mb.errRp;    // kxna.3: errRp (proportion) scale
+        } else {
+            // Degenerate Sw<=0 (no valid best iterate): report the largest target as an
+            // honest-large residual (mirrors oris_finalize degenerate branch).
+            for (int k = 0; k < K; k++)
+                for (int j = 0; j < st.cat_counts[k]; j++)
+                    best_iter_errRp = std::max(best_iter_errRp, st.targets[k][j]);
         }
     }
 
@@ -364,15 +371,21 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     lbw::finalize_weights_buf(res.base.best_weights.data(), st.n, st, ct,
                               res.n_bounds_violated, res.n_bounds_clamped);
 
-    // Unchanged (CXX.2 contract; CR-C3 deferred): best-iterate configured-metric scale.
-    res.base.max_error = best.best_metric;
+    // kxna.3 (CR-C3): max_error reports the max marginal-residual PROPORTION (errRp),
+    // matching every other solver (greg/chebyshev/sinkhorn/raking/oris/newton/logit)
+    // and the r_bridge consumer. best_error (above) stays on the configured-metric
+    // (KL) scale — the two are distinct fields (CXX.2 previously conflated them).
+    res.base.max_error = best_iter_errRp;
 
     // kxna.20 (CR-C7c): re-gate RK_OK on the post-finalize RETURNED margin error in
     // bounds_mode="unit". The per-obs water-fill (finalize_weights_buf at L364) can leave
     // a fully-pinned cell off-target after status was set RK_OK on the cell iterate.
-    // res.base.max_error is locked to the configured-metric scale (CXX.2, a units mismatch
-    // for the proportion re-gate), so compute the returned errRp LOCALLY for the status
-    // re-gate only — reported max_error is left untouched.
+    // best_iter_errRp (max_error above) is the PRE-finalize best-iterate errRp; in unit
+    // mode the water-fill drifts cell proportions, so recompute the errRp on the RETURNED
+    // weights and use it for BOTH the status re-gate AND the reported max_error (returned
+    // == reported, mirroring oris_finalize.cpp:212 / logit). The cell/unbounded path has no
+    // per-obs drift (finalize scales uniformly + clamps already-in-bounds cells), so its
+    // pre-finalize best_iter_errRp already equals the returned errRp.
     if (st.bounds_mode == RK_BOUNDS_UNIT) {
         std::vector<double> X_ret(ct.M_cell, 0.0);
         for (int i = 0; i < st.n; i++) X_ret[ct.cell_of[i]] += res.base.best_weights[i];
@@ -381,6 +394,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         if (W_ret > 0.0) {
             const lbw::CellMetrics cmr =
                 lbw::compute_cell_metrics(st, ct, X_ret, W_ret, bucket_scratch);
+            res.base.max_error = cmr.errRp;  // kxna.3: post-finalize returned errRp (unit)
             lbw::regate_unit_status(res.base, st, cmr.errRp);
         }
     }

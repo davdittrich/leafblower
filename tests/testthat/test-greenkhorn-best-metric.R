@@ -2,11 +2,15 @@ library(leafblower)
 
 # CXX.2 (leafblower-5fm8.5): greenkhorn best-iterate must be selected on the
 # configured convergence metric (select_metric(cfg.metric, m)), not on the errRp
-# fast proxy. For an EXPLICIT metric="max_err" run select_metric == max(errRp), so
-# the reported best_error/max_error is byte-identical to the historical code; for
-# kl/chi2 (kl is the greenkhorn DEFAULT) the reported value must be on the
-# requested metric's scale. Pre-fix the slot held the errRp magnitude mislabeled
-# as the configured metric — visible on a NON-converging kl run (see below).
+# fast proxy. `best_error` reports that selected metric value (KL for the default
+# metric=kl). Pre-CXX.2 the slot held the errRp magnitude mislabeled as the
+# configured metric — visible on a NON-converging kl run (see below).
+#
+# kxna.3 (CR-C3): `max_error` is a DIFFERENT field with a different contract — the
+# max marginal-residual PROPORTION (errRp scale), as every other solver reports it
+# (greg/chebyshev/sinkhorn/raking/oris/newton/logit) and as r_bridge consumes it.
+# CXX.2 originally conflated the two (asserted max_error == best_error); those
+# assertions are corrected here to the errRp scale. best_error stays on the KL scale.
 
 make_feasible_df <- function() {
   set.seed(7)
@@ -29,8 +33,11 @@ test_that("CXX.2: greenkhorn default-metric feasible problem converges (no regre
     method = "greenkhorn", max_iterations = 500L, attach_weights = FALSE)
   r <- attr(w, "result")
   expect_equal(r$status, 0L)
+  # On a converged feasible problem both the errRp (max_error) and the KL
+  # (best_error) collapse to ~0; assert each is tiny rather than cross-equal
+  # (kxna.3: they now live on different scales).
   expect_lt(r$max_error, 1e-3)
-  expect_equal(r$max_error, r$best_error, tolerance = 1e-12)
+  expect_lt(r$best_error, 1e-3)
 })
 
 test_that("CXX.2: greenkhorn metric=kl reports best_error on the KL scale", {
@@ -39,12 +46,12 @@ test_that("CXX.2: greenkhorn metric=kl reports best_error on the KL scale", {
     convergence = list(metric = "kl", rule = "threshold", tol = 1e-8),
     max_iterations = 500L, attach_weights = FALSE)
   r <- attr(w, "result")
-  # best-iterate selected via select_metric(KL, m): max_error == best_error and
-  # both are the KL value of the best iterate (finite, non-negative). Pre-fix
-  # this slot held the errRp max instead of the KL value.
+  # best_error is the KL value of the best iterate (finite, non-negative);
+  # max_error is the errRp proportion (kxna.3). On this converged run both
+  # collapse to ~0 — assert each is tiny (no cross-scale equality).
   expect_true(is.finite(r$best_error))
   expect_gte(r$best_error, 0)
-  expect_equal(r$max_error, r$best_error, tolerance = 1e-12)
+  expect_lt(r$max_error, 1e-3)
   # The convergence metric recorded must be KL, confirming the configured
   # metric drove the run that the best-iterate is now selected against.
   expect_equal(r$convergence_used$metric, "kl")
@@ -115,10 +122,13 @@ test_that("CXX.2: NON-converging metric=kl reports best_error on KL scale, not e
   # below could not distinguish the fix from the bug (degenerate guard).
   expect_gt(abs(kl_ref - errRp_ref), 1e-3)
 
-  # best_error / max_error live on the KL scale: they equal the internal KL of
-  # the returned (best-iterate) weights to machine precision, and do NOT equal
-  # the errRp marginal-residual magnitude (which is what the pre-fix code stored).
+  # best_error lives on the KL scale: it equals the internal KL of the returned
+  # (best-iterate) weights to machine precision, and does NOT equal the errRp
+  # marginal-residual magnitude.
   expect_equal(r$best_error, kl_ref, tolerance = 1e-12)
-  expect_equal(r$max_error, r$best_error, tolerance = 1e-12)
   expect_gt(abs(r$best_error - errRp_ref), 1e-3)
+  # kxna.3: max_error lives on the errRp (proportion) scale — it equals the max
+  # marginal residual of the returned weights and does NOT equal the KL value.
+  expect_equal(r$max_error, errRp_ref, tolerance = 1e-12)
+  expect_gt(abs(r$max_error - kl_ref), 1e-3)
 })
