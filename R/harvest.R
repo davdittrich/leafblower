@@ -762,7 +762,18 @@ harvest <- function(
       e_prev    <- calib_result$metric_prev_check
       prev_iter <- calib_result$prev_check_iter
       interval  <- b_iter - prev_iter
-      has_prev  <- is.numeric(e_prev) && is.finite(e_prev) &&
+      # The geometric-rate extrapolation r_est = (e_final/e_prev)^(1/interval)
+      # models linear convergence (e_k ~ C*r^k) and is valid only for
+      # geometrically-convergent solvers (raking/sinkhorn/greenkhorn = linearly
+      # convergent IPF/Sinkhorn). It is NOT valid for oris: under active box
+      # constraints oris converges piecewise-linearly / slow-rate (O(t^-1/2)),
+      # so a geometric projection of "iterations needed" is meaningless. This
+      # also avoids the y2ks.13 clamp-state split for oris (post-clamp best_error
+      # vs pre-clamp metric_prev_check) — the ratio must never mix clamp states.
+      # Keyed on the RESOLVED algorithm_used so method="auto" -> oris is covered.
+      is_oris <- calib_result$algorithm_used %in% c("oris", "oris_soft")
+      has_prev  <- !is_oris &&
+                   is.numeric(e_prev) && is.finite(e_prev) &&
                    is.numeric(e_final) && is.finite(e_final) &&
                    e_prev > e_final && e_final > 0 &&
                    interval > 0L && is.numeric(tol_used) && tol_used > 0

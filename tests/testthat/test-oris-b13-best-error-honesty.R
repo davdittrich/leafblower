@@ -63,3 +63,37 @@ test_that("accelerate BUDGET-exit best_error is honest at the harvest warning su
   # Honest constrained metric of the returned solution, not the pre-clamp ~0 lie.
   expect_gt(res$best_error, 1e-5, label = "best_error is the honest returned-solution error")
 })
+
+test_that("oris BUDGET exit emits the generic budget message, never a geometric-rate projection (hyfk / CR-B13b)", {
+  skip_if_not_installed("arrow")
+  skip_if_not_installed("withr")
+  pq  <- testthat::test_path("fixtures/stepstone_small.parquet")
+  rds <- testthat::test_path("fixtures/stepstone_small_targets.rds")
+  skip_if_not(file.exists(pq))
+  skip_if_not(file.exists(rds))
+  ss  <- arrow::read_parquet(pq)
+  tgt <- readRDS(rds)
+  for (nm in names(tgt)) ss[[nm]] <- factor(ss[[nm]])
+  msgs <- character(0)
+  withr::with_envvar(c(LBW_ORIS_FORCE_PATH = "linear"), {
+    r <- withCallingHandlers(
+      harvest(ss, tgt, method = "oris", accelerate = TRUE, max_iterations = 40L,
+              attach_weights = FALSE),
+      warning = function(cond) { msgs <<- c(msgs, conditionMessage(cond)); invokeRestart("muffleWarning") })
+  })
+  res <- attr(r, "result")
+  # Forced-linear on this high-compression fixture reliably reaches BUDGET (the
+  # sibling test above asserts status==4L unconditionally on the same inputs), so
+  # assert it directly rather than skipping — a silent skip would hide coverage.
+  expect_equal(res$status, 4L, label = "forced-linear oris reaches BUDGET (4L)")
+  budget_msg <- grep("budget exhausted", msgs, value = TRUE)
+  expect_length(budget_msg, 1L)
+  # oris is box-constrained water-fill: under active clamps it converges
+  # piecewise-linearly / slow-rate (O(t^-1/2)), so the geometric-rate projection
+  # ("Asymptotic rate ... total iterations needed") is model-invalid and must
+  # NEVER be emitted for oris. The generic "Increase max_iterations" is honest.
+  expect_false(grepl("Asymptotic rate", budget_msg),
+               label = "oris BUDGET must not emit a geometric-rate projection")
+  expect_true(grepl("Increase max_iterations", budget_msg),
+              label = "oris BUDGET emits the generic budget message")
+})

@@ -685,7 +685,18 @@ def harvest(
             e_prev    = result_dict.get("metric_prev_check", float("inf"))
             prev_iter = result_dict.get("prev_check_iter", -1)
             interval  = b_iter - prev_iter
-            has_prev  = (math.isfinite(e_prev) and math.isfinite(e_final) and
+            # Geometric-rate extrapolation r_est=(e_final/e_prev)^(1/interval)
+            # models linear convergence (e_k ~ C*r^k) — valid only for
+            # geometrically-convergent solvers (raking/sinkhorn/greenkhorn). NOT
+            # valid for oris: under active box constraints its convergence is
+            # piecewise-linear / slow-rate O(t^-1/2), so a geometric "iterations
+            # needed" projection is meaningless. This also avoids the y2ks.13
+            # clamp-state split (post-clamp best_error vs pre-clamp
+            # metric_prev_check). Keyed on resolved algorithm_used (int):
+            # 1 = RK_ALG_ORIS, 8 = RK_ALG_ORIS_SOFT (c_api.cpp static_assert).
+            is_oris   = result_dict.get("algorithm_used") in (1, 8)
+            has_prev  = (not is_oris and
+                         math.isfinite(e_prev) and math.isfinite(e_final) and
                          e_prev > e_final > 0 and
                          interval > 0 and
                          math.isfinite(tol_used) and tol_used > 0)
