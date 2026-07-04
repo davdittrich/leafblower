@@ -20,6 +20,7 @@
 #'   \code{"NA"} bin?
 #' @return Logical vector, same length as \code{col}.
 #' @keywords internal
+#' @noRd
 .encode_na_bin_mask <- function(col, target_has_na) {
   is_na <- is.na(col)
   if (!target_has_na) return(is_na)
