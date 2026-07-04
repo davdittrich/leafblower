@@ -28,3 +28,7 @@ test   = ["pytest"]
 [tool.scikit-build]
 cmake.build-type = "Release"
 wheel.packages    = ["leafblower"]
+# xc1s.13(a): the test_*.py files live inside the package dir (so the editable install
+# discovers them for pytest), but ship ~2500 LOC of tests in the distributed wheel.
+# Exclude them from the wheel artifact only; the editable/source tree keeps them.
+wheel.exclude     = ["leafblower/test_*.py"]
