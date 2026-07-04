@@ -173,10 +173,10 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     {
         rk_result_t tmp = {};
         const double mw_save = st.max_weight;
-        // Homotopy only APPLIES end_factor when active (N_levels>1 forces factor=1.0
-        // otherwise), so lift the capacity (sum_U) bound to the loosest final level
-        // ONLY then — else validate against base max_weight and correctly reject a
-        // genuinely base-infeasible problem.
+        // Homotopy only APPLIES the factors when active (N_levels>1 forces factor=1.0
+        // otherwise), so lift the capacity (sum_U) bound to the LOOSEST level the
+        // geometric schedule ever runs ONLY then — else validate against base
+        // max_weight and correctly reject a genuinely base-infeasible problem.
         const bool homotopy_on = (st.homotopy.n_levels > 1);
         // The per-cell min<=max relationship must hold at the TIGHTEST level the
         // solver runs (min(start,end)*max_weight); lifting max_weight for the capacity
@@ -190,7 +190,14 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 return res;
             }
         }
-        st.max_weight = mw_save * (homotopy_on ? std::max(1.0, st.homotopy.end_factor) : 1.0);
+        // j7x8.23: check capacity against the LOOSEST level = mw_save*max(start,end),
+        // NOT max(1.0,end_factor). The old form ignored start_factor (false-rejecting a
+        // start>end problem that homotopy_break would solve at an early loose level) and
+        // clamped below-base schedules up to base (under-rejecting). Rejecting on the
+        // loosest is a valid NECESSARY infeasibility: if even the loosest bound cannot
+        // fit the target mass, no scheduled level can.
+        st.max_weight = mw_save * (homotopy_on
+            ? std::max(st.homotopy.start_factor, st.homotopy.end_factor) : 1.0);
         const int vrc = calib_validate_preentry(ct, st, &tmp, X_init.data(), /*n_cats_total=*/0);
         st.max_weight = mw_save;
         if (vrc != RK_OK) {
