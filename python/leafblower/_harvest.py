@@ -144,11 +144,15 @@ def _parse_convergence(conv):
     # in (0,1); enforce it on BOTH the explicit `tol` and the `pct` shorthand entry
     # paths (R applies the identical range check to each). Without this Python
     # silently accepted convergence={'pct':5} / {'tol':5,'rule':'plateau'} that R rejects.
+    # 5ye4.17: `not (0 < x < 1)` already rejects NaN/Inf (the chained compare is False),
+    # so the accept/reject decision is parity with R. Use the identical canonical message
+    # as the R bridge (harvest.R) — previously R threw base-R's "missing value where
+    # TRUE/FALSE needed" on a NaN tol while Python raised a range message.
     if rule_str == "plateau":
         if "tol" in conv and not (0.0 < tol < 1.0):
-            raise ValueError("convergence['tol'] must be in (0,1) for rule='plateau'")
+            raise ValueError("convergence tol must be a finite value in (0,1) for rule='plateau'")
         if explicit_pct and not (0.0 < pct_tol < 1.0):
-            raise ValueError("convergence['pct'] must be in (0,1) for rule='plateau'")
+            raise ValueError("convergence pct must be a finite value in (0,1) for rule='plateau'")
 
     return pct_tol, absolute_tol, _METRIC_MAP[metric_str], _RULE_MAP[rule_str], _STOP_WHEN_MAP[stop_when_str]
 

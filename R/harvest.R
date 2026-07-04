@@ -197,12 +197,20 @@
 #'           max_k|misfit|/(1+|pop|).
 #'         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},
 #'           \code{tol}, and \code{fired_at_iter} documenting which criterion fired.
-#'         \item \code{best_error}: minimum marginal error seen across all iterates.
+#'         \item \code{best_error}: the convergence-metric value (the
+#'           \code{convergence_used$metric} family) associated with the returned result.
+#'           For the acceleration / ORIS finalize path this is RECOMPUTED on the
+#'           finalized, bound-clamped, \code{n}-normalized weights that are actually
+#'           returned (y2ks.13) — it reflects the returned solution and is no longer a
+#'           minimum-across-iterates value, so it need not equal the metric at
+#'           \code{best_weights}. Surfaced verbatim in the budget/stall warning.
 #'         \item \code{best_weights}: numeric vector (length \code{n}, sum normalized to
-#'           \code{n}) at the iterate with minimum observed marginal error. When
-#'           \code{best_error} is \code{Inf} (solver exited before the first convergence
-#'           check), \code{best_weights} is all-zero. Guard:
-#'           \code{if (is.finite(attr(r, "result")$best_error))} before use.
+#'           \code{n}) at the best iterate the solver tracked, finalized through the same
+#'           \code{Σw=n} + bounds contract. It is a DIFFERENT solution from the returned
+#'           weights and from the \code{best_error} reference above. It is all-zero when
+#'           the solver recorded no best iterate (exited before the first convergence
+#'           check); guard with \code{if (sum(attr(r, "result")$best_weights) > 0)}
+#'           before use.
 #'         \item \code{convergence_used$convergence_reason}: Character.
 #'           Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
 #'           \code{"budget"} (budget exhausted — increase max_iterations),
@@ -782,20 +790,23 @@ harvest <- function(
       }
     }
   }
-  if (calib_result$status == 5L && isTRUE(accelerate_bool))
+  # dtkn.15: guard the bare status-equality branches (NULL == 5L → logical(0), which
+  # errors in `if`), matching the 2L/3L/4L guards (dtkn.10). Defensive-parity only —
+  # the C layer always returns a status.
+  if (!is.null(calib_result$status) && calib_result$status == 5L && isTRUE(accelerate_bool))
     warning("leafblower: SRAA-m weight-change plateau — at constrained optimum; ",
             "weights are valid; no further improvement is achievable")
-  if (calib_result$status == 5L && !isTRUE(accelerate_bool))
+  if (!is.null(calib_result$status) && calib_result$status == 5L && !isTRUE(accelerate_bool))
     warning("leafblower: loss function plateau — at constrained optimum given bounds; ",
             "weights are valid; no further improvement is achievable")
-  if (calib_result$status == 1L)
+  if (!is.null(calib_result$status) && calib_result$status == 1L)
     warning("leafblower: did not converge (legacy status code from solver not yet updated)")
 
   # Stall detection: PCT converged (status=0) but max_error >> pct_tol
   # signals infeasible problem. Threshold: 10x pct_tol.
   # Threshold derivation: well-posed problems have errRp/pct_change ratio 1-5x;
   # infeasible stalls show 100x+; 10x cleanly separates the two regimes.
-  if (calib_result$status == 0L &&
+  if (!is.null(calib_result$status) && calib_result$status == 0L &&
       conv$metric %in% c("max_err", "mean_err") &&
       !is.null(conv$pct_tol) && conv$pct_tol > 0 &&
       !is.null(calib_result$max_error) &&
@@ -1027,16 +1038,19 @@ parse_convergence <- function(convergence) {
     } else {
       pct_tol <- tol_val
     }
-    if (rule == "plateau" && (tol_val <= 0 || tol_val >= 1))
-      stop("convergence$tol must be in (0,1) for rule='plateau'")
+    # 5ye4.17: check finiteness FIRST — a NaN/Inf tol makes `tol_val <= 0` return NA,
+    # which throws base-R's "missing value where TRUE/FALSE needed" before this stop().
+    # The canonical (bridge-neutral) message matches the Python bridge exactly.
+    if (rule == "plateau" && (!is.finite(tol_val) || tol_val <= 0 || tol_val >= 1))
+      stop("convergence tol must be a finite value in (0,1) for rule='plateau'")
   }
 
   # CR-F9 (dtkn.9): the (0,1) plateau range check above guarded ONLY the explicit
   # `tol` entry path. The `pct` shorthand (convergence=list(pct=5)) resolves to the
   # same plateau pct_tol but bypassed it, silently admitting values the long form
   # rejects. Apply the identical range check to the resolved pct-shorthand tol.
-  if (explicit_pct && rule == "plateau" && (pct_tol <= 0 || pct_tol >= 1))
-    stop("convergence$pct must be in (0,1) for rule='plateau'")
+  if (explicit_pct && rule == "plateau" && (!is.finite(pct_tol) || pct_tol <= 0 || pct_tol >= 1))
+    stop("convergence pct must be a finite value in (0,1) for rule='plateau'")
 
   stop_when <- match_exact(convergence[["stop_when"]] %||% "any", c("any", "all"),
                            "convergence$stop_when")

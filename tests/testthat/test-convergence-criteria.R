@@ -336,7 +336,7 @@ test_that("A4b: plateau rule rejects tol >= 1", {
       convergence = list(rule = "plateau", tol = 1.5),
       attach_weights = FALSE
     ),
-    regexp = "must be in"
+    regexp = "must be a finite value in \\(0,1\\)"
   )
 })
 
@@ -526,11 +526,11 @@ test_that("dtkn.9: pct shorthand out-of-range errors like explicit tol (CR-F9)",
   # convergence=list(pct=5) resolved to rule='plateau' pct_tol=5 and was silently
   # accepted while list(tol=5, rule='plateau') errored. Both must reject now.
   expect_error(leafblower:::parse_convergence(list(tol = 5, rule = "plateau")),
-               "convergence\\$tol must be in \\(0,1\\)")
+               "convergence tol must be a finite value in \\(0,1\\)")
   expect_error(leafblower:::parse_convergence(list(pct = 5)),
-               "convergence\\$pct must be in \\(0,1\\)")
+               "convergence pct must be a finite value in \\(0,1\\)")
   expect_error(leafblower:::parse_convergence(list(pct = 500, rule = "plateau")),
-               "convergence\\$pct must be in \\(0,1\\)")
+               "convergence pct must be a finite value in \\(0,1\\)")
   # Valid pct shorthand still accepted; boundary 0/1 rejected.
   expect_silent(leafblower:::parse_convergence(list(pct = 0.001)))
   expect_error(leafblower:::parse_convergence(list(pct = 1)),  "in \\(0,1\\)")

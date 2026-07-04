@@ -272,12 +272,20 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
           max_k|misfit|/(1+|pop|).
         \item \code{convergence_used}: Named list with \code{metric}, \code{rule},
           \code{tol}, and \code{fired_at_iter} documenting which criterion fired.
-        \item \code{best_error}: minimum marginal error seen across all iterates.
+        \item \code{best_error}: the convergence-metric value (the
+          \code{convergence_used$metric} family) associated with the returned result.
+          For the acceleration / ORIS finalize path this is RECOMPUTED on the
+          finalized, bound-clamped, \code{n}-normalized weights that are actually
+          returned (y2ks.13) — it reflects the returned solution and is no longer a
+          minimum-across-iterates value, so it need not equal the metric at
+          \code{best_weights}. Surfaced verbatim in the budget/stall warning.
         \item \code{best_weights}: numeric vector (length \code{n}, sum normalized to
-          \code{n}) at the iterate with minimum observed marginal error. When
-          \code{best_error} is \code{Inf} (solver exited before the first convergence
-          check), \code{best_weights} is all-zero. Guard:
-          \code{if (is.finite(attr(r, "result")$best_error))} before use.
+          \code{n}) at the best iterate the solver tracked, finalized through the same
+          \code{Σw=n} + bounds contract. It is a DIFFERENT solution from the returned
+          weights and from the \code{best_error} reference above. It is all-zero when
+          the solver recorded no best iterate (exited before the first convergence
+          check); guard with \code{if (sum(attr(r, "result")$best_weights) > 0)}
+          before use.
         \item \code{convergence_used$convergence_reason}: Character.
           Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
           \code{"budget"} (budget exhausted — increase max_iterations),

@@ -64,6 +64,19 @@ def test_explicit_tol_plateau_in_range_accepted():
     assert abs(pct_tol - 0.01) < 1e-15
 
 
+# ── 5ye4.17: non-finite tol/pct rejected with the canonical finite-value message ──
+def test_plateau_nonfinite_tol_rejected_finite_message():
+    for bad in (float("nan"), float("inf")):
+        with pytest.raises(ValueError, match=r"tol.*finite.*\(0,1\).*plateau"):
+            _parse_convergence({"tol": bad, "rule": "plateau"})
+
+
+def test_plateau_nonfinite_pct_rejected_finite_message():
+    for bad in (float("nan"), float("inf")):
+        with pytest.raises(ValueError, match=r"pct.*finite.*\(0,1\).*plateau"):
+            _parse_convergence({"pct": bad})
+
+
 # ── non-plateau rules are unaffected (tol range is a plateau-only contract) ───
 def test_threshold_rule_large_tol_unaffected():
     # rule='threshold' with tol=5 is a valid absolute stopping criterion, not plateau.
