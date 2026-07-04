@@ -75,10 +75,33 @@ RakingResult raking_solve(CalibState& st) {
     auto cells_per_cat = lbw::build_cells_per_cat(ct, st.K, st.cat_counts);
 
     // Pre-allocated scratch for water-filling inner loop.
+    // jy0m.1 (CR-C5b.1) box-feasibility certificate: fold a per-margin infeasibility
+    // scan into the same (k,j) pass. Margin (k,j) is PROVABLY infeasible iff its
+    // target mass T_kj·n lies outside the achievable band [Σ L_cell, Σ U_cell] over
+    // its cells — a rigorous NECESSARY condition with ZERO fitted threshold, reusing
+    // L_cell/U_cell/cells_per_cat already built above. A box-infeasible margin denies
+    // RK_OK even at errRp≤1pp ⇒ the run falls through to the STALL detector
+    // (constrained optimum, weights valid), never a false convergence. Uses the
+    // ACTUAL L_cell/U_cell arrays (not a min_w·n_kj approximation). Necessary-not-
+    // sufficient (misses JOINT infeasibility) but a strict superset over the errRp-
+    // only gate. Analogous to oris preentry sum_U (oris.cpp) which raking lacked.
     int wf_max_cat = 0;
+    bool any_box_infeasible = false;
     for (int k = 0; k < st.K; k++)
-        for (int j = 0; j < st.cat_counts[k]; j++)
-            wf_max_cat = std::max(wf_max_cat, (int)cells_per_cat[k][j].size());
+        for (int j = 0; j < st.cat_counts[k]; j++) {
+            const auto& cells_kj = cells_per_cat[k][j];
+            wf_max_cat = std::max(wf_max_cat, (int)cells_kj.size());
+            double box_lo = 0.0, box_hi = 0.0;
+            for (int ci = 0; ci < (int)cells_kj.size(); ci++) {
+                box_lo += L_cell[cells_kj[ci]];
+                box_hi += U_cell[cells_kj[ci]];
+            }
+            const double target_mass = st.targets[k][j] * static_cast<double>(st.n);
+            const double box_eps = 1e-9;
+            if (target_mass < box_lo * (1.0 - box_eps) ||
+                target_mass > box_hi * (1.0 + box_eps))
+                any_box_infeasible = true;
+        }
     std::vector<double>  wf_x_orig(wf_max_cat);
     std::vector<uint8_t> wf_status(wf_max_cat);
 
@@ -378,22 +401,28 @@ RakingResult raking_solve(CalibState& st) {
             auto r = lbw::sraa_step(F_eval, X, L_cell, U_cell, rk_sraa);
             if (!r.aa_accepted && r.f_evals == 2) last_F_metrics = saved_metrics;
             f_evals_used += r.f_evals;
+            // jy0m.3 (CR-C5b.3): compute l1 (obs-level Σ|ΔX|/n) and write it into
+            // last_F_metrics BEFORE any select_metric read below. compute_cell_metrics
+            // never sets CellMetrics.l1 (stays 0), so metric="l1_weight"/"pct" +
+            // absolute_tol>0 would read a phantom 0 < tol ⇒ spurious convergence that
+            // bypasses the feasibility gate. CR-C6 (kxna.6) also surfaces l1 on the
+            // SRAA path (mirrors flat loop :437-442, reusing function-scope X_prev;
+            // final value is the last accepted step's Σ|ΔX|/n). On AA-rejection
+            // last_F_metrics was restored from saved_metrics (:402) then is overwritten
+            // fresh here — always current.
+            {
+                double l1_sraa = 0.0;
+                for (int c = 0; c < ct.M_cell; c++) l1_sraa += std::fabs(X[c] - X_prev[c]);
+                res.base.l1_weight_change = l1_sraa / static_cast<double>(st.n);
+                last_F_metrics.l1 = res.base.l1_weight_change;
+                for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
+            }
+
             // hhmk: use last_F_metrics.errRp (accepted iterate) instead of removed
             // r.err_rp fast-proxy. select_metric() honors cfg.metric.
             const double sraa_metric_val = lbw::select_metric(st.convergence_cfg.metric, last_F_metrics);
             res.base.max_error  = last_F_metrics.errRp;
             res.base.iterations = f_evals_used;
-
-            // CR-C6 (kxna.6): l1 weight change on the SRAA path (last_F_metrics has
-            // no l1 — obs-level, not computed by compute_cell_metrics). Mirrors the
-            // flat loop (:437-442) reusing the function-scope X_prev; final value is
-            // the last accepted step's Σ|ΔX|/n.
-            {
-                double l1_sraa = 0.0;
-                for (int c = 0; c < ct.M_cell; c++) l1_sraa += std::fabs(X[c] - X_prev[c]);
-                res.base.l1_weight_change = l1_sraa / static_cast<double>(st.n);
-                for (int c = 0; c < ct.M_cell; c++) X_prev[c] = X[c];
-            }
 
             // Best-iterate tracking (uses cfg-specified metric, not max_err proxy)
             if (sraa_metric_val < best.best_metric) {
@@ -439,11 +468,46 @@ RakingResult raking_solve(CalibState& st) {
                         st.convergence_cfg.absolute_tol > 0.0 &&
                         lbw::select_metric(st.convergence_cfg.metric, m_conv)
                             < st.convergence_cfg.absolute_tol;
-                    if (last_F_metrics.errRp <= kRakingFeasTol || user_abs_met) {
+                    // jy0m.1: a box-infeasible margin (target mass outside [ΣL,ΣU])
+                    // denies RK_OK even at errRp≤1pp — falls through to the SRAA STALL
+                    // detector (jy0m.2) as a constrained optimum.
+                    if ((last_F_metrics.errRp <= kRakingFeasTol || user_abs_met) && !any_box_infeasible) {
                         lbw::mark_converged(res, st.convergence_cfg, f_evals_used, st.tol_abs);
                         break;
                     }
                 }
+            }
+
+            // jy0m.2 (CR-C5b.2): STALL detector for the SRAA path, mirroring the flat
+            // loop (:597-620). A bounds-blocked / box-infeasible plateau (metric frozen,
+            // margins unmet) exits STALL(5) — constrained optimum, weights valid —
+            // instead of running to f_evals exhaustion → BUDGET(4). mark_converged
+            // above fires first on genuine convergence (and breaks), so this only trips
+            // on real plateaus (no feasible-run regression). Reuses the function-scope
+            // min_loss_window/n_no_improve (init :121-122); the flat path is the sibling
+            // branch and never co-runs. Like the flat STALL, this suppresses the
+            // method="auto" newton_kl fallback (gated on NOCONV||BUDGET, not STALL):
+            // a box-infeasible / constrained-optimum plateau shares the same bounds, so
+            // newton_kl cannot recover — STALL best-effort weights are returned instead.
+            if (!std::isfinite(min_loss_window)) {
+                min_loss_window = sraa_metric_val; n_no_improve = 0;
+            } else if (sraa_metric_val < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
+                min_loss_window = sraa_metric_val; n_no_improve = 0;
+            } else {
+                n_no_improve++;
+            }
+            if (n_no_improve >= kMaxNoImprove) {
+                res.base.status     = RK_ERR_STALL;
+                res.base.stall_kind = 1;  // errRp/SRAA-path plateau (wchange family)
+                if (st.verbose >= 1) {
+                    char smsg[256];
+                    std::snprintf(smsg, 256,
+                        "raking[sraa]: stalled for %d consecutive checks "
+                        "(metric=%.2e); aborting at f_evals=%d.",
+                        n_no_improve, sraa_metric_val, f_evals_used);
+                    st.log(smsg);
+                }
+                break;
             }
 
             if (st.verbose >= 1) {
@@ -554,7 +618,9 @@ RakingResult raking_solve(CalibState& st) {
                         st.convergence_cfg.absolute_tol > 0.0 &&
                         lbw::select_metric(st.convergence_cfg.metric, m_conv)
                             < st.convergence_cfg.absolute_tol;
-                    if (errRp <= kRakingFeasTol || user_abs_met) {
+                    // jy0m.1: box-infeasible margin denies RK_OK even at errRp≤1pp —
+                    // falls through to the STALL detector below (constrained optimum).
+                    if ((errRp <= kRakingFeasTol || user_abs_met) && !any_box_infeasible) {
                         // Converged — do NOT override with INFEAS here. water_fill_cat may
                         // transiently set is_infeasible when cells temporarily hit U_cell during
                         // convergence. INFEAS only overrides on stall (post-loop check below).
@@ -592,8 +658,8 @@ RakingResult raking_solve(CalibState& st) {
                 if (n_no_improve >= kMaxNoImprove) {
                     res.base.status           = RK_ERR_STALL;
                     res.base.stall_kind       = 2;  // kl: metric/loss plateau (plain-IPF path)
-                    // leafblower-8eod: stall_kind=2 (kl) because this branch is
-                    // !st.accelerate (raking.cpp:392); SRAA path does not emit RK_ERR_STALL.
+                    // leafblower-8eod: stall_kind=2 (kl) on this !st.accelerate branch;
+                    // the SRAA path emits RK_ERR_STALL with stall_kind=1 (jy0m.2).
                     if (st.verbose >= 1) {
                         char msg[256];
                         std::snprintf(msg, 256,
