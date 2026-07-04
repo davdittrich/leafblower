@@ -53,6 +53,20 @@ def test_1arg_valid_ok():
     assert abs(design_effect(np.ones(10)) - 1.0) < 1e-12  # equal weights → deff == 1
 
 
+# ── 5ye4.18: non-numeric weights rejected (parity with R is.numeric) ──
+def test_1arg_string_weights_rejected():
+    # numpy would silently parse "1.5" → 1.5; R's is.numeric() rejects a character
+    # vector, so Python must too.
+    with pytest.raises(ValueError, match="numeric"):
+        design_effect(["1.0", "2.0", "3.0"])
+
+
+def test_1arg_bool_weights_rejected():
+    # is.numeric(logical) == FALSE in R; np.number excludes bool.
+    with pytest.raises(ValueError, match="numeric"):
+        design_effect(np.array([True, False, True]))
+
+
 # ── 4-arg path (Henry & Valliant deff_H) — same contract, was fully bypassed ─
 def test_4arg_nan_rejected():
     w, outcome, data, target = _valid4()

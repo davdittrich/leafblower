@@ -38,7 +38,15 @@ def design_effect(
     All numerical computation is in C++17; R + Python wrappers produce
     byte-identical output by construction.
     """
-    weights = np.ascontiguousarray(weights, dtype=np.float64)
+    # 5ye4.18: reject non-numeric weights BEFORE coercion, mirroring R's is.numeric()
+    # (design_effect.R:39). np.ascontiguousarray(..., float64) would otherwise silently
+    # parse a numeric string like "1.5" → 1.5, diverging from R (which rejects
+    # character/logical weights). np.number excludes bool, matching is.numeric(logical)
+    # == FALSE, so no separate bool clause is needed.
+    warr = np.asarray(weights)
+    if not np.issubdtype(warr.dtype, np.number):
+        raise ValueError("design_effect: weights must be a numeric vector")
+    weights = np.ascontiguousarray(warr, dtype=np.float64)
     # CR-F7b (5ye4.16): enforce the documented weight contract (no NA, all finite,
     # sum > 0) on BOTH the 1-arg and 4-arg paths, mirroring R design_effect.R:41-46.
     # Previously neither path validated weights, silently passing NaN/Inf/zero-sum to C.
