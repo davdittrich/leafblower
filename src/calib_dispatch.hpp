@@ -432,6 +432,42 @@ inline void finalize_weights(CalibState& st, const CellTable& ct,
     finalize_weights_buf(st.weights, st.n, st, ct, n_bounds_violated, n_bounds_clamped);
 }
 
+/// kxna.20 (CR-C7c): re-gate a converged unit-mode result on the POST-finalize
+/// returned margin error. In bounds_mode="unit" the per-obs water-fill
+/// (finalize_weights_buf) can leave a fully-pinned cell (feasible mass >
+/// M_cell*max_weight) off-target AFTER the solver already set RK_OK on the
+/// pre-finalize cell iterate, so the RETURNED weights miss margins while status
+/// reads 0. Demote RK_OK -> RK_ERR_STALL (best-effort valid weights at a
+/// bounds-constrained optimum; NOT hard INFEAS — matches jy0m.1/.2 + harvest.R
+/// STALL vocabulary) when the returned error exceeds the solver's tolerance bar.
+///
+/// `post_finalize_max_error` MUST be the PROPORTION-space margin error of the
+/// RETURNED weights (e.g. logit abs/n_d, or compute_cell_metrics(...).errRp on
+/// the finalized obs weights aggregated to cells). The threshold is st.tol_abs,
+/// also proportion-space — this mirrors each solver's own convergence bar (e.g.
+/// logit's max_abs_resid <= tol_abs*n  ==  max_error <= tol_abs). A feasible
+/// problem that reaches RK_OK drives the returned error to ~machine-zero (the
+/// improvement rule converges to precision), so this never false-demotes a
+/// genuinely-calibrated unit run; only water-fill drift on a bounds-infeasible
+/// cell produces RK_OK + a large returned error.
+///
+/// Passed explicitly (not read from base.max_error) because greenkhorn locks
+/// base.max_error to a configured-metric scale (CXX.2) — a units mismatch. A NaN
+/// error does NOT demote (the NaN surfaces via the weights + reported metric;
+/// masking it into a status is wrong, per finalize_weights_buf NaN contract).
+/// Cell-mode has no water-fill mass shift, so it is untouched. Never clobbers an
+/// already-non-OK status (e.g. an INFEAS promotion that ran first wins).
+inline void regate_unit_status(CalibResult& base, const CalibState& st,
+                               double post_finalize_max_error) noexcept {
+    if (base.status == RK_OK && st.bounds_mode == RK_BOUNDS_UNIT &&
+        std::isfinite(post_finalize_max_error) &&
+        post_finalize_max_error > st.tol_abs) {
+        base.status           = RK_ERR_STALL;
+        base.stall_kind       = 2;   // at a bounds-constrained optimum (harvest: "stall_kl")
+        base.convergence_iter = -1;  // no valid convergence — matches other non-OK exits
+    }
+}
+
 /// Builds prefix-sum cat_offset[k] and returns n_cats_total.
 /// cat_offset[k] = sum of cat_counts[0..k-1].
 inline int build_cat_offset(int K, const int* cat_counts,

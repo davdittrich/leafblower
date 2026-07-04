@@ -367,6 +367,24 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     // Unchanged (CXX.2 contract; CR-C3 deferred): best-iterate configured-metric scale.
     res.base.max_error = best.best_metric;
 
+    // kxna.20 (CR-C7c): re-gate RK_OK on the post-finalize RETURNED margin error in
+    // bounds_mode="unit". The per-obs water-fill (finalize_weights_buf at L364) can leave
+    // a fully-pinned cell off-target after status was set RK_OK on the cell iterate.
+    // res.base.max_error is locked to the configured-metric scale (CXX.2, a units mismatch
+    // for the proportion re-gate), so compute the returned errRp LOCALLY for the status
+    // re-gate only — reported max_error is left untouched.
+    if (st.bounds_mode == RK_BOUNDS_UNIT) {
+        std::vector<double> X_ret(ct.M_cell, 0.0);
+        for (int i = 0; i < st.n; i++) X_ret[ct.cell_of[i]] += res.base.best_weights[i];
+        double W_ret = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) W_ret += X_ret[c];
+        if (W_ret > 0.0) {
+            const lbw::CellMetrics cmr =
+                lbw::compute_cell_metrics(st, ct, X_ret, W_ret, bucket_scratch);
+            lbw::regate_unit_status(res.base, st, cmr.errRp);
+        }
+    }
+
     return res;
 }
 

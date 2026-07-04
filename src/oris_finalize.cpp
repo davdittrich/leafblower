@@ -270,6 +270,27 @@ void oris_finalize(
         res.base.status = RK_ERR_INFEAS;
     }
 
+    // kxna.20 (CR-C7c): re-gate RK_OK on the post-finalize RETURNED margin error in
+    // bounds_mode="unit". The per-obs water-fill (finalize_weights at L161) can leave a
+    // fully-pinned cell off-target after status was set RK_OK on the pre-finalize cell
+    // iterate. Structural infeasibility already promoted to INFEAS above (wins); here a
+    // remaining RK_OK with a drifted returned margin is demoted to STALL. Recompute the
+    // returned errRp LOCALLY (both SRAA and non-SRAA unit paths) so the reported
+    // res.base.max_error/best_error — set to metric-family values on the SRAA path
+    // (L212/224) — are left untouched. compute_cell_metrics is a cold once-per-solve pass.
+    if (st.bounds_mode == RK_BOUNDS_UNIT) {
+        std::vector<double> X_ret(ct.M_cell, 0.0);
+        for (int i = 0; i < st.n; i++) X_ret[ct.cell_of[i]] += st.weights[i];
+        double W_ret = 0.0;
+        for (int c = 0; c < ct.M_cell; c++) W_ret += X_ret[c];
+        if (W_ret > 0.0) {
+            std::vector<double> S_scratch(lbw::max_cats_count(st.K, st.cat_counts));
+            const lbw::CellMetrics cmr =
+                lbw::compute_cell_metrics(st, ct, X_ret, W_ret, S_scratch);
+            lbw::regate_unit_status(res.base, st, cmr.errRp);
+        }
+    }
+
     if (st.verbose >= 1) {
         const char* status_label =
             (res.base.status == RK_OK) ? "converged" :

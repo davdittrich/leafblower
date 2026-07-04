@@ -586,6 +586,12 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         l1_wc += std::fabs(res.base.best_weights[i] - st.weights[i]);
     res.base.l1_weight_change = l1_wc / static_cast<double>(st.n);
 
+    // kxna.20 (CR-C7c): in bounds_mode="unit" the per-obs water-fill above can leave a
+    // fully-pinned cell off-target after status was set RK_OK on the pre-finalize cell
+    // iterate. res.base.max_error is the RETURNED margin error (abs/n_d, proportion,
+    // post-finalize at L553), so re-gate on it directly (no second recompute).
+    lbw::regate_unit_status(res.base, st, res.base.max_error);
+
     return res;
 }
 

@@ -386,7 +386,12 @@ test_that("T2: oris_soft method exists and respects max_weight", {
   w <- as.numeric(r)
   expect_true(max(w) <= 2.0 + 1e-9, label="oris_soft wmax <= max_weight")
   expect_true(min(w) >= 0.0 - 1e-9, label="oris_soft wmin >= min_weight")
-  expect_equal(attr(r, "result")$status, 0L)
+  # kxna.20: this fixture is bounds-INFEASIBLE in unit mode — X is ~30% of obs (~614)
+  # but target 0.8 needs 1600 mass, while capacity at max_weight=2.0 is only ~1228. The
+  # returned weights (correctly) miss the X margin (max_error ~0.043). Pre-kxna.20 the
+  # status was a false RK_OK on the pre-finalize cell iterate; the unit re-gate now demotes
+  # it to STALL(5). Bounds are still respected (asserted above) — even in STALL.
+  expect_equal(attr(r, "result")$status, 5L)
 })
 
 # ── T3: oris_soft no worse than oris on tight-bounds problem ──
