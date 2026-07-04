@@ -503,11 +503,11 @@ harvest <- function(
   }
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
 
+  # parse_bounds_mode() is match.arg-based over c("cell","unit"), so it either
+  # returns one of those or errors — bounds_mode_int can never be NA (CR-H13(d):
+  # removed the unreachable is.na guard).
   bounds_mode_char <- parse_bounds_mode(bounds_mode)
   bounds_mode_int  <- match(bounds_mode_char, c("cell", "unit")) - 1L
-  if (is.na(bounds_mode_int))
-    stop(sprintf("bounds_mode must be one of 'cell' or 'unit'; got: %s",
-                 format(bounds_mode_char)), call. = FALSE)
 
   # Overlay arg resolution
   scheduler    <- match.arg(scheduler)

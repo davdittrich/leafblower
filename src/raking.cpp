@@ -255,7 +255,10 @@ RakingResult raking_solve(CalibState& st) {
 
             // errRp_k for Greedy: pre-water-fill residual (how bad margin is NOW).
             // Must be computed BEFORE water-fill — post-fill residual is always near zero.
-            if (W_total > 0.0) {
+            // CR-H13(i): the greedy margin-sort above is the ONLY consumer of
+            // errRp_k, so skip the O(cat) residual scan when greedy is inactive
+            // (default round_robin; greedy is also force-demoted under SRAA).
+            if (use_greedy_effective && W_total > 0.0) {
                 double ek = 0.0;
                 for (int j = 0; j < st.cat_counts[k]; j++) {
                     double e = std::fabs(bucket[j] / W_total - st.targets[k][j]);
