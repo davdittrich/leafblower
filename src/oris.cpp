@@ -974,6 +974,12 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
             // Clear both here (no-op in the flat context: lf_best is empty, revert SRAA-only).
             sraa_has_best = false;
             std::fill(lf_best.begin(), lf_best.end(), 0.0);
+            // u0hp (CR-B12b): the parallel LfCaptureGuard snapshot (written with lf_best
+            // at the :1202 best-record site) must reset too — otherwise a post-fallback
+            // LfCaptureGuard would emit the STALE linear-space snapshot the moment
+            // lf_capture is wired. Inert today (every caller passes lf_capture=nullptr).
+            lf_best_snap_set = false;
+            std::fill(lf_best_snap.begin(), lf_best_snap.end(), 0.0);
             sraa_best_errRp      = std::numeric_limits<double>::infinity();
             nat_metric_prev_sraa = std::numeric_limits<double>::infinity();
             nat_iter_prev_sraa   = -1;
