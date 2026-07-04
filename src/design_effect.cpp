@@ -94,22 +94,32 @@ int design_effect_compute(
             "K=%d requires non-null data_codes + cat_counts", K);
         return RK_ERR_BADARG;
     }
-    int p = 0;
+    // j7x8.22: accumulate the residual dof in size_t — each term is <= n <= INT_MAX,
+    // but the running SUM Σ(cat_counts[k]-1) overflows int on many-margins input (e.g.
+    // K=1e5, n=1e5 → ~1e10). Signed int overflow is UB; a wrapped-negative p would skip
+    // the p>0 guard and sign-extend into a huge alloc. Reject p > INT_MAX before the
+    // int narrowing below (all downstream uses index/dim with int p).
+    std::size_t p_acc = 0;
     for (int k = 0; k < K; ++k) {
         if (cat_counts[k] < 2) {
             std::snprintf(out->message, sizeof(out->message),
                 "cat_counts[%d]=%d must be >= 2", k, cat_counts[k]);
             return RK_ERR_BADARG;
         }
-        // CR-D14: cap cat_counts at n (mirror validation.cpp:47) so the int `p`
-        // accumulation below cannot overflow before the n*p guard runs.
+        // CR-D14: cap cat_counts at n (mirror validation.cpp:47).
         if (cat_counts[k] > n) {
             std::snprintf(out->message, sizeof(out->message),
                 "cat_counts[%d]=%d > n=%d: more categories than observations", k, cat_counts[k], n);
             return RK_ERR_BADARG;
         }
-        p += cat_counts[k] - 1;
+        p_acc += static_cast<std::size_t>(cat_counts[k] - 1);
     }
+    if (p_acc > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+        std::snprintf(out->message, sizeof(out->message),
+            "total residual dof p=%zu exceeds INT_MAX: too many margins for platform", p_acc);
+        return RK_ERR_BADARG;
+    }
+    const int p = static_cast<int>(p_acc);
     // CR-D14 (j7x8.14): guard n*K (data_codes index) and n*p (design matrix) against
     // size_t overflow before any indexing, mirroring validation.cpp's overflow guard.
     if ((K > 0 && static_cast<std::size_t>(n) > SIZE_MAX / static_cast<std::size_t>(K)) ||
