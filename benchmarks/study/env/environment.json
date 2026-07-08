@@ -1,0 +1,120 @@
+{
+  "captured_at_utc": "2026-07-08T20:43:33.232008Z",
+  "captured_by": "WU-10 (leafblower-2ouc.11)",
+  "leafblower_git_sha": "7d0760ceebe05ff8bca6daf4d1f74b5760efcef3",
+  "leafblower_git_dirty": true,
+  "leafblower_version": "0.1.0",
+  "os": {
+    "distro": "Arch Linux (rolling, BUILD_ID=rolling)",
+    "kernel": "7.1.2-arch3-1",
+    "arch": "x86_64"
+  },
+  "cpu": {
+    "model": "AMD Ryzen 9 9950X3D 16-Core Processor",
+    "cores_physical": 16,
+    "threads_logical": 32,
+    "smt": true,
+    "numa_nodes": 1
+  },
+  "hardware_state_for_timed_runs": {
+    "_note": "CAPTURED CURRENT STATE, NOT YET DESIGN.md-Sec5-CONFORMANT. DESIGN.md Sec5 (Blocker F) requires governor=performance, turbo/boost DISABLED, fixed-core taskset/numactl pinning, asserted at harness start (WU-11/run_all.sh's job, not WU-10's). Recorded here so that gap is visible before CORE runs begin.",
+    "cpu_governor_all_cores": "powersave",
+    "cpu_governor_required_for_timed_runs": "performance",
+    "cpu_governor_conformant": false,
+    "turbo_boost_enabled": true,
+    "turbo_boost_required_for_timed_runs": "disabled",
+    "turbo_boost_conformant": false,
+    "core_pinning_active": false,
+    "core_pinning_mechanism_planned": "taskset/numactl (WU-11)"
+  },
+  "r": {
+    "version": "4.6.1",
+    "version_string": "R version 4.6.1 (2026-06-24) -- \"Happy Hop\"",
+    "platform": "x86_64-pc-linux-gnu",
+    "user_lib_path": "/home/dd/R/x86_64-pc-linux-gnu-library/4.6",
+    "blas": {
+      "backend": "reference BLAS (Arch Linux pkg `blas`)",
+      "version": "3.12.1-2",
+      "library_path": "/usr/lib/libblas.so.3.12.0",
+      "runtime_cpu_dispatch": false,
+      "note": "Single-threaded reference implementation, no runtime SIMD-kernel dispatch (unlike OpenBLAS DYNAMIC_ARCH). OpenBLAS system package (0.3.33-1) is ALSO installed but not the one R links (R links libblas.so.3 -> reference BLAS per Arch's alternatives system, confirmed via ldd)."
+    },
+    "lapack": {
+      "backend": "reference LAPACK (Arch Linux pkg `lapack`)",
+      "version": "3.12.1-2",
+      "library_path": "/usr/lib/liblapack.so.3.12.0"
+    },
+    "leafblower_build": {
+      "variant_built": "native",
+      "variant_portable_built": false,
+      "makevars_path": "~/.R/Makevars",
+      "cxxflags": "-march=native -mtune=native -O3 -fno-math-errno -pipe -fPIC",
+      "cxx17std": "-std=gnu++17",
+      "package_cxxflags_own": "@CXXFLAGS_STD@ @OMP_FLAGS@ @SIMD_FLAGS@ @MAVX2_FLAG@ -I. -DSTRICT_R_HEADERS (src/Makevars.in; package sets NO -O level of its own, per WRE portability -- see CLAUDE.md)",
+      "note": "Only the 'native' variant is currently installed (user's ~/.R/Makevars applies -march=native/-O3 to every R package compile on this machine, incl. leafblower). Building a second 'portable' (CRAN-default -O2, no -march=native) variant for the headline RQ1 figures (DESIGN.md Sec5) is a separate, not-yet-done action -- out of WU-10's install+capture boundary."
+    }
+  },
+  "python": {
+    "version": "3.14.6",
+    "venv_path": "/home/dd/Gemini/leafblower/python/.venv",
+    "interpreter": "/home/dd/Gemini/leafblower/python/.venv/bin/python3.14",
+    "uv_version": "uv 0.11.28 (ebf0f43d7 2026-07-07 x86_64-unknown-linux-gnu)",
+    "blas": {
+      "backend": "scipy-openblas (OpenBLAS, statically linked into the numpy wheel)",
+      "version": "0.3.31.188.0",
+      "openblas_configuration": "OpenBLAS 0.3.31.188.0 USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=64",
+      "runtime_cpu_dispatch": true,
+      "note": "DYNAMIC_ARCH: OpenBLAS auto-selects the best-matching SIMD kernel for the host CPU at runtime (the 'Haswell' string is the build's baseline target label, not necessarily the kernel actually dispatched on this Zen5 host) -- a residual native-instruction path independent of leafblower's own build flags (DESIGN.md Sec5)."
+    },
+    "leafblower_build": {
+      "variant_built": "portable (best-available label)",
+      "variant_native_built": false,
+      "cmake_flags": "target_compile_options(_leafblower PRIVATE -O3)  # python/CMakeLists.txt:99",
+      "note": "Single current build: -O3, NO -march=native (no CPU-specific dispatch flag set) -- closer to 'portable' than 'native' but does not literally match the DESIGN's assumed CRAN/PyPI default of -O2; flagged as a discrepancy for the WU that builds the second (native, -O3 -march=native) Python variant."
+    },
+    "thread_env_convention": {
+      "OMP_NUM_THREADS": "must be set to 1 for deterministic parity/benchmarks (CLAUDE.md)",
+      "OPENBLAS_NUM_THREADS": "must be set to 1 together with the above, BEFORE `import numpy`",
+      "MKL_NUM_THREADS": "must be set to 1 together with the above",
+      "captured_shell_default": "unset (multi-threaded BLAS by default outside the pinned harness invocation)"
+    }
+  },
+  "installed_packages": {
+    "r_competitors": {
+      "survey": "4.5",
+      "sampling": "2.11",
+      "anesrake": "0.80",
+      "ipfr": "1.0.2",
+      "ebal": "0.2.1",
+      "optweight": "2.0.1",
+      "WeightIt": "1.7.0",
+      "icarus": "0.3.3",
+      "laeken": "0.5.3",
+      "GECal": "0.1.7",
+      "jointCalib": "0.1.0",
+      "nonprobsvy": "0.2.3",
+      "CVXR": "1.9.1",
+      "sbw": "1.2",
+      "ReGenesees": "2.4"
+    },
+    "r_blocked": [],
+    "python_competitors": {
+      "ipfn": "1.4.4",
+      "cvxpy": "1.9.2",
+      "POT": "0.9.7",
+      "scipy": "1.18.0",
+      "weightipy": "0.4.2",
+      "samplics": "0.6.0",
+      "balance": "0.21.0",
+      "svy": "0.18.2",
+      "jax": "0.10.2",
+      "ott-jax": "0.6.0"
+    },
+    "python_blocked": [],
+    "notes": [
+      "samplics import emits: FutureWarning: samplics is archived and no longer maintained. Migrate to 'svy' (pip install svy) for the same functionality and more. -- this CONFIRMS DESIGN.md Sec2's previously-unverified 'svy = samplics successor' claim (Gap E resolved in favour of the original framing: svy is primary, samplics demoted to historical/stale baseline per Sec7 convention).",
+      "svy (PyPI) is a real, actively maintained Rust-backed survey package (svy-rs/svy-io deps) exposing svy.weighting.{calibration,raking,poststratification,trimming} -- not a namesquat. Full provenance/API validation against the raking/GREG contract remains WU-6's job (adapter goldens); this WU only confirms installability + the archival-notice cross-reference above.",
+      "Zero packages were BLOCKED. All ~17 targeted competitors (R+Py) installed cleanly with no sudo/system-lib intervention needed, incl. sbw (pure-R optimizer stack, no libomp/OSQP-system dep hit) and ReGenesees (GitHub install, no CRAN archival issue) and ott-jax/jaxlib (prebuilt wheels available for this platform)."
+    ]
+  }
+}

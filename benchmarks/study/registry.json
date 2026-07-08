@@ -1,0 +1,583 @@
+{
+  "schema_version": "1.0.0",
+  "solvers": {
+    "anesrake": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "bounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "balance": {
+      "arm": "python",
+      "families": [
+        "kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "cvxpy_linf": {
+      "arm": "python",
+      "families": [
+        "minimax"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "cvxr_reference": {
+      "arm": "R",
+      "families": [
+        "kl",
+        "chi2",
+        "logit"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "ebal": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "gecal": {
+      "arm": "R",
+      "families": [
+        "chi2",
+        "kl",
+        "logit"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "icarus": {
+      "arm": "R",
+      "families": [
+        "chi2",
+        "kl",
+        "logit"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "ipfn": {
+      "arm": "python",
+      "families": [
+        "kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "ipfr": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "bounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "jointcalib": {
+      "arm": "R",
+      "families": [
+        "newton_kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "laeken": {
+      "arm": "R",
+      "families": [
+        "chi2",
+        "kl",
+        "logit"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_chebyshev_py": {
+      "arm": "python",
+      "families": [
+        "minimax"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_chebyshev_r": {
+      "arm": "R",
+      "families": [
+        "minimax"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_greenkhorn_py": {
+      "arm": "python",
+      "families": [
+        "ot"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_greenkhorn_r": {
+      "arm": "R",
+      "families": [
+        "ot"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_greg_py": {
+      "arm": "python",
+      "families": [
+        "chi2"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_greg_r": {
+      "arm": "R",
+      "families": [
+        "chi2"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_logit_py": {
+      "arm": "python",
+      "families": [
+        "logit"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_logit_r": {
+      "arm": "R",
+      "families": [
+        "logit"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_newton_kl_py": {
+      "arm": "python",
+      "families": [
+        "newton_kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_newton_kl_r": {
+      "arm": "R",
+      "families": [
+        "newton_kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_oris_py": {
+      "arm": "python",
+      "families": [
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_oris_r": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_oris_soft_py": {
+      "arm": "python",
+      "families": [
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_oris_soft_r": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_raking_py": {
+      "arm": "python",
+      "families": [
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_raking_r": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_sinkhorn_py": {
+      "arm": "python",
+      "families": [
+        "ot"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "portable"
+      ],
+      "applicable_problems": []
+    },
+    "leafblower_sinkhorn_r": {
+      "arm": "R",
+      "families": [
+        "ot"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "native"
+      ],
+      "applicable_problems": []
+    },
+    "nonprobsvy": {
+      "arm": "R",
+      "families": [
+        "newton_kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "optweight_entropy": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "optweight_linf": {
+      "arm": "R",
+      "families": [
+        "minimax"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "ott_jax_sinkhorn": {
+      "arm": "python",
+      "families": [
+        "ot"
+      ],
+      "bounds": "unbounded",
+      "K_max": 2,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "pot_greenkhorn": {
+      "arm": "python",
+      "families": [
+        "ot"
+      ],
+      "bounds": "unbounded",
+      "K_max": 2,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "pot_sinkhorn": {
+      "arm": "python",
+      "families": [
+        "ot"
+      ],
+      "bounds": "unbounded",
+      "K_max": 2,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "regenesees": {
+      "arm": "R",
+      "families": [
+        "chi2",
+        "kl",
+        "logit"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "samplics": {
+      "arm": "python",
+      "families": [
+        "chi2",
+        "kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "sampling_calib_linear": {
+      "arm": "R",
+      "families": [
+        "chi2"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "sampling_calib_logit": {
+      "arm": "R",
+      "families": [
+        "logit"
+      ],
+      "bounds": "bounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "sbw": {
+      "arm": "R",
+      "families": [
+        "minimax",
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "scipy_trust_constr": {
+      "arm": "python",
+      "families": [
+        "newton_kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "survey_calibrate_linear": {
+      "arm": "R",
+      "families": [
+        "chi2"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "survey_calibrate_logit": {
+      "arm": "R",
+      "families": [
+        "logit"
+      ],
+      "bounds": "bounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "survey_calibrate_raking": {
+      "arm": "R",
+      "families": [
+        "kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "svy": {
+      "arm": "python",
+      "families": [
+        "chi2",
+        "kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "weightipy": {
+      "arm": "python",
+      "families": [
+        "kl"
+      ],
+      "bounds": "unbounded",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    },
+    "weightit": {
+      "arm": "R",
+      "families": [
+        "minimax",
+        "kl"
+      ],
+      "bounds": "both",
+      "K_max": null,
+      "builds": [
+        "na"
+      ],
+      "applicable_problems": []
+    }
+  }
+}
