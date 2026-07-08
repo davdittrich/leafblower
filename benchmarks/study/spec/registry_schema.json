@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leafblower.local/benchmarks/study/spec/registry_schema.json",
+  "title": "registry.json schema — solver applicability",
+  "schema_version": "1.0.0",
+  "description": "Solver-applicability registry gating the WU-8 run matrix: which (solver,problem,thread,build) cells are legal to schedule. Built against INSTALLED package versions (WU-10), not aspirational ones. Field semantics: contract.md §4.",
+  "type": "object",
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "solvers": {
+      "type": "object",
+      "description": "Keyed by solver id (matches runs.parquet 'solver' column and weights_ref filename component).",
+      "additionalProperties": { "$ref": "#/$defs/SolverEntry" }
+    }
+  },
+  "required": ["schema_version", "solvers"],
+  "$defs": {
+    "SolverEntry": {
+      "type": "object",
+      "properties": {
+        "arm": {
+          "type": "string",
+          "enum": ["R", "python"],
+          "description": "Language arm this solver entry runs under. leafblower has one entry per arm (both point at the same C++ core)."
+        },
+        "families": {
+          "type": "array",
+          "description": "Objective families this solver optimizes; drives Dolan-Moré profile stratification (DESIGN.md §7) and which agreement metrics apply (§6: vector-correlation only for strictly-convex families).",
+          "items": {
+            "type": "string",
+            "enum": ["kl", "chi2", "logit", "newton_kl", "minimax", "ot"]
+          },
+          "minItems": 1
+        },
+        "bounds": {
+          "type": "string",
+          "enum": ["unbounded", "bounded", "both"],
+          "description": "Bound-constraint support. A solver whose 'bounds' excludes 'bounded' is never scheduled against a bounded problem spec."
+        },
+        "K_max": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Largest margin count K validated for this solver; null = unbounded K. Caps 2-marginal-only OT competitors (e.g. ott-jax/POT) to K<=2 problems."
+        },
+        "builds": {
+          "type": "array",
+          "description": "Applicable build variants. Competitor entries are always ['na']; leafblower entries carry ['portable','native'] (or a subset if a variant is not yet built for this solver).",
+          "items": { "type": "string", "enum": ["portable", "native", "na"] },
+          "minItems": 1
+        },
+        "applicable_problems": {
+          "type": "array",
+          "description": "Problem spec ids (spec/*.json 'id' field) this solver is validated + eligible to run against. Empty array is legal (solver installed but not yet wired to any problem) but such a solver contributes zero rows to runs.parquet.",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["arm", "families", "bounds", "K_max", "builds", "applicable_problems"],
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "1.0.0",
+      "solvers": {
+        "leafblower_oris": {
+          "arm": "R",
+          "families": ["kl"],
+          "bounds": "both",
+          "K_max": null,
+          "builds": ["portable", "native"],
+          "applicable_problems": ["apistrat", "stepstone_bounded", "stepstone_unbounded"]
+        },
+        "survey_calibrate_raking": {
+          "arm": "R",
+          "families": ["kl"],
+          "bounds": "unbounded",
+          "K_max": null,
+          "builds": ["na"],
+          "applicable_problems": ["apistrat"]
+        },
+        "ott_jax_sinkhorn": {
+          "arm": "python",
+          "families": ["ot"],
+          "bounds": "unbounded",
+          "K_max": 2,
+          "builds": ["na"],
+          "applicable_problems": ["pot_1d_gauss"]
+        }
+      }
+    }
+  ]
+}

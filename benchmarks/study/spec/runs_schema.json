@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leafblower.local/benchmarks/study/spec/runs_schema.json",
+  "title": "runs.parquet row schema",
+  "schema_version": "1.0.0",
+  "description": "Tidy one-row-per-(solver,problem,thread,build,rep) schema for benchmarks/study/results/runs.parquet. Core identity/contract/timing columns (required, frozen by this WU) plus an open set of denormalised quality-metric columns owned by common/metrics.{R,py} (a separate WU) via additionalProperties. Field semantics: contract.md.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "solver":             { "type": "string", "description": "Solver id; must match a key in registry.json." },
+      "problem":            { "type": "string", "description": "Problem spec id; must match a spec/*.json id." },
+      "thread":             { "type": "integer", "enum": [1, 4], "description": "Thread cap this cell ran under (OMP_/OPENBLAS_/MKL_NUM_THREADS + per-package equivalents)." },
+      "build":              { "type": "string", "enum": ["portable", "native", "na"], "description": "leafblower build variant; 'na' for all competitor rows (build axis is leafblower-only)." },
+      "rep":                { "type": "integer", "minimum": 0, "description": "Repetition index within this (solver,problem,thread,build) cell." },
+
+      "weights_ref":        { "type": "string", "description": "Path to weights/<solver>__<problem>__t<thread>__<build>.parquet; never null (contract.md §2.1)." },
+      "iterations":         { "type": ["integer", "null"], "minimum": 0, "description": "Typed null (never 0 or the string \"NA\") when the wrapped package exposes no iteration count." },
+      "status":             { "$ref": "status_enum.json#/$defs/StatusEnum" },
+      "converged":          { "type": "boolean", "description": "Harness-recomputed uniform-L∞-vs-tol check; NEVER the solver's self-report (contract.md §2.4)." },
+      "error_message":      { "type": ["string", "null"] },
+
+      "wall_time_e2e_s":    { "type": "number", "exclusiveMinimum": 0, "description": "float64 seconds; always present, every arm (contract.md §2.6)." },
+      "wall_time_solve_s":  { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "float64 seconds; null iff solver has no separable pre-aggregated-input seam (contract.md §1.1, §2.6)." },
+      "peak_rss_bytes":     { "type": "integer", "minimum": 0, "description": "int64 bytes; raw VmHWM of the timed subprocess (contract.md §2.7)." }
+    },
+    "required": [
+      "solver", "problem", "thread", "build", "rep",
+      "weights_ref", "iterations", "status", "converged", "error_message",
+      "wall_time_e2e_s", "wall_time_solve_s", "peak_rss_bytes"
+    ],
+    "additionalProperties": {
+      "description": "Open extension point for denormalised quality-metric columns owned by common/metrics.{R,py} (DESIGN.md §6), e.g. marg_kl_mean, marg_kl_max, ess, deff, deff_g, linf, l1, bound_viol_mean, bound_viol_max, divergent. Not frozen by this WU.",
+      "type": ["number", "boolean", "string", "null"]
+    }
+  },
+  "dtypes": {
+    "_comment": "Physical parquet dtypes, since JSON Schema's type system doesn't distinguish float32/64 or int32/64 (DESIGN.md §8 literal column list).",
+    "solver": "str",
+    "problem": "str",
+    "thread": "int32",
+    "build": "category{portable,native,na}",
+    "rep": "int32",
+    "weights_ref": "str",
+    "iterations": "int32 (nullable)",
+    "status": "category{converged,no_conv,infeasible,bound_violation,bad_arg,budget,stall,error}",
+    "converged": "bool",
+    "error_message": "str (nullable)",
+    "wall_time_e2e_s": "float64",
+    "wall_time_solve_s": "float64 (nullable)",
+    "peak_rss_bytes": "int64"
+  }
+}
