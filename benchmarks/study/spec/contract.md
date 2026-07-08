@@ -1,14 +1,21 @@
 # Adapter Contract & Result/Registry Schemas
 
-**schema_version:** `1.0.0`
+**schema_version:** `2.0.0`
 **Status:** FROZEN — this document + the three sibling JSON schemas
 (`status_enum.json`, `runs_schema.json`, `registry_schema.json`) are the
 interface every adapter, driver, and reporting WU under `benchmarks/study/`
 must conform to. Reference: `docs/benchmark/DESIGN.md` §8 (harness
-architecture), §5 (measurement protocol, two co-headline timing axes).
+architecture), §5 (measurement protocol, single end-to-end timing axis).
 
 Boundary: this WU freezes the spec only. No adapter/driver implementation
 lives here.
+
+> **v2.0.0 (2026-07-08):** breaking change — the v1 two-axis timing
+> (`wall_time_e2e_s` + `wall_time_solve_s`) collapses to a SINGLE
+> `wall_time_s` (end-to-end). The solve-only axis required a leafblower
+> entry point (WU-0), which the strict-separation constraint forbids
+> (benchmark code must not modify or reach into leafblower; public
+> `harvest()` only). See DESIGN.md §5, §14 (v6→v7).
 
 ---
 
@@ -24,8 +31,7 @@ run(problem) -> {
   status:            <enum>,     # see status_enum.json, §2.3
   converged:         bool,       # see §2.4 — NEVER the solver's self-report
   error_message:     str | null, # see §2.5
-  wall_time_e2e_s:   f64,        # see §2.6
-  wall_time_solve_s: f64 | null, # see §2.6
+  wall_time_s:       f64,        # see §2.6 — single end-to-end axis
   peak_rss_bytes:    i64,        # see §2.7
 }
 ```
@@ -37,28 +43,23 @@ for catching every exception the package can raise — `run()` itself must
 never throw; all failure modes are reported through `status` +
 `error_message`.
 
-### 1.1 Two co-headline timing axes (DESIGN.md §5, Blocker A)
+### 1.1 Single end-to-end timing axis (DESIGN.md §5)
 
-Both axes are recorded on every row; a solver that has no separable
-aggregation seam reports `wall_time_solve_s = null`, never `0` or `NA`
-string.
+One timing axis, recorded on every row for every arm:
 
-- **`wall_time_e2e_s`** — end-to-end, raw-rows-in to weights-out. Always
-  measured, for every arm, with the groupby/contingency-table/model-matrix
-  construction step INSIDE the timer. This is the fairness-neutral axis:
-  it does not privilege solvers (like the IPF family) that natively accept
-  pre-aggregated tables over whole-unit solvers (survey/sampling/ebal) that
-  have no aggregation seam to exclude.
-- **`wall_time_solve_s`** — solve-only, pre-aggregated table in to weights
-  out. Measured ONLY for solvers that accept a pre-materialised table:
-  leafblower (via the WU-0 CellTable entry point) and IPF-family
-  competitors (ipfn/ipfr/anesrake/weightipy). `null` for whole-unit
-  solvers (survey, sampling, ebal, balance, optweight, sbw, raw OT
-  formulations) that have no such seam. Isolates solver-core speed from
-  data-marshalling cost.
+- **`wall_time_s`** — end-to-end, raw-rows-in to weights-out, with the
+  groupby/contingency-table/model-matrix/cell construction step INSIDE
+  the timer for EVERY solver (leafblower's `harvest()` is called whole;
+  survey/sampling/ipfn/etc. likewise). This is the fairness-neutral axis:
+  no arm gets its aggregation hoisted out, so it neither privileges the
+  IPF family (which natively accepts pre-aggregated tables) nor whole-unit
+  solvers (survey/sampling/ebal) — symmetric, no home-field.
 
-Both axes are co-equal primary figures; neither is a derived/optional
-column.
+**No solve-only axis.** A leafblower solve-only measurement would require
+a new lower-level entry point INTO leafblower; the benchmark is
+constrained to be STRICTLY SEPARATE from leafblower (no source edits,
+public `harvest()` only — user constraint 2026-07-08, DESIGN.md
+Mechanism/Forbidden). The v6 two-axis plan (WU-0) is dropped.
 
 ---
 
@@ -128,13 +129,13 @@ text at all (clean `status == "converged"` exit with no warnings).
 Presence of a message does not by itself imply `status != "converged"`
 (a solver may emit a non-fatal warning on an otherwise-clean exit).
 
-### 2.6 `wall_time_e2e_s: f64`, `wall_time_solve_s: f64 | null`
+### 2.6 `wall_time_s: f64`
 
 Seconds, `float64`, measured in-process with a high-resolution timer
 (`bench::mark`-class / `time.perf_counter`), per DESIGN.md §5. Never
 includes interpreter/process startup — only the timed region itself
-(groupby+solve for e2e; solve-only for solve, per §1.1). See §1.1 for the
-nullability rule on `wall_time_solve_s`.
+(groupby/aggregation + solve, end-to-end, per §1.1). Single axis for
+every arm; no solve-only column.
 
 ### 2.7 `peak_rss_bytes: i64`
 

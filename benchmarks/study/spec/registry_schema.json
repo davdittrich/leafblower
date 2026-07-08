@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://leafblower.local/benchmarks/study/spec/registry_schema.json",
   "title": "registry.json schema — solver applicability",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "description": "Solver-applicability registry gating the WU-8 run matrix: which (solver,problem,thread,build) cells are legal to schedule. Built against INSTALLED package versions (WU-10), not aspirational ones. Field semantics: contract.md §4.",
   "type": "object",
   "properties": {
-    "schema_version": { "type": "string", "const": "1.0.0" },
+    "schema_version": { "type": "string", "const": "2.0.0" },
     "solvers": {
       "type": "object",
       "description": "Keyed by solver id (matches runs.parquet 'solver' column and weights_ref filename component).",
@@ -60,7 +60,7 @@
   },
   "examples": [
     {
-      "schema_version": "1.0.0",
+      "schema_version": "2.0.0",
       "solvers": {
         "leafblower_oris": {
           "arm": "R",

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://leafblower.local/benchmarks/study/spec/status_enum.json",
   "title": "Harmonized adapter status enum + per-adapter mapping template",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "description": "Frozen 8-value status enum shared by every adapter (leafblower + every competitor, R and Python arms). See contract.md §2.3 for how this relates to the independently-recomputed `converged` boolean.",
   "$defs": {
     "StatusEnum": {

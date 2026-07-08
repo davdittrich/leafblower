@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://leafblower.local/benchmarks/study/spec/runs_schema.json",
   "title": "runs.parquet row schema",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "description": "Tidy one-row-per-(solver,problem,thread,build,rep) schema for benchmarks/study/results/runs.parquet. Core identity/contract/timing columns (required, frozen by this WU) plus an open set of denormalised quality-metric columns owned by common/metrics.{R,py} (a separate WU) via additionalProperties. Field semantics: contract.md.",
   "type": "array",
   "items": {
@@ -20,14 +20,13 @@
       "converged":          { "type": "boolean", "description": "Harness-recomputed uniform-L∞-vs-tol check; NEVER the solver's self-report (contract.md §2.4)." },
       "error_message":      { "type": ["string", "null"] },
 
-      "wall_time_e2e_s":    { "type": "number", "exclusiveMinimum": 0, "description": "float64 seconds; always present, every arm (contract.md §2.6)." },
-      "wall_time_solve_s":  { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "float64 seconds; null iff solver has no separable pre-aggregated-input seam (contract.md §1.1, §2.6)." },
+      "wall_time_s":        { "type": "number", "exclusiveMinimum": 0, "description": "float64 seconds; SINGLE end-to-end axis (raw-rows-in → weights-out, groupby/cell/contingency build inside the timer for every arm); always present (contract.md §2.6). No solve-only axis — benchmark is strictly separate from leafblower (user constraint 2026-07-08)." },
       "peak_rss_bytes":     { "type": "integer", "minimum": 0, "description": "int64 bytes; raw VmHWM of the timed subprocess (contract.md §2.7)." }
     },
     "required": [
       "solver", "problem", "thread", "build", "rep",
       "weights_ref", "iterations", "status", "converged", "error_message",
-      "wall_time_e2e_s", "wall_time_solve_s", "peak_rss_bytes"
+      "wall_time_s", "peak_rss_bytes"
     ],
     "additionalProperties": {
       "description": "Open extension point for denormalised quality-metric columns owned by common/metrics.{R,py} (DESIGN.md §6), e.g. marg_kl_mean, marg_kl_max, ess, deff, deff_g, linf, l1, bound_viol_mean, bound_viol_max, divergent. Not frozen by this WU.",
@@ -46,8 +45,7 @@
     "status": "category{converged,no_conv,infeasible,bound_violation,bad_arg,budget,stall,error}",
     "converged": "bool",
     "error_message": "str (nullable)",
-    "wall_time_e2e_s": "float64",
-    "wall_time_solve_s": "float64 (nullable)",
+    "wall_time_s": "float64",
     "peak_rss_bytes": "int64"
   }
 }
