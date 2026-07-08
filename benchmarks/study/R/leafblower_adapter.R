@@ -150,9 +150,12 @@ run_leafblower <- function(problem, method, build, thread = NULL) {
       invokeRestart("muffleWarning")
     }
   )
+  # contract.md Section 2.6: single timer stop at weights-out (harvest returned,
+  # success or error). The recompute/bound-check/parquet write below are post-run
+  # harness diagnostics (Section 2.4) and MUST NOT be inside the timer.
+  wall <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   if (inherits(res, "error")) {
-    wall   <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
     status <- .lbw_classify_error(conditionMessage(res))
     ref    <- .lbw_nan_sentinel(n, solver_id, problem$id, thread, build)
     return(list(
@@ -171,7 +174,6 @@ run_leafblower <- function(problem, method, build, thread = NULL) {
   if (.lbw_bound_violation(weights, problem)) status <- "bound_violation"
 
   cv  <- .lbw_recompute_converged(weights, problem)
-  wall <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
   ref  <- .lbw_write_weights(weights, solver_id, problem$id, thread, build)
   iterations <- attr(res, "iterations")
 

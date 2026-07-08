@@ -179,6 +179,10 @@ def run_leafblower(problem: dict, method: str, build: str, thread: Optional[int]
                         wall_time_s=float(wall), peak_rss_bytes=_peak_rss_bytes())
 
         result = res["result"]
+        # contract.md Section 2.6: timer stops at weights-out (harvest returned).
+        # status map + bound-check + margin_stats recompute + parquet write below
+        # are post-run harness diagnostics (Section 2.4) and MUST NOT be timed.
+        wall = time.perf_counter() - t0
         status_code = result["status"]
         status = _LBW_STATUS_MAP.get(status_code, "error")  # unmapped code -- defensive only
 
@@ -187,7 +191,6 @@ def run_leafblower(problem: dict, method: str, build: str, thread: Optional[int]
             status = "bound_violation"
 
         converged = _recompute_converged(weights, problem)
-        wall = time.perf_counter() - t0
         ref = _write_weights(weights, solver_id, problem["id"], thread, build)
         iterations = result.get("iterations")
 

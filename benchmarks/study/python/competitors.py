@@ -220,10 +220,13 @@ def _adapt(solver_id: str):
                                 converged=False, error_message=error_message,
                                 wall_time_s=float(wall), peak_rss_bytes=_peak_rss_bytes())
                 weights = np.asarray(weights, dtype=np.float64)
+                # contract.md Section 2.6: timer stops at weights-out. bound-violation
+                # upgrade + margin_stats recompute + parquet write are post-run harness
+                # diagnostics (Section 2.4) and MUST NOT be inside the timer.
+                wall = time.perf_counter() - t0
                 if _bound_violation(weights, problem):
                     status = "bound_violation"
                 converged, _linf = _recompute_converged(weights, problem)
-                wall = time.perf_counter() - t0
                 ref = _write_weights(weights, solver_id, problem["id"])
                 return dict(
                     weights_ref=ref,
