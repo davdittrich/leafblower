@@ -1,6 +1,6 @@
 # Benchmark Study Design — leafblower vs competing R/Python calibration software
 
-**Epic:** leafblower-2ouc · **Status:** design v4 (design-review-gate converged 4/5; v4 applies the final mechanical fixes) · **Date:** 2026-07-08
+**Epic:** leafblower-2ouc · **Status:** design v5 (post external Gemini review; gate-converged v4 + methodological hardening) · **Date:** 2026-07-08
 **Downstream:** scientific article (journal-agnostic harness; venue chosen post-results).
 **Revision note:** v2 addresses design-review round 1 (all-5 NEEDS_REVISION). Change log at §14.
 
@@ -53,7 +53,8 @@ Compare leafblower (8 methods + `oris`, `oris_soft`) against direct competing OS
 | Py | `ipfn` ⚠2021 | no | yes | canonical Python IPF (in venv) |
 | Py | `weightipy` ✓ | no | yes | maintained RIM alt |
 
-### Entropic OT — competes with leafblower `sinkhorn`, `greenkhorn` **ONLY on 2-margin / OT problems**
+### Entropic OT — NO valid external competitor for K-margin calibration (redundant-IPF cross-check only)
+> **Reframed per external review:** at K=2 with zero cost, balanced Sinkhorn's fixed point **is** the 2-margin IPF/raking solution, so POT/ott reproduce leafblower's raking weights *by construction* (`w_i=u_i·d_i` just re-derives IPF). They therefore test "another IPF library," not entropic OT. **Conclusion (a §9 finding, not a benchmark claim): there is no external K-margin entropic-OT competitor for leafblower's `sinkhorn`/`greenkhorn`.** POT/ott are retained only as a **redundant-IPF cross-check** on the 2-margin reduction + their OT home-turf (1D-Gauss), explicitly labelled as such — not presented as a head-to-head.
 POT `ot.sinkhorn`/`ot.bregman.greenkhorn` and `ott-jax` solve **2-marginal** entropic OT with a transport **cost matrix** and return a coupling. leafblower's `sinkhorn` is a **K-margin Dykstra projection with no transport cost** — a *different object*. They are directly comparable **only at K≤2 with zero cost**. Therefore:
 - POT/ott run on their **OT home-turf** (1D-Gauss) and a **2-margin calibration reduction** of stepstone (project any two margins; spec `id` distinct from the K=9 id so weight files never collide) — **not** the K=9 head-to-head.
 - **Coupling→weight extraction** (adapter golden must pin this): a *balanced* Sinkhorn coupling has row-sum `Σ_j P_ij ≡ a_i` exactly, so a naive row-sum ratio degenerates to `w_i = d_i` (uncalibrated). The calibration weight must therefore come from the **left Sinkhorn scaling potential** `u` (`w_i = u_i · d_i`) or from an **unbalanced** OT (`ot.unbalanced`, free row marginal). **The OT-adapter WU pins the exact extraction (potential vs unbalanced) against a hand-solved 2-margin IPF golden**; if neither reproduces the IPF weights, the OT arm degrades to the §9-item-4 "no comparable K-margin competitor" finding rather than shipping a wrong mapping.
@@ -85,7 +86,7 @@ R: `GECal` ✓ (generalized entropy: χ²+raking+logit).
 
 **(A) Canonical home-turf** — survey `apistrat` (200×39), sampling `belgianmunicipalities` (589×17), anesrake `anes04` (1212×5), ebal/optweight `lalonde` (614×9), ipfn 3×4 seed, POT 1D-Gauss (100-bin), balance `simulate_data()`.
 **(B) stepstone** — reuse existing `benchmarks/stepstone_fulldata_bench_data.parquet` + `_targets.json` (n≈1.58M, K=9), unbounded + bounded (incl. eb79.23 INFEAS max_weight=5).
-**(C) Scaling / independent** — synthetic non-home-turf problem at n ∈ {10k, 100k, 1.58M} (fresh seed, not derived from leafblower fixtures) → n-scaling curves + generality check. **DGP frozen with the other specs and finalized BEFORE planning/WU decomposition** (not deferred); **preferably sourced from an externally published synthetic-calibration generator** (cited), or if in-house, its margin count/skew/cell-sparsity recipe designed independently of leafblower's known convergence behavior and reviewed as such — recipe published in supplementary. Stepstone conclusions scoped as **applicability demonstration**, not "general superiority."
+**(C) Parametric instance family (non-home-turf)** — a **suite of 30–100 synthetic instances** sweeping n ∈ {10k,100k,1.58M}, K, cell sparsity, margin skew, constraint-matrix conditioning, and infeasibility slack (fresh seeds, not derived from leafblower fixtures). **This is what makes the Dolan–Moré performance profiles (§7) statistically valid** — a profile over only ~4 problems is noise; profiles need a problem *distribution*. The conditioning/infeasibility sweeps double as the ill-conditioning/robustness axis (§9 item 6). n-scaling curves are the marginal-over-n view of this suite. **DGP frozen with the other specs and finalized BEFORE planning/WU decomposition** (not deferred); **preferably sourced from an externally published synthetic-calibration generator** (cited), or if in-house, its margin count/skew/cell-sparsity recipe designed independently of leafblower's known convergence behavior and reviewed as such — recipe published in supplementary. Stepstone conclusions scoped as **applicability demonstration**, not "general superiority."
 
 **Spec schema (`spec/*.json`)** — inline only scalars/small arrays; **reference** bulk data via a typed `data_ref` with a **loader convention** covering all three dataset origins:
 - `"file:<path.parquet>"` — bulk columnar (stepstone).
@@ -106,8 +107,8 @@ Note: harvest's per-obs arg is **`design_weights=`** (no `weights=` — silently
 
 **Cost estimate:** stepstone-fulldata single passes already cost seconds–minutes per method (chebyshev ~12s, greg ~2s in `stepstone_all_methods.R`); ~20 solvers × 2 stepstone forms × threads × reps ⇒ full matrix plausibly **hours–days**. Therefore phased:
 
-- **CORE (v1, satisfies the article):** every applicable solver on (its canonical home-turf) + (stepstone unbounded + bounded) at **1 thread**, **weights once** (deterministic) + **timing reps=10 on canonical, reps=5 on 1.58M** (5 not 3 → usable median+CI at the headline scale). Scaling problem at {10k,100k,1.58M}, 1 thread.
-- **Numeric CORE budget (enumerated ceiling):** ~22 applicable (solver,arm) cells. Canonical: ~22×10 reps × ≤1s ≈ minutes. stepstone×2 forms × ~15 applicable solvers × 5 reps; dominated by second-order solvers (chebyshev ~12s, greg ~2s per pass on 1.58M) → ≈ 15×2×5×~10s ≈ **~25–40 min compute**, ×2 leafblower build variants for leafblower rows only. Scaling {10k,100k,1.58M} adds ≈15 min. **CORE ceiling ≈ 2 h wall-clock**; if a projected cell set exceeds it, drop STRETCH duplicates first. STRETCH (thread=4 sweep) roughly doubles stepstone time.
+- **CORE (v1, satisfies the article):** every applicable solver on (its canonical home-turf) + (stepstone unbounded + bounded) + (**the §3C parametric instance family, 30–100 instances** — required for valid Dolan–Moré profiles) at **1 thread**, **weights once** (deterministic) + **timing reps=10 on canonical/family, reps=5 on 1.58M**. The instance family is deliberately **weighted toward small/medium n** (most instances 1k–100k; only a handful at 1.58M) so profile *resolution* comes from instance *count*, not per-instance cost.
+- **Numeric CORE budget (enumerated ceiling):** ~22 applicable (solver,arm) cells. Canonical: ~22×10 reps × ≤1s ≈ minutes. stepstone×2 forms × ~15 applicable solvers × 5 reps; dominated by second-order solvers (chebyshev ~12s, greg ~2s per pass on 1.58M) → ≈ 15×2×5×~10s ≈ **~25–40 min compute**, ×2 leafblower build variants for leafblower rows only. Scaling {10k,100k,1.58M} adds ≈15 min. Instance family: 30–100 mostly-small instances × ~15 solvers × 10 reps × ≤~0.1s median ≈ **~10–30 min**. **CORE ceiling ≈ 2.5 h wall-clock**; if a projected cell set exceeds it, cap the family at 30 instances / drop STRETCH duplicates first. STRETCH (thread=4 sweep) roughly doubles stepstone time.
 - **STRETCH (appendix):** thread=4 sweep; maintained-alt duplicates (ipfr, weightipy, ott-jax scaling vignette); GECal unifying baseline.
 
 Applicability gated by a **machine-readable registry** (`registry.json`: solver → {arm, families, bounds, K_max, applicable_problems}) built against **actually-installed versions** (not the research table).
@@ -131,11 +132,11 @@ Applicability gated by a **machine-readable registry** (`registry.json`: solver 
 ## 6. Quality metrics (refactored from existing `fit_metrics`/`compute_metrics`; golden-checked)
 
 Recomputed from returned weights, independent of the solver, cancellation-free (`p(1-p)`, zero-design rows excluded):
-- **margin KL** `KL_k = Σ_j T_kj log(T_kj/p_kj)`, `p_kj=Σ_i w_i[i∈j]/Σw`; mean/max over k.
-- **ESS** `(Σw)²/Σw²` (↑). **DEFF** `n·Σw²/(Σw)²` (↓).
-- **margin error** L∞, L1. **closeness-to-design** `Σ w log(w/d)`.
-- **bound violation** (bounded problems): count and max/mean magnitude of `max(0, L_c−w_i, w_i−U_c)` — the recomputed backing for the §9 "silent bound violation" finding (no longer anecdotal).
-- **Weight agreement (RQ5):** within objective family — Pearson, Spearman, max|Δw|, cosine — against pre-registered thresholds (§1). Cross-family reported as "different optima," never scored as error.
+- **margin KL** `KL_k = Σ_j T_kj log(T_kj/p_kj)`, `p_kj=Σ_i w_i[i∈j]/Σw`; mean/max over k. **Divergent terms are NOT dropped** — when a failing solver starves a category (`p_kj→0`, `T_kj>0`) the term → +∞; report as a large finite sentinel + a `divergent` flag, never silently excluded (the existing `t>0 & S>0` gate in `fit_metrics:34` / `compute_metrics:46` **flatters catastrophic failures** and must be removed — the golden asserts the +∞ behavior on a starved-category toy). Aligns with the project no-hiding-failures ethos.
+- **ESS** (Kish) `(Σw)²/Σw²` (↑). **Kish weighting DEFF / UWE** `= 1+CV²(w) = n·Σw²/(Σw)² = n/ESS` (↓) — **explicitly labelled Kish weighting-loss, NOT the true design effect** (which depends on the estimand and the w–y correlation). Since DEFF ≡ n/ESS, report **one** (ESS) as the RQ4 quality axis and DEFF only as its labelled reciprocal, not a second independent metric.
+- **margin error** L∞, L1. **closeness-to-design** `Σ w log(w/d)` with the **per-problem design weights `d_i`** (NOT hardcoded `d_i=1` as in `fit_metrics:37` / `compute_metrics:48`; apistrat/belgianmunicipalities/lalonde have real `d_i≠1` — the golden pins `d_i` per problem).
+- **bound violation** (bounded problems): count and max/mean magnitude of `max(0, L_c−w_i, w_i−U_c)`.
+- **Weight agreement (RQ5):** within objective family — Pearson, Spearman, max|Δw|, cosine — against pre-registered thresholds (§1). **Anchored to an independent high-precision convex reference solve** (CVXR/ECOS to ~1e-12 for the family's objective), **never to an in-house leafblower method** (the existing `Pearson-r-vs-ORIS` anchor at `stepstone_all_methods.R:108` measures closeness-to-leafblower, not correctness — replaced). Cross-family reported as "different optima," never scored as error.
 
 Metric code = `common/metrics.{R,py}`. **Three existing impls must be reconciled** (they differ): `stepstone_all_methods.R:fit_metrics`, `python_ipf_benchmark.py:compute_metrics`, and `allmethod_bench.R:compute_metrics` (differently-normalised `weight_kl` and `chi2`). The **hand-computed golden on the toy is the canonical arbiter** — it selects the correct definition; all three are validated against it (not merely against each other, which two identical-but-wrong formulas would pass), then R↔Py to rtol=1e-6 (1e-9 unreachable over 1.58M-row summation order).
 
@@ -143,7 +144,7 @@ Metric code = `common/metrics.{R,py}`. **Three existing impls must be reconciled
 
 ## 7. Reporting (full SOTA)
 
-Dolan–Moré **performance profiles** (computed **within objective-family strata**, not pooled across families); **work-precision diagrams** (RQ1 owns the *wall-time*-axis panel; RQ3 owns the *iteration*-axis panel — no duplicate figures); convergence curves (instrumented solvers); quality tables (median+quantile); weight-agreement heatmaps per family. Stale (⚠) packages labelled "historical baseline." **Every speed figure caption states the leafblower build variant** (`portable` for headline; `native` deltas flagged) and that timings are accuracy-normalised.
+Dolan–Moré **performance profiles** (over the §3C instance family — dozens of instances, not the ~4 canonical problems — computed **within objective-family strata**, not pooled); **work-precision diagrams** plotting each family's error on **its own native divergence** (KL for the KL family, χ² for GREG, logit-distance for Logit), with **margin-L∞ used only as a neutral constraint-satisfaction axis carrying an explicit caveat that Chebyshev (and any margin-L∞-stopped solver) has a home-field trajectory advantage on that axis**; RQ1 owns the *wall-time*-axis panel, RQ3 the *iteration*-axis panel (no duplicate figures); convergence curves (instrumented solvers); quality tables (median+quantile); weight-agreement heatmaps per family. Stale (⚠) packages labelled "historical baseline." **Every speed figure caption states the leafblower build variant** (`portable` for headline; `native` deltas flagged) and that timings are accuracy-normalised.
 **INFEAS scoring (pre-registered):** on the bounded problem, a solver that cannot return bounded weights is **DNF (τ=∞)** in the performance profile; leafblower's INFEAS-halt is reported **both** as a profile DNF **and** narratively (guarded refusal vs competitors' silent bound violation) — the usability downside of halting is stated, not hidden.
 
 ---
@@ -188,11 +189,12 @@ benchmarks/study/            # ISOLATED — no deps leak into DESCRIPTION/pyproj
 > All claims below are **draft framings pending §6/§7 results** — each is confirmed against the measured pipeline (esp. items 4–5, now backed by the bound-violation metric and K-margin applicability registry) before appearing in the article.
 
 1. **Bounded Python gap** — no maintained Python bounded Deville–Särndal logit/GREG (GECal R-only).
-2. **Minimax survey calibration ≈ unique** — only `optweight` (causal branch); no survey library offers L∞ with classical distances.
-3. **TR-Newton on dual** — dogleg exists (`jointCalib`); frame novelty as *true trust-region Newton on the classical DS dual across all distances* (narrative claim, not a measured RQ).
-4. **K-margin entropic OT gap** — POT/ott are 2-marginal; no external Sinkhorn/Greenkhorn competitor for K≥3 calibration.
-5. **Infeasibility robustness** — leafblower INFEAS pre-check + guards vs silent violation/divergence (both sides reported).
-6. **Missing-for-SOTA axes** to acknowledge: GPU/JAX scaling (leafblower CPU-only); downstream variance/CI estimation; streaming/out-of-core; adversarial ill-conditioning suites.
+2. **Minimax survey calibration — a software-availability gap, not a methodological novelty.** L∞ calibration is a plain LP (the design itself lists a cvxpy LP baseline); only `optweight` exposes it in the calibration/causal ecosystem. Framed as "no off-the-shelf survey library offers L∞," **not** as a new method.
+3. **TR-Newton on dual** — dogleg exists (`jointCalib`); novelty framed as *true trust-region Newton on the classical DS dual* — **restricted to the strictly-convex smooth families (KL, χ², logit)**; the claim does **not** extend to minimax/L∞ (non-smooth, inequality-constrained dual — not twice-differentiable). Narrative claim, not a measured RQ.
+4. **No external K-margin entropic-OT competitor** — POT/ott are 2-marginal balanced OT that reduce to IPF; leafblower's K-margin `sinkhorn`/`greenkhorn` have no OT counterpart to benchmark against (§2).
+5. **Infeasibility robustness** — leafblower INFEAS pre-check + guards vs silent violation/divergence (both sides reported; backed by the bound-violation metric §6).
+6. **Downstream variance/replicate-weight estimation** (measured, not just acknowledged) — the reason practitioners use `survey`/GREG. Measure the cost of the generalized-Jacobian / B replicate re-solves; this reweights the whole speed story (a solver cheap to fit once but expensive to re-solve B times ranks differently).
+7. **Other acknowledged axes:** GPU/JAX scaling (leafblower CPU-only); streaming/out-of-core.
 
 ---
 
@@ -241,6 +243,8 @@ design-review-gate (this, round 2) → `planning-with-beads` (WU decomposition, 
 - Exact synthetic DGP for §3C scaling problem (margin structure, skew).
 
 ## 14. Change log
+
+**v4→v5** (external Gemini 3.1 Pro review): §3C single-synthetic → **parametric instance family (30–100)** so Dolan–Moré profiles are statistically valid (§3C, §4, §7); **metric-formula bug fixes** — `marg_kl` no longer drops divergent (S→0,t>0) terms (reports +∞/sentinel, golden asserts), `weight_kl` uses per-problem `d_i` (not hardcoded 1), DEFF relabelled **Kish weighting DEFF/UWE** ≡ n/ESS (report ESS once) (§6); RQ5 agreement **anchored to an independent 1e-12 convex solve**, not in-house ORIS (§6); work-precision plotted on each family's **native divergence**, margin-L∞ only a neutral axis w/ Chebyshev-advantage caveat (§7); OT arm **relabelled redundant-IPF cross-check** + "no external K-margin OT competitor" promoted to §9 finding (§2, §9-4); §9-2 minimax reframed as **software-availability gap not novelty**; §9-3 TR-Newton novelty **restricted to smooth families** (not minimax); **downstream variance/replicate-weight cost promoted to a measured axis** (§9-6). Rejected Gemini's "survey::calibrate missing" — it is the first-listed Raking/GREG/Logit competitor (§2).
 
 **v3→v4** (round 3 — 4/5 approved; Designer mechanical + Architect correctness): `build` variant added to weights filename + runs.parquet key (portable/native/na, no collision); runs.parquet full column+dtype list (§8); spec `data_ref` loader convention for file:/pkg:/gen:/inline (§3); OT extraction corrected — balanced row-sum degenerates, use left potential `u` or unbalanced OT, pinned against IPF golden (§2); one fresh subprocess per (solver,problem,thread,build) for correct VmHWM (§5); WU-0 precise cell-construction line boundary (§5); BLAS backend+version+dispatch captured (§5); §3C DGP externalised + finalized-before-planning; Zenodo DOI = primary freeze anchor (§10); survey golden-fallback restricted to non-KL family (§11).
 
