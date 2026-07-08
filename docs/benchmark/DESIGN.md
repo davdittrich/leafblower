@@ -62,7 +62,7 @@ POT `ot.sinkhorn`/`ot.bregman.greenkhorn` and `ott-jax` solve **2-marginal** ent
 - ott-jax is **excluded from ranked {1,4}-thread timing** (XLA ignores OMP/BLAS env; CPU-vs-GPU not comparable) — reported as a separate scaling vignette with `XLA_FLAGS` thread pinning disclosed.
 
 ### χ² linear — GREG
-R: `survey::calibrate(linear)` ✓, `sampling::calib(linear)` ✓, `ReGenesees` ✓ (bounds). Py: `svy` ✓ (samplics successor).
+R: `survey::calibrate(linear)` ✓, `sampling::calib(linear)` ✓, `ReGenesees` (⚠ not on CRAN 2026 — install from GitHub DiegoZardetto/ReGenesees or drop). Py: `svy` ✓ (samplics successor).
 
 ### Logit (bounded Deville–Särndal)
 R: `survey::calibrate(logit,bounds)` ✓ canonical, `sampling::calib(logit)` ✓, `icarus`/`laeken`/`ReGenesees` ✓. **Py: gap** — no maintained bounded DS logit (§9 finding).
@@ -136,7 +136,7 @@ Recomputed from returned weights, independent of the solver, cancellation-free (
 - **ESS** (Kish) `(Σw)²/Σw²` (↑). **Kish weighting DEFF / UWE** `= 1+CV²(w) = n·Σw²/(Σw)² = n/ESS` (↓) — **explicitly labelled Kish weighting-loss, NOT the true design effect** (which depends on the estimand and the w–y correlation). Since DEFF ≡ n/ESS, report **one** (ESS) as the RQ4 quality axis and DEFF only as its labelled reciprocal, not a second independent metric.
 - **margin error** L∞, L1. **closeness-to-design** `Σ w log(w/d)` with the **per-problem design weights `d_i`** (NOT hardcoded `d_i=1` as in `fit_metrics:37` / `compute_metrics:48`; apistrat/belgianmunicipalities/lalonde have real `d_i≠1` — the golden pins `d_i` per problem).
 - **bound violation** (bounded problems): count and max/mean magnitude of `max(0, L_c−w_i, w_i−U_c)`.
-- **Weight agreement (RQ5):** within objective family — Pearson, Spearman, max|Δw|, cosine — against pre-registered thresholds (§1). **Anchored to an independent high-precision convex reference solve** (CVXR/ECOS to ~1e-12 for the family's objective), **never to an in-house leafblower method** (the existing `Pearson-r-vs-ORIS` anchor at `stepstone_all_methods.R:108` measures closeness-to-leafblower, not correctness — replaced). Cross-family reported as "different optima," never scored as error.
+- **Weight agreement (RQ5):** within objective family — Pearson, Spearman, max|Δw|, cosine — against pre-registered thresholds (§1). **Anchored to an independent high-precision convex reference solve** (CVXR/ECOS to ~1e-12 for the family's objective) on **canonical + instance-family problems only** (a 1e-12 convex solve is infeasible at stepstone 1.58M — that scale has no external anchor, stated as a limitation); the reference weights are **produced + stored as a pseudo-solver row** so reporting consumes stored vectors, not a re-solve, **never to an in-house leafblower method** (the existing `Pearson-r-vs-ORIS` anchor at `stepstone_all_methods.R:108` measures closeness-to-leafblower, not correctness — replaced). Cross-family reported as "different optima," never scored as error.
 
 Metric code = `common/metrics.{R,py}`. **Three existing impls must be reconciled** (they differ): `stepstone_all_methods.R:fit_metrics`, `python_ipf_benchmark.py:compute_metrics`, and `allmethod_bench.R:compute_metrics` (differently-normalised `weight_kl` and `chi2`). The **hand-computed golden on the toy is the canonical arbiter** — it selects the correct definition; all three are validated against it (not merely against each other, which two identical-but-wrong formulas would pass), then R↔Py to rtol=1e-6 (1e-9 unreachable over 1.58M-row summation order).
 
