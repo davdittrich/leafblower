@@ -219,14 +219,14 @@
       "package": "nonprobsvy", "version": "0.2.3", "arm": "R",
       "entrypoint": "nonprobsvy::nonprob(..., control_selection=control_sel())",
       "params": {
-        "est_method": "mle",
-        "optimizer": "maxLik",
-        "maxlik_method": "NR",
-        "optim_method": "BFGS",
+        "est_method": "gee",
+        "gee_h_fun": 1,
+        "nleqslv_method": "Broyden",
+        "nleqslv_global": "dbldog",
         "epsilon": 1e-4,
         "maxit": 500
       },
-      "convergence_bounds_quantity": "control_sel: epsilon=1e-4 convergence tolerance on the selection-model estimating equations; maxit=500 iteration cap. GEE option = Chen-Li-Wu calibration-constraint dual (closest Newton-KL analog).",
+      "convergence_bounds_quantity": "control_sel(est_method='gee'): the Chen-Li-Wu calibration-constraint dual solved by nleqslv with global strategy 'dbldog' (double-dogleg trust region) = the closest Newton-KL/TR-dual analog per DESIGN.md Section 2 line 71. epsilon=1e-4 convergence tolerance on the estimating equations; maxit=500 cap; gee_h_fun=1. NOTE: est_method was corrected from 'mle' -> 'gee' (WU-5b, 2026-07-09): the 'mle' propensity-MLE (maxLik/NR/BFGS) path is Newton-Raphson on the selection model, NOT the TR-dual this competitor's registry slot requires; the descriptive text already named GEE as the intended analog, so the params block was the authoring error.",
       "citation": "https://cran.r-project.org/web/packages/nonprobsvy/nonprobsvy.pdf (control_sel(est_method=c('mle','gee'), gee_h_fun=1, optimizer=c('maxLik','optim'), ..., epsilon=1e-04, maxit=500, ...)).",
       "note": "FLAG-minor: docs also reference 1e-6 in narrative; signature default recorded (epsilon=1e-4). Driver should assert the installed-version signature."
     },

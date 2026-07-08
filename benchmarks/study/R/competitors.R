@@ -757,3 +757,75 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
 }
 
 run_sbw <- function(problem) .comp_run("sbw", problem, .comp_sbw_solve)
+
+# =============================================================================
+# nonprobsvy::nonprob -- GEE calibration-constraint dual (Chen, Li & Wu 2021
+# corrected-estimating-equations calibration; est_method="gee" solved via
+# nleqslv with its PACKAGE-DEFAULT global strategy "dbldog", double-dogleg
+# trust region). This is DESIGN.md Section 2 line 71's "double-dogleg TR
+# dual" -- the closest analog to leafblower's newton_kl solver.
+#
+# hyperparams.json's frozen nonprobsvy entry records nonprob()'s raw
+# control_sel() SIGNATURE DEFAULT (est_method="mle", plain Newton-Raphson MLE
+# on the corrected log-likelihood) in its `params` block, but its own
+# convergence_bounds_quantity field identifies est_method="gee" as "the
+# Chen-Li-Wu calibration-constraint dual (closest Newton-KL analog)" --
+# matching this competitor's registry slot exactly, and est_method="mle"
+# would not be TR-dual at all. Following the same driver-selects-the-analog
+# precedent already used for the WeightIt entry ("Driver must record which
+# method WeightIt is invoked with and inherit that engine's frozen entry"),
+# this adapter invokes est_method="gee" and leaves every other control_sel()
+# knob at ITS OWN package default -- nleqslv_method="Broyden",
+# nleqslv_global="dbldog", gee_h_fun=1, epsilon=1e-4, maxit=500, all verbatim
+# from hyperparams.json's recorded values (zero per-problem tuning).
+#
+# API-fit finding (WU-5b investigation): nonprob() is architected for
+# non-probability-sample POPULATION-MEAN estimation and unconditionally
+# requires a `target` formula (the response variable of interest) -- even a
+# pure calibration-weight extraction with no outcome model errors with
+# "Please provide the `target` argument as a formula." if `target` is
+# omitted. Verified empirically that this is a mandatory-argument formality
+# ONLY: the returned per-observation weights (`weights.nonprob()` S3 method)
+# are bit-identical across two independent, unrelated placeholder `target`
+# columns -- the GEE/MLE calibration-constraint weight construction depends
+# only on the `selection` covariates and `pop_totals`, never on the target
+# response. A placeholder numeric column therefore satisfies the API gate
+# without influencing the returned weights: a genuine calibration-weight-out
+# path exists, not a forced mapping. Intercept+(K-1)-dummy regression
+# encoding (matches GECal/jointCalib: nonprob()'s internal
+# model.matrix(selection, data) needs pop_totals named to its own colnames).
+#
+# No native bound-constraint argument exists on nonprob() (confirmed via
+# args(nonprob) -- no bounds= parameter): relies on .comp_run()'s
+# harness-side bound_violation upgrade, like GECal/jointCalib/WeightIt/sbw.
+#
+# Numerical-robustness finding: on a large, poorly-scaled real dataset
+# (nonprobsvy's own bundled admin/jvs job-vacancy pair, n=9344) this same
+# invocation produces nleqslv's own "Ill-conditioned Jacobian"/"Jacobian is
+# singular" warnings and returns weights that do NOT hit the declared
+# pop_totals -- caught correctly by the harness-recomputed `converged`
+# (never trusting the package's own non-error exit), not silently reported
+# as success. The home-turf golden below uses the well-conditioned K=3
+# apistrat fixture (shared with the survey::calibrate goldens above), where
+# the GEE solve is exact to machine precision.
+# =============================================================================
+
+.comp_nonprobsvy_solve <- function(problem) {
+  reg <- .comp_regression(problem)
+  df <- problem$data[, problem$margins, drop = FALSE]
+  # Mandatory API formality only -- verified not to affect the returned
+  # weights (see comment block above).
+  df$.comp_target <- seq_len(nrow(df))
+  sel_form <- stats::as.formula(paste("~", paste(problem$margins, collapse = " + ")))
+
+  fit <- nonprobsvy::nonprob(
+    data = df, selection = sel_form, target = ~ .comp_target,
+    pop_totals = reg$totals, method_selection = "logit",
+    control_selection = nonprobsvy::control_sel(
+      est_method = "gee", gee_h_fun = 1, epsilon = 1e-4, maxit = 500),
+    se = FALSE, verbose = FALSE)
+  w <- as.numeric(stats::weights(fit))
+  list(weights = w, iterations = NA_integer_, status = "converged", error_message = NULL)
+}
+
+run_nonprobsvy <- function(problem) .comp_run("nonprobsvy", problem, .comp_nonprobsvy_solve)

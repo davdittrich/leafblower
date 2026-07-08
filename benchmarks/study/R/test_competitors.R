@@ -52,7 +52,8 @@ ADAPTERS <- list(
   laeken                  = run_laeken,
   gecal                   = run_gecal,
   jointcalib              = run_jointcalib,
-  sbw                     = run_sbw
+  sbw                     = run_sbw,
+  nonprobsvy              = run_nonprobsvy
 )
 
 expect_contract_shape <- function(res, problem) {
@@ -150,6 +151,17 @@ test_that("survey_calibrate_logit rejects infinite bounds as bad_arg (pre-solve,
     K = 1L
   )
 }
+
+test_that("nonprobsvy home-turf golden: pkg:survey::apistrat/stype, GEE double-dogleg TR-dual", {
+  res <- run_nonprobsvy(APISTRAT)
+  expect_equal(res$status, "converged")
+  expect_true(res$converged)
+  w <- arrow::read_parquet(res$weights_ref)$weight
+  ms <- margin_stats(w, .comp_groups(APISTRAT), APISTRAT$targets)
+  expect_lt(ms$margin_linf, APISTRAT$tol)
+  expect_equal(sum(w), sum(APISTRAT$design_weights), tolerance = 1e-6)
+  expect_true(all(is.finite(w)) && all(w > 0))
+})
 
 test_that("anesrake home-turf golden: bundled anes04/racecats with a >5pct-deviating target", {
   problem <- .tc_anes_golden()
