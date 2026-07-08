@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leafblower.local/benchmarks/study/spec/tol_mapping.json",
+  "schema_version": "1.0.0",
+  "description": "WU-9T (leafblower-2ouc.17): per-solver map from the harness's shared problem.tol scalar to each solver's native stopping parameter, and the QUANTITY that parameter bounds (margin L-infinity proportion error / duality-gap-like dual stationarity / KL / chi2 / none). Diagnostic only, per contract.md #2.4 -- runs.parquet's `converged` field is ALWAYS independently harness-recomputed at a uniform margin-L-infinity threshold and never trusts any solver's self-reported convergence or the mapping recorded here. Top-level leafblower_solvers keys are algorithm-level (arm-agnostic, since R and Python arms wrap the identical C++ core -- see registry_schema.json comment 'leafblower has one entry per arm, both point at the same C++ core'); each entry's 'registry_ids' field gives the exact per-arm keys as actually written to benchmarks/study/registry.json by WU-10 (leafblower_<method>_r / leafblower_<method>_py), which is the id convention runs.parquet's 'solver' column actually uses.",
+  "harness_translation_note": "Per docs/benchmark/DESIGN.md Section 5 the harness passes one scalar `tol` per problem spec. For leafblower's own solvers the mapping assumed here is the harvest()/rk_calibrate() 'absolute' convergence shorthand: convergence=list(absolute=tol) at the R/C-API level, i.e. C API fields metric=RK_METRIC_MAX_ERR(0), rule=RK_RULE_THRESHOLD(2 in enum order THRESHOLD/IMPROVEMENT/PLATEAU -- see leafblower.h CalibRule; C API rk_params_t.rule=0), absolute_tol=tol, tol_abs left at its harvest()-computed fallback (see R/harvest.R:613, 'legacy tol_abs' = absolute_tol if set else 1e-6). This is the harness-side design choice that makes leafblower's reported max_error directly comparable in units to the shared tol and to the harness's own uniform-L-infinity converged recomputation. WITHOUT this explicit override, leafblower's own R-level default (R/harvest.R:46-56,416-434) is rule='improvement', tol=0.001, on a PER-METHOD metric (oris/oris_soft/auto -> marginal_kl; raking/greenkhorn/sinkhorn/newton_kl -> kl; greg -> chi2; chebyshev/logit -> max_err) -- a materially different semantic (relative-improvement on a KL/chi2 quantity, not an absolute margin-L-infinity threshold). Both the assumed-override semantics and the un-overridden default are recorded per solver below so the WU-implementing adapter can verify which one the driver actually wires.",
+  "leafblower_solvers": {
+    "leafblower_oris": {
+      "registry_ids": ["leafblower_oris_r", "leafblower_oris_py"],
+      "native_param": "rk_params_t.absolute_tol (via CalibConvergenceCfg.absolute_tol), consumed by lbw::check_convergence()/apply_rule() -- flat-loop and SRAA/accelerate paths both call it (SRAA site: src/oris.cpp:1183), mark_converged() at src/oris.cpp:1255 (final homotopy level only)",
+      "bounded_quantity": "margin L-infinity proportion error (CellMetrics.errRp from compute_cell_metrics(), src/calib_dispatch.hpp:247-282), THRESHOLD rule: errRp < tol",
+      "default_if_tol_not_overridden": "R/harvest.R metric default for method='oris'/'auto' is 'marginal_kl' (SUM over margins of per-margin KL, src/calib_dispatch.hpp CellMetrics.marginal_kl), rule='improvement', tol=0.001 -- a relative-improvement KL criterion, not an absolute margin bound. src/oris.cpp:1170-1181 comment (CR-B3/y2ks.3) confirms select_metric/check_convergence read cm.marginal_kl directly with no remap, so SRAA (accelerate=TRUE) and flat (accelerate=FALSE) paths rank convergence on the identical objective.",
+      "caveat": "Homotopy (multi-level continuation, rk_params_t.homotopy.n_levels>1): only the FINAL level (lvl==N_levels-1) uses the user tol as tol_lvl=st.tol_abs; every intermediate level uses a fixed named constant kHomotopyIntermediateTol regardless of the shared tol (src/oris.cpp:580, comment: 'Loose intermediate tol until final level, enables warm-jump mid-level exit'). SRAA path allows early exit at intermediate levels via cm.errRp < tol_lvl (src/oris.cpp:1192-1193) mirroring the flat path. ALM (oris_soft) capacity-penalty/eta-schedule dynamics are tol-independent (governed by capacity_mu / Tang-2024 dynamic-eta schedule, src/oris.cpp:582-597).",
+      "citation": "src/oris.cpp:1183,1192-1193,1255,580,1170-1181; src/calib_dispatch.hpp:204-226 (check_convergence); R/harvest.R:426-434"
+    },
+    "leafblower_oris_soft": {
+      "registry_ids": ["leafblower_oris_soft_r", "leafblower_oris_soft_py"],
+      "native_param": "same dispatch path as leafblower_oris (ORIS_SOFT reuses lbw::oris_solve with st.use_admm_capacity=true, src/c_api.cpp ORIS_SOFT branch) -- rk_params_t.absolute_tol via check_convergence()",
+      "bounded_quantity": "margin L-infinity proportion error (errRp), THRESHOLD rule: errRp < tol",
+      "default_if_tol_not_overridden": "R/harvest.R metric default for method='oris_soft' is 'marginal_kl', rule='improvement', tol=0.001",
+      "caveat": "The ADMM/ALM capacity-penalty (alm.capacity_mu, auto-set to M_cell/n unless rk_params_t.capacity_penalty>0, src/c_api.cpp) is a SEPARATE penalty-weight hyperparameter, not tol-gated. tol only gates the outer check_convergence() call, identical to plain oris.",
+      "citation": "src/c_api.cpp (RK_ALG_ORIS_SOFT branch); src/oris.cpp:1183,1255,582-597 (capacity_mu / Tang-2024 eta schedule)"
+    },
+    "leafblower_raking": {
+      "registry_ids": ["leafblower_raking_r", "leafblower_raking_py"],
+      "native_param": "rk_params_t.absolute_tol via check_convergence()/apply_rule(), src/raking.cpp:452,475 (inner IPF loop) and :600,627 (outer Dykstra loop)",
+      "bounded_quantity": "margin L-infinity proportion error (errRp), THRESHOLD rule: errRp < tol",
+      "default_if_tol_not_overridden": "R/harvest.R metric default for method='raking' is 'kl' (MAX over margins of per-margin KL, monotone by Csiszar-Tusnady per harvest.R:431-433 comment), rule='improvement', tol=0.001",
+      "caveat": "src/raking.cpp:50 comment explicitly warns against wiring tol_abs=1e-6 directly to the fallback path because bounds-blocked plateaus stall at errRp of 0.1-0.5 -- i.e. a raw threshold read is a KNOWN non-convergence hazard on bounded problems; the improvement/plateau rule exists specifically to avoid an infinite loop in that regime. On unbounded problems (bounds='unbounded' in registry) this caveat does not apply.",
+      "citation": "src/raking.cpp:50,452,475,600,627"
+    },
+    "leafblower_sinkhorn": {
+      "registry_ids": ["leafblower_sinkhorn_r", "leafblower_sinkhorn_py"],
+      "native_param": "rk_params_t.absolute_tol via check_convergence()/apply_rule(), src/sinkhorn.cpp:260,261",
+      "bounded_quantity": "margin L-infinity proportion error (errRp), THRESHOLD rule: errRp < tol",
+      "default_if_tol_not_overridden": "R/harvest.R metric default for method='sinkhorn' is 'kl', rule='improvement', tol=0.001",
+      "caveat": "Entropic-regularized (Sinkhorn scaling); tol governs the SAME cell-metric convergence dispatch as oris/raking/greenkhorn -- no solver-specific override.",
+      "citation": "src/sinkhorn.cpp:76,81,260,261"
+    },
+    "leafblower_greenkhorn": {
+      "registry_ids": ["leafblower_greenkhorn_r", "leafblower_greenkhorn_py"],
+      "native_param": "rk_params_t.absolute_tol via check_convergence()/apply_rule(), src/greenkhorn.cpp:292,293",
+      "bounded_quantity": "margin L-infinity proportion error (errRp), THRESHOLD rule: errRp < tol",
+      "default_if_tol_not_overridden": "R/harvest.R metric default for method='greenkhorn' is 'kl', rule='improvement', tol=0.001",
+      "caveat": "Greedy-coordinate Sinkhorn variant; iterations counted as single greedy margin steps (not full sweeps like other solvers, R/harvest.R doc note) -- affects iteration-count comparability but not the tol-bounded quantity itself.",
+      "citation": "src/greenkhorn.cpp:292,293"
+    },
+    "leafblower_logit": {
+      "registry_ids": ["leafblower_logit_r", "leafblower_logit_py"],
+      "native_param": "rk_params_t.tol_abs DIRECTLY (bypasses convergence_cfg/check_convergence entirely) -- Newton loop halt test is max_abs_resid <= st.tol_abs * st.n, src/logit_calib.cpp",
+      "bounded_quantity": "absolute (count-scale) margin residual max_abs_resid, converted to a proportion for reporting as max_error = max_abs_resid / n. THRESHOLD-equivalent: max_error < tol_abs when tol_abs is passed as the shared tol.",
+      "default_if_tol_not_overridden": "logit does not consult convergence_cfg.metric/rule at all; R/harvest.R's metric='max_err' default for method='logit' only affects the REPORTED res.base.convergence_metric label, not the actual halt test, which is always the count-scale absolute residual above",
+      "caveat": "res.base.convergence_metric is set to CHI2 as a REPORTING label (src/logit_calib.cpp) but this is NOT the literal halt condition -- the halt condition is the absolute residual test above. res.base.convergence_solver_objective is a SEPARATE quantity: the midpoint-referenced Fermi-Dirac logit dual distance D_L(w), reported but not used to gate halting.",
+      "citation": "src/logit_calib.cpp (Newton loop halt: max_abs_resid <= st.tol_abs * st.n; convergence_solver_objective = Fermi-Dirac D_L(w))"
+    },
+    "leafblower_newton_kl": {
+      "registry_ids": ["leafblower_newton_kl_r", "leafblower_newton_kl_py"],
+      "native_param": "rk_params_t.tol_abs DIRECTLY (bypasses convergence_cfg/check_convergence) -- src/newton_calib.cpp: const double tol_abs = (st.tol_abs > 0.0) ? st.tol_abs : 1e-6; halt test dual_gap < tol_abs",
+      "bounded_quantity": "dual stationarity residual ||grad g(lambda)||_infinity where g is the log-partition dual (g(lambda) = log Z(lambda) - T.lambda). NOT a classical primal-dual OBJECTIVE gap -- it is the L-infinity norm of the dual gradient, whose components G[a] = achieved_proportion[a] - target_proportion[a] per active dual coordinate a (src/newton_calib.cpp step 5f-5g). At the halt this is therefore numerically the SAME quantity as errRp (margin L-infinity proportion error) computed via the dual gradient instead of via direct primal aggregation -- but DESIGN.md's vocabulary label 'duality gap' is imprecise for this solver; 'dual gradient L-infinity / stationarity residual' is the accurate description.",
+      "default_if_tol_not_overridden": "same test always applies (newton_kl has no convergence_cfg-driven alternate path); R/harvest.R's metric='kl' default for method='newton_kl' affects only which metric feeds res.base.convergence_metric reporting, not the halt test",
+      "caveat": "res.dual_gap doubles as res.base.best_error and res.base.convergence_solver_objective (best-iterate gap, not the final-iterate gap, per the best-iterate-restoration block). Weight-bounds violation (>5% of obs outside [min_weight,max_weight]) demotes an otherwise-converged result to RK_ERR_NOCONV independent of tol.",
+      "citation": "src/newton_calib.cpp (LM-TSVD Newton loop, step 5g: 'Convergence check: ||grad g||_infinity < tol_abs'; tol_abs fallback 1e-6)"
+    },
+    "leafblower_greg": {
+      "registry_ids": ["leafblower_greg_r", "leafblower_greg_py"],
+      "native_param": "NONE -- tol_abs is read nowhere in src/greg.cpp (grep confirms 0 occurrences). GREG's Newton loop halts purely on active-set stationarity: !any_clamped after the per-iteration KKT-release pass (src/greg.cpp lines ~131-140), i.e. no cell's box constraint changed active/inactive status this iteration. Budget-only fallback: kMaxNewtonIters=50 (hardcoded).",
+      "bounded_quantity": "NONE. The shared tol parameter has NO EFFECT on when leafblower_greg halts. res.base.convergence_metric is set to CHI2 as a pure REPORTING LABEL (src/greg.cpp: res.base.convergence_metric = static_cast<int>(CalibMetric::CHI2)); it is never compared against tol_abs or any convergence_cfg field.",
+      "default_if_tol_not_overridden": "same -- convergence_cfg is entirely unused by greg_solve()",
+      "caveat": "FLAG: this is the one leafblower solver where the harness's tol->native-param translation is a NO-OP. The adapter/driver WU should record this explicitly (e.g. by NOT exposing a tol argument to the leafblower_greg call, or by documenting that any tol value produces identical iterate behavior) rather than silently implying tol has an effect. Convergence quality is entirely a function of the active-set Newton QP reaching a KKT point (or the 50-iteration budget).",
+      "citation": "src/greg.cpp (grep 'tol_abs': 0 matches; halt test: !any_clamped, lines ~131-140)"
+    },
+    "leafblower_chebyshev": {
+      "registry_ids": ["leafblower_chebyshev_r", "leafblower_chebyshev_py"],
+      "native_param": "PRIMARILY a hardcoded constant kTolMu=1e-6 (complementarity-gap threshold), NOT the shared tol. Secondary/fallback paths DO read cfg.absolute_tol / cfg.pct_tol (NOT tol_abs) if the harness sets convergence=list(absolute=tol): converged_abs = curr(errRp) < cfg.absolute_tol, OR'd into the overall converged test. Also a hardcoded machine-precision escape: best_errRp < kPrimalMachinePrecConv=1e-8.",
+      "bounded_quantity": "PRIMARY: mu (Mehrotra IPM complementarity/duality measure, mu = sum(y_i*s_i)/n_comp over all primal-dual slack pairs) -- a genuine interior-point duality-gap-like quantity, but its threshold (1e-6) is a FIXED CONSTANT independent of the harness tol. SECONDARY (only reached if the harness wires convergence.absolute=tol): margin L-infinity proportion error errRp < tol.",
+      "default_if_tol_not_overridden": "R/harvest.R roxygen (harvest.R:85-89) documents this explicitly: method='chebyshev' IGNORES the rule/metric/stop_when convergence keys entirely; it always uses its own complementarity-gap criterion, falling back to the pct/absolute tolerance on max marginal error only as a secondary/OR condition, never as the primary gate.",
+      "caveat": "FLAG: even under the assumed convergence=list(absolute=tol) harness translation, chebyshev's HARD-CODED mu<1e-6 (or best_errRp<1e-8) will typically fire before or independent of a user-supplied tol -- so sweeping the shared tol across problem specs may have LITTLE OR NO effect on leafblower_chebyshev's actual halting iteration/accuracy unless tol > kPrimalMachinePrecConv=1e-8. This should be called out in the measurement-protocol writeup, not silently treated as a normal tol-controlled solver.",
+      "citation": "src/chebyshev.cpp (kTolMu=1e-6, kPrimalMachinePrecConv=1e-8 constexpr; convergence dispatch block: 'IPM convergence: mu -> 0 is the correct criterion'); R/harvest.R:85-89"
+    }
+  },
+  "competitor_solvers": {
+    "_note": "COMPLETE (not pending). Each competitor's native stopping-parameter name + the quantity it bounds + its documented/recommended value are recorded per-registry-id in benchmarks/study/spec/hyperparams.json (fields: convergence_bounds_quantity + hyperparameters + citation), sourced by DIRECT WebSearch/WebFetch of official CRAN man pages / package source / readthedocs (NOT agy). This file's leafblower_solvers section maps the shared tol for leafblower's own C++ solvers; the competitor tol->native-parameter mapping lives alongside each competitor's hyperparameters in hyperparams.json.",
+    "_registry_ids_source": "benchmarks/study/registry.json (WU-10). All 29 competitor ids are covered in hyperparams.json (0 missing, 0 extra); survey/sampling split into method-specific ids; cvxr_reference + regenesees included."
+  }
+}

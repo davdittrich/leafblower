@@ -1,0 +1,392 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leafblower.local/benchmarks/study/spec/hyperparams.json",
+  "schema_version": "1.0.0",
+  "description": "WU-9T (leafblower-2ouc.17): pre-registered per-competitor hyperparameter table. Per DESIGN.md Section 5 each entry records the package's DOCUMENTED / RECOMMENDED (not leafblower-tuned) native hyperparameters -- convergence tolerance (and the QUANTITY it bounds), max iterations, entropic epsilon, OSQP/scipy solver tolerances -- WITH a citation URL and the package version the value applies to (WU-10 installed versions). This table is git-FROZEN before the WU-REH rehearsal (Blocker C): any change after freeze is a disclosed, re-tagged, re-rehearsed amendment. Keys are the registry ids from benchmarks/study/registry.json (WU-10). leafblower's OWN solvers are NOT here -- their tol->native-param mapping lives in tol_mapping.json. Values were researched directly from official CRAN man pages / vignettes / package source / readthedocs (WebSearch+WebFetch, 2026-07-08/09), NOT via agy and NOT invented. Where a package's documented default could not be confirmed from primary docs the entry records null + a 'flag' note rather than a guess.",
+  "provenance": {
+    "researched": "2026-07-08/2026-07-09",
+    "method": "direct WebSearch + WebFetch of official CRAN man pages (rdrr.io, cran.r-project.org, package pkgdown sites), package source (GitHub raw), and readthedocs (POT, ott-jax, scipy, cvxpy); no agy delegation this session (session override).",
+    "versions_source": "WU-10 installed-version list (freeze against these exact versions)."
+  },
+  "R_competitors": {
+    "survey_calibrate_raking": {
+      "package": "survey", "version": "4.5", "arm": "R",
+      "entrypoint": "survey::calibrate(design, ..., calfun='raking')",
+      "params": {
+        "calfun": "raking",
+        "maxit": 50,
+        "epsilon": 1e-7,
+        "bounds": "c(-Inf, Inf)",
+        "force": false
+      },
+      "convergence_bounds_quantity": "epsilon = max allowed absolute value of (population total - calibration estimate) matched population total; Newton-Raphson iteration cap = maxit.",
+      "citation": "https://cran.r-project.org/web/packages/survey/survey.pdf (calibrate.survey.design2 signature: maxit=50, epsilon=1e-7, verbose=FALSE, force=FALSE); engine grake().",
+      "note": "Raking calfun. Defaults documented/recommended, not tuned."
+    },
+    "survey_calibrate_linear": {
+      "package": "survey", "version": "4.5", "arm": "R",
+      "entrypoint": "survey::calibrate(design, ..., calfun='linear')",
+      "params": { "calfun": "linear", "maxit": 50, "epsilon": 1e-7, "bounds": "c(-Inf, Inf)", "force": false },
+      "convergence_bounds_quantity": "epsilon = absolute tolerance on |population total - estimate|. Unbounded linear calibration is a direct linear solve (maxit/epsilon still meaningful for bounded/collinear fallback).",
+      "citation": "https://cran.r-project.org/web/packages/survey/survey.pdf (same calibrate signature; calfun='linear').",
+      "note": "GREG / chi2 family."
+    },
+    "survey_calibrate_logit": {
+      "package": "survey", "version": "4.5", "arm": "R",
+      "entrypoint": "survey::calibrate(design, ..., calfun='logit', bounds=c(L,U))",
+      "params": { "calfun": "logit", "maxit": 50, "epsilon": 1e-7, "bounds": "REQUIRED (Deville-Sarndal L<1<U; no default) -- benchmark supplies per-problem [min,max]", "force": false },
+      "convergence_bounds_quantity": "epsilon = absolute tolerance on |population total - estimate|; logit distance is the bounded Deville-Sarndal g-weight function.",
+      "citation": "https://cran.r-project.org/web/packages/survey/survey.pdf (calibrate calfun='logit', bounds argument).",
+      "note": "Bounds are mandatory for logit and are set from the problem spec, not a package default."
+    },
+    "sampling_calib_linear": {
+      "package": "sampling", "version": "2.11", "arm": "R",
+      "entrypoint": "sampling::calib(Xs, d, total, method='linear')",
+      "params": { "method": "linear", "bounds": "n/a for linear (no truncation)", "max_iter": 500 },
+      "convergence_bounds_quantity": "Linear method is a closed-form g-weight solve; max_iter (default 500) applies only to the iterative methods (raking/truncated/logit). Convergence checked via checkcalibration on |X'w - total|.",
+      "citation": "https://rdrr.io/cran/sampling/man/calib.html (signature: method=c('linear','raking','truncated','logit'), bounds=c(low=0,upp=10), max_iter=500).",
+      "note": "Deville-Sarndal (1992)."
+    },
+    "sampling_calib_logit": {
+      "package": "sampling", "version": "2.11", "arm": "R",
+      "entrypoint": "sampling::calib(Xs, d, total, method='logit', bounds=c(low,upp))",
+      "params": { "method": "logit", "bounds": "c(low=0, upp=10) [package default; benchmark overrides per problem]", "max_iter": 500 },
+      "convergence_bounds_quantity": "Iterative Newton on the bounded logit distance; max_iter=500 iteration cap. g-weights constrained to [low,upp].",
+      "citation": "https://rdrr.io/cran/sampling/man/calib.html (bounds=c(low=0,upp=10), max_iter=500).",
+      "note": "bounds default c(0,10); benchmark passes per-problem bounds."
+    },
+    "anesrake": {
+      "package": "anesrake", "version": "0.80", "arm": "R",
+      "entrypoint": "anesrake(inputter, dataframe, caseid, ...)",
+      "params": {
+        "cap": 5,
+        "maxit": 1000,
+        "type": "pctlim",
+        "pctlim": 5,
+        "nlim": 5,
+        "choosemethod": "total",
+        "iterate": true,
+        "convcrit": 0.01,
+        "force1": true
+      },
+      "convergence_bounds_quantity": "convcrit = 0.01 stopping change threshold; maxit=1000 iteration cap; cap=5 caps weight ratio (design-weight multiple). type/pctlim/nlim/choosemethod govern which margins enter raking (ANES variable selection).",
+      "citation": "https://github.com/cran/anesrake/blob/master/R/anesrake.R (signature: weightvec=NULL, cap=5, verbose=FALSE, maxit=1000, type='pctlim', pctlim=5, nlim=5, choosemethod='total', iterate=TRUE, convcrit=0.01, force1=TRUE).",
+      "note": "Stale (2018) / canary (known-dominated). Documented defaults."
+    },
+    "ipfr": {
+      "package": "ipfr", "version": "1.0.2", "arm": "R",
+      "entrypoint": "ipfr::ipu(primary_seed, primary_targets, ...)",
+      "params": {
+        "max_iterations": 30,
+        "min_weight": 0.0001,
+        "min_ratio": null,
+        "max_ratio": null,
+        "secondary_importance": 1
+      },
+      "convergence_bounds_quantity": "max_iterations=30 iteration cap over the list-balancing/IPU sweeps; min_weight floors cell weights (aids convergence). Convergence measured on % gap to targets. min_ratio/max_ratio cap weight extremity (off by default => null).",
+      "citation": "https://cran.r-project.org/web/packages/ipfr/vignettes/using_ipfr.html and https://search.r-project.org/CRAN/refmans/ipfr/html/ipu.html (ipu(..., max_iterations=30, min_weight=.0001, ...)).",
+      "note": "Documented convergence-tolerance scalar not exposed as a named arg; controlled via max_iterations + min_weight per vignette."
+    },
+    "ebal": {
+      "package": "ebal", "version": "0.2.1", "arm": "R",
+      "entrypoint": "ebal::ebalance(Treatment, X, ...)",
+      "params": {
+        "max.iterations": 200,
+        "constraint.tolerance": 1,
+        "base.weight": null
+      },
+      "convergence_bounds_quantity": "constraint.tolerance=1 => converged when max(abs(covariate-moment gradient co.x.agg - tr.total)) < 1 (absolute count-scale imbalance on expanded moment constraints); max.iterations=200 Newton cap. base.weight NULL => uniform.",
+      "citation": "https://rdrr.io/cran/ebal/man/ebalance.html (ebalance(Treatment, X, base.weight=NULL, ..., max.iterations=200, constraint.tolerance=1, print.level=0)); solver in R/eb.R.",
+      "note": "Entropy balancing (Hainmueller 2012). constraint.tolerance is on the RAW moment (count) scale, not a proportion -- record as the documented default (1)."
+    },
+    "optweight_entropy": {
+      "package": "optweight", "version": "2.0.1", "arm": "R",
+      "entrypoint": "optweight(formula, ..., norm='entropy')",
+      "params": {
+        "norm": "entropy",
+        "tols": 0,
+        "min.w": 1e-8,
+        "solver": "osqp (default when highs not installed)"
+      },
+      "convergence_bounds_quantity": "tols=0 => EXACT balance (weighted mean within 0 of target per covariate); min.w=1e-8 weight floor. Solver-level convergence handed to the QP/conic backend (OSQP defaults).",
+      "citation": "https://cran.r-project.org/web/packages/optweight/optweight.pdf and vignette https://cran.r-project.org/web/packages/optweight/vignettes/optweight.html (optweight(..., tols=0, norm='l2', min.w=1e-08, ...); norm='entropy' = relative-entropy objective).",
+      "note": "norm set to 'entropy' for the ORIS_soft family. tols=0 = documented default (exact balance)."
+    },
+    "optweight_linf": {
+      "package": "optweight", "version": "2.0.1", "arm": "R",
+      "entrypoint": "optweight(formula, ..., norm='linf')",
+      "params": {
+        "norm": "linf",
+        "tols": 0,
+        "min.w": 1e-8,
+        "solver": "osqp (REQUIRED for linf if highs absent)",
+        "osqp_eps_abs": 1e-3,
+        "osqp_eps_rel": 1e-3,
+        "osqp_max_iter": 4000
+      },
+      "convergence_bounds_quantity": "tols=0 exact balance; minimax (L-infinity) weight-dispersion objective solved via OSQP. Reported OSQP tolerances are the OSQP package defaults (optweight does not document overriding them).",
+      "citation": "optweight man/vignette (norm='linf' requires osqp) https://cran.r-project.org/web/packages/optweight/optweight.pdf ; OSQP defaults https://osqp.org/docs/interfaces/solver_settings.html (eps_abs=1e-3, eps_rel=1e-3, max_iter=4000).",
+      "note": "OSQP eps values are the SOLVER defaults, cited separately; optweight itself documents no override => recorded as backend default, flag if driver tightens."
+    },
+    "sbw": {
+      "package": "sbw", "version": "1.2", "arm": "R",
+      "entrypoint": "sbw(dat, bal=list(...), sol=list(sol_nam=...), ...)",
+      "params": {
+        "bal_alg": true,
+        "bal_tol_grid": "c(1e-04, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1)",
+        "bal_std": "group",
+        "sol_nam": "quadprog",
+        "wei_sum": true,
+        "wei_pos": true,
+        "par_est": "att"
+      },
+      "convergence_bounds_quantity": "No scalar convergence tolerance: bal_alg=TRUE runs an ALGORITHMIC search over the bal_gri tolerance grid (default c(1e-4..0.1)) for the tightest feasible standardized balance tolerance; the QP is solved by sol_nam (default 'quadprog'; 'osqp' available). bal_tol bounds standardized covariate imbalance.",
+      "citation": "https://rdrr.io/cran/sbw/man/sbw.html (sbw(..., bal=list(bal_alg=TRUE, bal_tol, bal_std='group', bal_gri=c(1e-04,0.001,0.002,0.005,0.01,0.02,0.05,0.1), bal_sam=1000), sol=list(sol_nam='quadprog', sol_dis=FALSE), par=list(par_est='att'))).",
+      "note": "Stable Balancing Weights (Zubizarreta 2015). Documented default is the tolerance GRID + algorithmic search, not a single tol."
+    },
+    "weightit": {
+      "package": "WeightIt", "version": "1.7.0", "arm": "R",
+      "entrypoint": "weightit(formula, data, method=<delegated>)",
+      "params": {
+        "method": "delegated (ebal / optweight for the calibration families)",
+        "convergence_tolerance": null,
+        "max_iter": null
+      },
+      "convergence_bounds_quantity": "WeightIt is a WRAPPER: convergence tolerance / iteration cap are those of the delegated engine (e.g. method='ebal' -> ebal-style entropy-balancing solver; method='optweight' -> optweight/OSQP). WeightIt documents no single package-wide calibration tolerance default.",
+      "citation": "https://cran.r-project.org/web/packages/WeightIt/WeightIt.pdf (.weightit_methods; method-specific man pages method_ebal / method_optweight).",
+      "note": "FLAG: no package-level documented calibration tolerance/iteration default -- delegated to the chosen method's engine. Driver (WU-5) must record which method WeightIt is invoked with and inherit that engine's frozen entry (ebal / optweight above)."
+    },
+    "icarus": {
+      "package": "icarus", "version": "0.3.3", "arm": "R",
+      "entrypoint": "icarus::calibration(data, marginMatrix, colWeights, method=..., ...)",
+      "params": {
+        "method": "linear",
+        "bounds": "c(low=0, upp=10)",
+        "maxIter": 2500,
+        "calibTolerance": 1e-6,
+        "description": true
+      },
+      "convergence_bounds_quantity": "calibTolerance=1e-6 = tolerance on the max relative margin gap; maxIter=2500 iteration cap. method in {linear, raking, logit, truncated}; logit/truncated use bounds.",
+      "citation": "https://rdrr.io/cran/icarus/man/calibration.html and https://cran.r-project.org/web/packages/icarus/icarus.pdf (calibration(..., method='linear', bounds=c(low=0,upp=10), maxIter=2500, calibTolerance=1e-06)).",
+      "note": "Calmar-inspired. Documented defaults."
+    },
+    "laeken": {
+      "package": "laeken", "version": "0.5.3", "arm": "R",
+      "entrypoint": "laeken::calibWeights(X, d, totals, method=..., ...)",
+      "params": {
+        "method": "raking",
+        "bounds": "c(0, 10)",
+        "maxit": 500,
+        "tol": 1e-6,
+        "eps": "2.220446e-16 (.Machine$double.eps)"
+      },
+      "convergence_bounds_quantity": "tol=1e-6 = convergence tolerance on the calibration constraint match; maxit=500 iteration cap; bounds c(0,10) constrain g-weights (used by logit); eps = numerical tolerance for singularity handling.",
+      "citation": "https://search.r-project.org/CRAN/refmans/laeken/html/calibWeights.html (calibWeights(X, d, totals, ..., bounds=c(0,10), maxit=500, tol=1e-06, eps=.Machine$double.eps)).",
+      "note": "Deville-Sarndal / generalized raking. Documented defaults."
+    },
+    "gecal": {
+      "package": "GECal", "version": "0.1.7", "arm": "R",
+      "entrypoint": "GECal::GEcalib(formula, dweight, data, const, method=..., entropy=..., ...)",
+      "params": {
+        "method": "GEC",
+        "entropy": "SL",
+        "xtol": 1e-16,
+        "maxit": 100000,
+        "weight.scale": 1,
+        "G.scale": 1,
+        "allowSingular": true
+      },
+      "convergence_bounds_quantity": "xtol=1e-16 = relative steplength tolerance in the nleqslv nonlinear solver; maxit=1e5 major-iteration cap. method in {GEC,GEC0,DS}; entropy in {SL,EL,ET,CE,HD,PH} (SL=squared-loss default => chi2-like; ET=exp-tilting => raking; CE => logit-like).",
+      "citation": "https://rdrr.io/cran/GECal/man/GEcalib.html (GEcalib(formula, dweight, data=NULL, const, method=c('GEC','GEC0','DS'), entropy=c('SL','EL','ET','CE','HD','PH'), weight.scale=1, G.scale=1, K_alpha=NULL, is.total=TRUE, del=NULL, xtol=1e-16, maxit=1e+05, allowSingular=T)).",
+      "note": "Unifying generalized-entropy baseline (Kwon-Kim-Qiu 2024). Solver = nleqslv; documented defaults."
+    },
+    "jointcalib": {
+      "package": "jointCalib", "version": "0.1.0", "arm": "R",
+      "entrypoint": "jointCalib::joint_calib(..., control=control_calib())",
+      "params": {
+        "backend": "sampling (calib)",
+        "method": "linear",
+        "bounds": "c(0, 10)",
+        "maxit": 50,
+        "tol": 1e-8,
+        "eps": "2.220446e-16 (.Machine$double.eps)"
+      },
+      "convergence_bounds_quantity": "control_calib: tol=1e-8 convergence tolerance on the calibration constraint; maxit=50 iteration cap; bounds c(0,10) for bounded methods. joint_calib calibrates on totals + quantiles (Harms-Duchesne 2006).",
+      "citation": "https://search.r-project.org/CRAN/refmans/jointCalib/html/joint_calib.html (control_calib(..., bounds=c(0,10), maxit=50, tol=1e-08, eps=.Machine$double.eps, ...)).",
+      "note": "Newton-KL / TR-dual analog family. Documented control_calib defaults."
+    },
+    "nonprobsvy": {
+      "package": "nonprobsvy", "version": "0.2.3", "arm": "R",
+      "entrypoint": "nonprobsvy::nonprob(..., control_selection=control_sel())",
+      "params": {
+        "est_method": "mle",
+        "optimizer": "maxLik",
+        "maxlik_method": "NR",
+        "optim_method": "BFGS",
+        "epsilon": 1e-4,
+        "maxit": 500
+      },
+      "convergence_bounds_quantity": "control_sel: epsilon=1e-4 convergence tolerance on the selection-model estimating equations; maxit=500 iteration cap. GEE option = Chen-Li-Wu calibration-constraint dual (closest Newton-KL analog).",
+      "citation": "https://cran.r-project.org/web/packages/nonprobsvy/nonprobsvy.pdf (control_sel(est_method=c('mle','gee'), gee_h_fun=1, optimizer=c('maxLik','optim'), ..., epsilon=1e-04, maxit=500, ...)).",
+      "note": "FLAG-minor: docs also reference 1e-6 in narrative; signature default recorded (epsilon=1e-4). Driver should assert the installed-version signature."
+    },
+    "regenesees": {
+      "package": "ReGenesees", "version": "2.4", "arm": "R",
+      "entrypoint": "ReGenesees::e.calibrate(design, df.population, calfun=..., ...)",
+      "params": {
+        "calfun": "linear",
+        "bounds": "c(-Inf, Inf)",
+        "maxit": 50,
+        "epsilon": 1e-7,
+        "force": true
+      },
+      "convergence_bounds_quantity": "epsilon=1e-7 = max allowed absolute relative difference between population totals and calibrated estimates; maxit=50 Newton-Raphson cap; bounds on weight/direct-weight ratio (default unbounded). Unbounded linear = direct solve.",
+      "citation": "https://diegozardetto.github.io/ReGenesees/reference/e.calibrate.html (e.calibrate(..., calfun=c('linear','raking','logit'), bounds=c(-Inf,Inf), maxit=50, epsilon=1e-07, force=TRUE)).",
+      "note": "GitHub-only (not CRAN 2026). Documented defaults."
+    },
+    "cvxr_reference": {
+      "package": "CVXR", "version": "1.9.1", "arm": "R",
+      "entrypoint": "CVXR::solve(problem, solver='ECOS'|'CLARABEL', ...) -- high-precision anchor solve",
+      "params": {
+        "role": "reference / ground-truth anchor (NOT a competitor to rank)",
+        "solver": "ECOS (SOCP) / CLARABEL",
+        "reference_tolerance_target": 1e-12,
+        "ecos_abstol_default": 1e-8,
+        "ecos_reltol_default": 1e-8,
+        "ecos_feastol_default": 1e-8
+      },
+      "convergence_bounds_quantity": "Interior-point duality-gap / feasibility tolerances (abstol/reltol/feastol). Per DESIGN.md Section 6 the reference solve is deliberately TIGHTENED to ~1e-12 to serve as the RQ5 correctness anchor -- this is a design-of-record recommended value, NOT the package default (default is 1e-8).",
+      "citation": "CVXR psolve / solver-parameters docs https://www.cvxgrp.org/CVXR/reference/psolve.html and https://cvxr.rbind.io/cvxr_examples/cvxr_solver-parameters/ (feastol/reltol/abstol, default ~1e-8); tightening to 1e-12 per DESIGN.md Section 6.",
+      "note": "Reference anchor, not a ranked competitor. The 1e-12 target is a documented DESIGN-of-record choice; the 1e-8 figures are the ECOS package defaults."
+    }
+  },
+  "Python_competitors": {
+    "ipfn": {
+      "package": "ipfn", "version": "1.4.4", "arm": "python",
+      "entrypoint": "ipfn.ipfn(original, aggregates, dimensions, ...)",
+      "params": {
+        "convergence_rate": 1e-5,
+        "max_iteration": 500,
+        "rate_tolerance": 1e-8
+      },
+      "convergence_bounds_quantity": "convergence_rate=1e-5 = stop when max relative marginal error < this; max_iteration=500 cap; rate_tolerance=1e-8 = stop when |conv - old_conv| < this (stalled progress). Bounds the proportional-fitting marginal error.",
+      "citation": "https://github.com/Dirguis/ipfn/blob/master/ipfn/ipfn.py (def __init__(..., convergence_rate=1e-5, max_iteration=500, verbose=0, rate_tolerance=1e-8)); https://pypi.org/project/ipfn/.",
+      "note": "Stale (2021). Documented source defaults."
+    },
+    "weightipy": {
+      "package": "weightipy", "version": "0.4.2", "arm": "python",
+      "entrypoint": "weightipy Rake (weightipy/internal/rim.py)",
+      "params": {
+        "max_iterations": 1000,
+        "convcrit": 0.01,
+        "_use_cap": false,
+        "cap": 10000000
+      },
+      "convergence_bounds_quantity": "convcrit=0.01 = convergence criterion (stop when relative error-reduction pct_still = 1-convcrit is reached); max_iterations=1000 cap. RIM/iterative raking marginal error. cap off by default.",
+      "citation": "https://raw.githubusercontent.com/kaitumisuuringute-keskus/Weightipy/master/weightipy/internal/rim.py (Rake.__init__(..., max_iterations=1000, convcrit=0.01, _use_cap=False, cap=10000000, ...)); https://pypi.org/project/weightipy/.",
+      "note": "Maintained Quantipy3 RIM fork. Documented source defaults."
+    },
+    "pot_sinkhorn": {
+      "package": "POT", "version": "0.9.7", "arm": "python",
+      "entrypoint": "ot.sinkhorn(a, b, M, reg, ...)",
+      "params": {
+        "reg": "REQUIRED entropic regularization epsilon (no default) -- benchmark pins per problem (see note)",
+        "method": "sinkhorn",
+        "numItermax": 1000,
+        "stopThr": 1e-9
+      },
+      "convergence_bounds_quantity": "stopThr=1e-9 = stop threshold on the marginal error (transport-plan row/col constraint violation); numItermax=1000 cap. reg = entropic epsilon (mandatory positional; POT gives NO default). Recommended epsilon range in POT tutorials is problem-scaled (typically 1e-3 to 1e-1 x median cost); benchmark documents the pinned value in the OT-reduction spec.",
+      "citation": "https://pythonot.github.io/gen_modules/ot.bregman.html (sinkhorn(a,b,M,reg,method='sinkhorn',numItermax=1000,stopThr=1e-9,...)).",
+      "note": "2-marginal balanced OT (redundant-IPF cross-check only, per DESIGN Section 2). reg has NO documented default => the epsilon value is a per-spec pinned choice, recorded in the OT-reduction spec, not here."
+    },
+    "pot_greenkhorn": {
+      "package": "POT", "version": "0.9.7", "arm": "python",
+      "entrypoint": "ot.bregman.greenkhorn(a, b, M, reg, ...)",
+      "params": {
+        "reg": "REQUIRED entropic epsilon (no default)",
+        "numItermax": 10000,
+        "stopThr": 1e-9
+      },
+      "convergence_bounds_quantity": "stopThr=1e-9 marginal-error stop threshold; numItermax=10000 cap (greedy coordinate updates, hence higher cap than sinkhorn). reg = entropic epsilon (mandatory, no default).",
+      "citation": "https://pythonot.github.io/gen_modules/ot.bregman.html (greenkhorn(a,b,M,reg,numItermax=10000,stopThr=1e-09,...)).",
+      "note": "Greedy Sinkhorn variant. reg has no documented default (per-spec pinned)."
+    },
+    "ott_jax_sinkhorn": {
+      "package": "ott-jax", "version": "0.6.0", "arm": "python",
+      "entrypoint": "ott.solvers.linear.sinkhorn.Sinkhorn(...)",
+      "params": {
+        "threshold": 1e-3,
+        "min_iterations": 0,
+        "max_iterations": 2000,
+        "inner_iterations": 10,
+        "epsilon": "geometry-relative default (~5% of mean cost; set via Geometry, no scalar Sinkhorn default)"
+      },
+      "convergence_bounds_quantity": "threshold=1e-3 = tolerance to stop Sinkhorn iterations (marginal deviation); max_iterations=2000 cap; error recomputed every inner_iterations=10; min_iterations=0. epsilon = entropic regularization on the Geometry (relative-to-mean-cost default).",
+      "citation": "https://ott-jax.readthedocs.io/solvers/_autosummary/ott.solvers.linear.sinkhorn.Sinkhorn.html (Sinkhorn(..., threshold=0.001, min_iterations=0, max_iterations=2000, inner_iterations=10, ...)).",
+      "note": "EXCLUDED from ranked {1,4}-thread timing (XLA ignores OMP/BLAS env; DESIGN Section 2). epsilon set on Geometry, not the solver; scalar Geometry default is relative (~0.05 x mean cost)."
+    },
+    "scipy_trust_constr": {
+      "package": "scipy", "version": "1.18.0", "arm": "python",
+      "entrypoint": "scipy.optimize.minimize(..., method='trust-constr', bounds=..., constraints=...)",
+      "params": {
+        "gtol": 1e-8,
+        "xtol": 1e-8,
+        "barrier_tol": 1e-8,
+        "maxiter": 1000
+      },
+      "convergence_bounds_quantity": "gtol=1e-8 = stop on Lagrangian-gradient (first-order KKT / dual-stationarity) infinity norm; xtol=1e-8 = trust-region step tolerance; barrier_tol=1e-8 = interior-point barrier tolerance; maxiter=1000 cap. Newton-KL trust-region analog.",
+      "citation": "https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html (gtol default 1e-8, xtol default 1e-8, barrier_tol default 1e-8, maxiter default 1000).",
+      "note": "Documented v1.18.0 defaults."
+    },
+    "cvxpy_linf": {
+      "package": "cvxpy", "version": "1.9.2", "arm": "python",
+      "entrypoint": "cvxpy Problem(Minimize(linf-dispersion), constraints).solve() -- LP/conic baseline",
+      "params": {
+        "default_solver": "CLARABEL (CVXPY default for LP/SOCP since v1.5)",
+        "tol_gap_abs": 1e-8,
+        "tol_gap_rel": 1e-8,
+        "tol_feas": 1e-8,
+        "max_iter": 200
+      },
+      "convergence_bounds_quantity": "CLARABEL interior-point tolerances: tol_gap_abs/tol_gap_rel = duality-gap tolerances; tol_feas = primal/dual feasibility tolerance; max_iter=200 cap. Bounds the LP minimax (L-infinity) optimality/feasibility gap.",
+      "citation": "https://www.cvxpy.org/tutorial/solvers/index.html (CLARABEL default since 1.5); CLARABEL default settings tol_gap_abs=1e-8, tol_gap_rel=1e-8, tol_feas=1e-8, max_iter=200 (https://clarabel.org/stable/api_settings/).",
+      "note": "L-infinity LP baseline (DESIGN Section 2, RQ6 item 2). CLARABEL defaults recorded; if the driver forces a specific solver (ECOS/OSQP) that entry's defaults apply instead -- flag on driver wiring."
+    },
+    "balance": {
+      "package": "balance", "version": "0.21.0", "arm": "python",
+      "entrypoint": "balance Sample.adjust(method='rake') (ipfn backend)",
+      "params": {
+        "method": "rake",
+        "max_iteration": null,
+        "convergence_rate": null,
+        "rate_tolerance": null
+      },
+      "convergence_bounds_quantity": "balance.rake wraps the ipfn IPF backend; the marginal-error convergence semantics are ipfn's (see ipfn entry). balance's own rake wrapper forwards max_iteration/convergence_rate/rate_tolerance to ipfn.",
+      "citation": "https://import-balance.org/ and https://github.com/facebookresearch/balance (rake adjustment uses ipfn backend); ipfn defaults per the ipfn entry.",
+      "note": "FLAG: balance's public rake() wrapper does not document its OWN numeric convergence defaults distinctly from the ipfn backend it calls -- recorded null. Driver (WU-6) must capture the effective forwarded values at call time; treat as ipfn defaults (convergence_rate=1e-5, max_iteration=500, rate_tolerance=1e-8) unless balance overrides them."
+    },
+    "samplics": {
+      "package": "samplics", "version": "0.6.0", "arm": "python",
+      "entrypoint": "samplics SampleWeight calibration/raking",
+      "params": {
+        "tol": null,
+        "max_iterations": null
+      },
+      "convergence_bounds_quantity": "Raking iterates until margins agree 'within tolerance' (JOSS paper), but samplics' public API does not surface a documented numeric default tolerance / max-iteration for its calibration in the primary docs.",
+      "citation": "https://samplics-org.github.io/samplics/ (calibration/raking described; no numeric default surfaced). Successor 'svy' documents rake tol=1e-6 (https://svylab.com/docs/svy/tutorials/weighting.html).",
+      "note": "FLAG: documented numeric default unknown for samplics 0.6.0 -- recorded null. Its successor svy uses tol=1e-6 (see svy entry); driver (WU-6, external-review Gap E) verifies which library is actually used and records the effective value."
+    },
+    "svy": {
+      "package": "svy", "version": "0.18.2", "arm": "python",
+      "entrypoint": "svy rake(controls, wgt_name, tol=...) / svy calibrate(controls, ...)",
+      "params": {
+        "rake_tol": 1e-6,
+        "calibrate_tol": null,
+        "max_iterations": null
+      },
+      "convergence_bounds_quantity": "rake tol=1e-6 = tolerance on the raking marginal match; calibrate() and the numeric max-iterations default are documented only via TrimConfig ('convergence tolerance, maximum iterations') without stated numeric defaults.",
+      "citation": "https://svylab.com/docs/svy/tutorials/weighting.html (rake(..., tol=1e-6); calibrate(...); TrimConfig bundles tolerance/max-iterations without numeric defaults).",
+      "note": "Confirmed maintained samplics successor (svylab.com) -- resolves DESIGN Section 2 Gap E. rake tol=1e-6 documented; FLAG: calibrate/max-iterations numeric defaults not documented (null)."
+    }
+  }
+}
