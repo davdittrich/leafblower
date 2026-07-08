@@ -46,14 +46,21 @@ FMT <- "  wall=%7.1fs  iters=%5s  status=%d  max_err=%.4e  L1=%.4e  chi2=%.3e  m
 run <- function(method, label = method, ...) {
   cat(sprintf("%-22s ...", label)); flush.console()
   t0 <- proc.time()["elapsed"]
-  r  <- suppressWarnings(
+  # Guard: a method that stop()s (e.g. logit INFEAS) must not abort the whole
+  # benchmark. Catch, print an ERROR line, return a NULL-weight sentinel, continue.
+  r  <- tryCatch(suppressWarnings(
     if (method == "autumn")
       autumn::harvest(df, tgt, max_weight = 5, min_weight = 0, accelerate = TRUE, ...)
     else
       leafblower::harvest(df, tgt, method = method,
         max_weight = 5, min_weight = 0, ..., attach_weights = FALSE, verbose = 0)
-  )
+  ), error = function(e) e)
   wall <- proc.time()["elapsed"] - t0
+  if (inherits(r, "error")) {
+    cat(sprintf("  wall=%7.1fs  ERROR: %s\n", wall,
+                sub("\n.*", "", conditionMessage(r))))
+    return(invisible(list(w = NULL, wall = wall, m = NULL)))
+  }
   w <- tryCatch(as.numeric(r),
     error = function(e) {
       if (!is.null(r$weights)) as.numeric(r$weights)
@@ -114,8 +121,13 @@ pairs <- list(
   cheby         = "chebyshev",
   autumn        = "autumn"
 )
-for (nm in names(pairs)) {
+if (is.null(r_oris$w)) {
+  cat("  (reference oris run failed — Pearson-r section skipped)\n")
+} else for (nm in names(pairs)) {
   rv <- get(paste0("r_", nm))
+  if (is.null(rv$w) || length(rv$w) != length(r_oris$w)) {
+    cat(sprintf("  oris ↔ %-22s  r=      — (failed)\n", pairs[[nm]])); next
+  }
   cat(sprintf("  oris ↔ %-22s  r=%.6f\n", pairs[[nm]], cor(r_oris$w, rv$w)))
 }
 
