@@ -1,0 +1,17 @@
+{
+  "id": "toy_inline",
+  "data_ref": "inline",
+  "data": [
+    { "id": 1, "grp": "A" },
+    { "id": 2, "grp": "A" },
+    { "id": 3, "grp": "B" },
+    { "id": 4, "grp": "B" }
+  ],
+  "design_weights": [1, 1, 2, 2],
+  "margins": ["grp"],
+  "targets": { "grp": { "A": 2, "B": 2 } },
+  "bounds": { "min": 0, "max": 10 },
+  "tol": 1e-6,
+  "objective_families": ["kl"],
+  "K": 1
+}

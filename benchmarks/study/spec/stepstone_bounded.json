@@ -1,0 +1,21 @@
+{
+  "id": "stepstone_bounded",
+  "data_ref": "file:benchmarks/stepstone_fulldata_bench_data.parquet",
+  "design_weights": null,
+  "margins": [
+    "rk_i_loc_time_age10_gender",
+    "rk_i_loc_wz",
+    "rk_age10_gender",
+    "rk_i_loc_time_gender",
+    "rk_i_loc_fsize",
+    "rk_i_loc_Abschluss_gender",
+    "rk_gender_time",
+    "rk_time",
+    "rk_gender"
+  ],
+  "targets_ref": "benchmarks/stepstone_fulldata_bench_targets.json",
+  "bounds": { "min": 0, "max": 5 },
+  "tol": 1e-8,
+  "objective_families": ["kl", "chi2", "logit"],
+  "K": 9
+}

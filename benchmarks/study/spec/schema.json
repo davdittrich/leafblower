@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leafblower.local/benchmarks/study/spec/schema.json",
+  "title": "leafblower benchmark study — problem spec",
+  "description": "Design of record: docs/benchmark/DESIGN.md §3. One JSON file per problem (canonical home-turf, stepstone, synthetic-family). Bulk data is referenced via a typed data_ref, never inlined; only scalars/small arrays are inline. Loaded by common/problem_io.{R,py} into a standardized problem object (see loader docstrings for the exact field list).",
+  "type": "object",
+  "required": ["id", "data_ref", "margins", "bounds", "tol", "objective_families", "K"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique problem id; also used as the runs.parquet `problem` key and as the weights/<solver>__<problem>__... filename component (§8)."
+    },
+    "data_ref": {
+      "type": "string",
+      "description": "Typed origin. 'file:<path.parquet|.csv>' — bulk data on disk, path relative to repo root (never inlined). 'pkg:<package>::<dataset>' — package-bundled canonical dataset, resolved via that language's own package API each arm (single-arm by nature: an R-only package has no Python resolution, and vice versa — NOT a bug). 'gen:<recipe_id>' — parametric synthetic-family generator (WU-3 scope; the schema/dispatch point is defined here, the recipes are not — resolving one raises a clear not-yet-implemented error). 'inline' — small toy arrays, embedded in the `data` field of this same spec.",
+      "pattern": "^(file:.+|pkg:[^:]+::[^:]+|gen:.+|inline)$"
+    },
+    "data": {
+      "type": "array",
+      "description": "Inline rows (array of flat objects, one per observation). Required iff data_ref == 'inline'; absent for all other origins (bulk data must never be inlined — Constraint III/Format).",
+      "items": { "type": "object" }
+    },
+    "design_weights": {
+      "description": "Per-observation design weights d_i (harvest()'s `design_weights=` arg — there is NO `weights=` arg, CLAUDE.md). One of: omitted/null (defaults to all-ones, i.e. self-weighting sample); 'column:<name>' (read from a column of the resolved data, e.g. a package's own `pw`); or an inline JSON array of length n (only meaningful for data_ref=='inline').",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^column:.+$" },
+        { "type": "array", "items": { "type": "number" } }
+      ]
+    },
+    "margins": {
+      "type": "array",
+      "description": "Column names in the resolved data that carry the K calibration margins. Must have exactly K entries and must equal the key set of the resolved targets.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "targets_ref": {
+      "type": ["string", "null"],
+      "description": "Path (relative to repo root) to a JSON file of {margin: {category: count_or_proportion}} (e.g. benchmarks/stepstone_fulldata_bench_targets.json). Mutually exclusive with `targets`; the loader normalizes each margin's values to proportions summing to 1 (raw counts are accepted, matching the existing stepstone target file convention)."
+    },
+    "targets": {
+      "type": ["object", "null"],
+      "description": "Inline {margin: {category: count_or_proportion}}, for small/toy problems. Mutually exclusive with `targets_ref`."
+    },
+    "bounds": {
+      "type": "object",
+      "required": ["min", "max"],
+      "description": "Weight box bounds, passed to harvest()'s min_weight/max_weight. null means unbounded on that side: min -> 0 (weights are non-negative by convention), max -> +Inf (harvest.R:454 explicitly allows +Inf as 'unbounded').",
+      "properties": {
+        "min": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] }
+      }
+    },
+    "tol": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Shared convergence tolerance; mapped to each solver's native stopping parameter by the (separately committed) tol-mapping table (DESIGN.md §5) — this spec only carries the shared nominal value."
+    },
+    "objective_families": {
+      "type": "array",
+      "description": "Objective families this problem is applicable to, for registry.json cross-checking (DESIGN.md §3).",
+      "items": {
+        "type": "string",
+        "enum": ["kl", "chi2", "logit", "newton_kl", "minimax", "ot"]
+      },
+      "minItems": 1
+    },
+    "K": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Margin count; must equal length(margins). Kept as an explicit redundant field (not just derived) so registry.json / solver applicability checks (K_max) don't need to load+resolve the full problem just to know K."
+    }
+  },
+  "oneOf": [
+    { "required": ["targets_ref"], "not": { "required": ["targets"] } },
+    { "required": ["targets"], "not": { "required": ["targets_ref"] } }
+  ],
+  "if": {
+    "required": ["data_ref"],
+    "properties": { "data_ref": { "const": "inline" } }
+  },
+  "then": { "required": ["data"] }
+}

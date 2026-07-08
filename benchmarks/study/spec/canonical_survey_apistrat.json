@@ -1,0 +1,11 @@
+{
+  "id": "canonical_survey_apistrat",
+  "data_ref": "pkg:survey::apistrat",
+  "design_weights": "column:pw",
+  "margins": ["stype"],
+  "targets": { "stype": { "E": 4421, "H": 755, "M": 1018 } },
+  "bounds": { "min": 0, "max": null },
+  "tol": 1e-8,
+  "objective_families": ["kl"],
+  "K": 1
+}
