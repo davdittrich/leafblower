@@ -135,8 +135,13 @@ cat("\n=== Python IPF implementations ===\n")
 cat("Note: Python methods have NO max_weight/min_weight bounds.\n")
 
 py_json <- tryCatch({
+  # Use the project's uv-managed venv interpreter: the benchmark deps
+  # (numpy/pandas/polars/ipfn/pyarrow) live there, not in system python3.
+  py_bin <- if (nzchar(Sys.getenv("LBW_PYTHON"))) Sys.getenv("LBW_PYTHON")
+            else "python/.venv/bin/python"
   py_out <- system(
-    "OMP_NUM_THREADS=1 python3 benchmarks/python_ipf_benchmark.py 2>/dev/null",
+    sprintf("OMP_NUM_THREADS=1 %s benchmarks/python_ipf_benchmark.py 2>/dev/null",
+            shQuote(py_bin)),
     intern = TRUE)
   if (length(py_out) == 0L) stop("no output")
   jsonlite::fromJSON(paste(py_out, collapse = "\n"))
