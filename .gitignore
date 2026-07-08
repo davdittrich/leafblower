@@ -2,7 +2,6 @@
 # Added by code-review-graph
 .beads-credential-key
 # Beads / Dolt files (added by bd init)
-.code-review-graph/
 *.db
 *.dll
 .dolt/
