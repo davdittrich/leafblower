@@ -30,8 +30,21 @@
 # that breaks under source()-from-a-different-script or testthat::test_file()
 # (which chdir's into the test file's own directory).
 
-source(file.path("benchmarks", "study", "common", "problem_io.R"))
-source(file.path("benchmarks", "study", "common", "metrics.R"))
+# Guarded: run_worker() (run_arm.R:109-116) sources problem_io.R, then
+# install_gen_resolver() monkey-patches its script-level .pio_resolve_data_ref
+# so gen:instance_family?... data_refs resolve. An unconditional re-source
+# here would redefine every problem_io.R function (including the patched
+# .pio_resolve_data_ref) back to the stock, gen:-unaware version, silently
+# breaking instance-family competitor cells (leafblower-2ouc.24). Skipping the
+# source when load_problem_spec already exists preserves whatever loader
+# (patched or stock) the caller already installed; standalone/test callers
+# that haven't sourced problem_io.R yet still get it here.
+if (!exists("load_problem_spec", mode = "function")) {
+  source(file.path("benchmarks", "study", "common", "problem_io.R"))
+}
+if (!exists("margin_stats", mode = "function")) {
+  source(file.path("benchmarks", "study", "common", "metrics.R"))
+}
 
 # ---- bad-arg signalling ------------------------------------------------------
 # A distinct condition class so the harness wrapper (.comp_run) can map
