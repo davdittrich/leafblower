@@ -54,7 +54,7 @@
     "tol": {
       "type": "number",
       "exclusiveMinimum": 0,
-      "description": "Shared convergence tolerance; mapped to each solver's native stopping parameter by the (separately committed) tol-mapping table (DESIGN.md §5) — this spec only carries the shared nominal value."
+      "description": "leafblower's own stopping precision only (harvest convergence=list(absolute=tol) via tol_mapping.json 'leafblower_solvers'), so leafblower runs to a consistent accuracy. NOT an absolute target/bar competitors must clear: competitors run at their own documented tolerances (hyperparams.json), and margin fit (margin_linf/l1/kl) is reported as a METRIC, never gated. `converged` is ALGORITHMIC (the harmonized status enum), not margin_linf<=tol; there is no target to reach — solvers are compared RELATIVELY."
     },
     "objective_families": {
       "type": "array",

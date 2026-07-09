@@ -17,7 +17,7 @@
       "weights_ref":        { "type": "string", "description": "Path to weights/<solver>__<problem>__t<thread>__<build>.parquet; never null (contract.md §2.1)." },
       "iterations":         { "type": ["integer", "null"], "minimum": 0, "description": "Typed null (never 0 or the string \"NA\") when the wrapped package exposes no iteration count." },
       "status":             { "$ref": "status_enum.json#/$defs/StatusEnum" },
-      "converged":          { "type": "boolean", "description": "Harness-recomputed uniform-L∞-vs-tol check; NEVER the solver's self-report (contract.md §2.4)." },
+      "converged":          { "type": "boolean", "description": "Algorithmic convergence: status=='converged' after the bound-violation upgrade (harmonized status enum). NOT a margin_linf<=tol fit gate — margin_linf is a fit metric, no target to reach (contract.md §2.4)." },
       "error_message":      { "type": ["string", "null"] },
 
       "wall_time_s":        { "type": "number", "exclusiveMinimum": 0, "description": "float64 seconds; SINGLE end-to-end axis (raw-rows-in → weights-out, groupby/cell/contingency build inside the timer for every arm); always present (contract.md §2.6). No solve-only axis — benchmark is strictly separate from leafblower (user constraint 2026-07-08)." },

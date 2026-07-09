@@ -11,9 +11,11 @@
 # shape (spec/contract.md Section 1):
 #   list(weights_ref=, iterations=, status=, converged=, error_message=,
 #        wall_time_s=, peak_rss_bytes=)
-# `converged` is ALWAYS harness-recomputed here via common/metrics.R's
-# margin_stats()$margin_linf <= problem$tol -- never a solver's self-report
-# (contract.md Section 2.4). `status` is the adapter's own mapping of the
+# `converged` = ALGORITHMIC convergence (status == "converged" after the
+# bound-violation upgrade) -- the solver reached its fixed point. It is NOT a
+# margin_linf<=tol fit gate: margin_linf is a fit metric (scored-run phase),
+# there is no target to reach (contract.md Section 2.4). `status` is the
+# adapter's own mapping of the
 # wrapped package's native exit/exception into the 8-value harmonized enum
 # (spec/status_enum.json); a package's own "success" can still coexist with
 # converged==FALSE and vice versa (contract.md Section 2.3).
@@ -214,8 +216,9 @@ if (!exists("margin_stats", mode = "function")) {
 
 # ---- run() harness wrapper -----------------------------------------------
 # Shared by every run_<id>(): timing, RSS, weights-parquet write (incl. the
-# all-NaN hard-failure sentinel, contract.md Section 2.1), harness-recomputed
-# `converged` (never a solver's self-report, contract.md Section 2.4), and the
+# all-NaN hard-failure sentinel, contract.md Section 2.1), status-based
+# `converged` (algorithmic: status=="converged" after the upgrade below,
+# contract.md Section 2.4), and the
 # harness-side bound_violation upgrade for packages with no native bound
 # check (status_enum.json: only applied when the package itself reported
 # "converged" -- a native no_conv/error/infeasible classification is left as
@@ -246,8 +249,8 @@ if (!exists("margin_stats", mode = "function")) {
          error_message = conditionMessage(e))
   })
   # contract.md Section 2.6: timer stops at weights-out (solve complete). The
-  # margin_stats recompute + bound-violation upgrade + parquet write below are
-  # post-run harness diagnostics (Section 2.4) and MUST NOT be inside the timer.
+  # bound-violation upgrade + converged (status-based) + parquet write below are
+  # post-run harness steps (Section 2.4) and MUST NOT be inside the timer.
   wall_time_s <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   w <- as.numeric(result$weights)
@@ -261,18 +264,21 @@ if (!exists("margin_stats", mode = "function")) {
   error_message <- result$error_message
 
   hard_failure <- all(is.na(w))
-  if (!hard_failure) {
-    ms <- margin_stats(w, .comp_groups(problem), problem$targets)
-    converged <- isTRUE(ms$margin_linf <= problem$tol)
-    if (identical(status, "converged")) {
-      eps <- 1e-8
-      viol <- any(w < problem$bounds$min - eps, na.rm = TRUE) ||
-        any(w > problem$bounds$max + eps, na.rm = TRUE)
-      if (viol) status <- "bound_violation"
-    }
-  } else {
-    converged <- FALSE
+  # bound-violation upgrade (unbounded competitor on a bounded problem): a solver
+  # that self-reports "converged" but returns weights outside [L,U] is re-tagged.
+  if (!hard_failure && identical(status, "converged")) {
+    eps <- 1e-8
+    viol <- any(w < problem$bounds$min - eps, na.rm = TRUE) ||
+      any(w > problem$bounds$max + eps, na.rm = TRUE)
+    if (viol) status <- "bound_violation"
   }
+  # converged = ALGORITHMIC convergence (the solver reached its fixed point / the
+  # loss is stationary across iterations), read from the harmonized status enum
+  # AFTER the bound-violation upgrade -- NOT a margin-L-inf<=tol fit gate. There is
+  # no absolute target to reach: margin_linf is a FIT metric (reported with
+  # marg_kl/ess/deff in the scored-run metrics phase), and solvers are compared
+  # RELATIVELY (is leafblower/oris/oris_soft better than the competitors).
+  converged <- !hard_failure && identical(status, "converged")
 
   peak_rss_bytes <- .comp_peak_rss_bytes()
 
@@ -475,8 +481,9 @@ run_ipfr <- function(problem) .comp_run("ipfr", problem, .comp_ipfr_solve)
 # hyperparams.json documented defaults verbatim: max.iterations=200,
 # constraint.tolerance=1 (RAW COUNT-scale absolute moment imbalance, not a
 # proportion -- on small-n problems this frozen default yields a genuinely
-# loose margin match; that is the package's documented behaviour and is
-# reported via converged==FALSE by the harness recompute, not tightened here).
+# loose margin match; that is the package's documented behaviour and surfaces
+# in the FIT metrics (margin_linf/marg_kl), not in `converged` (algorithmic),
+# and is not tightened here).
 # ATT phantom-row trick, K-1-dummy-no-intercept encoding (ebal's collinearity
 # check rejects the full-dummy form).
 # =============================================================================
@@ -868,9 +875,10 @@ run_sbw <- function(problem) .comp_run("sbw", problem, .comp_sbw_solve)
 # (nonprobsvy's own bundled admin/jvs job-vacancy pair, n=9344) this same
 # invocation produces nleqslv's own "Ill-conditioned Jacobian"/"Jacobian is
 # singular" warnings and returns weights that do NOT hit the declared
-# pop_totals -- caught correctly by the harness-recomputed `converged`
-# (never trusting the package's own non-error exit), not silently reported
-# as success. The home-turf golden below uses the well-conditioned K=3
+# pop_totals -- that fit miss surfaces in the reported FIT metrics
+# (margin_linf/marg_kl), NOT in `converged` (which is algorithmic and may still
+# read status=="converged"); the relative fit comparison exposes it. The
+# home-turf golden below uses the well-conditioned K=3
 # apistrat fixture (shared with the survey::calibrate goldens above), where
 # the GEE solve is exact to machine precision.
 # =============================================================================

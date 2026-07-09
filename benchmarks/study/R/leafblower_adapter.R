@@ -18,10 +18,11 @@
 #    wall_time_s, peak_rss_bytes}
 # `status` is leafblower's OWN native RK_* status code mapped to the 8-value
 # harmonized enum (status_enum.json), with a harness-side bound_violation
-# reclassification layered on top. `converged` is ALWAYS independently
-# recomputed here from common/metrics.R's margin_stats() against
-# problem$tol -- never the solver's self-reported status (contract.md
-# Section 2.4).
+# reclassification layered on top. `converged` = ALGORITHMIC convergence
+# (status == "converged" after the bound_violation upgrade) -- the solver
+# reached its fixed point / the loss is stationary. It is NOT a margin_linf<=tol
+# fit gate: margin_linf is a fit metric (scored-run phase), there is no target
+# to reach, solvers are compared RELATIVELY (contract.md Section 2.4).
 #
 # `build` (portable | native) is NOT part of the frozen 7-key return -- per
 # the WU-7 ticket's own "Format" field, leafblower is the only adapter with
@@ -100,14 +101,6 @@ WEIGHTS_DIR <- file.path(.REPO_ROOT, "weights")
   any(weights < lo - atol) || any(weights > hi + atol)
 }
 
-#' contract.md Section 2.4: converged is ALWAYS harness-recomputed here via
-#' common/metrics.R's margin_stats() uniform margin-L-infinity check against
-#' problem$tol -- never the solver's own self-reported status.
-.lbw_recompute_converged <- function(weights, problem) {
-  groups <- stats::setNames(lapply(problem$margins, function(m) problem$data[[m]]), problem$margins)
-  ms <- margin_stats(weights, groups, problem$targets)
-  list(converged = isTRUE(ms$margin_linf <= problem$tol), margin_linf = ms$margin_linf)
-}
 
 .lbw_thread <- function() as.integer(Sys.getenv("OMP_NUM_THREADS", "1"))
 
@@ -151,8 +144,8 @@ run_leafblower <- function(problem, method, build, thread = NULL) {
     }
   )
   # contract.md Section 2.6: single timer stop at weights-out (harvest returned,
-  # success or error). The recompute/bound-check/parquet write below are post-run
-  # harness diagnostics (Section 2.4) and MUST NOT be inside the timer.
+  # success or error). The bound-check + converged (status-based) + parquet write
+  # below are post-run harness steps (Section 2.4) and MUST NOT be inside the timer.
   wall <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   if (inherits(res, "error")) {
@@ -173,7 +166,6 @@ run_leafblower <- function(problem, method, build, thread = NULL) {
   weights <- as.numeric(res)
   if (.lbw_bound_violation(weights, problem)) status <- "bound_violation"
 
-  cv  <- .lbw_recompute_converged(weights, problem)
   ref  <- .lbw_write_weights(weights, solver_id, problem$id, thread, build)
   iterations <- attr(res, "iterations")
 
@@ -181,7 +173,10 @@ run_leafblower <- function(problem, method, build, thread = NULL) {
     weights_ref = ref,
     iterations  = if (is.null(iterations)) NA_integer_ else as.integer(iterations),
     status      = status,
-    converged   = cv$converged,
+    # converged = ALGORITHMIC convergence (harmonized status enum) after the
+    # bound-violation upgrade -- NOT a margin_linf<=tol fit gate (contract.md 2.4).
+    # margin_linf is a fit metric (scored-run phase); no target to reach.
+    converged   = identical(status, "converged"),
     error_message = if (length(warnings_seen) == 0L) NULL else paste(warnings_seen, collapse = "; "),
     wall_time_s = as.numeric(wall),
     peak_rss_bytes = .lbw_peak_rss_bytes()

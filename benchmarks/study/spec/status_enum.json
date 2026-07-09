@@ -3,7 +3,7 @@
   "$id": "https://leafblower.local/benchmarks/study/spec/status_enum.json",
   "title": "Harmonized adapter status enum + per-adapter mapping template",
   "schema_version": "2.0.0",
-  "description": "Frozen 8-value status enum shared by every adapter (leafblower + every competitor, R and Python arms). See contract.md §2.3 for how this relates to the independently-recomputed `converged` boolean.",
+  "description": "Frozen 8-value status enum shared by every adapter (leafblower + every competitor, R and Python arms). See contract.md §2.3/§2.4 for how this relates to the `converged` boolean (algorithmic: converged == (status=='converged') after the bound-violation upgrade; NOT a margin_linf<=tol fit gate).",
   "$defs": {
     "StatusEnum": {
       "type": "string",

@@ -95,7 +95,7 @@ other_methods <- setdiff(.LBW_METHODS, KL_NATIVE_FAMILIES)
 for (m in kl_native_methods) {
   res <- run_leafblower(toy, m, BUILD)
   w <- arrow::read_parquet(file.path(.REPO_ROOT, res$weights_ref))$weight
-  check(sprintf("%s: recomputed converged == TRUE", m), isTRUE(res$converged))
+  check(sprintf("%s: converged (status-based) == TRUE", m), isTRUE(res$converged))
   check(sprintf("%s: weights == (1,1,1,1) (exact KL-family projection)", m),
         near(w, c(1, 1, 1, 1), tol = 1e-4))
 }
@@ -103,7 +103,7 @@ for (m in kl_native_methods) {
 for (m in other_methods) {
   res <- run_leafblower(toy, m, BUILD)
   w <- arrow::read_parquet(file.path(.REPO_ROOT, res$weights_ref))$weight
-  check(sprintf("%s: recomputed converged == TRUE", m), isTRUE(res$converged))
+  check(sprintf("%s: converged (status-based) == TRUE", m), isTRUE(res$converged))
   check(sprintf("%s: Sigma(w) == n == 4", m), near(sum(w), 4, tol = 1e-4))
   check(sprintf("%s: bounds respected", m),
         all(w >= toy$bounds$min - 1e-9) && all(w <= toy$bounds$max + 1e-9))

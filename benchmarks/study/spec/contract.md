@@ -29,7 +29,7 @@ run(problem) -> {
   weights_ref:      str,        # see §2.1
   iterations:        int | NA,   # see §2.2
   status:            <enum>,     # see status_enum.json, §2.3
-  converged:         bool,       # see §2.4 — NEVER the solver's self-report
+  converged:         bool,       # §2.4 — algorithmic: status=="converged", NOT a fit gate
   error_message:     str | null, # see §2.5
   wall_time_s:       f64,        # see §2.6 — single end-to-end axis
   peak_rss_bytes:    i64,        # see §2.7
@@ -98,27 +98,38 @@ whole-unit `survey`/`sampling` calibration calls).
 The adapter's own outcome classification, mapped from the wrapped
 package's native exit code / exception class into the 8-value harmonized
 enum defined in `status_enum.json`. This is what the *solver* reported.
-It is deliberately kept separate from `converged` (§2.4): a package can
-exit with a "converged" status and still fail the harness's own
-independently-recomputed accuracy check, and conversely a package that
-exits `stall`/`no_conv` may still have produced weights that meet the
-harness's tolerance.
+`converged` (§2.4) is derived from this status (`converged == (status ==
+"converged")`), so the two agree by construction. What `status` is
+deliberately kept separate from is FIT: a package can exit "converged" yet
+produce weights with poor fit (large `margin_linf`), and one that exits
+`stall`/`no_conv` may still have produced good-fit weights. Convergence and
+fit are orthogonal — fit is judged only via the reported fit metrics
+(`margin_linf`/`l1`/`marg_kl`), never gated by `status` or `converged`.
 
 ### 2.4 `converged: bool`
 
-**Always harness-recomputed, never the solver's self-report.**
-The harness independently loads `weights_ref` after the run completes and
-recomputes the achieved margin error against the problem's margins, using
-a single **uniform L∞ metric** (max absolute margin discrepancy across all
-`k` targets), compared against the problem's `tol`. `converged = TRUE` iff
-that independently-recomputed L∞ error is `<= tol`; `FALSE` otherwise —
-including when `status` itself is `"error"`/`"bad_arg"`/`"infeasible"` (no
-usable weights ⇒ `converged = FALSE` by construction). This uniform-axis
-check is deliberately blind to each solver's own native stopping
-quantity (duality gap, KL, etc.); the per-solver tol→native-quantity
-mapping is recorded separately (WU-9's `tol_mapping.json`) as a diagnostic,
-not as an input to this field. Rationale: never trust solver self-reported
-convergence (project-wide, no-hiding-failures policy).
+**Algorithmic convergence, from the harmonized `status` enum.**
+`converged = TRUE` iff `status == "converged"` after the bound-violation
+upgrade (§2.3) — i.e. the solver reached its fixed point / the loss is
+stationary across successive iterations, harmonized into the common status
+vocabulary. A hard failure (no usable weights ⇒ `status` in
+`{error, bad_arg, infeasible}`) or a bound violation therefore gives
+`converged = FALSE` by construction.
+
+`converged` is **NOT** an absolute fit gate. Earlier revisions recomputed it
+as `margin_linf <= tol`; that conflated *convergence* (an algorithm reaching
+its fixed point) with *fit* (accuracy vs the targets) — two orthogonal
+things (a solver can converge to a constrained optimum that misses a tight
+tol, or meet a tol without loss-stationarity). **There is no absolute target
+to reach.** `margin_linf` (and `l1`, `marg_kl`) are FIT metrics reported in
+the scored-run metrics phase alongside ESS and design-effect; solvers are
+compared **relatively** (is leafblower / oris / oris_soft better than the
+competitors?), never against a pass/fail threshold. The incomparability of
+raw self-reports is resolved by *harmonizing* each solver's native code into
+the `status` enum — not by redefining convergence as fit. `problem.tol` is
+leafblower's own stopping precision (see `tol_mapping.json`
+`leafblower_solvers`), not a bar competitors must clear.
+(Amendment config-freeze-v6, 2026-07-09, user directive.)
 
 ### 2.5 `error_message: str | null`
 

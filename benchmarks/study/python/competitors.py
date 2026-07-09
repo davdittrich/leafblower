@@ -16,15 +16,18 @@ returns EXACTLY
     {weights_ref, iterations, status, converged, error_message,
      wall_time_s, peak_rss_bytes}
 `status` is the *package's own* outcome, mapped to the 8-value harmonized
-enum (status_enum.json). `converged` is ALWAYS independently recomputed
-here from common/metrics.py's margin_stats() against problem["tol"] --
-never the package's self-report (contract.md Section 2.4).
+enum (status_enum.json). `converged` = ALGORITHMIC convergence, derived from
+that harmonized status (status == "converged") after the bound-violation
+upgrade -- the solver reached its fixed point / the loss is stationary across
+iterations. It is NOT a margin_linf<=tol fit gate: margin_linf is a FIT metric
+(computed with marg_kl/ess/deff in the scored-run metrics phase); there is no
+absolute target to reach, and solvers are compared RELATIVELY.
 
 Hyperparameters are read verbatim from spec/hyperparams.json's
-"Python_competitors" table (frozen, WU-9T) -- never problem["tol"].
-problem["tol"] is used ONLY for the harness-side `converged` recomputation.
-spec/tol_mapping.json is leafblower-solver-only (its own top-level key is
-"leafblower_solvers"); it does not apply to competitor adapters.
+"Python_competitors" table (frozen, WU-9T). problem["tol"] is NOT used here:
+it is leafblower's own stopping precision (see spec/tol_mapping.json,
+"leafblower_solvers"); it does not apply to competitor adapters and is not a
+bar competitors must clear.
 
 Single-thread BLAS is forced before numpy import (CLAUDE.md determinism
 rule -- required for reproducible timing/parity across this repo).
@@ -57,7 +60,6 @@ _THIS_DIR = Path(__file__).resolve().parent          # benchmarks/study/python
 _STUDY_DIR = _THIS_DIR.parent                          # benchmarks/study
 _REPO_ROOT = _STUDY_DIR.parent.parent                   # repo root
 sys.path.insert(0, str(_STUDY_DIR / "common"))
-from metrics import margin_stats  # noqa: E402
 
 WEIGHTS_DIR = _REPO_ROOT / "weights"
 
@@ -122,15 +124,6 @@ def _nan_sentinel(n: int, solver_id: str, problem_id: str) -> str:
     """contract.md Section 2.1: hard-failure runs still write a length-n
     all-NaN sentinel vector so weights_ref is never dangling."""
     return _write_weights(np.full(n, np.nan), solver_id, problem_id)
-
-
-def _recompute_converged(weights: np.ndarray, problem: dict) -> tuple[bool, float]:
-    """contract.md Section 2.4: converged is ALWAYS harness-recomputed here
-    via common/metrics.margin_stats' uniform margin-L-infinity check against
-    problem['tol'] -- never the package's own self-report."""
-    groups = {m: problem["data"][m].to_numpy() for m in problem["margins"]}
-    ms = margin_stats(weights, groups, problem["targets"])
-    return bool(ms["margin_linf"] <= problem["tol"]), float(ms["margin_linf"])
 
 
 def _bound_violation(weights: np.ndarray, problem: dict, atol: float = 1e-9) -> bool:
@@ -198,7 +191,7 @@ def _ot_weights_from_coupling(u: np.ndarray, v: np.ndarray, cats1: np.ndarray, c
 
 
 def _adapt(solver_id: str):
-    """Decorator: uniform timing/exception/weights-write/converged-recompute
+    """Decorator: uniform timing/exception/weights-write/converged (status-based)
     envelope shared by every adapter below. `solve_fn(problem)` returns
     `(weights_or_None, iterations_or_None, status, error_message_or_None)`;
     weights=None is reserved for hard bad_arg/infeasible failures with no
@@ -221,12 +214,17 @@ def _adapt(solver_id: str):
                                 wall_time_s=float(wall), peak_rss_bytes=_peak_rss_bytes())
                 weights = np.asarray(weights, dtype=np.float64)
                 # contract.md Section 2.6: timer stops at weights-out. bound-violation
-                # upgrade + margin_stats recompute + parquet write are post-run harness
-                # diagnostics (Section 2.4) and MUST NOT be inside the timer.
+                # upgrade + converged (status-based) + parquet write are post-run
+                # harness steps (Section 2.4) and MUST NOT be inside the timer.
                 wall = time.perf_counter() - t0
                 if _bound_violation(weights, problem):
                     status = "bound_violation"
-                converged, _linf = _recompute_converged(weights, problem)
+                # converged = ALGORITHMIC convergence (solver reached its fixed
+                # point / loss stationary across iterations), from the harmonized
+                # status enum AFTER the bound-violation upgrade -- NOT a
+                # margin_linf<=tol fit gate. margin_linf is a FIT metric (computed
+                # in the scored-run metrics phase); there is no target to reach.
+                converged = (status == "converged")
                 ref = _write_weights(weights, solver_id, problem["id"])
                 return dict(
                     weights_ref=ref,

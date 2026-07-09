@@ -17,9 +17,11 @@ call below returns EXACTLY
      wall_time_s, peak_rss_bytes}
 `status` is leafblower's OWN native RK_* status code mapped to the 8-value
 harmonized enum (status_enum.json), with a harness-side bound_violation
-reclassification layered on top. `converged` is ALWAYS independently
-recomputed here from common/metrics.py's margin_stats() against
-problem["tol"] -- never the solver's self-reported status (contract.md
+reclassification layered on top. `converged` = ALGORITHMIC convergence
+(status == "converged" after the bound_violation upgrade) -- the solver
+reached its fixed point / the loss is stationary. It is NOT a
+margin_linf<=tol fit gate: margin_linf is a fit metric (scored-run phase),
+there is no target to reach, solvers are compared RELATIVELY (contract.md
 Section 2.4). Python's harvest() cleanly distinguishes infeasible
 (RuntimeError, status==2) from bad_arg (ValueError, status==3 and all
 pre-validation errors) by exception TYPE.
@@ -60,7 +62,6 @@ _THIS_DIR = Path(__file__).resolve().parent           # benchmarks/study/python
 _STUDY_DIR = _THIS_DIR.parent                           # benchmarks/study
 _REPO_ROOT = _STUDY_DIR.parent.parent                    # repo root
 sys.path.insert(0, str(_STUDY_DIR / "common"))
-from metrics import margin_stats  # noqa: E402
 
 WEIGHTS_DIR = _REPO_ROOT / "weights"
 
@@ -110,15 +111,6 @@ def _nan_sentinel(n: int, solver_id: str, problem_id: str, thread: int, build: s
 def _bound_violation(weights: np.ndarray, problem: dict, atol: float = 1e-9) -> bool:
     lo, hi = problem["bounds"]["min"], problem["bounds"]["max"]
     return bool(np.any(weights < lo - atol) or np.any(weights > hi + atol))
-
-
-def _recompute_converged(weights: np.ndarray, problem: dict) -> bool:
-    """contract.md Section 2.4: converged is ALWAYS harness-recomputed here
-    via common/metrics.margin_stats' uniform margin-L-infinity check against
-    problem['tol'] -- never the solver's own self-report."""
-    groups = {m: problem["data"][m].to_numpy() for m in problem["margins"]}
-    ms = margin_stats(weights, groups, problem["targets"])
-    return bool(ms["margin_linf"] <= problem["tol"])
 
 
 def _thread() -> int:
@@ -180,8 +172,8 @@ def run_leafblower(problem: dict, method: str, build: str, thread: Optional[int]
 
         result = res["result"]
         # contract.md Section 2.6: timer stops at weights-out (harvest returned).
-        # status map + bound-check + margin_stats recompute + parquet write below
-        # are post-run harness diagnostics (Section 2.4) and MUST NOT be timed.
+        # status map + bound-check + converged (status-based) + parquet write below
+        # are post-run harness steps (Section 2.4) and MUST NOT be timed.
         wall = time.perf_counter() - t0
         status_code = result["status"]
         status = _LBW_STATUS_MAP.get(status_code, "error")  # unmapped code -- defensive only
@@ -190,7 +182,10 @@ def run_leafblower(problem: dict, method: str, build: str, thread: Optional[int]
         if _bound_violation(weights, problem):
             status = "bound_violation"
 
-        converged = _recompute_converged(weights, problem)
+        # converged = algorithmic convergence (harmonized status enum) after the
+        # bound-violation upgrade -- NOT a margin_linf<=tol fit gate (contract.md
+        # 2.4). margin_linf is a fit metric computed in the scored-run phase.
+        converged = (status == "converged")
         ref = _write_weights(weights, solver_id, problem["id"], thread, build)
         iterations = result.get("iterations")
 

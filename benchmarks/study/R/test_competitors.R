@@ -8,9 +8,8 @@
 #      regardless of native family, since margin encoding is family-agnostic.
 #   2. Per-package home-turf golden: a dataset/target combination each
 #      package is expected to calibrate accurately on, asserting the
-#      harness-recomputed `converged` field (never the package's own
-#      self-report) and/or an achieved margin_linf within a documented
-#      tolerance.
+#      algorithmic `converged` field (status=="converged") and/or an achieved
+#      margin_linf (a FIT metric) within a documented tolerance.
 #
 # Run (single-thread BLAS mandatory, CLAUDE.md):
 #   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
@@ -75,12 +74,10 @@ expect_contract_shape <- function(res, problem) {
   expect_true(is.numeric(res$wall_time_s) && length(res$wall_time_s) == 1L && res$wall_time_s >= 0)
   expect_true(is.numeric(res$peak_rss_bytes) && length(res$peak_rss_bytes) == 1L)
 
-  # converged must be reproducible independently from the recorded weights --
-  # never trust the adapter's internal bookkeeping (contract.md 2.4).
-  if (!all(is.na(wtab$weight))) {
-    ms <- margin_stats(wtab$weight, .comp_groups(problem), problem$targets)
-    expect_equal(res$converged, isTRUE(ms$margin_linf <= problem$tol))
-  }
+  # converged is ALGORITHMIC: it equals (status == "converged") after the
+  # bound-violation upgrade, NOT a margin_linf<=tol fit gate (contract.md 2.4).
+  # margin_linf is a fit metric, reported separately; there is no target to reach.
+  expect_equal(res$converged, identical(res$status, "converged"))
 }
 
 test_that("every registered R-competitor adapter satisfies the contract v2 shape on toy_inline", {
