@@ -748,25 +748,42 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
 
 # =============================================================================
 # sbw::sbw
-# hyperparams.json documented defaults verbatim: bal_alg=TRUE (algorithmic
-# grid search over bal_gri), bal_std="group", sol_nam="quadprog",
-# wei_sum=TRUE, wei_pos=TRUE, par_est="att" -- i.e. the SAME ATT phantom-row
-# trick as ebal/optweight (par_est="aux", a direct totals-only path, exists
-# but is NOT the frozen hyperparams choice). Full-dummy encoding (sbw's QP
-# tolerates it, like optweight). sol_nam="quadprog" reports status=NA
-# unconditionally (package's own documented limitation: "For solver
-# 'quadprog', status code is missing, therefore status=NA").
+# hyperparams.json: bal_alg=TRUE (algorithmic grid search over bal_gri),
+# bal_std="group", sol_nam="osqp", wei_sum=TRUE, wei_pos=TRUE, par_est="att"
+# -- SAME ATT phantom-row trick as ebal/optweight (par_est="aux", a direct
+# totals-only path, exists but is NOT the frozen hyperparams choice).
+# Full-dummy encoding (sbw's QP tolerates it, like optweight).
+# AMENDMENT (config-freeze-v4, 2026-07-09): sol_nam quadprog->osqp. The prior
+# frozen default quadprog is a DENSE active-set QP (Goldfarb-Idnani) whose
+# Hessian is O(n_control^2) -- infeasible on the stepstone (1.58M control rows
+# ~ 20 TB) and empirically hangs by n_control~2e4. osqp (sbw's recommended free
+# CRAN backend; the free alternatives quadprog/pogs are dead-at-scale / not-on-
+# CRAN+abandoned) is sparse operator-splitting ADMM that scales, and with sbw's
+# hardcoded polish=TRUE returns the SAME QP optimum (cor 0.9999, max|dw|~1e-4
+# vs quadprog). NOTE: sbw HARDCODES the osqp settings in .sbwpriosqp
+# (eps_prim_inf=eps_dual_inf=1e-32, alpha=1, polish=TRUE); eps_abs/eps_rel/
+# max_iter are NOT forwarded via the sol list, so accuracy is osqp-default
+# +polish (untunable through sbw's public API). Unlike quadprog (status=NA),
+# osqp exposes out$status ("solved" => converged).
 # =============================================================================
 
 .comp_sbw_solve <- function(problem) {
+  # sbw DEPENDS on Matrix (not Imports): its osqp path (.sbwpriosqp) calls the
+  # Matrix internal .symDiagonal UNqualified, so Matrix must be ATTACHED, not
+  # merely loaded. Calling sbw via `sbw::sbw` never attaches it (the quadprog
+  # path masked this -- it does not touch .symDiagonal). Attach idempotently.
+  if (!"package:Matrix" %in% search()) suppressMessages(library(Matrix))
   ph <- .comp_phantom(problem)
   dat <- data.frame(treat = ph$treat, ph$X_all)
   out <- sbw::sbw(dat = dat, ind = "treat",
                    bal = list(bal_cov = colnames(ph$X_all), bal_alg = TRUE, bal_std = "group"),
-                   sol = list(sol_nam = "quadprog", sol_dis = FALSE),
+                   sol = list(sol_nam = "osqp", sol_dis = FALSE),
                    par = list(par_est = "att"), mes = FALSE)
   w <- as.numeric(out$dat_weights$sbw_weights[ph$treat == 0])
-  list(weights = w, iterations = NA_integer_, status = "converged", error_message = NULL)
+  # osqp exposes a real solver status (unlike quadprog's unconditional NA).
+  st <- if (!is.null(out$status) && identical(as.character(out$status), "solved"))
+          "converged" else "no_conv"
+  list(weights = w, iterations = NA_integer_, status = st, error_message = NULL)
 }
 
 run_sbw <- function(problem) .comp_run("sbw", problem, .comp_sbw_solve)

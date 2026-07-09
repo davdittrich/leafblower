@@ -135,14 +135,14 @@
         "bal_alg": true,
         "bal_tol_grid": "c(1e-04, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1)",
         "bal_std": "group",
-        "sol_nam": "quadprog",
+        "sol_nam": "osqp",
         "wei_sum": true,
         "wei_pos": true,
         "par_est": "att"
       },
-      "convergence_bounds_quantity": "No scalar convergence tolerance: bal_alg=TRUE runs an ALGORITHMIC search over the bal_gri tolerance grid (default c(1e-4..0.1)) for the tightest feasible standardized balance tolerance; the QP is solved by sol_nam (default 'quadprog'; 'osqp' available). bal_tol bounds standardized covariate imbalance.",
-      "citation": "https://rdrr.io/cran/sbw/man/sbw.html (sbw(..., bal=list(bal_alg=TRUE, bal_tol, bal_std='group', bal_gri=c(1e-04,0.001,0.002,0.005,0.01,0.02,0.05,0.1), bal_sam=1000), sol=list(sol_nam='quadprog', sol_dis=FALSE), par=list(par_est='att'))).",
-      "note": "Stable Balancing Weights (Zubizarreta 2015). Documented default is the tolerance GRID + algorithmic search, not a single tol."
+      "convergence_bounds_quantity": "No scalar convergence tolerance: bal_alg=TRUE runs an ALGORITHMIC search over the bal_gri tolerance grid (default c(1e-4..0.1)) for the tightest feasible standardized balance tolerance; the QP is solved by sol_nam ('osqp'). bal_tol bounds standardized covariate imbalance. osqp settings are HARDCODED inside sbw (.sbwpriosqp: eps_prim_inf=eps_dual_inf=1e-32, alpha=1, polish=TRUE); eps_abs/eps_rel/max_iter are NOT forwarded via the sol list, so solve accuracy is osqp-default+polish (untunable through sbw's public API). osqp exposes out$status ('solved' => converged).",
+      "citation": "https://rdrr.io/cran/sbw/man/sbw.html (sbw(..., bal=list(bal_alg=TRUE, bal_tol, bal_std='group', bal_gri=c(1e-04,0.001,0.002,0.005,0.01,0.02,0.05,0.1), bal_sam=1000), sol=list(sol_nam='osqp', sol_dis=FALSE), par=list(par_est='att'))).",
+      "note": "Stable Balancing Weights (Zubizarreta 2015). Documented default is the tolerance GRID + algorithmic search, not a single tol. AMENDMENT (config-freeze-v4, 2026-07-09): sol_nam quadprog->osqp. quadprog is a DENSE active-set QP (O(n_control^2) Hessian) infeasible on the stepstone (1.58M rows) and hangs by n_control~2e4; osqp is sbw's sparse-ADMM free CRAN backend that scales and (via sbw's hardcoded polish=TRUE) returns the same QP optimum (cor 0.9999, max|dw|~1e-4). Free alternatives rejected: quadprog dead-at-scale; pogs not-on-CRAN + abandoned(~2017) + broken Linux build => not reproducible. No commercial (gurobi/mosek/cplex) per free-only reproducibility constraint."
     },
     "weightit": {
       "package": "WeightIt", "version": "1.7.0", "arm": "R",
