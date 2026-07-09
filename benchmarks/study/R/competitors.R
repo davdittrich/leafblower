@@ -755,7 +755,7 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
 
 # =============================================================================
 # sbw::sbw
-# hyperparams.json: bal_alg=FALSE + bal_tol=1e-4 (single FIXED tight tolerance),
+# hyperparams.json: bal_alg=TRUE (documented tolerance-grid search),
 # bal_std="group", sol_nam="osqp", wei_sum=TRUE, wei_pos=TRUE, par_est="att"
 # -- SAME ATT phantom-row trick as ebal/optweight (par_est="aux", a direct
 # totals-only path, exists but is NOT the frozen hyperparams choice).
@@ -772,23 +772,21 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
 # max_iter are NOT forwarded via the sol list, so accuracy is osqp-default
 # +polish (untunable through sbw's public API). Unlike quadprog (status=NA),
 # osqp exposes out$status ("solved" => converged).
-# AMENDMENT (config-freeze-v5, 2026-07-09): bal_alg TRUE->FALSE + bal_tol=1e-4.
-# RATIONALE IS SPEED/FEASIBILITY, NOT fairness. bal_alg=TRUE runs a CV-style
-# tolerance selection over the 8-value bal_gri grid (c(1e-4..0.1)): it solves the
-# QP at each grid tol and keeps bal_gri[which.min(Cstat)], the tol that MINIMIZES
-# the bootstrap-averaged achieved imbalance -- i.e. the TIGHTEST-ACHIEVABLE tol,
-# NOT a relaxation. That is ~8x osqp solves + per-grid bootstrap standardization,
-# and it timed out (>300s) on the full-dummy stepstone-scale cells (real
-# if_n10000_K4). A single fixed bal_tol=1e-4 solves ONE QP: ~8x faster (measured:
-# grid nc=1e4=18.8s vs single ~0s) and returns the SAME weights whenever 1e-4 is
-# feasible (grid's which.min lands on ~1e-4 there -- same ESS confirmed).
-# TRADEOFF (disclosed): when 1e-4 is NOT achievable, single-tol reports
-# no_conv/infeasible, whereas bal_alg=TRUE would have returned the best-achievable
-# balance at a looser grid tol. Accepted because bal_alg=TRUE cannot run the
-# stepstone at all (feasibility is the hard constraint). NB sbw is a causal
-# covariate-balancing method (Zubizarreta SBW) mapped onto calibration via the
-# phantom-row ATT trick; it is a cross-domain, same-optimization comparator.
-# bal_tol_grid in hyperparams is now INACTIVE.
+# AMENDMENT (config-freeze v5->v6, 2026-07-09): bal_alg was briefly set FALSE +
+# bal_tol=1e-4 (v5) to dodge a 300s rehearsal-cap timeout, then REVERTED to the
+# documented default bal_alg=TRUE (v6). Reverted because: (a) bal_alg=TRUE is
+# sbw's DOCUMENTED/RECOMMENDED config and pre-registration (DESIGN Blocker C)
+# requires competitors run at documented values, not rehearsal-retuned ones;
+# (b) bal_alg=TRUE is a CV-style search over the bal_gri grid keeping
+# bal_gri[which.min(Cstat)] = the TIGHTEST-ACHIEVABLE balance (sbw's BEST fit),
+# the fair representation for the RELATIVE quality comparison (there is no
+# absolute target to hit -- see contract.md 2.4); (c) the "too slow" motive was
+# a 300s-cap artifact: a single osqp solve does 1.58M in 76s (well) / 324s
+# (tight), so the ~8x grid is ~10min/~43min -- feasible under a proper WU-11 time
+# budget, and the grid's cost is itself a reportable result, not tuned away.
+# NB sbw is a causal covariate-balancing method (Zubizarreta SBW) mapped onto
+# calibration via the phantom-row ATT trick -- a cross-domain, same-optimization
+# comparator.
 # =============================================================================
 
 .comp_sbw_solve <- function(problem) {
@@ -799,13 +797,14 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
   if (!"package:Matrix" %in% search()) suppressMessages(library(Matrix))
   ph <- .comp_phantom(problem)
   dat <- data.frame(treat = ph$treat, ph$X_all)
-  # A fixed tol=1e-4 that the problem cannot meet makes sbw() raise (infeasible
-  # QP) rather than return a status -- surface that as "infeasible", not "error"
-  # (the honest fixed-target contract; NO auto-relaxation of the target).
+  # bal_alg=TRUE = sbw's DOCUMENTED default: an algorithmic search over the
+  # bal_gri tolerance grid that keeps bal_gri[which.min(Cstat)] = the
+  # tightest-ACHIEVABLE balance (sbw's best fit). Wrapped in tryCatch
+  # defensively: an infeasible QP raises rather than returning a status.
   out <- tryCatch(
     sbw::sbw(dat = dat, ind = "treat",
-             bal = list(bal_cov = colnames(ph$X_all), bal_alg = FALSE,
-                        bal_tol = 1e-4, bal_std = "group"),
+             bal = list(bal_cov = colnames(ph$X_all), bal_alg = TRUE,
+                        bal_std = "group"),
              sol = list(sol_nam = "osqp", sol_dis = FALSE),
              par = list(par_est = "att"), mes = FALSE),
     error = function(e) e)
