@@ -1,0 +1,35 @@
+diff --git a/python/CMakeLists.txt b/python/CMakeLists.txt
+index 1d7b084..5245b5b 100644
+--- a/python/CMakeLists.txt
++++ b/python/CMakeLists.txt
+@@ -4,6 +4,13 @@ project(leafblower_python CXX)
+ set(CMAKE_CXX_STANDARD 17)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ 
++# TEMPORARY (WU-8b, benchmarks/study/python/portable_build.patch): opt level /
++# tuning toggle for the benchmark run matrix. NOT for permanent HEAD residence
++# -- applied transiently by benchmarks/study/python/build_lbw_variant.sh and
++# reverted immediately after each variant build. Default OFF reproduces the
++# unpatched behavior exactly (plain -O3, no -march=native).
++option(LBW_PORTABLE "Portable -O2, generically-tuned build (vs -O3 -march=native)" OFF)
++
+ find_package(pybind11 2.11 REQUIRED)
+ # If building manually: cmake -Dpybind11_DIR=$(python -m pybind11 --cmakedir) ..
+ # scikit-build-core sets this automatically via pyproject.toml.
+@@ -96,9 +103,14 @@ target_link_libraries(_leafblower PRIVATE ${LAPACK_LIBRARIES})
+ # via bulk_scaled_exp when LBW_HAS_GLIBC_MVEC=1 (default in lbw_config.h).
+ # Without it, gcc errors "inlining failed in call to 'always_inline'
+ # '_mm256_set1_pd': target specific option mismatch".
+-target_compile_options(_leafblower PRIVATE -O3)
++if(LBW_PORTABLE)
++    target_compile_options(_leafblower PRIVATE -O2)
++else()
++    target_compile_options(_leafblower PRIVATE -O3 -march=native)
++endif()
+ # -mavx2 only on x86_64; the _mm256_* intrinsics are x86-only and #ifdef-guarded
+-# (LBW_HAS_GLIBC_MVEC) so ARM/non-AVX2 builds link without it.
++# (LBW_HAS_GLIBC_MVEC) so ARM/non-AVX2 builds link without it. Mandatory in
++# BOTH variants above -- unconditional on LBW_PORTABLE.
+ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+     target_compile_options(_leafblower PRIVATE -mavx2)
+ endif()
