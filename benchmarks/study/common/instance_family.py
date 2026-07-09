@@ -194,9 +194,7 @@ def _build_spec(inst: dict[str, Any]) -> dict[str, Any]:
     margins = [f"m{j}" for j in range(1, k + 1)]
     targets = {m: dict(target_one) for m in margins}
     bmax = IF_INFEAS_MAX[inst["infeas"]]
-    families = ["kl", "chi2", "logit", "newton_kl", "minimax"]
-    if k == 2:
-        families = families + ["ot"]
+    families = ["kl", "chi2", "logit", "minimax"]
     return dict(
         id=_instance_id(inst),
         data_ref=_data_ref(inst),

@@ -16,6 +16,6 @@
   "targets_ref": "benchmarks/stepstone_fulldata_bench_targets.json",
   "bounds": { "min": 0, "max": 5 },
   "tol": 1e-8,
-  "objective_families": ["kl", "chi2", "logit"],
+  "objective_families": ["kl", "chi2", "logit", "minimax"],
   "K": 9
 }

@@ -28,9 +28,14 @@
           "description": "Objective families this solver optimizes; drives Dolan-Moré profile stratification (DESIGN.md §7) and which agreement metrics apply (§6: vector-correlation only for strictly-convex families).",
           "items": {
             "type": "string",
-            "enum": ["kl", "chi2", "logit", "newton_kl", "minimax", "ot"]
+            "enum": ["kl", "chi2", "logit", "minimax"]
           },
           "minItems": 1
+        },
+        "method_class": {
+          "type": "string",
+          "description": "Algorithm class (distinct axis from 'families'/objective distance): which leafblower-method-equivalent numerical mechanism this solver uses. The 6 kl-family classes (oris/oris_soft/raking/sinkhorn/greenkhorn/newton_kl) all converge to the same maximum-entropy/KL fixed point but differ in bounds-enforcement mechanism (finalize-only/finalize-only-soft/inline-water-fill/Dykstra/greedy-clamp/dual-Newton respectively, docs/methods/00-overview.md). greg/logit/chebyshev are each the sole method_class for their (1:1) chi2/logit/minimax family. 'dispatch' flags a solver whose adapter delegates to a genuinely different mechanism per objective family (e.g. WeightIt: ebal/newton_kl for kl, optweight/chebyshev conic-QP for minimax) -- a single non-dispatch value would misrepresent it. Optional: omitted where no adapter/doc evidence exists (e.g. gated solvers with no adapter).",
+          "enum": ["oris", "oris_soft", "raking", "sinkhorn", "greenkhorn", "newton_kl", "greg", "logit", "chebyshev", "dispatch"]
         },
         "bounds": {
           "type": "string",
@@ -65,6 +70,7 @@
         "leafblower_oris": {
           "arm": "R",
           "families": ["kl"],
+          "method_class": "oris",
           "bounds": "both",
           "K_max": null,
           "builds": ["portable", "native"],
@@ -73,6 +79,7 @@
         "survey_calibrate_raking": {
           "arm": "R",
           "families": ["kl"],
+          "method_class": "newton_kl",
           "bounds": "unbounded",
           "K_max": null,
           "builds": ["na"],
@@ -80,7 +87,8 @@
         },
         "ott_jax_sinkhorn": {
           "arm": "python",
-          "families": ["ot"],
+          "families": ["kl"],
+          "method_class": "sinkhorn",
           "bounds": "unbounded",
           "K_max": 2,
           "builds": ["na"],

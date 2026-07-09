@@ -61,7 +61,7 @@
       "description": "Objective families this problem is applicable to, for registry.json cross-checking (DESIGN.md §3).",
       "items": {
         "type": "string",
-        "enum": ["kl", "chi2", "logit", "newton_kl", "minimax", "ot"]
+        "enum": ["kl", "chi2", "logit", "minimax"]
       },
       "minItems": 1
     },

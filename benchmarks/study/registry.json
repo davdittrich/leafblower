@@ -6,36 +6,111 @@
       "families": [
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "bounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "stepstone_bounded",
+        "toy_inline"
+      ]
     },
     "balance": {
       "arm": "python",
       "families": [
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "cvxpy_linf": {
       "arm": "python",
       "families": [
         "minimax"
       ],
+      "method_class": "chebyshev",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "cvxr_reference": {
       "arm": "R",
@@ -56,12 +131,41 @@
       "families": [
         "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "gecal": {
       "arm": "R",
@@ -70,12 +174,50 @@
         "kl",
         "logit"
       ],
+      "method_class": "dispatch",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "icarus": {
       "arm": "R",
@@ -84,48 +226,163 @@
         "kl",
         "logit"
       ],
+      "method_class": "dispatch",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "ipfn": {
       "arm": "python",
       "families": [
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "ipfr": {
       "arm": "R",
       "families": [
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "bounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "stepstone_bounded",
+        "toy_inline"
+      ]
     },
     "jointcalib": {
       "arm": "R",
       "families": [
-        "newton_kl"
+        "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "laeken": {
       "arm": "R",
@@ -134,300 +391,1122 @@
         "kl",
         "logit"
       ],
+      "method_class": "dispatch",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_chebyshev_py": {
       "arm": "python",
       "families": [
         "minimax"
       ],
+      "method_class": "chebyshev",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "leafblower_chebyshev_r": {
       "arm": "R",
       "families": [
         "minimax"
       ],
+      "method_class": "chebyshev",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "leafblower_greenkhorn_py": {
       "arm": "python",
       "families": [
-        "ot"
+        "kl"
       ],
+      "method_class": "greenkhorn",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_greenkhorn_r": {
       "arm": "R",
       "families": [
-        "ot"
+        "kl"
       ],
+      "method_class": "greenkhorn",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_greg_py": {
       "arm": "python",
       "families": [
         "chi2"
       ],
+      "method_class": "greg",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "leafblower_greg_r": {
       "arm": "R",
       "families": [
         "chi2"
       ],
+      "method_class": "greg",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "leafblower_logit_py": {
       "arm": "python",
       "families": [
         "logit"
       ],
+      "method_class": "logit",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "leafblower_logit_r": {
       "arm": "R",
       "families": [
         "logit"
       ],
+      "method_class": "logit",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "leafblower_newton_kl_py": {
       "arm": "python",
       "families": [
-        "newton_kl"
+        "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_newton_kl_r": {
       "arm": "R",
       "families": [
-        "newton_kl"
+        "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_oris_py": {
       "arm": "python",
       "families": [
         "kl"
       ],
+      "method_class": "oris",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_oris_r": {
       "arm": "R",
       "families": [
         "kl"
       ],
+      "method_class": "oris",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_oris_soft_py": {
       "arm": "python",
       "families": [
         "kl"
       ],
+      "method_class": "oris_soft",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_oris_soft_r": {
       "arm": "R",
       "families": [
         "kl"
       ],
+      "method_class": "oris_soft",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_raking_py": {
       "arm": "python",
       "families": [
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_raking_r": {
       "arm": "R",
       "families": [
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_sinkhorn_py": {
       "arm": "python",
       "families": [
-        "ot"
+        "kl"
       ],
+      "method_class": "sinkhorn",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "portable"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "leafblower_sinkhorn_r": {
       "arm": "R",
       "families": [
-        "ot"
+        "kl"
       ],
+      "method_class": "sinkhorn",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "native"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "nonprobsvy": {
       "arm": "R",
       "families": [
-        "newton_kl"
+        "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "optweight_entropy": {
       "arm": "R",
       "families": [
         "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "optweight_linf": {
       "arm": "R",
       "families": [
         "minimax"
       ],
+      "method_class": "chebyshev",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "ott_jax_sinkhorn": {
       "arm": "python",
       "families": [
-        "ot"
+        "kl"
       ],
+      "method_class": "sinkhorn",
       "bounds": "unbounded",
       "K_max": 2,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0"
+      ]
     },
     "pot_greenkhorn": {
       "arm": "python",
       "families": [
-        "ot"
+        "kl"
       ],
+      "method_class": "greenkhorn",
       "bounds": "unbounded",
       "K_max": 2,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0"
+      ]
     },
     "pot_sinkhorn": {
       "arm": "python",
       "families": [
-        "ot"
+        "kl"
       ],
+      "method_class": "sinkhorn",
       "bounds": "unbounded",
       "K_max": 2,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0"
+      ]
     },
     "regenesees": {
       "arm": "R",
@@ -436,12 +1515,50 @@
         "kl",
         "logit"
       ],
+      "method_class": "dispatch",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "samplics": {
       "arm": "python",
@@ -461,110 +1578,342 @@
       "families": [
         "chi2"
       ],
+      "method_class": "greg",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "sampling_calib_logit": {
       "arm": "R",
       "families": [
         "logit"
       ],
+      "method_class": "logit",
       "bounds": "bounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "stepstone_bounded"
+      ]
     },
     "sbw": {
       "arm": "R",
       "families": [
-        "minimax",
-        "kl"
+        "minimax"
       ],
+      "method_class": "chebyshev",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded"
+      ]
     },
     "scipy_trust_constr": {
       "arm": "python",
       "families": [
-        "newton_kl"
+        "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     },
     "survey_calibrate_linear": {
       "arm": "R",
       "families": [
         "chi2"
       ],
+      "method_class": "greg",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "survey_calibrate_logit": {
       "arm": "R",
       "families": [
         "logit"
       ],
+      "method_class": "logit",
       "bounds": "bounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "stepstone_bounded"
+      ]
     },
     "survey_calibrate_raking": {
       "arm": "R",
       "families": [
         "kl"
       ],
+      "method_class": "newton_kl",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "svy": {
       "arm": "python",
       "families": [
-        "chi2",
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "weightipy": {
       "arm": "python",
       "families": [
         "kl"
       ],
+      "method_class": "raking",
       "bounds": "unbounded",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_unbounded"
+      ]
     },
     "weightit": {
       "arm": "R",
@@ -572,12 +1921,50 @@
         "minimax",
         "kl"
       ],
+      "method_class": "dispatch",
       "bounds": "both",
       "K_max": null,
       "builds": [
         "na"
       ],
-      "applicable_problems": []
+      "applicable_problems": [
+        "canonical_survey_apistrat",
+        "if_n1000_K2_high_extreme_ill_tight_s0",
+        "if_n1000_K2_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s0",
+        "if_n1000_K4_medium_moderate_well_loose_s1",
+        "if_n1000_K4_medium_moderate_well_loose_s2",
+        "if_n1000_K9_medium_moderate_well_loose_s0",
+        "if_n10000_K2_medium_moderate_well_loose_s0",
+        "if_n10000_K4_high_extreme_well_loose_s0",
+        "if_n10000_K4_high_moderate_ill_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s0",
+        "if_n10000_K4_high_moderate_well_loose_s1",
+        "if_n10000_K4_high_moderate_well_loose_s2",
+        "if_n10000_K4_high_moderate_well_tight_s0",
+        "if_n10000_K4_low_moderate_well_loose_s0",
+        "if_n10000_K4_medium_extreme_ill_loose_s0",
+        "if_n10000_K4_medium_extreme_well_loose_s0",
+        "if_n10000_K4_medium_moderate_ill_loose_s0",
+        "if_n10000_K4_medium_moderate_moderate_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s0",
+        "if_n10000_K4_medium_moderate_well_loose_s1",
+        "if_n10000_K4_medium_moderate_well_loose_s2",
+        "if_n10000_K4_medium_moderate_well_moderate_s0",
+        "if_n10000_K4_medium_moderate_well_tight_s0",
+        "if_n10000_K4_medium_none_well_loose_s0",
+        "if_n10000_K9_high_extreme_ill_tight_s0",
+        "if_n10000_K9_medium_moderate_well_loose_s0",
+        "if_n100000_K2_medium_moderate_well_loose_s0",
+        "if_n100000_K4_medium_moderate_well_loose_s0",
+        "if_n100000_K9_high_extreme_ill_tight_s0",
+        "if_n100000_K9_medium_moderate_well_loose_s0",
+        "if_n1580000_K9_high_extreme_ill_tight_s0",
+        "if_n1580000_K9_medium_moderate_well_loose_s0",
+        "stepstone_bounded",
+        "stepstone_unbounded",
+        "toy_inline"
+      ]
     }
   }
 }

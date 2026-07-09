@@ -205,8 +205,7 @@ build_instance_grid <- function() {
   margins <- paste0("m", seq_len(K))
   targets <- setNames(rep(list(target_one), K), margins)
   bmax <- .IF_INFEAS_MAX[[inst$infeas]]
-  families <- c("kl", "chi2", "logit", "newton_kl", "minimax")
-  if (K == 2L) families <- c(families, "ot")
+  families <- c("kl", "chi2", "logit", "minimax")
   list(
     id = .if_instance_id(inst),
     data_ref = .if_data_ref(inst),
