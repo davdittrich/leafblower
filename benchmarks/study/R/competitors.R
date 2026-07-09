@@ -748,7 +748,7 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
 
 # =============================================================================
 # sbw::sbw
-# hyperparams.json: bal_alg=TRUE (algorithmic grid search over bal_gri),
+# hyperparams.json: bal_alg=FALSE + bal_tol=1e-4 (single FIXED tight tolerance),
 # bal_std="group", sol_nam="osqp", wei_sum=TRUE, wei_pos=TRUE, par_est="att"
 # -- SAME ATT phantom-row trick as ebal/optweight (par_est="aux", a direct
 # totals-only path, exists but is NOT the frozen hyperparams choice).
@@ -765,6 +765,23 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
 # max_iter are NOT forwarded via the sol list, so accuracy is osqp-default
 # +polish (untunable through sbw's public API). Unlike quadprog (status=NA),
 # osqp exposes out$status ("solved" => converged).
+# AMENDMENT (config-freeze-v5, 2026-07-09): bal_alg TRUE->FALSE + bal_tol=1e-4.
+# RATIONALE IS SPEED/FEASIBILITY, NOT fairness. bal_alg=TRUE runs a CV-style
+# tolerance selection over the 8-value bal_gri grid (c(1e-4..0.1)): it solves the
+# QP at each grid tol and keeps bal_gri[which.min(Cstat)], the tol that MINIMIZES
+# the bootstrap-averaged achieved imbalance -- i.e. the TIGHTEST-ACHIEVABLE tol,
+# NOT a relaxation. That is ~8x osqp solves + per-grid bootstrap standardization,
+# and it timed out (>300s) on the full-dummy stepstone-scale cells (real
+# if_n10000_K4). A single fixed bal_tol=1e-4 solves ONE QP: ~8x faster (measured:
+# grid nc=1e4=18.8s vs single ~0s) and returns the SAME weights whenever 1e-4 is
+# feasible (grid's which.min lands on ~1e-4 there -- same ESS confirmed).
+# TRADEOFF (disclosed): when 1e-4 is NOT achievable, single-tol reports
+# no_conv/infeasible, whereas bal_alg=TRUE would have returned the best-achievable
+# balance at a looser grid tol. Accepted because bal_alg=TRUE cannot run the
+# stepstone at all (feasibility is the hard constraint). NB sbw is a causal
+# covariate-balancing method (Zubizarreta SBW) mapped onto calibration via the
+# phantom-row ATT trick; it is a cross-domain, same-optimization comparator.
+# bal_tol_grid in hyperparams is now INACTIVE.
 # =============================================================================
 
 .comp_sbw_solve <- function(problem) {
@@ -775,14 +792,32 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
   if (!"package:Matrix" %in% search()) suppressMessages(library(Matrix))
   ph <- .comp_phantom(problem)
   dat <- data.frame(treat = ph$treat, ph$X_all)
-  out <- sbw::sbw(dat = dat, ind = "treat",
-                   bal = list(bal_cov = colnames(ph$X_all), bal_alg = TRUE, bal_std = "group"),
-                   sol = list(sol_nam = "osqp", sol_dis = FALSE),
-                   par = list(par_est = "att"), mes = FALSE)
+  # A fixed tol=1e-4 that the problem cannot meet makes sbw() raise (infeasible
+  # QP) rather than return a status -- surface that as "infeasible", not "error"
+  # (the honest fixed-target contract; NO auto-relaxation of the target).
+  out <- tryCatch(
+    sbw::sbw(dat = dat, ind = "treat",
+             bal = list(bal_cov = colnames(ph$X_all), bal_alg = FALSE,
+                        bal_tol = 1e-4, bal_std = "group"),
+             sol = list(sol_nam = "osqp", sol_dis = FALSE),
+             par = list(par_est = "att"), mes = FALSE),
+    error = function(e) e)
+  if (inherits(out, "error")) {
+    msg <- conditionMessage(out)
+    st <- if (grepl("infeasible|no solution|not.*solution", msg, ignore.case = TRUE))
+            "infeasible" else "error"
+    # Return a length-n NA vector, NOT numeric(0): .comp_run enforces
+    # length(weights)==nrow(problem$data) and would otherwise re-map any raise to
+    # status="error", discarding the "infeasible" classification.
+    return(list(weights = rep(NA_real_, nrow(problem$data)), iterations = NA_integer_,
+                status = st, error_message = msg))
+  }
   w <- as.numeric(out$dat_weights$sbw_weights[ph$treat == 0])
   # osqp exposes a real solver status (unlike quadprog's unconditional NA).
-  st <- if (!is.null(out$status) && identical(as.character(out$status), "solved"))
-          "converged" else "no_conv"
+  ost <- if (is.null(out$status)) "" else as.character(out$status)
+  st <- if (identical(ost, "solved")) "converged"
+        else if (grepl("infeasible", ost, ignore.case = TRUE)) "infeasible"
+        else "no_conv"
   list(weights = w, iterations = NA_integer_, status = st, error_message = NULL)
 }
 
