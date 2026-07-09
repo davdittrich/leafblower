@@ -379,49 +379,29 @@ def run_pot_greenkhorn(problem: dict) -> tuple:
 
 # ---------------------------------------------------------------------------
 # ott-jax sinkhorn (registry id "ott_jax_sinkhorn"; OT family, K_max=2).
-# Per DESIGN.md Section 2 / contract DoD: wrapped + home-turf golden'd like
-# every other competitor, but EXCLUDED FROM RANKED TIMING by the WU-8 run
-# matrix (XLA/JAX thread-pinning under {1,4}-thread OMP/BLAS caps is not
-# apples-to-apples with the other arms) -- that exclusion is a run-matrix
-# (WU-8) concern; this adapter itself is fully functional.
-# Home-turf golden: ott-jax's own pointcloud/Sinkhorn quickstart shape,
-# adapted here to the same support-cost 2-margin reduction as POT so both
-# OT arms are pinned against the identical IPF golden.
+# CARVED OUT to adapter_ott.py (WU-OTT, leafblower-2ouc.18): JAX/XLA needs
+# dedicated x64 + thread-pinning handling (silently defaults to float32;
+# XLA_FLAGS must be set before `import jax`) that doesn't belong at
+# competitors.py's module top since it would apply repo-wide. This is a
+# thin, call-time-deferred re-export so `competitors.run_ott_jax_sinkhorn`
+# and `ADAPTERS["ott_jax_sinkhorn"]` keep resolving for existing callers
+# (run_arm.py, test_competitors.py). The import is deferred INTO the
+# function body (not module top) because adapter_ott.py imports `_adapt`/
+# `_HP`/the OT helpers FROM this module eagerly at its own decoration time
+# -- an eager top-level import here would be a competitors<->adapter_ott
+# circular import. Per DESIGN.md Section 2 / contract DoD: wrapped + home-
+# turf golden'd like every other competitor, but EXCLUDED FROM RANKED
+# TIMING by the WU-8 run matrix (see adapter_ott.py module docstring for
+# the verified XLA-thread-pinning findings) -- that exclusion is a run-
+# matrix (WU-8) concern; the adapter itself is fully functional.
 # ---------------------------------------------------------------------------
 
-@_adapt("ott_jax_sinkhorn")
-def run_ott_jax_sinkhorn(problem: dict) -> tuple:
-    import jax.numpy as jnp
-    from ott.geometry import geometry
-    from ott.problems.linear import linear_problem
-    from ott.solvers.linear import sinkhorn
+def run_ott_jax_sinkhorn(problem: dict) -> dict[str, Any]:
+    from adapter_ott import run_ott_jax_sinkhorn as _run
+    return _run(problem)
 
-    margins = problem["margins"]
-    if len(margins) != 2:
-        return None, None, "bad_arg", (
-            f"ott_jax_sinkhorn: OT reduction requires K==2 (registry K_max=2); got K={len(margins)}"
-        )
-    m1, m2 = margins
-    df = problem["data"]
-    levels1 = list(problem["targets"][m1].keys())
-    levels2 = list(problem["targets"][m2].keys())
-    a = jnp.asarray([problem["targets"][m1][k] for k in levels1], dtype=jnp.float64)
-    b = jnp.asarray([problem["targets"][m2][k] for k in levels2], dtype=jnp.float64)
-    M = _ot_seed_cost(df[m1].to_numpy(), df[m2].to_numpy(), levels1, levels2, problem["design_weights"])
 
-    hp = _HP["ott_jax_sinkhorn"]
-    geom = geometry.Geometry(cost_matrix=jnp.asarray(M), epsilon=_OT_EPSILON)
-    lp = linear_problem.LinearProblem(geom, a=a, b=b)
-    solver = sinkhorn.Sinkhorn(threshold=hp["threshold"], min_iterations=hp["min_iterations"],
-                                max_iterations=hp["max_iterations"], inner_iterations=hp["inner_iterations"])
-    out = solver(lp)
-
-    u = np.asarray(out.scalings[0], dtype=np.float64)
-    v = np.asarray(out.scalings[1], dtype=np.float64)
-    weights = _ot_weights_from_coupling(u, v, df[m1].to_numpy(), df[m2].to_numpy(),
-                                         levels1, levels2, problem["design_weights"])
-    status = "converged" if bool(out.converged) else "no_conv"
-    return weights, int(out.n_iters), status, None
+run_ott_jax_sinkhorn.solver_id = "ott_jax_sinkhorn"
 
 
 # ---------------------------------------------------------------------------
