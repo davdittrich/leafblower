@@ -96,8 +96,12 @@ whole-unit `survey`/`sampling` calibration calls).
 ### 2.3 `status: <harmonized enum>`
 
 The adapter's own outcome classification, mapped from the wrapped
-package's native exit code / exception class into the 8-value harmonized
-enum defined in `status_enum.json`. This is what the *solver* reported.
+package's native exit code / exception class into the 9-value harmonized
+enum defined in `status_enum.json`. This is what the *solver* reported —
+except `dnf`, which is set by the DRIVER (not any adapter) when a cell
+exceeds the uniform wall-clock time budget (`--cell-timeout`): a
+RIGHT-CENSORED did-not-finish (true time > budget), distinct from `budget`
+(the solver's own iteration cap) and `error` (a crash).
 `converged` (§2.4) is derived from this status (`converged == (status ==
 "converged")`), so the two agree by construction. What `status` is
 deliberately kept separate from is FIT: a package can exit "converged" yet

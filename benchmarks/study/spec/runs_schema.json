@@ -42,7 +42,7 @@
     "rep": "int32",
     "weights_ref": "str",
     "iterations": "int32 (nullable)",
-    "status": "category{converged,no_conv,infeasible,bound_violation,bad_arg,budget,stall,error}",
+    "status": "category{converged,no_conv,infeasible,bound_violation,bad_arg,budget,stall,error,dnf}",
     "converged": "bool",
     "error_message": "str (nullable)",
     "wall_time_s": "float64",

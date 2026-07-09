@@ -1,0 +1,19 @@
+{
+  "$comment": "WU-11 scored-run EXECUTION policy. NOT part of the frozen config (this file lives OUTSIDE benchmarks/study/spec/ so it is not in FROZEN_PATHS) -- it is a run parameter, like --reps / --threads / --cell-timeout, disclosed via git + environment.json at run time. Set 2026-07-09 (leafblower-2ouc.36) from the WU-REH honest probes.",
+  "schema_version": "1.0.0",
+  "cell_time_budget_s": 3600,
+  "time_budget_rationale": "Uniform disclosed wall-clock ceiling applied to EVERY solver x problem cell (fairness). Exceeding it => status='dnf' (right-censored did-not-finish; the driver records a real dnf row, it is NOT dropped). Sized from the honest probes: a single osqp solve of the 1.58M stepstone cell takes 76s (well-conditioned) / 324s (tight/ill); sbw's documented bal_alg=TRUE grid is ~8x that (~10min / ~43min); leafblower/oris finish in ~12-35s. 3600s (60min) leaves headroom for the slowest legitimate run while bounding total matrix wall-clock; any cell still running at 3600s is genuinely pathological and is honestly right-censored, not truncated silently.",
+  "memory_gate": {
+    "total_ram_gb": 60,
+    "policy": "Some solver x big-n cells have a large peak RSS and MUST NOT be co-scheduled (the box has 60 GB). The WU-11 launcher shards cells across CPU cores (the driver itself is serial; parallelism is external, e.g. xargs -P). A cell whose rehearsal-measured peak_rss_bytes exceeds 0.5*total_ram runs at concurrency 1 (no co-scheduling with any other heavy cell); light cells run at default_concurrency. Enforced by the launcher reading each (solver,problem) cell's peak_rss_bytes from the WU-REH rehearsal runs.parquet.",
+    "default_concurrency": 20,
+    "heavy_cell_concurrency": 1,
+    "heavy_threshold_frac_ram": 0.5,
+    "measured_heavy_cells": [
+      { "solver": "sbw", "problem_n": 1580000, "peak_rss_gb": 60, "source": "WU-REH honest probe cell_5/cell_7, 2026-07-09" }
+    ],
+    "suspected_heavy_unmeasured": [
+      { "family": "minimax QP/conic on n>=1.5M", "solvers": ["optweight_linf", "cvxpy_linf"], "note": "same QP/KKT-factorization class as sbw; peak RSS not yet measured -- WU-11 must measure and gate by the same rule, do NOT assume light." }
+    ]
+  }
+}

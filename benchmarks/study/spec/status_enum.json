@@ -3,7 +3,7 @@
   "$id": "https://leafblower.local/benchmarks/study/spec/status_enum.json",
   "title": "Harmonized adapter status enum + per-adapter mapping template",
   "schema_version": "2.0.0",
-  "description": "Frozen 8-value status enum shared by every adapter (leafblower + every competitor, R and Python arms). See contract.md §2.3/§2.4 for how this relates to the `converged` boolean (algorithmic: converged == (status=='converged') after the bound-violation upgrade; NOT a margin_linf<=tol fit gate).",
+  "description": "Frozen 9-value status enum shared by every adapter (leafblower + every competitor, R and Python arms). See contract.md §2.3/§2.4 for how this relates to the `converged` boolean (algorithmic: converged == (status=='converged') after the bound-violation upgrade; NOT a margin_linf<=tol fit gate).",
   "$defs": {
     "StatusEnum": {
       "type": "string",
@@ -15,7 +15,8 @@
         "bad_arg",
         "budget",
         "stall",
-        "error"
+        "error",
+        "dnf"
       ]
     },
     "StatusValueSemantics": {
@@ -26,7 +27,8 @@
       "bad_arg": "Invalid argument / malformed problem input rejected before any solve iterate was produced (leafblower RK_ERR_BADARG: e.g. n_cats_total too large, L_c > U_c, un-normalized targets). No usable weights exist; see contract.md §2.1 for the all-NaN sentinel weights_ref convention.",
       "budget": "Iteration/step budget exhausted while the loss was still decreasing (leafblower RK_ERR_BUDGET) — distinct from `no_conv`: the solver was making progress but ran out of budget, so raising max_iterations is the indicated remedy.",
       "stall": "Loss function plateaued at what the solver believes is a constrained optimum (leafblower RK_ERR_STALL). Per src/types.hpp: weights ARE considered valid best-effort output at stall, unlike bad_arg/infeasible.",
-      "error": "Uncaught adapter/package-level exception (R condition caught via tryCatch, Python exception) that does not correspond to any of the above solver-native outcomes — e.g. a package crash, a type error in the adapter's translation layer, or an unexpected native-library abort. error_message MUST be populated."
+      "error": "Uncaught adapter/package-level exception (R condition caught via tryCatch, Python exception) that does not correspond to any of the above solver-native outcomes — e.g. a package crash, a type error in the adapter's translation layer, or an unexpected native-library abort. error_message MUST be populated.",
+      "dnf": "Did-not-finish: the HARNESS terminated the cell for exceeding the uniform wall-clock time budget (--cell-timeout) while the solver was still running. A RIGHT-CENSORED outcome (true completion time is > budget), distinct from `budget` (the solver's OWN iteration/step cap) and from `error` (a crash). Recorded by the driver, not any adapter: wall_time_s = the budget, weights_ref = the all-NaN sentinel, converged = FALSE, iterations = NA. Consumed by the family-stratified Dolan-More / DNF scoring (DESIGN.md section 7)."
     },
     "AdapterStatusMapping": {
       "type": "object",

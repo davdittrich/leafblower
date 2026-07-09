@@ -32,7 +32,7 @@ RUN_ARM_PATH <- file.path(STUDY_DIR, "R", "run_arm.R")
 CONTRACT_KEYS <- c("weights_ref", "iterations", "status", "converged",
                     "error_message", "wall_time_s", "peak_rss_bytes")
 STATUS_ENUM <- c("converged", "no_conv", "infeasible", "bound_violation",
-                  "bad_arg", "budget", "stall", "error")
+                  "bad_arg", "budget", "stall", "error", "dnf")
 RUNS_ROW_KEYS <- c("solver", "problem", "thread", "build", "rep",
                     "weights_ref", "iterations", "status", "converged",
                     "error_message", "wall_time_s", "peak_rss_bytes", "trajectory_ref")
@@ -251,6 +251,26 @@ run_baseline_worker <- function(solver_id, result_path) {
   list(status = status, output = paste(out, collapse = "\n"))
 }
 
+#' Right-censored DNF row for a cell killed at the wall-clock budget (coreutils
+#' `timeout` exit 124). Recorded, NOT dropped, so a timeout is distinguishable
+#' from a cell that never ran. Weights are UNDEFINED for an unfinished cell -> a
+#' length-1 all-NaN sentinel (non-dangling; scoring skips weights for
+#' status=='dnf'). Mirrors run_arm.py::_dnf_row.
+.dnf_row <- function(cell, budget_s) {
+  ref_rel <- file.path("benchmarks", "study", "results", "weights",
+                       sprintf("%s__%s__t%d__%s.parquet",
+                               cell$solver, cell$problem, as.integer(cell$thread), cell$build))
+  dir.create(dirname(ref_rel), recursive = TRUE, showWarnings = FALSE)
+  arrow::write_parquet(data.frame(weight = NA_real_), ref_rel)
+  list(
+    solver = cell$solver, problem = cell$problem, thread = as.integer(cell$thread),
+    build = cell$build, rep = 0L, weights_ref = ref_rel,
+    iterations = NULL, status = "dnf", converged = FALSE,
+    error_message = sprintf("exceeded --cell-timeout=%ss (right-censored DNF)", budget_s),
+    wall_time_s = as.numeric(budget_s), peak_rss_bytes = NA_real_, trajectory_ref = NULL
+  )
+}
+
 #' Solver ids resolving to a runnable R adapter this arm: the run_<id> competitor
 #' functions (competitors.R) + the 9 leafblower_*_r methods. A registry entry
 #' without one (e.g. `cvxr_reference`, the convex anchor produced separately via
@@ -334,9 +354,17 @@ orchestrate <- function(opts) {
     r <- .spawn(c("--worker", "--cell", shQuote(cell_path), "--result-out", shQuote(result_path)),
                 timeout_s = opts$cell_timeout)
     if (!identical(r$status, 0L) || !file.exists(result_path)) {
-      cell_failures[[length(cell_failures) + 1L]] <- list(cell = cell, error = r$output)
-      message(sprintf("WARN: cell %s/%s/t%s/%s failed: %s", cell$solver, cell$problem,
-                       cell$thread, cell$build, r$output))
+      if (identical(r$status, 124L)) {
+        # Right-censored DNF (coreutils `timeout` exit 124): record a real row,
+        # do NOT drop (else a timeout is indistinguishable from 'never ran').
+        all_rows <- c(all_rows, list(.dnf_row(cell, opts$cell_timeout)))
+        message(sprintf("DNF: cell %s/%s/t%s/%s exceeded %ss budget (right-censored)",
+                        cell$solver, cell$problem, cell$thread, cell$build, opts$cell_timeout))
+      } else {
+        cell_failures[[length(cell_failures) + 1L]] <- list(cell = cell, error = r$output)
+        message(sprintf("WARN: cell %s/%s/t%s/%s failed: %s", cell$solver, cell$problem,
+                         cell$thread, cell$build, r$output))
+      }
       next
     }
     out <- jsonlite::fromJSON(result_path, simplifyVector = FALSE)

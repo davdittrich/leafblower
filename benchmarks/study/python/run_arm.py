@@ -65,7 +65,7 @@ CONTRACT_KEYS = {
 }
 STATUS_ENUM = {
     "converged", "no_conv", "infeasible", "bound_violation", "bad_arg",
-    "budget", "stall", "error",
+    "budget", "stall", "error", "dnf",
 }
 RUNS_ROW_KEYS = [
     "solver", "problem", "thread", "build", "rep",
@@ -222,16 +222,42 @@ def run_baseline_worker(solver_id: str, result_path: str) -> None:
 # Orchestrator mode
 # ---------------------------------------------------------------------------
 
+class _CellTimeout(RuntimeError):
+    """A worker subprocess exceeded --cell-timeout (wall-clock budget). Distinct
+    from a crash so orchestrate() can record a right-censored `dnf` row."""
+
+
 def _spawn(args: list[str], timeout_s: float) -> None:
     import subprocess
     try:
         proc = subprocess.run([sys.executable, str(Path(__file__).resolve()), *args],
                                cwd=str(_REPO_ROOT), capture_output=True, text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired as e:
-        raise RuntimeError(f"worker subprocess exceeded --cell-timeout={timeout_s}s: args={args}") from e
+        raise _CellTimeout(f"exceeded --cell-timeout={timeout_s}s: args={args}") from e
     if proc.returncode != 0:
         raise RuntimeError(f"worker subprocess failed (exit {proc.returncode}): "
                             f"args={args}\nstdout={proc.stdout}\nstderr={proc.stderr}")
+
+
+def _dnf_row(cell: dict, budget_s: float) -> dict[str, Any]:
+    """Right-censored did-not-finish row for a cell killed at the wall-clock
+    budget -- recorded (not dropped) so a timeout is distinguishable from a cell
+    that never ran. Weights are UNDEFINED for a cell that never finished, so
+    weights_ref is a length-1 all-NaN sentinel (non-dangling; scoring skips
+    weights for status=='dnf'). status='dnf'; wall_time_s is the budget (the
+    censoring point); peak_rss unknown."""
+    import numpy as np
+    import pandas as pd
+    weights_dir = _REPO_ROOT / "weights"
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    path = weights_dir / f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}.parquet"
+    pd.DataFrame({"weight": [np.nan]}).to_parquet(path)
+    ref = str(path.relative_to(_REPO_ROOT))
+    return dict(solver=cell["solver"], problem=cell["problem"], thread=cell["thread"],
+                build=cell["build"], rep=0, weights_ref=ref, iterations=None,
+                status="dnf", converged=False,
+                error_message=f"exceeded --cell-timeout={budget_s}s (right-censored DNF)",
+                wall_time_s=float(budget_s), peak_rss_bytes=None, trajectory_ref=None)
 
 
 def _available_adapters() -> set:
@@ -317,6 +343,12 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
             with open(result_path) as f:
                 out = json.load(f)
             all_rows.extend(out["rows"])
+        except _CellTimeout:
+            # Right-censored DNF: record a real row, do NOT drop (else a timeout
+            # is indistinguishable from 'never ran').
+            all_rows.append(_dnf_row(cell, opts.cell_timeout))
+            print(f"DNF: cell {cell['solver']}/{cell['problem']}/t{cell['thread']}/{cell['build']} "
+                  f"exceeded {opts.cell_timeout}s budget (right-censored)", file=sys.stderr)
         except Exception as e:  # noqa: BLE001 -- one cell's crash must not abort the matrix
             cell_failures.append(dict(cell=cell, error=str(e)))
             print(f"WARN: cell {cell} failed: {e}", file=sys.stderr)
