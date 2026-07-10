@@ -29,7 +29,7 @@ if (is.na(.RM_THIS_DIR) || !nzchar(.RM_THIS_DIR)) {
 STUDY_DIR <- normalizePath(file.path(.RM_THIS_DIR, ".."), mustWork = FALSE)
 REPO_ROOT <- normalizePath(file.path(STUDY_DIR, "..", ".."), mustWork = FALSE)
 
-FROZEN_TAG <- "benchmark-config-freeze-v9"
+FROZEN_TAG <- "benchmark-config-freeze-v10"
 
 # Paths (relative to REPO_ROOT) whose git tree must match the frozen tag's
 # tree before any timed cell runs. registry.json is DELIBERATELY excluded --
