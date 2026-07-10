@@ -118,6 +118,16 @@ run_worker <- function(cell_path, result_path) {
   problem <- load_problem_spec(rm_resolve_spec_path(cell$problem))
   problem <- .subsample(problem, cell$n_cap, if (is.null(cell$seed)) 0L else cell$seed)
 
+  # Universal structural-infeasibility short-circuit: if a target category has 0
+  # sample observations, the cell is infeasible for EVERY solver -> record one
+  # "infeasible" row, do NOT run the solver (no misleading crash/error/fake-conv).
+  infeas <- .structural_infeasible_cats(problem)
+  if (length(infeas)) {
+    jsonlite::write_json(list(rows = list(.infeasible_row(cell, infeas))), result_path,
+                         auto_unbox = TRUE, null = "null")
+    return(invisible())
+  }
+
   warmups <- as.integer(cell$warmups)
   min_reps <- as.integer(cell$reps)
   min_total_duration <- as.numeric(cell$min_total_duration)
@@ -271,6 +281,44 @@ run_baseline_worker <- function(solver_id, result_path) {
   )
 }
 
+#' Structural infeasibility: a margin category with target>0 but ZERO sample
+#' observations (no row carries it) cannot be reached by ANY reweighting.
+#' Extreme-skew/high-cardinality small-n instances realize only a subset of the
+#' declared categories. Detected on the MATERIALIZED (post-subsample) problem the
+#' solver would see, so the universal short-circuit below applies uniformly to
+#' every solver -- competitors AND leafblower -- for a clean apples-to-apples
+#' "infeasible" classification (the head-to-head runs on feasible cells). Mirrors
+#' run_arm.py::structural_infeasible_cats.
+.structural_infeasible_cats <- function(problem) {
+  bad <- character(0)
+  for (m in problem$margins) {
+    tg <- problem$targets[[m]]
+    present <- unique(as.character(problem$data[[m]]))
+    miss <- names(tg)[tg > 0 & !(names(tg) %in% present)]
+    if (length(miss)) bad <- c(bad, paste0(m, ".", miss))
+  }
+  bad
+}
+
+#' Row synthesized when a cell is structurally infeasible: no solver runs; weights
+#' are undefined -> length-1 all-NaN sentinel (scoring skips), status="infeasible".
+.infeasible_row <- function(cell, cats) {
+  ref_rel <- file.path("benchmarks", "study", "results", "weights",
+                       sprintf("%s__%s__t%d__%s.parquet",
+                               cell$solver, cell$problem, as.integer(cell$thread), cell$build))
+  dir.create(dirname(ref_rel), recursive = TRUE, showWarnings = FALSE)
+  arrow::write_parquet(data.frame(weight = NA_real_), ref_rel)
+  list(
+    solver = cell$solver, problem = cell$problem, thread = as.integer(cell$thread),
+    build = cell$build, rep = 0L, weights_ref = ref_rel,
+    iterations = NULL, status = "infeasible", converged = FALSE,
+    error_message = sprintf("structurally infeasible: target>0 but 0 observations for %s%s",
+                            paste(head(cats, 3), collapse = ", "),
+                            if (length(cats) > 3) sprintf(" (+%d more)", length(cats) - 3) else ""),
+    wall_time_s = 0.0, peak_rss_bytes = NA_real_, trajectory_ref = NULL
+  )
+}
+
 #' Solver ids resolving to a runnable R adapter this arm: the run_<id> competitor
 #' functions (competitors.R) + the 9 leafblower_*_r methods. A registry entry
 #' without one (e.g. `cvxr_reference`, the convex anchor produced separately via
@@ -330,6 +378,7 @@ orchestrate <- function(opts) {
   threads <- as.integer(strsplit(opts$threads, ",")[[1]])
   cells <- rm_build_matrix(registry, matrix_specs, arm = "R", threads = threads, rng_seed = opts$seed, available = available)
   if (!is.null(opts$solvers)) cells <- Filter(function(c) grepl(opts$solvers, c$solver), cells)
+  if (!is.null(opts$problems)) cells <- Filter(function(c) grepl(opts$problems, c$problem), cells)
   if (!is.null(opts$max_cells)) cells <- cells[seq_len(min(length(cells), opts$max_cells))]
 
   out_dir <- opts$out
@@ -417,7 +466,7 @@ orchestrate <- function(opts) {
   opts <- list(worker = FALSE, baseline_rss = FALSE, cell = NULL, solver = NULL, result_out = NULL,
                smoke = FALSE, n = 5000L, reps = 2L, warmups = 2L, max_reps = 200L,
                min_total_duration = 0.5, threads = "1,4", pin_core = NULL, seed = NULL,
-               out = file.path(STUDY_DIR, "results"), sync_registry = FALSE, solvers = NULL, max_cells = NULL,
+               out = file.path(STUDY_DIR, "results"), sync_registry = FALSE, solvers = NULL, problems = NULL, max_cells = NULL,
                cell_timeout = 120)
   i <- 1L
   while (i <= length(argv)) {
@@ -440,6 +489,7 @@ orchestrate <- function(opts) {
     else if (a == "--out") opts$out <- val_next()
     else if (a == "--sync-registry") opts$sync_registry <- TRUE
     else if (a == "--solvers") opts$solvers <- val_next()
+    else if (a == "--problems") opts$problems <- val_next()
     else if (a == "--max-cells") opts$max_cells <- as.integer(val_next())
     else if (a == "--cell-timeout") opts$cell_timeout <- as.numeric(val_next())
     else stop(sprintf("run_arm.R: unrecognized argument %s", a))

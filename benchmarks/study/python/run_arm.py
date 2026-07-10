@@ -143,6 +143,17 @@ def run_worker(cell_path: str, result_path: str) -> None:
     problem = load_problem_spec(rm.resolve_spec_path(cell["problem"]))
     problem = _subsample(problem, cell.get("n_cap"), cell.get("seed", 0))
 
+    # Universal structural-infeasibility short-circuit: a target category with 0
+    # sample observations makes the cell infeasible for EVERY solver -> record one
+    # "infeasible" row, do NOT run the solver (no misleading crash/error/fake-conv).
+    infeas = structural_infeasible_cats(problem)
+    if infeas:
+        rows = [_infeasible_row(cell, infeas)]
+        summary = rm.summarize_timing([0.0], rng_seed=cell.get("seed"))
+        with open(result_path, "w") as f:
+            json.dump(dict(rows=rows, summary=summary), f)
+        return
+
     warmups = int(cell["warmups"])
     min_reps = int(cell["reps"])
     min_total_duration = float(cell["min_total_duration"])
@@ -260,6 +271,42 @@ def _dnf_row(cell: dict, budget_s: float) -> dict[str, Any]:
                 wall_time_s=float(budget_s), peak_rss_bytes=None, trajectory_ref=None)
 
 
+def structural_infeasible_cats(problem: dict) -> list:
+    """Margin categories with target>0 but ZERO sample observations (no row
+    carries them) -- unreachable by ANY reweighting. Extreme-skew/high-cardinality
+    small-n instances realize only a subset of the declared categories. Checked on
+    the MATERIALIZED (post-subsample) problem the solver would see, so the universal
+    short-circuit in run_worker applies uniformly to every solver -- competitors AND
+    leafblower. Mirrors run_arm.R::.structural_infeasible_cats."""
+    import pandas as pd
+    bad = []
+    data, targets = problem["data"], problem["targets"]
+    for m in problem["margins"]:
+        present = set(map(str, pd.unique(data[m])))
+        bad += [f"{m}.{k}" for k, v in targets[m].items() if v > 0 and str(k) not in present]
+    return bad
+
+
+def _infeasible_row(cell: dict, cats: list) -> dict[str, Any]:
+    """Row synthesized when a cell is structurally infeasible: no solver runs;
+    weights undefined -> length-1 all-NaN sentinel (scoring skips), status=
+    'infeasible'. Mirrors _dnf_row's sentinel; wall_time_s=0 (nothing ran)."""
+    import numpy as np
+    import pandas as pd
+    weights_dir = _REPO_ROOT / "weights"
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    path = weights_dir / f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}.parquet"
+    pd.DataFrame({"weight": [np.nan]}).to_parquet(path)
+    ref = str(path.relative_to(_REPO_ROOT))
+    more = f" (+{len(cats) - 3} more)" if len(cats) > 3 else ""
+    return dict(solver=cell["solver"], problem=cell["problem"], thread=cell["thread"],
+                build=cell["build"], rep=0, weights_ref=ref, iterations=None,
+                status="infeasible", converged=False,
+                error_message=f"structurally infeasible: target>0 but 0 observations for "
+                              f"{', '.join(cats[:3])}{more}",
+                wall_time_s=0.0, peak_rss_bytes=None, trajectory_ref=None)
+
+
 def _available_adapters() -> set:
     """Solver ids that resolve to a runnable Python adapter this arm: the wrapped
     competitors plus the 9 leafblower_*_py methods. A registry solver absent here
@@ -315,6 +362,10 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
         import re
         pat = re.compile(opts.solvers)
         cells = [c for c in cells if pat.search(c["solver"])]
+    if opts.problems:
+        import re
+        ppat = re.compile(opts.problems)
+        cells = [c for c in cells if ppat.search(c["problem"])]
     if opts.max_cells:
         cells = cells[: opts.max_cells]
 
@@ -410,6 +461,7 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--sync-registry", action="store_true",
                    help="recompute + write back registry.json's applicable_problems before running")
     p.add_argument("--solvers", type=str, default=None, help="regex filter on solver id")
+    p.add_argument("--problems", type=str, default=None, help="regex filter on problem id (shard by n-tier)")
     p.add_argument("--max-cells", type=int, default=None, help="cap number of cells (debugging/CI)")
     p.add_argument("--cell-timeout", type=float, default=120.0,
                    help="max seconds per fresh-subprocess cell before it is killed and logged as a "

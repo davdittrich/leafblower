@@ -509,8 +509,8 @@ run_ebal <- function(problem) .comp_run("ebal", problem, .comp_ebal_solve)
 .comp_optweight_solve <- function(problem, norm) {
   ph <- .comp_phantom(problem)
   treat <- factor(ifelse(ph$treat == 1, "target", "sample"), levels = c("sample", "target"))
-  dfall <- data.frame(treat = treat, ph$X_all)
-  form <- stats::as.formula(paste("treat ~", paste(colnames(ph$X_all), collapse = " + ")))
+  dfall <- data.frame(treat = treat, ph$X_all, check.names = FALSE)
+  form <- stats::as.formula(paste("treat ~", paste0("`", colnames(ph$X_all), "`", collapse = " + ")))
   fit <- optweight::optweight(form, data = dfall, tols = 0, estimand = "ATT",
                                focal = "target", norm = norm, min.w = 1e-8)
   w <- as.numeric(fit$weights[treat == "sample"])
@@ -554,8 +554,8 @@ run_optweight_linf <- function(problem) {
     .comp_bad_arg(sprintf("weightit: unsupported objective family '%s' (expected kl|minimax)", fam))
   }
   ph <- if (method == "ebal") .comp_phantom_kminus1(problem) else .comp_phantom(problem)
-  dfall <- data.frame(treat = ph$treat, ph$X_all)
-  form <- stats::as.formula(paste("treat ~", paste(colnames(ph$X_all), collapse = " + ")))
+  dfall <- data.frame(treat = ph$treat, ph$X_all, check.names = FALSE)
+  form <- stats::as.formula(paste("treat ~", paste0("`", colnames(ph$X_all), "`", collapse = " + ")))
   fit <- WeightIt::weightit(form, data = dfall, method = method, estimand = "ATT")
   w <- as.numeric(fit$weights[ph$treat == 0])
   list(weights = w, iterations = NA_integer_, status = "converged", error_message = NULL)
@@ -796,7 +796,7 @@ run_jointcalib <- function(problem) .comp_run("jointcalib", problem, .comp_joint
   # path masked this -- it does not touch .symDiagonal). Attach idempotently.
   if (!"package:Matrix" %in% search()) suppressMessages(library(Matrix))
   ph <- .comp_phantom(problem)
-  dat <- data.frame(treat = ph$treat, ph$X_all)
+  dat <- data.frame(treat = ph$treat, ph$X_all, check.names = FALSE)
   # bal_alg=TRUE = sbw's DOCUMENTED default: an algorithmic search over the
   # bal_gri tolerance grid that keeps bal_gri[which.min(Cstat)] = the
   # tightest-ACHIEVABLE balance (sbw's best fit). Wrapped in tryCatch
