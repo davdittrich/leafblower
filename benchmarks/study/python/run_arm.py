@@ -343,7 +343,10 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
     # ot/newton_kl objective_families, so it is what gives the OT / Newton-KL
     # solvers their applicable problems. This also materializes the generated
     # spec/instance_family/<id>.json files the worker later loads.
-    problem_specs = rm.load_all_problem_specs()
+    # regenerate=False: use the COMMITTED (frozen) instance specs -- regenerating
+    # would overwrite them and dirty the frozen runnable tree (WU-9). The committed
+    # spec/instance_family/*.json ARE the frozen truth; regen only on a missing dir.
+    problem_specs = rm.load_all_problem_specs(regenerate=False)
     hyperparams = rm.load_hyperparams()
     available = _available_adapters()
 

@@ -364,7 +364,10 @@ orchestrate <- function(opts) {
   # instances). The instance family is the only arena declaring ot/newton_kl
   # objective_families -- what gives the OT / Newton-KL solvers their applicable
   # problems. Also materializes the spec/instance_family/<id>.json the worker loads.
-  problem_specs <- rm_load_all_problem_specs()
+  # regenerate=FALSE: use the COMMITTED (frozen) instance specs -- regenerating
+  # would overwrite them and dirty the frozen runnable tree (WU-9). The committed
+  # spec/instance_family/*.json ARE the frozen truth; regen only on a missing dir.
+  problem_specs <- rm_load_all_problem_specs(regenerate = FALSE)
   hyperparams <- rm_load_hyperparams()
   available <- .r_available_adapters(registry)
 
