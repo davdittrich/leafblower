@@ -319,6 +319,29 @@ run_baseline_worker <- function(solver_id, result_path) {
   )
 }
 
+#' Row synthesized when a worker DIES without writing a result (non-timeout, e.g.
+#' OOM-kill / allocation failure / hard crash): recorded (not dropped to
+#' cell_failures) so a crashed cell is distinguishable from one that never ran --
+#' the WU-9 no-selective-reporting guarantee (extends the .dnf_row treatment from
+#' timeouts to crashes). status="error"; weights undefined -> NaN sentinel; timing
+#' unknown -> NA. exit_status 137 == SIGKILL (typically OOM). Mirrors run_arm.py.
+.crash_row <- function(cell, exit_status, reason) {
+  ref_rel <- file.path("benchmarks", "study", "results", "weights",
+                       sprintf("%s__%s__t%d__%s.parquet",
+                               cell$solver, cell$problem, as.integer(cell$thread), cell$build))
+  dir.create(dirname(ref_rel), recursive = TRUE, showWarnings = FALSE)
+  arrow::write_parquet(data.frame(weight = NA_real_), ref_rel)
+  oom <- if (identical(as.integer(exit_status), 137L)) " (exit 137 = SIGKILL, likely OOM)" else ""
+  list(
+    solver = cell$solver, problem = cell$problem, thread = as.integer(cell$thread),
+    build = cell$build, rep = 0L, weights_ref = ref_rel,
+    iterations = NULL, status = "error", converged = FALSE,
+    error_message = sprintf("worker died without result: exit=%s%s; captured: %s",
+                            as.character(exit_status), oom, substr(gsub("\\s+", " ", reason), 1, 160)),
+    wall_time_s = NA_real_, peak_rss_bytes = NA_real_, trajectory_ref = NULL
+  )
+}
+
 #' Solver ids resolving to a runnable R adapter this arm: the run_<id> competitor
 #' functions (competitors.R) + the 9 leafblower_*_r methods. A registry entry
 #' without one (e.g. `cvxr_reference`, the convex anchor produced separately via
@@ -410,9 +433,13 @@ orchestrate <- function(opts) {
         message(sprintf("DNF: cell %s/%s/t%s/%s exceeded %ss budget (right-censored)",
                         cell$solver, cell$problem, cell$thread, cell$build, opts$cell_timeout))
       } else {
+        # Worker died without a result (non-timeout: OOM-kill / allocation
+        # failure / hard crash). Record a real error row -- do NOT drop, else a
+        # crashed cell VANISHES (selective-reporting hole; WU-9 forbids it).
+        all_rows <- c(all_rows, list(.crash_row(cell, r$status, r$output)))
         cell_failures[[length(cell_failures) + 1L]] <- list(cell = cell, error = r$output)
-        message(sprintf("WARN: cell %s/%s/t%s/%s failed: %s", cell$solver, cell$problem,
-                         cell$thread, cell$build, r$output))
+        message(sprintf("CRASH: cell %s/%s/t%s/%s died (exit=%s) -> recorded as error row",
+                         cell$solver, cell$problem, cell$thread, cell$build, r$status))
       }
       next
     }

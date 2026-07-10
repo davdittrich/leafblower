@@ -307,6 +307,25 @@ def _infeasible_row(cell: dict, cats: list) -> dict[str, Any]:
                 wall_time_s=0.0, peak_rss_bytes=None, trajectory_ref=None)
 
 
+def _crash_row(cell: dict, reason: str) -> dict[str, Any]:
+    """Worker died without a result (OOM-kill / hard crash, non-timeout): recorded
+    as status='error' (NOT dropped to cell_failures) so a crashed cell does not
+    VANISH -- the WU-9 no-selective-reporting guarantee, extending _dnf_row's
+    treatment from timeouts to crashes. Weights undefined -> NaN sentinel; timing
+    unknown -> NaN. Mirrors run_arm.R::.crash_row."""
+    import numpy as np
+    import pandas as pd
+    weights_dir = _REPO_ROOT / "weights"
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    path = weights_dir / f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}.parquet"
+    pd.DataFrame({"weight": [np.nan]}).to_parquet(path)
+    return dict(solver=cell["solver"], problem=cell["problem"], thread=cell["thread"],
+                build=cell["build"], rep=0, weights_ref=str(path.relative_to(_REPO_ROOT)),
+                iterations=None, status="error", converged=False,
+                error_message=f"worker died without result: {reason[:160]}",
+                wall_time_s=float("nan"), peak_rss_bytes=None, trajectory_ref=None)
+
+
 def _available_adapters() -> set:
     """Solver ids that resolve to a runnable Python adapter this arm: the wrapped
     competitors plus the 9 leafblower_*_py methods. A registry solver absent here
@@ -401,8 +420,13 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
             print(f"DNF: cell {cell['solver']}/{cell['problem']}/t{cell['thread']}/{cell['build']} "
                   f"exceeded {opts.cell_timeout}s budget (right-censored)", file=sys.stderr)
         except Exception as e:  # noqa: BLE001 -- one cell's crash must not abort the matrix
+            # Worker died without a result (OOM-kill / hard crash). Record a real
+            # error row -- do NOT drop, else a crashed cell VANISHES (WU-9 forbids
+            # selective reporting).
+            all_rows.append(_crash_row(cell, str(e)))
             cell_failures.append(dict(cell=cell, error=str(e)))
-            print(f"WARN: cell {cell} failed: {e}", file=sys.stderr)
+            print(f"CRASH: cell {cell['solver']}/{cell['problem']} died -> recorded as error row: {e}",
+                  file=sys.stderr)
 
     baseline_reps: dict[str, str] = {}
     for cell in cells:
