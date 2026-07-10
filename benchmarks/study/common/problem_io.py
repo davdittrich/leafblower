@@ -72,6 +72,25 @@ def load_problem_spec(spec_path: str | Path) -> dict[str, Any]:
             "problem_io: targets_ref/targets keys must match `margins` exactly. "
             f"margins={margins} targets={list(targets.keys())}"
         )
+    # String-categorical invariant (leafblower-2ouc.37): margins MUST be string-
+    # coded categories. A numeric-coded margin coerces INCONSISTENTLY across arms --
+    # R factor() levels render whole numbers as "1", Python astype(str) renders
+    # float64 as "1.0" -- silently diverging from the JSON target keys and breaking
+    # every ==-keyed site (structural_infeasible_cats, margin_stats, ref_convex).
+    # load_problem_spec is the single chokepoint all consumers share, so reject here
+    # (before the astype(str) coercion, which would mask the raw dtype). CONTENT
+    # check (not dtype alone): an object column holding Python ints passes str() but
+    # breaks ==-keyed sites. No-op on the current string-categorical study set.
+    for m in margins:
+        vals = data[m].dropna().unique()
+        if not all(isinstance(v, str) for v in vals):
+            raise ValueError(
+                f"problem_io: margin column {m!r} must be string-categorical, got dtype "
+                f"{data[m].dtype} with non-string values -- benchmark margins MUST be "
+                f"string-coded categories (numeric margins diverge R vs Python; "
+                f"leafblower-2ouc.37). Add explicit canonical string coercion before "
+                f"introducing a numeric margin."
+            )
     for m in margins:
         data[m] = data[m].astype(str)
 

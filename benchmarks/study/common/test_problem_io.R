@@ -113,5 +113,27 @@ if (!is.null(step_u$data) && length(commandArgs(trailingOnly = TRUE)) >= 1L) {
   cat(sprintf("\nWrote round-trip summary to %s\n", out_path))
 }
 
+# leafblower-2ouc.37: string-categorical margin invariant. A numeric-coded margin
+# coerces inconsistently across arms (R factor "1" vs Py astype(str) "1.0"); the
+# chokepoint load_problem_spec rejects it. No-op on the string-categorical study set.
+{
+  .mk_spec <- function(mvals) {
+    p <- tempfile(fileext = ".json")
+    writeLines(jsonlite::toJSON(list(
+      id = "t37", data_ref = "inline", data = data.frame(m = mvals),
+      design_weights = rep(1, length(mvals)), margins = "m",
+      targets = list(m = list(`1` = 0.25, `2` = 0.5, `4` = 0.25, c1 = 0.25, c2 = 0.5, c4 = 0.25)),
+      bounds = list(min = 0, max = NULL), tol = 1e-8, objective_families = "kl", K = 1
+    ), auto_unbox = TRUE, null = "null"), p)
+    p
+  }
+  num_err <- tryCatch({ load_problem_spec(.mk_spec(c(1, 2, 2, 3))); NA_character_ },
+                      error = function(e) conditionMessage(e))
+  check("2ouc.37: numeric margin rejected", !is.na(num_err) && grepl("string-categorical", num_err))
+  str_ok <- tryCatch({ p <- load_problem_spec(.mk_spec(c("c1", "c2", "c2", "c3"))); is.factor(p$data$m) },
+                     error = function(e) FALSE)
+  check("2ouc.37: string margin loads clean (factor)", isTRUE(str_ok))
+}
+
 cat(sprintf("\n%s: %d failure(s)\n", if (failures == 0L) "RESULT" else "RESULT", failures))
 if (failures > 0L) quit(status = 1L)

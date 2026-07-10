@@ -149,6 +149,48 @@ if len(sys.argv) >= 2:
                 break
     check("stepstone_unbounded: targets (T_kj) match R (rtol=1e-6)", targets_match)
 
+# leafblower-2ouc.37: string-categorical margin invariant. A numeric-coded margin
+# coerces inconsistently across arms (R factor "1" vs Py astype(str) "1.0"); the
+# chokepoint load_problem_spec rejects it (CONTENT check: object-of-ints too). No-op
+# on the string-categorical study set.
+def _mk_spec(mvals: list) -> str:
+    import json
+    import tempfile
+    spec = dict(id="t37", data_ref="inline", data=[{"m": v} for v in mvals],
+                design_weights=[1] * len(mvals), margins=["m"],
+                targets={"m": {"1": 0.25, "2": 0.5, "4": 0.25, "c1": 0.25, "c2": 0.5, "c4": 0.25}},
+                bounds={"min": 0, "max": None}, tol=1e-8, objective_families=["kl"], K=1)
+    fd = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+    json.dump(spec, fd)
+    fd.close()
+    return fd.name
+
+
+for _label, _vals in [("int64", [1, 2, 2, 3]), ("float64", [1.0, 2.0, 2.0, 3.0])]:
+    try:
+        load_problem_spec(_mk_spec(_vals))
+        _err = None
+    except Exception as e:  # noqa: BLE001
+        _err = str(e)
+    check(f"2ouc.37: numeric ({_label}) margin rejected",
+          _err is not None and "string-categorical" in _err)
+# object-dtype column with non-string contents (mixed int+str -> object): the
+# CONTENT check must reject it (a pure dtype!=numeric check would let object slip
+# through, then break ==-keyed sites). Locks the distinguishing behavior.
+try:
+    load_problem_spec(_mk_spec([1, "c2", 2, "c3"]))
+    _obj_err = None
+except Exception as e:  # noqa: BLE001
+    _obj_err = str(e)
+check("2ouc.37: object-of-non-str (mixed) margin rejected",
+      _obj_err is not None and "string-categorical" in _obj_err)
+try:
+    _p = load_problem_spec(_mk_spec(["c1", "c2", "c2", "c3"]))
+    _str_ok = str(_p["data"]["m"].dtype) == "str" or _p["data"]["m"].map(type).eq(str).all()
+except Exception:  # noqa: BLE001
+    _str_ok = False
+check("2ouc.37: string margin loads clean", bool(_str_ok))
+
 print(f"\nRESULT: {failures} failure(s)")
 if failures > 0:
     sys.exit(1)

@@ -59,6 +59,25 @@ load_problem_spec <- function(spec_path) {
          "margins=[", paste(margins, collapse = ","), "] targets=[",
          paste(names(targets), collapse = ","), "]", call. = FALSE)
   }
+  # String-categorical invariant (leafblower-2ouc.37): margins MUST be string-
+  # coded categories. A numeric-coded margin coerces INCONSISTENTLY across arms --
+  # R factor() levels render whole numbers as "1", Python astype(str) renders
+  # float64 as "1.0" -- silently diverging from the JSON target keys and breaking
+  # every ==-keyed site (structural_infeasible_cats, margin_stats, ref_convex).
+  # load_problem_spec is the single chokepoint all consumers share, so reject here
+  # (before the factor() coercion, which would mask the raw dtype). No-op on the
+  # current string-categorical study set.
+  for (nm in margins) {
+    x <- data[[nm]]
+    if (!(is.factor(x) || is.character(x))) {
+      stop(sprintf(paste0("problem_io: margin column '%s' must be string-categorical ",
+                          "(character or factor), got %s -- benchmark margins MUST be ",
+                          "string-coded categories (numeric margins diverge R vs Python; ",
+                          "leafblower-2ouc.37). Add explicit canonical string coercion ",
+                          "before introducing a numeric margin."),
+                   nm, paste(class(x), collapse = "/")), call. = FALSE)
+    }
+  }
   for (nm in margins) data[[nm]] <- factor(data[[nm]])
 
   K <- as.integer(.pio_get(spec, "K"))
