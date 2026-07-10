@@ -285,6 +285,34 @@ rm_assert_frozen_tag <- function(tag = FROZEN_TAG, paths = FROZEN_PATHS, repo_ro
   list(tag_exists = TRUE, ok = TRUE, mismatches = list())
 }
 
+#' WU-9 pre-run runnable-tree SHA gate. Broader than rm_assert_frozen_tag (which
+#' checks only the FROZEN_PATHS config subset): a SCORED/timed run must execute
+#' against the EXACT frozen runnable tree. Refuses (SPEC_FAILURE, hard stop) if
+#' (a) the runnable-tree tag is absent, (b) the benchmarks/study working tree has
+#' any uncommitted/untracked non-ignored change (run outputs are gitignored, so
+#' excluded), or (c) the benchmarks/study tree at HEAD has drifted from the tag.
+#' Call ONLY for scored runs (WU-11), NOT the rehearsal (which is unfrozen by
+#' design). Local-only anchor per DESIGN Sec10 (DOI reserved for the final artifact).
+rm_assert_runnable_frozen <- function(tag, repo_root = REPO_ROOT) {
+  exists_res <- .rm_git_in(c("rev-parse", "-q", "--verify", paste0("refs/tags/", tag)), repo_root)
+  if (!identical(exists_res$status, 0L)) {
+    stop(sprintf("SPEC_FAILURE: runnable-tree freeze tag '%s' not found -- refusing to execute a scored/timed run against an unfrozen tree (WU-9). Cut the signed tag first.", tag), call. = FALSE)
+  }
+  st <- .rm_git_in(c("status", "--porcelain", "--", "benchmarks/study"), repo_root)
+  dirty <- Filter(nzchar, strsplit(st$stdout, "\n", fixed = TRUE)[[1]])
+  diff_res <- .rm_git_in(c("diff", "--quiet", tag, "HEAD", "--", "benchmarks/study"), repo_root)
+  drifted <- !identical(diff_res$status, 0L)
+  if (length(dirty) > 0L || drifted) {
+    stop(sprintf(
+      "SPEC_FAILURE: refusing to run a scored/timed matrix against a dirty/unfrozen runnable tree (WU-9). tag='%s'%s%s. Commit + re-tag (amendment protocol, contract.md Sec6) before running.",
+      tag,
+      if (length(dirty) > 0L) sprintf("; uncommitted under benchmarks/study: %s", paste(head(dirty, 5), collapse = " | ")) else "",
+      if (drifted) "; benchmarks/study tree at HEAD has DRIFTED from the tag" else ""),
+      call. = FALSE)
+  }
+  list(tag_exists = TRUE, ok = TRUE, clean = TRUE, tag = tag)
+}
+
 ## ----------------------------------------------------------------------
 ## Hardware isolation capture (DESIGN.md Sec5 Blocker F)
 ## ----------------------------------------------------------------------

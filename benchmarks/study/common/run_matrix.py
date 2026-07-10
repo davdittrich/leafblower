@@ -345,6 +345,34 @@ def assert_frozen_tag(
     return dict(tag_exists=True, ok=True, mismatches=[])
 
 
+def assert_runnable_frozen(tag: str, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
+    """WU-9 pre-run runnable-tree SHA gate (mirrors run_matrix.R). Broader than
+    assert_frozen_tag: a SCORED/timed run must execute against the EXACT frozen
+    runnable tree. Raises RuntimeError (SPEC_FAILURE, hard stop) if the
+    runnable-tree tag is absent, the benchmarks/study working tree has any
+    uncommitted/untracked non-ignored change (run outputs are gitignored, so
+    excluded), or the benchmarks/study tree at HEAD has drifted from the tag.
+    Call ONLY for scored runs (WU-11), NOT the rehearsal (unfrozen by design)."""
+    if _git(["rev-parse", "-q", "--verify", f"refs/tags/{tag}"], repo_root).returncode != 0:
+        raise RuntimeError(
+            f"SPEC_FAILURE: runnable-tree freeze tag {tag!r} not found -- refusing "
+            f"to execute a scored/timed run against an unfrozen tree (WU-9). Cut the signed tag first.")
+    st = _git(["status", "--porcelain", "--", "benchmarks/study"], repo_root)
+    dirty = [ln for ln in st.stdout.split("\n") if ln.strip()]
+    drifted = _git(["diff", "--quiet", tag, "HEAD", "--", "benchmarks/study"], repo_root).returncode != 0
+    if dirty or drifted:
+        parts = ""
+        if dirty:
+            parts += f"; uncommitted under benchmarks/study: {' | '.join(dirty[:5])}"
+        if drifted:
+            parts += "; benchmarks/study tree at HEAD has DRIFTED from the tag"
+        raise RuntimeError(
+            f"SPEC_FAILURE: refusing to run a scored/timed matrix against a dirty/unfrozen "
+            f"runnable tree (WU-9). tag={tag!r}{parts}. Commit + re-tag (amendment protocol, "
+            f"contract.md Sec6) before running.")
+    return dict(tag_exists=True, ok=True, clean=True, tag=tag)
+
+
 # ---------------------------------------------------------------------------
 # Hardware isolation capture (DESIGN.md Sec5 Blocker F)
 # ---------------------------------------------------------------------------

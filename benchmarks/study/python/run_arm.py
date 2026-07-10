@@ -361,6 +361,13 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
                         registry_path=str(_STUDY_DIR / "registry.json"))
 
     tag_status = rm.assert_frozen_tag()
+    # WU-9: a scored/timed run must execute against the frozen runnable tree. When
+    # --assert-runnable-tag is passed (WU-11 scored launcher), hard-stop on a
+    # dirty/drifted benchmarks/study tree. The rehearsal omits it (unfrozen by design).
+    if opts.assert_runnable_tag:
+        rm.assert_runnable_frozen(opts.assert_runnable_tag)
+        print(f"WU-9 runnable-tree gate OK: tree matches signed tag {opts.assert_runnable_tag!r}",
+              file=sys.stderr)
     env_info = rm.capture_environment(pin_core=opts.pin_core)
 
     # --smoke bounds the instance family to instances with n <= opts.n: a huge-n
@@ -486,6 +493,8 @@ def build_argparser() -> argparse.ArgumentParser:
                    help="recompute + write back registry.json's applicable_problems before running")
     p.add_argument("--solvers", type=str, default=None, help="regex filter on solver id")
     p.add_argument("--problems", type=str, default=None, help="regex filter on problem id (shard by n-tier)")
+    p.add_argument("--assert-runnable-tag", type=str, default=None,
+                   help="WU-9: hard-stop unless benchmarks/study is clean + matches this signed runnable-tree tag (scored runs only)")
     p.add_argument("--max-cells", type=int, default=None, help="cap number of cells (debugging/CI)")
     p.add_argument("--cell-timeout", type=float, default=120.0,
                    help="max seconds per fresh-subprocess cell before it is killed and logged as a "

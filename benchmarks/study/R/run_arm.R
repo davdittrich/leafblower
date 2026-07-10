@@ -384,6 +384,14 @@ orchestrate <- function(opts) {
   }
 
   tag_status <- rm_assert_frozen_tag()
+  # WU-9: a scored/timed run must execute against the frozen runnable tree. When
+  # --assert-runnable-tag is passed (WU-11 scored launcher), hard-stop on a
+  # dirty/drifted benchmarks/study tree. The rehearsal omits it (unfrozen by design).
+  runnable_status <- NULL
+  if (!is.null(opts$assert_runnable_tag)) {
+    runnable_status <- rm_assert_runnable_frozen(opts$assert_runnable_tag)
+    message(sprintf("WU-9 runnable-tree gate OK: tree matches signed tag '%s'", opts$assert_runnable_tag))
+  }
   env_info <- rm_capture_environment(pin_core = opts$pin_core)
 
   # --smoke bounds the instance family to n <= opts$n: a huge-n synthetic
@@ -494,7 +502,7 @@ orchestrate <- function(opts) {
                smoke = FALSE, n = 5000L, reps = 2L, warmups = 2L, max_reps = 200L,
                min_total_duration = 0.5, threads = "1,4", pin_core = NULL, seed = NULL,
                out = file.path(STUDY_DIR, "results"), sync_registry = FALSE, solvers = NULL, problems = NULL, max_cells = NULL,
-               cell_timeout = 120)
+               cell_timeout = 120, assert_runnable_tag = NULL)
   i <- 1L
   while (i <= length(argv)) {
     a <- argv[i]
@@ -517,6 +525,7 @@ orchestrate <- function(opts) {
     else if (a == "--sync-registry") opts$sync_registry <- TRUE
     else if (a == "--solvers") opts$solvers <- val_next()
     else if (a == "--problems") opts$problems <- val_next()
+    else if (a == "--assert-runnable-tag") opts$assert_runnable_tag <- val_next()
     else if (a == "--max-cells") opts$max_cells <- as.integer(val_next())
     else if (a == "--cell-timeout") opts$cell_timeout <- as.numeric(val_next())
     else stop(sprintf("run_arm.R: unrecognized argument %s", a))
