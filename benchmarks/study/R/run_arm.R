@@ -241,21 +241,36 @@ run_baseline_worker <- function(solver_id, result_path) {
 #' stall the whole matrix). R's system2() has no native timeout argument;
 #' coreutils `timeout` is used when available (nzchar(Sys.which("timeout")))
 #' and skipped (uncapped, with a one-time warning) otherwise.
-.spawn <- function(args, timeout_s = 120) {
+#'
+#' `cpus` (a taskset -c CPU list string, e.g. "3" or "4,5,6,7"): when set AND
+#' `taskset` is available, the worker is PINNED to exactly those CPUs. This
+#' CONFINES a solver whose backend ignores the single-thread env vars (JAX/XLA for
+#' ott_jax_sinkhorn, Rust rayon for cvxpy CLARABEL) to its assigned cores -- a
+#' 2800%-CPU runaway that would otherwise starve every co-scheduled worker and
+#' POISON the timing is contained to 100% x |cpus| of its own cores. A thread=k
+#' cell is given k physical cores so its k BLAS threads are not strangled on one.
+#' taskset exec()s the child, so the timeout/exit-124 semantics are unchanged.
+.spawn <- function(args, timeout_s = 120, cpus = NULL) {
   old <- getwd()
   on.exit(setwd(old))
   setwd(REPO_ROOT)
-  if (nzchar(Sys.which("timeout"))) {
-    cmd <- "timeout"
-    full_args <- c(sprintf("%ss", timeout_s), "Rscript", shQuote(RUN_ARM_PATH), args)
+  have_timeout <- nzchar(Sys.which("timeout"))
+  base <- if (have_timeout) {
+    c("timeout", sprintf("%ss", timeout_s), "Rscript", shQuote(RUN_ARM_PATH), args)
   } else {
-    cmd <- "Rscript"
-    full_args <- c(shQuote(RUN_ARM_PATH), args)
+    c("Rscript", shQuote(RUN_ARM_PATH), args)
+  }
+  if (!is.null(cpus) && nzchar(cpus) && nzchar(Sys.which("taskset"))) {
+    cmd <- "taskset"
+    full_args <- c("-c", cpus, base)
+  } else {
+    cmd <- base[1]
+    full_args <- base[-1]
   }
   out <- suppressWarnings(system2(cmd, full_args, stdout = TRUE, stderr = TRUE))
   status <- attr(out, "status")
   status <- if (is.null(status)) 0L else status
-  if (identical(cmd, "timeout") && identical(status, 124L)) {
+  if (have_timeout && identical(status, 124L)) {
     return(list(status = status, output = sprintf("cell timed out after %ss", timeout_s)))
   }
   list(status = status, output = paste(out, collapse = "\n"))
@@ -434,9 +449,31 @@ orchestrate <- function(opts) {
   # (solver__problem__t<thread>__build), NOT loop index, so resume is stable
   # across a re-run whose cell order/count differs.
   jobs <- if (is.null(opts$jobs)) 1L else max(1L, as.integer(opts$jobs))
+  # CPU-affinity SLOT POOL (fixes the idx%%n_cores collision + HT contention).
+  # `pool` = pinnable logical CPUs, ONE per physical core (the launcher passes
+  # --pin-cpus so two workers never land on HT siblings of one physical core;
+  # fallback = 0..detectCores-1 with the documented NA return guarded). Each slot
+  # owns `width` CPUs (width = widest thread count this run) so a thread=4 STRETCH
+  # cell gets 4 real cores, not 4 threads strangled on 1. Cells are partitioned
+  # round-robin into `jobs` slots; slot s runs its cells SERIALLY pinned to its
+  # fixed CPUs => two concurrently-timed workers NEVER share a CPU (collision-free
+  # by construction; independent of mclapply's internal chunking).
+  pool <- if (!is.null(opts$pin_cpus) && nzchar(opts$pin_cpus)) {
+    as.integer(strsplit(opts$pin_cpus, ",", fixed = TRUE)[[1]])
+  } else {
+    nc <- parallel::detectCores(); nc <- if (is.na(nc)) 1L else max(1L, as.integer(nc))
+    seq.int(0L, nc - 1L)
+  }
+  width <- max(1L, max(threads))
+  n_slots <- max(1L, length(pool) %/% width)
+  jobs <- min(jobs, n_slots)
+  slot_cpus <- function(s) {  # s in 0..jobs-1 -> "c1,c2,..." of `width` CPUs
+    lo <- s * width + 1L
+    paste(pool[lo:(lo + width - 1L)], collapse = ",")
+  }
   cell_key <- function(cell) sprintf("%s__%s__t%d__%s", cell$solver, cell$problem,
                                      as.integer(cell$thread), cell$build)
-  run_one <- function(cell) {
+  run_one <- function(cell, cpus) {
     key <- cell_key(cell)
     cell_path <- file.path(work_dir, sprintf("cell_%s.json", key))
     result_path <- file.path(work_dir, sprintf("result_%s.json", key))
@@ -450,7 +487,7 @@ orchestrate <- function(opts) {
                               seed = opts$seed))
     jsonlite::write_json(cell_full, cell_path, auto_unbox = TRUE, null = "null")
     r <- .spawn(c("--worker", "--cell", shQuote(cell_path), "--result-out", shQuote(result_path)),
-                timeout_s = opts$cell_timeout)
+                timeout_s = opts$cell_timeout, cpus = cpus)
     if (!identical(r$status, 0L) || !file.exists(result_path)) {
       row <- if (identical(r$status, 124L)) {
         # Right-censored DNF (coreutils `timeout` exit 124): a real row, never dropped.
@@ -470,10 +507,18 @@ orchestrate <- function(opts) {
     }
     jsonlite::fromJSON(result_path, simplifyVector = FALSE)$rows
   }
+  # Slot s owns cells {s+1, s+1+jobs, ...} (round-robin) and runs them serially,
+  # pinned to slot_cpus(s). One fork per slot => at most `jobs` live workers on
+  # `jobs` disjoint CPU sets.
+  run_slot <- function(s) {
+    cpus <- slot_cpus(s)
+    idxs <- which((seq_along(cells) - 1L) %% jobs == s)
+    do.call(c, lapply(idxs, function(i) run_one(cells[[i]], cpus)))
+  }
   res_list <- if (jobs > 1L) {
-    parallel::mclapply(cells, run_one, mc.cores = jobs, mc.preschedule = FALSE)
+    parallel::mclapply(0:(jobs - 1L), run_slot, mc.cores = jobs, mc.preschedule = FALSE)
   } else {
-    lapply(cells, run_one)
+    list(run_slot(0L))
   }
   all_rows <- list()
   for (rl in res_list) {
@@ -528,7 +573,7 @@ orchestrate <- function(opts) {
 .parse_args <- function(argv) {
   opts <- list(worker = FALSE, baseline_rss = FALSE, cell = NULL, solver = NULL, result_out = NULL,
                smoke = FALSE, n = 5000L, reps = 2L, warmups = 2L, max_reps = 200L,
-               min_total_duration = 0.5, threads = "1,4", pin_core = NULL, seed = NULL,
+               min_total_duration = 0.5, threads = "1,4", pin_core = NULL, pin_cpus = NULL, seed = NULL,
                out = file.path(STUDY_DIR, "results"), sync_registry = FALSE, solvers = NULL, problems = NULL, max_cells = NULL,
                cell_timeout = 120, assert_runnable_tag = NULL, jobs = 1L)
   i <- 1L
@@ -548,6 +593,7 @@ orchestrate <- function(opts) {
     else if (a == "--min-total-duration") opts$min_total_duration <- as.numeric(val_next())
     else if (a == "--threads") opts$threads <- val_next()
     else if (a == "--pin-core") opts$pin_core <- as.integer(val_next())
+    else if (a == "--pin-cpus") opts$pin_cpus <- val_next()
     else if (a == "--seed") opts$seed <- as.integer(val_next())
     else if (a == "--out") opts$out <- val_next()
     else if (a == "--sync-registry") opts$sync_registry <- TRUE

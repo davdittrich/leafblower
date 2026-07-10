@@ -19,8 +19,8 @@
 # environment.json (disclosed limitation; WU-12 robust stats absorb the jitter).
 #
 # Memory gate (run_config.json memory_gate; 60 GB box):
-#   - Nonheavy (n<=100k, small RSS): --jobs 20 (= default_concurrency). Arms run
-#     SEQUENTIALLY (R then Py) so total concurrent workers stay <=20.
+#   - Nonheavy (n<=100k): --jobs 16 (= physical cores; slot-pool pins 1 core each). Arms run
+#     SEQUENTIALLY (R then Py) so total concurrent workers stay <=16.
 #   - Heavy non-sbw (n=1.58M): --jobs 3 (conservative). sbw's dense phantom is the
 #     ONLY measured OOM; the other heavy solvers are sparse conic/iterative, but
 #     run_config flags optweight_linf/cvxpy_linf RSS "unmeasured, do NOT assume
@@ -32,7 +32,7 @@
 set -uo pipefail
 cd /home/dd/Gemini/leafblower || exit 2
 
-TAG=benchmark-runnable-freeze-v12
+TAG=benchmark-runnable-freeze-v13
 OUT=benchmarks/study/results
 SHARDS="$OUT/_shards"
 PY="python/.venv/bin/python benchmarks/study/python/run_arm.py"
@@ -40,7 +40,25 @@ R="Rscript benchmarks/study/R/run_arm.R"
 SEED=20260710
 COMMON="--threads 1 --warmups 2 --min-total-duration 0.05 --cell-timeout 3600 \
         --seed $SEED --assert-runnable-tag $TAG"
-export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+# Single-thread ALL backends, not just BLAS. taskset (in .spawn) is the hard
+# containment; this battery stops a pinned worker from thrashing its one core
+# with a 28-thread pool. Covers: OpenMP/OpenBLAS/MKL, numexpr, Accelerate/veclib,
+# Rust rayon (cvxpy CLARABEL, polars), numba, JAX/XLA (ott_jax_sinkhorn -- XLA
+# ignores OMP; adapter_ott uses os.environ.setdefault so this value wins).
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+       NUMEXPR_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+       RAYON_NUM_THREADS=1 POLARS_MAX_THREADS=1 NUMBA_NUM_THREADS=1 \
+       XLA_FLAGS="--xla_cpu_multi_thread_eigen=false" \
+       JAX_PLATFORMS=cpu TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1
+
+# One logical CPU per PHYSICAL core (thread-0 of each core) so pinned workers never
+# land on HT siblings of one physical core (contended timing). lscpu -p gives
+# CPU,CORE; take the first CPU per distinct CORE. taskset (in the driver) then
+# assigns each worker a disjoint slice of these -> clean isolated timing.
+PIN_CPUS=$(lscpu -p=CPU,CORE 2>/dev/null | grep -v '^#' | sort -t, -k2,2n -u | cut -d, -f1 | paste -sd,)
+[ -n "$PIN_CPUS" ] || PIN_CPUS=$(seq -s, 0 $(($(nproc)-1)))   # fallback: all logical CPUs
+echo "[run_all] pin CPUs (one per physical core): $PIN_CPUS"
+COMMON="$COMMON --pin-cpus $PIN_CPUS"
 
 HEAVY='if_n1580000_|stepstone'
 NONHEAVY='canonical_|toy_inline|if_n1000_|if_n10000_|if_n100000_'
@@ -66,12 +84,12 @@ mkdir -p "$SHARDS" "$OUT/weights"
 echo "[run_all] START $(date -Iseconds)  seed=$SEED  tag=$TAG"
 
 # ---------------------------------------------------------------- Stage A: NONHEAVY
-echo "[run_all] Stage A NONHEAVY R (reps=10, jobs=20)  $(date -Iseconds)"
-$R  $COMMON --reps 10 --jobs 20 --problems "$NONHEAVY" --out "$SHARDS/r_nonheavy" \
+echo "[run_all] Stage A NONHEAVY R (reps=10, jobs=16)  $(date -Iseconds)"
+$R  $COMMON --reps 10 --jobs 16 --problems "$NONHEAVY" --out "$SHARDS/r_nonheavy" \
     > "$SHARDS/r_nonheavy.log" 2>&1
 echo "[run_all]   r_nonheavy exit=$?  $(date -Iseconds)"
-echo "[run_all] Stage A NONHEAVY Py (reps=10, jobs=20)  $(date -Iseconds)"
-$PY $COMMON --reps 10 --jobs 20 --problems "$NONHEAVY" --out "$SHARDS/py_nonheavy" \
+echo "[run_all] Stage A NONHEAVY Py (reps=10, jobs=16)  $(date -Iseconds)"
+$PY $COMMON --reps 10 --jobs 16 --problems "$NONHEAVY" --out "$SHARDS/py_nonheavy" \
     > "$SHARDS/py_nonheavy.log" 2>&1
 echo "[run_all]   py_nonheavy exit=$?  $(date -Iseconds)"
 

@@ -238,11 +238,21 @@ class _CellTimeout(RuntimeError):
     from a crash so orchestrate() can record a right-censored `dnf` row."""
 
 
-def _spawn(args: list[str], timeout_s: float) -> None:
+def _spawn(args: list[str], timeout_s: float, cpus: str | None = None) -> None:
+    import shutil
     import subprocess
+    cmd = [sys.executable, str(Path(__file__).resolve()), *args]
+    # Pin to the given CPU list (e.g. "3" or "4,5,6,7") when requested: confines a
+    # backend that ignores the single-thread env vars (JAX/XLA for ott_jax_sinkhorn,
+    # Rust rayon for cvxpy CLARABEL) to its assigned cores, so a 2800%-CPU runaway
+    # cannot starve co-scheduled workers / poison their timing. A thread=k cell gets
+    # k cores so its BLAS threads are not strangled. taskset exec()s python, so the
+    # timeout below still targets the worker PID.
+    if cpus and shutil.which("taskset"):
+        cmd = ["taskset", "-c", cpus, *cmd]
     try:
-        proc = subprocess.run([sys.executable, str(Path(__file__).resolve()), *args],
-                               cwd=str(_REPO_ROOT), capture_output=True, text=True, timeout=timeout_s)
+        proc = subprocess.run(cmd, cwd=str(_REPO_ROOT), capture_output=True,
+                               text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired as e:
         raise _CellTimeout(f"exceeded --cell-timeout={timeout_s}s: args={args}") from e
     if proc.returncode != 0:
@@ -417,6 +427,28 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
     # result_<key>.json so a killed run RESUMES (skips completed cells, incl.
     # hour-long right-censored DNFs). Files keyed by cell IDENTITY, not index.
     jobs = max(1, int(getattr(opts, "jobs", 1) or 1))
+    # CPU-affinity SLOT POOL (fixes the idx%%n_cores collision + HT contention).
+    # pool = pinnable logical CPUs, ONE per physical core (launcher passes
+    # --pin-cpus so two workers never land on HT siblings; fallback = 0..cpu_count-1).
+    # Each slot owns `width` CPUs (width = widest thread count this run) so a
+    # thread=4 STRETCH cell gets 4 real cores, not 4 threads strangled on 1. A
+    # queue.Queue of slots is acquired/released per worker => the <=jobs live workers
+    # always hold DISTINCT slots => never share a CPU (collision-free + balanced).
+    if getattr(opts, "pin_cpus", None):
+        pool = [int(x) for x in opts.pin_cpus.split(",") if x != ""]
+    else:
+        pool = list(range(os.cpu_count() or 1))
+    threads_list = [int(t) for t in str(opts.threads).split(",")]
+    width = max(1, max(threads_list))
+    n_slots = max(1, len(pool) // width)
+    jobs = min(jobs, n_slots)
+    import queue
+    slot_q: "queue.Queue[int]" = queue.Queue()
+    for s in range(jobs):
+        slot_q.put(s)
+
+    def _slot_cpus(s: int) -> str:
+        return ",".join(str(pool[s * width + k]) for k in range(width))
 
     def _cell_key(cell: dict) -> str:
         return f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}"
@@ -435,9 +467,10 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
                          min_total_duration=min_total_duration, n_cap=n_cap, seed=opts.seed)
         with open(cell_path, "w") as f:
             json.dump(cell_full, f)
+        slot = slot_q.get()  # exclusive CPU slot for the duration of this spawn
         try:
             _spawn(["--worker", "--cell", str(cell_path), "--result-out", str(result_path)],
-                   timeout_s=opts.cell_timeout)
+                   timeout_s=opts.cell_timeout, cpus=_slot_cpus(slot))
             with open(result_path) as f:
                 return json.load(f)["rows"]
         except _CellTimeout:
@@ -447,6 +480,8 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
         except Exception as e:  # noqa: BLE001 -- one cell's crash must not abort the matrix
             row = _crash_row(cell, str(e))  # WU-9 no-vanish: real error row
             print(f"CRASH: cell {key} died -> recorded as error row: {e}", file=sys.stderr)
+        finally:
+            slot_q.put(slot)  # release the CPU slot on every path (success/DNF/crash)
         # Persist the synthesized row so a resume skips this cell (esp. 1h DNFs).
         with open(result_path, "w") as f:
             json.dump({"rows": [row]}, f)
@@ -531,6 +566,8 @@ def build_argparser() -> argparse.ArgumentParser:
                         "cell_failure (a hung competitor must not stall the whole matrix)")
     p.add_argument("--jobs", type=int, default=1,
                    help="parallel cell workers (memory-gated by caller: nonheavy<=default_concurrency, heavy=1)")
+    p.add_argument("--pin-cpus", type=str, default=None, dest="pin_cpus",
+                   help="comma CPU list, one per physical core (e.g. '0,1,..,15'); slot-pool taskset pinning")
     return p
 
 
