@@ -34,7 +34,7 @@ _THIS_DIR = Path(__file__).resolve().parent              # benchmarks/study/comm
 STUDY_DIR = _THIS_DIR.parent                               # benchmarks/study
 REPO_ROOT = STUDY_DIR.parent.parent                          # repo root
 
-FROZEN_TAG = "benchmark-config-freeze-v8"
+FROZEN_TAG = "benchmark-config-freeze-v9"
 
 # Paths (relative to REPO_ROOT) whose git tree must match the frozen tag's
 # tree before any timed cell runs. registry.json is DELIBERATELY excluded --
