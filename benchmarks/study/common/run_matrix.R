@@ -299,7 +299,8 @@ rm_assert_runnable_frozen <- function(tag, repo_root = REPO_ROOT) {
     stop(sprintf("SPEC_FAILURE: runnable-tree freeze tag '%s' not found -- refusing to execute a scored/timed run against an unfrozen tree (WU-9). Cut the signed tag first.", tag), call. = FALSE)
   }
   st <- .rm_git_in(c("status", "--porcelain", "--", "benchmarks/study"), repo_root)
-  dirty <- Filter(nzchar, strsplit(st$stdout, "\n", fixed = TRUE)[[1]])
+  # st$stdout is character(0) / "" when the tree is clean -- guard strsplit.
+  dirty <- Filter(nzchar, unlist(strsplit(paste(st$stdout, collapse = "\n"), "\n", fixed = TRUE)))
   diff_res <- .rm_git_in(c("diff", "--quiet", tag, "HEAD", "--", "benchmarks/study"), repo_root)
   drifted <- !identical(diff_res$status, 0L)
   if (length(dirty) > 0L || drifted) {
