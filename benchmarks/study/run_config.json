@@ -18,6 +18,10 @@
     "measured_heavy_cells": [
       { "solver": "sbw", "problem_n": 1580000, "peak_rss_gb": 60, "source": "WU-REH honest probe cell_5/cell_7, 2026-07-09" }
     ],
+    "beyond_capacity_cells": [
+      { "solver": "sbw", "problem": "stepstone_unbounded|stepstone_bounded", "measured_peak_rss_gb": ">56", "source": "WU-REH v8 rehearse 2026-07-10",
+        "note": "sbw's ATT phantom builds a DENSE model.matrix full-dummy of 1.58M rows x 836 real-name categories (~10 TB dense target) -> OOM-killed at >56 GB on the 60 GB box every attempt (deterministic). sbw CANNOT run the stepstone headline problem on this hardware. The v8 crash-row fix records this as a status='error' row (exit 137, OOM). WU-11 POLICY: pre-classify this (solver,problem) cell as a beyond-capacity error WITHOUT actually running it, to avoid OOMing the box on every rep; the recorded status stays 'error' with an OOM/beyond-memory message. Same DENSE-phantom limit also makes ebal refuse stepstone (collinearity), a separate honest competitor limitation." }
+    ],
     "suspected_heavy_unmeasured": [
       { "family": "minimax QP/conic on n>=1.5M", "solvers": ["optweight_linf", "cvxpy_linf"], "note": "same QP/KKT-factorization class as sbw; peak RSS not yet measured -- WU-11 must measure and gate by the same rule, do NOT assume light." }
     ]
