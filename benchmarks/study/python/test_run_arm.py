@@ -313,7 +313,11 @@ def test_smoke_run_produces_schema_conformant_parquet(tmp_path):
     assert set(df["status"].dropna().unique()) <= run_arm.STATUS_ENUM
     assert set(df["thread"].unique()) <= {1, 4}
     assert set(df["build"].unique()) <= {"portable", "native", "na"}
-    assert (df["wall_time_s"] > 0).all()
+    # Only cells that actually RAN a solver have positive wall time. Structurally
+    # infeasible / bad_arg cells short-circuit before the solver (wall=0), and a
+    # crashed cell has wall=NaN (WU-REH C2/C3). A dnf keeps wall=budget (>0).
+    ran = df[~df["status"].isin(["infeasible", "bad_arg", "error"])]
+    assert (ran["wall_time_s"] > 0).all()
     assert df["rep"].min() == 0
 
     env_path = out_dir / "environment.json"

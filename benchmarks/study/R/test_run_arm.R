@@ -271,7 +271,10 @@ if (file.exists(runs_path)) {
   check("smoke run: thread values within {1,4}", all(df$thread %in% c(1L, 4L)))
   check("smoke run: build values within {portable,native,na}",
         all(as.character(df$build) %in% c("portable", "native", "na")))
-  check("smoke run: wall_time_s all positive", all(df$wall_time_s > 0))
+  # Only cells that actually RAN a solver have positive wall time (infeasible /
+  # bad_arg short-circuit -> wall=0; crash -> wall=NaN; dnf keeps wall=budget>0).
+  ran <- df[!(as.character(df$status) %in% c("infeasible", "bad_arg", "error")), ]
+  check("smoke run: wall_time_s positive for cells that ran", all(ran$wall_time_s > 0))
   check("smoke run: rep starts at 0", min(df$rep) == 0L)
 }
 

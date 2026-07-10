@@ -425,38 +425,63 @@ orchestrate <- function(opts) {
   min_total_duration <- if (isTRUE(opts$smoke)) 0.0 else opts$min_total_duration
   n_cap <- if (isTRUE(opts$smoke)) opts$n else NULL
 
-  all_rows <- list()
-  cell_failures <- list()
-  for (i in seq_along(cells)) {
-    cell <- cells[[i]]
+  # Parallel cell execution (--jobs N; memory-gated EXTERNALLY by run_all.sh:
+  # nonheavy jobs<=run_config default_concurrency, heavy jobs=1 so only one
+  # >=0.5*RAM worker is ever alive). Each cell is a fresh --worker subprocess
+  # under `timeout`; DNF/crash rows are SYNTHESIZED and PERSISTED to
+  # result_<key>.json so a killed run RESUMES (skips completed cells, incl.
+  # hour-long right-censored DNFs). Files keyed by cell IDENTITY
+  # (solver__problem__t<thread>__build), NOT loop index, so resume is stable
+  # across a re-run whose cell order/count differs.
+  jobs <- if (is.null(opts$jobs)) 1L else max(1L, as.integer(opts$jobs))
+  cell_key <- function(cell) sprintf("%s__%s__t%d__%s", cell$solver, cell$problem,
+                                     as.integer(cell$thread), cell$build)
+  run_one <- function(cell) {
+    key <- cell_key(cell)
+    cell_path <- file.path(work_dir, sprintf("cell_%s.json", key))
+    result_path <- file.path(work_dir, sprintf("result_%s.json", key))
+    if (file.exists(result_path)) {  # resume: reuse a prior (incl. DNF/crash) result
+      rr <- tryCatch(jsonlite::fromJSON(result_path, simplifyVector = FALSE),
+                     error = function(e) NULL)
+      if (!is.null(rr) && !is.null(rr$rows)) return(rr$rows)
+    }
     cell_full <- c(cell, list(warmups = warmups, reps = reps, max_reps = opts$max_reps,
-                               min_total_duration = min_total_duration, n_cap = n_cap, seed = opts$seed))
-    cell_path <- file.path(work_dir, sprintf("cell_%d.json", i))
-    result_path <- file.path(work_dir, sprintf("result_%d.json", i))
+                              min_total_duration = min_total_duration, n_cap = n_cap,
+                              seed = opts$seed))
     jsonlite::write_json(cell_full, cell_path, auto_unbox = TRUE, null = "null")
     r <- .spawn(c("--worker", "--cell", shQuote(cell_path), "--result-out", shQuote(result_path)),
                 timeout_s = opts$cell_timeout)
     if (!identical(r$status, 0L) || !file.exists(result_path)) {
-      if (identical(r$status, 124L)) {
-        # Right-censored DNF (coreutils `timeout` exit 124): record a real row,
-        # do NOT drop (else a timeout is indistinguishable from 'never ran').
-        all_rows <- c(all_rows, list(.dnf_row(cell, opts$cell_timeout)))
-        message(sprintf("DNF: cell %s/%s/t%s/%s exceeded %ss budget (right-censored)",
-                        cell$solver, cell$problem, cell$thread, cell$build, opts$cell_timeout))
+      row <- if (identical(r$status, 124L)) {
+        # Right-censored DNF (coreutils `timeout` exit 124): a real row, never dropped.
+        message(sprintf("DNF: cell %s exceeded %ss budget (right-censored)",
+                        key, opts$cell_timeout))
+        .dnf_row(cell, opts$cell_timeout)
       } else {
-        # Worker died without a result (non-timeout: OOM-kill / allocation
-        # failure / hard crash). Record a real error row -- do NOT drop, else a
-        # crashed cell VANISHES (selective-reporting hole; WU-9 forbids it).
-        all_rows <- c(all_rows, list(.crash_row(cell, r$status, r$output)))
-        cell_failures[[length(cell_failures) + 1L]] <- list(cell = cell, error = r$output)
-        message(sprintf("CRASH: cell %s/%s/t%s/%s died (exit=%s) -> recorded as error row",
-                         cell$solver, cell$problem, cell$thread, cell$build, r$status))
+        # Worker died without a result (OOM-kill / hard crash): a real error row,
+        # never dropped (WU-9 no-selective-reporting).
+        message(sprintf("CRASH: cell %s died (exit=%s) -> recorded as error row",
+                        key, r$status))
+        .crash_row(cell, r$status, r$output)
       }
-      next
+      # Persist the synthesized row so a resume skips this cell (esp. 1h DNFs).
+      jsonlite::write_json(list(rows = list(row)), result_path, auto_unbox = TRUE, null = "null")
+      return(list(row))
     }
-    out <- jsonlite::fromJSON(result_path, simplifyVector = FALSE)
-    all_rows <- c(all_rows, out$rows)
+    jsonlite::fromJSON(result_path, simplifyVector = FALSE)$rows
   }
+  res_list <- if (jobs > 1L) {
+    parallel::mclapply(cells, run_one, mc.cores = jobs, mc.preschedule = FALSE)
+  } else {
+    lapply(cells, run_one)
+  }
+  all_rows <- list()
+  for (rl in res_list) {
+    if (inherits(rl, "try-error") || is.null(rl)) next  # fork died: cell re-runs on resume
+    all_rows <- c(all_rows, rl)
+  }
+  # cell_failures == crash (status='error') rows; dnf is a separate right-censor.
+  cell_failures <- Filter(function(r) identical(r$status, "error"), all_rows)
 
   baseline_reps <- list()
   for (cell in cells) {
@@ -505,7 +530,7 @@ orchestrate <- function(opts) {
                smoke = FALSE, n = 5000L, reps = 2L, warmups = 2L, max_reps = 200L,
                min_total_duration = 0.5, threads = "1,4", pin_core = NULL, seed = NULL,
                out = file.path(STUDY_DIR, "results"), sync_registry = FALSE, solvers = NULL, problems = NULL, max_cells = NULL,
-               cell_timeout = 120, assert_runnable_tag = NULL)
+               cell_timeout = 120, assert_runnable_tag = NULL, jobs = 1L)
   i <- 1L
   while (i <= length(argv)) {
     a <- argv[i]
@@ -531,6 +556,7 @@ orchestrate <- function(opts) {
     else if (a == "--assert-runnable-tag") opts$assert_runnable_tag <- val_next()
     else if (a == "--max-cells") opts$max_cells <- as.integer(val_next())
     else if (a == "--cell-timeout") opts$cell_timeout <- as.numeric(val_next())
+    else if (a == "--jobs") opts$jobs <- as.integer(val_next())
     else stop(sprintf("run_arm.R: unrecognized argument %s", a))
     i <- i + 1L
   }

@@ -409,34 +409,61 @@ def orchestrate(opts: argparse.Namespace) -> dict[str, Any]:
     n_cap = opts.n if opts.smoke else None
 
     all_rows: list[dict[str, Any]] = []
-    cell_failures: list[dict[str, Any]] = []
-    for i, cell in enumerate(cells):
+
+    # Parallel cell execution (--jobs N; memory-gated EXTERNALLY by run_all.sh:
+    # nonheavy jobs<=run_config default_concurrency, heavy jobs=1 so only one
+    # >=0.5*RAM worker is ever alive). Each cell is a fresh --worker subprocess
+    # under timeout; DNF/crash rows are SYNTHESIZED and PERSISTED to
+    # result_<key>.json so a killed run RESUMES (skips completed cells, incl.
+    # hour-long right-censored DNFs). Files keyed by cell IDENTITY, not index.
+    jobs = max(1, int(getattr(opts, "jobs", 1) or 1))
+
+    def _cell_key(cell: dict) -> str:
+        return f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}"
+
+    def run_one(cell: dict) -> list[dict[str, Any]]:
+        key = _cell_key(cell)
+        cell_path = work_dir / f"cell_{key}.json"
+        result_path = work_dir / f"result_{key}.json"
+        if result_path.exists():  # resume: reuse a prior (incl. DNF/crash) result
+            try:
+                with open(result_path) as f:
+                    return json.load(f)["rows"]
+            except Exception:  # noqa: BLE001 -- corrupt checkpoint: re-run the cell
+                pass
         cell_full = dict(cell, warmups=warmups, reps=reps, max_reps=opts.max_reps,
-                          min_total_duration=min_total_duration, n_cap=n_cap, seed=opts.seed)
-        cell_path = work_dir / f"cell_{i}.json"
-        result_path = work_dir / f"result_{i}.json"
+                         min_total_duration=min_total_duration, n_cap=n_cap, seed=opts.seed)
         with open(cell_path, "w") as f:
             json.dump(cell_full, f)
         try:
             _spawn(["--worker", "--cell", str(cell_path), "--result-out", str(result_path)],
                    timeout_s=opts.cell_timeout)
             with open(result_path) as f:
-                out = json.load(f)
-            all_rows.extend(out["rows"])
+                return json.load(f)["rows"]
         except _CellTimeout:
-            # Right-censored DNF: record a real row, do NOT drop (else a timeout
-            # is indistinguishable from 'never ran').
-            all_rows.append(_dnf_row(cell, opts.cell_timeout))
-            print(f"DNF: cell {cell['solver']}/{cell['problem']}/t{cell['thread']}/{cell['build']} "
-                  f"exceeded {opts.cell_timeout}s budget (right-censored)", file=sys.stderr)
-        except Exception as e:  # noqa: BLE001 -- one cell's crash must not abort the matrix
-            # Worker died without a result (OOM-kill / hard crash). Record a real
-            # error row -- do NOT drop, else a crashed cell VANISHES (WU-9 forbids
-            # selective reporting).
-            all_rows.append(_crash_row(cell, str(e)))
-            cell_failures.append(dict(cell=cell, error=str(e)))
-            print(f"CRASH: cell {cell['solver']}/{cell['problem']} died -> recorded as error row: {e}",
+            row = _dnf_row(cell, opts.cell_timeout)  # right-censored, real row
+            print(f"DNF: cell {key} exceeded {opts.cell_timeout}s budget (right-censored)",
                   file=sys.stderr)
+        except Exception as e:  # noqa: BLE001 -- one cell's crash must not abort the matrix
+            row = _crash_row(cell, str(e))  # WU-9 no-vanish: real error row
+            print(f"CRASH: cell {key} died -> recorded as error row: {e}", file=sys.stderr)
+        # Persist the synthesized row so a resume skips this cell (esp. 1h DNFs).
+        with open(result_path, "w") as f:
+            json.dump({"rows": [row]}, f)
+        return [row]
+
+    if jobs > 1:
+        import concurrent.futures
+        # ThreadPool: each run_one blocks in subprocess.run (GIL released on wait),
+        # so N threads => N concurrent worker processes.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
+            results = list(ex.map(run_one, cells))
+    else:
+        results = [run_one(c) for c in cells]
+    for rows in results:
+        all_rows.extend(rows)
+    # cell_failures == crash (status='error') rows; dnf is a separate right-censor.
+    cell_failures: list[dict[str, Any]] = [r for r in all_rows if r.get("status") == "error"]
 
     baseline_reps: dict[str, str] = {}
     for cell in cells:
@@ -502,6 +529,8 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--cell-timeout", type=float, default=120.0,
                    help="max seconds per fresh-subprocess cell before it is killed and logged as a "
                         "cell_failure (a hung competitor must not stall the whole matrix)")
+    p.add_argument("--jobs", type=int, default=1,
+                   help="parallel cell workers (memory-gated by caller: nonheavy<=default_concurrency, heavy=1)")
     return p
 
 
