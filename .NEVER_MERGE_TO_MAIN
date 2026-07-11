@@ -1,0 +1,21 @@
+NEVER MERGE THIS BRANCH INTO main / master.
+
+Branch: study/benchmark-instrumented-DO-NOT-MERGE
+Purpose: benchmark study (epic leafblower-2ouc) ONLY.
+
+This branch intentionally DIVERGES from the shippable package. It carries
+edits FORBIDDEN on main/master:
+  - leafblower-package instrumentation: per-iteration convergence-trajectory
+    emission added to harvest()/C API/solver loops (WU-11 follow-up, RQ3
+    convergence curves). NOT production behaviour.
+  - metrics.py extension: chi2 (Pearson) + logit (binary-entropy) native
+    divergence metrics + benchmark-runnable-freeze v14 (study-branch tag).
+
+Every study-only source edit carries the marker string
+  STUDY-BRANCH-ONLY-DO-NOT-MERGE
+so a stray cherry-pick is greppable and blocked by the git hooks.
+
+Enforcement (local .git/hooks, this repo has no remote):
+  - pre-commit + pre-merge-commit ABORT if this sentinel or the marker string
+    would land on main/master.
+Do NOT delete this file on this branch. Do NOT --no-verify past the hooks.
