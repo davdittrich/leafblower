@@ -20,6 +20,7 @@
 #include "cell_table.hpp"
 #include "calib_dispatch.hpp"
 #include "sraa.hpp"
+#include "trajectory.hpp"  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 #include "leafblower.h"
 #include <cmath>
 #include <cstdio>
@@ -126,6 +127,14 @@ RakingResult raking_solve(CalibState& st) {
 
     // Convergence rule state
     double prev_metric_for_rule = std::numeric_limits<double>::infinity();
+
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
+    // (LBW_TRAJECTORY_AT/_OUT/_KIND). Declared BEFORE F_eval's [&] lambda so the
+    // capture includes it (raking's own [&] footgun: capture is scope-at-
+    // definition, not scope-at-call). Empty queue (env unset) => zero cost.
+    const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
+    std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
+    std::vector<std::pair<int,double>> traj_probe_samples;
 
     // G8b: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
     // best.best_weights stores cell-level X snapshot at the best observed metric.
@@ -423,6 +432,8 @@ RakingResult raking_solve(CalibState& st) {
             const double sraa_metric_val = lbw::select_metric(st.convergence_cfg.metric, last_F_metrics);
             res.base.max_error  = last_F_metrics.errRp;
             res.base.iterations = f_evals_used;
+            // STUDY-BRANCH-ONLY-DO-NOT-MERGE: record already-computed sraa_metric_val (errRp scale by default) at probe iters.
+            lbw::traj_record(traj_probe_queue, f_evals_used, sraa_metric_val, traj_probe_samples);
 
             // Best-iterate tracking (uses cfg-specified metric, not max_err proxy)
             if (sraa_metric_val < best.best_metric) {
@@ -647,6 +658,8 @@ RakingResult raking_solve(CalibState& st) {
                 // convergence is already caught by check_convergence above; unmet
                 // margins now correctly fall through to STALL detection below.
                 const double active_metric = lbw::select_metric(st.convergence_cfg.metric, m_conv);
+                // STUDY-BRANCH-ONLY-DO-NOT-MERGE: record already-computed active_metric at probe iters.
+                lbw::traj_record(traj_probe_queue, iter, active_metric, traj_probe_samples);
                 if (!std::isfinite(min_loss_window)) {
                     min_loss_window = active_metric; n_no_improve = 0;
                 } else if (active_metric < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {
@@ -751,6 +764,8 @@ RakingResult raking_solve(CalibState& st) {
     lbw::expand_obs(ct, X, X_init, st.n, st.weights);
     lbw::finalize_weights(st, ct, res.n_bounds_violated, res.n_bounds_clamped);
 
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: cold-path CSV write (no-op unless LBW_TRAJECTORY_OUT set).
+    lbw::traj_write_csv(traj_probe_samples, "errRp");
     return res;
 }
 } // namespace lbw

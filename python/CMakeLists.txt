@@ -67,6 +67,7 @@ set(CORE_SOURCES
     ../src/greg.cpp
     ../src/oris.cpp
     ../src/oris_trajectory.cpp
+    ../src/trajectory.cpp  # STUDY-BRANCH-ONLY-DO-NOT-MERGE
     ../src/oris_finalize.cpp
     ../src/logit.cpp
     ../src/logit_calib.cpp

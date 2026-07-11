@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <limits>
+#include "trajectory.hpp"  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
 namespace lbw {
 
@@ -123,6 +124,10 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     // Stability: frozen cells' exp_a[c] stays at last valid value; bisect still
     // clamps them correctly. Release occurs when bisect raises X[c] above L_cell[c].
     std::vector<bool> at_lower(ct.M_cell, false);
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
+    const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
+    std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
+    std::vector<std::pair<int,double>> traj_probe_samples;
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.base.iterations = iter;
@@ -250,6 +255,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
             const double curr_best = lbw::select_metric(
                 st.convergence_cfg.metric, m);
+            lbw::traj_record(traj_probe_queue, iter, curr_best, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
             if (std::isfinite(curr_best) && curr_best < best.best_metric) {
                 best.update(curr_best,
                             lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n,
@@ -297,6 +303,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     // Clamping per-obs here distorts marginals (measured 13pp drift).
     lbw::expand_obs(ct, X, X_init, st.n, st.weights);
     lbw::finalize_weights(st, ct, res.n_bounds_violated, res.n_bounds_clamped);
+    lbw::traj_write_csv(traj_probe_samples, "errRp");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     return res;
 }
 

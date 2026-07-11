@@ -30,10 +30,15 @@ extern "C" {
 #include <cstring>
 #include <cstdio>
 #include <vector>
+#include "trajectory.hpp"  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
 namespace lbw {
 
 NewtonCalibResult newton_calibrate(CalibState& st) {
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
+    const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
+    std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
+    std::vector<std::pair<int,double>> traj_probe_samples;
     NewtonCalibResult res;
     res.base.status = RK_ERR_NOCONV;
     res.base.convergence_solver_objective = std::numeric_limits<double>::infinity();
@@ -450,6 +455,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             for (int a = 0; a < n_lam; ++a)
                 dual_gap = std::max(dual_gap, std::fabs(G[a]));
             res.dual_gap = dual_gap;
+            lbw::traj_record(traj_probe_queue, iter+1, dual_gap, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
             // Track best λ (lowest gap seen) for end-of-loop fallback recovery.
             // best_gap doubles as the solver objective for output; actual obs
@@ -848,6 +854,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     };
 
     bool ok = run_newton_inner(T, max_iter);
+    lbw::traj_write_csv(traj_probe_samples, "dual_gap");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     if (!ok && res.base.status == RK_ERR_BADARG) {
         return res;  // do not proceed to weight recovery on bad state
     }

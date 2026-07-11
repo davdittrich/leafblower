@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <numeric>
 #include <limits>
+#include "trajectory.hpp"  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
 namespace lbw {
 
@@ -227,6 +228,10 @@ ChebyshevResult chebyshev_ipm(
     std::vector<double> X_best(X);
     int slack_violations = 0;  // consecutive iterations with negative s_up or s_dn
 
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
+    const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
+    std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
+    std::vector<std::pair<int,double>> traj_probe_samples;
     const int max_ipm = std::min(kMaxIpm, st.inner_max_iter);
     for (int iter = 0; iter < max_ipm; iter++) {
         res.base.iterations = iter+1;
@@ -268,6 +273,7 @@ ChebyshevResult chebyshev_ipm(
         {
             const auto& cfg = st.convergence_cfg;
             const double curr_metric = lbw::select_metric(cfg.metric, cm);
+            lbw::traj_record(traj_probe_queue, iter+1, curr_metric, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
             bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
             // CR-H9 (xc1s.9): removed the orphaned apply_rule()/converged_pct result +
             // prev_metric_for_rule — the rule result was never read (the pct branch below
@@ -748,6 +754,7 @@ finalize:
 
     res.base.best_weights.resize(st.n);
     std::copy(st.weights, st.weights+st.n, res.base.best_weights.begin());
+    lbw::traj_write_csv(traj_probe_samples, "errRp");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     return res;
 }
 

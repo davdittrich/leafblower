@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <exception>
+#include <cstdio>
 #include <fstream>
 #include <string>
 #include <utility>
@@ -46,11 +47,15 @@ void write_trajectory_csv(
     if (samples.empty()) return;
     const char* path = std::getenv("LBW_TRAJECTORY_OUT");
     if (!path || !*path) return;
-    std::ofstream f(path);
-    if (!f.is_open()) return;
-    f << "iter,errRp\n";
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: C stdio to avoid the static-libstdc++
+    // iostream-global SIGSEGV when this cold CSV writer runs from the Python
+    // _leafblower.so. Exit-only, read-only on weights -> solve byte-identical.
+    std::FILE* f = std::fopen(path, "w");
+    if (!f) return;
+    std::fprintf(f, "iter,errRp\n");
     for (const auto& p : samples)
-        f << p.first << "," << p.second << "\n";
+        std::fprintf(f, "%d,%.17g\n", p.first, p.second);
+    std::fclose(f);
 }
 
 }  // namespace lbw

@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <limits>
 #include <numeric>
+#include "trajectory.hpp"  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
 namespace lbw {
 
@@ -117,6 +118,10 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
     const CalibConvergenceCfg& cfg = st.convergence_cfg;
     constexpr int    kErrCheckInterval   = 10;
     constexpr double kEmptyBucketThreshold = 1e-15;
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
+    const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
+    std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
+    std::vector<std::pair<int,double>> traj_probe_samples;
 
     // Single Greenkhorn step on margin k_step
     // Updates X, W, S_flat, errRp
@@ -276,6 +281,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
             // default-metric behavior is unchanged; KL/CHI2/etc. now report and
             // select the iterate that is best under the requested metric.
             const double curr_metric = lbw::select_metric(cfg.metric, m);
+            lbw::traj_record(traj_probe_queue, res.base.iterations, curr_metric, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
             // CXX.2: for NON-MAX_ERR metrics, update the reported best-iterate on
             // the configured-metric scale at EVERY interval check (mirrors
             // sinkhorn.cpp). This is where the scale-correct `best` is built for
@@ -399,6 +405,7 @@ GreenkornResult greenkhorn_solve(CalibState& st) {
         }
     }
 
+    lbw::traj_write_csv(traj_probe_samples, "errRp");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     return res;
 }
 

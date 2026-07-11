@@ -9,6 +9,7 @@
 #include <cstring>
 #include <limits>
 #include <numeric>
+#include "trajectory.hpp"  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 #ifndef LBW_NO_R
 #  include <R_ext/Print.h>
 #  include <R_ext/Lapack.h>
@@ -31,6 +32,10 @@ extern "C" {
 namespace lbw {
 
 LogitCalibResult logit_calibrate(CalibState& st) {
+    // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
+    const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
+    std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
+    std::vector<std::pair<int,double>> traj_probe_samples;
     LogitCalibResult res;
     // Logit defaults differ from CalibResult — override here to preserve existing behavior.
     res.base.status                       = RK_ERR_NOCONV;
@@ -480,6 +485,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         // max_error=0, so it must NOT gate OK). A metric plateau WITHOUT feasibility stays a
         // STALL (post-loop status below).
         bool converged = (max_abs_resid <= st.tol_abs * static_cast<double>(st.n));
+        lbw::traj_record(traj_probe_queue, iter+1, max_abs_resid, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
         if (converged) {
             lbw::mark_converged(res, cfg, iter + 1, st.tol_abs * static_cast<double>(st.n));  // CR-C10b: governing threshold is tol_abs*n
             w_best = w;
@@ -592,6 +598,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     // post-finalize at L553), so re-gate on it directly (no second recompute).
     lbw::regate_unit_status(res.base, st, res.base.max_error);
 
+    lbw::traj_write_csv(traj_probe_samples, "max_abs_resid");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     return res;
 }
 
