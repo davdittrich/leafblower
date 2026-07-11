@@ -208,5 +208,56 @@ check_true("kl-family agreement mode == 'weight_vector'", identical(ag_kl$mode, 
 check_true("kl-family agreement has pearson field", !is.null(ag_kl$pearson))
 
 ## ---------------------------------------------------------------------------
+## STUDY-BRANCH-ONLY-DO-NOT-MERGE
+## Case (d): native_divergence -- each family's OWN objective value. Golden
+## literals are identical to test_metrics.py's (independently derived: chi2
+## by exact hand fractions; logit via the D_L(w)=range*(log2-H(p)) formula
+## evaluated per-obs as an arithmetic oracle, not by re-invoking
+## native_divergence; kl/minimax reuse the already-validated case-b/case-0
+## literals above -- delegation check against weight_kl/margin_stats, per
+## the "REUSE, don't reimplement" instruction) -- this IS the R<->Python
+## parity oracle for native_divergence.
+## ---------------------------------------------------------------------------
+cat("\n== Case (d): native_divergence ==\n")
+
+## KL-native family: delegates to weight_kl (case-b literal, already golden).
+nd_kl <- native_divergence(w_b, d_b, "kl", bounds = NULL)
+check("native_divergence kl == weight_kl (case b)", nd_kl$native_div, 0.5753641449035616)
+check_true("native_divergence kl kind == 'weight_kl'", identical(nd_kl$native_div_kind, "weight_kl"))
+
+## chi2: sum (w-d)^2/d over d_i>0 rows (last row's d_i=0 excluded), no 0.5 factor.
+w_chi2 <- c(2, 3, 5, 10)
+d_chi2 <- c(1, 4, 5, 0)
+nd_chi2 <- native_divergence(w_chi2, d_chi2, "chi2", bounds = NULL)
+check("native_divergence chi2 (d<=0 row excluded)", nd_chi2$native_div, 1.25)
+check_true("native_divergence chi2 kind == 'chi2_dist'", identical(nd_chi2$native_div_kind, "chi2_dist"))
+
+## logit: midpoint Fermi-Dirac free energy, obs-level form; includes clamped
+## out-of-range obs (w=2.5 clamps p to 1, w=-0.5 clamps p to 0).
+w_logit <- c(0.5, 1.0, 1.5, 2.0, 0.0, 2.5, -0.5)
+bounds_logit <- list(min = 0, max = 2)
+nd_logit <- native_divergence(w_logit, w_logit, "logit", bounds_logit)
+check("native_divergence logit (obs-level, incl. clamped obs)", nd_logit$native_div, 6.068425588244111)
+check_true("native_divergence logit kind == 'logit_dist'", identical(nd_logit$native_div_kind, "logit_dist"))
+
+## logit degenerate cases: unbounded max, and range<=0 -> native_div is NA.
+nd_logit_unbounded <- native_divergence(w_logit, w_logit, "logit", list(min = 0, max = Inf))
+check_true("native_divergence logit native_div is NA when U=+Inf", is.na(nd_logit_unbounded$native_div))
+check_true("native_divergence logit kind is 'logit_dist' even when undefined",
+           identical(nd_logit_unbounded$native_div_kind, "logit_dist"))
+nd_logit_degenerate <- native_divergence(w_logit, w_logit, "logit", list(min = 1, max = 1))
+check_true("native_divergence logit native_div is NA when range<=0", is.na(nd_logit_degenerate$native_div))
+
+## minimax: delegates to margin_stats' margin_linf (case-0 literal, already golden).
+nd_mm <- native_divergence(w0, w0, "minimax", bounds = NULL, groups = groups, targets = targets)
+check("native_divergence minimax == margin_stats margin_linf (case 0)", nd_mm$native_div, 0.08333333333333334)
+check_true("native_divergence minimax kind == 'margin_linf'", identical(nd_mm$native_div_kind, "margin_linf"))
+
+## unknown family.
+nd_unknown <- native_divergence(w0, w0, "bogus_family", bounds = NULL)
+check_true("native_divergence unknown native_div is NA", is.na(nd_unknown$native_div))
+check_true("native_divergence unknown kind == 'unknown'", identical(nd_unknown$native_div_kind, "unknown"))
+
+## ---------------------------------------------------------------------------
 cat(sprintf("\n%s: %d assertion(s) failed.\n", if (fail_count == 0) "GOLDEN PASS" else "GOLDEN FAIL", fail_count))
 quit(status = if (fail_count == 0) 0L else 1L, save = "no")

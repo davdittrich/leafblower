@@ -160,6 +160,77 @@ agreement <- function(w, w_ref, family, obj_val = NULL, obj_val_ref = NULL, obj_
   }
 }
 
+# ---- native (family-own) divergence [STUDY-BRANCH-ONLY-DO-NOT-MERGE] ------
+
+#' STUDY-BRANCH-ONLY-DO-NOT-MERGE
+#'
+#' Each calibration family's OWN objective value -- the quantity that
+#' family's solver actually minimizes -- not a neutral cross-family axis.
+#' Returns list(native_div = <double|NA_real_>, native_div_kind = <string>).
+#' See metrics.py::native_divergence for the full per-family formula
+#' derivation (kept parity-identical; ticket leafblower-2ouc.41).
+#'
+#' - KL_NATIVE_FAMILIES (kl, raking, sinkhorn, greenkhorn, oris, oris_soft,
+#'   newton_kl): native_div = weight_kl(w, d, family)$weight_kl (REUSED, not
+#'   reimplemented). kind="weight_kl".
+#' - chi2 (greg/linear): native_div = Sum_i (w_i-d_i)^2/d_i over d_i>0 rows
+#'   (mirrors weight_kl's zero-design-weight exclusion). NO 0.5 factor --
+#'   matches ref_convex.py's cp.sum(cp.multiply(cp.square(w-d), 1/d))
+#'   verbatim (ref_convex.py:94). kind="chi2_dist".
+#' - logit: leafblower's MIDPOINT Fermi-Dirac free energy (NOT
+#'   Deville-Saerndal -- see src/logit_calib.cpp:560-566: D_L(w) =
+#'   range*(log2 - H(p)), p=(w-L)/range in [0,1], convex, 0 at the midpoint).
+#'   term_i = range*(log(2) - H_e(p_i)), p_i = clamp((w_i-L)/range, 0, 1),
+#'   H_e(p) = -p*log(p)-(1-p)*log(1-p) (natural log; 0*log(0)=0 by
+#'   convention). The solver's native objective sums D_L per CELL; with
+#'   scalar bounds every obs shares the same (L,U), so the cell form
+#'   degenerates to one obs per "cell" here -- native_divergence receives
+#'   w + scalar bounds, not the solver's cell table, so this obs-level form
+#'   is exact only under within-cell-constant d (documented deviation,
+#'   ticket leafblower-2ouc.41). native_div=NA when U is +Inf or range<=0
+#'   (unbounded / degenerate). kind="logit_dist".
+#' - minimax: native_div = margin_stats(w, groups, targets)$margin_linf
+#'   (REUSED, not reimplemented). minimax's native objective is a function
+#'   of (w, groups, targets), NOT (w, d, bounds) alone, so groups/targets
+#'   are accepted as optional trailing args -- required only on this branch
+#'   (deviation from the nominal 4-arg signature, documented here).
+#'   kind="margin_linf".
+#' - unknown family: native_div=NA, kind="unknown".
+#'
+#' @param w,d numeric weight / design-weight vectors
+#' @param family objective family string
+#' @param bounds list(min=, max=) or NULL (matches problem_io.R's bounds
+#'   structure); required only for family=="logit"
+#' @param groups,targets optional; REQUIRED only for family=="minimax"
+native_divergence <- function(w, d, family, bounds, groups = NULL, targets = NULL) {
+  if (!is.na(family) && family %in% KL_NATIVE_FAMILIES) {
+    return(list(native_div = weight_kl(w, d, family)$weight_kl, native_div_kind = "weight_kl"))
+  }
+  if (!is.na(family) && family == "chi2") {
+    use <- d > 0
+    term <- (w[use] - d[use])^2 / d[use]
+    return(list(native_div = sum(term), native_div_kind = "chi2_dist"))
+  }
+  if (!is.na(family) && family == "logit") {
+    L <- bounds$min; U <- bounds$max
+    rng <- U - L
+    if (!is.finite(U) || rng <= 0) {
+      return(list(native_div = NA_real_, native_div_kind = "logit_dist"))
+    }
+    p <- pmin(pmax((w - L) / rng, 0), 1)
+    h <- ifelse(p > 0, -p * log(ifelse(p > 0, p, 1)), 0) +
+      ifelse(p < 1, -(1 - p) * log(ifelse(p < 1, 1 - p, 1)), 0)
+    term <- rng * (log(2) - h)
+    return(list(native_div = sum(term), native_div_kind = "logit_dist"))
+  }
+  if (!is.na(family) && family == "minimax") {
+    stopifnot(!is.null(groups), !is.null(targets))
+    ms <- margin_stats(w, groups, targets)
+    return(list(native_div = ms$margin_linf, native_div_kind = "margin_linf"))
+  }
+  list(native_div = NA_real_, native_div_kind = "unknown")
+}
+
 # ---- top-level convenience wrapper -----------------------------------------
 
 #' Full metrics record for one (weights, problem) pair.
