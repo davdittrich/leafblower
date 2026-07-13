@@ -1,0 +1,6 @@
+# STUDY-BRANCH-ONLY-DO-NOT-MERGE
+# Generated artifacts (invariant I3) — regenerated from results/*.parquet,
+# never committed.
+figures/
+tables/
+_derived/

@@ -1,0 +1,64 @@
+---
+# STUDY-BRANCH-ONLY-DO-NOT-MERGE
+title: "leafblower Benchmark Study — Draft Report"
+subtitle: "Skeleton — no figures yet (WU-12.13.1)"
+format:
+  typst:
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+source("_data.R")
+metrics    <- read_metrics()
+agreement  <- read_agreement()
+runs       <- read_runs()
+```
+
+## Introduction
+
+_Study scope, tiering, and build-variant discipline per `docs/benchmark/DESIGN.md`._
+
+## Work-precision {#sec-work-precision}
+
+_Achieved accuracy vs. wall time, per objective family (`strata`)._
+
+<!-- placeholder: @fig-work-precision-kl, @fig-work-precision-chi2, @fig-work-precision-logit, @fig-work-precision-minimax -->
+
+## Wall-time {#sec-wall-time}
+
+_Headline (`build_series(..., "headline")`) vs. native-build delta timing._
+
+<!-- placeholder: @fig-wall-time-headline, @fig-wall-time-native-delta -->
+
+## Performance profiles {#sec-profiles}
+
+_Dolan–Moré performance profiles over the §3C parametric instance family._
+
+<!-- placeholder: @fig-profiles-kl, @fig-profiles-chi2, @fig-profiles-logit, @fig-profiles-minimax -->
+
+## Convergence {#sec-convergence}
+
+_Iteration counts and per-iteration trajectory diagnostics._
+
+<!-- placeholder: @fig-convergence-iterations -->
+
+## Peak RSS {#sec-rss}
+
+_Memory working-set, per-(language,package) baseline-subtracted._
+
+<!-- placeholder: @fig-rss-by-solver -->
+
+## Weight agreement {#sec-agreement}
+
+_RQ5: Pearson/Spearman/max|Δw|/cosine vs. the independent convex reference,
+strictly-convex families (kl, chi2, logit) only — minimax excluded (§6 Blocker G)._
+
+<!-- placeholder: @fig-agreement-heatmap -->
+
+## Tables {#sec-tables}
+
+<!-- placeholder: @tbl-summary-by-tier, @tbl-stale-solvers -->
+
+## References

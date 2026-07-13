@@ -1,0 +1,14 @@
+# STUDY-BRANCH-ONLY-DO-NOT-MERGE
+project:
+  type: default
+
+format:
+  typst:
+    toc: true
+    number-sections: true
+
+freeze: auto
+
+execute:
+  echo: false
+  warning: false
