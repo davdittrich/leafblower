@@ -208,46 +208,50 @@ def main() -> None:
 
         for cellrow in cells.iter_rows(named=True):
             solver = cellrow["solver"]
-            entry = registry.get(solver)
-            if entry is None:
-                cell_warnings.append((pid, solver, "solver not found in registry.json"))
-                continue
-            family_primary = family_primary_for(entry)
-            method_class = entry["method_class"]
+            try:
+                entry = registry.get(solver)
+                if entry is None:
+                    cell_warnings.append((pid, solver, "solver not found in registry.json"))
+                    continue
+                family_primary = family_primary_for(entry)
+                method_class = entry["method_class"]
 
-            w = load_real_weight(cellrow["weights_ref"])
-            if w is None:
-                continue  # no real weights for this cell -- not a failure, just excluded
-            if w.shape[0] != n_expected:
-                cell_warnings.append(
-                    (pid, solver, f"weight length {w.shape[0]} != problem n {n_expected}")
+                w = load_real_weight(cellrow["weights_ref"])
+                if w is None:
+                    continue  # no real weights for this cell -- not a failure, just excluded
+                if w.shape[0] != n_expected:
+                    cell_warnings.append(
+                        (pid, solver, f"weight length {w.shape[0]} != problem n {n_expected}")
+                    )
+                    continue
+
+                row = metrics.compute_metrics(
+                    w, problem["groups"], problem["targets"], d=problem["design_weights"],
+                    bounds=bnds, family=family_primary,
                 )
+                nd = metrics.native_divergence(
+                    w, problem["design_weights"], family_primary, bnds,
+                    groups=problem["groups"] if family_primary == "minimax" else None,
+                    targets=problem["targets"] if family_primary == "minimax" else None,
+                )
+                row.update(nd)
+                row.update(
+                    solver=solver, problem=pid, thread=cellrow["thread"], build=cellrow["build"],
+                    status=cellrow["status"], rep_count=cellrow["rep_count"],
+                    wall_time_s_median=cellrow["wall_time_s_median"],
+                    wall_time_s_min=cellrow["wall_time_s_min"], wall_time_s_max=cellrow["wall_time_s_max"],
+                    peak_rss_bytes=cellrow["peak_rss_bytes"], iterations=cellrow["iterations"],
+                    method_class=method_class, family=family_primary,
+                )
+                metrics_rows.append(row)
+
+                if family_primary in STRICTLY_CONVEX:
+                    vectors_by_family.setdefault(family_primary, []).append((solver, cellrow["build"], cellrow["thread"], w))
+                elif family_primary == "minimax":
+                    minimax_records.append((solver, cellrow["build"], cellrow["thread"], row["margin_linf"]))
+            except Exception as e:  # registry/weight-load crash -> warn-and-skip, do not abort the whole run
+                cell_warnings.append((pid, solver, f"{type(e).__name__}: {e}"))
                 continue
-
-            row = metrics.compute_metrics(
-                w, problem["groups"], problem["targets"], d=problem["design_weights"],
-                bounds=bnds, family=family_primary,
-            )
-            nd = metrics.native_divergence(
-                w, problem["design_weights"], family_primary, bnds,
-                groups=problem["groups"] if family_primary == "minimax" else None,
-                targets=problem["targets"] if family_primary == "minimax" else None,
-            )
-            row.update(nd)
-            row.update(
-                solver=solver, problem=pid, thread=cellrow["thread"], build=cellrow["build"],
-                status=cellrow["status"], rep_count=cellrow["rep_count"],
-                wall_time_s_median=cellrow["wall_time_s_median"],
-                wall_time_s_min=cellrow["wall_time_s_min"], wall_time_s_max=cellrow["wall_time_s_max"],
-                peak_rss_bytes=cellrow["peak_rss_bytes"], iterations=cellrow["iterations"],
-                method_class=method_class, family=family_primary,
-            )
-            metrics_rows.append(row)
-
-            if family_primary in STRICTLY_CONVEX:
-                vectors_by_family.setdefault(family_primary, []).append((solver, cellrow["build"], cellrow["thread"], w))
-            elif family_primary == "minimax":
-                minimax_records.append((solver, cellrow["build"], cellrow["thread"], row["margin_linf"]))
 
         # RQ5 agreement, bounded per-problem: pairwise over this problem's
         # already-loaded real vectors, then dropped before the next problem.
