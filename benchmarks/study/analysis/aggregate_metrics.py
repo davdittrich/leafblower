@@ -203,8 +203,8 @@ def main() -> None:
         sub = df.filter(pl.col("problem") == pid)
         cells = build_cells(sub)
 
-        vectors_by_family: dict[str, list[tuple[str, str, np.ndarray]]] = {}
-        minimax_records: list[tuple[str, str, float]] = []
+        vectors_by_family: dict[str, list[tuple[str, str, int, np.ndarray]]] = {}
+        minimax_records: list[tuple[str, str, int, float]] = []
 
         for cellrow in cells.iter_rows(named=True):
             solver = cellrow["solver"]
@@ -245,29 +245,29 @@ def main() -> None:
             metrics_rows.append(row)
 
             if family_primary in STRICTLY_CONVEX:
-                vectors_by_family.setdefault(family_primary, []).append((solver, cellrow["build"], w))
+                vectors_by_family.setdefault(family_primary, []).append((solver, cellrow["build"], cellrow["thread"], w))
             elif family_primary == "minimax":
-                minimax_records.append((solver, cellrow["build"], row["margin_linf"]))
+                minimax_records.append((solver, cellrow["build"], cellrow["thread"], row["margin_linf"]))
 
         # RQ5 agreement, bounded per-problem: pairwise over this problem's
         # already-loaded real vectors, then dropped before the next problem.
         for family, lst in vectors_by_family.items():
-            for (sa, ba, wa), (sb, bb, wb) in combinations(lst, 2):
+            for (sa, ba, ta, wa), (sb, bb, tb, wb) in combinations(lst, 2):
                 agr = metrics.agreement(wa, wb, family)
                 agreement_rows.append(
                     dict(
-                        solver_a=sa, build_a=ba, solver_b=sb, build_b=bb, problem=pid, family=family,
+                        solver_a=sa, build_a=ba, thread_a=ta, solver_b=sb, build_b=bb, thread_b=tb, problem=pid, family=family,
                         mode=agr["mode"], pearson=agr["pearson"], spearman=agr["spearman"],
                         max_abs_diff=agr["max_abs_diff"], cosine=agr["cosine"],
                         obj_val_a=None, obj_val_b=None, rel_gap=None,
                     )
                 )
-        for (sa, ba, oa), (sb, bb, ob) in combinations(minimax_records, 2):
+        for (sa, ba, ta, oa), (sb, bb, tb, ob) in combinations(minimax_records, 2):
             agr = metrics.agreement(None, None, "minimax", obj_val=oa, obj_val_ref=ob)
             rel_gap = agr["abs_diff"] / max(abs(oa), abs(ob), 1e-12)
             agreement_rows.append(
                 dict(
-                    solver_a=sa, build_a=ba, solver_b=sb, build_b=bb, problem=pid, family="minimax",
+                    solver_a=sa, build_a=ba, thread_a=ta, solver_b=sb, build_b=bb, thread_b=tb, problem=pid, family="minimax",
                     mode=agr["mode"], pearson=None, spearman=None, max_abs_diff=None, cosine=None,
                     obj_val_a=oa, obj_val_b=ob, rel_gap=rel_gap,
                 )
