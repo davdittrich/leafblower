@@ -141,7 +141,7 @@ def bounds_for_metrics(bounds: dict[str, float]) -> dict[str, float]:
 # ---- weight loading (real-weight gate) ------------------------------------
 
 def load_real_weight(weights_ref: str | None) -> np.ndarray | None:
-    """REAL iff the file exists, height>1, and >=1 non-NaN/non-null value."""
+    """REAL iff the file exists, height>1, and ALL entries finite (no NaN/±inf)."""
     if not weights_ref:
         return None
     path = WEIGHTS_DIR / os.path.basename(weights_ref)
@@ -151,7 +151,7 @@ def load_real_weight(weights_ref: str | None) -> np.ndarray | None:
     if df.height <= 1:
         return None
     w = df["weight"].to_numpy().astype(np.float64)
-    if not np.any(~np.isnan(w)):
+    if not np.all(np.isfinite(w)):
         return None
     return w
 
