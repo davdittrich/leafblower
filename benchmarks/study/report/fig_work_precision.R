@@ -80,6 +80,11 @@ for (fam in strata) {
     next
   }
 
+  stopifnot(
+    "fig_work_precision: >1 row per (solver,problem,build_role) in family (thread>1?)" =
+      !any(duplicated(fam_df[c("solver", "problem", "build_role")]))
+  )
+
   envelope <- pareto_front(fam_df)
   err_label <- unique(fam_df$err_label)[1]
 
