@@ -47,6 +47,11 @@ write_table <- function(df, name) {
 # per-solver median/quantile below.
 metrics_hl <- read_metrics() |> build_series(variant = "headline")
 
+stopifnot(
+  "tbl_quality: metrics_hl not one row per (solver,problem) after headline build_series (thread>1?)" =
+    !any(duplicated(metrics_hl[c("solver", "problem")]))
+)
+
 # DEFF_g (`1+CV^2(g)`, g_i = w_i/d_i) is reported ALONGSIDE DEFF_kish
 # (`1+CV^2(w)`, the Kish weighting-loss = n/ESS — explicitly NOT the true
 # design effect), not as a replacement: on d_i==1 problems the two coincide,
@@ -92,9 +97,16 @@ write_table(quality, "quality")
 agreement <- read_agreement()
 .is_headline_build <- function(build_col) build_col %in% c("na", "portable")
 
-minimax_objval <- agreement |>
+minimax_filtered <- agreement |>
   filter(mode == "objective_value", family == "minimax") |>
-  filter(.is_headline_build(build_a), .is_headline_build(build_b)) |>
+  filter(.is_headline_build(build_a), .is_headline_build(build_b))
+
+stopifnot(
+  "tbl_quality minimax: >1 row per (solver_a,solver_b,problem) (thread>1?)" =
+    !any(duplicated(minimax_filtered[c("solver_a", "solver_b", "problem")]))
+)
+
+minimax_objval <- minimax_filtered |>
   group_by(solver_a, solver_b) |>
   summarise(
     n_problems     = dplyr::n(),
