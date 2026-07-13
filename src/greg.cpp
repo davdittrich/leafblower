@@ -16,7 +16,7 @@ GregResult greg_solve(CalibState& st) {
     // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
     const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
     std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
-    std::vector<std::pair<int,double>> traj_probe_samples;
+    std::vector<lbw::TrajSample> traj_probe_samples;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     GregResult res;
     // GREG defaults differ from CalibResult — override here to preserve existing behavior.
     res.base.status                       = RK_ERR_NOCONV;
@@ -72,7 +72,7 @@ GregResult greg_solve(CalibState& st) {
                                          cat_offset.data(), st.K,
                                          static_cast<size_t>(n_cats_total)) != RK_OK) {
                 res.base.status = RK_ERR_BADARG;
-                lbw::traj_write_csv(traj_probe_samples, "marg_defect");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                lbw::traj_write_csv(traj_probe_samples, "chi2");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
                 return res;
             }
             // Tikhonov ridge: add τI to normal-equations matrix before Cholesky.
@@ -82,7 +82,7 @@ GregResult greg_solve(CalibState& st) {
             }
             if (cholesky_factor_inplace(N_factored.data(), static_cast<size_t>(n_cats_total), 1e-10) != RK_OK) {
                 res.base.status = RK_ERR_BADARG;
-                lbw::traj_write_csv(traj_probe_samples, "marg_defect");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                lbw::traj_write_csv(traj_probe_samples, "chi2");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
                 return res;
             }
         }
@@ -95,9 +95,10 @@ GregResult greg_solve(CalibState& st) {
                     st.targets[k][j] * n_total - bucket_b[j];
         }
         if (!traj_probe_queue.empty()) {  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
-            double marg_defect = 0.0;
-            for (size_t j = 0; j < b.size(); j++) marg_defect = std::max(marg_defect, std::fabs(b[j]));
-            lbw::traj_record(traj_probe_queue, newton_iter+1, marg_defect, traj_probe_samples);
+            double W = 0.0;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE: aggregate weight, matches exit-site W=Sum X[c]
+            for (double v : X) W += v;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            auto m = lbw::compute_cell_metrics(st, ct, X, W, bucket_b);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            lbw::traj_record(traj_probe_queue, newton_iter+1, m.chi2, m.marginal_kl, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
         }  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
         // LDLT solve using cached factored matrix (recomputed only on active-set change)
@@ -177,7 +178,7 @@ GregResult greg_solve(CalibState& st) {
 
     res.base.best_weights.resize(st.n);
     std::copy(st.weights, st.weights + st.n, res.base.best_weights.begin());
-    lbw::traj_write_csv(traj_probe_samples, "marg_defect");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+    lbw::traj_write_csv(traj_probe_samples, "chi2");  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     return res;
 }
 
