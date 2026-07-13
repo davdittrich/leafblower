@@ -32,7 +32,7 @@
 set -uo pipefail
 cd /home/dd/Gemini/leafblower || exit 2
 
-TAG=study-benchmark-instrumented-freeze-v14
+TAG=study-benchmark-instrumented-freeze-v15
 OUT=benchmarks/study/results
 SHARDS="$OUT/_shards"
 PY="python/.venv/bin/python benchmarks/study/python/run_arm.py"
