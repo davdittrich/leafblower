@@ -35,7 +35,7 @@ LogitCalibResult logit_calibrate(CalibState& st) {
     // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
     const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
     std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
-    std::vector<std::pair<int,double>> traj_probe_samples;
+    std::vector<lbw::TrajSample> traj_probe_samples;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     LogitCalibResult res;
     // Logit defaults differ from CalibResult — override here to preserve existing behavior.
     res.base.status                       = RK_ERR_NOCONV;
@@ -485,7 +485,14 @@ LogitCalibResult logit_calibrate(CalibState& st) {
         // max_error=0, so it must NOT gate OK). A metric plateau WITHOUT feasibility stays a
         // STALL (post-loop status below).
         bool converged = (max_abs_resid <= st.tol_abs * static_cast<double>(st.n));
-        lbw::traj_record(traj_probe_queue, iter+1, max_abs_resid, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+        double traj_marginal_kl = std::numeric_limits<double>::quiet_NaN();  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+        if (!traj_probe_queue.empty()) {  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            double traj_W = 0.0;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            for (double v : w) traj_W += v;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            lbw::CellMetrics traj_cm = lbw::compute_cell_metrics(st, ct, w, traj_W, bucket_scratch);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            traj_marginal_kl = traj_cm.marginal_kl;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+        }  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+        lbw::traj_record(traj_probe_queue, iter+1, max_abs_resid, traj_marginal_kl, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
         if (converged) {
             lbw::mark_converged(res, cfg, iter + 1, st.tol_abs * static_cast<double>(st.n));  // CR-C10b: governing threshold is tol_abs*n
             w_best = w;
