@@ -13,13 +13,14 @@
 #include "oris.hpp"            // ORISResult
 #include "calib_dispatch.hpp"  // CalibState, BestIterTracker
 #include "cell_table.hpp"      // CellTable
+#include "trajectory.hpp"      // TrajSample -- STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
 namespace lbw {
 
 // Trajectory diagnostics (driven by LBW_TRAJECTORY_AT / LBW_TRAJECTORY_OUT env
 // vars). Definitions live in oris_trajectory.cpp (uu8r.1).
 std::vector<int> parse_trajectory_iters();
-void write_trajectory_csv(const std::vector<std::pair<int, double>>& samples);
+void write_trajectory_csv(const std::vector<lbw::TrajSample>& samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
 // Post-loop finalization — obs expansion, bounds enforcement, best-iterate
 // fallback. Called once per oris_solve() after the homotopy loop exits.
@@ -47,7 +48,7 @@ void oris_finalize(
     int                                       sor_n_conv_fb,
     int                                       sor_n_resid_grew,
     int                                       sor_n_monotone_cd,
-    const std::vector<std::pair<int,double>>& probe_samples);
+    const std::vector<lbw::TrajSample>&       probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
 }  // namespace lbw
 

@@ -22,6 +22,15 @@
 
 namespace lbw {
 
+// STUDY-BRANCH-ONLY-DO-NOT-MERGE: one trajectory sample. `natural` is the
+// solver's native convergence metric (e.g. errRp); `marginal_kl` is the
+// chi2/logit native-divergence metric (leafblower-2ouc.40 wu-12b).
+struct TrajSample {
+    int iter;
+    double natural;
+    double marginal_kl;
+};
+
 // Parses LBW_TRAJECTORY_AT into a sorted-unique vector of target iterations.
 // Returns {} when the env var is unset/empty.
 std::vector<int> traj_parse_iters();
@@ -30,7 +39,7 @@ std::vector<int> traj_parse_iters();
 // No-op when samples is empty or the env var is unset. metric_col is the
 // caller-supplied column name (e.g. "errRp", "dual_gap"); LBW_TRAJECTORY_KIND,
 // if set, overrides it.
-void traj_write_csv(const std::vector<std::pair<int, double>>& samples,
+void traj_write_csv(const std::vector<lbw::TrajSample>& samples,
                      const char* metric_col);
 
 // Shared probe-queue-advance logic used by every solver's convergence-check
@@ -38,12 +47,13 @@ void traj_write_csv(const std::vector<std::pair<int, double>>& samples,
 // sample per queue-front reached (matches oris's "nearest check >= target"
 // semantics). No-op (queue untouched) when the queue is empty or iter hasn't
 // reached the next target — the common case when LBW_TRAJECTORY_AT is unset.
-inline void traj_record(std::deque<int>& queue, int iter, double metric,
-                         std::vector<std::pair<int, double>>& samples) {
+inline void traj_record(std::deque<int>& queue, int iter, double natural,
+                         double marginal_kl,
+                         std::vector<lbw::TrajSample>& samples) {
     if (queue.empty() || iter < queue.front()) return;
     bool first = true;
     while (!queue.empty() && iter >= queue.front()) {
-        if (first) { samples.emplace_back(iter, metric); first = false; }
+        if (first) { samples.push_back(TrajSample{iter, natural, marginal_kl}); first = false; }
         queue.pop_front();
     }
 }

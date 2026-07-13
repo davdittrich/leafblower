@@ -39,7 +39,7 @@ void oris_finalize(
     int                                       sor_n_conv_fb,
     int                                       sor_n_resid_grew,
     int                                       sor_n_monotone_cd,
-    const std::vector<std::pair<int,double>>& probe_samples
+    const std::vector<lbw::TrajSample>&       probe_samples  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 ) {
     constexpr double kInfeasStallRatio = 10.0;
 

@@ -38,7 +38,7 @@ std::vector<int> traj_parse_iters() {
     return out;
 }
 
-void traj_write_csv(const std::vector<std::pair<int, double>>& samples,
+void traj_write_csv(const std::vector<lbw::TrajSample>& samples,
                      const char* metric_col) {
     if (samples.empty()) return;
     const char* path = std::getenv("LBW_TRAJECTORY_OUT");
@@ -52,9 +52,9 @@ void traj_write_csv(const std::vector<std::pair<int, double>>& samples,
     const char* kind_env = std::getenv("LBW_TRAJECTORY_KIND");
     const char* col = (kind_env && *kind_env) ? kind_env
                       : (metric_col && *metric_col) ? metric_col : "metric";
-    std::fprintf(f, "iter,%s\n", col);
-    for (const auto& p : samples)
-        std::fprintf(f, "%d,%.17g\n", p.first, p.second);
+    std::fprintf(f, "iter,%s,marginal_kl\n", col);
+    for (const auto& s : samples)
+        std::fprintf(f, "%d,%.17g,%.17g\n", s.iter, s.natural, s.marginal_kl);
     std::fclose(f);
 }
 

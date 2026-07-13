@@ -437,7 +437,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
     // Probe deque + samples are shared across homotopy levels so iter counts are global.
     const std::vector<int> probe_targets = parse_trajectory_iters();
     std::deque<int> probe_queue(probe_targets.begin(), probe_targets.end());
-    std::vector<std::pair<int,double>> probe_samples;
+    std::vector<lbw::TrajSample> probe_samples;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
     // X_prev tracks X[c] at the last convergence check for l1_weight_change.
     // Initialized from X_init (uniform W[c]=1 at entry, X[c] = X_init[c]).
@@ -1226,7 +1226,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                             bool first_write = true;
                             while (!probe_queue.empty() && traj_iter >= probe_queue.front()) {
                                 if (first_write) {
-                                    probe_samples.push_back({traj_iter, cm.errRp});
+                                    probe_samples.push_back(lbw::TrajSample{traj_iter, cm.errRp, cm.marginal_kl});  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
                                     first_write = false;
                                 }
                                 probe_queue.pop_front();
@@ -2125,7 +2125,7 @@ ORISResult oris_solve(CalibState& st, std::vector<double>* lf_capture) {
                 bool first_write = true;
                 while (!probe_queue.empty() && iter >= probe_queue.front()) {
                     if (first_write) {
-                        probe_samples.push_back({iter, errRp});
+                        probe_samples.push_back(lbw::TrajSample{iter, errRp, marg_kl});  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
                         first_write = false;
                     }
                     probe_queue.pop_front();

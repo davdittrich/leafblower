@@ -41,8 +41,8 @@ std::vector<int> parse_trajectory_iters() {
 }
 
 
-void write_trajectory_csv(
-    const std::vector<std::pair<int,double>>& samples)
+void write_trajectory_csv(  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+    const std::vector<lbw::TrajSample>& samples)
 {
     if (samples.empty()) return;
     const char* path = std::getenv("LBW_TRAJECTORY_OUT");
@@ -52,9 +52,9 @@ void write_trajectory_csv(
     // _leafblower.so. Exit-only, read-only on weights -> solve byte-identical.
     std::FILE* f = std::fopen(path, "w");
     if (!f) return;
-    std::fprintf(f, "iter,errRp\n");
-    for (const auto& p : samples)
-        std::fprintf(f, "%d,%.17g\n", p.first, p.second);
+    std::fprintf(f, "iter,errRp,marginal_kl\n");
+    for (const auto& s : samples)
+        std::fprintf(f, "%d,%.17g,%.17g\n", s.iter, s.natural, s.marginal_kl);
     std::fclose(f);
 }
 
