@@ -105,10 +105,10 @@ def main() -> None:
     if not shard_paths:
         raise FileNotFoundError(f"no shard parquet files found under {SHARDS_DIR}")
     shards_df = pl.concat(
-        [pl.read_parquet(p, infer_schema_length=None) for p in shard_paths],
+        [pl.read_parquet(p) for p in shard_paths],
         how="diagonal_relaxed",
     )
-    runs_df = pl.read_parquet(RUNS_PATH, infer_schema_length=None)
+    runs_df = pl.read_parquet(RUNS_PATH)
 
     out = aggregate_variance_cost(shards_df, runs_df, registry)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
