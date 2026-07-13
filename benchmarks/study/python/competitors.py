@@ -61,7 +61,7 @@ _STUDY_DIR = _THIS_DIR.parent                          # benchmarks/study
 _REPO_ROOT = _STUDY_DIR.parent.parent                   # repo root
 sys.path.insert(0, str(_STUDY_DIR / "common"))
 
-WEIGHTS_DIR = _REPO_ROOT / "weights"
+WEIGHTS_DIR = _STUDY_DIR / "results" / "weights"
 
 with open(_STUDY_DIR / "spec" / "hyperparams.json") as _f:
     # Each entry in "Python_competitors" is {package, version, arm,

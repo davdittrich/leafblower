@@ -269,7 +269,7 @@ def _dnf_row(cell: dict, budget_s: float) -> dict[str, Any]:
     censoring point); peak_rss unknown."""
     import numpy as np
     import pandas as pd
-    weights_dir = _REPO_ROOT / "weights"
+    weights_dir = _STUDY_DIR / "results" / "weights"
     weights_dir.mkdir(parents=True, exist_ok=True)
     path = weights_dir / f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}.parquet"
     pd.DataFrame({"weight": [np.nan]}).to_parquet(path)
@@ -303,7 +303,7 @@ def _infeasible_row(cell: dict, cats: list) -> dict[str, Any]:
     'infeasible'. Mirrors _dnf_row's sentinel; wall_time_s=0 (nothing ran)."""
     import numpy as np
     import pandas as pd
-    weights_dir = _REPO_ROOT / "weights"
+    weights_dir = _STUDY_DIR / "results" / "weights"
     weights_dir.mkdir(parents=True, exist_ok=True)
     path = weights_dir / f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}.parquet"
     pd.DataFrame({"weight": [np.nan]}).to_parquet(path)
@@ -325,7 +325,7 @@ def _crash_row(cell: dict, reason: str) -> dict[str, Any]:
     unknown -> NaN. Mirrors run_arm.R::.crash_row."""
     import numpy as np
     import pandas as pd
-    weights_dir = _REPO_ROOT / "weights"
+    weights_dir = _STUDY_DIR / "results" / "weights"
     weights_dir.mkdir(parents=True, exist_ok=True)
     path = weights_dir / f"{cell['solver']}__{cell['problem']}__t{cell['thread']}__{cell['build']}.parquet"
     pd.DataFrame({"weight": [np.nan]}).to_parquet(path)

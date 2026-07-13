@@ -63,7 +63,7 @@ _STUDY_DIR = _THIS_DIR.parent                           # benchmarks/study
 _REPO_ROOT = _STUDY_DIR.parent.parent                    # repo root
 sys.path.insert(0, str(_STUDY_DIR / "common"))
 
-WEIGHTS_DIR = _REPO_ROOT / "weights"
+WEIGHTS_DIR = _STUDY_DIR / "results" / "weights"
 
 with open(_STUDY_DIR / "spec" / "status_enum.json") as _f:
     _STATUS_ENUM = set(json.load(_f)["$defs"]["StatusEnum"]["enum"])

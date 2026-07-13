@@ -31,17 +31,24 @@
 # filename (runs_schema.json: `build` is a driver-added column, not part of
 # an adapter's own return schema).
 
-# Path convention matches benchmarks/study/common/test_problem_io.R's here():
-# cwd == repo root for every command in this project (CLAUDE.md "Working
-# dir: /home/dd/Gemini/leafblower"), so paths are resolved from getwd()
-# rather than commandArgs() -- robust to this file being source()'d from a
-# directory other than benchmarks/study/R (e.g. a future WU-8 driver script).
-.REPO_ROOT <- normalizePath(getwd())
-.STUDY_DIR <- file.path(.REPO_ROOT, "benchmarks", "study")
+# Path convention: SOTA in-repo self-path idiom (matches
+# benchmarks/study/common/run_matrix.R:24-30) -- resolves the directory of
+# the invoking Rscript via commandArgs(FALSE)'s `--file=` argument, falling
+# back to getwd() only if that is unavailable (e.g. interactive/testthat).
+# getwd-independent: this file is normally source()'d by a driver script one
+# level below benchmarks/study (R/ or common/), so ".." once reaches
+# benchmarks/study and ".."/".." from there reaches the repo root.
+.LBA_THIS_DIR <- normalizePath(dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])),
+                                mustWork = FALSE)
+if (is.na(.LBA_THIS_DIR) || !nzchar(.LBA_THIS_DIR)) {
+  .LBA_THIS_DIR <- normalizePath(file.path(getwd(), "benchmarks", "study", "R"), mustWork = FALSE)
+}
+.STUDY_DIR <- normalizePath(file.path(.LBA_THIS_DIR, ".."), mustWork = FALSE)
+.REPO_ROOT <- normalizePath(file.path(.STUDY_DIR, "..", ".."), mustWork = FALSE)
 
 source(file.path(.STUDY_DIR, "common", "metrics.R"))
 
-WEIGHTS_DIR <- file.path(.REPO_ROOT, "weights")
+WEIGHTS_DIR <- file.path(.STUDY_DIR, "results", "weights")
 
 .STATUS_ENUM <- jsonlite::fromJSON(file.path(.STUDY_DIR, "spec", "status_enum.json"))[["$defs"]][["StatusEnum"]][["enum"]]
 
