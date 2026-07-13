@@ -101,6 +101,6 @@ stale_label <- function(solver) {
 order_solver_factor <- function(df, tier_col = "tier", time_col = "wall_time_s_median") {
   ord <- order(factor(df[[tier_col]], levels = c("leafblower", "Tier1", "Tier2", "Tier3", "other")),
                df[[time_col]])
-  df$solver <- factor(df$solver, levels = rev(df$solver[ord]))
+  df$solver <- factor(df$solver, levels = unique(rev(df$solver[ord])))
   df
 }
