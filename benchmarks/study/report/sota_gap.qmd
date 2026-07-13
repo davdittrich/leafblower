@@ -1,0 +1,226 @@
+<!-- STUDY-BRANCH-ONLY-DO-NOT-MERGE -->
+---
+title: "leafblower Benchmark Study — SOTA-gap analysis (RQ6, DESIGN.md §9)"
+subtitle: "Standalone supplement: variance/replicate-weight cost (measured) + §9 gap claims (evidence-quoted)"
+format:
+  typst:
+    toc: true
+    number-sections: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+source("_data.R")
+metrics <- read_metrics()
+reg     <- jsonlite::fromJSON("../registry.json", simplifyVector = FALSE)
+```
+
+## RQ6 — downstream variance / replicate-weight cost (measured)
+
+```{r}
+#| label: gen-variance-cost
+#| include: false
+source("fig_variance_cost.R")
+```
+
+Practitioners calibrate survey weights not only to fit margins once, but to
+propagate that fit through a replicate-weight variance estimator — the
+actual reason `survey`/GREG dominate applied practice (Deville and Sarndal,
+1992, JASA; Wolter, *Introduction to Variance Estimation*, 2nd ed., 2007,
+Springer). `survey::calibrate.svyrep.design` resets and re-solves the
+calibration dual independently for each of the `B` rescaled-bootstrap
+replicate weight sets (Rao and Wu rescaling per Lumley, *Complex Surveys: A
+Guide to Analysis Using R*, 2010, Wiley) — a fresh optimization problem per
+replicate, not a warm-started perturbation. **Cold re-solve is therefore the
+defensible measurement axis**: it is what the reference implementation
+(`survey`) actually does, and what any drop-in replacement must match.
+
+`variance_cost.parquet` measures exactly this: `B = 200` Rao-Wu rescaled-
+bootstrap replicates, each COLD re-solved from scratch, for every solver on
+two problem instances (one unbounded KL/chi2/GREG family, one bounded
+logit). @fig-variance-cost and @tbl-variance-cost report, per (solver,
+problem): the total `B`-replicate cost (`total_variance_cost`), the median
+per-replicate wall time, replicate convergence out of `B`, and the
+`inflation_factor` cross-check.
+
+![Downstream variance-estimation cost by solver and problem (B=200 cold replicate re-solves, log10 scale).](figures/variance_cost.pdf){#fig-variance-cost}
+
+```{r}
+#| label: tbl-variance-cost
+#| tbl-cap: "RQ6 variance-estimation cost: total B=200 cold-re-solve cost, per-replicate median wall time, replicate convergence, and the inflation_factor cross-check, per (solver, problem)."
+knitr::kable(utils::read.csv("tables/variance_cost.csv"))
+```
+
+```{r}
+#| label: rq6-narrative-numbers
+#| include: false
+vc <- read.csv("tables/variance_cost.csv")
+unb <- vc[vc$problem == "if_n10000_K4_medium_moderate_well_loose_s0", ]
+lf_unb   <- unb[unb$tier == "leafblower", ]
+raking   <- unb[unb$solver == "survey_calibrate_raking", "total_variance_cost"]
+linear   <- unb[unb$solver == "survey_calibrate_linear", "total_variance_cost"]
+lf_lo    <- min(lf_unb$total_variance_cost)
+lf_hi    <- max(lf_unb$total_variance_cost)
+ratio_raking_lo <- raking / lf_hi
+ratio_raking_hi <- raking / lf_lo
+ratio_linear_lo <- linear / lf_hi
+ratio_linear_hi <- linear / lf_lo
+anesrake_row <- vc[vc$solver == "anesrake", ]
+```
+
+On the unbounded problem, leafblower's three solvers (`greg`, `oris`,
+`raking`) total `r sprintf("%.2f-%.2f", lf_lo, lf_hi)`s across the B=200
+cold re-solves, versus `r sprintf("%.2f", linear)`s for
+`survey_calibrate_linear` and `r sprintf("%.2f", raking)`s for
+`survey_calibrate_raking` — leafblower is
+`r sprintf("%.1f-%.1fx", ratio_linear_lo, ratio_linear_hi)` cheaper than
+`survey_calibrate_linear` and
+`r sprintf("%.1f-%.1fx", ratio_raking_lo, ratio_raking_hi)` cheaper than
+`survey_calibrate_raking` on this axis. This re-ranks relative to a
+single-fit view: a solver that is fast to fit once but must be re-solved
+`B` times for variance estimation carries that cost `B`-fold, so the
+per-replicate median matters as much as the headline single-solve time.
+
+`anesrake` converges on only `r anesrake_row$n_converged_of_B` of its bootstrap
+replicates on the bounded-adjacent KL problem — an honest instance of
+replicate non-convergence under repeated perturbation, reported here rather
+than silently dropped or averaged over. All other measured solvers converge
+on all `B` replicates on both problems (`r sum(vapply(strsplit(as.character(vc$n_converged_of_B), "/"), function(p) p[[1]] == p[[2]], logical(1)))`
+of `r nrow(vc)` rows at `B`/`B`, `anesrake` the sole exception).
+
+`inflation_factor` (replicate-median / frozen-base-median) is reported as a
+context-relative cross-check only, not a headline number: it compares the
+in-process replicate solves (this measurement) against the frozen
+per-cell cold-process baseline used elsewhere in this study, so values
+below 1 here reflect the warm R-process replicate loop, not a claim that
+replicate solves are cheaper than a fresh process launch.
+
+## §9 SOTA-gap claims (evidence-quoted)
+
+```{r}
+#| label: sec9-setup
+#| include: false
+solvers <- reg$solvers
+fam_of  <- function(id) unlist(solvers[[id]]$families)
+arm_of  <- function(id) solvers[[id]]$arm
+kmax_of <- function(id) if (is.null(solvers[[id]]$K_max)) NA_integer_ else solvers[[id]]$K_max
+```
+
+### #1 — Bounded Python gap
+
+```{r}
+#| label: claim1-evidence
+#| include: false
+logit_chi2_competitors <- sort(unique(metrics$solver[
+  metrics$family %in% c("logit", "chi2") & !grepl("^leafblower_", metrics$solver)
+]))
+logit_chi2_arms <- vapply(logit_chi2_competitors, arm_of, character(1))
+```
+
+Measured competitors on the bounded/near-bounded families (`logit`, `chi2`):
+`r paste(logit_chi2_competitors, collapse = ", ")` — registry `arm`:
+`r paste(unique(logit_chi2_arms), collapse = ", ")`. All are R
+(`survey::calibrate`, `sampling::calib`); no Python bounded Deville-Sarndal
+logit/GREG competitor appears in the measured set. This is consistent with
+the registry-wide picture: the only Python-arm solver reachable on
+`chi2`/`kl` is `samplics`, and its registry entry has `bounds` =
+"`r solvers$samplics$bounds`", and it is not measured on `logit`.
+
+### #2 — Minimax is a software-availability gap, not a methodological novelty
+
+```{r}
+#| label: claim2-evidence
+#| include: false
+minimax_solvers <- names(solvers)[vapply(solvers, function(x) "minimax" %in% unlist(x$families), logical(1))]
+minimax_non_lf  <- sort(minimax_solvers[!grepl("^leafblower_", minimax_solvers)])
+minimax_classes <- vapply(minimax_non_lf, function(id) solvers[[id]]$method_class, character(1))
+```
+
+Registry `family == minimax` solvers, non-leafblower:
+`r paste(paste0(minimax_non_lf, " (", minimax_classes, ")"), collapse = ", ")`.
+Of these, `optweight` (`optweight_linf`) is the only maintained survey-
+calibration package exposing L-infinity (Chebyshev) calibration; `cvxpy_linf`
+is a raw LP baseline (not a calibration package), `sbw` targets causal
+covariate balancing (not survey calibration), and `weightit` is a dispatch
+meta-package delegating to a backend solver. L-infinity calibration is
+itself a plain linear program — the gap is that only one package in the
+survey/calibration ecosystem ships it, not that the underlying method is
+new.
+
+### #3 — TR-Newton on the classical dual (narrative, scope-restricted)
+
+Trust-region Newton on the classical Deville-Sarndal dual is a narrative
+axis, not a measured RQ. `jointCalib` already implements a dogleg
+trust-region step, so the novelty claim is scoped to *a true trust-region
+Newton step on the classical dual*, and restricted to the strictly-convex,
+twice-differentiable smooth families (KL, chi2, logit). It explicitly does
+**not** extend to minimax/L-infinity: that dual is non-smooth and
+inequality-constrained, not twice-differentiable, so a second-order
+trust-region step is not the applicable comparison there.
+
+### #4 — No external K-margin entropic-OT competitor
+
+```{r}
+#| label: claim4-evidence
+#| include: false
+ot_ids <- names(solvers)[grepl("^pot_|^ott_", names(solvers))]
+ot_kmax <- vapply(ot_ids, kmax_of, integer(1))
+ot_measured_problems <- sort(unique(metrics$problem[grepl("^pot_|^ott_", metrics$solver)]))
+ot_measured_k <- vapply(ot_measured_problems, function(p) {
+  m <- regmatches(p, regexpr("K[0-9]+", p))
+  as.integer(sub("K", "", m))
+}, integer(1))
+```
+
+Registry `K_max` for the OT competitors (`r paste(ot_ids, collapse = ", ")`):
+all `r paste(unique(ot_kmax), collapse = ", ")` — i.e. 2-marginal balanced
+optimal transport, which reduces to classical IPF and has no K-margin
+generalization in POT/ott. Measured runs confirm this: the OT competitors
+appear only on
+`r paste(ot_measured_problems, collapse = ", ")`
+(K = `r paste(unique(ot_measured_k), collapse = ", ")`), i.e. only on
+low-K problems — never on the K=4/K=9 problems where leafblower's
+K-margin `sinkhorn`/`greenkhorn` are exercised. There is no external
+K-margin entropic-OT competitor to benchmark against on those instances.
+
+### #5 — Infeasibility robustness
+
+```{r}
+#| label: claim5-evidence
+#| include: false
+n_total       <- nrow(metrics)
+n_viol        <- sum(metrics$bound_viol_count > 0, na.rm = TRUE)
+viol_by_solver <- stats::aggregate(bound_viol_max ~ solver, data = metrics, FUN = max, na.rm = TRUE)
+worst_optweight <- viol_by_solver$bound_viol_max[viol_by_solver$solver == "optweight_linf"]
+worst_linear    <- viol_by_solver$bound_viol_max[viol_by_solver$solver == "survey_calibrate_linear"]
+```
+
+`r n_viol` of `r n_total` measured (solver, problem, thread, build) rows
+have `bound_viol_count > 0` (a nonzero count of bound-violating weights).
+The worst offenders by `bound_viol_max` (largest single-weight bound
+violation observed): `optweight_linf` reaches
+`r formatC(worst_optweight, format = "e", digits = 2)`, and
+`survey_calibrate_linear` / `sampling_calib_linear` (tied, same worst
+instance) reach `r sprintf("%.1f", worst_linear)`. leafblower's own
+INFEAS pre-check and water-fill bounds guards are reported on the same
+metric (both sides of the comparison use `bound_viol_count`/
+`bound_viol_max` — no separate leafblower-only success metric).
+
+### #7 — GPU/JAX and streaming (acknowledged, narrative)
+
+leafblower is CPU-only in this study; GPU/JAX-accelerated solvers (e.g. the
+`ott` JAX backend measured here runs on CPU-only registry entries) and
+streaming/out-of-core calibration are acknowledged as axes this benchmark
+does not measure, not claimed as leafblower advantages or covered gaps.
+
+## Scope note
+
+leafblower is presented as one fast, correct optimization core spanning the
+KL/chi2/logit/minimax family, benchmarked against the existing survey-
+calibration ecosystem on the axes above. The claims in this section are
+scoped to what is measured or explicitly narrative per DESIGN.md §9; none
+generalize beyond the stated family/bounds/K restrictions.
