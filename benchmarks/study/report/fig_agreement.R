@@ -55,6 +55,11 @@ stopifnot(
   "no strictly-convex weight_vector rows found after headline-build filter" = nrow(wv) > 0
 )
 
+stopifnot(
+  "fig_agreement: >1 agreement row per (solver_a,build_a,solver_b,build_b,problem) (thread>1?)" =
+    !any(duplicated(wv[c("solver_a", "build_a", "solver_b", "build_b", "problem")]))
+)
+
 # mean(w) per (solver, problem, build) = W/n — already-recomputed columns
 # (no recompute), NOT assumed == 1: the project's Sigma(w)=n normalisation
 # is enforced for leafblower but several competitor packages (ebal, sbw,
@@ -63,6 +68,11 @@ stopifnot(
 # this join is required to make the RQ5 "max|Delta w|/mean(w)" relative
 # threshold meaningful rather than silently assuming mean(w)==1.
 mean_w <- metrics |> transmute(solver, problem, build, mean_w = W / n)
+
+stopifnot(
+  "fig_agreement: mean_w not one row per (solver,problem,build) (thread>1?) -- join would row-explode" =
+    !any(duplicated(mean_w[c("solver", "problem", "build")]))
+)
 
 wv <- wv |>
   left_join(mean_w |> rename(solver_a = solver, build_a = build, mean_w_a = mean_w),
