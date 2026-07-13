@@ -4,3 +4,10 @@
 figures/
 tables/
 _derived/
+
+/.quarto/
+**/*.quarto_ipynb
+_freeze/
+report.pdf
+report_files/
+report.typ

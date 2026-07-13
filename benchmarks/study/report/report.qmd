@@ -5,7 +5,7 @@ subtitle: "Assembled report (WU-12.13.6) — figures/tables wired; not yet rende
 format:
   typst:
     toc: true
-bibliography: _references.bib
+bibliography: references.bib
 ---
 
 ```{r}
