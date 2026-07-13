@@ -35,6 +35,11 @@ for (fam in strata) {
     next
   }
 
+  stopifnot(
+    "fig_walltime: >1 row per (solver,problem,build_role) in fam_raw (thread>1?) -- across-problems median would fold threads" =
+      !any(duplicated(fam_raw[c("solver", "problem", "build_role")]))
+  )
+
   fam_agg <- fam_raw |>
     group_by(solver, tier, build_role) |>
     summarise(
