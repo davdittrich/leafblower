@@ -95,6 +95,10 @@ message(sprintf("[fig_profiles] S3C instance family: |P|_total (all if_* problem
 
 build_family_profile <- function(df, family_id) {
   fam <- df[df$family == family_id, , drop = FALSE]
+  stopifnot(
+    "fig_profiles: >1 row per (solver,problem) in family stratum (thread>1? build not collapsed?)" =
+      !any(duplicated(fam[c("solver", "problem")]))
+  )
   solvers <- sort(unique(fam$solver))
   problems <- sort(unique(fam$problem))
   n_solver <- length(solvers)
