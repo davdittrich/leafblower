@@ -127,7 +127,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
     // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
     const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
     std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
-    std::vector<std::pair<int,double>> traj_probe_samples;
+    std::vector<lbw::TrajSample> traj_probe_samples;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
     for (int iter = 1; iter <= st.inner_max_iter; iter++) {
         res.base.iterations = iter;
@@ -255,7 +255,7 @@ SinkhornResult sinkhorn_solve(CalibState& st) {
 
             const double curr_best = lbw::select_metric(
                 st.convergence_cfg.metric, m);
-            lbw::traj_record(traj_probe_queue, iter, curr_best, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            lbw::traj_record(traj_probe_queue, iter, curr_best, m.marginal_kl, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
             if (std::isfinite(curr_best) && curr_best < best.best_metric) {
                 best.update(curr_best,
                             lbw::compute_weight_kl(X, X_init, ct.M_cell, st.n,

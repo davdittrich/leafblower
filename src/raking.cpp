@@ -134,7 +134,7 @@ RakingResult raking_solve(CalibState& st) {
     // definition, not scope-at-call). Empty queue (env unset) => zero cost.
     const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
     std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
-    std::vector<std::pair<int,double>> traj_probe_samples;
+    std::vector<lbw::TrajSample> traj_probe_samples;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
     // G8b: best-iterate tracking via BestIterTracker (replaces ad-hoc vars).
     // best.best_weights stores cell-level X snapshot at the best observed metric.
@@ -433,7 +433,7 @@ RakingResult raking_solve(CalibState& st) {
             res.base.max_error  = last_F_metrics.errRp;
             res.base.iterations = f_evals_used;
             // STUDY-BRANCH-ONLY-DO-NOT-MERGE: record already-computed sraa_metric_val (errRp scale by default) at probe iters.
-            lbw::traj_record(traj_probe_queue, f_evals_used, sraa_metric_val, traj_probe_samples);
+            lbw::traj_record(traj_probe_queue, f_evals_used, sraa_metric_val, last_F_metrics.marginal_kl, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
             // Best-iterate tracking (uses cfg-specified metric, not max_err proxy)
             if (sraa_metric_val < best.best_metric) {
@@ -659,7 +659,7 @@ RakingResult raking_solve(CalibState& st) {
                 // margins now correctly fall through to STALL detection below.
                 const double active_metric = lbw::select_metric(st.convergence_cfg.metric, m_conv);
                 // STUDY-BRANCH-ONLY-DO-NOT-MERGE: record already-computed active_metric at probe iters.
-                lbw::traj_record(traj_probe_queue, iter, active_metric, traj_probe_samples);
+                lbw::traj_record(traj_probe_queue, iter, active_metric, m_conv.marginal_kl, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
                 if (!std::isfinite(min_loss_window)) {
                     min_loss_window = active_metric; n_no_improve = 0;
                 } else if (active_metric < min_loss_window * (1.0 - st.convergence_cfg.pct_tol)) {

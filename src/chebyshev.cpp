@@ -231,7 +231,7 @@ ChebyshevResult chebyshev_ipm(
     // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
     const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
     std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
-    std::vector<std::pair<int,double>> traj_probe_samples;
+    std::vector<lbw::TrajSample> traj_probe_samples;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     const int max_ipm = std::min(kMaxIpm, st.inner_max_iter);
     for (int iter = 0; iter < max_ipm; iter++) {
         res.base.iterations = iter+1;
@@ -273,7 +273,7 @@ ChebyshevResult chebyshev_ipm(
         {
             const auto& cfg = st.convergence_cfg;
             const double curr_metric = lbw::select_metric(cfg.metric, cm);
-            lbw::traj_record(traj_probe_queue, iter+1, curr_metric, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            lbw::traj_record(traj_probe_queue, iter+1, curr_metric, cm.marginal_kl, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
             bool converged_abs = (cfg.absolute_tol > 0.0) && (curr_metric < cfg.absolute_tol);
             // CR-H9 (xc1s.9): removed the orphaned apply_rule()/converged_pct result +
             // prev_metric_for_rule — the rule result was never read (the pct branch below
