@@ -259,6 +259,7 @@ def main() -> None:
                         solver_a=sa, build_a=ba, thread_a=ta, solver_b=sb, build_b=bb, thread_b=tb, problem=pid, family=family,
                         mode=agr["mode"], pearson=agr["pearson"], spearman=agr["spearman"],
                         max_abs_diff=agr["max_abs_diff"], cosine=agr["cosine"],
+                        degenerate=bool(not (np.isfinite(agr["pearson"]) and np.isfinite(agr["spearman"]))),
                         obj_val_a=None, obj_val_b=None, rel_gap=None,
                     )
                 )
@@ -269,6 +270,7 @@ def main() -> None:
                 dict(
                     solver_a=sa, build_a=ba, thread_a=ta, solver_b=sb, build_b=bb, thread_b=tb, problem=pid, family="minimax",
                     mode=agr["mode"], pearson=None, spearman=None, max_abs_diff=None, cosine=None,
+                    degenerate=False,
                     obj_val_a=oa, obj_val_b=ob, rel_gap=rel_gap,
                 )
             )
