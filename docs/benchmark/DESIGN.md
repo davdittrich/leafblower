@@ -83,6 +83,20 @@ R: `GECal` ✓ (generalized entropy: χ²+raking+logit).
 ### Acknowledged out-of-scope (named to preempt referee questions)
 `CBPS` / `WeightIt(method="cbps")` (covariate-balancing propensity score) — a propensity-model estimator, not a fixed-margin calibrator (different estimand); excluded deliberately, named in the article so the omission is explicit rather than an oversight (external-review Gap E).
 
+### Competitor discipline tiers (framing, WU-12)
+
+The 29 competitors span **four software heritages, not one field** — the tables above group them by *optimization class* (the math solved); this axis is orthogonal: **discipline of origin**. Stated explicitly so the comparison reads as a principled cross-field survey, not an arbitrary grab-bag/strawman (a referee category-error). **Tiering is by heritage, not math** (a causal-origin method adopted survey-side stays Tier 1); a competitor is Tier 2 only when it enters via an explicit **cross-domain mapping** — Tier-1 tools run **natively** on the survey-calibration problem. leafblower's claim is therefore framed as **"one fast, correct core across the whole optimization family,"** NOT "beats survey packages." WU-12 (§7) tables/heatmaps group + label results by tier.
+
+**Tier 1 — survey-native** (leafblower's home field; native survey-calibration entry point, no mapping): `survey::calibrate` (raking/linear/logit), `sampling::calib` (linear/logit), `anesrake`, `ipfr`, `ipfn`, `svy`, `weightipy`, Meta `balance`, `samplics`, `ReGenesees`, `icarus`, `laeken`, `GECal`, `jointCalib`, `nonprobsvy`, `ebal`.
+- `ebal` (entropy balancing, Hainmueller 2012) and `nonprobsvy` (non-probability survey inference, Chen–Li–Wu 2020) carry causal-adjacent *math* but **survey heritage** (survey-methodology authorship; adopted as calibration workhorses) — Tier 1 on the heritage axis, not Tier 2 (scientific-critical-thinking pass: heritage-not-math discriminator + native-survey execution, conf 90–95).
+- `jointCalib` = Deville–Särndal + empirical-likelihood calibration to totals **and quantiles** — the survey-dual Newton analog (§2 Newton-KL, §9-3).
+
+**Tier 2 — cross-domain, same math** (enters via an explicit mapping):
+- *Causal covariate-balancing* — mapped through a **phantom-ATT** indicator-column expansion (categorical margin → indicators, mean ≡ target proportion; §2 ORIS_soft note): `sbw` (Zubizarreta stable balancing weights), `WeightIt`, `optweight(linf)`, `optweight(entropy)`.
+- *Optimal transport* — **Sinkhorn = KL-dual**, comparable only at K≤2 zero-cost (the 2-margin IPF reduction, §2 Entropic-OT note; §9-4): `POT sinkhorn`, `POT greenkhorn`, `ott-jax`.
+
+**Tier 3 — reference optimizers** (generic convex/NLP solvers, not domain packages — correctness anchors, not field competitors): `cvxpy(L∞)`, `CVXR` reference, `scipy.optimize(trust-constr)`.
+
 ---
 
 ## 3. Problems & spec schema
