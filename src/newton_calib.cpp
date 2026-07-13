@@ -38,7 +38,7 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
     // STUDY-BRANCH-ONLY-DO-NOT-MERGE: generic trajectory probe state
     const std::vector<int> traj_probe_targets = lbw::traj_parse_iters();
     std::deque<int> traj_probe_queue(traj_probe_targets.begin(), traj_probe_targets.end());
-    std::vector<std::pair<int,double>> traj_probe_samples;
+    std::vector<lbw::TrajSample> traj_probe_samples;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
     NewtonCalibResult res;
     res.base.status = RK_ERR_NOCONV;
     res.base.convergence_solver_objective = std::numeric_limits<double>::infinity();
@@ -455,7 +455,29 @@ NewtonCalibResult newton_calibrate(CalibState& st) {
             for (int a = 0; a < n_lam; ++a)
                 dual_gap = std::max(dual_gap, std::fabs(G[a]));
             res.dual_gap = dual_gap;
-            lbw::traj_record(traj_probe_queue, iter+1, dual_gap, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            if (!traj_probe_queue.empty()) {  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                // Reconstruct PRIMAL cell weights from the CURRENT dual iterate
+                // (pre-update lam / this-iter Z / u_max_step) via the same stable
+                // KKT map used by the post-loop weight recovery (§6, ~L873-874):
+                // w_i = d_i * exp(u_i - u_max) * (n/Z). Aggregated per-cell via
+                // ct.cell_of (obs->cell map from solver_setup_ct). Cold path only:
+                // gated on the probe queue being non-empty -- LBW_TRAJECTORY_AT
+                // unset => this block never executes (hot loop byte-unchanged).
+                std::vector<double> traj_X_cell(ct.M_cell, 0.0);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                std::vector<double> traj_bucket(n_cats_total, 0.0);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                const double traj_scale = static_cast<double>(n) / Z;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                for (int i = 0; i < n; ++i) {  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                    if (st.weights[i] <= 0.0) continue;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE: CR-C17 d=0 row excluded
+                    const double w_i = st.weights[i] * std::exp(compute_u(lam, i) - u_max_step) * traj_scale;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                    traj_X_cell[ct.cell_of[i]] += w_i;  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                }  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                // Sum(traj_X_cell) == n exactly by the scale construction above
+                // (Sigma_i f_i == Z by definition of Z at this iter) -- pass n
+                // directly rather than re-summing traj_X_cell (avoids reintroducing
+                // FP noise via a redundant summation of the same quantity).
+                auto traj_m = lbw::compute_cell_metrics(st, ct, traj_X_cell, static_cast<double>(n), traj_bucket);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+                lbw::traj_record(traj_probe_queue, iter+1, dual_gap, traj_m.marginal_kl, traj_probe_samples);  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
+            }  // STUDY-BRANCH-ONLY-DO-NOT-MERGE
 
             // Track best λ (lowest gap seen) for end-of-loop fallback recovery.
             // best_gap doubles as the solver objective for output; actual obs
