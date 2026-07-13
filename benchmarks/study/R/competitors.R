@@ -713,6 +713,10 @@ run_laeken <- function(problem) {
                            weight.scale = 1, G.scale = 1, allowSingular = TRUE)
   }
   w <- as.numeric(fit$w)
+  if (any(!is.finite(w))) {
+    return(list(weights = w, iterations = NA_integer_, status = "no_conv",
+                error_message = "GECal::GEcalib returned non-finite g-weight(s) (singular/rank-deficient design under allowSingular=TRUE)"))
+  }
   list(weights = w, iterations = NA_integer_, status = "converged", error_message = NULL)
 }
 
