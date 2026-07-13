@@ -95,10 +95,13 @@ source("fig_profiles.R")
 
 _Per-iteration convergence trajectories for the 8 instrumented solvers
 (chebyshev, greenkhorn, greg, newton_kl, oris, oris_soft, raking, sinkhorn),
-one faceted figure per problem instance. Each solver's own internal
-stopping-criterion residual/gap proxy (`errRp` / `dual_gap` / `marg_defect`)
-is named in its facet strip and is NOT comparable across panels with a
-different metric name — see each figure's caption._
+one faceted figure per problem instance. The headline figures below plot
+each solver's own internal stopping-criterion residual/gap proxy
+(`errRp` / `dual_gap` / `chi2`), named in its facet strip; these are NOT
+comparable across panels with a different metric name — see each figure's
+caption. A second set of figures plots `marginal_kl`, the common metric
+harvest() reports for the KL family, which IS comparable across all 8
+solvers (including newton_kl) — see the marginal-KL figures below._
 
 ```{r}
 #| label: gen-convergence
@@ -113,6 +116,22 @@ source("fig_convergence.R")
 ![Convergence trajectories — stepstone_bounded.](figures/convergence_stepstone_bounded.pdf){#fig-convergence-stepstone_bounded}
 
 ![Convergence trajectories — stepstone_unbounded.](figures/convergence_stepstone_unbounded.pdf){#fig-convergence-stepstone_unbounded}
+
+_marginal_kl comparable convergence trajectories, per problem instance: the
+same 8 instrumented solvers, faceted by solver only (the metric is identical
+in every panel), all in the common `marginal_kl` axis reported by
+harvest() for the KL family -- including newton_kl. Values are clamped to a
+machine-epsilon display floor on the log10 axis to show floating-point
+cancellation noise at machine-precision convergence; see each figure's
+caption for detail._
+
+![Marginal-KL convergence — if_n10000_K4_medium_moderate_well_loose_s0.](figures/convergence_marginal_kl_if_n10000_K4_medium_moderate_well_loose_s0.pdf){#fig-convergence-marginal-kl-if_n10000_K4_medium_moderate_well_loose_s0}
+
+![Marginal-KL convergence — if_n10000_K9_high_extreme_ill_tight_s0.](figures/convergence_marginal_kl_if_n10000_K9_high_extreme_ill_tight_s0.pdf){#fig-convergence-marginal-kl-if_n10000_K9_high_extreme_ill_tight_s0}
+
+![Marginal-KL convergence — stepstone_bounded.](figures/convergence_marginal_kl_stepstone_bounded.pdf){#fig-convergence-marginal-kl-stepstone_bounded}
+
+![Marginal-KL convergence — stepstone_unbounded.](figures/convergence_marginal_kl_stepstone_unbounded.pdf){#fig-convergence-marginal-kl-stepstone_unbounded}
 
 ## Peak RSS {#sec-rss}
 
