@@ -49,7 +49,9 @@ rss <- build_series(metrics, variant = "headline") |>
 
 stopifnot(
   "peak_rss_bytes missing after join" = !anyNA(rss$peak_rss_bytes),
-  "language lookup left unmatched solvers" = !anyNA(rss$language)
+  "language lookup left unmatched solvers" = !anyNA(rss$language),
+  "fig_rss: >1 row per (solver,problem) after headline build_series (thread>1?)" =
+    !any(duplicated(rss[c("solver", "problem")]))
 )
 
 # --- figure: per-(solver, problem) peak RSS, log10 y (bytes span ~120 MiB
