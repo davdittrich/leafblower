@@ -1,10 +1,11 @@
 ---
 # STUDY-BRANCH-ONLY-DO-NOT-MERGE
 title: "leafblower Benchmark Study — Draft Report"
-subtitle: "Skeleton — no figures yet (WU-12.13.1)"
+subtitle: "Assembled report (WU-12.13.6) — figures/tables wired; not yet rendered/frozen"
 format:
   typst:
     toc: true
+bibliography: _references.bib
 ---
 
 ```{r}
@@ -22,43 +23,168 @@ _Study scope, tiering, and build-variant discipline per `docs/benchmark/DESIGN.m
 
 ## Work-precision {#sec-work-precision}
 
-_Achieved accuracy vs. wall time, per objective family (`strata`)._
+_Achieved accuracy vs. wall time, per objective family (`strata`)._ Each panel
+plots, per (solver, problem), median wall time against that family's native-
+divergence error column, with the empirical Pareto envelope (sort-on-error,
+running-min-time) drawn as a black step line. This accuracy-vs-cost view
+complements the performance-profile methodology of @sec-profiles in the
+spirit of the data-profile framework for benchmarking optimization software
+[@morewild2009benchmarking].
 
-<!-- placeholder: @fig-work-precision-kl, @fig-work-precision-chi2, @fig-work-precision-logit, @fig-work-precision-minimax -->
+```{r}
+#| label: gen-work-precision
+#| include: false
+source("fig_work_precision.R")
+```
+
+![Work precision — kl family.](figures/work_precision_kl.pdf){#fig-work-precision-kl}
+
+![Work precision — chi2 family.](figures/work_precision_chi2.pdf){#fig-work-precision-chi2}
+
+![Work precision — logit family.](figures/work_precision_logit.pdf){#fig-work-precision-logit}
+
+![Work precision — minimax family (`margin_linf` used as a NEUTRAL error axis only — Chebyshev/minimax solvers are home-field advantaged on it; see the figure's own caption).](figures/work_precision_minimax.pdf){#fig-work-precision-minimax}
 
 ## Wall-time {#sec-wall-time}
 
-_Headline (`build_series(..., "headline")`) vs. native-build delta timing._
+_Per-solver median end-to-end wall time, per objective family, with
+leafblower's headline (`build_series(..., "headline")`, portable build) and
+native ("tuned-build delta") variants distinguished by point shape within
+the same panel — not by separate figures._
 
-<!-- placeholder: @fig-wall-time-headline, @fig-wall-time-native-delta -->
+```{r}
+#| label: gen-wall-time
+#| include: false
+source("fig_walltime.R")
+```
+
+![Wall time — kl family.](figures/walltime_kl.pdf){#fig-wall-time-kl}
+
+![Wall time — chi2 family.](figures/walltime_chi2.pdf){#fig-wall-time-chi2}
+
+![Wall time — logit family.](figures/walltime_logit.pdf){#fig-wall-time-logit}
+
+![Wall time — minimax family.](figures/walltime_minimax.pdf){#fig-wall-time-minimax}
 
 ## Performance profiles {#sec-profiles}
 
-_Dolan–Moré performance profiles over the §3C parametric instance family._
+_Dolan–Moré performance profiles [@dolan2002benchmarking] over the §3C
+parametric instance family (`if_*` problems), computed family-stratified per
+Gould and Scott's problem-set-sensitivity guidance [@gouldscott2016note],
+each with a bootstrap-over-problems pointwise 95% CI ribbon (B ≥ 1000). A
+stratum below the |P| < 20 validity floor is flagged in its own caption,
+not silently rendered as reliable._
 
-<!-- placeholder: @fig-profiles-kl, @fig-profiles-chi2, @fig-profiles-logit, @fig-profiles-minimax -->
+```{r}
+#| label: gen-profiles
+#| include: false
+source("fig_profiles.R")
+```
+
+![Performance profile — kl family (headline/portable).](figures/profile_kl.pdf){#fig-profiles-kl}
+
+![Performance profile — chi2 family (headline/portable).](figures/profile_chi2.pdf){#fig-profiles-chi2}
+
+![Performance profile — logit family (headline/portable).](figures/profile_logit.pdf){#fig-profiles-logit}
+
+![Performance profile — minimax family (headline/portable).](figures/profile_minimax.pdf){#fig-profiles-minimax}
+
+![Performance profile — leafblower native-build delta, faceted by family (competitors excluded; there is no native competitor variant).](figures/profile_native_delta.pdf){#fig-profiles-native-delta}
 
 ## Convergence {#sec-convergence}
 
-_Iteration counts and per-iteration trajectory diagnostics._
+_Per-iteration convergence trajectories for the 8 instrumented solvers
+(chebyshev, greenkhorn, greg, newton_kl, oris, oris_soft, raking, sinkhorn),
+one faceted figure per problem instance. Each solver's own internal
+stopping-criterion residual/gap proxy (`errRp` / `dual_gap` / `marg_defect`)
+is named in its facet strip and is NOT comparable across panels with a
+different metric name — see each figure's caption._
 
-<!-- placeholder: @fig-convergence-iterations -->
+```{r}
+#| label: gen-convergence
+#| include: false
+source("fig_convergence.R")
+```
+
+![Convergence trajectories — if_n10000_K4_medium_moderate_well_loose_s0.](figures/convergence_if_n10000_K4_medium_moderate_well_loose_s0.pdf){#fig-convergence-if_n10000_K4_medium_moderate_well_loose_s0}
+
+![Convergence trajectories — if_n10000_K9_high_extreme_ill_tight_s0.](figures/convergence_if_n10000_K9_high_extreme_ill_tight_s0.pdf){#fig-convergence-if_n10000_K9_high_extreme_ill_tight_s0}
+
+![Convergence trajectories — stepstone_bounded.](figures/convergence_stepstone_bounded.pdf){#fig-convergence-stepstone_bounded}
+
+![Convergence trajectories — stepstone_unbounded.](figures/convergence_stepstone_unbounded.pdf){#fig-convergence-stepstone_unbounded}
 
 ## Peak RSS {#sec-rss}
 
-_Memory working-set, per-(language,package) baseline-subtracted._
+_Memory working-set (`peak_rss_bytes`, baseline-subtracted, max-over-reps
+high-water mark), per (solver, problem), headline build only
+(`build_series(..., "headline")`)._
 
-<!-- placeholder: @fig-rss-by-solver -->
+```{r}
+#| label: gen-rss
+#| include: false
+source("fig_rss.R")
+```
+
+![Peak RSS by solver and problem.](figures/rss.pdf){#fig-rss-by-solver}
+
+```{r}
+#| label: tbl-rss-by-solver-problem
+#| tbl-cap: "Peak RSS (MiB) by solver and problem, headline build only, baseline-subtracted."
+knitr::kable(utils::read.csv("tables/rss_by_solver_problem.csv"))
+```
+
+```{r}
+#| label: tbl-rss-by-language-package
+#| tbl-cap: "Peak RSS (MiB) rollup by (language, package): max over problems of the per-problem high-water mark."
+knitr::kable(utils::read.csv("tables/rss_by_language_package.csv"))
+```
 
 ## Weight agreement {#sec-agreement}
 
-_RQ5: Pearson/Spearman/max|Δw|/cosine vs. the independent convex reference,
-strictly-convex families (kl, chi2, logit) only — minimax excluded (§6 Blocker G)._
+_RQ5: median Pearson/Spearman correlation and relative max|Δw| of raw weight
+vectors vs. the independent convex reference, strictly-convex families (kl,
+chi2, logit) only — minimax is EXCLUDED by construction (§6 Blocker G: the
+L-infinity LP optimum lies on a face, not a unique vertex) and is instead
+judged on objective-value agreement (`rel_gap`; see @tbl-minimax-objval)._
 
-<!-- placeholder: @fig-agreement-heatmap -->
+```{r}
+#| label: gen-agreement
+#| include: false
+source("fig_agreement.R")
+```
+
+![Weight-vector agreement — kl family (strictly-convex).](figures/agreement_kl.pdf){#fig-agreement-kl}
+
+![Weight-vector agreement — chi2 family (strictly-convex).](figures/agreement_chi2.pdf){#fig-agreement-chi2}
+
+![Weight-vector agreement — logit family (strictly-convex).](figures/agreement_logit.pdf){#fig-agreement-logit}
 
 ## Tables {#sec-tables}
 
-<!-- placeholder: @tbl-summary-by-tier, @tbl-stale-solvers -->
+_RQ4 quality summary (median + interquartile ESS/DEFF, per family/solver/
+tier/stale) and the RQ5 minimax objective-value agreement (`rel_gap`,
+headline build only)._
+
+```{r}
+#| label: gen-quality
+#| include: false
+source("tbl_quality.R")
+```
+
+```{r}
+#| label: tbl-quality
+#| tbl-cap: "RQ4 quality: median + IQR of ESS and DEFF (Kish and g-weighted), per (family, solver, tier, stale)."
+knitr::kable(utils::read.csv("tables/quality.csv"))
+```
+
+```{r}
+#| label: tbl-minimax-objval
+#| tbl-cap: "RQ5 minimax objective-value agreement (rel_gap median + IQR), per solver pair, headline build only."
+knitr::kable(utils::read.csv("tables/minimax_objval.csv"))
+```
 
 ## References
+
+::: {#refs}
+:::
