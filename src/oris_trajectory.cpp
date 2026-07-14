@@ -7,9 +7,9 @@
 #include "oris_internal.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <exception>
-#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,11 +46,12 @@ void write_trajectory_csv(
     if (samples.empty()) return;
     const char* path = std::getenv("LBW_TRAJECTORY_OUT");
     if (!path || !*path) return;
-    std::ofstream f(path);
-    if (!f.is_open()) return;
-    f << "iter,errRp\n";
+    std::FILE* f = std::fopen(path, "w");
+    if (!f) return;
+    std::fprintf(f, "iter,errRp\n");
     for (const auto& p : samples)
-        f << p.first << "," << p.second << "\n";
+        std::fprintf(f, "%d,%.17g\n", p.first, p.second);
+    std::fclose(f);
 }
 
 }  // namespace lbw
