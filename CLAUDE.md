@@ -90,6 +90,7 @@ OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python -m p
 - **`design_weights=`** is the `harvest()` argument for per-observation design weights (the `d_i` in `Z=Σ d_i exp(u_i)`); there is NO `weights=` argument — it silently lands in `...` and is ignored.
 - **Deterministic tests/parity require single-thread BLAS:** export `OMP_NUM_THREADS`/`OPENBLAS_NUM_THREADS`/`MKL_NUM_THREADS`=1 TOGETHER (in Python, before `import numpy`), else R↔Python parity and benchmarks drift.
 - **No cancellations (project philosophy):** compute variances/covariances cancellation-free — e.g. the diagonal `p(1-p)` as `p*(1-p)`, NOT `p - p*p`. Exclude zero-design-weight rows from LSE sums (a `0*inf` on a divergent shift).
+- **Module-side file writes MUST use C stdio** (`fopen`/`fprintf`/`fclose`), NOT `std::ofstream`/`iostream`: the Python `_leafblower.so` static-links libstdc++, so any C++ stream I/O SIGSEGVs in `std::codecvt do_unshift` when driven from the module (`oris_trajectory.cpp write_trajectory_csv`, leafblower-9nuo).
 
 # Metaswarm
 
