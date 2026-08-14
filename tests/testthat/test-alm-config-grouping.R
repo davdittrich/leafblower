@@ -1,5 +1,3 @@
-context("ALMConfig grouping — CalibState.alm substruct smoke tests")
-
 # These tests verify that the ALMConfig substruct refactor (st.alm.mu,
 # st.alm.capacity_mu, st.alm.lambda) did not break solver behaviour.
 # No behavioral change is expected — only access-path renamed in C++.

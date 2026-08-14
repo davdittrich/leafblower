@@ -1,5 +1,3 @@
-context("oris faithful — algBCD specifics")
-
 # Tests in this file check properties unique to the faithful algBCD solver:
 # cell compression, within-cell weight equality, capacity block behavior.
 # Per design spec §6.2: 7 assertions required.

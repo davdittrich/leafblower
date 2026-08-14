@@ -1,5 +1,3 @@
-context("oris (faithful algBCD)")
-
 test_that("ORIS converges: 1 margin, 2 cats, no bounds", {
   set.seed(42)
   n   <- 100L

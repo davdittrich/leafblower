@@ -1,5 +1,3 @@
-context("oris/SRAA best_error honesty (CR-B13 / y2ks.13)")
-
 ## CR-B13: on the ORIS accelerate (SRAA) path, res$best_error was copied from
 ## best.best_metric, tracked on the PRE-clamp accepted cell masses. On a
 ## tight/infeasible exit the returned bounds-clamped weights miss margins (large

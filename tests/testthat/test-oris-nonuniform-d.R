@@ -1,5 +1,3 @@
-context("oris faithful — non-uniform design weights within cell")
-
 test_that("marginals hit targets when d[i] varies within cell", {
   set.seed(42)
   n <- 1000

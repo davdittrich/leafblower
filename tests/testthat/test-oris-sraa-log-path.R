@@ -1,5 +1,3 @@
-context("oris SRAA-m log-path extension")
-
 ## Test 1 — SRAA activates on forced log path ----------------------------
 
 test_that("SRAA-m activates on log path (LBW_ORIS_FORCE_PATH=log)", {

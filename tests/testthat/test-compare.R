@@ -1,5 +1,3 @@
-context("cross-algorithm equivalence on feasible inputs")
-
 test_that("oris and raking agree to 10% on 20 random feasible datasets", {
   set.seed(20260423)
   for (trial in 1:20) {

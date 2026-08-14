@@ -1,5 +1,3 @@
-context("oris dispatch — algorithm attribute")
-
 test_that("harvest(method='oris') returns algorithm='oris'", {
   set.seed(1L)
   n   <- 500L

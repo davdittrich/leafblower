@@ -1,5 +1,3 @@
-context("cell_table")
-
 # Internal probe (test-only; returns M_cell, cell_of, n_per_cell)
 probe <- function(group_ids_list, n) {
   .Call("C_leafblower_cell_table_probe", group_ids_list, as.integer(n),

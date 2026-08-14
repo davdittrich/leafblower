@@ -1,5 +1,3 @@
-context("oris/SRAA linear->log fallback best-iterate reset (CR-B12 / y2ks.12)")
-
 ## CR-B12: apply_linear_fallback reset best (BestIterTracker) and the SRAA error
 ## trackers, but NOT the SRAA best-iterate snapshot (sraa_has_best / lf_best).
 ## best.reset() clears best.has_best(), but the outer-stall revert (oris.cpp ~L1083)

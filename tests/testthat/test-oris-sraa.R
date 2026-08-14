@@ -1,5 +1,3 @@
-context("oris SRAA-m acceleration")
-
 # Shared multi-margin fixture that uses the linear path.
 # stepstone_small: n=10000, K=9, M_cell~5980, compression=1.7x → path=linear.
 # make_tight_k5 had K=1 → log path → SRAA inactive. Use stepstone_small instead.
