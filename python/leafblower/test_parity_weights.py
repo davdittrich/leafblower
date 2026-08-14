@@ -100,7 +100,17 @@ def test_weight_parity(method, tmp_path):
         f"{method}: weight vector length mismatch — R={len(w_r)}, Python={len(w_py)}")
     diff = np.max(np.abs(w_py - w_r))
     print(f"\n  {method}: max|w_py - w_r| = {diff:.2e}")
-    tol = 1e-6 if method == "logit" else 1e-10
+    # Uniform 1e-10 bound for every method, including logit. logit previously
+    # carried a relaxed 1e-6 special case; measured 2026-08-15 on this fixture
+    # it was 5.33e-15, in the same 4.66e-15..9.77e-15 range as all other eight
+    # solvers — no conditioning mechanism justifies a three-orders-of-magnitude
+    # relaxation here. Two candidate mechanisms were considered and found not
+    # load-bearing on this fixture: the R-vs-Python build asymmetry (Python
+    # compiles at -O3, R takes the user/site level with no package -O), and
+    # the Newton-with-Armijo-line-search conditioning in logit_calib.cpp. The
+    # special case is removed rather than documented because no measured
+    # divergence supports keeping it.
+    tol = 1e-10
     assert diff < tol, (
         f"{method}: max|w_py - w_r| = {diff:.2e} (threshold {tol:.0e})"
     )
