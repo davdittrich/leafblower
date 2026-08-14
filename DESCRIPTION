@@ -19,3 +19,4 @@ Imports: stats
 Suggests: autumn (>= 0.2.0), testthat (>= 3.0.0), bench, lhs, DiceKriging, ggplot2, rprojroot,
     survey, PracTools (>= 1.4.0)
 RoxygenNote: 7.3.3
+Config/testthat/edition: 3
