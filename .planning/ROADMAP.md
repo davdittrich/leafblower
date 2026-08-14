@@ -32,6 +32,7 @@ existing ticket IDs and never introduce a competing numbering scheme.
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -46,23 +47,29 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Verification Coverage Closed
+
 **Goal**: The Definition-of-Done gate actually detects the two failure classes it claims to
 cover — R↔Python numerical divergence, and weight-bound violations — before any code that
 could cause them is touched.
 **Depends on**: Nothing (first phase)
 **Requirements**: KPI-02
 **Success Criteria** (what must be TRUE):
+
   1. Every one of the eight shipped solvers, `oris_soft` included, is compared R-vs-Python
      on the weight vector at `rtol=1e-6` in the parametrized parity matrix — a divergence
      in any solver fails the suite.
+
   2. `raking` and `sinkhorn` are covered by the convergence-rule / `max_error` parity
      checks, so a per-method default-rule divergence between bindings fails the suite
      (today only `logit` has this).
+
   3. The `logit` parity tolerance is either tightened to `1e-10` like every other method, or
      it carries a comment naming the conditioning mechanism that justifies the three-orders-
      of-magnitude relaxation — no unexplained tolerance survives.
+
   4. A property-based test asserts `min(w) >= min_weight` and `max(w) <= max_weight` within
      1e-10 across 50 randomly generated datasets (KPI-02's own wording).
+
   5. `Rscript -e 'testthat::test_dir("tests/testthat")'` runs under the testthat edition the
      project documents, with the `DESCRIPTION` field and `CLAUDE.md` in agreement.
 **Beads**: `leafblower-og7d` (epic), `leafblower-x7n8` (P0, gate-collection gap, sequences
@@ -85,30 +92,37 @@ values and the set missing from the parity matrix is three methods (`chebyshev`,
 `FAILED=0 ERROR=0 PASSED=1025` under both editions, and the only delta is five deprecation
 warnings from the 11 `context()` files, so the "expect fallout across ~94 test files" note
 overstates the risk. `expect_equivalent`, `expect_that` and `expect_is` appear in no file.
-**Plans:** 4 plans
+**Plans:** 4/4 plans executed
 
 Plans:
-- [ ] 01-01-PLAN.md — Relocate the parity file into the blocking gate, extend the matrix to all nine solvers, retire the unexplained logit tolerance (SC1, SC3, `leafblower-x7n8`)
-- [ ] 01-02-PLAN.md — Convergence-rule and `max_error` parity for raking and sinkhorn (SC2)
-- [ ] 01-03-PLAN.md — Property-based weight-bound test over 50 fixed stratified datasets (KPI-02, SC4)
-- [ ] 01-04-PLAN.md — testthat edition 3, fix-first-then-flip (SC5, `leafblower-og7d`)
+
+- [x] 01-01-PLAN.md — Relocate the parity file into the blocking gate, extend the matrix to all nine solvers, retire the unexplained logit tolerance (SC1, SC3, `leafblower-x7n8`)
+- [x] 01-02-PLAN.md — Convergence-rule and `max_error` parity for raking and sinkhorn (SC2)
+- [x] 01-03-PLAN.md — Property-based weight-bound test over 50 fixed stratified datasets (KPI-02, SC4)
+- [x] 01-04-PLAN.md — testthat edition 3, fix-first-then-flip (SC5, `leafblower-og7d`)
 
 ### Phase 2: One Engine, Not Two
+
 **Goal**: An R user and a Python user get the same number because they ran the same code,
 not because two independently maintained code paths happen to agree today.
 **Depends on**: Phase 1
 **Requirements**: US-004 (residual)
 **Success Criteria** (what must be TRUE):
+
   1. Adding a solver, a result field, or a routing rule requires editing ONE dispatch site;
      the R bridge reaches the solvers through the same path as the C ABI rather than through
      its own method-string chain.
+
   2. R and Python binaries of the same source are built at the same optimization level, or
      the asymmetry is documented at the parity assertion as a deliberate, bounded decision.
+
   3. The per-cell unit-mode water-fill exists once; a fix to `bounds_mode="unit"` cannot
      land in one solver family and miss the other.
+
   4. A build-list divergence between `src/*.cpp` and `python/CMakeLists.txt:CORE_SOURCES`
      fails the test gate, instead of surfacing as an undefined-symbol link error after the
      R tests are already green.
+
   5. The full DoD gate is green after the change and the stepstone benchmark shows no
      regression.
 **Beads**: `leafblower-rywn` (P0), `leafblower-qzto` (P1); file tickets for the water-fill
@@ -124,20 +138,25 @@ that touches a TU boundary. The mirrored line ranges are already annotated in th
 **Plans**: TBD
 
 ### Phase 3: Honest Performance Gate
+
 **Goal**: The package's headline performance claim is a measured fact about a solver that
 exists, expressed as a gate a user can run and a maintainer can regress against.
 **Depends on**: Phase 2
 **Requirements**: US-003, KPI-04
 **Success Criteria** (what must be TRUE):
+
   1. A user reading the package documentation sees a large-scale performance figure that was
      measured on this codebase with a live solver, on a stated input class and machine — not
      a target inherited from the removed `lbfgsb`.
+
   2. The medium-scale target states ONE number, not the current 1 s / 2 s contradiction,
      and names the artefact that measures it.
+
   3. The input class on which the composite "<30 s AND <1e-6" gate is structurally
      unachievable (K=20 uniform-random, `M_cell/n = 1.0`, zero compression benefit) is
      documented as a known limit with the reason, rather than left as a silently failing
      promise.
+
   4. A maintainer can re-run the benchmark that produced every published figure with one
      command, and the KPI table's performance rows each name a live measuring artefact.
 **Beads**: `leafblower-kk1.20.4` (the REFRAME decision, with three options already on the
@@ -152,19 +171,24 @@ call, never sequential measurement.
 **Plans**: TBD
 
 ### Phase 4: Truthful Surface
+
 **Goal**: Nothing documented is untrue, and nothing the API silently swallows stays silent —
 a reader can trust the docs and a user cannot get a plausible wrong answer by typo.
 **Depends on**: Phase 2
 **Requirements**: (none — defect-driven)
 **Success Criteria** (what must be TRUE):
+
   1. No live document attributes the unimplemented outer entropic-proximal-point loop, or
      any other unshipped capability, to ORIS or to a removed solver — the claim the
      `ieppa` → `oris` rename exists to repudiate is gone from `docs/raking.md` §8.2/§12 and
      from anywhere else an audit finds it.
+
   2. A developer reading `rk_algorithm_t` sees why slot 7 is a hole, as they already do for
      slot 2, and cannot reuse either value by accident.
+
   3. `harvest(..., weights = w)` raises an informative error naming `design_weights=`
      instead of silently ignoring the argument and returning a plausible unweighted result.
+
   4. An audit of `README`, `NEWS.md`, `man/` and `docs/` finds no surviving reference to
      `grake`, `lbfgsb` or `cp` as available methods.
 **Beads**: `leafblower-05ha` (P1), `leafblower-x2iq` (P2); file a ticket for the `weights=`
@@ -178,19 +202,24 @@ roxygen block, regenerate, and clean any stray `man/dot-*.Rd` before committing.
 **Plans**: TBD
 
 ### Phase 5: CRAN + PyPI Release
+
 **Goal**: A survey analyst who has never seen this repository installs leafblower from CRAN
 in R and from PyPI in Python, and gets a working, self-contained package.
 **Depends on**: Phase 1, Phase 2, Phase 3, Phase 4
 **Requirements**: US-010, US-008 (residual), KPI-05, KPI-06
 **Success Criteria** (what must be TRUE):
+
   1. `R CMD check --as-cran` on the built tarball reports 0 errors and 0 warnings, with at
      most the new-submission note, and `cran-comments.md` explains any remaining note.
+
   2. The source tarball contains no development artifact — no `.cpp` snapshot copies, no
      nested tarball, no patch scripts, no log, no findings documents — and `git ls-files`
      shows no generated build output tracked in the repository.
+
   3. `pip wheel python/` produces a wheel that passes `twine check`, and
      `python -c "import leafblower; leafblower.harvest"` succeeds after installing it into a
      clean environment with no separately installed C library.
+
   4. The wheel imports and calibrates on Python 3.9 through 3.13.
   5. The R `DESCRIPTION` version and `python/pyproject.toml` version cannot silently drift —
      a mismatch is caught by a check, not by a reader.
@@ -215,7 +244,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Verification Coverage Closed | 0/4 | Planned | - |
+| 1. Verification Coverage Closed | 4/4 | In Progress|  |
 | 2. One Engine, Not Two | 0/TBD | Not started | - |
 | 3. Honest Performance Gate | 0/TBD | Not started | - |
 | 4. Truthful Surface | 0/TBD | Not started | - |
