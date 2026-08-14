@@ -18,16 +18,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Python leafblower is installed or in python/ subdir
-try:
-    from leafblower import harvest
-except ImportError:
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python"))
-    from leafblower import harvest
+from leafblower import harvest
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+# python/leafblower/test_parity_weights.py -> repo root is three levels up
+# (leafblower/ -> python/ -> repo root). Getting this wrong makes the
+# R-helper paths below resolve to nothing, which without the assertions
+# further down would silently degrade every test to pytest.skip instead
+# of failing collection loudly.
+REPO_ROOT = Path(__file__).resolve().parents[2]
 R_HELPER  = REPO_ROOT / "tests" / "parity" / "run_parity_r.R"
+assert R_HELPER.exists(), f"R_HELPER not found at {R_HELPER} — REPO_ROOT arithmetic is wrong"
 
 RSCRIPT_AVAILABLE = shutil.which("Rscript") is not None
 
@@ -101,6 +101,9 @@ def test_weight_parity(method, tmp_path):
 # ---------------------------------------------------------------------------
 
 _ORIS_SOFT_R_HELPER = REPO_ROOT / "tests" / "parity" / "run_oris_soft_r.R"
+assert _ORIS_SOFT_R_HELPER.exists(), (
+    f"_ORIS_SOFT_R_HELPER not found at {_ORIS_SOFT_R_HELPER} — REPO_ROOT arithmetic is wrong"
+)
 
 # Convergence params — identical in R helper and Python call below.
 _ORIS_SOFT_CONV = {"metric": "max_err", "rule": "improvement", "tol": 1e-4}
@@ -252,6 +255,9 @@ def test_oris_soft_default_tol_parity(tmp_path):
 # ---------------------------------------------------------------------------
 
 _CHEBYSHEV_R_HELPER = REPO_ROOT / "tests" / "parity" / "run_chebyshev_r.R"
+assert _CHEBYSHEV_R_HELPER.exists(), (
+    f"_CHEBYSHEV_R_HELPER not found at {_CHEBYSHEV_R_HELPER} — REPO_ROOT arithmetic is wrong"
+)
 
 # Convergence params — identical in R helper and Python call below.
 _CHEBYSHEV_CONV = {"metric": "max_err", "rule": "improvement", "tol": 1e-4}
