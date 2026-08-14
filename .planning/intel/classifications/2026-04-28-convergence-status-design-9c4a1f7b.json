@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-28-convergence-status-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Convergence Status Redesign",
+  "summary": "Redesigns raking solver convergence status codes, adding RK_ERR_BUDGET/RK_ERR_STALL and replacing errRp stall detection with weight-KL stall.",
+  "scope": ["src/raking.cpp", "src/leafblower.h", "R/harvest.R", "rk_result_t status codes", "stall detection", "weight KL convergence"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

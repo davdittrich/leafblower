@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-20-algo-selection-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Algorithm Selection Benchmark Design",
+  "summary": "Design for a Bayesian level-set benchmark finding the 1.2x iso-contour separating L-BFGS-B from iEPPA performance in unconstrained calibration.",
+  "scope": ["L-BFGS-B", "iEPPA", "unconstrained calibration", "Bayesian level set estimation", "GP surrogate", "src/c_api.cpp constants", "benchmarks/algo_selection_benchmark.R"],
+  "cross_refs": ["benchmarks/algo_selection_benchmark.R", "benchmarks/algo_selection_results.rds", "benchmarks/algo_selection_contour.pdf", "benchmarks/algo_selection_uncertainty.pdf", "benchmarks/algo_selection_k_stability.pdf", "tests/testthat/test-algo-selection.R", "src/c_api.cpp"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-02-ylsy-cp-ipm-spike-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ylsy: CP + IPM Research Spike — Design (rev 2)",
+  "summary": "Design spec for a research spike adding Chambolle-Pock and Interior-Point Newton calibration solvers to break the kk1204 accuracy ceiling.",
+  "scope": ["Chambolle-Pock PDHG", "Interior-Point Newton", "kk1204 fixture", "harvest() solvers", "research/ isolation contract", "stepstone benchmark", "AUTO routing"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

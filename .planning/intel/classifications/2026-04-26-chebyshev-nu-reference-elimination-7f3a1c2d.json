@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-26-chebyshev-nu-reference-elimination.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Chebyshev ν Fix: Reference Category Elimination",
+  "summary": "Technical spec eliminating a degenerate normalization dual in the chebyshev/grake LP IPM via reference-category elimination in src/chebyshev.cpp.",
+  "scope": ["chebyshev LP IPM", "src/chebyshev.cpp", "normalization dual nu", "Newton system", "reference category elimination", "margin constraints"],
+  "cross_refs": ["src/chebyshev.cpp"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

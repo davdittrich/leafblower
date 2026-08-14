@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/methods/chebyshev.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "CHEBYSHEV — Mehrotra Interior-Point Method on Minimax Calibration LP",
+  "summary": "Explains the CHEBYSHEV solver: minimax LP formulation, Mehrotra predictor-corrector interior-point steps, linear algebra, and tuning knobs.",
+  "scope": ["CHEBYSHEV solver", "Mehrotra predictor-corrector", "interior-point method", "minimax calibration LP", "src/chebyshev.cpp", "reference-category elimination", "Schur complement / Sherman-Morrison LDLT"],
+  "cross_refs": ["src/chebyshev.cpp", "src/chebyshev.hpp", "CLAUDE.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

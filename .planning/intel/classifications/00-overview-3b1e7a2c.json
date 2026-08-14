@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/methods/00-overview.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Weighting Methods — Comparative Overview",
+  "summary": "Comparative reference of the eight C++ calibration solvers: algorithm class, objective, bounds handling, and selection guidance.",
+  "scope": ["ORIS", "Raking", "Sinkhorn", "Greenkhorn", "Chebyshev", "GREG", "Newton-KL", "Logit", "calib_dispatch.hpp", "finalize_weights", "SRAA-m Anderson acceleration", "bounds_mode", "homotopy"],
+  "cross_refs": ["calib_dispatch.hpp", "src/", "leafblower.h"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-29-i0am-sraa-global-safeguard.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "i0am-B: SRAA-m Global Safeguard + Revert-to-Best",
+  "summary": "Design for a global best-error safeguard with revert-to-best and stall restart in SRAA-m acceleration.",
+  "scope": ["SRAA-m", "src/sraa.hpp", "SRAAState", "global safeguard", "revert-to-best", "stall restart", "tests/testthat/test-calibration-solvers.R"],
+  "cross_refs": ["src/sraa.hpp", "tests/testthat/test-calibration-solvers.R"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

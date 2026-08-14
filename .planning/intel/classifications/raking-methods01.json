@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/methods/raking.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "RAKING — Bounded Cyclic IPF with Water-Filling Box Projection",
+  "summary": "Explains the RAKING solver: bounded KL calibration via cyclic IPF with per-category water-filling box projection.",
+  "scope": ["RAKING solver", "cyclic IPF", "water-filling box projection", "bounded KL calibration", "SRAA-m acceleration", "src/raking.cpp"],
+  "cross_refs": ["src/raking.cpp", "src/raking.hpp"],
+  "locked": false,
+  "precedence": null,
+  "notes": "Manifest declared DOC; content is algorithm-explanation prose, consistent. Hash suffix substituted (no shell available to compute SHA-256)."
+}
