@@ -69,9 +69,19 @@ def _r_weights(data_csv, targets_json, method, out_csv, max_iter=1000):
     return pd.read_csv(out_csv)["weight"].to_numpy()
 
 
+# All nine non-AUTO rk_algorithm_t solvers (leafblower.h) on the shared
+# four-margin synthetic fixture at default bounds. oris_soft and chebyshev
+# also have dedicated, more elaborate tests further below in this file
+# (test_oris_soft_default_tol_parity asserts alm_capacity_mu_final and
+# iteration counts; test_chebyshev_default_tol_parity asserts the warm-start
+# floor mirror invariant) — these parametrize entries are additive plain
+# weight-vector coverage, not duplicates of those targeted regression locks.
+# Slots 2 (removed lbfgsb) and 7 (withdrawn Epic-K cp) are permanently
+# reserved holes and intentionally absent; "auto" is not a solver.
 @pytest.mark.skipif(not RSCRIPT_AVAILABLE, reason="Rscript not found")
 @pytest.mark.parametrize("method", [
     "greenkhorn", "logit", "raking", "oris", "sinkhorn", "newton_kl",
+    "chebyshev", "greg", "oris_soft",
 ])
 def test_weight_parity(method, tmp_path):
     df, tgt, data_csv, targets_json = _make_synthetic(tmp_path)
