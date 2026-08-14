@@ -16,11 +16,15 @@ tol=0.001) on both sides so the stopping point is fixed by the spec, not the
 per-method default.  Same spec → same stopping point → byte-identical weights
 from the shared C++ core.
 
-The logit case (test_logit_default_rule_parity) deliberately passes NO explicit
-rule (convergence=list()/{}) to LOCK the per-method DEFAULT-rule resolution
-across bindings.  Both R parse_convergence() and Python _parse_convergence()
-resolve method="logit" + empty convergence to (metric=max_err, rule=improvement,
-pct_tol=0.001) — integer codes metric=0, rule=1.  See leafblower-6uhm.2.
+The logit, raking, and sinkhorn default-rule cases (test_*_default_rule_parity)
+deliberately pass NO explicit rule (convergence=list()/{}) to LOCK the
+per-method DEFAULT-rule resolution across bindings.  Both R parse_convergence()
+and Python _parse_convergence() resolve method="logit" + empty convergence to
+(metric=max_err, rule=improvement, pct_tol=0.001) — integer codes metric=0,
+rule=1.  See leafblower-6uhm.2.  raking and sinkhorn resolve to rule=improvement
+too, measured on this fixture; SC2 exists because a per-method default can
+diverge between bindings and weight parity on a machine-precision fixture
+cannot detect that divergence by itself.
 
 greenkhorn/sinkhorn are entropic solvers — sum(w) != n by construction.
 Parity assertion is still valid: both sides call the same C++ core.
@@ -275,3 +279,52 @@ def test_sinkhorn_parity():
     max_error precheck uses the marginal-error metric, not sum-of-weights.
     """
     _assert_parity("sinkhorn")
+
+
+def test_raking_default_rule_parity():
+    """raking with NO explicit rule: R↔Python weights match to rtol=1e-6.
+
+    Locks the per-method DEFAULT-rule resolution: harvest(..., method="raking",
+    convergence=list()/{}) must resolve to the SAME (metric, rule, tol) on both
+    bindings, per the same reasoning as test_logit_default_rule_parity. On this
+    fixture both bindings converge to ~1e-16, so weight parity alone cannot
+    distinguish a threshold-rule default from an improvement-rule default
+    (both stop at the same iterate) — the resolved rule string is therefore
+    asserted separately, on both bindings, before delegating to
+    _assert_parity for the weights.
+    """
+    # Resolved-rule lock: both bindings must default raking to "improvement".
+    _, ri_py = _run_py("raking", conv_py={})
+    assert ri_py.get("convergence_used", {}).get("rule") == "improvement", (
+        f"Python raking default rule = "
+        f"{ri_py.get('convergence_used', {}).get('rule')!r}, expected 'improvement'"
+    )
+    r_out = _run_r("raking", conv_r="list()")
+    assert r_out.get("rule") == "improvement", (
+        f"R raking default rule = {r_out.get('rule')!r}, expected 'improvement'"
+    )
+    # Weight parity over the shared fixture.
+    _assert_parity("raking", conv_py={}, conv_r="list()")
+
+
+def test_sinkhorn_default_rule_parity():
+    """sinkhorn with NO explicit rule: R↔Python weights match to rtol=1e-6.
+
+    Locks the per-method DEFAULT-rule resolution, mirroring
+    test_logit_default_rule_parity. sinkhorn converges to ~1e-16 on this
+    fixture, so weight parity alone cannot distinguish a rule divergence —
+    the resolved rule string is asserted on both bindings before the weight
+    comparison.
+    """
+    # Resolved-rule lock: both bindings must default sinkhorn to "improvement".
+    _, ri_py = _run_py("sinkhorn", conv_py={})
+    assert ri_py.get("convergence_used", {}).get("rule") == "improvement", (
+        f"Python sinkhorn default rule = "
+        f"{ri_py.get('convergence_used', {}).get('rule')!r}, expected 'improvement'"
+    )
+    r_out = _run_r("sinkhorn", conv_r="list()")
+    assert r_out.get("rule") == "improvement", (
+        f"R sinkhorn default rule = {r_out.get('rule')!r}, expected 'improvement'"
+    )
+    # Weight parity over the shared fixture.
+    _assert_parity("sinkhorn", conv_py={}, conv_r="list()")
