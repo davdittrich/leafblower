@@ -65,15 +65,33 @@ could cause them is touched.
      1e-10 across 50 randomly generated datasets (KPI-02's own wording).
   5. `Rscript -e 'testthat::test_dir("tests/testthat")'` runs under the testthat edition the
      project documents, with the `DESCRIPTION` field and `CLAUDE.md` in agreement.
-**Beads**: `leafblower-og7d`; file tickets for the four parity/property gaps at plan time
-(sourced from `.planning/codebase/CONCERNS.md` § Test Coverage Gaps).
+**Beads**: `leafblower-og7d` (epic), `leafblower-x7n8` (P0, gate-collection gap, sequences
+first). Filed at plan time from `.planning/codebase/CONCERNS.md` § Test Coverage Gaps:
+`leafblower-og7d.1` (SC1 parity matrix), `.2` (SC2 raking/sinkhorn convergence-rule), `.3`
+(SC3 logit tolerance), `.4` (KPI-02 property test). Also filed: `leafblower-og7d.5` — a
+plan-time finding that `newton_kl` returns weights outside `[min_weight, max_weight]` in
+`bounds_mode="unit"`, in tension with KPI-02 and scheduled no earlier than Phase 2.
 **Notes for planning**: Moving to testthat 3e changes `expect_equal` to waldo semantics and
 deprecates `expect_equivalent` across ~94 test files — expect fallout, and treat any newly
 failing assertion as a finding, not noise. New parity tests follow the four-step protocol
 documented at `python/leafblower/test_solver_parity.py:7-11`, including the
 **precheck-both-sides-converged** step, so a non-converged run fails loudly instead of
 silently skipping the comparison.
-**Plans**: TBD
+
+Measured at plan time (2026-08-15), superseding two assumptions in the criteria above:
+SC1's "eight shipped solvers" is **nine** — the live `rk_algorithm_t` has nine non-AUTO
+values and the set missing from the parity matrix is three methods (`chebyshev`, `greg`,
+`oris_soft`), not one. SC5's edition-3 fallout is **zero failures**: the suite reports
+`FAILED=0 ERROR=0 PASSED=1025` under both editions, and the only delta is five deprecation
+warnings from the 11 `context()` files, so the "expect fallout across ~94 test files" note
+overstates the risk. `expect_equivalent`, `expect_that` and `expect_is` appear in no file.
+**Plans:** 4 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Relocate the parity file into the blocking gate, extend the matrix to all nine solvers, retire the unexplained logit tolerance (SC1, SC3, `leafblower-x7n8`)
+- [ ] 01-02-PLAN.md — Convergence-rule and `max_error` parity for raking and sinkhorn (SC2)
+- [ ] 01-03-PLAN.md — Property-based weight-bound test over 50 fixed stratified datasets (KPI-02, SC4)
+- [ ] 01-04-PLAN.md — testthat edition 3, fix-first-then-flip (SC5, `leafblower-og7d`)
 
 ### Phase 2: One Engine, Not Two
 **Goal**: An R user and a Python user get the same number because they ran the same code,
@@ -197,7 +215,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Verification Coverage Closed | 0/TBD | Not started | - |
+| 1. Verification Coverage Closed | 0/4 | Planned | - |
 | 2. One Engine, Not Two | 0/TBD | Not started | - |
 | 3. Honest Performance Gate | 0/TBD | Not started | - |
 | 4. Truthful Surface | 0/TBD | Not started | - |
