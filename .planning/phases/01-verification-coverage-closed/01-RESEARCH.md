@@ -436,9 +436,10 @@ LOGIT, NEWTON_KL`.
 **If this table is empty:** N/A — three assumptions logged above; none are structural risks
 to the phase's success criteria.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does SC1's "eight shipped solvers" literally mean 8, or is it a stale echo of
+1. **RESOLVED — adopted 9 (full enum coverage).** Plan 01-01 Task 2 targets all 9 non-`AUTO`
+   solvers. Does SC1's "eight shipped solvers" literally mean 8, or is it a stale echo of
    `DESCRIPTION`'s 8-name prose list that predates `oris_soft` being split out as its own
    enum value?**
    - What we know: the live enum has 9 non-`AUTO` values (`[VERIFIED: src/leafblower.h:42-
@@ -455,7 +456,9 @@ to the phase's success criteria.
      counted in it, and it is strictly safer (more coverage, not less) if the planner's
      interpretation differs from the roadmap author's original count.
 
-2. **What KPI-02-mandated location is "the property-based test in `test-harvest.R`"
+2. **RESOLVED — adopted new dedicated file.** Plan 01-03 creates
+   `tests/testthat/test-bound-property.R` rather than appending to `test-harvest.R`. What
+   KPI-02-mandated location is "the property-based test in `test-harvest.R`"
    literally, given D-01's "sits beside the six targeted bound tests"?**
    - What we know: `REQUIREMENTS.md`'s KPI-02 row cites `test-harvest.R` by name (echoing
      the PRD's original §11 KPI table); `tests/testthat/` follows a strict one-file-per-
