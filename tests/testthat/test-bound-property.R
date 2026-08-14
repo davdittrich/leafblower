@@ -205,3 +205,52 @@ test_that("bound invariant holds across 50 fixed stratified datasets and 8 solve
   # count to 34/50, below this floor).
   expect_gte(n_engaged, 40L)
 })
+
+# ---------------------------------------------------------------------------
+# Task 3/4 decision (leafblower-og7d.5): newton_kl is the ninth solver and is
+# NOT part of the unconditional sweep above. Measured during planning and
+# reproduced here on the Task-1 tracer fixture (`.bound_fixture_1`, seed 7):
+# newton_kl returns min(w) ~ 0.005, max(w) ~ 130-740 depending on RNG state,
+# far outside [0.2, 5], with n_bounds_clamped = 0 -- the per-cell water-fill
+# the other 8 solvers rely on never runs for this solver.
+# `tests/testthat/test-newton-bounds-write-guard.R` documents WHY: newton_kl
+# has a deliberate, shipped report-do-not-clamp contract (leafblower-73d7,
+# "T4") -- when more than 5% of weights violate the bound, it sets
+# status=RK_ERR_NOCONV and surfaces n_bounds_violated > 0 instead of
+# water-filling the violating vector into range.
+#
+# KPI-02's literal "min(w) >= min_weight / max(w) <= max_weight
+# unconditionally" wording and this contract are genuinely incompatible for
+# this one solver. DECISION (option-a, leafblower-og7d.5): pin the shipped
+# reporting contract rather than the water-fill invariant. newton_kl stays
+# excluded from the unconditional bound assertion above -- KPI-02's scope for
+# the water-fill invariant is the 8 bounds-enforcing solvers, and newton_kl is
+# a documented, tested exception, not a silent omission. This assertion is
+# strictly stronger than omitting the solver entirely: it fails if a future
+# regression ever returns violating weights while reporting status=RK_OK.
+test_that("newton_kl reports (not clamps) bound violations -- documented KPI-02 exception (leafblower-og7d.5)", {
+  f <- .bound_fixture_1()
+  res <- suppressWarnings(
+    harvest(f$df, f$target, method = "newton_kl", design_weights = f$dw,
+            min_weight = 0.2, max_weight = 5, bounds_mode = "unit",
+            max_iterations = 1000L, attach_weights = TRUE)
+  )
+  w <- res$weights
+  r <- attr(res, "result")
+
+  violates <- any(w < 0.2 - 1e-10) || any(w > 5 + 1e-10)
+  expect_true(violates,
+              info = "fixture no longer drives newton_kl out of bounds -- decision test is vacuous, re-derive the fixture")
+
+  # The reporting contract pinned by this decision: a violating result MUST
+  # carry a non-OK status and a non-zero violation count. This is what fails
+  # if newton_kl ever silently returns violating weights under status=RK_OK.
+  expect_false(r$status == 0L,
+               info = sprintf("newton_kl returned violating weights (min=%.6f, max=%.6f) but status=RK_OK (0) -- silent violation regression",
+                               min(w), max(w)))
+  expect_gt(r$n_bounds_violated, 0L)
+
+  # Confirms the report-do-not-clamp mechanism, not a coincidence: the
+  # per-cell water-fill the other 8 solvers rely on did not run.
+  expect_equal(r$n_bounds_clamped, 0L)
+})
