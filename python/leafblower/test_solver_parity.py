@@ -1,4 +1,5 @@
-"""R↔Python parity tests for greg, newton_kl, logit, chebyshev, greenkhorn.
+"""R↔Python parity tests for greg, newton_kl, logit, chebyshev, greenkhorn,
+raking, sinkhorn.
 
 Fixture generated from R: set.seed(42); sample(c("x","y","z"), 300, replace=TRUE)
 and sample(c("p","q"), 300, replace=TRUE).  Embedded as constants so both sides
@@ -100,8 +101,12 @@ _CONV_R  = 'list(rule="improvement", tol=0.001)'
 #   logit       max_error = 2.22e-16
 #   chebyshev   max_error = 1.74e-13
 #   greenkhorn  max_error = 0.0         (exact marginal match; NOT > 0.01)
+#   raking      max_error = 5.551e-17
+#   sinkhorn    max_error = 1.110e-16
 # greenkhorn's max_error is the marginal-residual metric (not chi2/KL); it
 # converges the marginals exactly on this fixture, so 0.01 has full headroom.
+# raking and sinkhorn are the two tightest of every solver in this file;
+# greg remains the binding case and 0.01 needs no change.
 # If any of these regresses past 0.01 the precheck assert fires loudly,
 # surfacing a fixture/convergence regression rather than masking it.
 _CONV_TOL = 0.01
@@ -255,3 +260,18 @@ def test_greenkhorn_parity():
     max_error precheck uses the marginal-error metric, not sum-of-weights.
     """
     _assert_parity("greenkhorn")
+
+
+def test_raking_parity():
+    """raking: R↔Python weights match to rtol=1e-6."""
+    _assert_parity("raking")
+
+
+def test_sinkhorn_parity():
+    """sinkhorn: R↔Python weights match to rtol=1e-6.
+
+    sinkhorn is an entropic solver — sum(w) != n by construction.
+    Parity assertion is still valid: both sides call the same C++ core.
+    max_error precheck uses the marginal-error metric, not sum-of-weights.
+    """
+    _assert_parity("sinkhorn")
