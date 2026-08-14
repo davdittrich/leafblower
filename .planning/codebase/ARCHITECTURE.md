@@ -1,313 +1,337 @@
-<!-- refreshed: 2026-08-14 -->
+<!-- refreshed: 2026-08-15 -->
 # Architecture
 
-**Analysis Date:** 2026-08-14
+**Analysis Date:** 2026-08-15
 
 ## System Overview
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                    User-facing language layers               │
-├──────────────────────────────┬──────────────────────────────┤
-│   R package (S3-free lists)  │   Python package (pandas)    │
-│   `R/harvest.R`              │   `python/leafblower/`       │
-│   `R/design_effect.R`        │     `_harvest.py`            │
-│   `R/diagnose_weights.R`     │     `_design_effect.py`      │
-└──────────────┬───────────────┴───────────────┬──────────────┘
-               │ .Call(C_rk_calibrate, …)      │ _leafblower.calibrate(…)
-               ▼                                ▼
-┌──────────────────────────────┬──────────────────────────────┐
-│  R bridge (SEXP marshalling) │  pybind11 bridge             │
-│  `src/r_bridge.cpp`          │  `python/leafblower/`        │
-│  39-arg .Call, own dispatch  │    `_bindings.cpp`           │
-│  on method STRING            │  calls the C API             │
-└──────────────┬───────────────┴───────────────┬──────────────┘
-               │                                │
-               │            ┌───────────────────┘
-               ▼            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  C ABI  `src/leafblower.h` / `src/c_api.cpp`                │
-│  rk_calibrate() · rk_design_effect() · rk_params_init()     │
-│  AUTO routing · rk_params_t → lbw::CalibState · result pack │
-└─────────────────────────────┬───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        Public C API Layer                                 │
+│                    `src/leafblower.h` (C99-clean)                        │
+│  rk_calibrate() → rk_params_t + rk_result_t (C-compatible structs)       │
+└─────────────────────────────┬──────────────────────────────────────────┘
+                              │
+         ┌────────────────────┼─────────────────────┐
+         │                    │                     │
+         ▼                    ▼                     ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│   R Bridge      │  │  Python Bridge  │  │  C++ Internal   │
+│  `r_bridge.cpp` │  │ `_bindings.cpp` │  │   Solvers       │
+│  (Rcpp/S3)      │  │  (pybind11)     │  │ `*.cpp`/`*.hpp` │
+└────────┬────────┘  └────────┬────────┘  └────────┬────────┘
+         │                    │                    │
+         └────────────────────┼────────────────────┘
+                              │
                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Shared solver-support layer (header-only, `lbw` namespace) │
-│  `src/calib_dispatch.hpp`  metrics, convergence rules,      │
-│                            setup, finalize_weights          │
-│  `src/cell_table.hpp`      CellTable build / M_cell estimate│
-│  `src/types.hpp`           CalibState, CalibResult, configs │
-│  `src/calib_linalg.hpp` `src/lbw_math.hpp` `src/sraa.hpp`   │
-└─────────────────────────────┬───────────────────────────────┘
+        ┌─────────────────────────────────────────┐
+        │  Algorithm Dispatch Layer               │
+        │  `c_api.cpp` — route algorithm enum     │
+        │  to concrete solver implementations     │
+        └────────────┬────────────────────────────┘
+                     │
+        ┌────────────┴──────────────────────────────────────────┐
+        │                                                       │
+        ▼                                                       ▼
+┌──────────────────────────────────┐        ┌──────────────────────────────┐
+│   Iterative Solvers (BCD/IPF)    │        │   Batch/Direct Solvers       │
+│  • ORIS `oris.cpp`               │        │  • GREG `greg.cpp`           │
+│  • ORIS-Soft `oris.cpp` (ADMM)   │        │  • Chebyshev `chebyshev.cpp` │
+│  • Raking `raking.cpp`           │        │  • Newton-KL                 │
+│  • Sinkhorn `sinkhorn.cpp`       │        │    `newton_calib.cpp`        │
+│  • Greenkhorn `greenkhorn.cpp`   │        │  • Logit `logit_calib.cpp`   │
+│                                  │        │                              │
+└────────────┬─────────────────────┘        └──────────────┬───────────────┘
+             │                                             │
+             └────────────────┬────────────────────────────┘
+                              │
                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Solver translation units (one per algorithm)               │
-│  oris · raking · sinkhorn · greenkhorn · chebyshev · greg   │
-│  logit_calib · newton_calib                                 │
-└─────────────────────────────┬───────────────────────────────┘
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Weight finalization — the single exit funnel               │
-│  `lbw::finalize_weights[_buf]` (`src/calib_dispatch.hpp`)   │
-│  normalize Σw=n → bounds_mode dispatch                      │
-└─────────────────────────────────────────────────────────────┘
+        ┌─────────────────────────────────────────┐
+        │   Shared Infrastructure                 │
+        │  • `types.hpp` — structs, enums         │
+        │  • `calib_dispatch.hpp` — convergence   │
+        │  • `calib_validate.hpp` — bounds check  │
+        │  • `calib_linalg.cpp` — matrix ops     │
+        │  • `cell_table.cpp` — cross-tab build   │
+        │  • `design_effect.cpp` — Kish/H&V      │
+        │  • `validation.cpp` — input validation  │
+        │  • `lbw_math.hpp` — math kernels       │
+        │  • `lbw_config.h` — build config       │
+        └─────────────────────────────────────────┘
 ```
 
 ## Component Responsibilities
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| `harvest()` (R) | User entry: validate, encode margins to 0-based int codes, marshal 39 args, post-process result | `R/harvest.R:266` |
-| `harvest()` (Python) | Same contract over pandas; parses convergence/SOR dicts | `python/leafblower/_harvest.py:237` |
-| R bridge | SEXP ⇄ C++ marshalling, its OWN string-keyed solver dispatch, RAII-safe `Rf_error` unwinding | `src/r_bridge.cpp:234` |
-| pybind11 bridge | Python ⇄ C API marshalling; exports `calibrate`, `_design_effect` | `python/leafblower/_bindings.cpp:27` |
-| C ABI | Stable `extern "C"` surface + AUTO routing + result packing | `src/leafblower.h`, `src/c_api.cpp:256` |
-| Cell table | Compress n observations into M_cell distinct margin-crossing cells | `src/cell_table.hpp:20`, `src/cell_table.cpp` |
-| Dispatch helpers | `select_metric`, `apply_rule`, `check_convergence`, `solver_setup_ct`, `finalize_weights` | `src/calib_dispatch.hpp` |
-| ORIS solver | Over-Relaxed Iterative Scaling, default/AUTO primary; hot loop | `src/oris.cpp` (+ `oris_finalize.cpp`, `oris_trajectory.cpp`) |
-| Other solvers | raking, sinkhorn, greenkhorn, chebyshev, greg, logit, newton_kl | `src/raking.cpp` … `src/newton_calib.cpp` |
-| Design effect | Kish + Henry&Valliant deff, independent C entry | `src/design_effect.cpp`, `src/leafblower.h:191` |
+| **C API** | Public entry point, ABI contract, parameter/result marshaling | `src/c_api.cpp`, `src/leafblower.h` |
+| **C_rk_calibrate** | Main R entry point, S3 wrapping, list-to-struct conversion | `src/r_bridge.cpp` |
+| **Python calibrate()** | Main Python entry point, NumPy array handling, GIL management | `python/leafblower/_bindings.cpp` |
+| **Algorithm selector** | Route algorithm enum (AUTO, ORIS, RAKING, etc.) to solver | `src/c_api.cpp` (rk_calibrate) |
+| **ORIS solver** | Over-relaxed iterative scaling (box-constrained Sinkhorn BCD) | `src/oris.cpp`, `src/oris.hpp`, `src/oris_internal.hpp`, `src/oris_finalize.cpp`, `src/oris_trajectory.cpp` |
+| **Raking solver** | Raking (IPF, proportional margins adjustment) with acceleration | `src/raking.cpp`, `src/raking.hpp` |
+| **Sinkhorn solver** | Entropy-minimizing IPF (KL Bregman Dykstra) | `src/sinkhorn.cpp`, `src/sinkhorn.hpp` |
+| **GREG solver** | Generalized regression estimator (Newton QP, chi-square) | `src/greg.cpp`, `src/greg.hpp` |
+| **Chebyshev solver** | Interior-point LP-based solver (minimax norm) | `src/chebyshev.cpp`, `src/chebyshev.hpp` |
+| **Greenkhorn solver** | Greedy coordinate-descent IPF (autumn::harvest style) | `src/greenkhorn.cpp`, `src/greenkhorn.hpp` |
+| **Logit solver** | Deville-Sarndal (1992) logit Newton calibration | `src/logit_calib.cpp`, `src/logit_calib.hpp` |
+| **Newton-KL solver** | Newton-KL smooth dual (zero-compression regime, TSVD damping) | `src/newton_calib.cpp`, `src/newton_calib.hpp` |
+| **Calibration dispatch** | Convergence metrics/rules, error checking, metric selection | `src/calib_dispatch.hpp` |
+| **Cell table builder** | Cross-tabulation (cell = unique margin combination) | `src/cell_table.cpp`, `src/cell_table.hpp` |
+| **Validation** | Input range checks (group IDs, category counts, bounds) | `src/validation.cpp`, `src/validation.hpp` |
+| **Linear algebra** | Matrix solve, Cholesky, TSVD, eigendecomposition | `src/calib_linalg.cpp`, `src/calib_linalg.hpp` |
+| **Design effect** | Kish (1965) and Henry-Valliant (2015) design effect | `src/design_effect.cpp`, `src/design_effect.hpp` |
+| **Math kernels** | Numeric stability helpers, log-sum-exp, safe arithmetic | `src/lbw_math.hpp` |
 
 ## Pattern Overview
 
-**Overall:** Single numerical core, thin polyglot bridges. A C ABI is the waist of the
-hourglass; both language layers are marshalling code only — no numerics live in `R/` or
-`python/leafblower/*.py`.
+**Overall:** Pluggable solver architecture with shared convergence and validation infrastructure.
 
 **Key Characteristics:**
-- Cell-table compression: all solvers work in cell space (`M_cell` ≤ n), then expand to
-  observations once at exit (`expand_obs`, `src/calib_dispatch.hpp:294`).
-- Solver polymorphism by convention, not virtual dispatch: each solver is a free function
-  `lbw::<name>_solve(CalibState&) -> <Name>Result`, and every result struct embeds
-  `CalibResult base` (`src/types.hpp:87`). Packing is done by C++ templates
-  (`pack_solver_result`, `src/c_api.cpp:57`) plus SFINAE traits for optional fields.
-- Header-only shared layer: `calib_dispatch.hpp` is `inline`-everything so hot helpers
-  inline into each solver TU (there is no LTO — see Constraints).
-- ABI is frozen with `static_assert` tripwires on struct sizes
-  (`src/leafblower.h:245`, `:269`).
+- **Single solver entry** — `rk_calibrate(n, K, weights, group_ids, cat_counts, targets, params, result)` dispatches to 9 distinct algorithms via `rk_algorithm_t` enum
+- **Shared result packing** — `CalibResult` base struct (status, iterations, metrics) embedded in every solver-specific result type; `c_api.cpp` and `r_bridge.cpp` unpack solver results into C-compatible `rk_result_t`
+- **Algorithm-agnostic convergence** — `calib_dispatch.hpp::apply_rule()` and `select_metric()` reduce repetitive convergence switching across ORIS, raking, etc.
+- **Cross-language support** — same C core wrapped by R (Rcpp + roxygen2) and Python (pybind11 + scikit-build), parity validated via co-located test suites
+- **Bounds enforcement** — two modes: `RK_BOUNDS_CELL` (cell-aggregate, default) and `RK_BOUNDS_UNIT` (per-observation water-filling via ORIS)
 
 ## Layers
 
-**Language layer (R):**
-- Purpose: argument validation, factor/character → integer margin codes, NA-bin encoding,
-  auto-collapse of rare categories, result naming and diagnostics.
-- Location: `R/` (`harvest.R`, `anesrake.R`, `design_effect.R`, `diagnose_weights.R`,
-  `current_miss.R`, `weighted_pct.R`, `na_bin.R`, `zzz.R`).
-- Depends on: registered C symbols via `useDynLib(leafblower, .registration = TRUE)` (`NAMESPACE:1`).
-- Used by: package users; exported set is 7 functions (`NAMESPACE`).
+**C API Layer:**
+- Purpose: Language-agnostic FFI contract, C99-clean public header
+- Location: `src/leafblower.h`, `src/c_api.cpp`
+- Contains: Enum definitions (`rk_algorithm_t`, `rk_bounds_mode_t`), struct definitions (`rk_params_t`, `rk_result_t`), parameter initialization, result initialization, main `rk_calibrate()` entry point, ABI tripwires (static_assert on struct sizes)
+- Depends on: Nothing — header-only C dependencies
+- Used by: R bridge, Python bindings, any external C caller
 
-**Language layer (Python):**
-- Purpose: same contract over pandas DataFrames.
-- Location: `python/leafblower/_harvest.py`, `_design_effect.py`, `__init__.py`.
-- Depends on: `from ._leafblower import calibrate` (`python/leafblower/_harvest.py:8`).
+**R Bridge Layer:**
+- Purpose: Translate R S3 objects → C structs, manage RAII cleanup (deferred throw on bad scalar args), wrap results as R list
+- Location: `src/r_bridge.cpp`
+- Contains: `C_rk_calibrate()` native routine (exported via `NAMESPACE`), scalar extraction helpers, struct marshaling, roxygen2 wrapper `harvest()`
+- Depends on: C API, R internals (`<R.h>`, `<Rinternals.h>`), `types.hpp` (enum names for dispatch)
+- Used by: R code via `.Call()`, roxygen2 wrapping
 
-**Bridge layer:**
-- `src/r_bridge.cpp` — 1274 lines, registers 6 `.Call` entries (`src/r_bridge.cpp:182-188`);
-  `C_rk_calibrate` takes 39 SEXP args. It is EXCLUDED from the Python build.
-- `python/leafblower/_bindings.cpp` — pybind11 module `_leafblower`.
+**Python Binding Layer:**
+- Purpose: NumPy array marshaling, GIL release during solve, callback trampoline for logging
+- Location: `python/leafblower/_bindings.cpp`
+- Contains: `calibrate()` pybind11 module function, array size validation, GIL re-acquisition for py_log_trampoline
+- Depends on: C API, pybind11 headers
+- Used by: `python/leafblower/__init__.py` (imports the compiled `_leafblower` module)
 
-**C ABI layer:**
-- `src/leafblower.h` — `rk_params_t`, `rk_result_t`, `rk_algorithm_t`, return codes.
-- `src/c_api.cpp` — `rk_calibrate` (`:256`), `rk_design_effect` (`:590`), defaults (`:177`).
+**Algorithm Dispatch Layer:**
+- Purpose: Route `params.algorithm` enum to concrete solver, handle AUTO routing heuristics, pack solver results into rk_result_t
+- Location: `src/c_api.cpp` (main rk_calibrate function, lines ~170-550)
+- Contains: Algorithm name lookup table (kAlgNames), AUTO heuristic (M_cell estimation → ORIS if M_cell > threshold, else raking), solver-specific result packing (pack_solver_result, pack_oris_result_c, pack_newton_result_c)
+- Depends on: All solver headers, calib_dispatch, cell_table, validation
+- Used by: C API entry point
 
-**Shared solver-support layer (`lbw` namespace, header-only):**
-- `src/calib_dispatch.hpp` — canonical home for anything shared by 2+ solvers.
-- `src/cell_table.hpp` / `.cpp` — CellTable-specific helpers only.
-- `src/types.hpp` — `CalibState` (solver input) and `CalibResult` (solver output base).
-- `src/calib_linalg.hpp`, `src/lbw_math.hpp` (bulk `exp`/`log`, AVX2 libmvec path),
-  `src/sraa.hpp` (Anderson acceleration), `src/calib_validate.hpp`, `src/validation.hpp`.
+**Solver Layer (9 algorithms):**
+- Purpose: Distinct mathematical formulation, each with own convergence logic and result struct
+- Locations: `src/oris.cpp`, `src/raking.cpp`, `src/sinkhorn.cpp`, `src/greg.cpp`, `src/chebyshev.cpp`, `src/greenkhorn.cpp`, `src/logit_calib.cpp`, `src/newton_calib.cpp`, plus ORIS internals (`oris_finalize.cpp`, `oris_trajectory.cpp`, `oris_internal.hpp`)
+- Pattern: Each solver `<name>.cpp` defines struct `<Name>Result : public CalibResult { ... solver-specific fields ... }` and function `<Name>Result <name>_solve(CalibState&)`
+- Shared utilities: `calib_dispatch::apply_rule()`, `calib_dispatch::select_metric()`, `calib_validate` bounds checking, `calib_linalg` for matrix ops
+- Depends on: types.hpp, calib_dispatch, calib_validate, calib_linalg, lbw_math.hpp, cell_table.hpp
+- Used by: Algorithm dispatch layer
 
-**Solver layer:**
-- One `.cpp` + `.hpp` pair per algorithm, all in `namespace lbw`. ORIS is split across three
-  TUs (`oris.cpp`, `oris_finalize.cpp`, `oris_trajectory.cpp`, shared `oris_internal.hpp`).
+**Convergence Helpers:**
+- Purpose: Eliminate triplicated convergence switches across solvers
+- Location: `src/calib_dispatch.hpp` (inline functions)
+- Contains: `select_metric(CalibMetric, max_err, mean_err, ...)` — pick active metric; `apply_rule(CalibRule, curr, prev, tol)` — test convergence criterion (THRESHOLD/IMPROVEMENT/PLATEAU)
+- Invariant: all rules require finite curr and tol > 0; IMPROVEMENT skips first check (prev=inf); PLATEAU skips when prev non-finite
+- Used by: All iterative solvers (ORIS, raking, sinkhorn, greenkhorn, logit, chebyshev)
+
+**Cell Table Builder:**
+- Purpose: Build cross-tabulation (every unique combination of margin categories = one cell); enables matrix-free IPF and compression diagnostics
+- Location: `src/cell_table.cpp`, `src/cell_table.hpp`
+- Contains: `build_cell_table()` — returns CellTable with M_cell count, cell_of mapping (obs → cell), n_per_cell counts, g_per_cell (margin category per cell); `estimate_M_cell()` — O(n) fast path for AUTO routing; `build_cells_per_cat()` — inverted index (cell → obs per margin category)
+- Depends on: types.hpp, leafblower.h (K_MAX=64 limit)
+- Used by: c_api (AUTO routing, cell count diagnostic), all solvers for matrix-free computation
+
+**Validation Layer:**
+- Purpose: Input sanitization before solver dispatch
+- Location: `src/validation.cpp`, `src/validation.hpp`
+- Contains: `validate_inputs()` — checks group_ids range ([-1, cat_counts[k])), cat_counts > 0, weights > 0, dimension consistency, K ≤ K_MAX
+- Depends on: leafblower.h (return codes)
+- Used by: c_api, validation tests
+
+**Math/Numerics:**
+- Purpose: Cancellation-free arithmetic, stable log-sum-exp, adaptive finite-difference, condition number estimation
+- Location: `src/lbw_math.hpp` (inline), `src/calib_linalg.cpp`/.hpp
+- Contains: `logsumexp()`, `norm_weighted()`, TSVD truncation, Cholesky solve, regularized solve with ridge penalty, spectral condition number
+- Depends on: Eigen (externally linked), LAPACK/BLAS (system)
+- Used by: All solvers for matrix ops and stable computation
 
 ## Data Flow
 
-### Primary calibration path (R)
+### Primary Solver Path (e.g., ORIS)
 
-1. `harvest(data, target, …)` validates and encodes each margin column to a 0-based
-   `integer` vector (`-1` = NA/OOV) (`R/harvest.R:266`, encoding block `R/harvest.R:554`).
-2. `map_method()` normalizes the method string; convergence/SOR dicts parsed
-   (`R/harvest.R:975`, `:989`, `:1072`).
-3. `.Call(C_rk_calibrate, …)` with 39 arguments (`R/harvest.R:600`).
-4. `C_rk_calibrate` builds `lbw::CalibState st`, then dispatches on the method STRING
-   (`src/r_bridge.cpp:620` onward) directly into `lbw::<solver>_solve(st)` — it does NOT go
-   through `rk_calibrate`.
-5. Solver: `solver_setup_ct(st, ct, …)` builds the CellTable, `X_init`, cell bounds and runs
-   pre-entry validation (`src/calib_dispatch.hpp:511`); the iteration loop calls
-   `compute_cell_metrics` (`:247`) and `check_convergence` (`:204`) each check interval, with
-   `BestIterTracker` (`:136`) holding the best iterate.
-6. Exit: `expand_obs` (cell → obs, no clamp) then `lbw::finalize_weights` /
-   `finalize_weights_buf` (`src/calib_dispatch.hpp:359`).
-7. Bridge packs fields via the `pack_solver_result` lambda (`src/r_bridge.cpp:571`) and
-   returns a named list; R re-nests convergence fields and maps status → message
-   (`R/harvest.R:700-770`).
+1. **Entry** `rk_calibrate(n, K, weights, group_ids, cat_counts, targets, params, result)` (`src/c_api.cpp:~190`)
+2. **Validation** → `validation::validate_inputs()` checks array bounds, K ≤ 64 (`src/validation.cpp`)
+3. **Algorithm selection** → if `params.algorithm == RK_ALG_AUTO`, estimate M_cell and pick ORIS or raking (`src/c_api.cpp:~220`)
+4. **Cell table build** → `build_cell_table(n, K, group_ids, cat_counts, weights, cell_table)` maps each obs to a cell (`src/cell_table.cpp`)
+5. **State marshaling** → pack `group_ids`, `targets`, convergence config into `CalibState` struct (`src/c_api.cpp:~250`)
+6. **Solver invoke** → `oris_solve(state)` runs block-coordinate descent on Sinkhorn dual (`src/oris.cpp`)
+   - Inner loop: cycle through each margin, update IPF scaling factors
+   - Convergence check: `calib_dispatch::apply_rule(params.rule, curr_metric, prev_metric, params.pct_tol)` every `kErrCheckInterval` iters
+   - On convergence: cap iterations, store best_weights snapshot
+7. **Result packing** → `pack_oris_result_c(result, oris_result)` copies ORISResult.base → rk_result_t and ORIS diagnostics (`src/c_api.cpp:~95`)
+8. **Return** → status code (RK_OK / RK_ERR_NOCONV / ...) to caller
 
-### Primary calibration path (Python / direct C)
+### Algorithm Selection (AUTO Routing)
 
-1. `leafblower.harvest(df, targets, …)` (`python/leafblower/_harvest.py:237`).
-2. `_leafblower.calibrate(…)` (`python/leafblower/_bindings.cpp:30`).
-3. `rk_calibrate` (`src/c_api.cpp:256`): resolves algorithm, validates
-   (`validate_inputs`, `:336`), rejects non-finite homotopy factors (`:343`), builds
-   `CalibState` (`:352`), dispatches on the `rk_algorithm_t` enum (`:414-548`).
-4. Same solver → `finalize_weights` path as above.
-5. AUTO-only fallback: on `RK_ERR_NOCONV` / `RK_ERR_BUDGET` the original weights are
-   restored and `newton_calibrate` is re-run (`src/c_api.cpp:554-570`).
+1. `estimate_M_cell()` counts unique cells, capped at n
+2. If M_cell > threshold (heuristic: ~n/10 or algorithm-specific): route to ORIS (sparse problem, compression saves iterations)
+3. Else: route to raking (dense problem, IPF is competitive)
+4. Diagnostic: `result.homotopy_levels_used` = 1 if AUTO selected a single-pass algorithm
 
-### AUTO algorithm routing (`src/c_api.cpp:292-330`)
+### Convergence Check Flow
 
-1. `estimate_M_cell(n, K, group_ids, cat_counts)` — O(n) cell-count estimate.
-2. `M_cell*10 < n*9` (compression ratio < 0.9) → `RK_ALG_ORIS`.
-3. Else `K < 5` → `RK_ALG_RAKING`.
-4. Else compute `target_skew = max_T / max(min_T, 1e-12)`; `> 5.0` → `RK_ALG_ORIS` with
-   `st.accelerate = true` (SRAA), otherwise `RK_ALG_NEWTON_KL`.
+```
+Every kErrCheckInterval (default 10 iters):
+  1. Compute calibration metrics: max_err, mean_err, kl, chi2, grake_norm, l1_weight_change
+  2. select_metric(params.metric) → extract the active metric
+  3. apply_rule(params.rule, curr, prev_metric, tol) → test convergence:
+     - THRESHOLD: curr < tol
+     - IMPROVEMENT: |curr - prev| / prev < tol (skip if prev ≤ 1e-15 or non-finite)
+     - PLATEAU: curr >= prev * (1 - tol) [metric did NOT improve by ≥tol fraction]
+  4. If converged (via selected rule) and params.stop_when=ANY: exit
+  5. If multiple rules active (stop_when=ALL): test all, exit when all fire
+  6. If not converged: update prev_metric, continue looping
+```
+
+### Python/R Bridge Data Flow
+
+**R:**
+- `harvest(..., algorithm="oris")` (R wrapper, `R/harvest.R`)
+- ↓ roxygen2 → `.Call("C_rk_calibrate", ...)`
+- ↓ `src/r_bridge.cpp::C_rk_calibrate()` extracts scalars, builds rk_params_t
+- ↓ `rk_calibrate()` (C API, solves)
+- ↓ `src/r_bridge.cpp` packs rk_result_t → R list
+- ← Returns S3 `harvest_result` list
+
+**Python:**
+- `leafblower.calibrate(n, K, weights_np, group_ids_list, ...)` (Python wrapper)
+- ↓ `python/leafblower/_bindings.cpp::calibrate()` (pybind11)
+- ↓ Validates NumPy array sizes, builds std::vector<const int32_t*> pointers
+- ↓ Releases GIL (py::gil_scoped_release) during rk_calibrate
+- ↓ `rk_calibrate()` (C API, solves); py_log_trampoline re-acquires GIL on callback
+- ↓ Packs rk_result_t → Python dict
+- ← Returns (weights_np, result_dict) tuple
 
 **State Management:**
-- `CalibState` (`src/types.hpp:116`) is the single mutable solver input; `st.weights` is a
-  caller-owned `double*` mutated in place. All other pointers are borrowed, never owned.
-- Results are values (`ORISResult`, `RakingResult`, …) returned by value, moved into the
-  bridge.
+- Weights: updated in-place during solve (C array modified, reflected back to caller)
+- Result: struct populated by solver, copied to caller's output struct (no aliasing)
+- Cell table: local (destroyed on return); not exposed to R/Python
 
 ## Key Abstractions
 
-**`CalibState`:**
-- Purpose: everything a solver needs — data pointers, bounds, tolerances, every overlay
-  config (homotopy, scheduler, eta schedule, convergence, SOR, ALM).
-- File: `src/types.hpp:116`.
+**CalibResult (base struct):**
+- Purpose: Shared result fields across all solvers (status, iterations, metrics, convergence metadata)
+- Examples: `ORISResult { CalibResult base; ...; }`, `RakingResult { CalibResult base; ...; }`
+- Pattern: Each solver's result struct inherits (embeds) CalibResult and extends it with solver-specific diagnostics (e.g., ORIS adds sor_min_omega, alm_capacity_mu_final)
+- File: `src/types.hpp`
 
-**`CalibResult` (`res.base`):**
-- Purpose: the field block every solver result carries. VERIFIED: all solver structs embed
-  it as a member named `base` (`src/oris.hpp:8`), and every consumer reads `res.base.status`
-  etc. (`src/c_api.cpp:60-79`, `src/r_bridge.cpp:571`). Direct `res.status` does not compile
-  / is not present — the CLAUDE.md invariant holds.
+**CalibState (solver configuration):**
+- Purpose: Unified input struct for all solvers (weights, group_ids, targets, convergence config, etc.)
+- Contains: n, K, pointers to arrays, bounds, tolerances, convergence criterion (metric/rule), homotopy/scheduler/eta config, ALM config, ridge penalty, etc.
+- Pattern: Built once by c_api, passed by reference to solver; solver reads (does not modify except weights)
+- File: `src/types.hpp`
 
-**`CellTable`:**
-- Purpose: compress observations to distinct margin-crossing cells; `cell_of[i]`,
-  `n_per_cell[c]`, `g_per_cell[k][c]`.
-- File: `src/cell_table.hpp:7`. `K_MAX = 64` (`:37`).
+**CellTable (compression mapping):**
+- Purpose: Fast cross-tabulation; enables IPF without dense matrix allocation
+- Contains: M_cell (unique cell count), cell_of (n-elem obs→cell map), n_per_cell (M_cell-elem counts), g_per_cell (K×M_cell category grid)
+- Pattern: Built by `build_cell_table()`; passed to solver; solver loops over cells, not all n obs
+- File: `src/cell_table.hpp`
 
-**`BestIterTracker`:**
-- Purpose: uniform best-iterate bookkeeping, replacing per-solver ad-hoc variables.
-- File: `src/calib_dispatch.hpp:136`.
+**rk_params_t (C-exposed config):**
+- Purpose: Language-agnostic parameter struct; ABI-frozen (264 bytes, checked via static_assert)
+- Contains: min_weight, max_weight, tolerances, algorithm enum, bounds_mode, overlay knobs (homotopy, scheduler, eta, SOR, ALM), convergence (metric/rule/thresholds)
+- Pattern: Caller fills via defaults (rk_params_init) and selective overrides; solver reads (no modification)
+- File: `src/leafblower.h`
+
+**rk_result_t (C-exposed output):**
+- Purpose: Language-agnostic result struct; ABI-frozen (536 bytes)
+- Contains: status, iterations, max_error, mean_error, kl, chi2, algorithm_used, convergence metadata, ORIS-specific diagnostics (sor_*, alm_*, homotopy_*), design-effect diagnostics
+- Pattern: Zero-initialized by caller; solver writes via pack functions; caller reads (read-only after return)
+- File: `src/leafblower.h`
 
 ## Entry Points
 
-**`harvest()` (R):** `R/harvest.R:266` — main calibration API.
-**`harvest()` (Python):** `python/leafblower/_harvest.py:237`.
-**`rk_calibrate()` (C ABI):** `src/c_api.cpp:256`, declared `src/leafblower.h:226`.
-**`C_rk_calibrate` (.Call):** `src/r_bridge.cpp:234`, registered `src/r_bridge.cpp:185`.
-**`_leafblower.calibrate` (pybind11):** `python/leafblower/_bindings.cpp:30`.
-**`rk_design_effect()`:** `src/c_api.cpp:590`; R side `R/design_effect.R:35`.
-**`R_init_leafblower` symbol table:** `src/r_bridge.cpp:182-188` (6 entries).
+**C Entry Point:**
+- Location: `src/c_api.cpp::rk_calibrate()`
+- Triggers: Called by R bridge (via .Call) or Python bindings
+- Responsibilities: Validate inputs, route algorithm, build cell table, marshal CalibState, invoke solver, pack result
+
+**R Entry Point:**
+- Location: `src/r_bridge.cpp::C_rk_calibrate()`
+- Triggers: Invoked via `.Call("C_rk_calibrate", ...)` from R roxygen2 wrapper `harvest()`
+- Responsibilities: Extract scalars from SEXP, build rk_params_t, call rk_calibrate(), pack rk_result_t → R list
+
+**Python Entry Point:**
+- Location: `python/leafblower/_bindings.cpp::calibrate()` (pybind11 module)
+- Triggers: Called from `python/leafblower/__init__.py` via `_leafblower.calibrate(...)`
+- Responsibilities: Validate NumPy arrays, build std::vector pointers, release GIL, call rk_calibrate(), pack rk_result_t → Python dict
 
 ## Architectural Constraints
 
-- **No LTO.** VERIFIED: `-flto` appears in neither `configure` nor `src/Makevars.in`.
-  Consequence: cross-TU calls do not inline. When splitting a TU, move only COLD
-  (once-per-solve) code out; the hot per-iteration loop must stay with its callers. `oris` is
-  split exactly this way — `oris_solve` stays in `oris.cpp`, finalization and trajectory dump
-  moved to `oris_finalize.cpp` / `oris_trajectory.cpp`.
-- **No `-O` level set by the package.** VERIFIED: `src/Makevars.in` states it explicitly and
-  `PKG_CXXFLAGS = @CXXFLAGS_STD@ @OMP_FLAGS@ @SIMD_FLAGS@ @MAVX2_FLAG@ -I. -DSTRICT_R_HEADERS`
-  contains no `-O` (CRAN's `tools:::.check_make_vars` "pflags" check would reject it). The
-  Python build DOES set `-O3` (`python/CMakeLists.txt`), so the two builds differ in
-  optimization unless the user sets `-O3` in `~/.R/Makevars`.
-- **Two independent source lists.** R auto-globs `src/*.cpp` and IGNORES `PKG_SOURCES`
-  (`src/Makevars.in` says so verbatim). `python/CMakeLists.txt` uses an explicit
-  `CORE_SOURCES` list (17 files; `r_bridge.cpp` excluded). A new `src/*.cpp` MUST be added to
-  `CORE_SOURCES` or the pybind11 link fails.
-- **Algorithm slot 2 reserved.** VERIFIED: `src/leafblower.h:44` `/* 2 = removed (was
-  RK_ALG_LBFGSB) */`, and `src/c_api.cpp:33` maps index 2 to `"(reserved)"`. Slot 7 is a
-  further gap. Do not reuse either.
-- **ABI frozen by `static_assert`.** `sizeof(rk_params_t) == 264`, `sizeof(rk_result_t) == 536`
-  (`src/leafblower.h:245`, `:269`). Adding a field requires updating the tripwire AND every
-  consumer.
-- **`K_MAX = 64`** margins (`src/cell_table.hpp:37`); `build_cell_table` returns -1 above it.
-- **Threading:** single-threaded. `LBW_HAS_OMP` is fixed to 0 in the Python build
-  (`python/CMakeLists.txt`) to preserve R↔Python parity; determinism additionally requires
-  `OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=MKL_NUM_THREADS=1`.
-- **Global state:** none. No module-level mutable singletons; `R/zzz.R:5` `.onLoad` is a no-op.
-- **`LBW_NO_R`:** the Python build defines it; `types.hpp:152` and `calib_dispatch.hpp:185`
-  switch between `REprintf` and `fprintf(stderr)` on it. CRAN forbids R packages writing
-  directly to stderr, so any new diagnostic print must be `#ifndef LBW_NO_R`-guarded.
+- **Threading:** Single-threaded per-solve; inner loops use OpenMP `#pragma omp simd` for vectorization (optional, not required); GIL is released during solve in Python
+- **Global state:** None — all state is passed via CalibState struct; no module-level singletons
+- **Circular imports:** None detected; dependency DAG is acyclic (solvers → calib_dispatch → types)
+- **ABI stability:** rk_params_t and rk_result_t sizes frozen (264B and 536B); padding fields reserved for future extensions (e.g., sor_omega_mode_id repurposed _pad slot)
+- **Cell limit:** K ≤ 64 (prevents unbounded memory; enforced by build_cell_table and estimate_M_cell)
+- **Weight bounds enforcement:** Two distinct modes (cell vs. unit); cell mode does NOT clamp per-observation weights (diagnostic only); unit mode uses intra-cell water-filling to enforce per-obs bounds
+- **No cancellation policy:** All variance/covariance computed without subtraction of like-magnitude terms (e.g., `p*(1-p)` not `p - p*p`)
 
 ## Anti-Patterns
 
-### Renormalizing weights after the bounds pass
+### Algorithm Repeated in Multiple Solvers
 
-**What happens:** scaling weights to Σw=n after `finalize_weights` has already water-filled.
-**Why it's wrong:** it re-pushes clamped observations back above `max_weight`, silently
-voiding the `bounds_mode="unit"` guarantee. The R wrapper explicitly documents that it does
-NOT normalize for this reason (`R/harvest.R:~745`), and the C contract repeats it
-(`src/c_api.cpp:248-255`).
-**Do this instead:** the sanctioned order is normalize → bounds, both inside
-`finalize_weights_buf` (`src/calib_dispatch.hpp:363-367` scale to n, `:369` bounds_mode
-dispatch). VERIFIED: the invariant holds in code. Degenerate `total_w <= kMinSafeTotalWeight`
-(1e-100, `:321`) is left unscaled to avoid subnormal overflow.
+**What happens:** Convergence checking logic (THRESHOLD/IMPROVEMENT/PLATEAU decision trees) was copy-pasted across ORIS, raking, sinkhorn, etc., leading to maintenance burden and divergence bugs.
 
-### Clamping per observation during cell → obs expansion
+**Why it's wrong:** Any change to convergence semantics must be applied to 6+ solvers; bugs in one solver may not trigger in others; future solver additions will copy stale logic.
 
-**What happens:** applying `[min_weight, max_weight]` inside `expand_obs`.
-**Why it's wrong:** the cell contract is on the aggregate `X[c] <= U_cell`; per-obs clamping
-there distorts marginals and breaks Σw=n (measured 13pp margin drift, Σw 3392 vs n 4000 —
-`src/calib_dispatch.hpp:284-293`).
-**Do this instead:** expand unclamped, then let `finalize_weights` apply the bounds_mode
-contract.
+**Do this instead:** Use `calib_dispatch.hpp::apply_rule()` and `select_metric()` inline helpers. These are generic and reduce the switch blocks to a single call site per solver.
 
-### Adding shared logic to an individual solver file
+### Solver Results With No Shared Base
 
-**What happens:** a helper needed by two solvers grows a private copy in each.
-**Why it's wrong:** this repo already paid for it — `oris_finalize.cpp:152-154` records that
-the normalize/clamp/water-fill core was duplicated and had to be collapsed back into
-`finalize_weights_buf`.
-**Do this instead:** put it in `src/calib_dispatch.hpp` (general) or `src/cell_table.hpp`
-(CellTable-specific).
+**What happens:** Early solver result structs (ORISResult, RakingResult) had different memory layouts; packing them into rk_result_t required separate branches per solver.
 
-### Two divergent dispatch tables
+**Why it's wrong:** Result marshaling scales O(# solvers) and is error-prone when adding new fields; branch coverage is hard to test; new solvers risk omitting fields.
 
-**What happens:** `src/r_bridge.cpp:620+` dispatches on a method STRING into the solvers
-directly, while `src/c_api.cpp:414` dispatches on the `rk_algorithm_t` enum. Both then
-hand-pack `rk_result_t`/SEXP fields.
-**Why it's wrong:** every new solver, every new result field and every routing tweak must be
-made twice, and the comment trail (`src/c_api.cpp:458`, `:473` "mirrors r_bridge.cpp:806-810";
-`:505` "mirrors r_bridge.cpp:628-657") shows the two have already drifted and been re-synced
-repeatedly.
-**Do this instead:** when touching either dispatch path, grep the mirrored line ranges in the
-other and change both in the same commit. Adding a solver is an 8-step checklist for this
-reason (`CLAUDE.md`).
+**Do this instead:** Every solver result embeds `CalibResult base` as the first field; `pack_solver_result()` template unpacks the base uniformly; solver-specific extras (ORIS sor_*, ALM fields) are handled via SFINAE (if constexpr has_n_bounds_c<R>::value).
+
+### Hard-Coded Algorithm Limits in Multiple Places
+
+**What happens:** Algorithm AUTO heuristic (M_cell threshold to choose ORIS vs. raking) was hand-tuned in c_api.cpp and duplicated in R wrapper logic.
+
+**Why it's wrong:** Tuning the threshold requires changes in two places; desyncs silently lead to divergent routing decisions.
+
+**Do this instead:** Define the threshold in one place (cell_table.cpp::estimate_M_cell or c_api.cpp); expose it via a parameter or comment; document the heuristic rationale (e.g., "ORIS preferred for M_cell > n/10 to leverage cell compression").
 
 ## Error Handling
 
-**Strategy:** integer status codes end-to-end; no exceptions cross the ABI.
+**Strategy:** Return codes (RK_OK, RK_ERR_NOCONV, RK_ERR_INFEAS, RK_ERR_BADARG, RK_ERR_BUDGET, RK_ERR_STALL) propagated from solver → c_api → bridge → caller. No exceptions thrown across language boundaries.
 
 **Patterns:**
-- Codes: `RK_OK`(0), `RK_ERR_NOCONV`(1), `RK_ERR_INFEAS`(2), `RK_ERR_BADARG`(3),
-  `RK_ERR_BUDGET`(4), `RK_ERR_STALL`(5) — `src/leafblower.h:32-38`.
-- `c_api.cpp` propagates the solver status verbatim (`src/leafblower.h:218`).
-- `RK_ERR_STALL` means "valid weights at a constrained optimum"; `base.stall_kind`
-  (1=weight-change, 2=KL, `src/types.hpp:112`) tells R which message to emit
-  (`R/harvest.R:~715`).
-- Unit-mode re-gating: `regate_unit_status` (`src/calib_dispatch.hpp:460`) demotes RK_OK →
-  RK_ERR_STALL when post-finalize margin error exceeds `st.tol_abs`.
-- R side: status 2/3 → `stop()`, status 4 → budget advice with stall heuristic
-  (`R/harvest.R:~735-765`).
-- C++ exceptions inside `C_rk_calibrate` are caught and converted to a string, so all RAII
-  objects are destroyed before `Rf_error` longjmps (`src/r_bridge.cpp:~597`, R-exts §5.5).
+- **Validation errors** (RK_ERR_BADARG): Input range check fails → solver returns immediately; message set in rk_result_t.message
+- **Convergence failure** (RK_ERR_NOCONV): Solver hits max_iterations without convergence; best_weights stored; caller can inspect best_iter and best_error
+- **Infeasibility** (RK_ERR_INFEAS): Cell has positive target but zero input weight; no solution exists
+- **Budget exhausted** (RK_ERR_BUDGET): Loss decreasing at max_iterations; suggest increasing max_iterations
+- **Stall** (RK_ERR_STALL): Plateau detected (metric ≥ prev * (1 - tol)); at constrained optimum; weights are valid
+- **Message field:** 256-char null-terminated string; populated on error (c_api, r_bridge only); ORISResult has no message field (synthesized at packing stage if empty)
 
 ## Cross-Cutting Concerns
 
-**Logging:** `CalibState::log()` (`src/types.hpp:147`) — gated on `verbose > 0`, routed to a
-caller-supplied `log_fn`, else `REprintf` (R) / `fprintf(stderr)` (`LBW_NO_R`).
-**Validation:** three tiers — language layer (`R/harvest.R:443-540`,
-`python/leafblower/_harvest.py:13`), ABI layer (`lbw::validate_calibrate_inputs`,
-`src/validation.cpp`), solver pre-entry (`calib_validate_preentry`, `src/calib_validate.cpp`,
-invoked from `solver_setup_ct`). Direct C-ABI callers get tiers 2 and 3 only — several branches
-carry explicit "direct C API callers bypass R-layer validation" notes (`src/c_api.cpp:454`, `:469`).
-**Numerical stability:** cancellation-free formulations are a project rule; `src/lbw_math.hpp`
-provides `bulk_log` / `bulk_scaled_exp` with an AVX2 glibc-libmvec path gated on
-`LBW_HAS_GLIBC_MVEC` (probed by `configure` for R and re-probed by `python/CMakeLists.txt` for
-Python — the parity-critical macro).
+**Logging:** Optional callback (`log_fn`/`log_ctx` in CalibState); R calls REprintf(), Python uses py_log_trampoline to re-acquire GIL and invoke Python callable. Default: silent.
+
+**Validation:** Centralized in `validation.cpp::validate_inputs()` (called once per rk_calibrate); checks dimensions, category codes, K ≤ 64, bounds feasibility. Solver-specific checks (e.g., TSVD ratio > 0) done at solver entry.
+
+**Authentication/Authorization:** Not applicable — C library with no I/O or network.
+
+**Design tradeoffs:** 
+- Cell table built eagerly (not lazy) to fail fast on validation and enable AUTO routing heuristics
+- Solver results are not modified after return (caller owns best_weights snapshot); enables safe sharing with async threads (immutable after read)
+- GIL released during solve in Python to allow concurrent calls from other threads; r_bridge has no threading constraint (R is single-threaded at C level)
 
 ---
 
-*Architecture analysis: 2026-08-14*
+*Architecture analysis: 2026-08-15*

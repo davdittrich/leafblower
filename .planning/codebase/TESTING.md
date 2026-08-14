@@ -1,162 +1,300 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-08-14
+**Analysis Date:** 2026-08-15
 
 ## Test Framework
 
-**R:**
-- `testthat` (>= 3.0.0), declared in `DESCRIPTION:19` Suggests.
-- Entry point: `tests/testthat.R` — `library(testthat); library(leafblower); test_check("leafblower")`.
-- 94 test files under `tests/testthat/test-*.R`.
-- **Caveat:** `DESCRIPTION` has NO `Config/testthat/edition: 3` line. Despite the "testthat v3" claim in `CLAUDE.md`, the suite runs under **edition 2 semantics** (edition 3 is opt-in per package). Do not rely on 3e-only behaviour (`expect_snapshot`, stricter `expect_equal` via waldo, deprecation of `expect_equivalent`) without adding that field first.
+**R - testthat v3:**
+- Runner: `devtools::test()` or `R CMD INSTALL --preclean .` then `Rscript -e "devtools::test()"`
+- Config: none required; tests discovered in `tests/testthat/test-*.R`
+- Run commands:
+  ```bash
+  Rscript -e "devtools::test()"     # Run all tests
+  Rscript -e "devtools::test(filter='raking')"  # Run specific file pattern
+  ```
 
-**Python:**
-- `pytest` (`python/pyproject.toml:26`, `[project.optional-dependencies] test`).
-- 19 test files inside the package dir `python/leafblower/test_*.py` (so the editable install discovers them). They are excluded from the built wheel via `wheel.exclude = ["leafblower/test_*.py"]` (`python/pyproject.toml:36`).
-- Plus `tests/test_parity_weights.py` at repo root.
+**Python - pytest:**
+- Runner: `pytest` (installed via uv)
+- Config: `python/conftest.py` sets single-threaded BLAS and removes local path
+- Run commands:
+  ```bash
+  cd python && uv pip install -e . --reinstall-package leafblower
+  OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m pytest
+  python -m pytest -v                          # Verbose
+  python -m pytest python/leafblower/test_solver_parity.py -v  # Specific file
+  ```
 
-**C++:** `tests/cpp/` exists but is **empty** — no C++ unit-test framework is wired. Core behaviour is covered only through the R and Python bindings.
-
-## Run Commands (exact)
-
-```bash
-# 1. R build gate — this, NOT devtools::install
-R CMD INSTALL --preclean .
-
-# 2. R tests
-Rscript -e "devtools::test()"
-# or, matching the enforcement command:
-OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-  Rscript -e 'library(testthat); library(leafblower); test_dir("tests/testthat", stop_on_failure=TRUE)'
-
-# 3. Python install — uv-managed venv, NO bare pip
-cd python && uv pip install -e . --reinstall-package leafblower
-
-# 4. Python + parity tests
-OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-  .venv/bin/python -m pytest -q
-
-# 5. Optional heavy stepstone no-regression gate (local only)
-LBW_BENCH_GATE=1 Rscript -e 'testthat::test_file("tests/testthat/test-bench-gate.R")'
-```
-
-Use `.venv/bin/python -m pytest`, never bare `python`/`pytest` — a stale shadow `.so` in `~/.local` gets imported instead of the freshly built extension.
-
-## Single-Thread BLAS Requirement
-
-`OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1` and `MKL_NUM_THREADS=1` must ALL be exported TOGETHER, and in Python **before `import numpy`**.
-
-**Why:** multi-threaded BLAS/OpenMP reductions sum in a nondeterministic order, so floating-point results differ run to run at the last few ulps. The R↔Python parity assertions are `np.allclose(..., rtol=1e-6, atol=0.0)` against the *same* C++ core — any thread-order drift makes them flaky, and the stepstone benchmark comparison drifts likewise.
-
-The repo enforces this defensively: `python/conftest.py:4-7` sets all three via `os.environ.setdefault` *before* the numpy import, and `.coverage-thresholds.json` bakes them into the blocking enforcement command.
-
-## Definition of Done / Quality Gate
-
-`.coverage-thresholds.json` declares `coverage_model: "behavioral"` with all line/branch/function/statement thresholds `null`. There is **no `covr` and no `pytest-cov`** — do not add a `--cov-fail-under` gate; it would only cover the thin Python layer.
-
-The blocking gate (`enforcement.command`, `blocking: true`) is:
-`R CMD INSTALL --preclean .` → R testthat 0 FAIL → `uv pip install -e .` → Python pytest 0 FAIL, single-thread BLAS throughout. Stepstone no-regression is opt-in via `LBW_BENCH_GATE=1`.
+**Assertion Library:**
+- R: `testthat::expect_*` functions (expect_true, expect_equal, expect_match, expect_error)
+- Python: `pytest` assertions + `np.allclose()` for numerical parity
 
 ## Test File Organization
 
-**R** — flat `tests/testthat/`, one file per behaviour, three naming families:
-- Feature: `test-harvest.R`, `test-oris.R`, `test-raking.R`, `test-newton-kl.R`, `test-design.R`.
-- Ticket-scoped regression: `test-cr-d16-nbounds.R`, `test-cr-e14-start-weights.R`, `test-cr-f11-margin-kl-zero-obs.R`, `test-xc1s13-vectorization.R` — file name encodes the review finding it locks.
-- Invariant/contract: `test-clamp-contract.R`, `test-returned-weights-invariant.R`, `test-unit-bounds-status-consistency.R`, `test-calibration-result-names.R`.
+**Location:**
+- R: `tests/testthat/test-*.R` — one test file per feature/module
+- Python: `python/leafblower/test_*.py` — one test file per feature/module
+- Shared: test data fixtures in `tests/testthat/fixtures/` (JSON, .rds, R scripts)
 
-No `helper-*.R` files exist — every test is self-sufficient and constructs its own data inline.
+**Naming Convention:**
+- R: `test-<feature>.R` (e.g., `test-raking.R`, `test-oris.R`)
+- Python: `test_<feature>.py` (e.g., `test_solver_parity.py`, `test_harvest_na_parity.py`)
+- Edge case tests: `tests/testthat/_problems/test-<issue-id>.R`
 
-**Python** — mirrors the same families inside `python/leafblower/`: `test_cr_d16_nbounds.py`, `test_cr_e14_start_weights.py`, plus the parity family `test_solver_parity.py`, `test_harvest_na_parity.py`, `test_diagnose_na_parity.py`, `test_design_effect_parity.py`. Every R-side ticket test with a Python-visible surface has a same-named Python counterpart.
-
-**R-side driver scripts for parity:** `tests/parity/run_parity_r.R`, `run_oris_soft_r.R`, `run_chebyshev_r.R`.
-
-## Test Structure
-
-R tests use inline synthetic data with a pinned seed and an explicit convergence spec:
-
+**Structure - R:**
 ```r
-# tests/testthat/test-harvest.R:15-23
-test_that("default routing selects ORIS for large complexity", {
-  set.seed(1)
-  n   <- 200000L
-  df  <- data.frame(x = factor(sample(c("a","b","c"), n, replace=TRUE)))
-  tgt <- list(x = c(a=0.33, b=0.34, c=0.33))
-  result <- harvest(df, tgt, convergence = list(absolute = 1e-6))
-  expect_identical(attr(result, "algorithm"), "oris")
+test_that("descriptive test name", {
+  # Setup
+  set.seed(42)
+  df <- data.frame(x = factor(...))
+  tgt <- list(x = c(a=0.5, b=0.5))
+  
+  # Execute
+  result <- leafblower::harvest(df, tgt, method = "raking", ...)
+  
+  # Assert
+  expect_true(attr(result, "algorithm") == "raking")
+  expect_equal(mean(result$weights), 1.0, tolerance = 1e-10)
 })
 ```
 
-Conventions visible throughout:
-- `set.seed()` first, always.
-- Pass an **explicit `convergence = list(...)`** so the stopping point is fixed by the spec, not by a per-method default that may change.
-- Assert on the documented public surface: returned weights, `attr(result, "algorithm")`, `attr(result, "result")$<field>`.
-- Comment the before/after behaviour a regression test locks (`test-harvest.R:44-46`: "Before fix: tol_abs ignored … After fix: tol_abs=0.3 forwarded").
-
-**Expectation mix** (counts across `tests/testthat/`): `expect_equal` 276, `expect_true` 214, `expect_error` 104, `expect_lt` 91, `expect_lte` 41, `expect_gt` 39, `expect_false` 34, `expect_gte` 24, `expect_no_error` 20, `expect_identical` 16, `expect_warning` 14, `expect_no_warning` 4. Numerical results are asserted with inequality bounds (`expect_lt(max_err, tol)`), never bare equality.
-
-**No snapshot tests** — `expect_snapshot` appears in zero files. Reference comparisons go through `.rds` fixtures instead.
-
-## Parity Tests (the distinguishing pattern)
-
-`python/leafblower/test_solver_parity.py` documents the four-step protocol in its module docstring (`:7-11`):
-
-1. Build the Python result with an explicit convergence spec.
-2. Build the R result by shelling out — `subprocess.run(["Rscript", "-e", r_script], ...)` (`:149-150`), asserting `proc.returncode == 0` with `proc.stderr` in the message (`:153`).
-3. **Precheck both sides converged** (`max_error < _CONV_TOL`, `_CONV_TOL = 0.01` at `:107`) before comparing — so a non-converged run fails loudly instead of silently skipping the assertion (`:90`, `:173-177`).
-4. `assert np.allclose(w_r, w_py, rtol=1e-6, atol=0.0)` (`:184`).
-
-Fixture data is **embedded as Python list constants** (`_A`, `_B` at `:43-70`), generated once from R `set.seed(42)`, so both sides run identical data with no filesystem side-effects.
-
-One case deliberately passes NO explicit rule (`convergence={}` / `list()`) to lock the *per-method default* resolution across bindings: `test_logit_default_rule_parity` (`:213`).
-
-Documented non-obvious cases are annotated rather than special-cased: `greenkhorn`/`sinkhorn` are entropic so `sum(w) != n` by construction; `greg` is one-shot so its `max_error ~0.005` is a chi2-scaled residual, not non-convergence.
-
-## Fixtures
-
-`tests/testthat/fixtures/` holds the reference artifacts, loaded with `readRDS()` (`test-calibration-solvers.R:48`, `test-best-iterate.R:66`):
-- Stepstone benchmark references: `stepstone_reference.rds`, `stepstone_reference_summary.rds`, `stepstone_best_error_ref.rds`, `stepstone_reference_autumn_only.rds`, `stepstone_small.parquet`, `stepstone_small_targets.rds`.
-- Solver references: `oris_kl_reference_stepstone.rds`, `oris_pre_alm_ref.rds`, `raking_obs_reference_stepstone.rds`, `raking_squarem_baseline.rds`.
-- Ship-gate JSON baselines: `oris_shipgate_reference.json`, `oris_fixed_omega_baseline.json`.
-- Regeneration scripts live beside the data: `stepstone_reference_run.R`, `oris_shipgate_fixture.R`, `oris_baseline_snapshot.R`, `stepstone_verify.R`.
-
-Top-level `tests/testthat/task1_ref.rds` and `task2_oris_ref.rds` are additional pinned references.
-
-Fixture-dependent tests guard on existence and skip rather than error:
-
-```r
-# tests/testthat/test-best-iterate.R:49-54
-skip_on_cran()
-skip_if(!file.exists(ref_path))
-skip_if(!file.exists(fx) || !file.exists(tg))
+**Structure - Python:**
+```python
+def test_harvest_returns_copy():
+    """weights_out must be a copy, not a view into input."""
+    # Setup
+    n = 100
+    weights = np.ones(n, dtype=np.float64)
+    gids = [np.zeros(n, dtype=np.int32)]
+    
+    # Execute
+    status, weights_out, res = calibrate(...)
+    weights_out[0] = 9999.0
+    
+    # Assert
+    assert weights[0] != 9999.0, "weights_out must be a copy"
 ```
 
-## Skips
+## Test Structure
 
-- `skip_on_cran()` on anything slow or fixture-backed.
-- `skip_if(Sys.getenv("LBW_BENCH_GATE") == "")` gates the whole benchmark suite (`test-bench-gate.R:4, 21`).
-- `skip_if(Sys.getenv("CI") != "")` excludes timing-sensitive checks from CI (`test-bench-gate.R:30`).
-- `skip_if_not_installed("leafblower")` guards binding-level checks (`test-calibration-result-names.R:2`).
+**Suite Organization - R:**
+- One `test_that()` block per logical test case
+- Descriptive name includes: test subject + expected behavior
+- Setup/Execute/Assert pattern (Arrange/Act/Assert)
+- Example: `test_that("raking respects max_weight=2 on tight bounds", { ... })`
 
-## Import-Path Guards
+**Suite Organization - Python:**
+- One `def test_*():` function per logical test case
+- Docstring explains R↔Python parity or test motivation
+- Same Arrange/Act/Assert pattern
+- Example from `test_python.py`:
+  ```python
+  def test_sor_omega_max_is_wired():
+      """eb79.1: sor_omega_max must reach the C solver (regression guard)."""
+  ```
 
-Both conftests exist solely to stop pytest importing the *source* tree (which lacks the compiled `_leafblower` extension) instead of the installed wheel:
-- `conftest.py` (repo root) removes `<root>/python` from `sys.path`.
-- `python/conftest.py` removes its own directory from `sys.path`, after setting the three BLAS env vars.
+**Setup:**
+- R: `set.seed(42)` for reproducibility; build minimal data fixtures inline
+- Python: embedded fixture constants (e.g., `_A`, `_B` arrays in `test_solver_parity.py`)
+- Both: single-threaded BLAS enforced at test runner start
 
-## Adding Tests for a New Solver
+**Teardown:**
+- R: testthat auto-cleans up; no explicit cleanup needed
+- Python: pytest fixture cleanup via `conftest.py`
 
-Steps 6–8 of the 8-step new-solver checklist are test artifacts and all three are required:
-6. R test fixture (`.rds`) under `tests/testthat/fixtures/`.
-7. Python parity test in `python/leafblower/test_*_parity.py` (pattern: `test_solver_parity.py`).
-8. Benchmark fixture for the stepstone regression gate.
+**Assertion Patterns - R:**
+```r
+expect_true(condition)
+expect_equal(actual, expected, tolerance = 1e-10)
+expect_match(string, pattern)
+expect_lt(x, threshold)
+expect_error(expr, pattern)
+expect_silent(expr)
+```
 
-## Known Gaps
+**Assertion Patterns - Python:**
+```python
+assert condition
+assert np.allclose(actual, expected, rtol=1e-6, atol=0.0)
+with pytest.raises(ValueError, match="pattern"):
+    some_function()
+np.testing.assert_allclose(actual, expected, rtol=1e-6)
+```
 
-- `tests/cpp/` is empty — no direct unit tests of `src/` internals; all coverage is via bindings.
-- `tests/testthat/_problems/` holds five quarantined files (`test-convergence-criteria-203.R`, `test-ieppa-nonuniform-d-28.R`, `test-ieppa-nonuniform-d-29.R`, `test-raking-89.R`, `test-raking-92.R`) that are not collected by `test_check()`.
-- No coverage instrumentation of any kind; coverage claims cannot be measured today.
-- No `Config/testthat/edition: 3` (see above).
+## Mocking
+
+**Framework - R:**
+- testthat does not use mocks; uses real solvers and verification instead
+- Fixtures validated against R subprocess calls (parity tests)
+
+**Framework - Python:**
+- pytest fixtures for test data
+- No mock framework in use; real C++ solver calls
+- Subprocess validation for cross-language parity via `subprocess.run()`
+
+**Patterns:**
+- Direct solver invocation (`calibrate()`, `harvest()`)
+- Verify expected errors via exception matching
+- Subprocess parity tests: run R script, parse JSON output, compare
+
+**What to Mock:**
+- Nothing; all tests call real C++ core
+
+**What NOT to Mock:**
+- Solver logic (calibrate, harvest)
+- Parameter parsing/validation (mirror R in Python)
+- Convergence checks
+
+## Fixtures and Factories
+
+**Test Data - R:**
+Location: `tests/testthat/fixtures/`
+
+Examples:
+- `oris_baseline_snapshot.R`: shell script that generates `oris_fixed_omega_baseline.json`
+- `stepstone_reference_run.R`: runs stepstone benchmark
+- `oris_shipgate_fixture.R`: builds problem instances for ship-gate validation
+
+Pattern:
+```r
+run_case <- function(df, tgt, extra = list()) {
+  base_args <- c(list(data = df, target = tgt, method = "oris"), extra)
+  res <- do.call(harvest, base_args)
+  list(status = as.integer(info$status), iters = info$iterations, ...)
+}
+```
+
+**Test Data - Python:**
+Location: embedded constants in test files
+
+Examples from `test_solver_parity.py`:
+```python
+_A = ["x", "x", "x", ...]  # 300-element category vector
+_B = ["q", "p", "p", ...]  # 300-element category vector
+
+_TARGETS = {
+    "a": {"x": 1/3, "y": 1/3, "z": 1/3},
+    "b": {"p": 0.5, "q": 0.5},
+}
+
+_CONV_PY = {"rule": "improvement", "tol": 0.001}
+_CONV_R  = 'list(rule="improvement", tol=0.001)'
+```
+
+**Factory Pattern:**
+None used; tests build minimal data inline:
+```python
+df = pd.DataFrame({"x": ["a","b","a","b"]})
+tgts = {"x": {"a": 0.5, "b": 0.5}}
+```
+
+## Coverage
+
+**Requirements:** 
+- No explicit coverage target in `.coverage-thresholds.json` (gate uses behavioral validation)
+- BEHAVIORAL gate: R tests pass (0 FAIL) + Python tests pass (0 FAIL) + stepstone benchmark shows no regression
+- No pytest-cov or covr integration
+
+**View Coverage:**
+```bash
+# R: none configured
+# Python: none configured
+# Validation gate:
+R CMD INSTALL --preclean .
+Rscript -e "devtools::test()"
+cd python && OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m pytest
+LBW_BENCH_GATE=1 ./tools/stepstone-benchmark.R  # optional regression gate
+```
+
+## Test Types
+
+**Unit Tests - R:**
+- Located: `tests/testthat/test-*.R`
+- Scope: individual solver functions, parameter parsing, edge cases
+- Examples: `test-raking.R`, `test-oris.R`, `test-convergence-criteria.R`
+- Pattern: call public API (`harvest()`), verify output and attributes
+
+**Unit Tests - Python:**
+- Located: `python/leafblower/test_*.py`
+- Scope: individual API functions, Python-layer logic, parameter validation
+- Examples: `test_python.py`, `test_design_effect.py`
+- Pattern: call public API (`harvest()`, helper functions), verify outputs
+
+**Integration Tests - R:**
+- Located: `tests/testthat/test-*.R` (mixed with unit tests)
+- Scope: multi-method comparison, bounds mode interaction, bounds + convergence
+- Examples: `test-harvest-bounds-mode.R`, `test-oris-bounds-mode.R`
+
+**Integration Tests - Python:**
+- Located: `python/leafblower/test_*.py`
+- Scope: end-to-end calibration, parity with R
+- Examples: `test_solver_parity.py`, `test_harvest_na_parity.py`
+
+**E2E / Parity Tests:**
+- Framework: pytest with R subprocess backend
+- Pattern: run identical problem in Python and R, compare weights
+- Tolerance: `rtol=1e-6, atol=0.0` (numpy.allclose)
+- Pre-check: both must converge (max_error < 0.01) before asserting parity
+- Examples from `test_solver_parity.py`:
+  ```python
+  def test_newton_kl_parity():
+      r = subprocess.run(["Rscript", "test_solver_parity.R"], capture_output=True)
+      w_r = json.loads(r.stdout)
+      w_py = harvest(df, _TARGETS, method="newton_kl", convergence=_CONV_PY)
+      np.testing.assert_allclose(w_r, w_py, rtol=1e-6, atol=0.0)
+  ```
+
+**Problem-Specific / Regression Tests:**
+- Located: `tests/testthat/_problems/test-<issue-id>.R`
+- Scope: specific bugs fixed, edge cases discovered in production
+- Examples: `test-ieppa-nonuniform-d-28.R`, `test-raking-89.R`
+- Pattern: reproduce exact problem, verify it no longer occurs
+
+## Common Patterns
+
+**Async Testing:**
+Not applicable (single-threaded, deterministic solvers)
+
+**Error Testing - R:**
+```r
+test_that("min_weight > max_weight raises error", {
+  expect_error(
+    harvest(df, tgt, min_weight = 2.0, max_weight = 1.0),
+    "min_weight must be <= max_weight"
+  )
+})
+```
+
+**Error Testing - Python:**
+```python
+def test_min_weight_badarg_python():
+    with pytest.raises(Exception):
+        harvest(df, tgts, min_weight=5.0, max_weight=5.0)
+```
+
+**Determinism / Reproducibility:**
+- All randomness seeded: `set.seed(42)` in R, embedded constants in Python
+- Single-threaded BLAS enforced:
+  ```bash
+  export OMP_NUM_THREADS=1
+  export OPENBLAS_NUM_THREADS=1
+  export MKL_NUM_THREADS=1
+  ```
+- Python `conftest.py` sets these before numpy import
+
+**Convergence Verification:**
+- Tests use explicit convergence specs to lock stopping point
+- Example:
+  ```python
+  convergence = {"rule": "improvement", "tol": 0.001}
+  ```
+- Precheck: verify max_error < tolerance before asserting parity
+- Stall detection: verify that constrained optima are detected, not false convergence
+
+**Tolerance Strategy:**
+- Weight parity: `rtol=1e-6, atol=0.0` (relative 1e-6)
+- Convergence precheck: max_error < 0.01 (covers all solver types)
+- Absolute error tolerance: depends on metric (1e-6 for max_err, 1e-10 for individual weight constraints)
 
 ---
 
-*Testing analysis: 2026-08-14*
+*Testing analysis: 2026-08-15*
