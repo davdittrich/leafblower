@@ -828,14 +828,36 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         else
             res_best_weights.assign(st.n, 0.0);
     } else if (strcmp(method_str, "greg") == 0) {
-        auto res = lbw::greg_solve(st);
-        pack_solver_result(res);
-        res_status     = res.base.status;
-        res_iterations = res.base.iterations;
-        res_max_error  = res.base.max_error;
-        res_alg_used   = static_cast<int>(RK_ALG_GREG);
-        if (!res.base.best_weights.empty())
-            res_best_weights = std::move(res.base.best_weights);
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling lbw::greg_solve + pack_solver_result directly
+        // (mirrors c_api.cpp's RK_ALG_GREG branch).
+        lbw::dispatch_solver(RK_ALG_GREG, st, dres);
+        res_status             = dres.status;
+        res_iterations         = dres.iterations;
+        res_max_error          = dres.max_error;
+        res_alg_used           = static_cast<int>(dres.alg_used);
+        res_mean_error         = dres.mean_error;
+        res_kl                 = dres.kl;
+        res_chi2               = dres.chi2;
+        res_l1_weight_change   = dres.l1_weight_change;
+        res_grake_norm         = dres.grake_norm;
+        res_conv_metric        = dres.convergence_metric;
+        res_conv_rule          = dres.convergence_rule;
+        res_conv_tol           = dres.convergence_tol;
+        res_conv_iter          = dres.convergence_iter;
+        res_conv_objective     = dres.convergence_solver_objective;
+        res_conv_minimized_metric = dres.convergence_minimized_metric;
+        res_best_error         = dres.best_error;
+        res_best_iter          = dres.best_iter;
+        res_metric_first_check = dres.metric_first_check;
+        res_metric_prev_check  = dres.metric_prev_check;
+        res_prev_check_iter    = dres.prev_check_iter;
+        res_stall_kind         = dres.stall_kind;
+        res_n_bounds_violated  = dres.n_bounds_violated;
+        res_n_bounds_clamped   = dres.n_bounds_clamped;
+        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
+        if (!dres.best_weights.empty())
+            res_best_weights = std::move(dres.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
     } else if (strcmp(method_str, "greenkhorn") == 0) {

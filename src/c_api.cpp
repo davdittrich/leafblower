@@ -484,9 +484,12 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         pack_dispatch_result_c(result, dres);
         return dres.status;
     } else if (alg == RK_ALG_GREG) {
-        auto gres = lbw::greg_solve(st);
-        pack_solver_result(result, gres, alg);
-        return gres.base.status;
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling lbw::greg_solve + pack_solver_result directly.
+        lbw::DispatchResult dres;
+        lbw::dispatch_solver(alg, st, dres);
+        pack_dispatch_result_c(result, dres);
+        return dres.status;
     } else if (alg == RK_ALG_GREENKHORN) {
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure min_weight < max_weight. */
