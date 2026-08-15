@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: truthful-surface
-status: verifying
+current_phase: 5
+current_phase_name: CRAN + PyPI Release
+status: planning
 stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-08-15T15:57:11.274Z"
+last_updated: "2026-08-15T16:06:04.138Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
@@ -28,10 +28,10 @@ identical from R and from Python.
 
 ## Current Position
 
-Phase: 04 (truthful-surface) — EXECUTING
-Plan: 2 of 2
-Status: Phase complete — ready for verification
-Last activity: 2026-08-15 — Phase 04 execution started
+Phase: 5 — CRAN + PyPI Release
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-08-15 — Phase 04 complete, transitioned to Phase 5
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
 coming from the orchestrator's own run rather than the user. SC1-SC5 all have durable
@@ -59,7 +59,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 
 **Velocity:**
 
-- Total plans completed: 12
+- Total plans completed: 14
 - Average duration: —
 - Total execution time: —
 
@@ -69,6 +69,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 |-------|-------|-------|----------|
 | 01 | 4 | - | - |
 | 2 | 8 | - | - |
+| 04 | 2 | - | - |
 
 **Recent Trend:** No data yet.
 **Per-Plan Metrics:**

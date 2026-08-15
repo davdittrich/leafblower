@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Verification Coverage Closed** - The gate detects R↔Python divergence and bound violations it currently cannot see (completed 2026-08-15)
 - [x] **Phase 2: One Engine, Not Two** - R and Python reach the solvers through a single dispatch path, built the same way (completed 2026-08-15)
 - [x] **Phase 3: Honest Performance Gate** - The performance claim is measured against a live solver and restated as an achievable gate (completed 2026-08-15)
-- [ ] **Phase 4: Truthful Surface** - Every documented claim matches shipped behaviour; every footgun errors instead of silently misleading
+- [x] **Phase 4: Truthful Surface** - Every documented claim matches shipped behaviour; every footgun errors instead of silently misleading (completed 2026-08-15)
 - [ ] **Phase 5: CRAN + PyPI Release** - A stranger installs leafblower with `install.packages()` and `pip install`
 
 ## Phase Details
@@ -217,7 +217,7 @@ must NOT be removed. `docs/raking.md` is a legitimate research report on bounded
 only its §8.2/§12 misattribution is wrong, so rewrite the passage under the paper's own
 name or delete it — do not delete the document. `man/` is roxygen2-generated: edit the
 roxygen block, regenerate, and clean any stray `man/dot-*.Rd` before committing.
-**Plans:** 2/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 
@@ -275,7 +275,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
 | 3. Honest Performance Gate | 4/4 | In Progress|  |
-| 4. Truthful Surface | 2/2 | In Progress|  |
+| 4. Truthful Surface | 2/2 | Complete    | 2026-08-15 |
 | 5. CRAN + PyPI Release | 0/TBD | Not started | - |
 
 ---
