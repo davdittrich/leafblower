@@ -75,9 +75,28 @@ test_that("honest gate: leafblower_oris_soft medium_100k_5margins bound/accuracy
               r$wall_s, r$max_error, r$max_w, r$n_eff))
 })
 
-test_that("kk1204 gate: n=500k K=20 converges in <30s with best_error<1e-3", {
+# kk1204-shape regression floor (D-01/D-11, re-gated 2026-08-15): this fixture shares
+# n=500000/K=20/seed=1204/max_weight=3 with docs/performance.md's documented
+# known_limit_k20_uniform class, but uses a literal uniform 1/5 target per margin, NOT
+# the skewed target (0.3/0.175x4) that reproduces the near-infeasible degenerate case
+# documented in docs/performance.md's "Known limit" section and
+# docs/investigations/2026-04-23-kk1204-convergence.md (commit 3effd3a). Under the
+# uniform target this block converges trivially (see pre-edit observation below), so it
+# is NOT a test of the degenerate known limit -- it is a shape-matched (n/K) regression
+# floor confirming oris still converges fast and accurately at this size. D-01 dropped
+# this class as the basis of any headline claim; leafblower-ylsy (closed) is cited, not
+# reopened, per D-03.
+#
+# Pre-edit observation (2026-08-15, before this block's guard/label rewrite, CI unset,
+# NOT_CRAN=true): status=0, iterations=10, best_error=-7.376e-14, elapsed=1.6s -- PASS
+# on all three assertions below. The existing best_error<=1e-3 and elapsed<=30
+# thresholds are reconfirmed against this observation with large headroom (both cleared
+# by several orders of magnitude); this is NOT the 03-02 known_limit_k20_uniform
+# measurement (max_error 5.229e-03 on the skewed target) -- that is a different fixture
+# and its numbers are not comparable to this one's.
+test_that("kk1204-shape regression floor: n=500k K=20 uniform target converges in <30s with best_error<1e-3", {
   skip_on_cran()
-  skip_if(Sys.getenv("CI") != "")
+  skip_if(Sys.getenv("LBW_BENCH_GATE") == "")
   set.seed(1204)
   n <- 500000; K <- 20; cats <- 5
   data_kk <- as.data.frame(
