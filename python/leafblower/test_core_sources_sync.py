@@ -27,7 +27,7 @@ _R_ONLY = {"r_bridge.cpp"}
 def test_core_sources_matches_src_glob():
     src_files = {p.name for p in (REPO_ROOT / "src").glob("*.cpp")} - _R_ONLY
     cmake_text = (REPO_ROOT / "python" / "CMakeLists.txt").read_text()
-    listed = set(re.findall(r"\.\./src/(\w+\.cpp)", cmake_text))
+    listed = set(re.findall(r"\$\{LBW_SRC_DIR\}/(\w+\.cpp)", cmake_text))
     assert src_files == listed, (
         f"src/*.cpp vs CORE_SOURCES drift: "
         f"missing from CORE_SOURCES={sorted(src_files - listed)}, "
