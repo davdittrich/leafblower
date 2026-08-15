@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 2
 current_phase_name: One Engine, Not Two
-status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-08-15T00:26:48.286Z"
+status: executing
+stopped_at: Completed 02-01-PLAN.md (sinkhorn dispatch tracer)
+last_updated: "2026-08-15T01:52:52.782Z"
 last_activity: 2026-08-15
 last_activity_desc: ROADMAP.md, REQUIREMENTS.md, PROJECT.md created from doc ingest
 progress:
   total_phases: 2
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 12
+  completed_plans: 5
 ---
 
 # Project State
@@ -24,18 +24,18 @@ See: .planning/PROJECT.md (updated 2026-08-15)
 
 **Core value:** Calibrated weights that are numerically correct, bound-respecting, and
 identical from R and from Python.
-**Current focus:** Phase 1 — Verification Coverage Closed
+**Current focus:** Phase 2 — One Engine, Not Two (dispatch unification, solver-by-solver)
 
 ## Current Position
 
 Phase: 2 of 5 (One Engine, Not Two)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-08-15 — Phase 01 complete, transitioned to Phase 2
+Plan: 01 of 8 complete (sinkhorn dispatch tracer)
+Status: In progress — 7 solvers remain to migrate through the shared dispatch table (D-01)
+Last activity: 2026-08-15 — Plan 02-01 executed: lbw::DispatchResult + lbw::dispatch_solver()
+added to calib_dispatch.hpp; sinkhorn routed through it from both c_api.cpp and r_bridge.cpp.
+Full DoD gate green (R 0 FAIL/1833 PASS, Python 156 passed/0 failed).
 
-+ codebase map. No GSD phase has been planned or executed yet.
-
-Progress: [░░░░░░░░░░] 0%
+Progress: [████░░░░░░] 42%
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -65,6 +65,11 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | 01 | 4 | - | - |
 
 **Recent Trend:** No data yet.
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 02 P01 | 25min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -80,6 +85,9 @@ Carried into planning:
 
 - `leafblower-2ouc` (benchmark-study article) is tracked outside this roadmap; Phase 3
   reuses its `benchmarks/` infrastructure rather than duplicating it.
+
+- [Phase ?]: Plan 02-01: DispatchResult dropped the plan's specified const CellTable& parameter — no solver needs it externally (each builds its own from CalibState); documented as a Rule-3 deviation.
+- [Phase ?]: Plan 02-01: found a 6th superset-only field (aa_accepted_count, ORISResult) beyond the 5 named in leafblower-rywn/RESEARCH.md — filed on the ticket, not fixed; relevant to a future oris/oris_soft migration plan.
 
 ### Pending Todos
 
@@ -108,7 +116,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T00:26:48.280Z
-Stopped at: Phase 2 context gathered
+Last session: 2026-08-15T01:52:52.776Z
+Stopped at: Completed 02-01-PLAN.md (sinkhorn dispatch tracer)
 Awaiting roadmap approval before `/gsd-plan-phase 1`.
-Resume file: .planning/phases/02-one-engine-not-two/02-CONTEXT.md
+Resume file: None
