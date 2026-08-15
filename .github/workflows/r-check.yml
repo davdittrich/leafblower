@@ -20,6 +20,7 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
           dependencies: '"hard"'
+          install-pandoc: false
 
       - name: Tarball hygiene guard
         run: |
