@@ -1082,4 +1082,89 @@ inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& 
     }
 }
 
+// Lazily-cached lbw::estimate_M_cell (eb79.15). ANY caller that needs
+// M_cell/n -- AUTO routing (route_auto below) or oris_soft's
+// capacity_penalty auto-resolution (both bridges) -- goes through this, so
+// the O(n*K) estimate runs at most once per rk_calibrate()/C_rk_calibrate()
+// call regardless of how many of those callers a single call touches.
+// m_cell_est_cache: in/out, -1 = uncomputed; whichever caller runs first
+// computes and stores it, every later caller in the same call reuses it.
+inline int resolve_m_cell_est(int n, int K,
+                               const int32_t* const* group_ids,
+                               const int* cat_counts,
+                               int& m_cell_est_cache) {
+    if (m_cell_est_cache < 0) {
+        m_cell_est_cache = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
+    }
+    return m_cell_est_cache;
+}
+
+// Result of the AUTO routing DECISION (never solves; see route_auto below).
+struct AutoRouteResult {
+    rk_algorithm_t algorithm       = RK_ALG_ORIS;
+    bool           auto_selected   = true;   // always true when route_auto ran
+    bool           force_accelerate = false; // true iff the severe-skew ORIS+SRAA branch fired
+};
+
+// AUTO routing (Epic-H WH-g): the single routing DECISION, shared by both
+// c_api.cpp's rk_calibrate() and r_bridge.cpp's C_rk_calibrate() (SC1, plan
+// 07 -- consolidates what was previously two independently-maintained
+// inline copies, r_bridge.cpp:663-788 and c_api.cpp:292-397). This function
+// only DECIDES which solver AUTO picks; it never solves. Keeping the
+// decision separate from the solve is what lets the auto-fallback path be
+// expressed as a second lbw::dispatch_solver() call by the caller, instead
+// of nested routing logic.
+//
+// Thresholds preserved EXACTLY (this migration moves the logic, it does not
+// retune it): the exact-integer form of the 0.9 compression comparison
+// (M_cell_est*10 >= n*9, PAR.1's `>=` not `>`), K>=5, target_skew > 5.
+//
+// m_cell_est_cache: in/out, -1 = uncomputed; see resolve_m_cell_est above --
+// a caller that already resolved M_cell/n for another purpose (e.g.
+// oris_soft's capacity_penalty auto-resolution) passes its cached value in
+// and this function reuses it instead of recomputing; a caller with nothing
+// cached passes a fresh local initialized to -1.
+//
+// Takes raw (n, K, group_ids, cat_counts, targets) rather than a CalibState
+// so it can be called from c_api.cpp's algorithm-resolution switch, which
+// runs BEFORE that caller's CalibState is built (r_bridge.cpp's CalibState
+// already exists by the time it calls this and simply passes st.n/st.K/
+// st.group_ids/st.cat_counts/st.targets through).
+inline AutoRouteResult route_auto(int n, int K,
+                                   const int32_t* const* group_ids,
+                                   const int* cat_counts,
+                                   const double* const* targets,
+                                   int& m_cell_est_cache) {
+    const int M_cell_est = resolve_m_cell_est(n, K, group_ids, cat_counts, m_cell_est_cache);
+    // Exact integer comparison: M_cell_est / n >= 0.9  <=>  M_cell_est*10 >= n*9
+    const bool zero_compression =
+        (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9);
+
+    AutoRouteResult out;
+    if (zero_compression && K >= 5) {
+        double max_target = 0.0, min_target = 1.0;
+        for (int k = 0; k < K; ++k) {
+            for (int j = 0; j < cat_counts[k]; ++j) {
+                const double t = targets[k][j];
+                if (t > max_target) max_target = t;
+                if (t > 1e-12 && t < min_target) min_target = t;
+            }
+        }
+        const double target_skew = max_target / std::max(min_target, 1e-12);
+        if (target_skew > 5.0) {
+            // Epic-H WH-g: kk1204 K=20 evidence -- Newton-KL stalls at
+            // gap~=6.24e-2 on severe-skew dual landscape; ORIS+SRAA converges.
+            out.algorithm        = RK_ALG_ORIS;
+            out.force_accelerate = true;
+        } else {
+            out.algorithm = RK_ALG_NEWTON_KL;  // moderate skew
+        }
+    } else if (zero_compression) {
+        out.algorithm = RK_ALG_RAKING;  // K<5, zero-compression
+    } else {
+        out.algorithm = RK_ALG_ORIS;    // compressed regime, any K
+    }
+    return out;
+}
+
 } // namespace lbw

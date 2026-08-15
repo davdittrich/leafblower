@@ -24,24 +24,6 @@
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
-#include <type_traits>
-
-// eb79.25: detect a top-level `message` member on a solver result type. Some result
-// structs (RakingResult, ORISResult) have NO message field, so pack_solver_result (a
-// generic lambda instantiated over all result types) must gate the message capture with
-// `if constexpr (has_message<T>::value)` to compile for every instantiation.
-template <class T, class = void> struct has_message : std::false_type {};
-template <class T>
-struct has_message<T, std::void_t<decltype(std::declval<T&>().message)>> : std::true_type {};
-
-// CR-D11 (j7x8.11): same void_t detection for top-level n_bounds_violated (a
-// TOP-LEVEL field on oris/newton, raking/greg/sinkhorn, and — since CR-D11b
-// (j7x8.16) — chebyshev/logit/greenkhorn too). Lets the shared pack lambda
-// surface the bound-violation diagnostic generically.
-template <class T, class = void> struct has_n_bounds : std::false_type {};
-template <class T>
-struct has_n_bounds<T, std::void_t<decltype(std::declval<T&>().n_bounds_violated)>> : std::true_type {};
-
 static inline double scalar_real(SEXP x, const char* name) {
     if (TYPEOF(x) != REALSXP || LENGTH(x) != 1)
         Rf_error("leafblower: '%s' must be a length-1 numeric (got type %s length %d)",
@@ -477,11 +459,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // capacity_penalty <= 0.0 (or NULL) selects auto via estimate_M_cell (matches c_api.cpp:380);
     // positive value is used directly. ALM block is gated by st.use_admm_capacity,
     // so st.alm.capacity_mu is harmless for non-oris_soft callers.
-    // eb79.15: lazy cache for estimate_M_cell (O(n·K)). This site (A) and the AUTO-routing
-    // site below (B) call it with identical args; on the method="auto" + capacity_penalty≤0
-    // path both run, redundantly. Sentinel -1 = uncomputed; whichever site runs first stores
-    // its result, the other reuses it. Each site keeps its OWN guard (A's CXX.1 length-validity
-    // skip is NOT hoisted), so B still computes fresh when A's branch was skipped.
+    // eb79.15/SC1 (plan 07): lazy cache for lbw::resolve_m_cell_est (which
+    // itself wraps estimate_M_cell, O(n·K)). This site (A) and route_auto's
+    // AUTO-routing site below (B) share this ONE cache; on the method="auto"
+    // + capacity_penalty≤0 path both blocks run, but the underlying estimate
+    // computes once. Sentinel -1 = uncomputed; whichever site runs first
+    // stores its result, the other reuses it. A's CXX.1 length-validity skip
+    // is NOT hoisted into resolve_m_cell_est, so B still computes fresh when
+    // A's branch was skipped.
     int m_cell_est_cache = -1;
     {
         const double cp_val = Rf_isNull(capacity_penalty_sexp)
@@ -494,10 +479,10 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             // length-validation error is already pending (the throw at the deferred
             // check below converts pre_error into a graceful R error). Filling these
             // with malformed input would OOB-read.
-            m_cell_est_cache = lbw::estimate_M_cell(n, K,
+            const int m_cell_est = lbw::resolve_m_cell_est(n, K,
                 const_cast<const int32_t**>(group_ids.data()),
-                cat_counts.data());
-            st.alm.capacity_mu = (n > 0) ? static_cast<double>(m_cell_est_cache) / n : 1.0;
+                cat_counts.data(), m_cell_est_cache);
+            st.alm.capacity_mu = (n > 0) ? static_cast<double>(m_cell_est) / n : 1.0;
         }
     }
 
@@ -577,75 +562,12 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     // RAII convention (RESEARCH.md Pitfall 4).
     lbw::DispatchResult dres;
 
-    // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
-    auto pack_solver_result = [&](const auto& res) {
-        res_l1_weight_change         = res.base.l1_weight_change;
-        res_grake_norm               = res.base.grake_norm;
-        res_conv_metric              = res.base.convergence_metric;
-        res_conv_rule                = res.base.convergence_rule;
-        res_conv_tol                 = res.base.convergence_tol;
-        res_conv_iter                = res.base.convergence_iter;
-        res_conv_objective           = res.base.convergence_solver_objective;
-        res_conv_minimized_metric    = res.base.convergence_minimized_metric;
-        res_mean_error               = res.base.mean_error;
-        res_kl                       = res.base.kl;
-        res_chi2                     = res.base.chi2;
-        res_best_error               = res.base.best_error;
-        res_best_iter                = res.base.best_iter;
-        res_metric_first_check       = res.base.metric_first_check;
-        res_metric_prev_check        = res.base.metric_prev_check;
-        res_prev_check_iter          = res.base.prev_check_iter;
-        res_stall_kind               = res.base.stall_kind;
-        // eb79.25: capture the solver's own message (top-level field on message-bearing
-        // result types; RakingResult/ORISResult have none → skipped via has_message).
-        // UNCONDITIONAL overwrite (with else-clear): the LAST pack call wins, always the
-        // winning solver whose res_status is set at the same dispatch site → no stale
-        // message (esp. in the auto-fallback where fb supersedes the primary).
-        if constexpr (has_message<std::decay_t<decltype(res)>>::value)
-            std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", res.message);
-        else
-            res_solver_message[0] = '\0';
-        // CR-D11 (j7x8.11): surface the bound-violation diagnostic for any result
-        // carrying it (oris/newton and now raking/greg/sinkhorn). Under the
-        // no-clamp cell contract, cell mode can return per-obs violations; this
-        // reports their true count instead of a misleading 0. Since CR-D11b
-        // (j7x8.16) chebyshev/logit/greenkhorn also carry the field and persist
-        // finalize's out-params, so the trait now fires for every solver.
-        if constexpr (has_n_bounds<std::decay_t<decltype(res)>>::value) {
-            res_n_bounds_violated = res.n_bounds_violated;
-            res_n_bounds_clamped  = res.n_bounds_clamped;
-        }
-    };
-
-    // xc1s.1: single ORIS diagnostic-field pack. Replaces four near-identical
-    // ~21-line copy blocks (severe-skew-auto, compressed-auto, explicit oris,
-    // oris_soft). oris_soft additionally sets the alm_* fields after this call
-    // (only it runs ALM); the other three leave alm_* at their defaults, so this
-    // helper deliberately does NOT touch alm_*.
-    auto pack_oris_result = [&](lbw::ORISResult& res) {
-        res_n_xcur_writes         = res.n_xcur_writes_per_iter_last;
-        res_min_alpha             = res.min_alpha_seen;
-        res_final_alpha           = res.final_alpha;
-        res_n_bounds_violated     = res.n_bounds_violated;
-        res_n_bounds_clamped      = res.n_bounds_clamped;
-        res_homotopy_levels_used  = res.homotopy_levels_used;
-        res_homotopy_final_factor = res.homotopy_final_factor;
-        res_greedy_sweeps_taken   = res.greedy_sweeps_taken;
-        res_eta_final             = res.eta_final;
-        pack_solver_result(res);
-        res_sor_min_omega     = res.sor_min_omega;
-        res_sor_n_damped      = res.sor_n_damped;
-        res_sor_omega_mean    = res.sor_omega_mean;
-        res_sor_any_latched   = res.sor_any_latched;
-        res_sor_n_pinned_fb   = res.sor_n_pinned_fb;
-        res_sor_n_warmup_fb   = res.sor_n_warmup_fb;
-        res_sor_n_conv_fb     = res.sor_n_conv_fb;
-        res_sor_n_resid_grew  = res.sor_n_resid_grew;
-        res_sor_n_monotone_cd = res.sor_n_monotone_cd;
-        res_aa_accepted_count     = res.aa_accepted_count;
-        res_sraa_demoted          = res.sraa_demoted ? 1 : 0;
-        res_best_weights = std::move(res.base.best_weights);
-    };
+    // SC1 (plan 07): pack_solver_result/pack_oris_result (the DRY lambdas
+    // that used to feed the AUTO branch's severe-skew/moderate-skew/
+    // compressed sub-branches) are retired — every AUTO outcome now flows
+    // through lbw::dispatch_solver + a direct dres.* -> res_* copy, same
+    // shape as every other already-migrated branch below. has_message/
+    // has_n_bounds (top of file) become unused with them.
 
     std::string solver_error;
     {  // Rf_error longjmp skips C++ dtors; destroy all RAII objects before calling it (R-exts §5.5)
@@ -692,84 +614,77 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_sraa_demoted       = dres.sraa_demoted ? 1 : 0;
         res_best_weights       = std::move(dres.best_weights);
     } else if (strcmp(method_str, "auto") == 0) {
-        // AUTO routing (Epic-H WH-g):
+        // AUTO routing (Epic-H WH-g): the routing DECISION now lives in the
+        // single lbw::route_auto() (calib_dispatch.hpp, SC1 plan 07), shared
+        // with c_api.cpp's algorithm-resolution switch. This branch calls
+        // it, dispatches once through the shared table, and (on NOCONV/
+        // BUDGET) dispatches a SECOND time as the newton_kl fallback — the
+        // fallback is now a second dispatch_solver call, not nested routing.
         //   K<5 OR M_cell/n ≤ 0.9 → raking / ORIS (compression-based, unchanged)
         //   K≥5, M_cell/n > 0.9, target_skew ≤ 5 → newton_kl  (moderate skew)
         //   K≥5, M_cell/n > 0.9, target_skew  > 5 → oris+SRAA (severe skew)
-        //   target_skew = max(targets) / max(min(targets), 1e-12)
-        // eb79.15: reuse the site-A value when it ran (both-run path); else compute fresh
-        // (B-only path — method="auto" with capacity_penalty>0, where A's branch was skipped).
-        int M_cell_est = (m_cell_est_cache >= 0)
-            ? m_cell_est_cache
-            : lbw::estimate_M_cell(n, K,
-                const_cast<const int32_t**>(group_ids.data()),
-                cat_counts.data());
-        // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
-        // PAR.1: use >= to match c_api.cpp:190; > diverged at the exact 0.9 boundary.
-        const bool zero_compression = (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9);
-        // Save for auto-fallback: only st.weights is mutated by solvers in-place
+        // Save for auto-fallback: only st.weights is mutated by solvers in-place.
         const std::vector<double> weights_backup(weights);
         // CR-D5 (j7x8.5): the severe-skew branch forces st.accelerate=true for ORIS;
         // capture the user's original value to restore before a newton_kl fallback.
         const bool accel_backup = st.accelerate;
-        if (zero_compression && K >= 5) {
-            // Compute target_skew on the AUTO dispatch path.
-            double max_target = 0.0, min_target = 1.0;
-            for (int k = 0; k < K; ++k) {
-                for (int j = 0; j < cat_counts[k]; ++j) {
-                    const double t = targets[k][j];
-                    if (t > max_target) max_target = t;
-                    if (t > 1e-12 && t < min_target) min_target = t;
-                }
-            }
-            const double target_skew = max_target / std::max(min_target, 1e-12);
-            const bool severe_skew = (target_skew > 5.0);
-            if (severe_skew) {
-                // Epic-H WH-g: kk1204 K=20 evidence — Newton-KL stalls at gap≈6.24e-2
-                // on severe-skew dual landscape; ORIS+SRAA converges instead.
-                st.oris_auto_selected = true;
-                st.accelerate = true;
-                auto res = lbw::oris_solve(st);
-                res_status     = res.base.status;
-                res_iterations = res.base.iterations;
-                res_max_error  = res.base.max_error;
-                res_alg_used   = (int)RK_ALG_ORIS;
-                pack_oris_result(res);
-            } else {
-                auto res = lbw::newton_calibrate(st);
-                pack_solver_result(res);
-                res_status     = res.base.status;
-                res_iterations = res.base.iterations;
-                res_max_error  = res.base.max_error;
-                res_alg_used   = (int)RK_ALG_NEWTON_KL;
-                res_n_projected_dims = res.n_projected_dims;
-                res_lm_mu_final      = res.lm_mu_final;
-                res_n_bounds_violated = res.n_bounds_violated;
-                if (!res.base.best_weights.empty())
-                    res_best_weights = std::move(res.base.best_weights);
-                else
-                    res_best_weights.assign(st.n, 0.0);
-            }
-        } else if (zero_compression) {
-            // K<5, zero-compression: raking
-            auto res = lbw::raking_solve(st);
-            res_status     = res.base.status;
-            res_iterations = res.base.iterations;
-            res_max_error  = res.base.max_error;
-            res_alg_used   = (int)RK_ALG_RAKING;
-            pack_solver_result(res);
-            res_sraa_demoted = res.sraa_demoted ? 1 : 0;
-            res_best_weights = std::move(res.base.best_weights);
-        } else {
-            // Compressed regime: ORIS (any K)
-            st.oris_auto_selected = true;
-            auto res = lbw::oris_solve(st);
-            res_status     = res.base.status;
-            res_iterations = res.base.iterations;
-            res_max_error  = res.base.max_error;
-            res_alg_used   = (int)RK_ALG_ORIS;
-            pack_oris_result(res);
-        }
+        // eb79.15: reuse the site-A m_cell_est_cache when it already ran; route_auto
+        // computes fresh (and stores back into the cache) otherwise.
+        lbw::AutoRouteResult route = lbw::route_auto(
+            st.n, st.K, st.group_ids, st.cat_counts, st.targets, m_cell_est_cache);
+        // types.hpp: "true iff AUTO routing selected ORIS" — precise per-algorithm
+        // semantics (R's pre-existing, fixture-pinned behavior; adopted by c_api.cpp
+        // too in this plan, which previously set this unconditionally for any AUTO
+        // pick — see leafblower-* filed alongside this migration).
+        st.oris_auto_selected = (route.algorithm == RK_ALG_ORIS);
+        if (route.force_accelerate) st.accelerate = true;  // severe-skew ORIS+SRAA
+        lbw::dispatch_solver(route.algorithm, st, dres);
+        res_status             = dres.status;
+        res_iterations         = dres.iterations;
+        res_max_error          = dres.max_error;
+        res_alg_used           = static_cast<int>(dres.alg_used);
+        res_mean_error         = dres.mean_error;
+        res_kl                 = dres.kl;
+        res_chi2               = dres.chi2;
+        res_l1_weight_change   = dres.l1_weight_change;
+        res_grake_norm         = dres.grake_norm;
+        res_conv_metric        = dres.convergence_metric;
+        res_conv_rule          = dres.convergence_rule;
+        res_conv_tol           = dres.convergence_tol;
+        res_conv_iter          = dres.convergence_iter;
+        res_conv_objective     = dres.convergence_solver_objective;
+        res_conv_minimized_metric = dres.convergence_minimized_metric;
+        res_best_error         = dres.best_error;
+        res_best_iter          = dres.best_iter;
+        res_metric_first_check = dres.metric_first_check;
+        res_metric_prev_check  = dres.metric_prev_check;
+        res_prev_check_iter    = dres.prev_check_iter;
+        res_stall_kind         = dres.stall_kind;
+        res_n_bounds_violated  = dres.n_bounds_violated;
+        res_n_bounds_clamped   = dres.n_bounds_clamped;
+        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
+        res_n_xcur_writes         = dres.n_xcur_writes_per_iter_last;
+        res_min_alpha              = dres.min_alpha_seen;
+        res_final_alpha            = dres.final_alpha;
+        res_homotopy_levels_used   = dres.homotopy_levels_used;
+        res_homotopy_final_factor  = dres.homotopy_final_factor;
+        res_greedy_sweeps_taken    = dres.greedy_sweeps_taken;
+        res_eta_final              = dres.eta_final;
+        res_sor_min_omega      = dres.sor_min_omega;
+        res_sor_n_damped       = dres.sor_n_damped;
+        res_sor_omega_mean     = dres.sor_omega_mean;
+        res_sor_any_latched    = dres.sor_any_latched;
+        res_sor_n_pinned_fb    = dres.sor_n_pinned_fb;
+        res_sor_n_warmup_fb    = dres.sor_n_warmup_fb;
+        res_sor_n_conv_fb      = dres.sor_n_conv_fb;
+        res_sor_n_resid_grew   = dres.sor_n_resid_grew;
+        res_sor_n_monotone_cd  = dres.sor_n_monotone_cd;
+        res_aa_accepted_count  = dres.aa_accepted_count;
+        res_sraa_demoted       = dres.sraa_demoted ? 1 : 0;
+        res_n_projected_dims   = dres.n_projected_dims;
+        res_lm_mu_final        = dres.lm_mu_final;
+        res_best_weights       = std::move(dres.best_weights);
+
         // Auto-fallback: if primary solver NOCONVs or exhausts budget (still
         // improving), retry with newton_kl.  STALL(5) is excluded: the solver
         // is at the constrained optimum and fallback cannot improve it.
@@ -780,19 +695,40 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             std::copy(weights_backup.begin(), weights_backup.end(), weights.begin());
             st.oris_auto_selected = false;
             st.accelerate = accel_backup;  // CR-D5: undo severe-skew ORIS override
-            auto fb = lbw::newton_calibrate(st);
-            res_status     = fb.base.status;
-            res_iterations = fb.base.iterations;
-            res_max_error  = fb.base.max_error;
-            res_alg_used   = (int)RK_ALG_NEWTON_KL;
-            res_n_projected_dims = fb.n_projected_dims;
-            res_lm_mu_final      = fb.lm_mu_final;
-            pack_solver_result(fb);  // sets the shared conv/metric fields + message + n_bounds (has_n_bounds trait)
-            // CR-D5 (j7x8.5): when the abandoned primary was ORIS, pack_oris_result
-            // populated the ORIS-only diagnostics; newton owns none of them. Reset to
-            // their documented non-ORIS defaults (leafblower.h) so the exported result
-            // reflects the winning solver, not stale ORIS state. (n_bounds_violated is
-            // NOT reset — pack_solver_result already surfaced newton's real value.)
+            lbw::dispatch_solver(RK_ALG_NEWTON_KL, st, dres);
+            res_status             = dres.status;
+            res_iterations         = dres.iterations;
+            res_max_error          = dres.max_error;
+            res_alg_used           = static_cast<int>(dres.alg_used);
+            res_mean_error         = dres.mean_error;
+            res_kl                 = dres.kl;
+            res_chi2               = dres.chi2;
+            res_l1_weight_change   = dres.l1_weight_change;
+            res_grake_norm         = dres.grake_norm;
+            res_conv_metric        = dres.convergence_metric;
+            res_conv_rule          = dres.convergence_rule;
+            res_conv_tol           = dres.convergence_tol;
+            res_conv_iter          = dres.convergence_iter;
+            res_conv_objective     = dres.convergence_solver_objective;
+            res_conv_minimized_metric = dres.convergence_minimized_metric;
+            res_best_error         = dres.best_error;
+            res_best_iter          = dres.best_iter;
+            res_metric_first_check = dres.metric_first_check;
+            res_metric_prev_check  = dres.metric_prev_check;
+            res_prev_check_iter    = dres.prev_check_iter;
+            res_stall_kind         = dres.stall_kind;
+            res_n_bounds_violated  = dres.n_bounds_violated;
+            res_n_bounds_clamped   = dres.n_bounds_clamped;
+            std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
+            res_n_projected_dims   = dres.n_projected_dims;
+            res_lm_mu_final        = dres.lm_mu_final;
+            // CR-D5 (j7x8.5): when the abandoned primary was ORIS, dres still
+            // carries its ORIS-only diagnostics (dispatch_solver's NEWTON_KL
+            // arm does not touch them); newton owns none of them. Reset to
+            // their documented non-ORIS defaults (leafblower.h) so the
+            // exported result reflects the winning solver, not stale ORIS
+            // state. (n_bounds_violated/clamped ARE reset above — newton's
+            // own real values, already copied from the fresh dres.)
             res_n_xcur_writes         = 0;
             res_min_alpha             = 1.0;
             res_final_alpha           = 1.0;
@@ -811,10 +747,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sor_n_monotone_cd = 0;
             res_aa_accepted_count = 0;
             res_sraa_demoted      = 0;
-            if (!fb.base.best_weights.empty())
-                res_best_weights = std::move(fb.base.best_weights);
-            else
-                res_best_weights.assign(st.n, 0.0);
+            res_best_weights      = std::move(dres.best_weights);
         }
     } else if (strcmp(method_str, "sinkhorn") == 0) {
         // SC1 (leafblower-rywn): routed through the shared dispatch table

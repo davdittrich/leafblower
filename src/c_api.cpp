@@ -88,44 +88,6 @@ static void pack_solver_result(rk_result_t* dst, const R& src, rk_algorithm_t al
     }
 }
 
-// CR-D6 (j7x8.6): single newton_kl result pack used by BOTH the explicit
-// RK_ALG_NEWTON_KL branch and the AUTO-fallback branch, so newton_kl produces
-// identical fields regardless of how it is reached (also closes xc1s.1.1's
-// explicit-vs-fallback base-field divergence). Base fields go through the shared
-// pack; newton's TSVD/LM diagnostics have no rk_result_t counterpart (see inline
-// note below); and the ORIS-only fields are reset to documented non-ORIS defaults
-// (leafblower.h: 1.0/0) so
-// a fallback after an ORIS primary does not surface stale sor_*/alm_*/homotopy_*.
-// The 1.0/0 defaults also match r_bridge's explicit-newton output → R/Python parity.
-template <typename R>
-static void pack_newton_result_c(rk_result_t* dst, const R& nkr, rk_algorithm_t alg) noexcept {
-    if (!dst) return;
-    pack_solver_result(dst, nkr, alg);   // base fields + message + n_bounds (trait)
-    // (n_projected_dims / lm_mu_final are NewtonCalibResult-only; rk_result_t does
-    //  not carry them, so nothing newton-specific to copy into the C result here.)
-    // ORIS-only diagnostics → documented non-ORIS defaults
-    dst->n_xcur_writes_per_iter_last = 0;
-    dst->min_alpha_seen        = 1.0;
-    dst->final_alpha           = 1.0;
-    dst->homotopy_levels_used  = 0;
-    dst->homotopy_final_factor = 1.0;
-    dst->greedy_sweeps_taken   = 0;
-    dst->eta_final             = 0.0;
-    dst->sor_min_omega     = 1.0;
-    dst->sor_n_damped      = 0;
-    dst->sor_omega_mean    = 1.0;
-    dst->sor_any_latched   = 0;
-    dst->sor_n_pinned_fb   = 0;
-    dst->sor_n_warmup_fb   = 0;
-    dst->sor_n_conv_fb     = 0;
-    dst->sor_n_resid_grew  = 0;
-    dst->sor_n_monotone_cd = 0;
-    dst->alm_capacity_mu_final = 0.0;
-    dst->alm_n_growth_events   = 0;
-    dst->alm_max_dual_norm     = 0.0;
-    dst->alm_sum_drift         = 0.0;
-}
-
 // SC1 (leafblower-rywn): narrow the shared, unconstrained lbw::DispatchResult
 // (calib_dispatch.hpp) into the ABI-frozen rk_result_t. The 4 superset-only
 // fields (n_projected_dims, lm_mu_final, sraa_demoted, plus the obs-level
@@ -297,6 +259,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     rk_algorithm_t alg;
     bool auto_selected = false;
     bool wh_g_severe_skew_accelerate = false;  // Epic-H WH-g: AUTO target-skew gate
+    int m_cell_est_cache = -1;  // SC1 (plan 07): in/out cache for lbw::route_auto
     if (cat_counts && group_ids && targets && K > 0 && n > 0) {
         switch (p->algorithm) {
             case RK_ALG_RAKING:   alg = RK_ALG_RAKING; break;
@@ -310,41 +273,16 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             case RK_ALG_NEWTON_KL:   alg = RK_ALG_NEWTON_KL;   break;
             case RK_ALG_AUTO:
             default: {
-                // Route based on cell table compression ratio, dimension, and target skew.
-                // K<5 OR M_cell/n<0.9   → RK_ALG_ORIS / RK_ALG_RAKING (unchanged)
-                // K≥5, M_cell/n≥0.9, target_skew ≤ 5 → RK_ALG_NEWTON_KL (moderate skew)
-                // K≥5, M_cell/n≥0.9, target_skew > 5 → RK_ALG_ORIS + accelerate
-                //                                       (Epic-H WH-g: severe skew)
-                int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
-                // Exact integer comparison: M_cell_est / n >= 0.9  ↔  M_cell_est * 10 >= n * 9
-                if (static_cast<int64_t>(M_cell_est) * 10 >= static_cast<int64_t>(n) * 9) {
-                    if (K >= 5) {
-                        // Compute target_skew = max_T / max(min_T, 1e-12).
-                        double max_target = 0.0, min_target = 1.0;
-                        for (int k = 0; k < K; ++k) {
-                            for (int j = 0; j < cat_counts[k]; ++j) {
-                                const double t = targets[k][j];
-                                if (t > max_target) max_target = t;
-                                if (t > 1e-12 && t < min_target) min_target = t;
-                            }
-                        }
-                        const double target_skew = max_target / std::max(min_target, 1e-12);
-                        const bool severe_skew = (target_skew > 5.0);
-                        if (severe_skew) {
-                            // Epic-H WH-g: kk1204 K=20 evidence — Newton-KL stalls at gap≈6.24e-2
-                            // on severe-skew dual landscape; ORIS+SRAA converges instead.
-                            alg = RK_ALG_ORIS;
-                            wh_g_severe_skew_accelerate = true;
-                        } else {
-                            alg = RK_ALG_NEWTON_KL;
-                        }
-                    } else {
-                        alg = RK_ALG_RAKING;
-                    }
-                } else {
-                    alg = RK_ALG_ORIS;
-                }
-                auto_selected = true;
+                // SC1 (leafblower-rywn): the routing DECISION now lives in the
+                // single lbw::route_auto() (calib_dispatch.hpp, plan 07),
+                // shared with r_bridge.cpp's "auto" branch. This switch's job
+                // is now only to apply the decision (alg / auto_selected /
+                // wh_g_severe_skew_accelerate), not to compute it.
+                lbw::AutoRouteResult route = lbw::route_auto(
+                    n, K, group_ids, cat_counts, targets, m_cell_est_cache);
+                alg                          = route.algorithm;
+                auto_selected                = route.auto_selected;
+                wh_g_severe_skew_accelerate  = route.force_accelerate;
                 break;
             }
         }
@@ -380,7 +318,14 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.inner_max_iter = p->inner_max_iter;
     st.outer_max_iter = p->outer_max_iter;
     st.verbose       = p->verbose;
-    st.oris_auto_selected = auto_selected;  // read by oris_solve for verbose prefix
+    // types.hpp: "true iff AUTO routing selected ORIS" — precise per-algorithm
+    // semantics (R's pre-existing, fixture-pinned behavior). Plan 07 found this
+    // site previously set the flag true for ANY AUTO pick (including
+    // newton_kl/raking), a latent divergence from r_bridge.cpp; adopted R's
+    // narrower contract since only oris_solve() reads this (verbose prefix
+    // only, no result-field impact) — see leafblower-* filed alongside this
+    // migration.
+    st.oris_auto_selected = auto_selected && (alg == RK_ALG_ORIS);
     st.bounds_mode   = p->bounds_mode;
     st.log_fn        = p->log_fn;
     st.log_ctx       = p->log_ctx;
@@ -412,6 +357,13 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     st.sor_cfg.burnin               = p->sor_burnin;
     st.sor_cfg.omega_mode_id        = p->sor_omega_mode_id;
     st.newton_tsvd_ratio            = p->newton_tsvd_ratio;  /* Epic-H WH-e */
+    // CR-D5 (j7x8.5) parity: capture the user's own accelerate request BEFORE
+    // the severe-skew AUTO override below, so a newton_kl fallback can restore
+    // it. Plan 07 found this site previously never restored st.accelerate
+    // after a severe-skew ORIS primary fell back (r_bridge.cpp did) — adopted
+    // R's behavior since its fixtures pin it — see leafblower-* filed
+    // alongside this migration.
+    const bool accel_backup = (p->accelerate != 0);
     if (wh_g_severe_skew_accelerate) {
         // Epic-H WH-g: severe-skew K≥5 AUTO routes to oris with SRAA enabled.
         st.accelerate = true;
@@ -549,7 +501,14 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             if (p->capacity_penalty > 0.0) {
                 st.alm.capacity_mu = p->capacity_penalty;
             } else {
-                int M_cell_est = lbw::estimate_M_cell(n, K, group_ids, cat_counts);
+                // SC1 (plan 07): shares m_cell_est_cache with route_auto above
+                // (lbw::resolve_m_cell_est) -- inert here since AUTO never
+                // resolves to RK_ALG_ORIS_SOFT (this branch only runs for an
+                // explicit p->algorithm==RK_ALG_ORIS_SOFT call), but keeps
+                // both bridges' oris_soft capacity resolution going through
+                // the same single M_cell/n helper.
+                const int M_cell_est = lbw::resolve_m_cell_est(
+                    n, K, group_ids, cat_counts, m_cell_est_cache);
                 st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
             }
             // SC1 (leafblower-rywn): routed through the shared dispatch table
@@ -586,7 +545,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     }
 
     // Auto-fallback: if primary solver NOCONV or BUDGET, retry with newton_kl.
-    // Parity with r_bridge.cpp:558 — both NOCONV and BUDGET indicate "still
+    // Parity with r_bridge.cpp — both NOCONV and BUDGET indicate "still
     // improving, ran out of iterations" and should fall back. STALL stays put
     // (at constrained optimum, fallback won't help).
     if ((status == RK_ERR_NOCONV || status == RK_ERR_BUDGET)
@@ -594,16 +553,24 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         if (p->verbose >= 1)
             st.log("auto: primary NOCONV; retrying with newton_kl");
         std::copy(weights_backup.begin(), weights_backup.end(), weights);
-        auto fb = lbw::newton_calibrate(st);
-        status     = fb.base.status;
-        iterations = fb.base.iterations;
-        max_error  = fb.base.max_error;
+        st.accelerate = accel_backup;  // CR-D5: undo severe-skew ORIS override
+        // SC1 (plan 07): dispatch through the shared table like every other
+        // branch, into a FRESH DispatchResult (not the primary's dres_*) —
+        // its default-constructed ORIS-only fields ARE the documented
+        // non-ORIS reset (1.0/0/1.0/...), so pack_dispatch_oris_extras_c
+        // reproduces pack_newton_result_c's old hardcoded reset with zero
+        // special-case code (same finding plan 02-06 made for the explicit
+        // newton_kl branch). pack_newton_result_c is retired.
+        lbw::DispatchResult dres_fb;
+        lbw::dispatch_solver(RK_ALG_NEWTON_KL, st, dres_fb);
+        status     = dres_fb.status;
+        iterations = dres_fb.iterations;
+        max_error  = dres_fb.max_error;
         used       = RK_ALG_NEWTON_KL;
-        // CR-D6 (j7x8.6): same shared pack as the explicit branch → identical fields,
-        // plus it resets the ORIS-only diagnostics the abandoned primary populated via
-        // pack_oris_result_c (grake_norm/convergence_solver_objective/
-        // convergence_minimized_metric were also previously dropped here).
-        pack_newton_result_c(result, fb, RK_ALG_NEWTON_KL);
+        if (result) {
+            pack_dispatch_result_c(result, dres_fb);
+            pack_dispatch_oris_extras_c(result, dres_fb);
+        }
         for (int i = 0; i < n; i++) weights[i] = st.weights[i];
     }
 
