@@ -493,18 +493,23 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     } else if (alg == RK_ALG_GREENKHORN) {
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure min_weight < max_weight. */
-        auto res = lbw::greenkhorn_solve(st);
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling lbw::greenkhorn_solve + pack_solver_result directly.
+        lbw::DispatchResult dres_gk;
+        lbw::dispatch_solver(alg, st, dres_gk);
         // Solver stores calibrated weights only in best_weights, not in st.weights.
-        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors r_bridge.cpp:806-810.
-        if (!res.base.best_weights.empty() &&
-            static_cast<int>(res.base.best_weights.size()) == n)
-            std::copy(res.base.best_weights.begin(),
-                      res.base.best_weights.end(), weights);
-        pack_solver_result(result, res, alg);
+        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors
+        // r_bridge.cpp's centralized greenkhorn/logit weights copy-back after
+        // the solver dispatch chain.
+        if (!dres_gk.best_weights.empty() &&
+            static_cast<int>(dres_gk.best_weights.size()) == n)
+            std::copy(dres_gk.best_weights.begin(),
+                      dres_gk.best_weights.end(), weights);
+        pack_dispatch_result_c(result, dres_gk);
         used = RK_ALG_GREENKHORN;
-        status = res.base.status;
-        iterations = res.base.iterations;
-        max_error = res.base.max_error;
+        status = dres_gk.status;
+        iterations = dres_gk.iterations;
+        max_error = dres_gk.max_error;
     } else if (alg == RK_ALG_LOGIT) {
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure max_weight is finite and > min_weight. */
