@@ -25,27 +25,14 @@ static_assert(RK_ALG_ORIS == 1 && RK_ALG_ORIS_SOFT == 8,
 
 #define LBW_NODISCARD [[nodiscard]]
 
-// Single source of truth: algorithm index → display name.
-// Indices match rk_algorithm_t enum values in leafblower.h.
-// Gaps (2, 7) use "(reserved)" so out-of-enum values are visible.
-static constexpr const char* kAlgNames[] = {
-    "auto",         // 0  RK_ALG_AUTO
-    "ORIS",         // 1  RK_ALG_ORIS
-    "(reserved)",   // 2  removed LBFGSB
-    "raking",       // 3  RK_ALG_RAKING
-    "sinkhorn",     // 4  RK_ALG_SINKHORN
-    "chebyshev",    // 5  RK_ALG_CHEBYSHEV
-    "greg",         // 6  RK_ALG_GREG
-    "(gap)",        // 7  unused gap between GREG=6 and ORIS_SOFT=8
-    "ORIS-soft",    // 8  RK_ALG_ORIS_SOFT
-    "greenkhorn",   // 9  RK_ALG_GREENKHORN
-    "logit",        // 10 RK_ALG_LOGIT
-    "newton_kl"     // 11 RK_ALG_NEWTON_KL
-};
-static_assert(RK_ALG_NEWTON_KL == 11,
-    "kAlgNames: update if enum max changes");
-static_assert(sizeof(kAlgNames)/sizeof(kAlgNames[0]) == 12,
-    "kAlgNames must cover all 12 enum slots 0..11");
+// SC1 (plan 07): the single lbw::kAlgNames table of record
+// (calib_dispatch.hpp) replaces this file's own copy. This file's previous
+// copy used different display spellings ("ORIS"/"ORIS-soft"/"(reserved)"/
+// "(gap)") for the same slots than r_bridge.cpp's lowercase-canonical
+// table; grepped R/Python test suites and R/harvest.R and found nothing
+// depends on that capitalization (it only ever fed rk_result_t's default
+// `message` free text) — converged on the canonical names below (see
+// 02-07-SUMMARY.md's observability finding).
 
 // CR-D11 (j7x8.11): void_t detection for a top-level n_bounds_violated field, so
 // the shared pack template surfaces the bound-violation diagnostic (parity with
@@ -581,9 +568,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         result->algorithm_used = used;
         if (result->message[0] == '\0') {
             const int idx = static_cast<int>(used);
-            const char* name = (idx >= 0 && idx < static_cast<int>(
-                sizeof(kAlgNames)/sizeof(kAlgNames[0])))
-                ? kAlgNames[idx] : "unknown";
+            const char* name = (idx >= 0 && idx < lbw::kAlgNamesLen)
+                ? lbw::kAlgNames[idx] : "unknown";
             snprintf(result->message, sizeof(result->message),  // CXX.4: was literal 256
                      "%s: %d iters, max_error=%.2e",
                      name, iterations, max_error);

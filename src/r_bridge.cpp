@@ -1099,26 +1099,10 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         Rf_error("%s", msg);
     }
 
-    // Single source of truth for rk_algorithm_t → R-visible name.
-    // Indices match enum values in leafblower.h. Update both together.
-    static const char* kAlgNames[] = {
-        "",           // 0 = RK_ALG_AUTO
-        "oris",       // 1 = RK_ALG_ORIS
-        "",           // 2 = (removed lbfgsb slot)
-        "raking",     // 3 = RK_ALG_RAKING
-        "sinkhorn",   // 4 = RK_ALG_SINKHORN
-        "chebyshev",  // 5 = RK_ALG_CHEBYSHEV
-        "greg",       // 6 = RK_ALG_GREG
-        "",           // 7 = deprecated GRAKE
-        "oris_soft",  // 8 = RK_ALG_ORIS_SOFT
-        "greenkhorn", // 9 = RK_ALG_GREENKHORN
-        "logit",      // 10 = RK_ALG_LOGIT
-        "newton_kl",  // 11 = RK_ALG_NEWTON_KL
-    };
-    static const int kAlgNamesLen = 12;
-    static_assert(RK_ALG_NEWTON_KL == 11, "kAlgNames table needs update on enum change");
-    const char* alg_name_cstr = (res_alg_used >= 0 && res_alg_used < kAlgNamesLen)
-        ? kAlgNames[res_alg_used]
+    // SC1 (plan 07): the single lbw::kAlgNames table of record
+    // (calib_dispatch.hpp) replaces this file's own copy.
+    const char* alg_name_cstr = (res_alg_used >= 0 && res_alg_used < lbw::kAlgNamesLen)
+        ? lbw::kAlgNames[res_alg_used]
         : "unknown";
     // eb79.25: for ERROR statuses, surface the solver's own message (e.g. logit's
     // structural-INFEAS margin name, a specific BADARG reason) when it set one — instead

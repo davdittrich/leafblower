@@ -41,6 +41,41 @@
 
 namespace lbw {
 
+// Single source of truth for rk_algorithm_t -> algorithm name (SC1, plan
+// 07). Positional, indexed by the enum value; slots 2 (removed LBFGSB) and
+// 7 (withdrawn GRAKE) stay permanently empty holes (CLAUDE.md: "enum slots
+// 2 and 7 permanently reserved"). Both bridges read from this ONE table;
+// previously r_bridge.cpp and c_api.cpp each carried an independent,
+// hand-synced copy that had already drifted (r_bridge: lowercase canonical
+// names identical to kAlgMap's keys below; c_api: different display
+// spellings -- "ORIS"/"ORIS-soft"/"(reserved)"/"(gap)" -- for the same
+// slots). r_bridge.cpp's spellings win: they feed a STRUCTURED, tested
+// SEXP result field (r_bridge.cpp's res_list element 3, the R-visible
+// `algorithm_used` string), not just free text, so they cannot change.
+// c_api.cpp's spellings only ever fed rk_result_t's default `message` free
+// text (grepped: no R/Python test or R/harvest.R asserts on that specific
+// capitalization) and converge to these canonical names with this
+// migration -- see 02-07-SUMMARY.md for the observability finding.
+inline constexpr const char* kAlgNames[] = {
+    "",           // 0 = RK_ALG_AUTO
+    "oris",       // 1 = RK_ALG_ORIS
+    "",           // 2 = (removed lbfgsb slot)
+    "raking",     // 3 = RK_ALG_RAKING
+    "sinkhorn",   // 4 = RK_ALG_SINKHORN
+    "chebyshev",  // 5 = RK_ALG_CHEBYSHEV
+    "greg",       // 6 = RK_ALG_GREG
+    "",           // 7 = deprecated GRAKE
+    "oris_soft",  // 8 = RK_ALG_ORIS_SOFT
+    "greenkhorn", // 9 = RK_ALG_GREENKHORN
+    "logit",      // 10 = RK_ALG_LOGIT
+    "newton_kl",  // 11 = RK_ALG_NEWTON_KL
+};
+inline constexpr int kAlgNamesLen = 12;
+static_assert(RK_ALG_NEWTON_KL == 11,
+    "lbw::kAlgNames table needs update on enum change");
+static_assert(sizeof(kAlgNames) / sizeof(kAlgNames[0]) == 12,
+    "lbw::kAlgNames must cover all 12 enum slots 0..11");
+
 // Select the active metric value from the pre-computed metric set.
 // The caller provides all seven metric values in canonical order; only the
 // one matching `metric` is used. marginal_kl defaults to 0.0 for callers
