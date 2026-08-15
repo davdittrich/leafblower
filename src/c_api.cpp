@@ -498,14 +498,24 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
         iterations = dres_lg.iterations;
         max_error = dres_lg.max_error;
     } else if (alg == RK_ALG_NEWTON_KL) {
-        auto nkr = lbw::newton_calibrate(st);
-        // CR-D6 (j7x8.6): route through the shared newton pack — previously this
-        // branch hand-copied a partial field set (omitting mean_error/kl/chi2/
-        // l1_weight_change/grake_norm/convergence_solver_objective/
-        // convergence_minimized_metric), diverging from the AUTO-fallback branch.
-        pack_newton_result_c(result, nkr, RK_ALG_NEWTON_KL);
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling lbw::newton_calibrate + pack_newton_result_c
+        // directly (mirrors r_bridge.cpp's "newton_kl" branch). Reusing
+        // pack_dispatch_oris_extras_c here (rather than a near-duplicate
+        // "newton extras" packer) is exact: DispatchResult's default-
+        // constructed ORIS-only-field values (min_alpha_seen=1.0,
+        // final_alpha=1.0, homotopy_final_factor=1.0, all others 0/0.0) are
+        // byte-identical to what pack_newton_result_c hardcoded, and the
+        // new RK_ALG_NEWTON_KL dispatch arm deliberately leaves those fields
+        // untouched — so this reproduces the pre-migration reset exactly.
+        // The AUTO-fallback branch below still calls pack_newton_result_c
+        // directly on a NewtonCalibResult; unchanged (plan 07 owns AUTO).
+        lbw::DispatchResult dres_nk;
+        lbw::dispatch_solver(alg, st, dres_nk);
+        pack_dispatch_result_c(result, dres_nk);
+        pack_dispatch_oris_extras_c(result, dres_nk);
         for (int i = 0; i < n; i++) weights[i] = st.weights[i];
-        return nkr.base.status;
+        return dres_nk.status;
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
             // kxna.23: reject inner_max_iter < 1 BEFORE the ~5-iter ORIS warm-start

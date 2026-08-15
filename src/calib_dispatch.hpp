@@ -37,6 +37,7 @@
 #include "oris.hpp"
 #include "chebyshev.hpp"
 #include "raking.hpp"
+#include "newton_calib.hpp"
 
 namespace lbw {
 
@@ -706,11 +707,12 @@ struct DispatchResult {
 // {enum/string -> solver -> result} chains (SC1, leafblower-rywn). Covers
 // RK_ALG_SINKHORN (plan 02-01, the tracer slice), RK_ALG_GREG,
 // RK_ALG_GREENKHORN, RK_ALG_LOGIT (plan 02-03), RK_ALG_CHEBYSHEV,
-// RK_ALG_RAKING (plan 02-04), and RK_ALG_ORIS, RK_ALG_ORIS_SOFT (plan 02-05)
-// so far — every other enum value leaves `out`
-// untouched and returns without acting, so not-yet-migrated callers keep
-// running their existing branch unchanged. Solver-by-solver migration
-// (D-01, 02-CONTEXT.md) adds one case arm per plan.
+// RK_ALG_RAKING (plan 02-04), RK_ALG_ORIS, RK_ALG_ORIS_SOFT (plan 02-05), and
+// RK_ALG_NEWTON_KL (plan 02-06) — every named method is now migrated; only
+// RK_ALG_AUTO's routing logic (plan 07) still bypasses this table. Every
+// other enum value leaves `out` untouched and returns without acting, so
+// not-yet-migrated callers keep running their existing branch unchanged.
+// Solver-by-solver migration (D-01, 02-CONTEXT.md) adds one case arm per plan.
 inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& out) {
     switch (alg) {
         case RK_ALG_SINKHORN: {
@@ -1029,6 +1031,50 @@ inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& 
             out.alm_max_dual_norm            = res.alm_max_dual_norm;
             out.alm_sum_drift                = res.alm_sum_drift;
             out.best_weights                 = std::move(res.base.best_weights);
+            break;
+        }
+        case RK_ALG_NEWTON_KL: {
+            auto res = lbw::newton_calibrate(st);
+            out.status                       = res.base.status;
+            out.iterations                   = res.base.iterations;
+            out.max_error                    = res.base.max_error;
+            out.mean_error                   = res.base.mean_error;
+            out.kl                           = res.base.kl;
+            out.chi2                         = res.base.chi2;
+            out.l1_weight_change             = res.base.l1_weight_change;
+            out.grake_norm                   = res.base.grake_norm;
+            out.convergence_metric           = res.base.convergence_metric;
+            out.convergence_rule             = res.base.convergence_rule;
+            out.convergence_tol              = res.base.convergence_tol;
+            out.convergence_iter             = res.base.convergence_iter;
+            out.convergence_solver_objective = res.base.convergence_solver_objective;
+            out.convergence_minimized_metric = res.base.convergence_minimized_metric;
+            out.best_error                   = res.base.best_error;
+            out.best_iter                    = res.base.best_iter;
+            out.metric_first_check           = res.base.metric_first_check;
+            out.metric_prev_check            = res.base.metric_prev_check;
+            out.prev_check_iter              = res.base.prev_check_iter;
+            out.stall_kind                   = res.base.stall_kind;
+            out.n_bounds_violated            = res.n_bounds_violated;
+            out.n_bounds_clamped             = res.n_bounds_clamped;
+            std::snprintf(out.solver_message, sizeof(out.solver_message), "%s", res.message);
+            out.alg_used                     = RK_ALG_NEWTON_KL;
+            // SUPERSET-ONLY (no rk_result_t field): newton_kl's own diagnostics.
+            out.n_projected_dims             = res.n_projected_dims;
+            out.lm_mu_final                  = res.lm_mu_final;
+            // Violation guard (newton_calib.cpp: frac_violated > 0.05) leaves
+            // res.base.best_weights empty/default; fall back to a zero-filled
+            // sentinel of length st.n — the same fallback both bridges applied
+            // per-callsite before this migration.
+            if (!res.base.best_weights.empty())
+                out.best_weights = std::move(res.base.best_weights);
+            else
+                out.best_weights.assign(st.n, 0.0);
+            // newton never sets ORIS-only diagnostics (n_xcur_writes_per_iter_last,
+            // min_alpha_seen, ..., alm_sum_drift); DispatchResult's default-
+            // constructed values for those members ARE the documented non-ORIS
+            // defaults (1.0/0/1.0/... — see struct comment above), so this arm
+            // leaves them untouched by design.
             break;
         }
         default:
