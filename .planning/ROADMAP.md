@@ -39,7 +39,7 @@ existing ticket IDs and never introduce a competing numbering scheme.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Verification Coverage Closed** - The gate detects R↔Python divergence and bound violations it currently cannot see (completed 2026-08-15)
-- [ ] **Phase 2: One Engine, Not Two** - R and Python reach the solvers through a single dispatch path, built the same way
+- [x] **Phase 2: One Engine, Not Two** - R and Python reach the solvers through a single dispatch path, built the same way (completed 2026-08-15)
 - [ ] **Phase 3: Honest Performance Gate** - The performance claim is measured against a live solver and restated as an achievable gate
 - [ ] **Phase 4: Truthful Surface** - Every documented claim matches shipped behaviour; every footgun errors instead of silently misleading
 - [ ] **Phase 5: CRAN + PyPI Release** - A stranger installs leafblower with `install.packages()` and `pip install`
@@ -135,7 +135,7 @@ re-measured if any struct changes; enum slots 2 and 7 stay holes and any positio
 (`src/r_bridge.cpp:270, 642-648`) must be preserved. Run `LBW_BENCH_GATE=1` on every commit
 that touches a TU boundary. The mirrored line ranges are already annotated in the source
 (`src/c_api.cpp:458`, `:473`, `:505`) — use them.
-**Plans:** 7/8 plans executed; 02-08 Tasks 1-2 done, Task 3 (human-verify checkpoint) pending
+**Plans:** 8/8 plans executed — phase complete (completed 2026-08-15)
 
 Plans:
 
@@ -146,7 +146,7 @@ Plans:
 - [x] 02-05-PLAN.md — Migrate `oris` and `oris_soft` (SRAA / SOR / ALM diagnostics, capacity auto-resolution) (SC1)
 - [x] 02-06-PLAN.md — Migrate `newton_kl` (`n_projected_dims`, `lm_mu_final`) (SC1)
 - [x] 02-07-PLAN.md — Consolidate AUTO routing, unify the enum-to-name table, collapse the R bridge's method-string chain (SC1)
-- [~] 02-08-PLAN.md — Phase gate: single-dispatch-site guard test, full DoD gate, stepstone no-regression, human verification (SC1, SC5). Tasks 1-2 done (SC1 guard test, DoD+benchmark proof); Task 3 human-verify checkpoint pending.
+- [x] 02-08-PLAN.md — Phase gate: single-dispatch-site guard test, full DoD gate, stepstone no-regression, human verification (SC1, SC5, `leafblower-rywn` closed)
 
 ### Phase 3: Honest Performance Gate
 

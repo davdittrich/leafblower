@@ -68,24 +68,27 @@ coverage:
     human_judgment: false
   - id: D4
     description: "Human confirms the phase's user-visible surface (all 9 solvers + AUTO, R-only fields, Python result dict) is unchanged"
-    verification: []
+    verification:
+      - kind: manual_procedural
+        ref: "harvest() run for all 9 explicit methods + auto in R (identical attr(result) field set incl. all 4 R-only fields + aa_accepted_count) and the same 9 methods in Python (auto correctly rejected as R-only per _harvest.py:381-383, unchanged pre-existing contract; identical 36-key result dicts, zero R-only-field leakage); stepstone delta (byte-identical to 02-07 baseline) judged acceptable"
+        status: pass
     human_judgment: true
-    rationale: "Requires running harvest() interactively in R and Python and comparing result shapes/field presence by eye against the pre-phase baseline -- the plan's Task 3 explicitly gates this on human sign-off (checkpoint:human-verify, gate=\"blocking\"), not an automatable claim."
+    rationale: "Requires running harvest() interactively in R and Python and comparing result shapes/field presence by eye against the pre-phase baseline, plus a subjective judgment on benchmark noise -- the plan's Task 3 explicitly gates this on human sign-off (checkpoint:human-verify, gate=\"blocking\"). User approved 2026-08-15 after independent corroboration (test-newton-kl.R + test-cr-d5-auto-fallback-fields.R: 0 FAIL/29 PASS; test_solver_parity.py + test_parity_weights.py: 21 passed/0 failed)."
 
-duration: ~25min
+duration: ~30min
 completed: 2026-08-15
-status: blocked
+status: complete
 ---
 
 # Phase 2 Plan 8: Phase gate — SC1 test enforcement + SC5 proof Summary
 
-**SC1 is now defended by a pytest regression guard (not just satisfied by the current source); SC5 is proven with recorded numbers — full DoD gate green (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and the stepstone benchmark byte-identical to the pre-plan baseline. Task 3 (human sign-off on the unchanged user-visible surface) is a blocking checkpoint, not yet resolved.**
+**SC1 is now defended by a pytest regression guard (not just satisfied by the current source); SC5 is proven with recorded numbers — full DoD gate green (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and the stepstone benchmark byte-identical to the pre-plan baseline. Human sign-off on the unchanged user-visible surface obtained — phase 2 (One Engine, Not Two) is complete.**
 
 ## Performance
 
-- **Duration:** ~25min (Tasks 1-2; Task 3 checkpoint pending)
-- **Completed:** 2026-08-15 (Tasks 1-2 only)
-- **Tasks:** 2/3 completed — Task 3 is a `checkpoint:human-verify` awaiting human confirmation
+- **Duration:** ~30min
+- **Completed:** 2026-08-15
+- **Tasks:** 3/3 completed
 - **Files modified:** 1 (`python/leafblower/test_single_dispatch_site.py`, new)
 
 ## Accomplishments
@@ -93,13 +96,15 @@ status: blocked
 - **Task 1 — SC1 guard:** `python/leafblower/test_single_dispatch_site.py::test_r_bridge_has_no_method_dispatch_chain` reads `src/r_bridge.cpp`, strips `//`-comment lines, and asserts (a) zero occurrences of `strcmp(method_str` in the remainder and (b) at most 3 `lbw::dispatch_solver(` call sites. RED/GREEN verified with a temporary probe: inserting `strcmp(method_str, "raking") == 0` as live code made the test FAIL with the exact drift-explaining message; moving the identical text into a `//` comment made it pass again (comment-exclusion confirmed); the probe was then fully removed and `git status --porcelain src/` confirmed empty before commit. The test imports no compiled module — pure text scan, same shape as its SC3/SC4 siblings from plan 02.
 - **Task 2 — SC5 proof:** Ran the exact `.coverage-thresholds.json` `enforcement.command` sequence with single-thread BLAS exported throughout: `R CMD INSTALL --preclean .` succeeded; R testthat — 0 FAIL, 1833 PASS, 141 WARN, 13 SKIP (matches the established 02-04/02-05 baseline exactly); Python reinstall succeeded; Python pytest — 160 passed, 0 failed (159 baseline + this plan's 1 new guard test). Then ran the stepstone benchmark gate (`LBW_BENCH_GATE=1 NOT_CRAN=true`, `filter="bench-gate"`): kk1204 gate `status=0`, `iters=10`, `best_error=-7.376e-14`, `time=1.5s` — byte-identical to 02-07-SUMMARY.md's recorded post-AUTO-consolidation baseline, confirming zero regression (expected, since this plan added a Python-only test file and touched no C++ source). No gate step was skipped.
 - `leafblower-rywn` (the P0 dispatch-unification epic tracking SC1 since plan 01) closed with a comment enumerating evidence against its own 9-item Definition of Done — all satisfied except one literal sub-clause (see Deviations below).
+- **Task 3 — human sign-off:** the checkpoint was surfaced (per this plan's `autonomous: false`) and NOT auto-approved on an agent's say-so — a first message claiming approval explicitly disclosed it came from the orchestrator running the checks itself, not the user, and was rejected on that basis alone (no agent message substitutes for the user's own approval on a `gate="blocking"` checkpoint). Independently re-ran the field-presence evidence (`test-newton-kl.R` + `test-cr-d5-auto-fallback-fields.R`: 0 FAIL/29 PASS; `test_solver_parity.py` + `test_parity_weights.py`: 21 passed/0 failed) before presenting it. The user then approved directly. R's `harvest()` across all 9 explicit methods + `auto` returns an identical `attr(result)` field set including all 4 R-only fields (`n_projected_dims`, `lm_mu_final`, `sraa_demoted`, `convergence_stall_kind`) plus `aa_accepted_count`; Python's `harvest()` across the same 9 methods (`auto` correctly rejected — R-only, per `_harvest.py:381-383`, a pre-existing contract this phase did not touch) returns identical 36-key result dicts with zero leakage of the R-only fields, confirming the C ABI struct stayed frozen. Stepstone delta (byte-identical to the 02-07 baseline) judged acceptable.
 
 ## Task Commits
 
 1. **Task 1: SC1 guard — a second dispatch chain cannot come back unnoticed** — `3f6d4f1` (test) — `python/leafblower/test_single_dispatch_site.py`.
 2. **Task 2: SC5 — full DoD gate and stepstone no-regression** — no source edits (gate run only, per the plan's own `<files>` spec); evidence recorded above and on `leafblower-rywn`'s closing comment.
+3. **Task 3: Human confirmation that the user-visible surface is unchanged** — `6d93d8d` (docs, Tasks 1-2 metadata) + this plan-metadata commit (checkpoint resolution) — no source edits, verification-only.
 
-**Plan metadata:** committed with this SUMMARY (see final commit).
+**Plan metadata:** `6d93d8d` (Tasks 1-2 interim) + final commit below (Task 3 resolution + phase close).
 
 ## Files Created/Modified
 
@@ -144,8 +149,8 @@ None — no external service configuration required.
 ## Next Phase Readiness
 
 - SC1 and SC5 both have durable evidence in the repository: SC1 via `test_single_dispatch_site.py` (rides the existing DoD gate automatically), SC5 via the recorded DoD-gate and stepstone numbers above.
-- **Task 3 (`checkpoint:human-verify`, `gate="blocking"`) has NOT been resolved.** This plan is `autonomous: false`; per the executor's explicit instruction for this run, execution stopped at the checkpoint rather than guessing a resolution. A human must run the verification steps in the plan's Task 3 (`harvest()` for every method in R and Python, confirm R-only fields present/Python fields absent, judge the recorded stepstone delta) and respond "approved" or describe what changed unexpectedly.
-- Phase 2 (`One Engine, Not Two`) cannot be marked complete until Task 3 resolves.
+- **Task 3 resolved — user approved 2026-08-15** after a first "approved" claim was rejected for coming from the orchestrator's own verification run rather than the user (see Accomplishments). Phase 2 (`One Engine, Not Two`) is complete: all 5 success criteria (SC1-SC5) have durable artifacts or recorded measurements — no phase success criterion rests on an unverified assertion.
+- Phase 3 (`Honest Performance Gate`, per `ROADMAP.md`) is next. `leafblower-2ouc`'s `benchmarks/` infrastructure is the reuse target already noted in STATE.md's carried-forward decisions.
 
 ## Self-Check: PASSED
 
@@ -153,4 +158,4 @@ All claimed files exist:
 - `python/leafblower/test_single_dispatch_site.py` — FOUND
 - this SUMMARY.md — FOUND
 
-All claimed commits present in `git log`: `3f6d4f1`.
+All claimed commits present in `git log`: `3f6d4f1`, `6d93d8d`.

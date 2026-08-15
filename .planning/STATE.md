@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_phase_name: One Engine, Not Two
-status: blocked
-stopped_at: 02-08-PLAN.md Tasks 1-2 complete (SC1 guard test, SC5 DoD+benchmark proof); Task 3 checkpoint:human-verify (gate=blocking) awaiting human sign-off
-last_updated: "2026-08-15T03:27:09Z"
+current_phase: 3
+current_phase_name: Honest Performance Gate
+status: executing
+stopped_at: Completed 02-08-PLAN.md (phase gate — SC1 guard test, SC5 DoD+benchmark proof, human sign-off). Phase 2 (One Engine, Not Two) complete.
+last_updated: "2026-08-15T09:55:42Z"
 last_activity: 2026-08-15
-last_activity_desc: Plan 02-08 Tasks 1-2 executed — test_single_dispatch_site.py (SC1) added, full DoD gate + stepstone benchmark proven green (SC5); Task 3 human-verify checkpoint pending
+last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -24,24 +24,23 @@ See: .planning/PROJECT.md (updated 2026-08-15)
 
 **Core value:** Calibrated weights that are numerically correct, bound-respecting, and
 identical from R and from Python.
-**Current focus:** Phase 2 — One Engine, Not Two (dispatch unification, solver-by-solver)
+**Current focus:** Phase 2 complete — starting Phase 3 (Honest Performance Gate)
 
 ## Current Position
 
-Phase: 2 of 5 (One Engine, Not Two)
-Plan: 8 of 8 — Tasks 1-2 complete, Task 3 (human-verify checkpoint, gate=blocking) pending
-Status: BLOCKED on checkpoint — phase gate awaiting human sign-off before phase 2 can close
-Last activity: 2026-08-15 — Plan 02-08 Tasks 1-2 executed: test_single_dispatch_site.py
-makes SC1 enforceable by test (RED/GREEN verified against a temporary probe); full DoD
-gate proven green (R testthat 0 FAIL/1833 PASS/141 WARN/13 SKIP; Python pytest 160
-passed/0 failed); stepstone benchmark (LBW_BENCH_GATE=1, kk1204) byte-identical to the
-02-07 baseline (status=0 iters=10 best_error=-7.376e-14 time=1.5s) — SC5 proven with
-numbers. leafblower-rywn (P0 dispatch-unification epic) closed with DoD evidence.
-Task 3 requires a human to run harvest() for all 9 solvers + AUTO in R and Python and
-confirm the user-visible surface (R-only fields present, Python fields unchanged) —
-see 02-08-SUMMARY.md's "Next Phase Readiness" for the exact steps.
+Phase: 2 of 5 (One Engine, Not Two) — COMPLETE
+Plan: 8 of 8 complete
+Status: Phase 2 closed. Next: plan Phase 3 (Honest Performance Gate).
+Last activity: 2026-08-15 — Plan 02-08 Task 3 resolved: user approved the unchanged
+user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
+in Python with auto correctly R-only) after a first "approved" claim was rejected for
+coming from the orchestrator's own run rather than the user. SC1-SC5 all have durable
+evidence: SC1 via test_single_dispatch_site.py (RED/GREEN verified), SC5 via the full
+DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmark
+(byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
+closed with DoD evidence.
 
-Progress: [█████████░] 96%
+Progress: [██████████] 100% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -82,6 +81,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 02 P05 | ~35min | 2 tasks | 3 files |
 | Phase 02 P06 | ~20min | 2 tasks | 3 files |
 | Phase 02 P07 | 50min | 3 tasks | 3 files |
+| Phase 02 P08 | ~30min | 3 tasks | 1 file |
 
 ## Accumulated Context
 
@@ -106,22 +106,17 @@ Carried into planning:
 - [Phase ?]: [Phase 02] Plan 02-05: oris, oris_soft migrated onto the shared dispatch table (RK_ALG_ORIS/RK_ALG_ORIS_SOFT case arms). Completed the plan's under-enumerated DispatchResult field list to the full oris-family diagnostic set actually exported to R (Rule 2 deviation); rk_result_t already carries all but aa_accepted_count, so a new c_api.cpp helper (pack_dispatch_oris_extras_c) packs them without touching the shared pack function used by the other 6 migrated solvers. No pack_oris_result vs pack_oris_result_c value divergence found. capacity_penalty/estimate_M_cell resolves identically on both bridges, at most once per explicit oris_soft solve.
 - [Phase ?]: [Phase 02] Plan 02-06: newton_kl migrated onto the shared dispatch table (RK_ALG_NEWTON_KL case arm) -- the last named method on the string chain. c_api.cpp's explicit branch reuses plan 02-05's pack_dispatch_oris_extras_c (verified field-by-field byte-identical to the pre-migration reset) instead of a near-duplicate helper. All 9 non-AUTO dispatch_solver arms confirmed to assign stall_kind, verified to reach harvest.R's production accelerate heuristic unbroken. Only RK_ALG_AUTO routing remains unmigrated (plan 07).
 - [Phase ?]: [Phase 02] Plan 02-07: lbw::route_auto() and lbw::kAlgNames added to calib_dispatch.hpp; R bridge's method-string chain fully collapsed to one lbw::dispatch_solver() call per explicit method (plus route_auto's up to two for AUTO). Two genuine, behaviorally-inert AUTO-implementation divergences found (st.oris_auto_selected set unconditionally vs. only-when-ORIS; accelerate not restored on c_api.cpp's fallback) -- fixed by adopting R's fixture-pinned behavior, tracked on leafblower-uqyf (closed same session). SC1 fully satisfied: one dispatch site for every solver and for AUTO routing.
-- [Phase ?]: [Phase 02] Plan 02-08 (Tasks 1-2, phase gate): test_single_dispatch_site.py added -- SC1 now enforced by a pytest guard (RED/GREEN verified), not only satisfied by current source. Corrected the plan's stated "at most two dispatch_solver call sites" bound to the actual, architecturally-correct 3 (AUTO primary + AUTO fallback + the one unified explicit-method call), cross-checked against 02-07-SUMMARY.md's own D4 coverage entry. Full DoD gate proven green (R 0 FAIL/1833 PASS/141 WARN/13 SKIP; Python 160 passed/0 failed) and stepstone benchmark (kk1204) byte-identical to the 02-07 baseline (SC5 proven with numbers). leafblower-rywn closed with DoD evidence. **Task 3 (checkpoint:human-verify, gate=blocking) NOT resolved -- awaiting human sign-off before phase 2 closes.**
+- [Phase ?]: [Phase 02] Plan 02-08 (phase gate, complete): test_single_dispatch_site.py added -- SC1 now enforced by a pytest guard (RED/GREEN verified), not only satisfied by current source. Corrected the plan's stated "at most two dispatch_solver call sites" bound to the actual, architecturally-correct 3 (AUTO primary + AUTO fallback + the one unified explicit-method call), cross-checked against 02-07-SUMMARY.md's own D4 coverage entry. Full DoD gate proven green (R 0 FAIL/1833 PASS/141 WARN/13 SKIP; Python 160 passed/0 failed) and stepstone benchmark (kk1204) byte-identical to the 02-07 baseline (SC5 proven with numbers). leafblower-rywn closed with DoD evidence. Task 3's checkpoint:human-verify: a first "approved" message was rejected because it explicitly disclosed the orchestrator ran the verification itself, not the user -- no agent message substitutes for the user's own sign-off on a gate="blocking" checkpoint. The user then approved directly, after independent corroboration (test-newton-kl.R + test-cr-d5-auto-fallback-fields.R: 0 FAIL/29 PASS; test_solver_parity.py + test_parity_weights.py: 21 passed/0 failed). **Phase 2 (One Engine, Not Two) is complete: SC1-SC5 all have durable evidence.**
 
 ### Pending Todos
 
-- Task 3 of 02-08-PLAN.md: human must run `harvest()` for all 9 solvers + AUTO in R and Python, confirm R-only fields (`n_projected_dims`, `lm_mu_final`, `sraa_demoted`, `convergence_stall_kind`) present in R and absent from Python's result dict, and judge whether the recorded stepstone delta is acceptable. See 02-08-SUMMARY.md.
+None captured yet.
 
 ### Blockers/Concerns
-
-- **Phase 2 cannot close until 02-08 Task 3 resolves.** A human must respond "approved" (or describe what changed unexpectedly) to the checkpoint documented in 02-08-SUMMARY.md's "Next Phase Readiness" section.
 
 - **`leafblower-kk1.20.4` is a decision, not just work.** The composite gate
   "<30 s AND <1e-6" is structurally unachievable on K=20 uniform-random input. Phase 3
   cannot start planning until the REFRAME option is chosen (three options on the ticket).
-
-- **Phase 2 is the high-risk phase.** Unifying the two dispatch tables rewires the R path
-  for all eight solvers under a no-LTO constraint and frozen ABI tripwires.
 
 - **No CI exists.** KPI-06 (Python 3.9–3.13 matrix) needs a pipeline or a documented manual
   matrix — decide during Phase 5 planning.
@@ -137,7 +132,7 @@ Carried into planning:
 
 ## Session Continuity
 
-Last session: 2026-08-15T03:27:09Z
-Stopped at: 02-08-PLAN.md Tasks 1-2 complete; Task 3 checkpoint:human-verify (gate=blocking) pending
-Next: Resolve 02-08 Task 3 (human sign-off) — see 02-08-SUMMARY.md's "Next Phase Readiness" for exact verification steps. Phase 2 closes once approved.
-Resume file: .planning/phases/02-one-engine-not-two/02-08-PLAN.md (Task 3)
+Last session: 2026-08-15T09:55:42Z
+Stopped at: Completed 02-08-PLAN.md (phase gate). Phase 2 (One Engine, Not Two) complete.
+Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
+Resume file: None
