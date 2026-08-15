@@ -66,6 +66,63 @@ them here because none was measured.
 See *Known limit* below — this class is documented as unachievable against
 the retired `<30s AND <1e-6` target, not as a headline figure.
 
+### `medium_100k_5margins` — per-method competitor coverage
+
+Every leafblower method except `oris`, `oris_soft`, `raking` and `newton_kl`
+(covered by the headline table above) gets its own row here, each measured
+against its own closest competitor on the identical `medium_100k_5margins`
+fixture (100,000 rows, 5 margins, 4 categories/margin, `[0, 3]` per-observation
+bound where the competitor supports one). Transcribed verbatim from
+`benchmarks/results/oris_soft_vs_competitors.csv`; never a bare speed number
+without its accuracy/bound/n_eff siblings on the same row.
+
+| arm | wall_s | max_error | max_w | min_w | n_eff |
+|---|---|---|---|---|---|
+| `leafblower_oris` | 0.0749 | 7.591e-11 | 3.0000 | 0.1298 | 67478.2 |
+| `leafblower_raking` | 0.0232 | 4.996e-16 | 3.0000 | 0.1289 | 67522.8 |
+| `leafblower_newton_kl` | 0.0492 | 4.220e-09 | 6.2105 | 0.1460 | 66188.7 |
+| `leafblower_greg` | 0.0216 | 0.1089 | 1.0638 | 0.9105 | 99924.3 |
+| `survey_calibrate_linear` (greg competitor) | 0.2265 | 5.551e-17 | 3.0000 | 0.0000 | 69704.3 |
+| `leafblower_logit` | 0.0229 | 2.190e-08 | 2.8729 | 0.0551 | 69075.3 |
+| `survey_calibrate_logit` (logit competitor) | 0.2781 | 1.166e-15 | 2.8729 | 0.0551 | 69075.3 |
+| `leafblower_chebyshev` | 0.0278 | 3.647e-10 | 3.0000 | 0.1298 | 67478.2 |
+| `optweight_linf` (chebyshev competitor) | 660.3880 | 2.006e-12 | 1.8113 | 0.1887 | 60307.8 |
+
+Notes carried verbatim from the CSV's `note` field: `leafblower_greg`'s
+`max_error=0.1089` reflects GREG's own linear-distance objective, not a
+failure to converge — GREG minimizes a chi-square distance, not margin error
+directly, so its `max_error` is expected to be larger than the raking-family
+arms above. `optweight_linf` has no `max.w` argument (`ok=NA`, confirmed
+against the CRAN manual fetched 2026-08-15) — see the *Competitors* table
+below for the full objective-mismatch caveat.
+
+### `k2_margin_pot_equiv` — greenkhorn/sinkhorn vs POT (K=2-margin special case)
+
+This comparison class exists **only** because leafblower's K-margin cyclic
+sweep coincides with POT's 2-marginal entropic-OT formulation at K=2 — see
+[`docs/methods/oris.md`](methods/oris.md)'s "Relation to Sinkhorn and
+Greenkhorn" §Axis 1: "In the pure 2-marginal case Sinkhorn and cyclic IPF
+coincide; with `K > 2` margins they differ in sweep structure." Both arms ran
+effectively unbounded (`max_weight` set beyond what the fixture can reach)
+because **POT has no box-constraint mechanism at all** — this class is **not
+representative** of leafblower's normal `K > 2`, bounded workload. Measured
+on a `n=10,000`, 2-margin, 4-category fixture (`benchmarks/greenkhorn_sinkhorn_vs_pot.py`),
+transcribed verbatim from `benchmarks/results/greenkhorn_sinkhorn_vs_pot.csv`.
+
+| arm | wall_s | max_error | max_w | min_w | n_eff |
+|---|---|---|---|---|---|
+| `leafblower_greenkhorn` | 0.002191 | 5.160e-09 | 2.4241 | 0.1669 | 7110.6 |
+| `leafblower_sinkhorn` | 0.002006 | 1.665e-16 | 2.4241 | 0.1669 | 7110.6 |
+| `pot_greenkhorn` (`ot.bregman.greenkhorn`) | 0.000279 | 6.328e-15 | 2.4241 | 0.1669 | 7110.6 |
+| `pot_sinkhorn` (`ot.sinkhorn`) | 0.000109 | 5.551e-17 | 2.4241 | 0.1669 | 7110.6 |
+
+All four arms converge to the identical `max_w=2.4241...`/`n_eff=7110.59...`
+solution, confirming the equivalence empirically, not just theoretically.
+POT has no per-observation identity — only a solved cell-mass table — so its
+`max_w`/`min_w`/`n_eff` are derived from an implied per-observation weight
+`T[i,j]/K_prior[i,j]` within each cell (cell-uniform exchangeability under
+this margin-only objective).
+
 ## Input classes
 
 Measured shape, transcribed from the CSV — not a description of what was
@@ -194,15 +251,34 @@ a gap in any solver tried.
 
 ## Competitors
 
-The comparison above is scoped to `survey::calibrate`, `icarus::calibration`
-and `ReGenesees::e.calibrate` — the full multi-package survey-calibration
-study is separate work, not this page. These three were selected because
-they are the R ecosystem's bound-supporting IPF/raking implementations (`ipfp`,
-`mipfp` and `ipfn` support no explicit bounds); see the practitioner
-implementations table and the "Bounds handling" row of "How leafblower
-deviates" in [`docs/methods/oris.md`](methods/oris.md) for the full grounding
-and citations. This page does not restate that bibliography — `oris.md` and
+The `oris`/`oris_soft` comparison in the headline table above is scoped to
+`survey::calibrate`, `icarus::calibration` and `ReGenesees::e.calibrate` —
+the full multi-package survey-calibration study is separate work, not this
+page. These three were selected because they are the R ecosystem's
+bound-supporting IPF/raking implementations (`ipfp`, `mipfp` and `ipfn`
+support no explicit bounds); see the practitioner implementations table and
+the "Bounds handling" row of "How leafblower deviates" in
+[`docs/methods/oris.md`](methods/oris.md) for the full grounding and
+citations. This page does not restate that bibliography — `oris.md` and
 `docs/methods/references.bib` are the canonical citation source.
+
+Every leafblower method has its own doc-named closest competitor, each
+measured on `medium_100k_5margins` (row cited above, in the "per-method
+competitor coverage" table) except `sinkhorn`/`greenkhorn`, which are
+Python-reachable-only and measured on the `k2_margin_pot_equiv` class instead
+(row cited above):
+
+| Method | Closest competitor | Source | Objective match | Caveats |
+|---|---|---|---|---|
+| `oris` | `survey::calibrate` / `icarus::calibration` / `ReGenesees::e.calibrate` | see the practitioner implementations table in [`docs/methods/oris.md`](methods/oris.md) | same (raking / multiplicative-IPF distance) | Not run at `large_stepstone_fulldata` scale — see *Why the competitors were not run at the large scale* below. |
+| `oris_soft` | `survey::calibrate` / `icarus::calibration` / `ReGenesees::e.calibrate` | see the practitioner implementations table in [`docs/methods/oris.md`](methods/oris.md) | same (raking / multiplicative-IPF distance) | Same as `oris`. |
+| `raking` | `survey::calibrate` / `icarus::calibration` / `ReGenesees::e.calibrate` | see the practitioner implementations table in [`docs/methods/oris.md`](methods/oris.md) | same (raking / multiplicative-IPF distance) | Same as `oris`. |
+| `newton_kl` | `survey::calibrate` / `icarus::calibration` / `ReGenesees::e.calibrate` | see the practitioner implementations table in [`docs/methods/oris.md`](methods/oris.md); see also [`docs/methods/newton_kl.md`](methods/newton_kl.md)'s "Practitioner implementations & use cases" | `survey::calibrate`'s Newton-Raphson-on-the-dual IS the same algorithm class `newton_kl` attacks via a trust-region variant, per `docs/methods/newton_kl.md`: "All major survey calibration packages implement Newton-Raphson on the dual. **None implements a full trust-region Newton on the dual.**" | Same scale caveat as `oris`. |
+| `greg` | `survey::calibrate(calfun="linear")` | see the practitioner implementations table in [`docs/methods/greg.md`](methods/greg.md) | distance-matched (chi-square), not the raking-calfun arm | `max_error=0.1089` on the leafblower side reflects GREG's own linear-distance objective, not non-convergence (see per-method table's note above). |
+| `logit` | `survey::calibrate(calfun="logit")` | see the practitioner implementations section in [`docs/methods/logit.md`](methods/logit.md) | distance-matched (logit) | `icarus_calibration` (already in the headline Results table) is also a logit-based match for this arm — a bonus same-distance comparison, not a separate row. |
+| `chebyshev` | `optweight` (`optweight.svy(norm="linf")`) | see "Practitioner implementations & use cases" in [`docs/methods/chebyshev.md`](methods/chebyshev.md): "The optweight package is the primary open-source tool supporting the minimax norm explicitly." | related but non-identical minimax | "`optweight.svy(norm='linf')` minimizes `max_i s_i\|w_i-b_i\|` (deviation from base weight, default 1), margin balance enforced via `tols=0` as a CONSTRAINT, not the objective; leafblower's chebyshev instead minimizes max weighted margin error DIRECTLY as the LP objective (weights unconstrained in the objective) — a related but non-identical minimax formulation... optweight has no max.w argument (only min.w, confirmed against the CRAN manual fetched 2026-08-15) so max_w bound-compliance is UNVERIFIABLE on this arm." (verbatim from the `optweight_linf` CSV row's note) |
+| `sinkhorn` | POT (`ot.sinkhorn`) | see "Practitioner implementations & use cases" in [`docs/methods/sinkhorn.md`](methods/sinkhorn.md): POT [flamary2021pot] is the primary Python OT library | equivalent at K=2 only (see `k2_margin_pot_equiv` above) | "POT has no bounds mechanism; both sides run effectively unbounded (max_weight set beyond what the fixture can reach) to isolate the pure marginal-fit computation — NOT a test of leafblower's normal bounded, K>2 workload." Equivalence holds only via "K=2 IPF equivalence: observations sharing a cell are exchangeable under this margin-only objective." (verbatim from the `k2_margin_pot_equiv` CSV rows' notes) |
+| `greenkhorn` | POT (`ot.bregman.greenkhorn`) | see "Practitioner implementations & use cases" in [`docs/methods/greenkhorn.md`](methods/greenkhorn.md): "Python Optimal Transport (POT) [flamary2021pot] is the primary open-source vehicle. Greenkhorn is available as `ot.bregman.greenkhorn`..." | equivalent at K=2 only (see `k2_margin_pot_equiv` above) | Same as `sinkhorn` — "POT has no bounds mechanism... NOT a test of leafblower's normal bounded, K>2 workload"; "K=2 IPF equivalence" only. (verbatim from the `k2_margin_pot_equiv` CSV rows' notes) |
 
 **Why the competitors were not run at the large scale.** `survey`, `icarus`
 and `ReGenesees` each build a dense observation-by-category model matrix
