@@ -20,5 +20,7 @@ export NOT_CRAN=true
 
 echo '=== stepstone regression gate ===' && Rscript -e "testthat::test_dir('tests/testthat', filter='bench-gate', stop_on_failure=TRUE)"
 echo '=== oris_soft vs survey::calibrate (medium_100k_5margins) ===' && Rscript benchmarks/oris_soft_vs_competitors.R
+echo '=== greenkhorn/sinkhorn vs POT (k2_margin_pot_equiv) ===' && python/.venv/bin/python benchmarks/greenkhorn_sinkhorn_vs_pot.py
 
 echo "Wrote benchmarks/results/oris_soft_vs_competitors.csv and benchmarks/results/oris_soft_vs_competitors_env.txt"
+echo "Wrote benchmarks/results/greenkhorn_sinkhorn_vs_pot.csv and benchmarks/results/greenkhorn_sinkhorn_vs_pot_env.txt"
