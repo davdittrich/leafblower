@@ -597,9 +597,9 @@ project planning already captured in beads.
 | A1 | `newton_kl`'s lack of `bounds_mode="unit"` enforcement is an existing, accepted design gap rather than an unfiled bug — no beads ticket or doc explicitly says so, this research only confirmed the absence of enforcement code and the absence of a validation-layer rejection. | Common Pitfalls → Pitfall 2 | If wrong (i.e., it actually is an unnoticed regression), the planner should file it as its own defect ticket rather than treat it as pre-existing accepted scope; either way Phase 2 should not silently paper over it in the SC3 verification task. |
 | A2 | The SC4 sync-check is best placed in the Python test suite (`python/leafblower/test_*.py`) rather than R's `testthat`. | Code Examples → SC4 sync-check | Low risk — D-05 explicitly leaves this to researcher/planner discretion; if the planner prefers R-side (e.g. because R's `R CMD INSTALL` step runs first in the DoD gate command and would fail faster), that's an equally valid choice with no functional difference, since the check only reads text files and needs no compiled artifact from either side. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact shape of the neutral internal struct (field types, ownership of `best_weights`)**
+1. **RESOLVED by plan 02-01** — Exact shape of the neutral internal struct (field types, ownership of `best_weights`)
    - What we know: It must be a strict superset of `rk_result_t`'s fields (verified list:
      `leafblower.h:112-161`) plus the 4 R-only fields (verified:
      `r_bridge.cpp:558-568,589,637,661,714-715,730,757-758,782,842-843`) plus the
@@ -624,7 +624,7 @@ project planning already captured in beads.
      res.base.* field copied) on BOTH paths") is the mechanism for finalizing this
      shape, and should run before the struct is defined.
 
-2. **Whether `oris_soft`'s missing entry in the R↔Python weight-parity matrix
+2. **RESOLVED by Phase 1** — Whether `oris_soft`'s missing entry in the R↔Python weight-parity matrix
    (`tests/test_parity_weights.py:73`, per REQUIREMENTS.md's un-ticketed concerns list)
    should block or merely accompany the SC1 migration.**
    - What we know: REQUIREMENTS.md flags this as "the one shipped solver absent from the
