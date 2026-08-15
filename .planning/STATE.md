@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5
-current_phase_name: CRAN + PyPI Release
-status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-08-15T16:21:08.192Z"
+current_phase: 05
+current_phase_name: cran-pypi-release
+status: executing
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-08-15T17:35:37.248Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 23
+  completed_plans: 19
 ---
 
 # Project State
@@ -24,14 +24,14 @@ See: .planning/PROJECT.md (updated 2026-08-15)
 
 **Core value:** Calibrated weights that are numerically correct, bound-respecting, and
 identical from R and from Python.
-**Current focus:** Phase 04 — truthful-surface
+**Current focus:** Phase 05 — cran-pypi-release
 
 ## Current Position
 
-Phase: 5 — CRAN + PyPI Release
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-08-15 — Phase 04 complete, transitioned to Phase 5
+Phase: 05 (cran-pypi-release) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-08-15 — Phase 05 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
 coming from the orchestrator's own run rather than the user. SC1-SC5 all have durable
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [██████████] 100% (phase 2)
+Progress: [████████░░] 83% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -90,6 +90,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 03-honest-performance-gate P04 | ~30min | 3 tasks | 4 files |
 | Phase 04 P01 | 25min | 2 tasks | 4 files |
 | Phase 04 P02 | 15min | 2 tasks | 3 files |
+| Phase 05 P01 | 19min | 2 tasks | 149 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,7 @@ Carried into planning:
 - [Phase ?]: US-003/KPI-04 stay Traceability status Partial after Phase 3 (requirements.mark-complete correctly no-oped, not_found, 0 bytes written) -- verbose=1 clause unexercised and no single measurement clears the PRD's literal 1M+ rows AND 20+ margins target together
 - [Phase ?]: D-04 resolved option-a: harvest(..., weights=w) now hard-stop()s naming design_weights=, not a warning
 - [Phase ?]: [Phase 04] Plan 02: deleted docs/raking.md's §8.2/§12 ORIS/L-BFGS-B misattribution passages outright (no replacement text, per D-01: docs/methods/oris.md is the single authoritative description); annotated rk_algorithm_t slot 7 as removed GRAKE matching slot 2's convention; SC4 re-audit found zero new true-positive grake/lbfgsb/cp references. SC1/SC2/SC4 closed. R suite 0 FAIL/1837 PASS.
+- [Phase ?]: [Phase 05] Plan 01: removed 11 tracked dev-artifact strays + 120-file leafblower.Rcheck/ tree from git; extended .Rbuildignore 23->58 lines (14 planned + 21 more found by the real R CMD build run, since R CMD build scans the working tree not the git index). Fixed a LaTeX-manual ERROR + non-ASCII WARNING at the root (Unicode math symbols in R/harvest.R roxygen comments + 4 sibling files), a NEWS.md unparseable NOTE (headers retitled to leafblower 0.1.0), and an unstated-test-deps WARNING (arrow/callr/jsonlite/withr added to Suggests). Final local check: 0 ERRORs, 1 WARNING, 3 NOTEs -- does not literally meet the plan's 0-warnings/<=1-NOTE bar; remaining findings traced to this machine's absent checkbashisms/tidy/V8 (Rule-3 excludes package-manager installs) plus a local R-Makeconf NOTE, both documented in cran-comments.md and the WINDOWS.md ledger, expected to close on the 05-03/05-04 CI matrix.
 
 ### Pending Todos
 
@@ -151,7 +153,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T16:21:08.184Z
-Stopped at: Phase 5 context gathered
+Last session: 2026-08-15T17:35:37.241Z
+Stopped at: Completed 05-01-PLAN.md
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
-Resume file: .planning/phases/05-cran-pypi-release/05-CONTEXT.md
+Resume file: None
