@@ -706,8 +706,8 @@ struct DispatchResult {
 // {enum/string -> solver -> result} chains (SC1, leafblower-rywn). Covers
 // RK_ALG_SINKHORN (plan 02-01, the tracer slice), RK_ALG_GREG,
 // RK_ALG_GREENKHORN, RK_ALG_LOGIT (plan 02-03), RK_ALG_CHEBYSHEV,
-// RK_ALG_RAKING (plan 02-04), and RK_ALG_ORIS (plan 02-05) so far — every
-// other enum value leaves `out`
+// RK_ALG_RAKING (plan 02-04), and RK_ALG_ORIS, RK_ALG_ORIS_SOFT (plan 02-05)
+// so far — every other enum value leaves `out`
 // untouched and returns without acting, so not-yet-migrated callers keep
 // running their existing branch unchanged. Solver-by-solver migration
 // (D-01, 02-CONTEXT.md) adds one case arm per plan.
@@ -969,6 +969,65 @@ inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& 
             out.sraa_demoted                 = res.sraa_demoted;
             // ORIS never sets alm_* (ALM only runs under oris_soft's
             // use_admm_capacity); leave DispatchResult's 0.0/0 defaults.
+            out.best_weights                 = std::move(res.base.best_weights);
+            break;
+        }
+        case RK_ALG_ORIS_SOFT: {
+            // Plan 02-05 Task 2: identical field set to RK_ALG_ORIS above
+            // (oris_soft is oris_solve() run under ALM capacity penalty),
+            // plus the four ALM diagnostics that only this path populates.
+            // st.use_admm_capacity / st.oris_auto_selected / capacity_penalty
+            // auto-resolution all stay on the CALLER side — the estimate_M_cell
+            // memoization question (single vs. duplicate evaluation) is a
+            // caller-side concern this arm neither creates nor solves; see
+            // 02-05-SUMMARY.md for the two-bridge comparison plan 07 needs.
+            auto res = lbw::oris_solve(st);
+            out.status                       = res.base.status;
+            out.iterations                   = res.base.iterations;
+            out.max_error                    = res.base.max_error;
+            out.mean_error                   = res.base.mean_error;
+            out.kl                           = res.base.kl;
+            out.chi2                         = res.base.chi2;
+            out.l1_weight_change             = res.base.l1_weight_change;
+            out.grake_norm                   = res.base.grake_norm;
+            out.convergence_metric           = res.base.convergence_metric;
+            out.convergence_rule             = res.base.convergence_rule;
+            out.convergence_tol              = res.base.convergence_tol;
+            out.convergence_iter             = res.base.convergence_iter;
+            out.convergence_solver_objective = res.base.convergence_solver_objective;
+            out.convergence_minimized_metric = res.base.convergence_minimized_metric;
+            out.best_error                   = res.base.best_error;
+            out.best_iter                    = res.base.best_iter;
+            out.metric_first_check           = res.base.metric_first_check;
+            out.metric_prev_check            = res.base.metric_prev_check;
+            out.prev_check_iter              = res.base.prev_check_iter;
+            out.stall_kind                   = res.base.stall_kind;
+            out.n_bounds_violated            = res.n_bounds_violated;
+            out.n_bounds_clamped             = res.n_bounds_clamped;
+            out.solver_message[0]            = '\0';  // ORISResult carries no message field
+            out.alg_used                     = RK_ALG_ORIS_SOFT;
+            out.n_xcur_writes_per_iter_last  = res.n_xcur_writes_per_iter_last;
+            out.min_alpha_seen               = res.min_alpha_seen;
+            out.final_alpha                  = res.final_alpha;
+            out.homotopy_levels_used         = res.homotopy_levels_used;
+            out.homotopy_final_factor        = res.homotopy_final_factor;
+            out.greedy_sweeps_taken          = res.greedy_sweeps_taken;
+            out.eta_final                    = res.eta_final;
+            out.sor_min_omega                = res.sor_min_omega;
+            out.sor_n_damped                 = res.sor_n_damped;
+            out.sor_omega_mean               = res.sor_omega_mean;
+            out.sor_any_latched              = res.sor_any_latched;
+            out.sor_n_pinned_fb              = res.sor_n_pinned_fb;
+            out.sor_n_warmup_fb              = res.sor_n_warmup_fb;
+            out.sor_n_conv_fb                = res.sor_n_conv_fb;
+            out.sor_n_resid_grew             = res.sor_n_resid_grew;
+            out.sor_n_monotone_cd            = res.sor_n_monotone_cd;
+            out.aa_accepted_count            = res.aa_accepted_count;
+            out.sraa_demoted                 = res.sraa_demoted;
+            out.alm_capacity_mu_final        = res.alm_capacity_mu_final;
+            out.alm_n_growth_events          = res.alm_n_growth_events;
+            out.alm_max_dual_norm            = res.alm_max_dual_norm;
+            out.alm_sum_drift                = res.alm_sum_drift;
             out.best_weights                 = std::move(res.base.best_weights);
             break;
         }
