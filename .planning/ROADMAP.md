@@ -217,7 +217,7 @@ must NOT be removed. `docs/raking.md` is a legitimate research report on bounded
 only its §8.2/§12 misattribution is wrong, so rewrite the passage under the paper's own
 name or delete it — do not delete the document. `man/` is roxygen2-generated: edit the
 roxygen block, regenerate, and clean any stray `man/dot-*.Rd` before committing.
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed
 
 Plans:
 
@@ -225,7 +225,7 @@ Plans:
   then the `harvest(weights=)` `stop()` guard + RVAL.4 test + `eb79.18` rename (SC3,
   `leafblower-lj8x`)
 
-- [ ] 04-02-PLAN.md — Expansion: delete `docs/raking.md` §8.2/§12 misattribution (SC1), annotate
+- [x] 04-02-PLAN.md — Expansion: delete `docs/raking.md` §8.2/§12 misattribution (SC1), annotate
   `rk_algorithm_t` slot 7 in `src/leafblower.h`/`CLAUDE.md` (SC2), re-audit grake/lbfgsb/cp
   (SC4, `leafblower-05ha`, `leafblower-x2iq`)
 
@@ -275,7 +275,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
 | 3. Honest Performance Gate | 4/4 | In Progress|  |
-| 4. Truthful Surface | 1/2 | In Progress|  |
+| 4. Truthful Surface | 2/2 | In Progress|  |
 | 5. CRAN + PyPI Release | 0/TBD | Not started | - |
 
 ---

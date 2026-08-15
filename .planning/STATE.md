@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04
 current_phase_name: truthful-surface
-status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-08-15T15:52:34.123Z"
+status: verifying
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-08-15T15:57:11.274Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -30,7 +30,7 @@ identical from R and from Python.
 
 Phase: 04 (truthful-surface) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-15 — Phase 04 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [█████████░] 94% (phase 2)
+Progress: [██████████] 100% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -88,6 +88,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 03 P03 | 30min | 3 tasks | 2 files |
 | Phase 03-honest-performance-gate P04 | ~30min | 3 tasks | 4 files |
 | Phase 04 P01 | 25min | 2 tasks | 4 files |
+| Phase 04 P02 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,7 @@ Carried into planning:
 - [Phase ?]: kk1204 block's fixture uses a uniform 1/5 target, not 03-02's skewed target -- does not exercise the documented degenerate case; this plan states the mismatch in-comment rather than changing the fixture (out of Task 3's scope)
 - [Phase ?]: US-003/KPI-04 stay Traceability status Partial after Phase 3 (requirements.mark-complete correctly no-oped, not_found, 0 bytes written) -- verbose=1 clause unexercised and no single measurement clears the PRD's literal 1M+ rows AND 20+ margins target together
 - [Phase ?]: D-04 resolved option-a: harvest(..., weights=w) now hard-stop()s naming design_weights=, not a warning
+- [Phase ?]: [Phase 04] Plan 02: deleted docs/raking.md's §8.2/§12 ORIS/L-BFGS-B misattribution passages outright (no replacement text, per D-01: docs/methods/oris.md is the single authoritative description); annotated rk_algorithm_t slot 7 as removed GRAKE matching slot 2's convention; SC4 re-audit found zero new true-positive grake/lbfgsb/cp references. SC1/SC2/SC4 closed. R suite 0 FAIL/1837 PASS.
 
 ### Pending Todos
 
@@ -148,7 +150,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T15:52:34.116Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-08-15T15:57:11.266Z
+Stopped at: Completed 04-02-PLAN.md
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
 Resume file: None
