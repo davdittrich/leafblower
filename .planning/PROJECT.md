@@ -47,6 +47,7 @@ Shipped and confirmed by the codebase map (`.planning/codebase/`) and the test s
 - [ ] **US-008 residual**: an installable, self-contained Python wheel on Python 3.9–3.13
 - [ ] **US-010**: CRAN + PyPI distribution — the largest genuinely-unfinished requirement
 - [ ] **KPI**: every row of the §11 success-metrics table has a *live* measuring artefact
+      (KPI-02 validated in Phase 1 — see below)
 - [ ] Known defects recorded in `.planning/codebase/CONCERNS.md` and tracked in beads
 
 ### Out of Scope
@@ -129,6 +130,16 @@ explicit self-declaration rather than on a locked flag:
 | `tasks/prd-leafblower-core.md` § 12 Open Questions | OQ-3 fixed `epsilon = 0.05`, OQ-4 `log_fn` callback for verbose output, OQ-5 Windows CRAN binary as a non-goal — all three still stand |
 
 New decisions taken during roadmap execution get appended here.
+
+**Phase 1 (2026-08-15):** KPI-02 (weight-bound property test) validated for 8 of the 9
+non-`AUTO` solvers; `newton_kl` is a documented exception — it *reports* bound violations
+(`RK_ERR_NOCONV` + `n_bounds_violated > 0`) rather than clamping them, a shipped contract
+(`leafblower-73d7`) that conflicts with KPI-02's literal wording. Decision: pin the
+reporting-contract assertion rather than force a `src/` fix inside a test-only phase; open
+issue tracked on `leafblower-og7d.5`. R↔Python weight-vector parity now covers all 9
+non-`AUTO` solvers (`chebyshev`, `greg`, `oris_soft` added); `logit`'s parity tolerance
+tightened from `1e-6` to the uniform `1e-10` (measured divergence: 5.3e-15). Package now
+opts into testthat edition 3.
 
 ---
 *Last updated: 2026-08-15 after doc ingest + codebase map (new-project-from-ingest)*
