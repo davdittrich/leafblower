@@ -10,15 +10,26 @@ testthat::skip_if_not_installed("DiceKriging")
 testthat::skip_if_not_installed("lhs")
 testthat::skip_if_not_installed("ggplot2")
 
+# benchmarks/ is .Rbuildignore'd (dev-only, not part of the distributable package),
+# so it is never present under R CMD check's tests/ sandbox (a sibling of
+# 00_pkg_src/<pkg>/, not an ancestor — rprojroot::find_root()'s cwd-based search
+# cannot locate a package root there either). Skip cleanly rather than error when
+# not in a real dev checkout, matching the project's .Rbuildignore'd-content
+# skip_if(!file.exists(...)) convention.
+root <- tryCatch(
+  rprojroot::find_root(rprojroot::has_file("DESCRIPTION")),
+  error = function(e) NA_character_
+)
+testthat::skip_if(is.na(root), "not in a dev checkout (R CMD check sandbox has no package-root ancestor)")
+
+bench_file <- file.path(root, "benchmarks", "algo_selection_benchmark.R")
+testthat::skip_if_not(file.exists(bench_file), "benchmarks/ not shipped (excluded via .Rbuildignore)")
+
 # Source the benchmark to load helper functions (no side effects with guard set)
 # NOTE: benchmark file is built incrementally — only functions added so far are available.
-bench_file <- file.path(
-  rprojroot::find_root(rprojroot::has_file("DESCRIPTION")),
-  "benchmarks", "algo_selection_benchmark.R"
-)
 # Set working directory to package root so relative sources in benchmark work
 old_wd <- getwd()
-setwd(rprojroot::find_root(rprojroot::has_file("DESCRIPTION")))
+setwd(root)
 on.exit(setwd(old_wd))
 source(bench_file)
 
