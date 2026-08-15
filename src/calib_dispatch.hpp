@@ -1013,11 +1013,16 @@ inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& 
             // Plan 02-05 Task 2: identical field set to RK_ALG_ORIS above
             // (oris_soft is oris_solve() run under ALM capacity penalty),
             // plus the four ALM diagnostics that only this path populates.
-            // st.use_admm_capacity / st.oris_auto_selected / capacity_penalty
-            // auto-resolution all stay on the CALLER side — the estimate_M_cell
-            // memoization question (single vs. duplicate evaluation) is a
-            // caller-side concern this arm neither creates nor solves; see
-            // 02-05-SUMMARY.md for the two-bridge comparison plan 07 needs.
+            // Plan 07 Task 3: st.use_admm_capacity moved here from both
+            // bridges' call sites -- both set it to an unconditional `true`
+            // for this arm with no caller context needed (unlike
+            // oris_auto_selected below, which stays on the caller side: it
+            // depends on whether THIS alg==RK_ALG_ORIS came from AUTO
+            // routing or an explicit user request, information dispatch_solver's
+            // (alg, st, out) signature has no way to see). capacity_penalty
+            // auto-resolution stays on the caller side (it also feeds
+            // non-oris_soft-adjacent state on some callers' paths).
+            st.use_admm_capacity = true;
             auto res = lbw::oris_solve(st);
             out.status                       = res.base.status;
             out.iterations                   = res.base.iterations;

@@ -582,38 +582,18 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
 #ifdef __GLIBC__
     malloc_trim(0);  // compact heap before solver — reduces fragmentation-induced LLC cache misses
 #endif
-    if (strcmp(method_str, "raking") == 0) {
-        // SC1 (leafblower-rywn): routed through the shared dispatch table
-        // instead of calling the raking solver + pack_solver_result directly
-        // (mirrors c_api.cpp's RK_ALG_RAKING branch).
-        lbw::dispatch_solver(RK_ALG_RAKING, st, dres);
-        res_status             = dres.status;
-        res_iterations         = dres.iterations;
-        res_max_error          = dres.max_error;
-        res_alg_used           = static_cast<int>(dres.alg_used);
-        res_mean_error         = dres.mean_error;
-        res_kl                 = dres.kl;
-        res_chi2               = dres.chi2;
-        res_l1_weight_change   = dres.l1_weight_change;
-        res_grake_norm         = dres.grake_norm;
-        res_conv_metric        = dres.convergence_metric;
-        res_conv_rule          = dres.convergence_rule;
-        res_conv_tol           = dres.convergence_tol;
-        res_conv_iter          = dres.convergence_iter;
-        res_conv_objective     = dres.convergence_solver_objective;
-        res_conv_minimized_metric = dres.convergence_minimized_metric;
-        res_best_error         = dres.best_error;
-        res_best_iter          = dres.best_iter;
-        res_metric_first_check = dres.metric_first_check;
-        res_metric_prev_check  = dres.metric_prev_check;
-        res_prev_check_iter    = dres.prev_check_iter;
-        res_stall_kind         = dres.stall_kind;
-        res_n_bounds_violated  = dres.n_bounds_violated;
-        res_n_bounds_clamped   = dres.n_bounds_clamped;
-        res_solver_message[0]  = '\0';  // RakingResult carries no message field
-        res_sraa_demoted       = dres.sraa_demoted ? 1 : 0;
-        res_best_weights       = std::move(dres.best_weights);
-    } else if (strcmp(method_str, "auto") == 0) {
+    // SC1 (leafblower-rywn, plan 07 Task 3): p.algorithm was already resolved
+    // and validated against kAlgMap above (CR-D10, near method_str's
+    // resolution) — C_rk_calibrate now dispatches purely off that resolved
+    // enum, the same shape c_api.cpp's rk_calibrate() already used, instead
+    // of re-deriving it via a strcmp(method_str, ...) chain. AUTO gets
+    // lbw::route_auto() plus up to two lbw::dispatch_solver() calls (primary
+    // + fallback); every explicit method gets exactly one.
+    const rk_algorithm_t alg = p.algorithm;
+    if (alg == RK_ALG_GREENKHORN && st.min_weight >= st.max_weight && st.max_weight > 0.0)
+        throw std::runtime_error("greenkhorn requires min_weight < max_weight");
+
+    if (alg == RK_ALG_AUTO) {
         // AUTO routing (Epic-H WH-g): the routing DECISION now lives in the
         // single lbw::route_auto() (calib_dispatch.hpp, SC1 plan 07), shared
         // with c_api.cpp's algorithm-resolution switch. This branch calls
@@ -749,11 +729,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_sraa_demoted      = 0;
             res_best_weights      = std::move(dres.best_weights);
         }
-    } else if (strcmp(method_str, "sinkhorn") == 0) {
-        // SC1 (leafblower-rywn): routed through the shared dispatch table
-        // instead of calling lbw::sinkhorn_solve + pack_solver_result
-        // directly (mirrors c_api.cpp's RK_ALG_SINKHORN branch).
-        lbw::dispatch_solver(RK_ALG_SINKHORN, st, dres);
+    } else {
+        // Any explicit method (never AUTO-selected): types.hpp's
+        // oris_auto_selected contract ("true iff AUTO routing selected
+        // ORIS") is always false here. use_admm_capacity is set inside
+        // dispatch_solver's RK_ALG_ORIS_SOFT arm (calib_dispatch.hpp, plan
+        // 07 Task 3) — no per-method assignment needed on this side.
+        st.oris_auto_selected = false;
+        lbw::dispatch_solver(alg, st, dres);
         res_status             = dres.status;
         res_iterations         = dres.iterations;
         res_max_error          = dres.max_error;
@@ -777,293 +760,51 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         res_stall_kind         = dres.stall_kind;
         res_n_bounds_violated  = dres.n_bounds_violated;
         res_n_bounds_clamped   = dres.n_bounds_clamped;
+        // eb79.25/CR-D11: dres.solver_message is already correctly populated
+        // (or cleared — RakingResult/ORISResult carry no message field, and
+        // dispatch_solver's RAKING/ORIS/ORIS_SOFT arms clear it there) per
+        // algorithm by dispatch_solver itself; one snprintf covers every arm.
         std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
-        if (!dres.best_weights.empty())
-            res_best_weights = std::move(dres.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);
-    } else if (strcmp(method_str, "greg") == 0) {
-        // SC1 (leafblower-rywn): routed through the shared dispatch table
-        // instead of calling lbw::greg_solve + pack_solver_result directly
-        // (mirrors c_api.cpp's RK_ALG_GREG branch).
-        lbw::dispatch_solver(RK_ALG_GREG, st, dres);
-        res_status             = dres.status;
-        res_iterations         = dres.iterations;
-        res_max_error          = dres.max_error;
-        res_alg_used           = static_cast<int>(dres.alg_used);
-        res_mean_error         = dres.mean_error;
-        res_kl                 = dres.kl;
-        res_chi2               = dres.chi2;
-        res_l1_weight_change   = dres.l1_weight_change;
-        res_grake_norm         = dres.grake_norm;
-        res_conv_metric        = dres.convergence_metric;
-        res_conv_rule          = dres.convergence_rule;
-        res_conv_tol           = dres.convergence_tol;
-        res_conv_iter          = dres.convergence_iter;
-        res_conv_objective     = dres.convergence_solver_objective;
-        res_conv_minimized_metric = dres.convergence_minimized_metric;
-        res_best_error         = dres.best_error;
-        res_best_iter          = dres.best_iter;
-        res_metric_first_check = dres.metric_first_check;
-        res_metric_prev_check  = dres.metric_prev_check;
-        res_prev_check_iter    = dres.prev_check_iter;
-        res_stall_kind         = dres.stall_kind;
-        res_n_bounds_violated  = dres.n_bounds_violated;
-        res_n_bounds_clamped   = dres.n_bounds_clamped;
-        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
-        if (!dres.best_weights.empty())
-            res_best_weights = std::move(dres.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);
-    } else if (strcmp(method_str, "greenkhorn") == 0) {
-        // validate: min_weight < max_weight
-        if (st.min_weight >= st.max_weight && st.max_weight > 0.0)
-            throw std::runtime_error("greenkhorn requires min_weight < max_weight");
-        // SC1 (leafblower-rywn): routed through the shared dispatch table
-        // instead of calling lbw::greenkhorn_solve + pack_solver_result
-        // directly (mirrors c_api.cpp's RK_ALG_GREENKHORN branch).
-        lbw::dispatch_solver(RK_ALG_GREENKHORN, st, dres);
-        res_status             = dres.status;
-        res_iterations         = dres.iterations;
-        res_max_error          = dres.max_error;
-        res_alg_used           = static_cast<int>(dres.alg_used);
-        res_mean_error         = dres.mean_error;
-        res_kl                 = dres.kl;
-        res_chi2               = dres.chi2;
-        res_l1_weight_change   = dres.l1_weight_change;
-        res_grake_norm         = dres.grake_norm;
-        res_conv_metric        = dres.convergence_metric;
-        res_conv_rule          = dres.convergence_rule;
-        res_conv_tol           = dres.convergence_tol;
-        res_conv_iter          = dres.convergence_iter;
-        res_conv_objective     = dres.convergence_solver_objective;
-        res_conv_minimized_metric = dres.convergence_minimized_metric;
-        res_best_error         = dres.best_error;
-        res_best_iter          = dres.best_iter;
-        res_metric_first_check = dres.metric_first_check;
-        res_metric_prev_check  = dres.metric_prev_check;
-        res_prev_check_iter    = dres.prev_check_iter;
-        res_stall_kind         = dres.stall_kind;
-        res_n_bounds_violated  = dres.n_bounds_violated;
-        res_n_bounds_clamped   = dres.n_bounds_clamped;
-        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
-        if (!dres.best_weights.empty())
-            res_best_weights = std::move(dres.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);
-    } else if (strcmp(method_str, "logit") == 0) {
-        // SC1 (leafblower-rywn): routed through the shared dispatch table
-        // instead of calling lbw::logit_calibrate + pack_solver_result
-        // directly (mirrors c_api.cpp's RK_ALG_LOGIT branch).
-        lbw::dispatch_solver(RK_ALG_LOGIT, st, dres);
-        res_status             = dres.status;
-        res_iterations         = dres.iterations;
-        res_max_error          = dres.max_error;
-        res_alg_used           = static_cast<int>(dres.alg_used);
-        res_mean_error         = dres.mean_error;
-        res_kl                 = dres.kl;
-        res_chi2               = dres.chi2;
-        res_l1_weight_change   = dres.l1_weight_change;
-        res_grake_norm         = dres.grake_norm;
-        res_conv_metric        = dres.convergence_metric;
-        res_conv_rule          = dres.convergence_rule;
-        res_conv_tol           = dres.convergence_tol;
-        res_conv_iter          = dres.convergence_iter;
-        res_conv_objective     = dres.convergence_solver_objective;
-        res_conv_minimized_metric = dres.convergence_minimized_metric;
-        res_best_error         = dres.best_error;
-        res_best_iter          = dres.best_iter;
-        res_metric_first_check = dres.metric_first_check;
-        res_metric_prev_check  = dres.metric_prev_check;
-        res_prev_check_iter    = dres.prev_check_iter;
-        res_stall_kind         = dres.stall_kind;
-        res_n_bounds_violated  = dres.n_bounds_violated;
-        res_n_bounds_clamped   = dres.n_bounds_clamped;
-        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
-        if (!dres.best_weights.empty())
-            res_best_weights = std::move(dres.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);
-    } else if (strcmp(method_str, "chebyshev") == 0) {
-        // SC1 (leafblower-rywn): routed through the shared dispatch table
-        // instead of running the oris warm-start + solver call +
-        // pack_solver_result inline (mirrors c_api.cpp's RK_ALG_CHEBYSHEV
-        // branch).
-        lbw::dispatch_solver(RK_ALG_CHEBYSHEV, st, dres);
-        res_status             = dres.status;
-        res_iterations         = dres.iterations;
-        res_max_error          = dres.max_error;
-        res_alg_used           = static_cast<int>(dres.alg_used);
-        res_mean_error         = dres.mean_error;
-        res_kl                 = dres.kl;
-        res_chi2               = dres.chi2;
-        res_l1_weight_change   = dres.l1_weight_change;
-        res_grake_norm         = dres.grake_norm;
-        res_conv_metric        = dres.convergence_metric;
-        res_conv_rule          = dres.convergence_rule;
-        res_conv_tol           = dres.convergence_tol;
-        res_conv_iter          = dres.convergence_iter;
-        res_conv_objective     = dres.convergence_solver_objective;
-        res_conv_minimized_metric = dres.convergence_minimized_metric;
-        res_best_error         = dres.best_error;
-        res_best_iter          = dres.best_iter;
-        res_metric_first_check = dres.metric_first_check;
-        res_metric_prev_check  = dres.metric_prev_check;
-        res_prev_check_iter    = dres.prev_check_iter;
-        res_stall_kind         = dres.stall_kind;
-        res_n_bounds_violated  = dres.n_bounds_violated;
-        res_n_bounds_clamped   = dres.n_bounds_clamped;
-        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
-        if (!dres.best_weights.empty())
-            res_best_weights = std::move(dres.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);
-    } else if (strcmp(method_str, "newton_kl") == 0) {
-        // SC1 (leafblower-rywn): routed through the shared dispatch table
-        // instead of calling lbw::newton_calibrate + pack_solver_result
-        // directly (mirrors c_api.cpp's RK_ALG_NEWTON_KL branch).
-        lbw::dispatch_solver(RK_ALG_NEWTON_KL, st, dres);
-        res_status             = dres.status;
-        res_iterations         = dres.iterations;
-        res_max_error          = dres.max_error;
-        res_alg_used           = static_cast<int>(dres.alg_used);
-        res_mean_error         = dres.mean_error;
-        res_kl                 = dres.kl;
-        res_chi2               = dres.chi2;
-        res_l1_weight_change   = dres.l1_weight_change;
-        res_grake_norm         = dres.grake_norm;
-        res_conv_metric        = dres.convergence_metric;
-        res_conv_rule          = dres.convergence_rule;
-        res_conv_tol           = dres.convergence_tol;
-        res_conv_iter          = dres.convergence_iter;
-        res_conv_objective     = dres.convergence_solver_objective;
-        res_conv_minimized_metric = dres.convergence_minimized_metric;
-        res_best_error         = dres.best_error;
-        res_best_iter          = dres.best_iter;
-        res_metric_first_check = dres.metric_first_check;
-        res_metric_prev_check  = dres.metric_prev_check;
-        res_prev_check_iter    = dres.prev_check_iter;
-        res_stall_kind         = dres.stall_kind;
-        res_n_bounds_violated  = dres.n_bounds_violated;  // surface violation count (leafblower-73d7)
-        res_n_bounds_clamped   = dres.n_bounds_clamped;
-        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
+        // ORIS/ORIS_SOFT-only diagnostics (n_xcur_writes .. sor_n_monotone_cd):
+        // dispatch_solver leaves them at DispatchResult's default-constructed
+        // values for every OTHER algorithm — identical to the res_* locals'
+        // own top-of-function defaults (documented on the struct itself) —
+        // so copying them unconditionally is a no-op there and correct here.
+        res_n_xcur_writes         = dres.n_xcur_writes_per_iter_last;
+        res_min_alpha              = dres.min_alpha_seen;
+        res_final_alpha            = dres.final_alpha;
+        res_homotopy_levels_used   = dres.homotopy_levels_used;
+        res_homotopy_final_factor  = dres.homotopy_final_factor;
+        res_greedy_sweeps_taken    = dres.greedy_sweeps_taken;
+        res_eta_final              = dres.eta_final;
+        res_sor_min_omega      = dres.sor_min_omega;
+        res_sor_n_damped       = dres.sor_n_damped;
+        res_sor_omega_mean     = dres.sor_omega_mean;
+        res_sor_any_latched    = dres.sor_any_latched;
+        res_sor_n_pinned_fb    = dres.sor_n_pinned_fb;
+        res_sor_n_warmup_fb    = dres.sor_n_warmup_fb;
+        res_sor_n_conv_fb      = dres.sor_n_conv_fb;
+        res_sor_n_resid_grew   = dres.sor_n_resid_grew;
+        res_sor_n_monotone_cd  = dres.sor_n_monotone_cd;
+        res_aa_accepted_count  = dres.aa_accepted_count;
+        res_sraa_demoted       = dres.sraa_demoted ? 1 : 0;
+        // newton_kl-only diagnostics: same no-op-elsewhere argument.
         res_n_projected_dims   = dres.n_projected_dims;
         res_lm_mu_final        = dres.lm_mu_final;
-        if (!dres.best_weights.empty())
-            res_best_weights = std::move(dres.best_weights);
-        else
-            res_best_weights.assign(st.n, 0.0);  // sentinel zeros: violation guard left best_weights empty
-    } else {
-        // Dispatch for oris_soft and default oris.
-        if (strcmp(method_str, "oris_soft") == 0) {
-            // SC1 (leafblower-rywn): routed through the shared dispatch table
-            // instead of calling lbw::oris_solve + pack_oris_result directly
-            // (mirrors c_api.cpp's RK_ALG_ORIS_SOFT branch). use_admm_capacity,
-            // oris_auto_selected and the capacity_penalty auto-resolution
-            // (m_cell_est_cache, above) all stay on the caller side.
-            st.oris_auto_selected = false;
-            st.use_admm_capacity   = true;
-            lbw::dispatch_solver(RK_ALG_ORIS_SOFT, st, dres);
-            res_status             = dres.status;
-            res_iterations         = dres.iterations;
-            res_max_error          = dres.max_error;
-            res_alg_used           = static_cast<int>(dres.alg_used);
-            res_mean_error         = dres.mean_error;
-            res_kl                 = dres.kl;
-            res_chi2               = dres.chi2;
-            res_l1_weight_change   = dres.l1_weight_change;
-            res_grake_norm         = dres.grake_norm;
-            res_conv_metric        = dres.convergence_metric;
-            res_conv_rule          = dres.convergence_rule;
-            res_conv_tol           = dres.convergence_tol;
-            res_conv_iter          = dres.convergence_iter;
-            res_conv_objective     = dres.convergence_solver_objective;
-            res_conv_minimized_metric = dres.convergence_minimized_metric;
-            res_best_error         = dres.best_error;
-            res_best_iter          = dres.best_iter;
-            res_metric_first_check = dres.metric_first_check;
-            res_metric_prev_check  = dres.metric_prev_check;
-            res_prev_check_iter    = dres.prev_check_iter;
-            res_stall_kind         = dres.stall_kind;
-            res_n_bounds_violated  = dres.n_bounds_violated;
-            res_n_bounds_clamped   = dres.n_bounds_clamped;
-            res_solver_message[0]  = '\0';  // ORISResult carries no message field
-            res_n_xcur_writes         = dres.n_xcur_writes_per_iter_last;
-            res_min_alpha              = dres.min_alpha_seen;
-            res_final_alpha            = dres.final_alpha;
-            res_homotopy_levels_used   = dres.homotopy_levels_used;
-            res_homotopy_final_factor  = dres.homotopy_final_factor;
-            res_greedy_sweeps_taken    = dres.greedy_sweeps_taken;
-            res_eta_final              = dres.eta_final;
-            res_sor_min_omega      = dres.sor_min_omega;
-            res_sor_n_damped       = dres.sor_n_damped;
-            res_sor_omega_mean     = dres.sor_omega_mean;
-            res_sor_any_latched    = dres.sor_any_latched;
-            res_sor_n_pinned_fb    = dres.sor_n_pinned_fb;
-            res_sor_n_warmup_fb    = dres.sor_n_warmup_fb;
-            res_sor_n_conv_fb      = dres.sor_n_conv_fb;
-            res_sor_n_resid_grew   = dres.sor_n_resid_grew;
-            res_sor_n_monotone_cd  = dres.sor_n_monotone_cd;
-            res_aa_accepted_count  = dres.aa_accepted_count;
-            res_sraa_demoted       = dres.sraa_demoted ? 1 : 0;
-            res_alm_capacity_mu_final = dres.alm_capacity_mu_final;
-            res_alm_n_growth_events   = dres.alm_n_growth_events;
-            res_alm_max_dual_norm     = dres.alm_max_dual_norm;
-            res_alm_sum_drift         = dres.alm_sum_drift;
-            res_best_weights       = std::move(dres.best_weights);
-        } else {
-            // Default / oris
-            // SC1 (leafblower-rywn): routed through the shared dispatch table
-            // instead of calling lbw::oris_solve + pack_oris_result directly
-            // (mirrors c_api.cpp's default/RK_ALG_ORIS branch). st.oris_auto_selected
-            // stays on the caller side (dispatch_solver takes st as
-            // already-configured state, not a routing decision).
-            st.oris_auto_selected = (strcmp(method_str, "oris") != 0);
-            lbw::dispatch_solver(RK_ALG_ORIS, st, dres);
-            res_status             = dres.status;
-            res_iterations         = dres.iterations;
-            res_max_error          = dres.max_error;
-            res_alg_used           = static_cast<int>(dres.alg_used);
-            res_mean_error         = dres.mean_error;
-            res_kl                 = dres.kl;
-            res_chi2               = dres.chi2;
-            res_l1_weight_change   = dres.l1_weight_change;
-            res_grake_norm         = dres.grake_norm;
-            res_conv_metric        = dres.convergence_metric;
-            res_conv_rule          = dres.convergence_rule;
-            res_conv_tol           = dres.convergence_tol;
-            res_conv_iter          = dres.convergence_iter;
-            res_conv_objective     = dres.convergence_solver_objective;
-            res_conv_minimized_metric = dres.convergence_minimized_metric;
-            res_best_error         = dres.best_error;
-            res_best_iter          = dres.best_iter;
-            res_metric_first_check = dres.metric_first_check;
-            res_metric_prev_check  = dres.metric_prev_check;
-            res_prev_check_iter    = dres.prev_check_iter;
-            res_stall_kind         = dres.stall_kind;
-            res_n_bounds_violated  = dres.n_bounds_violated;
-            res_n_bounds_clamped   = dres.n_bounds_clamped;
-            res_solver_message[0]  = '\0';  // ORISResult carries no message field
-            res_n_xcur_writes         = dres.n_xcur_writes_per_iter_last;
-            res_min_alpha              = dres.min_alpha_seen;
-            res_final_alpha            = dres.final_alpha;
-            res_homotopy_levels_used   = dres.homotopy_levels_used;
-            res_homotopy_final_factor  = dres.homotopy_final_factor;
-            res_greedy_sweeps_taken    = dres.greedy_sweeps_taken;
-            res_eta_final              = dres.eta_final;
-            res_sor_min_omega      = dres.sor_min_omega;
-            res_sor_n_damped       = dres.sor_n_damped;
-            res_sor_omega_mean     = dres.sor_omega_mean;
-            res_sor_any_latched    = dres.sor_any_latched;
-            res_sor_n_pinned_fb    = dres.sor_n_pinned_fb;
-            res_sor_n_warmup_fb    = dres.sor_n_warmup_fb;
-            res_sor_n_conv_fb      = dres.sor_n_conv_fb;
-            res_sor_n_resid_grew   = dres.sor_n_resid_grew;
-            res_sor_n_monotone_cd  = dres.sor_n_monotone_cd;
-            res_aa_accepted_count  = dres.aa_accepted_count;
-            res_sraa_demoted       = dres.sraa_demoted ? 1 : 0;
-            res_best_weights       = std::move(dres.best_weights);
-        }
+        // oris_soft-only ALM diagnostics: same no-op-elsewhere argument.
+        res_alm_capacity_mu_final = dres.alm_capacity_mu_final;
+        res_alm_n_growth_events   = dres.alm_n_growth_events;
+        res_alm_max_dual_norm     = dres.alm_max_dual_norm;
+        res_alm_sum_drift         = dres.alm_sum_drift;
+        // best_weights: dispatch_solver's CHEBYSHEV/NEWTON_KL arms already
+        // apply their own empty-check + zero-fill sentinel internally;
+        // sinkhorn.cpp/raking.cpp guarantee a length-st.n vector via their
+        // own internal fallback (assign(st.n, 0.0) on the violation path),
+        // and greg/greenkhorn/logit_calib/oris never leave it empty on any
+        // path (verified by reading each solver's best_weights assignment
+        // sites) — a plain move reproduces every algorithm's pre-migration
+        // behavior exactly.
+        res_best_weights       = std::move(dres.best_weights);
     }
     } catch (const std::exception& e) {
         solver_error = e.what();

@@ -439,8 +439,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     } else if (alg == RK_ALG_NEWTON_KL) {
         // SC1 (leafblower-rywn): routed through the shared dispatch table
         // instead of calling lbw::newton_calibrate + pack_newton_result_c
-        // directly (mirrors r_bridge.cpp's "newton_kl" branch). Reusing
-        // pack_dispatch_oris_extras_c here (rather than a near-duplicate
+        // directly. Reusing pack_dispatch_oris_extras_c here (rather than a near-duplicate
         // "newton extras" packer) is exact: DispatchResult's default-
         // constructed ORIS-only-field values (min_alpha_seen=1.0,
         // final_alpha=1.0, homotopy_final_factor=1.0, all others 0/0.0) are
@@ -470,8 +469,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             }
             // SC1 (leafblower-rywn): routed through the shared dispatch table
             // instead of running the oris warm-start + solver call +
-            // pack_solver_result inline (mirrors r_bridge.cpp's "chebyshev"
-            // branch). best_weights is deliberately NOT copied into the
+            // pack_solver_result inline. best_weights is deliberately NOT copied into the
             // caller's `weights` buffer here: the solver already mutates
             // st.weights (aliased to `weights`) in place on every path that
             // reaches it, matching sinkhorn/greg/raking's in-place contract;
@@ -481,7 +479,9 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             pack_dispatch_result_c(result, dres_cheb);
             return dres_cheb.status;
         } else if (alg == RK_ALG_ORIS_SOFT) {
-            st.use_admm_capacity = true;
+            // SC1 (plan 07 Task 3): st.use_admm_capacity now set inside
+            // dispatch_solver's RK_ALG_ORIS_SOFT arm (calib_dispatch.hpp) --
+            // no caller-side assignment needed.
             /* capacity_penalty for oris_soft: direct C API callers bypass R-layer validation.
                Contract: p.capacity_penalty <= 0.0 selects auto (M_cell/n from estimate_M_cell);
                positive value is used directly. Callers must validate range externally. */
@@ -498,11 +498,11 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                     n, K, group_ids, cat_counts, m_cell_est_cache);
                 st.alm.capacity_mu = (n > 0) ? static_cast<double>(M_cell_est) / n : 1.0;
             }
-            // SC1 (leafblower-rywn): routed through the shared dispatch table
-            // instead of calling lbw::oris_solve + pack_oris_result_c
-            // directly (mirrors r_bridge.cpp's "oris_soft" branch).
-            // use_admm_capacity / capacity_penalty resolution above stay on
-            // the caller side.
+            // SC1 (leafblower-rywn): routed through the shared dispatch
+            // table instead of calling lbw::oris_solve + pack_oris_result_c
+            // directly. capacity_penalty resolution above stays on the
+            // caller side (use_admm_capacity itself now lives in the shared
+            // arm -- see comment there).
             lbw::DispatchResult dres_os;
             lbw::dispatch_solver(RK_ALG_ORIS_SOFT, st, dres_os);
             status = dres_os.status;
@@ -517,7 +517,7 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             // Default / ORIS: paper-faithful algBCD at C=0 (src/oris.cpp)
             // SC1 (leafblower-rywn): routed through the shared dispatch table
             // instead of calling lbw::oris_solve + pack_oris_result_c
-            // directly (mirrors r_bridge.cpp's default/oris branch).
+            // directly.
             lbw::DispatchResult dres_or;
             lbw::dispatch_solver(RK_ALG_ORIS, st, dres_or);
             status = dres_or.status;
