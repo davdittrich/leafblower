@@ -353,6 +353,49 @@ tgt <- setNames(lapply(margin_cols, function(k) setNames(p_skew, levels(df[[k]])
 
 results <- run_input_class("medium_100k_5margins", df, tgt, max_weight = 3, n_categories = nj)
 
+# --- G-03-1 gap closure: leafblower-only arms for oris/raking/newton_kl ---
+# oris/raking/newton_kl all attack the identical K-margin box-bounded KL
+# calibration problem survey_calibrate/icarus_calibration/ReGenesees_e_calibrate
+# already measured above on this same fixture (docs/methods/oris.md,
+# docs/methods/raking.md, docs/methods/newton_kl.md's own Practitioner-
+# implementations tables all name survey::calibrate as the direct competitor
+# for this objective class) -- D-08's "narrow, not a duplicate study" framing
+# means those three competitor rows are reused here, not recomputed a second
+# time for each new leafblower method.
+m_cell_medium <- nrow(unique(df[margin_cols]))
+lb_only_arm_row <- function(method_name, arm_label) {
+  lb_call <- function() {
+    harvest(df, tgt, method = method_name, max_weight = 3,
+            bounds_mode = "unit", attach_weights = FALSE, convergence = list())
+  }
+  bm_lb  <- bench::mark(run = lb_call(), iterations = 2, check = FALSE,
+                         memory = FALSE, filter_gc = FALSE)
+  w_lb   <- lb_call()
+  res_lb <- attr(w_lb, "result")
+  # NOT normalized -- leafblower's own arms are never renormalized (see the
+  # comment on normalize_to_n() above).
+  w_lb_n <- as.numeric(w_lb)
+  max_error_lb <- margin_max_error(w_lb_n, df, tgt)
+  ok_lb <- isTRUE(res_lb$status %in% c(0L, 5L))
+  note_lb <- sprintf(
+    "convergence=list() (per-method natural default per R/harvest.R:424); status=%d, iterations=%d",
+    res_lb$status, res_lb$iterations)
+  row <- arm_row("medium_100k_5margins", n, K, nj, m_cell_medium,
+                  3, arm_label, as.numeric(bm_lb$median), max_error_lb,
+                  max(w_lb_n), min(w_lb_n),
+                  leafblower::design_effect(w_lb_n),
+                  leafblower::effective_sample_size(w_lb_n),
+                  res_lb$iterations, ok_lb, note_lb)
+  cat(sprintf("  %-22s wall=%7.4fs status=%d max_err=%.3e max_w=%.3f n_eff=%.1f\n",
+              arm_label, row$wall_s, res_lb$status, row$max_error, row$max_w, row$n_eff))
+  row
+}
+
+results <- rbind(results,
+                  lb_only_arm_row("oris", "leafblower_oris"),
+                  lb_only_arm_row("raking", "leafblower_raking"),
+                  lb_only_arm_row("newton_kl", "leafblower_newton_kl"))
+
 # --- Fixture: large_stepstone_fulldata ---
 # The tracked 1,582,732-row / 9-margin / 836-category real-survey fixture
 # (benchmarks/stepstone_fulldata_bench_data.parquet / _targets.json), reused
