@@ -28,7 +28,9 @@ Shipped and confirmed by the codebase map (`.planning/codebase/`) and the test s
   matrix, `rake`/`nrake`/`nr` synonyms routed to live solvers (`R/harvest.R:975-987`)
 - ✓ **US-002** `min_weight` lower bound — the headline addition over `autumn`
 - ✓ **US-004** stable C ABI — `leafblower.h`, validation, status codes, memory and
-  reentrancy contract (one clause outstanding, see Active)
+  reentrancy contract, plus the single-dispatch-path residual (both bridges route through
+  `lbw::dispatch_solver()`; SC1 enforced by `test_single_dispatch_site.py`). Validated in
+  Phase 2: One Engine, Not Two (`leafblower-rywn` closed).
 - ✓ **US-005** ORIS capacity-constrained solver — cell compression, log-space factors,
   every-inner-step bounds invariant
 - ✓ **US-005b** classical raking — now on multiplicative KL-Bregman Dykstra geometry
@@ -41,9 +43,6 @@ Shipped and confirmed by the codebase map (`.planning/codebase/`) and the test s
 - [ ] **US-003**: Large-scale performance target re-benchmarked against a *live* solver and
       restated as an achievable gate (the current statement was written against the removed
       `lbfgsb` and is contradictory: <1 s in §1 vs <2 s in §11)
-- [ ] **US-004 residual**: both bridges reach the solvers through ONE dispatch path — today
-      `src/r_bridge.cpp:654-899` dispatches on a method string and never calls
-      `rk_calibrate` (`leafblower-rywn`, P0)
 - [ ] **US-008 residual**: an installable, self-contained Python wheel on Python 3.9–3.13
 - [ ] **US-010**: CRAN + PyPI distribution — the largest genuinely-unfinished requirement
 - [ ] **KPI**: every row of the §11 success-metrics table has a *live* measuring artefact
@@ -142,4 +141,4 @@ tightened from `1e-6` to the uniform `1e-10` (measured divergence: 5.3e-15). Pac
 opts into testthat edition 3.
 
 ---
-*Last updated: 2026-08-15 after doc ingest + codebase map (new-project-from-ingest)*
+*Last updated: 2026-08-15 — Phase 2 (One Engine, Not Two) complete*
