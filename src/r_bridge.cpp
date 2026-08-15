@@ -929,6 +929,40 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_best_weights = std::move(dres.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
+    } else if (strcmp(method_str, "chebyshev") == 0) {
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of running the oris warm-start + solver call +
+        // pack_solver_result inline (mirrors c_api.cpp's RK_ALG_CHEBYSHEV
+        // branch).
+        lbw::dispatch_solver(RK_ALG_CHEBYSHEV, st, dres);
+        res_status             = dres.status;
+        res_iterations         = dres.iterations;
+        res_max_error          = dres.max_error;
+        res_alg_used           = static_cast<int>(dres.alg_used);
+        res_mean_error         = dres.mean_error;
+        res_kl                 = dres.kl;
+        res_chi2               = dres.chi2;
+        res_l1_weight_change   = dres.l1_weight_change;
+        res_grake_norm         = dres.grake_norm;
+        res_conv_metric        = dres.convergence_metric;
+        res_conv_rule          = dres.convergence_rule;
+        res_conv_tol           = dres.convergence_tol;
+        res_conv_iter          = dres.convergence_iter;
+        res_conv_objective     = dres.convergence_solver_objective;
+        res_conv_minimized_metric = dres.convergence_minimized_metric;
+        res_best_error         = dres.best_error;
+        res_best_iter          = dres.best_iter;
+        res_metric_first_check = dres.metric_first_check;
+        res_metric_prev_check  = dres.metric_prev_check;
+        res_prev_check_iter    = dres.prev_check_iter;
+        res_stall_kind         = dres.stall_kind;
+        res_n_bounds_violated  = dres.n_bounds_violated;
+        res_n_bounds_clamped   = dres.n_bounds_clamped;
+        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
+        if (!dres.best_weights.empty())
+            res_best_weights = std::move(dres.best_weights);
+        else
+            res_best_weights.assign(st.n, 0.0);
     } else if (strcmp(method_str, "newton_kl") == 0) {
         auto res = lbw::newton_calibrate(st);
         pack_solver_result(res);
@@ -944,41 +978,8 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         else
             res_best_weights.assign(st.n, 0.0);  // sentinel zeros: violation guard left best_weights empty
     } else {
-        // Dispatch for chebyshev, oris_soft, and default oris.
-
-        // Run oris warm-start BEFORE chebyshev dispatch.
-        std::vector<double> w_warm_obs;
-        if (strcmp(method_str, "chebyshev") == 0) {
-            // SAFETY: weights_copy protects st.weights from oris_solve mutation.
-            std::vector<double> weights_copy(st.weights, st.weights + st.n);
-            lbw::CalibState st_warm = st;
-            st_warm.weights = weights_copy.data();
-            st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
-            auto oris_res = lbw::oris_solve(st_warm);
-            // st_warm must NOT escape this block (dangling pointer after weights_copy destroyed).
-            if (!oris_res.base.best_weights.empty() &&
-                static_cast<int>(oris_res.base.best_weights.size()) == st.n &&
-                std::isfinite(oris_res.base.max_error)) {
-                w_warm_obs = std::move(oris_res.base.best_weights);  // xc1s.15: delta_warm was dead
-            }
-        }
-
-        auto dispatch_cheb = [&](int alg_code) {
-            const std::vector<double>& warm_ref = w_warm_obs;
-            auto res = lbw::chebyshev_ipm(st, warm_ref);   // xc1s.15: delta_warm param removed
-            pack_solver_result(res);
-            res_status     = res.base.status;
-            res_iterations = res.base.iterations;
-            res_max_error  = res.base.max_error;
-            res_alg_used   = alg_code;
-            if (!res.base.best_weights.empty())
-                res_best_weights = std::move(res.base.best_weights);
-            else
-                res_best_weights.assign(st.n, 0.0);
-        };
-        if (strcmp(method_str, "chebyshev") == 0) {
-            dispatch_cheb(static_cast<int>(RK_ALG_CHEBYSHEV));
-        } else if (strcmp(method_str, "oris_soft") == 0) {
+        // Dispatch for oris_soft and default oris.
+        if (strcmp(method_str, "oris_soft") == 0) {
             st.oris_auto_selected = false;
             st.use_admm_capacity   = true;
             auto res = lbw::oris_solve(st);

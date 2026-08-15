@@ -542,8 +542,8 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     } else {
         if (alg == RK_ALG_CHEBYSHEV) {
             // kxna.23: reject inner_max_iter < 1 BEFORE the ~5-iter ORIS warm-start
-            // below (chebyshev_ipm guards this too, but only AFTER the wasted warm-start
-            // solve). Mirror chebyshev_ipm's exact message.
+            // below (the shared-table solver arm guards this too, but only AFTER
+            // the wasted warm-start solve). Mirror the solver's exact message.
             if (st.inner_max_iter < 1) {
                 lbw::ChebyshevResult r;
                 r.base.status = RK_ERR_BADARG;
@@ -552,23 +552,18 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
                 pack_solver_result(result, r, alg);
                 return r.base.status;
             }
-            // oris warm-start; mirrors r_bridge.cpp:628-657.
-            std::vector<double> w_warm;
-            {   // scoped: weights_copy must not outlive st_warm (dangling ptr)
-                std::vector<double> weights_copy(weights, weights + n);
-                lbw::CalibState st_warm = st;
-                st_warm.weights = weights_copy.data();
-                st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
-                auto oris_res = lbw::oris_solve(st_warm);
-                if (!oris_res.base.best_weights.empty() &&
-                    static_cast<int>(oris_res.base.best_weights.size()) == n &&
-                    std::isfinite(oris_res.base.max_error)) {
-                    w_warm = std::move(oris_res.base.best_weights);  // xc1s.15: delta_warm was dead
-                }
-            }
-            auto r = lbw::chebyshev_ipm(st, w_warm);   // xc1s.15: delta_warm param removed
-            pack_solver_result(result, r, alg);
-            return r.base.status;
+            // SC1 (leafblower-rywn): routed through the shared dispatch table
+            // instead of running the oris warm-start + solver call +
+            // pack_solver_result inline (mirrors r_bridge.cpp's "chebyshev"
+            // branch). best_weights is deliberately NOT copied into the
+            // caller's `weights` buffer here: the solver already mutates
+            // st.weights (aliased to `weights`) in place on every path that
+            // reaches it, matching sinkhorn/greg/raking's in-place contract;
+            // rk_result_t has no best_weights field (pack_dispatch_result_c).
+            lbw::DispatchResult dres_cheb;
+            lbw::dispatch_solver(alg, st, dres_cheb);
+            pack_dispatch_result_c(result, dres_cheb);
+            return dres_cheb.status;
         } else if (alg == RK_ALG_ORIS_SOFT) {
             st.use_admm_capacity = true;
             /* capacity_penalty for oris_soft: direct C API callers bypass R-layer validation.

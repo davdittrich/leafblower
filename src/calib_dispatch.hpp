@@ -34,6 +34,9 @@
 #include "greg.hpp"
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
+#include "oris.hpp"
+#include "chebyshev.hpp"
+#include "raking.hpp"
 
 namespace lbw {
 
@@ -666,12 +669,12 @@ struct DispatchResult {
 // rk_calibrate() and r_bridge.cpp's C_rk_calibrate() dispatch through this
 // single function instead of maintaining two independent
 // {enum/string -> solver -> result} chains (SC1, leafblower-rywn). Covers
-// RK_ALG_SINKHORN (plan 02-01, the tracer slice), and RK_ALG_GREG,
-// RK_ALG_GREENKHORN, RK_ALG_LOGIT (plan 02-03) so far — every other enum
-// value leaves `out` untouched and returns without acting, so
-// not-yet-migrated callers keep running their existing branch unchanged.
-// Solver-by-solver migration (D-01, 02-CONTEXT.md) adds one case arm per
-// plan.
+// RK_ALG_SINKHORN (plan 02-01, the tracer slice), RK_ALG_GREG,
+// RK_ALG_GREENKHORN, RK_ALG_LOGIT (plan 02-03), and RK_ALG_CHEBYSHEV,
+// RK_ALG_RAKING (plan 02-04) so far — every other enum value leaves `out`
+// untouched and returns without acting, so not-yet-migrated callers keep
+// running their existing branch unchanged. Solver-by-solver migration
+// (D-01, 02-CONTEXT.md) adds one case arm per plan.
 inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& out) {
     switch (alg) {
         case RK_ALG_SINKHORN: {
@@ -787,6 +790,94 @@ inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& 
             out.n_bounds_clamped             = res.n_bounds_clamped;
             std::snprintf(out.solver_message, sizeof(out.solver_message), "%s", res.message);
             out.alg_used                     = RK_ALG_LOGIT;
+            out.best_weights                 = std::move(res.base.best_weights);
+            break;
+        }
+        case RK_ALG_CHEBYSHEV: {
+            // Oris warm-start, moved here from both bridges (previously
+            // hand-duplicated in r_bridge.cpp and c_api.cpp — xc1s.15/kxna.23)
+            // so it runs exactly once per solve. Cold code (once-per-solve,
+            // not per-iteration), so living in this header costs nothing.
+            std::vector<double> w_warm_obs;
+            {
+                // SAFETY: weights_copy protects st.weights from oris_solve
+                // mutation. st_warm must NOT escape this block (dangling
+                // pointer into weights_copy once it is destroyed).
+                std::vector<double> weights_copy(st.weights, st.weights + st.n);
+                lbw::CalibState st_warm = st;
+                st_warm.weights = weights_copy.data();
+                st_warm.inner_max_iter = std::max(5, std::min(100, st.inner_max_iter / 10));
+                auto oris_res = lbw::oris_solve(st_warm);
+                if (!oris_res.base.best_weights.empty() &&
+                    static_cast<int>(oris_res.base.best_weights.size()) == st.n &&
+                    std::isfinite(oris_res.base.max_error)) {
+                    w_warm_obs = std::move(oris_res.base.best_weights);
+                }
+            }
+            auto res = lbw::chebyshev_ipm(st, w_warm_obs);
+            out.status                       = res.base.status;
+            out.iterations                   = res.base.iterations;
+            out.max_error                    = res.base.max_error;
+            out.mean_error                   = res.base.mean_error;
+            out.kl                           = res.base.kl;
+            out.chi2                         = res.base.chi2;
+            out.l1_weight_change             = res.base.l1_weight_change;
+            out.grake_norm                   = res.base.grake_norm;
+            out.convergence_metric           = res.base.convergence_metric;
+            out.convergence_rule             = res.base.convergence_rule;
+            out.convergence_tol              = res.base.convergence_tol;
+            out.convergence_iter             = res.base.convergence_iter;
+            out.convergence_solver_objective = res.base.convergence_solver_objective;
+            out.convergence_minimized_metric = res.base.convergence_minimized_metric;
+            out.best_error                   = res.base.best_error;
+            out.best_iter                    = res.base.best_iter;
+            out.metric_first_check           = res.base.metric_first_check;
+            out.metric_prev_check            = res.base.metric_prev_check;
+            out.prev_check_iter              = res.base.prev_check_iter;
+            out.stall_kind                   = res.base.stall_kind;
+            out.n_bounds_violated            = res.n_bounds_violated;
+            out.n_bounds_clamped             = res.n_bounds_clamped;
+            std::snprintf(out.solver_message, sizeof(out.solver_message), "%s", res.message);
+            out.alg_used                     = RK_ALG_CHEBYSHEV;
+            // kxna.15/xl44: the violation guard (inner_max_iter<1, or a
+            // solver_setup_ct failure) leaves best_weights empty; fall back to
+            // a zero-filled sentinel of length st.n — same fallback the R
+            // bridge applied per-callsite before SC1.
+            if (!res.base.best_weights.empty())
+                out.best_weights = std::move(res.base.best_weights);
+            else
+                out.best_weights.assign(st.n, 0.0);
+            break;
+        }
+        case RK_ALG_RAKING: {
+            auto res = lbw::raking_solve(st);
+            out.status                       = res.base.status;
+            out.iterations                   = res.base.iterations;
+            out.max_error                    = res.base.max_error;
+            out.mean_error                   = res.base.mean_error;
+            out.kl                           = res.base.kl;
+            out.chi2                         = res.base.chi2;
+            out.l1_weight_change             = res.base.l1_weight_change;
+            out.grake_norm                   = res.base.grake_norm;
+            out.convergence_metric           = res.base.convergence_metric;
+            out.convergence_rule             = res.base.convergence_rule;
+            out.convergence_tol              = res.base.convergence_tol;
+            out.convergence_iter             = res.base.convergence_iter;
+            out.convergence_solver_objective = res.base.convergence_solver_objective;
+            out.convergence_minimized_metric = res.base.convergence_minimized_metric;
+            out.best_error                   = res.base.best_error;
+            out.best_iter                    = res.base.best_iter;
+            out.metric_first_check           = res.base.metric_first_check;
+            out.metric_prev_check            = res.base.metric_prev_check;
+            out.prev_check_iter              = res.base.prev_check_iter;
+            out.stall_kind                   = res.base.stall_kind;
+            out.n_bounds_violated            = res.n_bounds_violated;
+            out.n_bounds_clamped             = res.n_bounds_clamped;
+            out.solver_message[0]            = '\0';  // RakingResult carries no message field
+            out.alg_used                     = RK_ALG_RAKING;
+            // SUPERSET-ONLY: r_bridge's res_sraa_demoted local is R-only
+            // (rk_result_t has no counterpart — see pack_dispatch_result_c).
+            out.sraa_demoted                 = res.sraa_demoted;
             out.best_weights                 = std::move(res.base.best_weights);
             break;
         }
