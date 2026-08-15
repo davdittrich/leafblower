@@ -33,6 +33,21 @@ wheel.packages    = ["leafblower"]
 # Exclude them from the wheel artifact only; the editable/source tree keeps them.
 wheel.exclude     = ["leafblower/test_*.py"]
 
+# CORE_SOURCES lives at ../src (repo root), outside python/'s project directory --
+# scikit-build-core's default sdist walk can never reach outside the project root, so
+# `uv build`/`python -m build` (which build the wheel FROM the generated sdist, not the
+# live source tree) failed with "Cannot find source file: ../src/c_api.cpp" until this
+# was added. force-include vendors ../src's contents under sdist-internal src/; the
+# generated/gitignored build artifacts (*.o, *.so, Makevars, lbw_config.h) that live
+# alongside the real sources are excluded so the sdist only ships tracked source.
+# CMakeLists.txt's LBW_SRC_DIR detects which of the two layouts (../src or src) is
+# present and builds from either transparently.
+[tool.scikit-build.sdist]
+exclude = ["src/*.o", "src/*.so", "src/Makevars", "src/Makevars.bak", "src/lbw_config.h"]
+
+[tool.scikit-build.sdist.force-include]
+"../src" = "src"
+
 [tool.cibuildwheel]
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "*-musllinux*"

@@ -56,25 +56,35 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/lbw_config.h.in
 message(STATUS "leafblower hermetic lbw_config.h: OMP_SIMD=${LBW_HAS_OMP_SIMD} "
                "OMP=${LBW_HAS_OMP} GLIBC_MVEC=${LBW_HAS_GLIBC_MVEC}")
 
+# LBW_SRC_DIR: a real repo checkout has src/ as a sibling of python/ (../src). An sdist
+# build cannot reach outside the python/ project root, so pyproject.toml's
+# [tool.scikit-build.sdist.force-include] vendors ../src's tracked contents under a
+# src/ subdirectory instead -- detect which layout is present and resolve accordingly.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../src/c_api.cpp")
+    set(LBW_SRC_DIR ../src)
+else()
+    set(LBW_SRC_DIR src)
+endif()
+
 # Sources: all src/*.cpp EXCEPT r_bridge.cpp (includes Rinternals.h unavailable here)
 set(CORE_SOURCES
-    ../src/c_api.cpp
-    ../src/calib_linalg.cpp
-    ../src/calib_validate.cpp
-    ../src/cell_table.cpp
-    ../src/chebyshev.cpp
-    ../src/greenkhorn.cpp
-    ../src/greg.cpp
-    ../src/oris.cpp
-    ../src/oris_trajectory.cpp
-    ../src/oris_finalize.cpp
-    ../src/logit.cpp
-    ../src/logit_calib.cpp
-    ../src/newton_calib.cpp
-    ../src/raking.cpp
-    ../src/sinkhorn.cpp
-    ../src/design_effect.cpp
-    ../src/validation.cpp
+    ${LBW_SRC_DIR}/c_api.cpp
+    ${LBW_SRC_DIR}/calib_linalg.cpp
+    ${LBW_SRC_DIR}/calib_validate.cpp
+    ${LBW_SRC_DIR}/cell_table.cpp
+    ${LBW_SRC_DIR}/chebyshev.cpp
+    ${LBW_SRC_DIR}/greenkhorn.cpp
+    ${LBW_SRC_DIR}/greg.cpp
+    ${LBW_SRC_DIR}/oris.cpp
+    ${LBW_SRC_DIR}/oris_trajectory.cpp
+    ${LBW_SRC_DIR}/oris_finalize.cpp
+    ${LBW_SRC_DIR}/logit.cpp
+    ${LBW_SRC_DIR}/logit_calib.cpp
+    ${LBW_SRC_DIR}/newton_calib.cpp
+    ${LBW_SRC_DIR}/raking.cpp
+    ${LBW_SRC_DIR}/sinkhorn.cpp
+    ${LBW_SRC_DIR}/design_effect.cpp
+    ${LBW_SRC_DIR}/validation.cpp
 )
 
 pybind11_add_module(_leafblower
@@ -87,7 +97,7 @@ pybind11_add_module(_leafblower
 # `#include "lbw_config.h"` resolve to the source file's own directory first)
 # cannot shadow it — the force-include sets the LBW_CONFIG_H guard so any later
 # `#include "lbw_config.h"` finding the src/ copy is a no-op.
-target_include_directories(_leafblower PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated ../src)
+target_include_directories(_leafblower PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated ${LBW_SRC_DIR})
 target_compile_options(_leafblower PRIVATE -include ${CMAKE_CURRENT_BINARY_DIR}/generated/lbw_config.h)
 target_compile_definitions(_leafblower PRIVATE LBW_NO_R)
 find_package(LAPACK REQUIRED)
