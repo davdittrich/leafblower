@@ -133,3 +133,19 @@ auto_passed: 11
   artifacts: []
   missing:
     - "Same root cause as G-03-1 (per-method benchmark coverage) — docs/performance.md can only publish a per-method comparison table once the underlying per-method benchmark data (G-03-1) exists. Resolve G-03-1 first; this is its documentation-side consequence."
+
+## Root Cause (G-03-1, G-03-4)
+
+Phase 3's benchmark scope was scoped to leafblower's canonical/default solver
+(`oris_soft`) vs. generic external calibration packages
+(`survey::calibrate`, `icarus::calibration`, `ReGenesees::e.calibrate`), plus
+one cross-check of `raking_accelerated` on the degenerate known-limit
+fixture. It never set out to cover leafblower's full `method=` surface
+(`raking`, `greenkhorn`, `sinkhorn`, `oris`, `oris_soft`, `newton_kl`,
+`chebyshev` — R/harvest.R:273 default + docs/methods/*.md) each against its
+own closest competitor. Not a bug — a scoping decision made at 03-01
+planning time, now judged too narrow. `docs/methods/*.md` per method may
+already cite the natural competitor for that specific algorithm (e.g.
+greenkhorn.md cites POT's `ot.bregman.greenkhorn`/flamary2021pot, not a
+survey package) — that mapping needs to be read out of each doc, not
+assumed, before benchmarking.
