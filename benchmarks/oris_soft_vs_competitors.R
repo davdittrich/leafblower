@@ -106,10 +106,20 @@ run_input_class <- function(input_class, df, tgt, max_weight, n_categories) {
   # the competitors' bounds=c(0,3) on g — comparing a cell-aggregate
   # leafblower arm against per-observation competitors would be a different
   # optimisation problem and the timing comparison would be meaningless.
+  # convergence is oris_soft's own CANONICAL default (R/harvest.R roxygen,
+  # `convergence` param): metric="marginal_kl", rule="improvement", tol=0.001.
+  # Passed explicitly (not convergence=list()) so the intent is visible at
+  # the call site. Originally this arm passed the `absolute` shorthand,
+  # which forces metric="max_err"/rule="threshold" — survey::calibrate's
+  # own native stopping rule, not oris_soft's. That silently made oris_soft
+  # stop the instant it first crossed the tolerance instead of continuing
+  # to refine on its own plateau-detection rule, exactly the "stopped
+  # early" confound this phase's determinism protocol exists to eliminate.
+  # Fixed per tracer-checkpoint review; see 03-01-SUMMARY.md.
   lb_call <- function() {
     harvest(df, tgt, method = "oris_soft", max_weight = max_weight,
             bounds_mode = "unit", attach_weights = FALSE,
-            convergence = list(absolute = 1e-3))
+            convergence = list(metric = "marginal_kl", rule = "improvement", tol = 0.001))
   }
   bm_lb  <- bench::mark(run = lb_call(), iterations = 2, check = FALSE,
                          memory = FALSE, filter_gc = FALSE)
@@ -121,7 +131,7 @@ run_input_class <- function(input_class, df, tgt, max_weight, n_categories) {
   # status 0 = converged; 5 = plateau at constrained optimum (weights valid,
   # the bound is legitimately active) — both are a usable result. 1-4 are not.
   ok_lb <- isTRUE(res_lb$status %in% c(0L, 5L))
-  note_lb <- sprintf("convergence=list(absolute=1e-3) requested; status=%d, iterations=%d",
+  note_lb <- sprintf("convergence=list(metric='marginal_kl',rule='improvement',tol=0.001) (oris_soft canonical default) requested; status=%d, iterations=%d",
                       res_lb$status, res_lb$iterations)
   row_lb <- arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
                      "leafblower_oris_soft", as.numeric(bm_lb$median), max_error_lb,
