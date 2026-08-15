@@ -396,6 +396,67 @@ results <- rbind(results,
                   lb_only_arm_row("raking", "leafblower_raking"),
                   lb_only_arm_row("newton_kl", "leafblower_newton_kl"))
 
+# --- G-03-1 gap closure: leafblower_greg / leafblower_logit vs distance-
+# matched NEW survey::calibrate(calfun=) competitor rows ---
+# greg (chi-square/linear distance, docs/methods/greg.md) and logit (logit
+# distance, docs/methods/logit.md, which names survey::calibrate(calfun=
+# "logit") first in its own Practitioner-implementations table) attack
+# DIFFERENT objectives than the raking-calfun arm already in `results` --
+# pairing them against that arm would be an objective mismatch, so each
+# gets its own calfun-matched survey::calibrate row. Reuses the medium
+# fixture's already-built design/formula_list/population_list (from the
+# earlier survey_calibrate block inside run_input_class(), rebuilt
+# identically here since those objects are local to that function).
+formula_list_medium <- lapply(margin_cols, function(k) stats::as.formula(paste0("~", k)))
+population_list_medium <- lapply(margin_cols, function(k) {
+  T_k <- tgt[[k]]
+  data.frame(setNames(list(names(T_k)), k), Freq = as.numeric(T_k) * n)
+})
+design_medium <- survey::svydesign(ids = ~1, weights = ~1, data = df)
+
+survey_calfun_arm_row <- function(calfun_name, arm_label) {
+  tryCatch({
+    sv_call <- function() {
+      survey::calibrate(design_medium, formula_list_medium, population_list_medium,
+                         calfun = calfun_name, bounds = c(0, 3))
+    }
+    bm_sv  <- bench::mark(run = sv_call(), iterations = 2, check = FALSE,
+                           memory = FALSE, filter_gc = FALSE)
+    cal_sv <- sv_call()
+    w_sv   <- stats::weights(cal_sv)
+    w_sv_n <- normalize_to_n(as.numeric(w_sv), n)
+    max_error_sv <- margin_max_error(w_sv_n, df, tgt)
+    ok_sv <- all(is.finite(w_sv)) && max(w_sv) <= 3 + 1e-6
+    note_sv <- sprintf("calfun='%s' requested (survey::calibrate, bounds=c(0,3))", calfun_name)
+    row <- arm_row("medium_100k_5margins", n, K, nj, m_cell_medium, 3,
+                    arm_label, as.numeric(bm_sv$median), max_error_sv,
+                    max(w_sv_n), min(w_sv_n),
+                    leafblower::design_effect(w_sv_n),
+                    leafblower::effective_sample_size(w_sv_n),
+                    NA_integer_, ok_sv, note_sv)
+    cat(sprintf("  %-22s wall=%7.4fs max_err=%.3e max_w=%.3f n_eff=%.1f\n",
+                arm_label, row$wall_s, row$max_error, row$max_w, row$n_eff))
+    row
+  }, error = function(e) {
+    arm_row("medium_100k_5margins", n, K, nj, m_cell_medium, 3,
+            arm_label, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+            NA_integer_, FALSE, paste0("error: ", substr(conditionMessage(e), 1, 200)))
+  })
+}
+
+row_lb_greg <- lb_only_arm_row("greg", "leafblower_greg")
+row_lb_logit <- lb_only_arm_row("logit", "leafblower_logit")
+# icarus_calibration (already computed on this fixture, internally
+# method='logit' per its own D-09-scoped note above) is ALSO a same-distance
+# match for this arm -- pointing to its existing row, not recomputed.
+row_lb_logit$note <- paste0(
+  row_lb_logit$note,
+  "; icarus_calibration (see its own row on this fixture) is also a same-distance (logit) match for this arm")
+
+results <- rbind(results, row_lb_greg, row_lb_logit,
+                  survey_calfun_arm_row("linear", "survey_calibrate_linear"),
+                  survey_calfun_arm_row("logit", "survey_calibrate_logit"))
+
 # --- Fixture: large_stepstone_fulldata ---
 # The tracked 1,582,732-row / 9-margin / 836-category real-survey fixture
 # (benchmarks/stepstone_fulldata_bench_data.parquet / _targets.json), reused
