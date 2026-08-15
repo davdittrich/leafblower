@@ -31,6 +31,17 @@ Parity assertion is still valid: both sides call the same C++ core.
 
 greg is a one-shot linear solver (1 iter regardless); max_error ~0.005 is the
 chi2-scaled residual, not a non-convergence; _CONV_TOL=0.01 covers it.
+
+Optimization-level asymmetry (phase-02 SC2, leafblower-qzto, distinct from
+this file's own SC2 above): the R binary under comparison here builds at
+whatever -O level the user's toolchain/Makevars supplies (R sets none of its
+own -- CRAN's tools:::.check_make_vars forbids it), while the Python binary
+is compiled at -O3 unconditionally (python/CMakeLists.txt:99). This is a
+deliberate, bounded, documented decision, not equalized (see CLAUDE.md). The
+rtol/atol values in this file are therefore the bound on how much that
+asymmetry is allowed to move a result -- a parity failure here is evidence
+of a real numerical divergence between the two solver paths, not simply the
+compiler flag difference.
 """
 
 import json

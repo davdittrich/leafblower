@@ -97,6 +97,14 @@ target_link_libraries(_leafblower PRIVATE ${LAPACK_LIBRARIES})
 # Without it, gcc errors "inlining failed in call to 'always_inline'
 # '_mm256_set1_pd': target specific option mismatch".
 target_compile_options(_leafblower PRIVATE -O3)
+# Deliberate asymmetry with the R build (phase-02 SC2, leafblower-qzto): R's
+# Makevars.in/configure set NO -O level of their own (CRAN's
+# tools:::.check_make_vars rejects -O* in PKG_CXXFLAGS; R supplies the
+# user/site level via $(CXXFLAGS) instead), so R defaults to whatever -O the
+# user's toolchain/Makevars provides. Python has no such CRAN constraint, so
+# this hard-sets -O3 directly. Not equalized -- see CLAUDE.md and
+# python/leafblower/test_solver_parity.py's header for what the R↔Python
+# parity tolerances bound as a result.
 # -mavx2 only on x86_64; the _mm256_* intrinsics are x86-only and #ifdef-guarded
 # (LBW_HAS_GLIBC_MVEC) so ARM/non-AVX2 builds link without it.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
