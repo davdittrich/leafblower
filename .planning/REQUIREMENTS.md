@@ -86,13 +86,21 @@ Status values: `Implemented` · `Partial` · `Superseded` · `Withdrawn`
       shape (SEXP list vs. ABI-frozen `rk_result_t`). `r_bridge.cpp` has zero per-method
       `strcmp` branching left (plan 02-07).
 
-- [ ] **US-008**: A Python survey analyst calls `leafblower.harvest(df, targets)` with a
+- [x] **US-008**: A Python survey analyst calls `leafblower.harvest(df, targets)` with a
       pandas DataFrame over the same compiled core as R.
-      *Status: **Partial**.* FR-36…FR-40 shipped, including the copy-never-view contract,
-      the `float64` + C-contiguity enforcement, and the `convergence` dict semantics.
-      **Outstanding:** `pip install leafblower` installing a self-contained wheel, and the
-      Python 3.9–3.13 test matrix — no wheel artefact has ever been built
-      (`python/dist/` and `python/wheelhouse/` do not exist) and no CI exists.
+      *Status: **Implemented** (Phase 5, 05-04/05-05).* FR-36…FR-40 shipped, including the
+      copy-never-view contract, the `float64` + C-contiguity enforcement, and the
+      `convergence` dict semantics. `.github/workflows/python-wheels.yml` ran for real on
+      GitHub Actions (`https://github.com/davdittrich/leafblower/actions/runs/31908234870`):
+      wheels build, pass `twine check`, and `import leafblower; leafblower.harvest` succeeds
+      after installing into a clean environment on `ubuntu-latest` (manylinux) and `macos-14`
+      (arm64), across Python 3.9–3.13. **Residual, stated honestly:** the `macos-13` (x86_64
+      macOS) runner never scheduled across 25+ minutes on every CI run on this account (a
+      GitHub-side Intel-macOS-runner phase-out, not a package defect) and was dropped from
+      the matrix — x86_64 macOS wheel coverage is unproven by CI, though the underlying
+      build/repair mechanics were proven once locally without Docker in 05-04. US-008's PRD
+      text does not name a specific macOS architecture, so this residual does not block
+      closing US-008, but it is the one platform this phase cannot claim to have proven.
       *Note:* FR-38's stated mechanism (CMake EXCLUDES `r_bridge.cpp`) is the inverse of the
       live one (CMake does not glob; `CORE_SOURCES` is an explicit include list). Same
       outcome, different mechanism.
@@ -128,19 +136,25 @@ Status values: `Implemented` · `Partial` · `Superseded` · `Withdrawn`
 
 ### Distribution
 
-- [ ] **US-010**: leafblower is distributable on CRAN and PyPI so users install it with
+- [x] **US-010**: leafblower is distributable on CRAN and PyPI so users install it with
       `install.packages()` and `pip install`.
-      *Status: **Partial** — the largest genuinely-unfinished requirement.*
+      *Status: **Implemented** (Phase 5, 05-01 through 05-05).*
       Shipped: `configure` with C++17→C++14 fallback, no vendored dependency > 5 MB,
-      `pyproject.toml` on scikit-build-core.
-      Outstanding: (a) `.Rbuildignore` does not exclude the tracked repository-root strays
-      `cell_table_92c4f45.{cpp,hpp}`, `ieppa_92c4f45.cpp`, `patch_raking.py`,
-      `patch_wolfe.py`, `test_output.log`, `leafblower_0.1.0.tar.gz`, `REVIEW_FINDINGS.md`,
-      `code-review-findings.md` — `R CMD build` ships all of them (`leafblower-l6h0`);
-      (b) `cran-comments.md` **does not exist** (it is already listed in `.Rbuildignore`);
-      (c) no PyPI wheel has ever been built (`leafblower-kk1.24.3`);
-      (d) `DESCRIPTION` and `python/pyproject.toml` versions (both `0.1.0`) are synced by
-      hand with no check.
+      `pyproject.toml` on scikit-build-core, a hygiene-clean git tree (11 tracked strays +
+      120-file `leafblower.Rcheck/` removed, `leafblower-l6h0` closed), `cran-comments.md`
+      (exists, documents the real CI result), a wheel that builds and passes `twine check`
+      on CI (`leafblower-kk1.24.3` closed in substance), and a version-sync regression test
+      (`python/leafblower/test_version_sync.py`) catching `DESCRIPTION`/`pyproject.toml`
+      drift automatically rather than by hand. `R CMD check --as-cran` ran for real on
+      GitHub Actions (`https://github.com/davdittrich/leafblower/actions/runs/31908234869`):
+      0 errors, 0 warnings, 2 NOTEs, both explained in `cran-comments.md`. **Residual, stated
+      honestly:** x86_64-macOS (`macos-13`) wheel coverage is unproven by CI (see US-008);
+      this repository is a GitHub + r-universe intermediate release rather than a literal
+      CRAN web-form submission (D-05, `cran-comments.md`'s own § Submission type), so
+      `install.packages()` from the canonical CRAN mirror specifically is not yet live —
+      the check that gates a real CRAN submission (`R CMD check --as-cran`, 0 errors/0
+      warnings) is proven, the submission act itself is a separate, later step outside this
+      phase's scope.
       The § 7 `PKG_CXXFLAGS ... -O3` statement is superseded — the R build sets no `-O`
       level by design; only `python/CMakeLists.txt` sets `-O3`.
 
@@ -175,9 +189,22 @@ Status values: `Implemented` · `Partial` · `Superseded` · `Withdrawn`
       KPI-06 → no CI pipeline exists at all, which is KPI-06's own recorded open status, not
       a stale artefact reference — all name something that exists or is honestly marked
       absent, not a void file).
-- [ ] **KPI-05**: CRAN check — 0 errors, 0 warnings, via `R CMD check --as-cran`. **Open.**
-- [ ] **KPI-06**: Python wheel — installs on Linux/macOS, Python 3.9–3.13, via a CI matrix.
-      **Open** — no CI pipeline exists in the repository at all.
+- [x] **KPI-05**: CRAN check — 0 errors, 0 warnings, via `R CMD check --as-cran`.
+      **Implemented** (Phase 5, 05-05). Real GitHub Actions run:
+      `https://github.com/davdittrich/leafblower/actions/runs/31908234869` — 0 errors, 0
+      warnings, 2 NOTEs (`-mavx2` compilation flags, HTML-manual `tidy` absent), both
+      explained in `cran-comments.md`.
+- [x] **KPI-06**: Python wheel — installs on Linux/macOS, Python 3.9–3.13, via a CI matrix.
+      **Implemented** (Phase 5, 05-04/05-05). Real GitHub Actions run:
+      `https://github.com/davdittrich/leafblower/actions/runs/31908234870` — wheels build,
+      pass `twine check`, import + calibrate cleanly on `ubuntu-latest` (manylinux) and
+      `macos-14` (arm64), Python 3.9–3.13. **Residual:** `macos-13` (x86_64 macOS) dropped
+      from the matrix — the runner never scheduled across 25+ minutes on every CI run on
+      this account (GitHub-side Intel-macOS-runner phase-out); x86_64 macOS coverage is
+      unproven by CI, though the wheel-build/repair mechanics were proven locally without
+      Docker in 05-04. KPI-06's literal text ("Linux/macOS") does not name an architecture,
+      so this residual does not block closing it, but is recorded rather than silently
+      generalized away.
 - **KPI-07** (scoping statement, not work): performance benchmarks are CI **artifacts, not
       gates** (§ 8); only the phase gates are binding.
 
@@ -246,15 +273,15 @@ Shipped requirements carry no phase — the work predates this planning layer.
 | US-004 | Phase 2 (residual only) | Implemented |
 | US-005 | — (shipped pre-GSD) | Implemented |
 | US-005b | — (shipped pre-GSD) | Implemented |
-| US-008 | Phase 5 (residual only) | Partial |
+| US-008 | Phase 5 (residual only) | Implemented |
 | US-009 | — (shipped pre-GSD) | Implemented |
-| US-010 | Phase 5 | Partial |
+| US-010 | Phase 5 | Implemented |
 | KPI-01 | — (shipped pre-GSD) | Implemented |
 | KPI-02 | Phase 1 | Open |
 | KPI-03 | — (shipped pre-GSD) | Implemented |
 | KPI-04 | Phase 3 | Partial |
-| KPI-05 | Phase 5 | Open |
-| KPI-06 | Phase 5 | Open |
+| KPI-05 | Phase 5 | Implemented |
+| KPI-06 | Phase 5 | Implemented |
 | US-006, FR-20…FR-28 | — | **Withdrawn** |
 | US-007 | — | **Superseded** |
 
