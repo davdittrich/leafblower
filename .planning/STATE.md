@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 2
 current_phase_name: One Engine, Not Two
 status: executing
-stopped_at: Completed 02-01-PLAN.md (sinkhorn dispatch tracer)
-last_updated: "2026-08-15T01:52:52.782Z"
+stopped_at: Completed 02-02-PLAN.md (SC4/SC3/SC2 guards)
+last_updated: "2026-08-15T03:10:00.000Z"
 last_activity: 2026-08-15
-last_activity_desc: ROADMAP.md, REQUIREMENTS.md, PROJECT.md created from doc ingest
+last_activity_desc: Plan 02-02 executed — build-list sync test, shared-finalize delegation test, -O asymmetry documented
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 12
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -29,13 +29,15 @@ identical from R and from Python.
 ## Current Position
 
 Phase: 2 of 5 (One Engine, Not Two)
-Plan: 01 of 8 complete (sinkhorn dispatch tracer)
+Plan: 02 of 8 complete (SC4/SC3/SC2 guards)
 Status: In progress — 7 solvers remain to migrate through the shared dispatch table (D-01)
-Last activity: 2026-08-15 — Plan 02-01 executed: lbw::DispatchResult + lbw::dispatch_solver()
-added to calib_dispatch.hpp; sinkhorn routed through it from both c_api.cpp and r_bridge.cpp.
-Full DoD gate green (R 0 FAIL/1833 PASS, Python 156 passed/0 failed).
+Last activity: 2026-08-15 — Plan 02-02 executed: two new pytest regression guards
+(python/leafblower/test_core_sources_sync.py for SC4, test_finalize_weights_sync.py for
+SC3) plus SC2 (-O optimization-level asymmetry) documented in CLAUDE.md,
+python/CMakeLists.txt, and test_solver_parity.py's header; leafblower-qzto closed.
+Full DoD gate green (R 0 FAIL/1839 PASS, Python 159 passed/0 failed).
 
-Progress: [████░░░░░░] 42%
+Progress: [█████░░░░░] 50%
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -70,6 +72,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 02 P01 | 25min | 3 tasks | 3 files |
+| Phase 02 P02 | ~35min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -88,6 +91,7 @@ Carried into planning:
 
 - [Phase ?]: Plan 02-01: DispatchResult dropped the plan's specified const CellTable& parameter — no solver needs it externally (each builds its own from CalibState); documented as a Rule-3 deviation.
 - [Phase ?]: Plan 02-01: found a 6th superset-only field (aa_accepted_count, ORISResult) beyond the 5 named in leafblower-rywn/RESEARCH.md — filed on the ticket, not fixed; relevant to a future oris/oris_soft migration plan.
+- [Phase ?]: Plan 02-02: SC3/SC4 closed as verification-only (D-03/D-05) — no solver code changed. newton_calib.cpp's exclusion from the SC3 shared-finalize sweep is deliberate and cross-referenced to the pre-existing leafblower-og7d.5 (no duplicate ticket filed — that ticket already fully records the same gap). SC2 closed as documentation-only per leafblower-qzto's own DoD wording (CRAN forecloses equalizing -O flags); leafblower-qzto closed.
 
 ### Pending Todos
 
@@ -116,7 +120,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T01:52:52.776Z
-Stopped at: Completed 02-01-PLAN.md (sinkhorn dispatch tracer)
-Awaiting roadmap approval before `/gsd-plan-phase 1`.
+Last session: 2026-08-15T03:10:00.000Z
+Stopped at: Completed 02-02-PLAN.md (SC4/SC3/SC2 guards)
+Next: 02-03-PLAN.md — migrate greg, greenkhorn, logit onto the shared dispatch table (SC1).
 Resume file: None

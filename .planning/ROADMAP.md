@@ -140,7 +140,7 @@ that touches a TU boundary. The mirrored line ranges are already annotated in th
 Plans:
 
 - [x] 02-01-PLAN.md — Tracer: shared dispatch table + neutral result struct in `calib_dispatch.hpp`, wired for `sinkhorn` on both bridges (SC1, `leafblower-rywn`)
-- [ ] 02-02-PLAN.md — Guards: `CORE_SOURCES` build-list sync test, shared finalize-helper verification test, optimization-level asymmetry documented (SC4, SC3, SC2, `leafblower-qzto`)
+- [x] 02-02-PLAN.md — Guards: `CORE_SOURCES` build-list sync test, shared finalize-helper verification test, optimization-level asymmetry documented (SC4, SC3, SC2, `leafblower-qzto`)
 - [ ] 02-03-PLAN.md — Migrate `greg`, `greenkhorn`, `logit` (no R-only fields) onto the shared table (SC1)
 - [ ] 02-04-PLAN.md — Migrate `chebyshev` (warm-start moved into the shared table) and `raking` (`sraa_demoted`) (SC1)
 - [ ] 02-05-PLAN.md — Migrate `oris` and `oris_soft` (SRAA / SOR / ALM diagnostics, capacity auto-resolution) (SC1)
@@ -256,7 +256,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
-| 2. One Engine, Not Two | 1/8 | In Progress|  |
+| 2. One Engine, Not Two | 2/8 | In Progress|  |
 | 3. Honest Performance Gate | 0/TBD | Not started | - |
 | 4. Truthful Surface | 0/TBD | Not started | - |
 | 5. CRAN + PyPI Release | 0/TBD | Not started | - |
