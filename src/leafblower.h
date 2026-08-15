@@ -46,6 +46,7 @@ typedef enum {
     RK_ALG_SINKHORN  = 4,
     RK_ALG_CHEBYSHEV = 5,
     RK_ALG_GREG      = 6,
+    /* 7 = removed (was RK_ALG_GRAKE) */
     RK_ALG_ORIS_SOFT = 8,   /* oris + ADMM soft capacity enforcement */
     RK_ALG_GREENKHORN = 9,   /* greedy coordinate-descent IPF (autumn::harvest style) */
     RK_ALG_LOGIT      = 10,  /* Deville-Sarndal 1992 logit Newton calibration (autumn::calibrate style) */
