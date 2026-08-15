@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-24-convergence-metrics-sor-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Convergence Criterion Reform + SOR Stabilization + Best-Iterate Design",
+  "summary": "Design spec changing default convergence to pct=0.001, adding selectable criteria, five quality metrics, SOR damping, and best-iterate tracking.",
+  "scope": ["iEPPA solver", "raking solver", "lbfgsb solver", "convergence criteria", "SOR under-relaxation", "best-iterate tracking", "quality metrics", "harvest.R parse_convergence", "python/leafblower/_harvest.py"],
+  "cross_refs": ["harvest.R", "NEWS.md", "python/leafblower/_harvest.py", "test-ieppa.R", "test-compare.R", "test-config-defaults.R", "test-ieppa-nonuniform-d.R", "test-compat.R", "test-bounded-convergence.R"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

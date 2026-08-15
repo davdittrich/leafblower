@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-23-ieppa-faithful-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Faithful iEPPA Solver Design",
+  "summary": "Design spec for a paper-faithful iEPPA calibration solver replacing the misnamed IPF+Dykstra hybrid, which is renamed raking.",
+  "scope": ["iEPPA solver", "src/ieppa.cpp", "raking", "cell compression", "harvest() method argument", "bounded weights"],
+  "cross_refs": ["src/ieppa.cpp", "NEWS.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": "MANIFEST_TYPE=SPEC applied; content agrees (implementation contracts, algorithm sections). Status is 'Draft rev 4'. Filename hash suffix unavailable (no shell tool); slug is unique within OUTPUT_DIR."
+}

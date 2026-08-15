@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-04-25-calibration-solvers-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Calibration Solvers Redesign — Spec",
+  "summary": "Technical spec for new cell-table calibration solvers (sinkhorn, chebyshev, greg, grake) with hard capacity constraints and shared C++ kernels.",
+  "scope": ["calibration solvers", "sinkhorn", "chebyshev", "greg", "grake", "raking", "iEPPA", "cell-table expansion", "calib_validate.hpp", "calib_linalg.hpp", "pybind11 parity"],
+  "cross_refs": ["src/calib_validate.hpp", "src/calib_linalg.hpp", "ieppa.cpp", "c_api.cpp"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

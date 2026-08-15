@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-01-jacobi-log-sweep-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "iEPPA Log-Path Jacobi Sweep — Design Spec",
+  "summary": "Design for an optional Jacobi (frozen cell_lf) sweep variant of the iEPPA log-path margin update, with benchmark-driven decision.",
+  "scope": ["iEPPA log path", "apply_single_margin_log", "cell_lf", "CalibState.jacobi_log", "R/harvest.R jacobi_sweep", "src/r_bridge.cpp", "src/ieppa.cpp"],
+  "cross_refs": ["src/types.hpp", "R/harvest.R", "src/r_bridge.cpp", "src/ieppa.cpp"],
+  "locked": false,
+  "precedence": null,
+  "notes": "Type from MANIFEST_TYPE; content signals (implementation contracts, code-level change list) agree. Filename hash suffix replaced with path-segment disambiguator (no shell tool available to compute SHA-256)."
+}

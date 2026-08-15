@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/superpowers/specs/2026-05-01-newton-kl-calibration-design.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Newton-KL Calibration Solver — Design Spec (rev 2)",
+  "summary": "Technical design for a newton_kl solver in harvest(): benchmarks, K>=5 AUTO-routing threshold, dual-objective math, and scope.",
+  "scope": ["newton_kl solver", "harvest()", "AUTO routing", "lbfgsb replacement", "ieppa+sraa", "dual objective", "Hessian cost"],
+  "cross_refs": ["c_api.cpp"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

@@ -1,0 +1,13 @@
+{
+  "source_path": "/home/dd/Gemini/leafblower/docs/methods/newton_kl.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "NEWTON-KL Truncated-SVD Trust-Region Newton on Dual KL Objective",
+  "summary": "Method documentation for the NEWTON-KL solver: dual KL objective, TSVD-regularised Hessian, LM damping, Steihaug-CG trust region.",
+  "scope": ["NEWTON-KL solver", "dual KL objective", "truncated-SVD regularisation", "Levenberg-Marquardt damping", "Steihaug-CG trust region", "log-sum-exp stabilisation"],
+  "cross_refs": ["src/newton_calib.cpp", "src/newton_calib.hpp"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
