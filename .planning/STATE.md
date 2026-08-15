@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 03
-status: completed
-stopped_at: Phase 4 context gathered
-last_updated: "2026-08-15T14:20:22.361Z"
+current_phase: 04
+current_phase_name: truthful-surface
+status: executing
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-08-15T15:52:34.123Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 16
-  completed_plans: 16
-current_phase_name: honest-performance-gate
+  total_plans: 18
+  completed_plans: 17
 ---
 
 # Project State
@@ -24,14 +24,14 @@ See: .planning/PROJECT.md (updated 2026-08-15)
 
 **Core value:** Calibrated weights that are numerically correct, bound-respecting, and
 identical from R and from Python.
-**Current focus:** Phase 03 — honest-performance-gate
+**Current focus:** Phase 04 — truthful-surface
 
 ## Current Position
 
-Phase: 03 — COMPLETE
-Plan: 4 of 4
-Status: Phase 03 complete
-Last activity: 2026-08-15 — Phase 03 marked complete
+Phase: 04 (truthful-surface) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-08-15 — Phase 04 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
 coming from the orchestrator's own run rather than the user. SC1-SC5 all have durable
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [██████████] 100% (phase 2)
+Progress: [█████████░] 94% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -87,6 +87,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 03-honest-performance-gate P02 | ~35min | 3 tasks | 3 files |
 | Phase 03 P03 | 30min | 3 tasks | 2 files |
 | Phase 03-honest-performance-gate P04 | ~30min | 3 tasks | 4 files |
+| Phase 04 P01 | 25min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,7 @@ Carried into planning:
 - [Phase ?]: README.md's headline claim excludes any autumn mention (D-05, user-emphatic); orienting sentence rephrased around DESCRIPTION's own Title/Description instead
 - [Phase ?]: kk1204 block's fixture uses a uniform 1/5 target, not 03-02's skewed target -- does not exercise the documented degenerate case; this plan states the mismatch in-comment rather than changing the fixture (out of Task 3's scope)
 - [Phase ?]: US-003/KPI-04 stay Traceability status Partial after Phase 3 (requirements.mark-complete correctly no-oped, not_found, 0 bytes written) -- verbose=1 clause unexercised and no single measurement clears the PRD's literal 1M+ rows AND 20+ margins target together
+- [Phase ?]: D-04 resolved option-a: harvest(..., weights=w) now hard-stop()s naming design_weights=, not a warning
 
 ### Pending Todos
 
@@ -146,7 +148,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T14:20:22.354Z
-Stopped at: Phase 4 context gathered
+Last session: 2026-08-15T15:52:34.116Z
+Stopped at: Completed 04-01-PLAN.md
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
-Resume file: .planning/phases/04-truthful-surface/04-CONTEXT.md
+Resume file: None
