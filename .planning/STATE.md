@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 05
 current_phase_name: cran-pypi-release
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-08-15T17:54:21.359Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-08-15T20:07:30.175Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -29,7 +29,7 @@ identical from R and from Python.
 ## Current Position
 
 Phase: 05 (cran-pypi-release) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-15 — Phase 05 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [█████████░] 91% (phase 2)
+Progress: [██████████] 96% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -93,6 +93,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 05 P01 | 19min | 2 tasks | 149 files |
 | Phase 05 P02 | 4min | 1 tasks | 1 files |
 | Phase 05 P03 | 5min | 2 tasks | 1 files |
+| Phase 05 P04 | ~35min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,7 @@ Carried into planning:
 - [Phase ?]: [Phase 05] Plan 01: removed 11 tracked dev-artifact strays + 120-file leafblower.Rcheck/ tree from git; extended .Rbuildignore 23->58 lines (14 planned + 21 more found by the real R CMD build run, since R CMD build scans the working tree not the git index). Fixed a LaTeX-manual ERROR + non-ASCII WARNING at the root (Unicode math symbols in R/harvest.R roxygen comments + 4 sibling files), a NEWS.md unparseable NOTE (headers retitled to leafblower 0.1.0), and an unstated-test-deps WARNING (arrow/callr/jsonlite/withr added to Suggests). Final local check: 0 ERRORs, 1 WARNING, 3 NOTEs -- does not literally meet the plan's 0-warnings/<=1-NOTE bar; remaining findings traced to this machine's absent checkbashisms/tidy/V8 (Rule-3 excludes package-manager installs) plus a local R-Makeconf NOTE, both documented in cran-comments.md and the WINDOWS.md ledger, expected to close on the 05-03/05-04 CI matrix.
 - [Phase ?]: [Phase 05] Plan 02: added python/leafblower/test_version_sync.py, a regex-based regression guard asserting DESCRIPTION Version: == pyproject.toml version — no TOML dependency, mirrors test_core_sources_sync.py's structure exactly. Single test(...) commit; no RED/GREEN split since the guard has no production code to implement, same as its analog.
 - [Phase ?]: 05-03: pinned r-lib/actions to commit d3c5be51b12e724e68f33216ca3c148b66d5f0b6 (tag v2) after human verification via checkpoint:human-verify gate=blocking-human
+- [Phase ?]: 05-04: fixed a pre-existing sdist packaging bug (scikit-build-core's sdist walk cannot reach ../src) via force-include + CMake LBW_SRC_DIR layout detection -- uv build/python -m build was broken independent of this plan's cibuildwheel scope, would also have broken any future real PyPI publish
 
 ### Pending Todos
 
@@ -157,7 +159,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T17:54:21.352Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-08-15T20:07:30.168Z
+Stopped at: Completed 05-04-PLAN.md
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
 Resume file: None

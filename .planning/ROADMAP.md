@@ -263,14 +263,14 @@ built without it, which constrains what "self-contained" can mean. `tests/testth
 is `.Rbuildignore`d, so fixture-backed tests must keep their `skip_if(!file.exists(...))`
 guards or the CRAN run errors. There is no CI in this repository, so the 3.9–3.13 matrix is
 either a new CI pipeline or a documented manual matrix — decide before planning.
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 
 - [x] 05-01-PLAN.md — Tracer: git-hygiene strays removed, .Rbuildignore extended, local `R CMD check --as-cran` clean, cran-comments.md (SC1, SC2, D-01/D-04/D-05/D-06)
 - [x] 05-02-PLAN.md — Version-sync test guarding DESCRIPTION vs. pyproject.toml drift (SC5, D-03)
 - [x] 05-03-PLAN.md — R CI: .github/workflows/r-check.yml operationalizing the proven local check + hygiene guard (SC1, SC2, D-02)
-- [ ] 05-04-PLAN.md — Python wheel CI: cibuildwheel matrix config + local build/repair/import proof across Python 3.9-3.13 (SC3, SC4, D-02)
+- [x] 05-04-PLAN.md — Python wheel CI: cibuildwheel matrix config + local build/repair/import proof across Python 3.9-3.13 (SC3, SC4, D-02)
 - [ ] 05-05-PLAN.md — Phase gate: full local DoD gate, combined re-verification, human sign-off on scope closure
 
 ## Progress
@@ -284,7 +284,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
 | 3. Honest Performance Gate | 4/4 | In Progress|  |
 | 4. Truthful Surface | 2/2 | Complete    | 2026-08-15 |
-| 5. CRAN + PyPI Release | 3/5 | In Progress|  |
+| 5. CRAN + PyPI Release | 4/5 | In Progress|  |
 
 ---
 *Roadmap created: 2026-08-15 from `.planning/intel/` + `.planning/codebase/`*
