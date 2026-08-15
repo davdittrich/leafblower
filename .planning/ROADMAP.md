@@ -38,7 +38,7 @@ existing ticket IDs and never introduce a competing numbering scheme.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Verification Coverage Closed** - The gate detects R↔Python divergence and bound violations it currently cannot see
+- [x] **Phase 1: Verification Coverage Closed** - The gate detects R↔Python divergence and bound violations it currently cannot see (completed 2026-08-15)
 - [ ] **Phase 2: One Engine, Not Two** - R and Python reach the solvers through a single dispatch path, built the same way
 - [ ] **Phase 3: Honest Performance Gate** - The performance claim is measured against a live solver and restated as an achievable gate
 - [ ] **Phase 4: Truthful Surface** - Every documented claim matches shipped behaviour; every footgun errors instead of silently misleading
@@ -92,7 +92,7 @@ values and the set missing from the parity matrix is three methods (`chebyshev`,
 `FAILED=0 ERROR=0 PASSED=1025` under both editions, and the only delta is five deprecation
 warnings from the 11 `context()` files, so the "expect fallout across ~94 test files" note
 overstates the risk. `expect_equivalent`, `expect_that` and `expect_is` appear in no file.
-**Plans:** 4/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 
@@ -244,7 +244,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Verification Coverage Closed | 4/4 | In Progress|  |
+| 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
 | 2. One Engine, Not Two | 0/TBD | Not started | - |
 | 3. Honest Performance Gate | 0/TBD | Not started | - |
 | 4. Truthful Surface | 0/TBD | Not started | - |
