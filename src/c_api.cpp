@@ -513,18 +513,23 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     } else if (alg == RK_ALG_LOGIT) {
         /* Direct C API callers bypass R-layer validation.
            Caller must ensure max_weight is finite and > min_weight. */
-        auto res = lbw::logit_calibrate(st);
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling lbw::logit_calibrate + pack_solver_result directly.
+        lbw::DispatchResult dres_lg;
+        lbw::dispatch_solver(alg, st, dres_lg);
         // Solver stores calibrated weights only in best_weights, not in st.weights.
-        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors r_bridge.cpp:806-810.
-        if (!res.base.best_weights.empty() &&
-            static_cast<int>(res.base.best_weights.size()) == n)
-            std::copy(res.base.best_weights.begin(),
-                      res.base.best_weights.end(), weights);
-        pack_solver_result(result, res, alg);
+        // Copy to caller buffer on all exits (RK_OK, NOCONV, BUDGET); mirrors
+        // r_bridge.cpp's centralized greenkhorn/logit weights copy-back after
+        // the solver dispatch chain.
+        if (!dres_lg.best_weights.empty() &&
+            static_cast<int>(dres_lg.best_weights.size()) == n)
+            std::copy(dres_lg.best_weights.begin(),
+                      dres_lg.best_weights.end(), weights);
+        pack_dispatch_result_c(result, dres_lg);
         used = RK_ALG_LOGIT;
-        status = res.base.status;
-        iterations = res.base.iterations;
-        max_error = res.base.max_error;
+        status = dres_lg.status;
+        iterations = dres_lg.iterations;
+        max_error = dres_lg.max_error;
     } else if (alg == RK_ALG_NEWTON_KL) {
         auto nkr = lbw::newton_calibrate(st);
         // CR-D6 (j7x8.6): route through the shared newton pack — previously this
