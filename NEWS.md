@@ -1,4 +1,4 @@
-# leafblower (development)
+# leafblower 0.1.0
 
 * Removed dead over-relaxation knobs `gk_omega`, `sk_omega`, and `sk_omega_mode_id` (e65t.2/e65t.3/e65t.4 NO-GO experiments). ABI shrunk from 288B to 264B; `harvest()` arity reduced from 43 to 40 positional C args.
 
@@ -6,7 +6,7 @@
 
 * BREAKING: solver method "ieppa"/"ieppa_soft" renamed to "oris"/"oris_soft" (ORIS — Over-Relaxed Iterative Scaling). No alias; update calls. Algorithm, numeric output, and enum values unchanged.
 
-# leafblower (development version)
+# leafblower 0.1.0
 
 * `design_effect()` (R) and `design_effect()` (Python) now share a single C++17
   core implementation (`src/design_effect.cpp`). Both 1-argument Kish (1965) and
@@ -78,7 +78,7 @@
 
 ---
 
-# leafblower (development)
+# leafblower 0.1.0
 
 ## Breaking changes
 

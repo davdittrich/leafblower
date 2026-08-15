@@ -35,12 +35,12 @@ diagnose_weights <- function(data, target, weights) {
       # add_na_proportion case: the injected "NA" bin CONFLATES true-missing rows
       # with rows whose value is the literal string "NA" (is_na OR char=="NA"),
       # matching the solver's documented encoding (harvest.R:130-131: "real NA
-      # values AND a literal ... 'NA' will collide — both mapped to the injected
+      # values AND a literal ... 'NA' will collide -- both mapped to the injected
       # NA bin"; solver fill harvest.R:475). All-obs denominators, so prop_original
       # / prop_weighted sum to 1 across bins (incl. NA) when every obs falls in a
-      # named level or the NA bin (out-of-vocabulary values land in no bin -> Σ<1).
+      # named level or the NA bin (out-of-vocabulary values land in no bin -> sum < 1).
       # Supersedes 4ihf.4 (mask-only), which under-reported the NA bin and broke
-      # Σshares==1 even with no OOV rows [4ihf.5].
+      # sum(shares)==1 even with no OOV rows [4ihf.5].
       col_char <- as.character(col)
       col_char[is_na] <- NA_character_
       n_total <- length(col)
@@ -49,7 +49,7 @@ diagnose_weights <- function(data, target, weights) {
       # No "NA" bin (common case): exclude NA observations from BOTH the level
       # masks and the denominators. harvest drops NA/gid<0 obs from the
       # marginal constraints (raking.cpp: `if (g>=0)`), so named-level shares
-      # must be measured over non-NA obs only — otherwise they sum to <1 and
+      # must be measured over non-NA obs only -- otherwise they sum to <1 and
       # produce a spurious error_weighted ~ -na_frac*target on every level for
       # well-calibrated data.
       col_char <- as.character(col)
@@ -59,7 +59,7 @@ diagnose_weights <- function(data, target, weights) {
     }
 
     # xc1s.13(g): precompute all per-level counts + weighted sums in one pass (was an
-    # O(n·L) mask per level). tabulate ignores NA & out-of-vocab ⇒ integer counts equal
+    # O(n*L) mask per level). tabulate ignores NA & out-of-vocab => integer counts equal
     # the old sum(mask). Weighted sums use tapply+base sum() (long-double accumulation,
     # bit-identical to the old sum(weights[mask]); NOT rowsum, whose C kernel sums in
     # plain double). The injected "NA" bin (is_na OR literal char=="NA") is then

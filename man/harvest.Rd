@@ -57,7 +57,7 @@ minimization and hard-clamp projection.
 Larger values force tighter constraint adherence; smaller values allow more
 temporary bound violation before the final projection enforces exact bounds.
 Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
-the adaptive schedule hit its ceiling — increase \code{capacity_penalty} by 10x.
+the adaptive schedule hit its ceiling -- increase \code{capacity_penalty} by 10x.
 Ignored for methods other than \code{"oris_soft"}.}
 
 \item{alm_penalty}{Numeric or \code{NULL} (default, disabled). When supplied it
@@ -72,12 +72,12 @@ Lagrangian soft capacity enforcement; better than \code{"oris"} on tight-bounds
 problems where cells hit \code{max_weight}),
 \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"sinkhorn"} (KL Bregman Dykstra),
 \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
-(L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
+(L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF -- Altschuler-Weed-Rigollet 2017;
 picks the single hardest margin per step; supports \code{accelerate=TRUE} for
 SQUAREM round-level acceleration. Distinct from \code{scheduler="greedy"} on raking,
 which sorts all K margins but still sweeps all per round),
 \code{"logit"} (Deville-Sarndal 1992 logit-distance Newton calibration; bounds
-enforced analytically — no clamping; typically converges in 10-20 Newton steps;
+enforced analytically -- no clamping; typically converges in 10-20 Newton steps;
 equivalent to \code{autumn::calibrate()}).}
 
 \item{verbose}{Integer verbosity: 0=silent, 1=progress, 2=debug.}
@@ -101,9 +101,9 @@ greedy margin steps, other solvers count full BCD sweeps.}
     \item \code{metric}: quality metric to monitor. One of \code{"max_err"}
       (default), \code{"mean_err"}, \code{"kl"}, \code{"chi2"},
       \code{"grake_norm"}, \code{"l1_weight"}, \code{"marginal_kl"}.
-    \item \code{rule}: stopping rule. One of \code{"improvement"} (default) —
-      stop when metric improves by less than \code{tol} relative; \code{"threshold"} —
-      stop when metric falls below \code{tol} absolutely; \code{"plateau"} —
+    \item \code{rule}: stopping rule. One of \code{"improvement"} (default) --
+      stop when metric improves by less than \code{tol} relative; \code{"threshold"} --
+      stop when metric falls below \code{tol} absolutely; \code{"plateau"} --
       stop when metric changes less than \code{tol} over a window.
     \item \code{tol}: tolerance value (default \code{0.001}).
     \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
@@ -124,7 +124,7 @@ greedy margin steps, other solvers count full BCD sweeps.}
   \code{rule="improvement"}, \code{tol = 0.001}). Defaults by method:
   \itemize{
     \item \code{oris}, \code{oris_soft}, \code{auto}: \code{marginal_kl}
-      (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)).
+      (calibration quality: sum_k sum_j t_kj log(t_kj/achieved_kj)).
     \item \code{raking}, \code{greenkhorn}, \code{sinkhorn}, \code{newton_kl}: \code{kl}.
     \item \code{greg}: \code{chi2}.
     \item \code{chebyshev}, \code{logit}: \code{max_err}.
@@ -155,7 +155,7 @@ Default \code{NULL} disables SOR. Keys:
   \item \code{omega_mode_id}: omega adaptation strategy. \code{0} = heuristic
     (0.7 damp / 1.05 grow), \code{1} = fixed (jump to \code{omega_max}),
     \code{2} = iterate-change (free-coordinate \eqn{\|\Delta X_{\rm free}\|^2}
-    estimator, \strong{default}; feasibility-agnostic; e18t.9 SHIP — 240 vs 350
+    estimator, \strong{default}; feasibility-agnostic; e18t.9 SHIP -- 240 vs 350
     iters on T2 unconstrained, 50 vs 140 on bounded stepstone).
     String aliases \code{"heuristic"}, \code{"fixed"}, \code{"spectral"} are accepted.
 }}
@@ -189,9 +189,9 @@ across n levels.}
   \code{"oris"}, and \code{"oris_soft"}. Default \code{FALSE}.
 
   \strong{For oris and oris_soft}, SRAA-m operates in log-factor space
-  (dimension n_cats_total ≈ 50–500, not M_cell), so history matrices are
-  small. Expected benefit: ≥30\% fewer outer iterations on tight-bounds
-  problems (K≥6, max_weight<3, or skewed margins).
+  (dimension n_cats_total ~= 50-500, not M_cell), so history matrices are
+  small. Expected benefit: >=30\% fewer outer iterations on tight-bounds
+  problems (K>=6, max_weight<3, or skewed margins).
 
   \strong{Behavioral changes when accelerate=TRUE for oris/oris_soft:}
   \itemize{
@@ -218,7 +218,7 @@ positive calibration weights rather than being excluded. An error is raised
 if a margin is entirely NA (\code{na_frac == 1}).
 \strong{Known limitation:} a column that simultaneously contains real
 \code{NA} values \emph{and} a literal factor level or character value named
-\code{"NA"} will collide — both will be mapped to the injected NA bin.}
+\code{"NA"} will collide -- both will be mapped to the injected NA bin.}
 
 \item{auto_collapse}{When \code{TRUE}, automatically merge rare categories
 (target proportion < 0.01 or fewer than 30 observations) into an
@@ -238,7 +238,7 @@ mean=1). Length must equal \code{nrow(data)}.}
 
 \item{newton_tsvd_ratio}{Positive finite scalar (default \code{1e-8}); the
 truncated-SVD singular-value cutoff ratio for the \code{method="newton_kl"}
-Newton solve — singular values below this fraction of the largest are dropped
+Newton solve -- singular values below this fraction of the largest are dropped
 for pseudo-inverse regularization. Ignored by all other methods.}
 
 \item{ridge_lambda}{Tikhonov ridge penalty on the dual lambda (default 0.0 = off).
@@ -256,16 +256,16 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
       \itemize{
         \item \code{status}: integer status code. 0=converged (RK_OK);
           1=did not converge (RK_ERR_NOCONV); 2=infeasible (RK_ERR_INFEAS);
-          3=bad argument (RK_ERR_BADARG); 4=budget exhausted — loss still
+          3=bad argument (RK_ERR_BADARG); 4=budget exhausted -- loss still
           decreasing, increase \code{max_iterations} (RK_ERR_BUDGET);
           5=loss plateau at constrained optimum, weights are valid (RK_ERR_STALL).
         \item \code{iterations}: number of outer iterations completed.
         \item \code{max_error}: maximum marginal error at the returned weights.
-        \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
-          Measured over the last convergence-check interval: Σ|ΔX|/W_input
-          (total input weight) for \code{oris}, and Σ|Δw|/n for \code{raking}
+        \item \code{l1_weight_change}: L1-normalized weight change sum|dw|/n.
+          Measured over the last convergence-check interval: sum|dX|/W_input
+          (total input weight) for \code{oris}, and sum|dw|/n for \code{raking}
           and \code{sinkhorn}. Computed start-to-final (calibrated minus input,
-          Σ|Δw|/n) for \code{logit}. Reported as \code{0} for \code{greg},
+          sum|dw|/n) for \code{logit}. Reported as \code{0} for \code{greg},
           \code{chebyshev}, \code{newton_kl}, and \code{greenkhorn} (not tracked
           by those solvers).
         \item \code{grake_norm}: survey-grake normalized residual
@@ -276,21 +276,21 @@ data frame with weights column if \code{attach_weights=TRUE}, else a numeric
           \code{convergence_used$metric} family) associated with the returned result.
           For the acceleration / ORIS finalize path this is RECOMPUTED on the
           finalized, bound-clamped, \code{n}-normalized weights that are actually
-          returned (y2ks.13) — it reflects the returned solution and is no longer a
+          returned (y2ks.13) -- it reflects the returned solution and is no longer a
           minimum-across-iterates value, so it need not equal the metric at
           \code{best_weights}. Surfaced verbatim in the budget/stall warning.
         \item \code{best_weights}: numeric vector (length \code{n}, sum normalized to
           \code{n}) at the best iterate the solver tracked, finalized through the same
-          \code{Σw=n} + bounds contract. It is a DIFFERENT solution from the returned
+          \code{sum(w)=n} + bounds contract. It is a DIFFERENT solution from the returned
           weights and from the \code{best_error} reference above. It is all-zero when
           the solver recorded no best iterate (exited before the first convergence
           check); guard with \code{if (sum(attr(r, "result")$best_weights) > 0)}
           before use.
         \item \code{convergence_used$convergence_reason}: Character.
           Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
-          \code{"budget"} (budget exhausted — increase max_iterations),
-          \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
-          \code{"stall_wchange"} (SRAA-m weight-change plateau — at constrained optimum),
+          \code{"budget"} (budget exhausted -- increase max_iterations),
+          \code{"stall_kl"} (weight KL plateau -- at constrained KL minimum),
+          \code{"stall_wchange"} (SRAA-m weight-change plateau -- at constrained optimum),
           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
         \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{oris_soft}).
         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
@@ -321,14 +321,14 @@ to exact feasibility at exit.
 \strong{Greenkhorn}: \code{method="greenkhorn"} implements the
 Altschuler-Weed-Rigollet (2017) greedy coordinate-descent Sinkhorn variant.
 At each step \code{greenkhorn} selects the single margin with the largest
-violation and updates only that row/column — unlike standard raking which
+violation and updates only that row/column -- unlike standard raking which
 sweeps all K margins every round. Pass \code{accelerate=TRUE} to enable
 SRAA-m outer-loop acceleration on top of greenkhorn.
 
 \strong{Logit calibration}: \code{method="logit"} implements Deville-Sarndal
 (1992) logit-distance Newton calibration. Bounds are enforced analytically
-through the logit link — no post-hoc weight clamping is required. The logit
-method typically converges in 10–20 Newton steps and is equivalent to
+through the logit link -- no post-hoc weight clamping is required. The logit
+method typically converges in 10-20 Newton steps and is equivalent to
 \code{autumn::calibrate()} with a logit distance function.
 }
 \examples{

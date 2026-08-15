@@ -27,14 +27,14 @@ anesrake <- function(inputter, targets, weightvec = NULL, caseid = NULL,
   if (!is.null(caseid))
     message("anesrake: caseid is ignored (not used by leafblower calibration)")
 
-  # F6: map pctlim → convergence[["pct"]] instead of silently dropping it
+  # F6: map pctlim -> convergence[["pct"]] instead of silently dropping it
   convergence <- list()
   if (!missing(pctlim) && !is.null(pctlim)) {
     warning("anesrake: 'pctlim' is deprecated; use convergence = list(pct = pctlim)")
     convergence[["pct"]] <- pctlim
   }
 
-  # F7: silently remap legacy "rake"/"nrake" to "oris" — avoids deprecation warning.
+  # F7: silently remap legacy "rake"/"nrake" to "oris" -- avoids deprecation warning.
   # tolower() guards against caller-passed "Rake"/"NRAKE" etc.
   if (tolower(choosemethod) %in% c("rake", "nrake")) choosemethod <- "oris"
 

@@ -12,7 +12,7 @@
 #'   Larger values force tighter constraint adherence; smaller values allow more
 #'   temporary bound violation before the final projection enforces exact bounds.
 #'   Tuning: if \code{attr(result, "result")$alm_capacity_mu_final / capacity_penalty >= 1000},
-#'   the adaptive schedule hit its ceiling — increase \code{capacity_penalty} by 10x.
+#'   the adaptive schedule hit its ceiling -- increase \code{capacity_penalty} by 10x.
 #'   Ignored for methods other than \code{"oris_soft"}.
 #' @param alm_penalty Numeric or \code{NULL} (default, disabled). When supplied it
 #'   must be a positive finite scalar; values above \code{1e15} are rejected and
@@ -25,12 +25,12 @@
 #'   problems where cells hit \code{max_weight}),
 #'   \code{"raking"} (IPF + water-filling box projection (KL projection, Csiszar-Tusnady 1984)), \code{"sinkhorn"} (KL Bregman Dykstra),
 #'   \code{"greg"} (Newton QP, Deville-Sarndal 1992), \code{"chebyshev"}
-#'   (L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF — Altschuler-Weed-Rigollet 2017;
+#'   (L-infinity LP via IPM), \code{"greenkhorn"} (greedy coordinate-descent IPF -- Altschuler-Weed-Rigollet 2017;
 #'   picks the single hardest margin per step; supports \code{accelerate=TRUE} for
 #'   SQUAREM round-level acceleration. Distinct from \code{scheduler="greedy"} on raking,
 #'   which sorts all K margins but still sweeps all per round),
 #'   \code{"logit"} (Deville-Sarndal 1992 logit-distance Newton calibration; bounds
-#'   enforced analytically — no clamping; typically converges in 10-20 Newton steps;
+#'   enforced analytically -- no clamping; typically converges in 10-20 Newton steps;
 #'   equivalent to \code{autumn::calibrate()}).
 #' @param verbose Integer verbosity: 0=silent, 1=progress, 2=debug.
 #' @param max_iterations Maximum inner BCD iterations per outer step. Default 500.
@@ -48,9 +48,9 @@
 #'     \item \code{metric}: quality metric to monitor. One of \code{"max_err"}
 #'       (default), \code{"mean_err"}, \code{"kl"}, \code{"chi2"},
 #'       \code{"grake_norm"}, \code{"l1_weight"}, \code{"marginal_kl"}.
-#'     \item \code{rule}: stopping rule. One of \code{"improvement"} (default) —
-#'       stop when metric improves by less than \code{tol} relative; \code{"threshold"} —
-#'       stop when metric falls below \code{tol} absolutely; \code{"plateau"} —
+#'     \item \code{rule}: stopping rule. One of \code{"improvement"} (default) --
+#'       stop when metric improves by less than \code{tol} relative; \code{"threshold"} --
+#'       stop when metric falls below \code{tol} absolutely; \code{"plateau"} --
 #'       stop when metric changes less than \code{tol} over a window.
 #'     \item \code{tol}: tolerance value (default \code{0.001}).
 #'     \item \code{stop_when}: \code{"any"} (default) or \code{"all"}.
@@ -71,7 +71,7 @@
 #'   \code{rule="improvement"}, \code{tol = 0.001}). Defaults by method:
 #'   \itemize{
 #'     \item \code{oris}, \code{oris_soft}, \code{auto}: \code{marginal_kl}
-#'       (calibration quality: Σ_k Σ_j t_kj log(t_kj/achieved_kj)).
+#'       (calibration quality: sum_k sum_j t_kj log(t_kj/achieved_kj)).
 #'     \item \code{raking}, \code{greenkhorn}, \code{sinkhorn}, \code{newton_kl}: \code{kl}.
 #'     \item \code{greg}: \code{chi2}.
 #'     \item \code{chebyshev}, \code{logit}: \code{max_err}.
@@ -101,7 +101,7 @@
 #'     \item \code{omega_mode_id}: omega adaptation strategy. \code{0} = heuristic
 #'       (0.7 damp / 1.05 grow), \code{1} = fixed (jump to \code{omega_max}),
 #'       \code{2} = iterate-change (free-coordinate \eqn{\|\Delta X_{\rm free}\|^2}
-#'       estimator, \strong{default}; feasibility-agnostic; e18t.9 SHIP — 240 vs 350
+#'       estimator, \strong{default}; feasibility-agnostic; e18t.9 SHIP -- 240 vs 350
 #'       iters on T2 unconstrained, 50 vs 140 on bounded stepstone).
 #'       String aliases \code{"heuristic"}, \code{"fixed"}, \code{"spectral"} are accepted.
 #'   }
@@ -121,16 +121,16 @@
 #' @param eta_schedule_power Power for Tang-eta schedule interpolation (default 0.5).
 #' @param newton_tsvd_ratio Positive finite scalar (default \code{1e-8}); the
 #'   truncated-SVD singular-value cutoff ratio for the \code{method="newton_kl"}
-#'   Newton solve — singular values below this fraction of the largest are dropped
+#'   Newton solve -- singular values below this fraction of the largest are dropped
 #'   for pseudo-inverse regularization. Ignored by all other methods.
 #' @param accelerate Logical. Enable Safeguarded Regularized Anderson Acceleration
 #'   (SRAA-m, window m=5) for \code{method="raking"}, \code{"greenkhorn"},
 #'   \code{"oris"}, and \code{"oris_soft"}. Default \code{FALSE}.
 #'
 #'   \strong{For oris and oris_soft}, SRAA-m operates in log-factor space
-#'   (dimension n_cats_total ≈ 50–500, not M_cell), so history matrices are
-#'   small. Expected benefit: ≥30\% fewer outer iterations on tight-bounds
-#'   problems (K≥6, max_weight<3, or skewed margins).
+#'   (dimension n_cats_total ~= 50-500, not M_cell), so history matrices are
+#'   small. Expected benefit: >=30\% fewer outer iterations on tight-bounds
+#'   problems (K>=6, max_weight<3, or skewed margins).
 #'
 #'   \strong{Behavioral changes when accelerate=TRUE for oris/oris_soft:}
 #'   \itemize{
@@ -160,7 +160,7 @@
 #'   if a margin is entirely NA (\code{na_frac == 1}).
 #'   \strong{Known limitation:} a column that simultaneously contains real
 #'   \code{NA} values \emph{and} a literal factor level or character value named
-#'   \code{"NA"} will collide — both will be mapped to the injected NA bin.
+#'   \code{"NA"} will collide -- both will be mapped to the injected NA bin.
 #' @param auto_collapse When \code{TRUE}, automatically merge rare categories
 #'   (target proportion < 0.01 or fewer than 30 observations) into an
 #'   \code{"__other__"} bin across all target variables. Default \code{FALSE}.
@@ -181,16 +181,16 @@
 #'       \itemize{
 #'         \item \code{status}: integer status code. 0=converged (RK_OK);
 #'           1=did not converge (RK_ERR_NOCONV); 2=infeasible (RK_ERR_INFEAS);
-#'           3=bad argument (RK_ERR_BADARG); 4=budget exhausted — loss still
+#'           3=bad argument (RK_ERR_BADARG); 4=budget exhausted -- loss still
 #'           decreasing, increase \code{max_iterations} (RK_ERR_BUDGET);
 #'           5=loss plateau at constrained optimum, weights are valid (RK_ERR_STALL).
 #'         \item \code{iterations}: number of outer iterations completed.
 #'         \item \code{max_error}: maximum marginal error at the returned weights.
-#'         \item \code{l1_weight_change}: L1-normalized weight change Σ|Δw|/n.
-#'           Measured over the last convergence-check interval: Σ|ΔX|/W_input
-#'           (total input weight) for \code{oris}, and Σ|Δw|/n for \code{raking}
+#'         \item \code{l1_weight_change}: L1-normalized weight change sum|dw|/n.
+#'           Measured over the last convergence-check interval: sum|dX|/W_input
+#'           (total input weight) for \code{oris}, and sum|dw|/n for \code{raking}
 #'           and \code{sinkhorn}. Computed start-to-final (calibrated minus input,
-#'           Σ|Δw|/n) for \code{logit}. Reported as \code{0} for \code{greg},
+#'           sum|dw|/n) for \code{logit}. Reported as \code{0} for \code{greg},
 #'           \code{chebyshev}, \code{newton_kl}, and \code{greenkhorn} (not tracked
 #'           by those solvers).
 #'         \item \code{grake_norm}: survey-grake normalized residual
@@ -201,21 +201,21 @@
 #'           \code{convergence_used$metric} family) associated with the returned result.
 #'           For the acceleration / ORIS finalize path this is RECOMPUTED on the
 #'           finalized, bound-clamped, \code{n}-normalized weights that are actually
-#'           returned (y2ks.13) — it reflects the returned solution and is no longer a
+#'           returned (y2ks.13) -- it reflects the returned solution and is no longer a
 #'           minimum-across-iterates value, so it need not equal the metric at
 #'           \code{best_weights}. Surfaced verbatim in the budget/stall warning.
 #'         \item \code{best_weights}: numeric vector (length \code{n}, sum normalized to
 #'           \code{n}) at the best iterate the solver tracked, finalized through the same
-#'           \code{Σw=n} + bounds contract. It is a DIFFERENT solution from the returned
+#'           \code{sum(w)=n} + bounds contract. It is a DIFFERENT solution from the returned
 #'           weights and from the \code{best_error} reference above. It is all-zero when
 #'           the solver recorded no best iterate (exited before the first convergence
 #'           check); guard with \code{if (sum(attr(r, "result")$best_weights) > 0)}
 #'           before use.
 #'         \item \code{convergence_used$convergence_reason}: Character.
 #'           Why the solver exited: \code{"criterion"} (improvement criterion satisfied),
-#'           \code{"budget"} (budget exhausted — increase max_iterations),
-#'           \code{"stall_kl"} (weight KL plateau — at constrained KL minimum),
-#'           \code{"stall_wchange"} (SRAA-m weight-change plateau — at constrained optimum),
+#'           \code{"budget"} (budget exhausted -- increase max_iterations),
+#'           \code{"stall_kl"} (weight KL plateau -- at constrained KL minimum),
+#'           \code{"stall_wchange"} (SRAA-m weight-change plateau -- at constrained optimum),
 #'           \code{"infeasible"}, \code{"error"}, or \code{"legacy"}.
 #'         \item \code{alm_capacity_mu_final}: final ALM penalty after adaptive scaling (\code{0} if not \code{oris_soft}).
 #'         \item \code{alm_n_growth_events}: adaptive penalty growth fire count.
@@ -242,14 +242,14 @@
 #' \strong{Greenkhorn}: \code{method="greenkhorn"} implements the
 #' Altschuler-Weed-Rigollet (2017) greedy coordinate-descent Sinkhorn variant.
 #' At each step \code{greenkhorn} selects the single margin with the largest
-#' violation and updates only that row/column — unlike standard raking which
+#' violation and updates only that row/column -- unlike standard raking which
 #' sweeps all K margins every round. Pass \code{accelerate=TRUE} to enable
 #' SRAA-m outer-loop acceleration on top of greenkhorn.
 #'
 #' \strong{Logit calibration}: \code{method="logit"} implements Deville-Sarndal
 #' (1992) logit-distance Newton calibration. Bounds are enforced analytically
-#' through the logit link — no post-hoc weight clamping is required. The logit
-#' method typically converges in 10–20 Newton steps and is equivalent to
+#' through the logit link -- no post-hoc weight clamping is required. The logit
+#' method typically converges in 10-20 Newton steps and is equivalent to
 #' \code{autumn::calibrate()} with a logit distance function.
 #' @examples
 #' \dontrun{
@@ -302,12 +302,12 @@ harvest <- function(
 ) {
   # RVAL.2: warn on unknown ... args (typos / removed params)
   dots <- list(...)
-  # RVAL.4: bare weights= is a plausible-but-wrong typo for design_weights= —
+  # RVAL.4: bare weights= is a plausible-but-wrong typo for design_weights= --
   # silently falling into ... would produce a plausible-but-wrong unweighted
   # result with only a non-fatal warning (SC3); reject it hard, ahead of the
   # generic unknown-arg warning below.
   if ("weights" %in% names(dots))
-    stop("leafblower: unrecognized argument 'weights' — did you mean 'design_weights'? ",
+    stop("leafblower: unrecognized argument 'weights' -- did you mean 'design_weights'? ",
          "harvest() takes per-observation design weights via design_weights=, not weights=.",
          call. = FALSE)
   if (length(dots) > 0L)
@@ -317,14 +317,14 @@ harvest <- function(
   # Not-in-v1 hard stops
   target  <- parse_target(target, target_map)
 
-  # --- 81bx: auto_collapse — merge rare categories into __other__ ---
+  # --- 81bx: auto_collapse -- merge rare categories into __other__ ---
   # CR-F2 (dtkn.2): explicit collapse_vars ALWAYS takes effect. The prior
-  # `!isFALSE(auto_collapse)` guard was dead — auto_collapse defaults FALSE, so
+  # `!isFALSE(auto_collapse)` guard was dead -- auto_collapse defaults FALSE, so
   # `!isFALSE(FALSE)` is FALSE and a bare collapse_vars silently no-op'd.
   if (isTRUE(auto_collapse) || !is.null(collapse_vars)) {
     vars_to_collapse <- if (!is.null(collapse_vars)) collapse_vars else names(target)
     # CR-F2 (dtkn.2): a collapse_vars entry naming no target variable is the same
-    # silent-no-op class this ticket fixes — surface it loudly.
+    # silent-no-op class this ticket fixes -- surface it loudly.
     if (!is.null(collapse_vars)) {
       unknown_cv <- setdiff(collapse_vars, names(target))
       if (length(unknown_cv) > 0L)
@@ -355,7 +355,7 @@ harvest <- function(
       existing_other <- if ("__other__" %in% names(target[[v]]))
                           target[[v]][["__other__"]] else 0
       target[[v]][["__other__"]] <- existing_other + other_mass
-      # Recode observations: rare values → "__other__"
+      # Recode observations: rare values -> "__other__"
       n0  <- sum(is.na(data_local[[v]]))
       col <- as.character(data_local[[v]])
       col[col %in% rare] <- "__other__"
@@ -371,9 +371,9 @@ harvest <- function(
     if (data_modified) data <- data_local
   }
 
-  # --- yaye: add_na_proportion — encode NA observations as explicit "NA" bin ---
+  # --- yaye: add_na_proportion -- encode NA observations as explicit "NA" bin ---
   # Tracks which margins received a NA bin so group_ids encoding can use the
-  # character path with explicit NA→"NA" fill (as.character(NA) produces
+  # character path with explicit NA->"NA" fill (as.character(NA) produces
   # NA_character_, NOT the string "NA"; the fill is applied in the else-branch
   # below) rather than the factor path which maps NA codes to -1L.
   .na_margins <- character(0)
@@ -395,7 +395,7 @@ harvest <- function(
           "add_na_proportion: target for variable '%s' must sum to 1 before rescaling (observed sum = %.8g)",
           v, s), call. = FALSE)
       # Renormalize existing targets by (1 - na_frac) then add NA bin.
-      # CR-F1 (dtkn.1): must stay a named NUMERIC vector — the old
+      # CR-F1 (dtkn.1): must stay a named NUMERIC vector -- the old
       # c(lapply(...), list("NA"=)) built a LIST, so downstream margin_kl_one
       # arithmetic hit "non-numeric argument to binary operator", was swallowed
       # by tryCatch, and every add_na_proportion=TRUE run reported margin_kl=NA.
@@ -432,17 +432,17 @@ harvest <- function(
     is.null(convergence[["absolute"]])
   if (.no_explicit_metric) {
     conv$metric <- switch(method,
-      # KL minimizers — marginal_kl is monotone across full sweeps (Csiszar-Tusnady).
+      # KL minimizers -- marginal_kl is monotone across full sweeps (Csiszar-Tusnady).
       "oris"        = "marginal_kl",
       "oris_soft"   = "marginal_kl",
       "auto"        = "marginal_kl",  # auto routes to oris in most cases
-      # Weight-KL minimizers — kl monotone by Csiszar-Tusnady; marginal_kl not
+      # Weight-KL minimizers -- kl monotone by Csiszar-Tusnady; marginal_kl not
       # computed in raking/greenkhorn need_extra gate so cannot be used.
       "raking"      = "kl",
       "greenkhorn"  = "kl",
       "sinkhorn"    = "kl",
       "newton_kl"   = "kl",
-      # chi2 minimizer — use its actual objective.
+      # chi2 minimizer -- use its actual objective.
       "greg"        = "chi2",
       # Remaining (chebyshev minimizes L-inf = max_err; logit has no natural KL):
       conv$metric   # keep max_err default
@@ -525,7 +525,7 @@ harvest <- function(
   sw_vec  <- normalize_start_weights(start_weights, nrow(data))
 
   # parse_bounds_mode() is match.arg-based over c("cell","unit"), so it either
-  # returns one of those or errors — bounds_mode_int can never be NA (CR-H13(d):
+  # returns one of those or errors -- bounds_mode_int can never be NA (CR-H13(d):
   # removed the unreachable is.na guard).
   bounds_mode_char <- parse_bounds_mode(bounds_mode)
   bounds_mode_int  <- match(bounds_mode_char, c("cell", "unit")) - 1L
@@ -560,9 +560,9 @@ harvest <- function(
 
   margins      <- names(target)
   # Encode each margin column to 0-indexed integer (NA/-1 for OOV/NA).
-  # Factor path: map factor integer codes via a precomputed level→target-index
-  # table (O(nlevels) string ops once, then O(n) int array indexing — no
-  # as.character() allocation). ~5× faster than the character path on large n.
+  # Factor path: map factor integer codes via a precomputed level->target-index
+  # table (O(nlevels) string ops once, then O(n) int array indexing -- no
+  # as.character() allocation). ~5x faster than the character path on large n.
   # Character path: fallback for non-factor columns via match().
   group_ids_r  <- lapply(margins, function(v) {
     col <- data[[v]]
@@ -590,12 +590,12 @@ harvest <- function(
     gids <- group_ids_r[[i]]
     # CR-F6 (dtkn.6): plain NAs fold to gid==-1 too (as.integer(factor) -> NA -> -1L,
     # match(NA) -> 0 -> -1L). When add_na_proportion=FALSE these are ORDINARY missing
-    # data, not a vocabulary problem — exclude them so the OOV warning counts only
+    # data, not a vocabulary problem -- exclude them so the OOV warning counts only
     # GENUINE out-of-vocabulary values (present in data, absent from the target).
     n_oov <- sum(gids == -1L & !is.na(data[[v]]))
     if (n_oov > 0L)
       warning(sprintf(
-        "harvest: %d out-of-vocabulary observation(s) for variable '%s' — these levels are absent from target and will not contribute to calibration",
+        "harvest: %d out-of-vocabulary observation(s) for variable '%s' -- these levels are absent from target and will not contribute to calibration",
         n_oov, v), call. = FALSE)
   }
   cat_counts_r <- vapply(target, length, integer(1L))
@@ -648,7 +648,7 @@ harvest <- function(
                as.integer(accelerate_bool),
                ## Epic-H WH-e: newton_kl TSVD truncation ratio (default 1e-8)
                as.double(newton_tsvd_ratio),
-               ## Tikhonov ridge on dual λ (default 0.0 = off)
+               ## Tikhonov ridge on dual lambda (default 0.0 = off)
                as.double(ridge_lambda))
 
   weights <- raw$weights
@@ -669,7 +669,7 @@ harvest <- function(
     n_monotone_cd = calib_result$sor_n_monotone_cd
   )
   # xc1s.13(c): drop the now-nested flat fields in one assignment (list `[<-` with a
-  # character vector removes each named element — identical to the per-field `$x <- NULL`).
+  # character vector removes each named element -- identical to the per-field `$x <- NULL`).
   calib_result[c("sor_min_omega", "sor_n_damped", "sor_omega_mean", "sor_any_latched",
                  "sor_n_pinned_fb", "sor_n_warmup_fb", "sor_n_conv_fb",
                  "sor_n_resid_grew", "sor_n_monotone_cd")] <- NULL
@@ -678,7 +678,7 @@ harvest <- function(
   # metric_names and rule_names mirror CalibMetric/CalibRule enum order in leafblower.h.
   .metric_names <- c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl")
   .rule_names   <- c("threshold", "improvement", "plateau")
-  # C1: guard +1L indexing — integer index from C may be NA or out of range.
+  # C1: guard +1L indexing -- integer index from C may be NA or out of range.
   .safe_lookup <- function(v, idx) {
     if (is.integer(idx) && !is.na(idx) && idx >= 0L && idx < length(v)) v[idx + 1L]
     else NA_character_
@@ -704,8 +704,8 @@ harvest <- function(
         # Audit (2026-05-08; jy0m.2 2026-07-04): raking's flat (!st.accelerate) branch
         # emits stall_kind=2, its SRAA (accelerate=TRUE) branch emits stall_kind=1.
         # oris.cpp fires for both SRAA (accelerate=TRUE, stall_kind=1) and plain-BCD
-        # (accelerate=FALSE, stall_kind=2) — NOT bijective with the user flag; required
-        # route (a). stall_kind=0 → NA (no stall).
+        # (accelerate=FALSE, stall_kind=2) -- NOT bijective with the user flag; required
+        # route (a). stall_kind=0 -> NA (no stall).
         "5" = {
           sk <- calib_result$convergence_stall_kind
           if (is.null(sk) || is.na(sk)) sk <- 0L
@@ -737,7 +737,7 @@ harvest <- function(
 
   # Solver returns sum(weights) = n (enforced in src/oris.cpp, src/raking.cpp).
   # No wrapper-level
-  # normalization — removing it preserves the bounds_mode="unit" strict-bounds
+  # normalization -- removing it preserves the bounds_mode="unit" strict-bounds
   # guarantee (oris's water-fill clamps are final; not re-pushed by post-scale).
 
   # NOTE: No post-normalization clamp to [min_weight, max_weight]. Clamping
@@ -777,7 +777,7 @@ harvest <- function(
       # constraints oris converges piecewise-linearly / slow-rate (O(t^-1/2)),
       # so a geometric projection of "iterations needed" is meaningless. This
       # also avoids the y2ks.13 clamp-state split for oris (post-clamp best_error
-      # vs pre-clamp metric_prev_check) — the ratio must never mix clamp states.
+      # vs pre-clamp metric_prev_check) -- the ratio must never mix clamp states.
       # Keyed on the RESOLVED algorithm_used so method="auto" -> oris is covered.
       is_oris <- calib_result$algorithm_used %in% c("oris", "oris_soft")
       has_prev  <- !is_oris &&
@@ -792,31 +792,31 @@ harvest <- function(
           n_more  <- ceiling(log(tol_used / e_final) / log(r_est))
           n_total <- b_iter + n_more
           warning(sprintf(
-            "leafblower: budget exhausted — %s=%.2e at %d iters. Asymptotic rate r=%.4f (last %d iters): ~%.0f total iterations needed.",
+            "leafblower: budget exhausted -- %s=%.2e at %d iters. Asymptotic rate r=%.4f (last %d iters): ~%.0f total iterations needed.",
             mstr, e_final, iters, r_est, interval, n_total),
             call. = FALSE)
         } else {
           warning(sprintf(
-            "leafblower: budget exhausted — %s=%.2e at %d iters. Increase max_iterations.",
+            "leafblower: budget exhausted -- %s=%.2e at %d iters. Increase max_iterations.",
             mstr, e_final, iters),
             call. = FALSE)
         }
       } else {
         warning(sprintf(
-          "leafblower: budget exhausted — %s=%.2e at %d iters. Increase max_iterations.",
+          "leafblower: budget exhausted -- %s=%.2e at %d iters. Increase max_iterations.",
           mstr, e_final, iters),
           call. = FALSE)
       }
     }
   }
-  # dtkn.15: guard the bare status-equality branches (NULL == 5L → logical(0), which
-  # errors in `if`), matching the 2L/3L/4L guards (dtkn.10). Defensive-parity only —
+  # dtkn.15: guard the bare status-equality branches (NULL == 5L -> logical(0), which
+  # errors in `if`), matching the 2L/3L/4L guards (dtkn.10). Defensive-parity only --
   # the C layer always returns a status.
   if (!is.null(calib_result$status) && calib_result$status == 5L && isTRUE(accelerate_bool))
-    warning("leafblower: SRAA-m weight-change plateau — at constrained optimum; ",
+    warning("leafblower: SRAA-m weight-change plateau -- at constrained optimum; ",
             "weights are valid; no further improvement is achievable")
   if (!is.null(calib_result$status) && calib_result$status == 5L && !isTRUE(accelerate_bool))
-    warning("leafblower: loss function plateau — at constrained optimum given bounds; ",
+    warning("leafblower: loss function plateau -- at constrained optimum given bounds; ",
             "weights are valid; no further improvement is achievable")
   if (!is.null(calib_result$status) && calib_result$status == 1L)
     warning("leafblower: did not converge (legacy status code from solver not yet updated)")
@@ -905,9 +905,9 @@ compute_sparseness_diag <- function(target, data, cat_threshold = 0.01, obs_thre
   sparse_cats <- list()
   for (v in names(target)) {
     if (!v %in% data_names) next
-    tv   <- target[[v]]           # hoist target[[v]] — one string lookup per margin
-    col  <- data[[v]]             # hoist data[[v]]   — one string lookup per margin
-    lvs  <- names(tv)             # hoist names() — reused for tabulate and inner loop
+    tv   <- target[[v]]           # hoist target[[v]] -- one string lookup per margin
+    col  <- data[[v]]             # hoist data[[v]]   -- one string lookup per margin
+    lvs  <- names(tv)             # hoist names() -- reused for tabulate and inner loop
     # tabulate(match()) replaces table(): avoids factor()+unique() passes over col,
     # cutting 70% of per-call cost (profile: factor+unique.default = 66% self-time).
     if (v %in% na_margins) {
@@ -1010,7 +1010,7 @@ parse_convergence <- function(convergence) {
   explicit_improvement <- !is.null(convergence[["improvement"]])
   explicit_tol         <- !is.null(convergence[["tol"]])
 
-  # C2: improvement= and absolute= together without stop_when is ambiguous — error.
+  # C2: improvement= and absolute= together without stop_when is ambiguous -- error.
   if (explicit_improvement && explicit_abs && is.null(convergence[["stop_when"]])) {
     stop("convergence: 'improvement' and 'absolute' cannot be combined without ",
          "'stop_when'. Use stop_when = 'any' or 'all' to fire on either or both.")
@@ -1037,7 +1037,7 @@ parse_convergence <- function(convergence) {
     c("max_err", "mean_err", "kl", "chi2", "grake_norm", "l1_weight", "marginal_kl"),
     "convergence$metric")
 
-  # pct is autumn/anesrake compatible: stops when Σ|Δw| STOPS IMPROVING (plateau).
+  # pct is autumn/anesrake compatible: stops when sum|dw| STOPS IMPROVING (plateau).
   # Default its rule to "plateau" when pct is specified without an explicit rule.
   # absolute= with no explicit rule maps to "threshold" (hard stopping criterion).
   rule_explicit <- !is.null(convergence[["rule"]])
@@ -1057,7 +1057,7 @@ parse_convergence <- function(convergence) {
     } else {
       pct_tol <- tol_val
     }
-    # 5ye4.17: check finiteness FIRST — a NaN/Inf tol makes `tol_val <= 0` return NA,
+    # 5ye4.17: check finiteness FIRST -- a NaN/Inf tol makes `tol_val <= 0` return NA,
     # which throws base-R's "missing value where TRUE/FALSE needed" before this stop().
     # The canonical (bridge-neutral) message matches the Python bridge exactly.
     if (rule == "plateau" && (!is.finite(tol_val) || tol_val <= 0 || tol_val >= 1))
@@ -1092,7 +1092,7 @@ parse_sor <- function(sor) {
                  paste(bad, collapse = ", "),
                  paste(valid_keys, collapse = ", ")))
   # omega_mode_id: 0=heuristic (0.7/1.05 nudge), 1=fixed (omega_max),
-  #                2=iterate-change (free-coord ‖ΔX_free‖² estimator, default, e18t.9 SHIP).
+  #                2=iterate-change (free-coord ||dX_free||^2 estimator, default, e18t.9 SHIP).
   #                e18t.5 NO-SHIP rescinded: v2 iterate-change passes stepstone (50 vs 300 limit).
   raw_mode <- sor[["omega_mode_id"]]
   omega_mode_id <- if (is.null(raw_mode)) {
@@ -1133,7 +1133,7 @@ normalize_start_weights <- function(start_weights, n) {
       stop("start_weights length must equal nrow(data)")
     sw <- as.double(start_weights)
   }
-  # CR-E10b (5ye4.14): parity with Python — reject non-finite and negative entries
+  # CR-E10b (5ye4.14): parity with Python -- reject non-finite and negative entries
   # (R previously accepted both). Length-1 broadcast above already matches Python.
   if (!all(is.finite(sw)))
     stop("start_weights contains non-finite values (NaN or inf)")
@@ -1162,7 +1162,7 @@ compute_quality_metrics <- function(weights, target_list, df, na_margins = chara
 
   # Per-margin KL helper: shared finalization across both single-pass and K-pass.
   # Inputs: T_k (named target probs), W_k (named observed probs aligned to a level set).
-  # A targeted level absent from the observed set signals infeasibility (Inf) —
+  # A targeted level absent from the observed set signals infeasibility (Inf) --
   # EXCEPT a numerically-zero target (<= 1e-12, the B13 zero-target validation
   # boundary), whose KL contribution is ~0. Treat such a level as negligible so a
   # solve that survived feasibility is not spuriously reported Inf. Any target
@@ -1240,13 +1240,13 @@ compute_quality_metrics <- function(weights, target_list, df, na_margins = chara
         # (else margin_kl_one sees a positive target "NA" with no W_k "NA" -> Inf).
         # SIGNAL = actual injection (k %in% na_margins), NOT the target level name.
         # dtkn.13: keying on "NA" %in% names(T_k) mis-fired for a HAND-BUILT "NA"
-        # target level (add_na_proportion=FALSE) — the solver maps real NAs to gid
+        # target level (add_na_proportion=FALSE) -- the solver maps real NAs to gid
         # -1 (excluded), so counting them into an "NA" bin reported a KL for an
         # encoding the solver never used. na_margins carries exactly the variables
         # the solver recoded (harvest.R:352/554), so the metric now matches it: only
         # injected margins recode; a hand-built "NA" target falls through to the
         # valid-mask path below (NA excluded), where an unmatched "NA" target
-        # surfaces as Inf — the honest signal that the solver did not fit it.
+        # surfaces as Inf -- the honest signal that the solver did not fit it.
         if (k %in% na_margins) {
           obs_chr <- as.character(obs_k)
           obs_chr[is.na(obs_k)] <- "NA"
@@ -1260,7 +1260,7 @@ compute_quality_metrics <- function(weights, target_list, df, na_margins = chara
         Z_k   <- sum(w_v)
         if (Z_k == 0) return(NA_real_)
         obs_kv <- obs_k[valid]
-        # droplevels() has no character method — guard to factor; tapply coerces char/numeric/logical itself [mb06]
+        # droplevels() has no character method -- guard to factor; tapply coerces char/numeric/logical itself [mb06]
         grp    <- if (is.factor(obs_kv)) droplevels(obs_kv) else obs_kv
         W_k    <- tapply(w_v, grp, sum) / Z_k
         margin_kl_one(T_k, W_k)

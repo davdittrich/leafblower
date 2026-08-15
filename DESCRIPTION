@@ -17,6 +17,6 @@ NeedsCompilation: yes
 SystemRequirements: C++17 compiler, OpenMP (optional, for SIMD exp vectorisation)
 Imports: stats
 Suggests: autumn (>= 0.2.0), testthat (>= 3.0.0), bench, lhs, DiceKriging, ggplot2, rprojroot,
-    survey, PracTools (>= 1.4.0)
+    survey, PracTools (>= 1.4.0), arrow, callr, jsonlite, withr
 RoxygenNote: 7.3.3
 Config/testthat/edition: 3

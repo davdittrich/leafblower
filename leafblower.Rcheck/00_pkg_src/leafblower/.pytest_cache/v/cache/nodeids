@@ -1,5 +1,0 @@
-[
-  "python/leafblower/test_python.py::test_convergence_unknown_key_raises",
-  "python/leafblower/test_python.py::test_harvest_returns_copy",
-  "python/leafblower/test_python.py::test_min_weight_badarg_python"
-]

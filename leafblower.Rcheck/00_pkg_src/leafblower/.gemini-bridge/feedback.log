@@ -1,2 +1,0 @@
-2026-04-22 22:06 | unknown              | implementation | PARTIAL  | 2090   | P3 ALM: all files written, build passed, timed out before commit+test verification
-2026-04-22 22:55 | gemini-2.5-flash-preview-04-17 | patch        | ACCEPT   | 200    | WU-7 3 test renames done directly (Gemini failed)
