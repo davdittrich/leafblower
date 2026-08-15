@@ -302,6 +302,14 @@ harvest <- function(
 ) {
   # RVAL.2: warn on unknown ... args (typos / removed params)
   dots <- list(...)
+  # RVAL.4: bare weights= is a plausible-but-wrong typo for design_weights= —
+  # silently falling into ... would produce a plausible-but-wrong unweighted
+  # result with only a non-fatal warning (SC3); reject it hard, ahead of the
+  # generic unknown-arg warning below.
+  if ("weights" %in% names(dots))
+    stop("leafblower: unrecognized argument 'weights' — did you mean 'design_weights'? ",
+         "harvest() takes per-observation design weights via design_weights=, not weights=.",
+         call. = FALSE)
   if (length(dots) > 0L)
     warning("harvest: unknown argument(s) ignored: ",
             paste(names(dots), collapse = ", "), call. = FALSE)

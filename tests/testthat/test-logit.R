@@ -192,9 +192,9 @@ test_that("eb79.18: consistent collinear with HETEROGENEOUS design weights still
   # so min-norm gives the best L2 projection rather than an exact iter-0 solution.
   # It must still reach the feasible optimum (Sum(w)==sum(base_w), margins met).
   base_w <- runif(n, 0.5, 2.0)
-  w <- suppressWarnings(harvest(data, target, method = "logit", weights = base_w,
+  w <- harvest(data, target, method = "logit", design_weights = base_w,
                min_weight = 0.05, max_weight = 20, max_iterations = 500L,
-               attach_weights = FALSE))
+               attach_weights = FALSE)
   r <- attr(w, "result")
   # Feasible (consistent) redundant margins: solver must converge, not STALL.
   expect_equal(r$status, 0L, label = "heterogeneous consistent collinear: converges (eb79.18)")

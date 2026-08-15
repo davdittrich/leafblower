@@ -146,3 +146,17 @@ test_that("dtkn.6: GENUINE out-of-vocabulary values still warn (CR-F6)", {
   expect_warning(suppressMessages(harvest(df, tg, attach_weights = FALSE)),
                  "out-of-vocabulary")
 })
+
+# ---------------------------------------------------------------------------
+# RVAL.4: bare weights= arg errors naming design_weights=
+# ---------------------------------------------------------------------------
+test_that("RVAL.4: bare weights= arg errors naming design_weights", {
+  set.seed(1)
+  df  <- data.frame(x = factor(sample(c("a", "b"), 100, replace = TRUE)))
+  tgt <- list(x = c(a = 0.5, b = 0.5))
+  expect_error(
+    harvest(df, tgt, convergence = list(absolute = 1e-4),
+            weights = runif(100)),
+    regexp = "design_weights"
+  )
+})

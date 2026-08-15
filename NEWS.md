@@ -65,6 +65,9 @@
   Newton-KL. Affected users: AUTO callers with K≥5 categorical strata and order-of-magnitude
   target imbalance. Migration: pin `method="newton_kl"` explicitly to retain prior behavior.
 
+* `harvest()` now errors on a bare `weights=` argument (previously silently ignored via the
+  generic unknown-argument warning) — rename to `design_weights=`.
+
 ## Acceleration
 
 * Replaced SQUAREM/CBB with SRAA-m (Type II Anderson Acceleration, window m=5) for
