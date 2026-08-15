@@ -27,7 +27,7 @@ Survey calibration (raking) in R is dominated by `autumn`, which uses iterative 
 | Criterion | Target |
 |-----------|--------|
 | R API compatibility | All `autumn` exported functions present with same signatures |
-| Performance — medium | 100K rows, 5 margins (3–5 cats each) < 1 s |
+| Performance — medium | 100K rows, 5 margins (3–5 cats each) < 1 s — **Superseded 2026-08-15**: written against the withdrawn L-BFGS-B solver and contradicted by §11's `< 2 s` row below; the live measured figure is in [docs/performance.md](../docs/performance.md). |
 | Performance — large | 1M rows, 20 margins (5 cats each) < 30 s |
 | Weight bound enforcement | `max(w) ≤ max_weight` and `min(w) ≥ min_weight` always, within 1e-10 |
 | Convergence | Calibration error `max_k max_j |Σw·1[g_k=j]/Σw − τ_j^(k)| < 1e-6` at reported convergence |
@@ -178,7 +178,7 @@ Phased delivery — see §11.
 **Description:** As a developer, I want leafblower to implement L-BFGS-B over the Deville-Sarndal logit dual so that standard-scale problems converge faster with provably bounded weights.
 
 **Acceptance Criteria:**
-- [ ] `rk_calibrate(..., algorithm=RK_ALG_LBFGSB)` converges on: 100K rows, 5 margins within 1 s
+- [ ] `rk_calibrate(..., algorithm=RK_ALG_LBFGSB)` converges on: 100K rows, 5 margins within 1 s — **Superseded 2026-08-15**: L-BFGS-B was withdrawn entirely (`RK_ALG_LBFGSB` is a permanently reserved enum hole, `src/leafblower.h:44`); this acceptance criterion has no live solver to measure. The live medium-scale figure, on `oris_soft`, is in [docs/performance.md](../docs/performance.md).
 - [ ] For `min_weight = 0` (default): use exponential link `F(u) = exp(u)` (logit limit as L→0); this avoids the undefined `A` parameter; weights naturally bounded above by `max_weight` via gradient projection, no lower bound enforced
 - [ ] For `min_weight > 0` and `max_weight < Inf`: use logit link `F(u) = [L(U-1) + U(1-L)·exp(A·u)] / [(U-1) + (1-L)·exp(A·u)]` with `A = (U-L)/((U-1)(1-L))`, `L = min_weight`, `U = max_weight` (weights normalized to mean 1 before entry, so L and U are in same units)
 - [ ] For `max_weight = Inf` (unbounded): use exponential link `F(u) = exp(u)`; this special-case must be checked before computing `A` to avoid `∞` in the formula
@@ -670,7 +670,7 @@ Phase 2 gate: `ieppa_1m` median < 30 s.
 | Metric | Target | Measurement |
 |--------|--------|-------------|
 | R API compat | All 7 autumn functions present | `R CMD check` + `test-harvest.R` |
-| L-BFGS-B convergence | 100K rows, 5 margins < 2 s, `max_error < 1e-6` | `test-lbfgsb.R` Phase 1 gate |
+| L-BFGS-B convergence | 100K rows, 5 margins < 2 s, `max_error < 1e-6` | `test-lbfgsb.R` Phase 1 gate — **Superseded 2026-08-15**: `test-lbfgsb.R` does not exist and the solver it measured was withdrawn (`RK_ALG_LBFGSB` is a permanently reserved enum hole). Live artefacts: `benchmarks/oris_soft_vs_competitors.R` and the `honest gate:` assertion in `tests/testthat/test-bench-gate.R`; see [docs/performance.md](../docs/performance.md). |
 | iEPPA convergence | 1M rows, 20 margins, max_weight=3 < 30 s | `test-ieppa.R` Phase 2 gate |
 | Weight bound enforcement | `max(w) ≤ max_weight`, `min(w) ≥ min_weight` — 50 random datasets | property-based test in `test-harvest.R` |
 | CRAN check | 0 errors, 0 warnings | `R CMD check --as-cran` |

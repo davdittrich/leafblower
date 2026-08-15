@@ -102,14 +102,29 @@ Status values: `Implemented` · `Partial` · `Superseded` · `Withdrawn`
 - [ ] **US-003**: 1M+ observations across 20+ margins calibrate in under 30 seconds,
       single-threaded, so a census microsimulation researcher can iterate on synthetic
       population models. `verbose = 1` prints the selected algorithm and routing reason.
-      *Status: **Partial**.* Routing observability shipped. The performance targets have
-      **never been verified against a live solver** and are internally contradictory:
-      §1 says medium-scale 100K rows / 5 margins < 1 s, §11 says < 2 s for the same shape,
-      and both were written against the removed `lbfgsb` whose measuring artefact
-      (`test-lbfgsb.R`) is void. Investigation `docs/investigations/2026-04-23-kk1204-convergence.md`
-      (commit `3effd3a`) found the composite gate "<30 s AND <1e-6" **structurally
-      unachievable** on K=20 uniform-random input (M_cell/n = 1.0 → zero compression
-      benefit; extrapolated ~1.76M iterations). → `leafblower-kk1.20.4` demands a REFRAME.
+      *Status: **Partial**.* Routing observability shipped (not re-exercised by Phase 3 —
+      that clause's evidence predates this phase and is carried forward as-is). Phase 3
+      measured `oris_soft` against a live solver on three input classes, transcribed in
+      `docs/performance.md`: `medium_100k_5margins` (100K rows/5 margins, wall_s=0.0427,
+      max_error=3.35e-05), `large_stepstone_fulldata` (1,582,732 rows/9 margins, a real
+      salary-survey fixture, wall_s=3.5459 — clears the <30s large-scale budget on a real
+      shape exceeding the PRD's 1M-row target), and `known_limit_k20_uniform` (500,000
+      rows/20 margins, `m_cell/n = 1.0000`). No single measured fixture combines "1M+ rows
+      AND 20+ margins" as the PRD literally states — the 20-margin shape is measured
+      separately and found **structurally unable to clear an accuracy floor**:
+      `max_error = 5.229e-03` at wall_s=7.3934 under a bounded 500-iteration budget,
+      `m_cell/n = 1.0000` meaning every one of the 500,000 observations lands in its own
+      cell, so ORIS's cell-compression advantage yields nothing at this shape (confirmed
+      by `docs/investigations/2026-04-23-kk1204-convergence.md`, commit `3effd3a`, and
+      `leafblower-ylsy`'s closed research — cited only, not reopened, per D-03). This is
+      now a documented known limit (`docs/performance.md` § Known limit), not an open
+      blocker: the "<30 s AND <1e-6" composite gate on K=20 uniform-random input is
+      confirmed structurally unachievable with any solver currently implemented, and
+      `leafblower-kk1.20.4`'s REFRAME resolved on **dropping it as the headline basis**
+      (D-01) — not on any of the ticket's three originally-worded options. Live measuring
+      artefacts: `benchmarks/oris_soft_vs_competitors.R` (the measurement) and the
+      `honest gate:` assertion in `tests/testthat/test-bench-gate.R` (the regression gate,
+      `LBW_BENCH_GATE=1`), replacing the void `test-lbfgsb.R`.
 
 ### Distribution
 
@@ -142,8 +157,24 @@ Status values: `Implemented` · `Partial` · `Superseded` · `Withdrawn`
       `tests/testthat/`.
 - [x] **KPI-03**: Convergence — `max_k max_j |Σw·1[g_k=j]/Σw − τ_j^(k)| < 1e-6` at reported
       convergence. **Implemented** (`check_convergence`, `src/calib_dispatch.hpp:204`).
-- [ ] **KPI-04**: Large-scale — 1M rows, 20 margins, `max_weight = 3`, < 30 s. **Blocked on
-      US-003 reframe.** Its named measuring artefact was the Phase-2 gate against `lbfgsb`.
+- [ ] **KPI-04**: Large-scale — 1M rows, 20 margins, `max_weight = 3`, < 30 s.
+      *Status: **Partial**.* Measured on the real 1,582,732-row/9-margin
+      `large_stepstone_fulldata` class (`max_weight = 3`): `oris_soft` calibrates in
+      wall_s=3.5459, comfortably inside the 30s budget, on a fixture larger than the PRD's
+      literal 1M-row target. The 20-margin corner of the original target
+      (`known_limit_k20_uniform`, 500,000 rows/20 margins) is measured separately and
+      documented as a known limit (`m_cell/n = 1.0000`, `max_error = 5.229e-03` at
+      wall_s=7.3934 — does not clear an accuracy floor at this shape; see
+      `docs/performance.md` § Known limit). Live artefacts: `benchmarks/oris_soft_vs_competitors.R`
+      (measurement) and the `honest gate:` assertion in `tests/testthat/test-bench-gate.R`,
+      run via `LBW_BENCH_GATE=1 CI=1 NOT_CRAN=true Rscript -e "testthat::test_dir('tests/testthat',
+      filter='bench-gate', stop_on_failure=TRUE)"`. No other performance-adjacent row in
+      this KPI list was found still naming a non-existent measuring artefact (checked
+      KPI-01 → `test-harvest.R`, KPI-02 → property test in `test-harvest.R`, KPI-03 →
+      `check_convergence` in `src/calib_dispatch.hpp:204`, KPI-05 → `R CMD check --as-cran`,
+      KPI-06 → no CI pipeline exists at all, which is KPI-06's own recorded open status, not
+      a stale artefact reference — all name something that exists or is honestly marked
+      absent, not a void file).
 - [ ] **KPI-05**: CRAN check — 0 errors, 0 warnings, via `R CMD check --as-cran`. **Open.**
 - [ ] **KPI-06**: Python wheel — installs on Linux/macOS, Python 3.9–3.13, via a CI matrix.
       **Open** — no CI pipeline exists in the repository at all.
@@ -199,6 +230,9 @@ plan time — do not invent an ID here):
 | **PRD § 7 `PKG_CXXFLAGS ... -O3`** | **SUPERSEDED** — the R build sets no `-O` level by design. `PKG_SOURCES` in `Makevars.in` is likewise decorative. |
 | **PRD § 9 Risks / § 10 Phased Rollout** | Phase 1 is L-BFGS-B and is void; Phases 2–4 describe delivered work. The TDD RED-phase discipline they encode outlives the phase plan and is the project's standing methodology. |
 | **`iEPPA` throughout the PRD** | Terminology for the solver now named `oris`. Enum value 1 unchanged. Not a conflict. |
+| **PRD § 1 Success Criteria, "Performance — medium ... < 1 s"** | **SUPERSEDED** (Phase 3, 2026-08-15) — written against the withdrawn L-BFGS-B solver and contradicted §11's own `< 2 s` row for the same shape. Live measured figure: `docs/performance.md` (`oris_soft`/`medium_100k_5margins`, wall_s=0.0427). |
+| **PRD § US-006 AC, "converges on: 100K rows, 5 margins within 1 s"** | **SUPERSEDED** (Phase 3, 2026-08-15) — goes with US-006's whole-section withdrawal (L-BFGS-B never implemented, slot 2 permanently reserved); no live solver to measure this acceptance criterion. |
+| **PRD § 11 KPI, "L-BFGS-B convergence ... `test-lbfgsb.R` Phase 1 gate"** | **SUPERSEDED** (Phase 3, 2026-08-15) — `test-lbfgsb.R` does not exist. Live artefacts: `benchmarks/oris_soft_vs_competitors.R` and the `honest gate:` assertion in `tests/testthat/test-bench-gate.R`. |
 
 ## Traceability
 
@@ -218,7 +252,7 @@ Shipped requirements carry no phase — the work predates this planning layer.
 | KPI-01 | — (shipped pre-GSD) | Implemented |
 | KPI-02 | Phase 1 | Open |
 | KPI-03 | — (shipped pre-GSD) | Implemented |
-| KPI-04 | Phase 3 | Open |
+| KPI-04 | Phase 3 | Partial |
 | KPI-05 | Phase 5 | Open |
 | KPI-06 | Phase 5 | Open |
 | US-006, FR-20…FR-28 | — | **Withdrawn** |
