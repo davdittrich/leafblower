@@ -2,6 +2,14 @@
 # Guard: prevent benchmark execution when sourced for testing
 assign(".BENCH_SOURCED", TRUE, envir = .GlobalEnv)
 
+# benchmarks/algo_selection_benchmark.R unconditionally library()s these
+# Suggests-only packages at its own top level; skip the whole file rather
+# than fail when they aren't installed (matches the skip_if_not_installed
+# convention used elsewhere for optional Suggests, e.g. test-design-pratools-parity.R).
+testthat::skip_if_not_installed("DiceKriging")
+testthat::skip_if_not_installed("lhs")
+testthat::skip_if_not_installed("ggplot2")
+
 # Source the benchmark to load helper functions (no side effects with guard set)
 # NOTE: benchmark file is built incrementally — only functions added so far are available.
 bench_file <- file.path(
