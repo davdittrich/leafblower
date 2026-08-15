@@ -1,0 +1,3 @@
+"input_class","n","n_margins","n_categories","m_cell","m_cell_over_n","max_weight","arm","wall_s","max_error","max_w","min_w","deff","n_eff","iterations","ok","note"
+"medium_100k_5margins",100000,5,4,1024,0.01024,3,"leafblower_oris_soft",0.0406621881411411,0.000257976329857135,3,0.130320995086606,1.48008445923449,67563.7119058198,10,TRUE,"convergence=list(absolute=1e-3) requested; status=0, iterations=10"
+"medium_100k_5margins",100000,5,4,1024,0.01024,3,"survey_calibrate",0.52149838412879,0.000148741337939295,2.99835552563009,0.129583958955925,1.48293594169798,67433.7961527177,NA,TRUE,"epsilon=1e-3 requested (survey::calibrate, calfun='raking', bounds=c(0,max_weight))"

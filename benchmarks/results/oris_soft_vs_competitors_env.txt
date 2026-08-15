@@ -1,0 +1,10 @@
+R version: R version 4.6.1 (2026-06-24)
+Platform: x86_64-pc-linux-gnu
+BLAS: /usr/lib/libblas.so.3.12.0
+LAPACK: /usr/lib/liblapack.so.3.12.0
+CPU model: AMD Ryzen 9 9950X3D 16-Core Processor
+OMP_NUM_THREADS: 1
+OPENBLAS_NUM_THREADS: 1
+MKL_NUM_THREADS: 1
+leafblower: 0.1.0
+survey: 4.5
