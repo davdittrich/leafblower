@@ -12,8 +12,16 @@
 .claude/
 .metaswarm/
 .tldr/
+.gemini/
+.gemini-bridge/
+GEMINI.md
+.mcp.json
+AGENTS.md
+.coverage-thresholds.json
+tasks/
+.planning/
 # Graphify cache (large, auto-regenerated)
-graphify-out/cache/
+graphify-out/
 *.o
 # Python build artifacts
 python/leafblower/*.pyd
