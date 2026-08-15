@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 2
 current_phase_name: One Engine, Not Two
 status: executing
-stopped_at: Completed 02-05-PLAN.md (oris/oris_soft dispatch migration)
-last_updated: "2026-08-15T02:38:10.921Z"
+stopped_at: Completed 02-06-PLAN.md (newton_kl dispatch migration)
+last_updated: "2026-08-15T02:47:51.375Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-02 executed — build-list sync test, shared-finalize delegation test, -O asymmetry documented
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -29,7 +29,7 @@ identical from R and from Python.
 ## Current Position
 
 Phase: 2 of 5 (One Engine, Not Two)
-Plan: 5 of 8 complete (SC4/SC3/SC2 guards)
+Plan: 6 of 8 complete (SC4/SC3/SC2 guards)
 Status: In progress — 7 solvers remain to migrate through the shared dispatch table (D-01)
 Last activity: 2026-08-15 — Plan 02-02 executed: two new pytest regression guards
 (python/leafblower/test_core_sources_sync.py for SC4, test_finalize_weights_sync.py for
@@ -37,7 +37,7 @@ SC3) plus SC2 (-O optimization-level asymmetry) documented in CLAUDE.md,
 python/CMakeLists.txt, and test_solver_parity.py's header; leafblower-qzto closed.
 Full DoD gate green (R 0 FAIL/1839 PASS, Python 159 passed/0 failed).
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 83%
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -76,6 +76,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 02 P03 | ~30min | 3 tasks | 3 files |
 | Phase 2 P4 | ~35min | 2 tasks | 3 files |
 | Phase 02 P05 | ~35min | 2 tasks | 3 files |
+| Phase 02 P06 | ~20min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,7 @@ Carried into planning:
 - [Phase ?]: [Phase 02] Plan 02-03: greg, greenkhorn, logit migrated onto the shared dispatch table (RK_ALG_GREG/GREENKHORN/LOGIT case arms in lbw::dispatch_solver); ran full testthat suite instead of the plan's filter="greg" verify command, which matches zero files (testthat filter matches basenames only) — filed as a Rule 3 deviation, not a weaker check.
 - [Phase ?]: [Phase 02] Plan 02-04: chebyshev and raking migrated onto the shared dispatch table (RK_ALG_CHEBYSHEV/RK_ALG_RAKING case arms). Chebyshev's oris warm-start now exists once inside dispatch_solver (no divergence found between the two prior per-bridge implementations). Raking is the first solver with a superset-only field (sraa_demoted); rk_result_t stays 536 bytes, Python's result dict unchanged.
 - [Phase ?]: [Phase 02] Plan 02-05: oris, oris_soft migrated onto the shared dispatch table (RK_ALG_ORIS/RK_ALG_ORIS_SOFT case arms). Completed the plan's under-enumerated DispatchResult field list to the full oris-family diagnostic set actually exported to R (Rule 2 deviation); rk_result_t already carries all but aa_accepted_count, so a new c_api.cpp helper (pack_dispatch_oris_extras_c) packs them without touching the shared pack function used by the other 6 migrated solvers. No pack_oris_result vs pack_oris_result_c value divergence found. capacity_penalty/estimate_M_cell resolves identically on both bridges, at most once per explicit oris_soft solve.
+- [Phase ?]: [Phase 02] Plan 02-06: newton_kl migrated onto the shared dispatch table (RK_ALG_NEWTON_KL case arm) -- the last named method on the string chain. c_api.cpp's explicit branch reuses plan 02-05's pack_dispatch_oris_extras_c (verified field-by-field byte-identical to the pre-migration reset) instead of a near-duplicate helper. All 9 non-AUTO dispatch_solver arms confirmed to assign stall_kind, verified to reach harvest.R's production accelerate heuristic unbroken. Only RK_ALG_AUTO routing remains unmigrated (plan 07).
 
 ### Pending Todos
 
@@ -126,7 +128,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T02:38:10.914Z
-Stopped at: Completed 02-05-PLAN.md (oris/oris_soft dispatch migration)
+Last session: 2026-08-15T02:47:51.369Z
+Stopped at: Completed 02-06-PLAN.md (newton_kl dispatch migration)
 Next: 02-03-PLAN.md — migrate greg, greenkhorn, logit onto the shared dispatch table (SC1).
 Resume file: None
