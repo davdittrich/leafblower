@@ -15,6 +15,8 @@ jobs:
 
       - uses: r-lib/actions/setup-r@d3c5be51b12e724e68f33216ca3c148b66d5f0b6
 
+      - uses: r-lib/actions/setup-tinytex@d3c5be51b12e724e68f33216ca3c148b66d5f0b6
+
       - uses: r-lib/actions/setup-r-dependencies@d3c5be51b12e724e68f33216ca3c148b66d5f0b6
         with:
           extra-packages: any::rcmdcheck, any::testthat
