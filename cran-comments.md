@@ -11,7 +11,8 @@ package tree, not a placeholder.
 ## Test environments
 
 * R 4.6.1, x86_64-pc-linux-gnu (Arch Linux), local build, `g++ (GCC) 16.2.1`,
-  compiled with `--as-cran`.
+  compiled with `--as-cran`, `checkbashisms`/`tidy`/`pandoc` installed:
+  **0 errors, 0 warnings, 1 NOTE**.
 * R 4.6.1, x86_64-pc-linux-gnu (Ubuntu 24.04, GitHub Actions `ubuntu-latest`),
   real CI run of `.github/workflows/r-check.yml`
   (https://github.com/davdittrich/leafblower/actions), `gcc 13.3.0`,
@@ -34,10 +35,10 @@ additional `.Rbuildignore` patterns added for tracked and untracked
 non-package files that `R CMD build` was otherwise sweeping into the
 tarball).
 
-**Local (Arch Linux):**
+**Local (Arch Linux, `checkbashisms`/`tidy`/`pandoc` installed):**
 
 ```
-Status: 1 WARNING, 3 NOTEs
+Status: 1 NOTE
 ```
 
 **CI (GitHub Actions `ubuntu-latest`, real run):**
@@ -46,27 +47,30 @@ Status: 1 WARNING, 3 NOTEs
 Status: 2 NOTEs
 ```
 
-The CI run is the authoritative result: it closed both the checkbashisms
-WARNING and the PDF-manual gap that were artifacts of this local machine's
-missing tooling, by actually running on a standard image and installing
-TinyTeX (`r-lib/actions/setup-tinytex`) so the PDF manual genuinely builds
-rather than merely being asserted to work. Two NOTEs remain on both
-environments:
+Both environments are clean of errors and warnings. The local run is now
+the stronger result: with `checkbashisms`/`tidy`/`pandoc` installed, the
+checkbashisms WARNING and the HTML-manual NOTE this cran-comments.md
+previously reported both close, leaving only the one package-controlled
+NOTE below. CI still carries a second NOTE (HTML manual) because
+`ubuntu-latest` doesn't ship HTML Tidy by default and the CI workflow
+doesn't install it (only TinyTeX, for the PDF manual, is installed there).
 
 * NOTE (compilation flags used): `-mavx2` -- feature-tested by `configure`
   and only substituted into `PKG_CXXFLAGS` on hosts where it compiles (see
   "Notes on build configuration" below); load-bearing for the SIMD
   intrinsics in `oris.cpp`/`sinkhorn.cpp`/`chebyshev.cpp`. Present on both
-  the local machine and CI's `ubuntu-latest`. (Additional flags seen only in
-  the local run --  `-Werror=format-security`, `-Wp,-D_FORTIFY_SOURCE=3`,
-  etc. -- come from this developer's Arch Linux system `Makeconf`, confirmed
-  via `R_MAKEVARS_USER=/dev/null`, not from the package's own
-  `Makevars.in`/`configure`.)
-* NOTE (HTML version of manual): `no command 'tidy' found` / `package 'V8'
-  unavailable` -- neither this local machine nor GitHub Actions'
-  `ubuntu-latest` ship HTML Tidy by default; used only for check-time
-  HTML/MathJax validation of the manual, not for building it (the PDF
-  manual check passes `OK` on both environments as of the CI run above).
+  the local machine and CI's `ubuntu-latest`. (This developer's Arch Linux
+  system `Makeconf` previously added extra flags to the local run's NOTE
+  text -- `-Werror=format-security`, `-Wp,-D_FORTIFY_SOURCE=3`, etc. --
+  confirmed via `R_MAKEVARS_USER=/dev/null` to come from the system
+  `Makeconf`, not the package's own `Makevars.in`/`configure`; only
+  `-march=native` now shows locally, from this developer's personal
+  `~/.R/Makevars`, same non-package-controlled category.)
+* NOTE (HTML version of manual, CI only): `no command 'tidy' found` /
+  `package 'V8' unavailable` -- `ubuntu-latest` doesn't ship HTML Tidy by
+  default; used only for check-time HTML/MathJax validation of the manual,
+  not for building it (the PDF manual check passes `OK` on both
+  environments).
 
 The CRAN-incoming-feasibility NOTE (`New submission`, `autumn` not on
 CRAN) that appeared locally does not appear in the CI output above because
