@@ -135,7 +135,7 @@ re-measured if any struct changes; enum slots 2 and 7 stay holes and any positio
 (`src/r_bridge.cpp:270, 642-648`) must be preserved. Run `LBW_BENCH_GATE=1` on every commit
 that touches a TU boundary. The mirrored line ranges are already annotated in the source
 (`src/c_api.cpp:458`, `:473`, `:505`) — use them.
-**Plans:** 8/8 plans executed — phase complete (completed 2026-08-15)
+**Plans:** 8/8 plans complete
 
 Plans:
 
@@ -256,7 +256,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
-| 2. One Engine, Not Two | 7/8 | In Progress|  |
+| 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
 | 3. Honest Performance Gate | 0/TBD | Not started | - |
 | 4. Truthful Surface | 0/TBD | Not started | - |
 | 5. CRAN + PyPI Release | 0/TBD | Not started | - |

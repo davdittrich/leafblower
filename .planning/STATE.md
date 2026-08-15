@@ -4,9 +4,9 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 3
 current_phase_name: Honest Performance Gate
-status: executing
-stopped_at: Completed 02-08-PLAN.md (phase gate — SC1 guard test, SC5 DoD+benchmark proof, human sign-off). Phase 2 (One Engine, Not Two) complete.
-last_updated: "2026-08-15T09:55:42Z"
+status: planning
+stopped_at: Completed 02-08-PLAN.md (phase gate). Phase 2 (One Engine, Not Two) complete.
+last_updated: "2026-08-15T10:17:10.475Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
@@ -28,10 +28,10 @@ identical from R and from Python.
 
 ## Current Position
 
-Phase: 2 of 5 (One Engine, Not Two) — COMPLETE
-Plan: 8 of 8 complete
-Status: Phase 2 closed. Next: plan Phase 3 (Honest Performance Gate).
-Last activity: 2026-08-15 — Plan 02-08 Task 3 resolved: user approved the unchanged
+Phase: 3 of 5 (Honest Performance Gate)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-08-15 — Phase 2 complete, transitioned to Phase 3
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
 coming from the orchestrator's own run rather than the user. SC1-SC5 all have durable
@@ -59,7 +59,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 
 **Velocity:**
 
-- Total plans completed: 4
+- Total plans completed: 12
 - Average duration: —
 - Total execution time: —
 
@@ -68,6 +68,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 4 | - | - |
+| 2 | 8 | - | - |
 
 **Recent Trend:** No data yet.
 **Per-Plan Metrics:**
