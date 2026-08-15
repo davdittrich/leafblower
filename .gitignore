@@ -12,6 +12,7 @@
 .claude/
 .metaswarm/
 .tldr/
+.tldrignore
 .gemini/
 .gemini-bridge/
 GEMINI.md
