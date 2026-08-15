@@ -217,6 +217,106 @@ tgt <- setNames(lapply(margin_cols, function(k) setNames(p_skew, levels(df[[k]])
 
 results <- run_input_class("medium_100k_5margins", df, tgt, max_weight = 3, n_categories = nj)
 
+# --- Fixture: large_stepstone_fulldata ---
+# The tracked 1,582,732-row / 9-margin / 836-category real-survey fixture
+# (benchmarks/stepstone_fulldata_bench_data.parquet / _targets.json), reused
+# per D-08's "reuse benchmarks/ infrastructure, do not build a parallel
+# harness" instruction — this is stepstone_fulldata_benchmark.R's own
+# fixture, not a newly-invented large fixture. SC1's large-scale figure
+# lives here. Loading follows that script's convention (arrow::read_parquet
+# + jsonlite::fromJSON); its comparison target (autumn) and its
+# MAX_WEIGHT=5/method="oris"/default bounds_mode are NOT reused — this arm
+# uses max_weight=3/bounds_mode="unit" to match the medium class's bound
+# convention, so both leafblower figures can be quoted in the same sentence.
+large_parquet_path <- "benchmarks/stepstone_fulldata_bench_data.parquet"
+large_targets_path <- "benchmarks/stepstone_fulldata_bench_targets.json"
+
+if (!file.exists(large_parquet_path) || !file.exists(large_targets_path)) {
+  missing_large_file <- if (!file.exists(large_parquet_path)) large_parquet_path else large_targets_path
+  cat(sprintf("\n=== large_stepstone_fulldata: SKIPPED (missing %s) ===\n", missing_large_file))
+  results <- rbind(results, arm_row(
+    "large_stepstone_fulldata", NA_integer_, NA_integer_, NA_integer_, NA_integer_, 3,
+    "leafblower_oris_soft", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+    NA_integer_, FALSE, sprintf("skipped: fixture file not found: %s", missing_large_file)))
+} else {
+  df_large  <- as.data.frame(arrow::read_parquet(large_parquet_path))
+  # JSON round-tripping a per-margin proportion vector drifts a few units in
+  # the last few decimal places (sums observed at 0.9994-1.0001, not exactly
+  # 1 within harvest()'s 1e-6 tolerance) -- renormalise on load, the same
+  # correction stepstone_fulldata_benchmark.R itself applies after dropping
+  # missing cells (`target_anes[[nm]] <- tgt / sum(tgt)`).
+  tgt_large <- lapply(jsonlite::fromJSON(large_targets_path), function(x) {
+    v <- unlist(x)
+    v / sum(v)
+  })
+  # Select margin columns by name intersection, not position: a fixture
+  # regeneration that reorders columns cannot silently mis-map a margin to
+  # the wrong target.
+  margin_cols_large <- intersect(names(df_large), names(tgt_large))
+  n_large <- nrow(df_large)
+  n_margins_large <- length(margin_cols_large)
+  # Heterogeneous category counts per margin (2..408 here) -- n_categories
+  # is the TOTAL across margins for this class, unlike the uniform
+  # medium/known-limit classes where every margin shares one category count.
+  n_categories_large <- sum(vapply(tgt_large[margin_cols_large], length, integer(1)))
+  m_cell_large <- nrow(unique(df_large[margin_cols_large]))
+
+  cat(sprintf("\n=== large_stepstone_fulldata n=%d K=%d n_categories=%d m_cell=%d (m_cell/n=%.4f) ===\n",
+              n_large, n_margins_large, n_categories_large, m_cell_large, m_cell_large / n_large))
+  cat("  leafblower_oris_soft   solving...\n")
+
+  lb_large_call <- function() {
+    harvest(df_large, tgt_large[margin_cols_large], method = "oris_soft", max_weight = 3,
+            bounds_mode = "unit", attach_weights = FALSE,
+            convergence = list(metric = "marginal_kl", rule = "improvement", tol = 0.001))
+  }
+  bm_lb_large  <- bench::mark(run = lb_large_call(), iterations = 2, check = FALSE,
+                               memory = FALSE, filter_gc = FALSE)
+  w_lb_large   <- lb_large_call()
+  res_lb_large <- attr(w_lb_large, "result")
+  w_lb_large_n <- as.numeric(w_lb_large)
+  max_error_lb_large <- margin_max_error(w_lb_large_n, df_large, tgt_large[margin_cols_large])
+  # status 0 = converged; 5 = plateau at constrained optimum -- both usable, as
+  # in the medium class (many cells here are legitimately water-filled to the
+  # bound given 688 flagged sparse categories in this fixture).
+  ok_lb_large <- isTRUE(res_lb_large$status %in% c(0L, 5L))
+  note_lb_large <- sprintf(
+    "convergence=list(metric='marginal_kl',rule='improvement',tol=0.001) (oris_soft canonical default) requested; status=%d, iterations=%d",
+    res_lb_large$status, res_lb_large$iterations)
+  row_lb_large <- arm_row("large_stepstone_fulldata", n_large, n_margins_large,
+                           n_categories_large, m_cell_large, 3,
+                           "leafblower_oris_soft", as.numeric(bm_lb_large$median),
+                           max_error_lb_large, max(w_lb_large_n), min(w_lb_large_n),
+                           leafblower::design_effect(w_lb_large_n),
+                           leafblower::effective_sample_size(w_lb_large_n),
+                           res_lb_large$iterations, ok_lb_large, note_lb_large)
+  cat(sprintf("  %-22s wall=%7.4fs status=%d max_err=%.3e max_w=%.3f n_eff=%.1f\n",
+              "leafblower_oris_soft", row_lb_large$wall_s, res_lb_large$status,
+              row_lb_large$max_error, row_lb_large$max_w, row_lb_large$n_eff))
+
+  # Competitors are deliberately NOT run at this scale. survey::calibrate,
+  # icarus::calibration and ReGenesees::e.calibrate each build one dense
+  # observation-by-category model matrix; at this n and n_categories that
+  # matrix alone projects to n * n_categories * 8 bytes. Computed here from
+  # the actual fixture shape, not asserted -- an honest, checkable
+  # feasibility boundary and itself a publishable comparative finding, not a
+  # silent omission of the competitors from the large-scale claim.
+  matrix_bytes_large <- as.numeric(n_large) * as.numeric(n_categories_large) * 8
+  matrix_gb_large <- matrix_bytes_large / 1024^3
+  competitor_note_large <- sprintf(
+    "skipped: dense obs-by-category model matrix at n=%d x n_categories=%d projects to ~%.1f GB (n*n_categories*8 bytes); infeasible at this scale",
+    n_large, n_categories_large, matrix_gb_large)
+  competitor_rows_large <- do.call(rbind, lapply(
+    c("survey_calibrate", "icarus_calibration", "ReGenesees_e_calibrate"),
+    function(arm_name) arm_row("large_stepstone_fulldata", n_large, n_margins_large,
+                                n_categories_large, m_cell_large, 3, arm_name,
+                                NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+                                NA_integer_, FALSE, competitor_note_large)))
+  cat(sprintf("  competitors skipped: %s\n", competitor_note_large))
+
+  results <- rbind(results, row_lb_large, competitor_rows_large)
+}
+
 dir.create("benchmarks/results", showWarnings = FALSE, recursive = TRUE)
 write.csv(results, "benchmarks/results/oris_soft_vs_competitors.csv", row.names = FALSE)
 cat("\nWrote benchmarks/results/oris_soft_vs_competitors.csv\n")
