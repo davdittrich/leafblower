@@ -135,7 +135,18 @@ re-measured if any struct changes; enum slots 2 and 7 stay holes and any positio
 (`src/r_bridge.cpp:270, 642-648`) must be preserved. Run `LBW_BENCH_GATE=1` on every commit
 that touches a TU boundary. The mirrored line ranges are already annotated in the source
 (`src/c_api.cpp:458`, `:473`, `:505`) — use them.
-**Plans**: TBD
+**Plans:** 8 plans
+
+Plans:
+
+- [ ] 02-01-PLAN.md — Tracer: shared dispatch table + neutral result struct in `calib_dispatch.hpp`, wired for `sinkhorn` on both bridges (SC1, `leafblower-rywn`)
+- [ ] 02-02-PLAN.md — Guards: `CORE_SOURCES` build-list sync test, shared finalize-helper verification test, optimization-level asymmetry documented (SC4, SC3, SC2, `leafblower-qzto`)
+- [ ] 02-03-PLAN.md — Migrate `greg`, `greenkhorn`, `logit` (no R-only fields) onto the shared table (SC1)
+- [ ] 02-04-PLAN.md — Migrate `chebyshev` (warm-start moved into the shared table) and `raking` (`sraa_demoted`) (SC1)
+- [ ] 02-05-PLAN.md — Migrate `oris` and `oris_soft` (SRAA / SOR / ALM diagnostics, capacity auto-resolution) (SC1)
+- [ ] 02-06-PLAN.md — Migrate `newton_kl` (`n_projected_dims`, `lm_mu_final`) (SC1)
+- [ ] 02-07-PLAN.md — Consolidate AUTO routing, unify the enum-to-name table, collapse the R bridge's method-string chain (SC1)
+- [ ] 02-08-PLAN.md — Phase gate: single-dispatch-site guard test, full DoD gate, stepstone no-regression, human verification (SC1, SC5)
 
 ### Phase 3: Honest Performance Gate
 
@@ -245,7 +256,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
-| 2. One Engine, Not Two | 0/TBD | Not started | - |
+| 2. One Engine, Not Two | 0/8 | Not started | - |
 | 3. Honest Performance Gate | 0/TBD | Not started | - |
 | 4. Truthful Surface | 0/TBD | Not started | - |
 | 5. CRAN + PyPI Release | 0/TBD | Not started | - |
