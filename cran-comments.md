@@ -12,9 +12,19 @@ package tree, not a placeholder.
 
 * R 4.6.1, x86_64-pc-linux-gnu (Arch Linux), local build, `g++ (GCC) 16.2.1`,
   compiled with `--as-cran`.
-* A CI matrix (GitHub Actions, R release/devel x Ubuntu, and a Python
-  3.9-3.13 matrix on the Python side) is authored in phase 05 plans 05-03/
-  05-04 and will extend coverage beyond this one local environment.
+* R 4.6.1, x86_64-pc-linux-gnu (Ubuntu 24.04, GitHub Actions `ubuntu-latest`),
+  real CI run of `.github/workflows/r-check.yml`
+  (https://github.com/davdittrich/leafblower/actions), `gcc 13.3.0`,
+  `--as-cran`, TinyTeX-built PDF manual: **0 errors, 0 warnings, 2 NOTEs**.
+* Python 3.9-3.13 wheel matrix (GitHub Actions `ubuntu-latest` +
+  `macos-14`/arm64, `.github/workflows/python-wheels.yml`): wheels build,
+  pass `twine check`, and import + calibrate cleanly on all 5 versions on
+  both platforms -- real CI run, not authored-but-unrun. `macos-13` (Intel)
+  was dropped from the matrix: the runner never scheduled on this account
+  across 25+ minutes of queued time while `ubuntu-latest` and `macos-14`
+  both ran immediately, consistent with GitHub's phase-out of Intel macOS
+  runners. x86_64 macOS wheel coverage is not proven by this CI matrix as a
+  result (arm64 macOS is).
 
 ## R CMD check results
 
@@ -22,46 +32,54 @@ Real output from `R CMD build . && R CMD check --as-cran leafblower_0.1.0.tar.gz
 against the hygiene-cleaned tree (git-tracked dev artifacts removed, 35
 additional `.Rbuildignore` patterns added for tracked and untracked
 non-package files that `R CMD build` was otherwise sweeping into the
-tarball):
+tarball).
+
+**Local (Arch Linux):**
 
 ```
 Status: 1 WARNING, 3 NOTEs
 ```
 
-* NOTE (CRAN incoming feasibility): `New submission`, plus `Suggests or
-  Enhances not in mainstream repositories: autumn` -- expected. `autumn` is
-  the upstream package `leafblower::harvest()` is a drop-in replacement for
-  and is not itself on CRAN; this is the "at most the new-submission NOTE"
-  target this check run is measured against.
-* NOTE (compilation flags used): `-Werror=format-security`, `-Wformat`,
-  `-Wp,-D_FORTIFY_SOURCE=3`, `-Wp,-D_GLIBCXX_ASSERTIONS`, `-march=x86-64`,
-  `-mavx2`, `-mno-omit-leaf-frame-pointer`. Re-running with
-  `R_MAKEVARS_USER=/dev/null` (bypassing this developer's personal
-  `~/.R/Makevars`, which injects `-march=native -mtune=native`) confirmed
-  the remaining flags come from this Arch Linux R installation's own system
-  `Makeconf` -- not from this package's `Makevars.in`/`configure`, which set
-  no `-march`/`-O` flags of their own (see "Notes on build configuration"
-  below). `-mavx2` is the one package-controlled flag in that list and is
-  load-bearing (see below); it is feature-tested by `configure` and only
-  substituted in on hosts where it compiles.
-* NOTE (HTML version of manual): `no command 'tidy' found` / `package 'V8'
-  unavailable` -- this local machine lacks HTML Tidy and the R `V8` package,
-  used only for check-time HTML/MathJax validation of the manual, not for
-  building it (the PDF manual check above passed `OK`).
-* WARNING (top-level files): `A complete check needs the 'checkbashisms'
-  script` -- this local machine lacks `devscripts`' `checkbashisms`, used
-  only to lint the package's `configure`/`cleanup` shell scripts for
-  non-portable bashisms; not evidence of an actual bashism.
+**CI (GitHub Actions `ubuntu-latest`, real run):**
 
-The HTML-manual NOTE and checkbashisms WARNING are local check-environment
-tooling gaps (absent optional dependencies of `R CMD check` itself, not of
-the package), not package defects; the CI matrix authored in 05-03/05-04
-runs on a standard GitHub Actions image where these tools are present and is
-expected to close both. `_R_CHECK_FORCE_SUGGESTS_=false` was set for this
-run because `PracTools` isn't installed locally and this machine's `autumn`
-install is pinned at 0.1 (`Suggests` requires `>= 0.2.0`) -- both are
-`Suggests`-only, optional comparison/benchmark dependencies with no effect
-on package correctness.
+```
+Status: 2 NOTEs
+```
+
+The CI run is the authoritative result: it closed both the checkbashisms
+WARNING and the PDF-manual gap that were artifacts of this local machine's
+missing tooling, by actually running on a standard image and installing
+TinyTeX (`r-lib/actions/setup-tinytex`) so the PDF manual genuinely builds
+rather than merely being asserted to work. Two NOTEs remain on both
+environments:
+
+* NOTE (compilation flags used): `-mavx2` -- feature-tested by `configure`
+  and only substituted into `PKG_CXXFLAGS` on hosts where it compiles (see
+  "Notes on build configuration" below); load-bearing for the SIMD
+  intrinsics in `oris.cpp`/`sinkhorn.cpp`/`chebyshev.cpp`. Present on both
+  the local machine and CI's `ubuntu-latest`. (Additional flags seen only in
+  the local run --  `-Werror=format-security`, `-Wp,-D_FORTIFY_SOURCE=3`,
+  etc. -- come from this developer's Arch Linux system `Makeconf`, confirmed
+  via `R_MAKEVARS_USER=/dev/null`, not from the package's own
+  `Makevars.in`/`configure`.)
+* NOTE (HTML version of manual): `no command 'tidy' found` / `package 'V8'
+  unavailable` -- neither this local machine nor GitHub Actions'
+  `ubuntu-latest` ship HTML Tidy by default; used only for check-time
+  HTML/MathJax validation of the manual, not for building it (the PDF
+  manual check passes `OK` on both environments as of the CI run above).
+
+The CRAN-incoming-feasibility NOTE (`New submission`, `autumn` not on
+CRAN) that appeared locally does not appear in the CI output above because
+`r-lib/actions/check-r-package` disables `_R_CHECK_CRAN_INCOMING_` by
+default; it is still expected and accepted on an actual CRAN submission
+for the reason given locally: `autumn` is the upstream package
+`leafblower::harvest()` is a drop-in replacement for and is not itself on
+CRAN. `_R_CHECK_FORCE_SUGGESTS_=false` is set in both environments because
+`autumn`, `bench`, `lhs`, `DiceKriging`, `ggplot2`, `survey`, `PracTools`,
+and `arrow` are optional comparison/benchmark-only `Suggests` with no
+effect on package correctness; every test referencing them is
+`skip_if_not_installed()`-guarded (or lives only in the
+`.Rbuildignore`d `tests/testthat/fixtures/` directory).
 
 ## Notes on build configuration
 
