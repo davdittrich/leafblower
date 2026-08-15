@@ -159,25 +159,161 @@ run_input_class <- function(input_class, df, tgt, max_weight, n_categories) {
     survey::calibrate(design, formula_list, population_list, calfun = "raking",
                        bounds = c(0, max_weight), epsilon = 1e-3)
   }
-  bm_sv  <- bench::mark(run = sv_call(), iterations = 2, check = FALSE,
-                         memory = FALSE, filter_gc = FALSE)
-  cal_sv <- sv_call()
-  w_sv   <- stats::weights(cal_sv)
-  w_sv_n <- normalize_to_n(as.numeric(w_sv), n)
-  max_error_sv <- margin_max_error(w_sv_n, df, tgt)
-  ok_sv <- all(is.finite(w_sv)) && max(w_sv) <= max_weight + 1e-6
-  note_sv <- "epsilon=1e-3 requested (survey::calibrate, calfun='raking', bounds=c(0,max_weight))"
-  # iterations is not comparable across packages for this arm.
-  row_sv <- arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
-                     "survey_calibrate", as.numeric(bm_sv$median), max_error_sv,
-                     max(w_sv_n), min(w_sv_n),
-                     leafblower::design_effect(w_sv_n),
-                     leafblower::effective_sample_size(w_sv_n),
-                     NA_integer_, ok_sv, note_sv)
-  cat(sprintf("  %-22s wall=%7.4fs max_err=%.3e max_w=%.3f n_eff=%.1f\n",
-              "survey_calibrate", row_sv$wall_s, row_sv$max_error, row_sv$max_w, row_sv$n_eff))
+  # A single competitor failure must not cost the maintainer the whole run
+  # (task 3): every competitor arm's call is tryCatch()-isolated, a failed
+  # arm emits ok=FALSE with the condition message in `note`, and the other
+  # arms still run.
+  row_sv <- tryCatch({
+    bm_sv  <- bench::mark(run = sv_call(), iterations = 2, check = FALSE,
+                           memory = FALSE, filter_gc = FALSE)
+    cal_sv <- sv_call()
+    w_sv   <- stats::weights(cal_sv)
+    w_sv_n <- normalize_to_n(as.numeric(w_sv), n)
+    max_error_sv <- margin_max_error(w_sv_n, df, tgt)
+    ok_sv <- all(is.finite(w_sv)) && max(w_sv) <= max_weight + 1e-6
+    note_sv <- "epsilon=1e-3 requested (survey::calibrate, calfun='raking', bounds=c(0,max_weight))"
+    # iterations is not comparable across packages for this arm.
+    arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+            "survey_calibrate", as.numeric(bm_sv$median), max_error_sv,
+            max(w_sv_n), min(w_sv_n),
+            leafblower::design_effect(w_sv_n),
+            leafblower::effective_sample_size(w_sv_n),
+            NA_integer_, ok_sv, note_sv)
+  }, error = function(e) {
+    arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+            "survey_calibrate", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+            NA_integer_, FALSE, paste0("error: ", substr(conditionMessage(e), 1, 200)))
+  })
+  cat(sprintf("  %-22s wall=%7s max_err=%9s max_w=%7s n_eff=%9s\n",
+              "survey_calibrate",
+              if (is.finite(row_sv$wall_s)) sprintf("%.4fs", row_sv$wall_s) else "NA",
+              if (is.finite(row_sv$max_error)) sprintf("%.3e", row_sv$max_error) else "NA",
+              if (is.finite(row_sv$max_w)) sprintf("%.3f", row_sv$max_w) else "NA",
+              if (is.finite(row_sv$n_eff)) sprintf("%.1f", row_sv$n_eff) else "NA"))
 
-  rbind(row_lb, row_sv)
+  # --- Arm 3: icarus_calibration ---
+  # D-09 dependency scoping: requireNamespace() guard, not a DESCRIPTION
+  # Suggests: entry. icarus's bounds argument is only honoured by its
+  # "logit" method (per ?icarus::calibration: "bounds: ... for bounded
+  # methods ('logit')") -- logit is the bounded-calibration analog to
+  # survey's calfun="raking"/bounds=c(0,max_weight), read from the
+  # installed help before writing this call. Margin totals are entered via
+  # newMarginMatrix()/addMargin() (magrittr-free form) in the SAME level
+  # order as tgt[[k]] (setNames(p_skew, levels(df[[k]])) in the medium
+  # fixture below), which is the order icarus::calibrationMatrix()
+  # internally assigns to dummy columns (verified: data.matrix() on a
+  # factor -> ascending integer codes -> colToDummies() in that order).
+  if (!requireNamespace("icarus", quietly = TRUE)) {
+    row_icarus <- arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+                           "icarus_calibration", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+                           NA_integer_, FALSE,
+                           "skipped: requireNamespace('icarus') returned FALSE; install with install.packages('icarus') to include this arm")
+  } else {
+    row_icarus <- tryCatch({
+      df_ic <- df
+      df_ic$w0_icarus <- 1
+      mm_ic <- icarus::newMarginMatrix()
+      for (k in margin_cols) mm_ic <- icarus::addMargin(mm_ic, k, as.numeric(tgt[[k]]))
+      ic_call <- function() {
+        icarus::calibration(data = df_ic, marginMatrix = mm_ic, colWeights = "w0_icarus",
+                             method = "logit", bounds = c(0, max_weight), popTotal = n,
+                             pct = TRUE, description = FALSE, calibTolerance = 1e-6,
+                             maxIter = 2500)
+      }
+      bm_ic <- bench::mark(run = ic_call(), iterations = 2, check = FALSE,
+                            memory = FALSE, filter_gc = FALSE)
+      w_ic   <- ic_call()
+      w_ic_n <- normalize_to_n(as.numeric(w_ic), n)
+      max_error_ic <- margin_max_error(w_ic_n, df, tgt)
+      ok_ic <- all(is.finite(w_ic_n)) && max(w_ic_n) <= max_weight + 1e-6
+      note_ic <- sprintf(
+        "method='logit', bounds=c(0,%g), calibTolerance=1e-6 requested (icarus::calibration; logit is icarus's bounds-supporting method per its own help)",
+        max_weight)
+      arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+              "icarus_calibration", as.numeric(bm_ic$median), max_error_ic,
+              max(w_ic_n), min(w_ic_n),
+              leafblower::design_effect(w_ic_n),
+              leafblower::effective_sample_size(w_ic_n),
+              NA_integer_, ok_ic, note_ic)
+    }, error = function(e) {
+      arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+              "icarus_calibration", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+              NA_integer_, FALSE, paste0("error: ", substr(conditionMessage(e), 1, 200)))
+    })
+  }
+  cat(sprintf("  %-22s wall=%7s max_err=%9s max_w=%7s n_eff=%9s\n",
+              "icarus_calibration",
+              if (is.finite(row_icarus$wall_s)) sprintf("%.4fs", row_icarus$wall_s) else "NA",
+              if (is.finite(row_icarus$max_error)) sprintf("%.3e", row_icarus$max_error) else "NA",
+              if (is.finite(row_icarus$max_w)) sprintf("%.3f", row_icarus$max_w) else "NA",
+              if (is.finite(row_icarus$n_eff)) sprintf("%.1f", row_icarus$n_eff) else "NA"))
+
+  # --- Arm 4: ReGenesees_e_calibrate ---
+  # D-09 dependency scoping: requireNamespace() guard, not a DESCRIPTION
+  # Suggests: entry. Population totals go through ReGenesees's own
+  # pop.template()/fill.template() contract (read from the installed help
+  # before writing this call): pop.template() builds a totals-slot data
+  # frame from a calmodel formula; this script has no sampling-frame
+  # microdata to hand fill.template() (only aggregate proportions in tgt),
+  # so the template's NA slots are filled directly by name -- template
+  # column names are "<margin><level>" (e.g. "m1a"); parsed back into
+  # margin/level and looked up in tgt. calmodel is additive
+  # ("~m1+m2+...-1", the classical-raking form for independently-specified
+  # margins), matching survey/icarus's per-margin (not joint) targets.
+  if (!requireNamespace("ReGenesees", quietly = TRUE)) {
+    row_regenesees <- arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+                               "ReGenesees_e_calibrate", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+                               NA_integer_, FALSE,
+                               "skipped: requireNamespace('ReGenesees') returned FALSE; install with install.packages('ReGenesees') to include this arm")
+  } else {
+    row_regenesees <- tryCatch({
+      df_rg <- df
+      df_rg$w0_regenesees <- 1
+      df_rg$id_regenesees <- seq_len(n)
+      calmodel_rg <- stats::as.formula(paste("~", paste(margin_cols, collapse = "+"), "-1"))
+      tmpl_rg <- ReGenesees::pop.template(data = df_rg, calmodel = calmodel_rg)
+      margin_cols_by_len <- margin_cols[order(-nchar(margin_cols))]
+      for (cn in names(tmpl_rg)) {
+        mcol <- margin_cols_by_len[startsWith(cn, margin_cols_by_len)][1]
+        lvl  <- substring(cn, nchar(mcol) + 1)
+        tmpl_rg[1, cn] <- tgt[[mcol]][[lvl]] * n
+      }
+      rg_call <- function() {
+        des_rg <- ReGenesees::e.svydesign(data = df_rg, ids = ~id_regenesees,
+                                           weights = ~w0_regenesees)
+        cal_rg <- ReGenesees::e.calibrate(des_rg, tmpl_rg, calmodel = calmodel_rg,
+                                           calfun = "raking", bounds = c(0, max_weight))
+        stats::weights(cal_rg)
+      }
+      bm_rg <- bench::mark(run = rg_call(), iterations = 2, check = FALSE,
+                            memory = FALSE, filter_gc = FALSE)
+      w_rg   <- rg_call()
+      w_rg_n <- normalize_to_n(as.numeric(w_rg), n)
+      max_error_rg <- margin_max_error(w_rg_n, df, tgt)
+      ok_rg <- all(is.finite(w_rg_n)) && max(w_rg_n) <= max_weight + 1e-6
+      note_rg <- sprintf(
+        "calmodel=%s, calfun='raking', bounds=c(0,%g) requested (ReGenesees::e.calibrate; pop.template()/manual fill, no sampling-frame fill.template() available)",
+        deparse(calmodel_rg), max_weight)
+      arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+              "ReGenesees_e_calibrate", as.numeric(bm_rg$median), max_error_rg,
+              max(w_rg_n), min(w_rg_n),
+              leafblower::design_effect(w_rg_n),
+              leafblower::effective_sample_size(w_rg_n),
+              NA_integer_, ok_rg, note_rg)
+    }, error = function(e) {
+      arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
+              "ReGenesees_e_calibrate", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+              NA_integer_, FALSE, paste0("error: ", substr(conditionMessage(e), 1, 200)))
+    })
+  }
+  cat(sprintf("  %-22s wall=%7s max_err=%9s max_w=%7s n_eff=%9s\n",
+              "ReGenesees_e_calibrate",
+              if (is.finite(row_regenesees$wall_s)) sprintf("%.4fs", row_regenesees$wall_s) else "NA",
+              if (is.finite(row_regenesees$max_error)) sprintf("%.3e", row_regenesees$max_error) else "NA",
+              if (is.finite(row_regenesees$max_w)) sprintf("%.3f", row_regenesees$max_w) else "NA",
+              if (is.finite(row_regenesees$n_eff)) sprintf("%.1f", row_regenesees$n_eff) else "NA"))
+
+  rbind(row_lb, row_sv, row_icarus, row_regenesees)
 }
 
 # --- Fixture: medium_100k_5margins ---
@@ -443,7 +579,12 @@ cpu_model <- tryCatch({
 }, error = function(e) NA_character_)
 
 si <- sessionInfo()
-competitor_pkgs <- c("survey")
+# T-03-01: icarus and ReGenesees are deliberately absent from DESCRIPTION
+# (D-09) and resolve from the ambient R library with no manifest pinning
+# them -- this provenance line is the SOLE record of which build produced
+# their published figures, so a substituted local package is visible as a
+# provenance diff rather than a silent number change.
+competitor_pkgs <- c("survey", "icarus", "ReGenesees")
 env_lines <- c(
   sprintf("R version: %s", R.version.string),
   sprintf("Platform: %s", R.version$platform),
@@ -455,7 +596,9 @@ env_lines <- c(
   sprintf("MKL_NUM_THREADS: %s", Sys.getenv("MKL_NUM_THREADS")),
   sprintf("leafblower: %s", as.character(utils::packageVersion("leafblower"))),
   vapply(competitor_pkgs, function(p)
-    sprintf("%s: %s", p, as.character(utils::packageVersion(p))), character(1))
+    sprintf("%s: %s", p,
+            if (requireNamespace(p, quietly = TRUE)) as.character(utils::packageVersion(p)) else "not installed"),
+    character(1))
 )
 writeLines(env_lines, "benchmarks/results/oris_soft_vs_competitors_env.txt")
 cat("Wrote benchmarks/results/oris_soft_vs_competitors_env.txt\n")
