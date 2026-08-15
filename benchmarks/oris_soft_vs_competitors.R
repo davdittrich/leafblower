@@ -457,6 +457,93 @@ results <- rbind(results, row_lb_greg, row_lb_logit,
                   survey_calfun_arm_row("linear", "survey_calibrate_linear"),
                   survey_calfun_arm_row("logit", "survey_calibrate_logit"))
 
+# --- G-03-1 gap closure: leafblower_chebyshev vs optweight::optweight.svy(norm='linf') ---
+# chebyshev is the last R-side method needing a doc-named competitor not
+# already installed for this phase (docs/methods/chebyshev.md's own
+# Practitioner-implementations table: "The optweight package is the primary
+# open-source tool supporting the minimax norm explicitly"). Package
+# legitimacy verified this session (CRAN PDF manual fetch, 03-RESEARCH.md's
+# extended Package Legitimacy Audit): optweight v2.0.1, Noah Greifer (also
+# maintains WeightIt/cobalt), actively maintained, genuinely supports
+# norm="linf" (f(w,b,s) = max_i s_i|w_i-b_i|).
+#
+# convergence=list() -- chebyshev ignores rule/metric/stop_when entirely
+# (R/harvest.R's own documented parameter note: its interior-point solver
+# stops on its own complementarity-gap criterion), so lb_only_arm_row()'s
+# existing convergence=list() default applies unmodified -- no new helper
+# needed for this arm.
+row_lb_chebyshev <- lb_only_arm_row("chebyshev", "leafblower_chebyshev")
+
+# optweight_linf: optweight.svy() is the "Stable Balancing Weights for
+# Generalization" variant (no treat= argument) -- the shape matching a pure
+# population-calibration problem with no binary/multi-category treatment
+# variable, unlike plain optweight() whose primary examples are all
+# treatment-balancing. targets built via unlist(tgt[margin_cols],
+# use.names=FALSE): empirically verified against the installed package this
+# session (process_targets() run on this exact fixture shape) to require
+# ALL levels per factor margin in level order, NOT non-reference-category-
+# only -- process_targets()'s own Rd ("For factor variables, a target value
+# must be specified for each level of the factor, and these values must add
+# up to 1") and optweight's internal model.covs expansion (m1_a,m1_b,m1_c,
+# m1_d,m2_a,...) confirm every level is a separate dummy column, none
+# dropped as a reference. tols=0 requests exact margin matching (closest
+# analogue to harvest()'s own equality-constraint margins). min.w=1e-8
+# mirrors the package's own documented default.
+if (!requireNamespace("optweight", quietly = TRUE)) {
+  row_ow <- arm_row("medium_100k_5margins", n, K, nj, m_cell_medium, 3,
+                     "optweight_linf", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+                     NA_integer_, FALSE,
+                     "skipped: requireNamespace('optweight') returned FALSE; install with install.packages('optweight') to include this arm")
+} else {
+  row_ow <- tryCatch({
+    formula_ow  <- stats::reformulate(margin_cols)
+    targets_ow  <- unlist(tgt[margin_cols], use.names = FALSE)
+    ow_call <- function() {
+      optweight::optweight.svy(formula_ow, data = df, targets = targets_ow,
+                                tols = 0, norm = "linf", min.w = 1e-8)
+    }
+    bm_ow  <- bench::mark(run = ow_call(), iterations = 2, check = FALSE,
+                           memory = FALSE, filter_gc = FALSE)
+    cal_ow <- ow_call()
+    w_ow   <- stats::weights(cal_ow)
+    w_ow_n <- normalize_to_n(as.numeric(w_ow), n)
+    max_error_ow <- margin_max_error(w_ow_n, df, tgt)
+    note_ow <- paste0(
+      "optweight.svy(norm='linf') minimizes max_i s_i|w_i-b_i| (deviation from base weight, default 1), ",
+      "margin balance enforced via tols=0 as a CONSTRAINT, not the objective; leafblower's chebyshev instead ",
+      "minimizes max weighted margin error DIRECTLY as the LP objective (weights unconstrained in the objective) -- ",
+      "a related but non-identical minimax formulation, per docs/methods/chebyshev.md's own citation of optweight ",
+      "as the primary open-source tool supporting the minimax norm explicitly. optweight has no max.w argument ",
+      "(only min.w, confirmed against the CRAN manual fetched 2026-08-15) so max_w bound-compliance is ",
+      "UNVERIFIABLE on this arm.")
+    # No max.w argument exists on this package (confirmed against
+    # optweight.svy's own formals: formula, data, tols, targets, s.weights,
+    # b.weights, norm, min.w, verbose, ...) -- ok is NA (not TRUE/FALSE),
+    # not claiming a bound compliance the package cannot express; max_w
+    # reports the raw achieved maximum, on the same normalize_to_n()
+    # n-scale every other competitor row in this file uses for
+    # comparability, not as a compliance claim.
+    arm_row("medium_100k_5margins", n, K, nj, m_cell_medium, 3,
+            "optweight_linf", as.numeric(bm_ow$median), max_error_ow,
+            max(w_ow_n), min(w_ow_n),
+            leafblower::design_effect(w_ow_n),
+            leafblower::effective_sample_size(w_ow_n),
+            NA_integer_, NA, note_ow)
+  }, error = function(e) {
+    arm_row("medium_100k_5margins", n, K, nj, m_cell_medium, 3,
+            "optweight_linf", NA_real_, NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+            NA_integer_, FALSE, paste0("error: ", substr(conditionMessage(e), 1, 200)))
+  })
+}
+cat(sprintf("  %-22s wall=%7s max_err=%9s max_w=%7s n_eff=%9s\n",
+            "optweight_linf",
+            if (is.finite(row_ow$wall_s)) sprintf("%.4fs", row_ow$wall_s) else "NA",
+            if (is.finite(row_ow$max_error)) sprintf("%.3e", row_ow$max_error) else "NA",
+            if (is.finite(row_ow$max_w)) sprintf("%.3f", row_ow$max_w) else "NA",
+            if (is.finite(row_ow$n_eff)) sprintf("%.1f", row_ow$n_eff) else "NA"))
+
+results <- rbind(results, row_lb_chebyshev, row_ow)
+
 # --- Fixture: large_stepstone_fulldata ---
 # The tracked 1,582,732-row / 9-margin / 836-category real-survey fixture
 # (benchmarks/stepstone_fulldata_bench_data.parquet / _targets.json), reused
@@ -688,7 +775,7 @@ si <- sessionInfo()
 # them -- this provenance line is the SOLE record of which build produced
 # their published figures, so a substituted local package is visible as a
 # provenance diff rather than a silent number change.
-competitor_pkgs <- c("survey", "icarus", "ReGenesees")
+competitor_pkgs <- c("survey", "icarus", "ReGenesees", "optweight")
 env_lines <- c(
   sprintf("R version: %s", R.version.string),
   sprintf("Platform: %s", R.version$platform),
