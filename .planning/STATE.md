@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_phase_name: Honest Performance Gate
-status: planning
-stopped_at: Phase 3 context gathered
-last_updated: "2026-08-15T11:05:44.945Z"
+current_phase: 03
+current_phase_name: honest-performance-gate
+status: executing
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-08-15T13:06:13.101Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
 ---
 
 # Project State
@@ -24,14 +24,14 @@ See: .planning/PROJECT.md (updated 2026-08-15)
 
 **Core value:** Calibrated weights that are numerically correct, bound-respecting, and
 identical from R and from Python.
-**Current focus:** Phase 2 complete — starting Phase 3 (Honest Performance Gate)
+**Current focus:** Phase 03 — honest-performance-gate
 
 ## Current Position
 
-Phase: 3 of 5 (Honest Performance Gate)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-08-15 — Phase 2 complete, transitioned to Phase 3
+Phase: 03 (honest-performance-gate) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-08-15 — Phase 03 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
 coming from the orchestrator's own run rather than the user. SC1-SC5 all have durable
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [██████████] 100% (phase 2)
+Progress: [████████░░] 81% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -83,6 +83,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 02 P06 | ~20min | 2 tasks | 3 files |
 | Phase 02 P07 | 50min | 3 tasks | 3 files |
 | Phase 02 P08 | ~30min | 3 tasks | 1 file |
+| Phase 03-honest-performance-gate P01 | ~55min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,8 @@ Carried into planning:
 - [Phase ?]: [Phase 02] Plan 02-06: newton_kl migrated onto the shared dispatch table (RK_ALG_NEWTON_KL case arm) -- the last named method on the string chain. c_api.cpp's explicit branch reuses plan 02-05's pack_dispatch_oris_extras_c (verified field-by-field byte-identical to the pre-migration reset) instead of a near-duplicate helper. All 9 non-AUTO dispatch_solver arms confirmed to assign stall_kind, verified to reach harvest.R's production accelerate heuristic unbroken. Only RK_ALG_AUTO routing remains unmigrated (plan 07).
 - [Phase ?]: [Phase 02] Plan 02-07: lbw::route_auto() and lbw::kAlgNames added to calib_dispatch.hpp; R bridge's method-string chain fully collapsed to one lbw::dispatch_solver() call per explicit method (plus route_auto's up to two for AUTO). Two genuine, behaviorally-inert AUTO-implementation divergences found (st.oris_auto_selected set unconditionally vs. only-when-ORIS; accelerate not restored on c_api.cpp's fallback) -- fixed by adopting R's fixture-pinned behavior, tracked on leafblower-uqyf (closed same session). SC1 fully satisfied: one dispatch site for every solver and for AUTO routing.
 - [Phase ?]: [Phase 02] Plan 02-08 (phase gate, complete): test_single_dispatch_site.py added -- SC1 now enforced by a pytest guard (RED/GREEN verified), not only satisfied by current source. Corrected the plan's stated "at most two dispatch_solver call sites" bound to the actual, architecturally-correct 3 (AUTO primary + AUTO fallback + the one unified explicit-method call), cross-checked against 02-07-SUMMARY.md's own D4 coverage entry. Full DoD gate proven green (R 0 FAIL/1833 PASS/141 WARN/13 SKIP; Python 160 passed/0 failed) and stepstone benchmark (kk1204) byte-identical to the 02-07 baseline (SC5 proven with numbers). leafblower-rywn closed with DoD evidence. Task 3's checkpoint:human-verify: a first "approved" message was rejected because it explicitly disclosed the orchestrator ran the verification itself, not the user -- no agent message substitutes for the user's own sign-off on a gate="blocking" checkpoint. The user then approved directly, after independent corroboration (test-newton-kl.R + test-cr-d5-auto-fallback-fields.R: 0 FAIL/29 PASS; test_solver_parity.py + test_parity_weights.py: 21 passed/0 failed). **Phase 2 (One Engine, Not Two) is complete: SC1-SC5 all have durable evidence.**
+- [Phase ?]: Task 1: oris_soft convergence must use its own canonical marginal_kl/improvement rule, never a competitor's absolute/max_err/threshold shorthand — reintroduces the stopped-early confound.
+- [Phase ?]: Task 2/3: testthat::test_dir(filter=...) requires NOT_CRAN=true (unlike devtools::test()) to actually run skip_on_cran()-gated assertions; new file paths inside such filtered runs must anchor on testthat::test_path(), not a bare relative string.
 
 ### Pending Todos
 
@@ -133,7 +136,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T11:05:44.938Z
-Stopped at: Phase 3 context gathered
+Last session: 2026-08-15T13:06:13.093Z
+Stopped at: Completed 03-01-PLAN.md
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
-Resume file: .planning/phases/03-honest-performance-gate/03-CONTEXT.md
+Resume file: None
