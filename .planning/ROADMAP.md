@@ -40,7 +40,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Verification Coverage Closed** - The gate detects R↔Python divergence and bound violations it currently cannot see (completed 2026-08-15)
 - [x] **Phase 2: One Engine, Not Two** - R and Python reach the solvers through a single dispatch path, built the same way (completed 2026-08-15)
-- [ ] **Phase 3: Honest Performance Gate** - The performance claim is measured against a live solver and restated as an achievable gate
+- [x] **Phase 3: Honest Performance Gate** - The performance claim is measured against a live solver and restated as an achievable gate (completed 2026-08-15)
 - [ ] **Phase 4: Truthful Surface** - Every documented claim matches shipped behaviour; every footgun errors instead of silently misleading
 - [ ] **Phase 5: CRAN + PyPI Release** - A stranger installs leafblower with `install.packages()` and `pip install`
 
