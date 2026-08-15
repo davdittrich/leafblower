@@ -69,19 +69,24 @@ test_that("RVAL.3: unlisted level in data emits OOV warning", {
   # "c" is in data but not in target
   df  <- data.frame(x = c("a", "b", "c", "a", "b"))
   tgt <- list(x = c(a = 0.5, b = 0.5))
-  # suppressWarnings() wraps expect_warning() (not the reverse): under
-  # edition 3, expect_warning() only muffles the ONE warning matching its
-  # regexp and lets harvest()'s incidental sparse-category and
+  # Under testthat 3e, expect_warning() only muffles the ONE warning matching
+  # its regexp and lets harvest()'s incidental sparse-category and
   # fixed-point-convergence diagnostics propagate -- edition 2 swallowed all
-  # of them. The outer suppressWarnings() silences that unrelated
-  # propagation without weakening the assertion: expect_warning()'s own
-  # inner handler still fires first and still fails if the OOV warning
-  # never occurs.
-  suppressWarnings(expect_warning(
-    harvest(df, tgt, convergence = list(absolute = 1e-4)),
-    regexp = "out.of.vocabulary|OOV|unlisted|unknown level",
-    ignore.case = TRUE
-  ))
+  # of them (D-11, phase 01-04). Muffle ONLY those two named incidental
+  # patterns so edition 3's stricter unmatched-warning signal still catches
+  # an unrelated regression in this call.
+  withCallingHandlers(
+    expect_warning(
+      harvest(df, tgt, convergence = list(absolute = 1e-4)),
+      regexp = "out.of.vocabulary|OOV|unlisted|unknown level",
+      ignore.case = TRUE
+    ),
+    warning = function(w) {
+      if (grepl("sparse categories detected|budget exhausted|did not converge|plateau|fixed point at",
+                 conditionMessage(w)))
+        invokeRestart("muffleWarning")
+    }
+  )
 })
 
 test_that("RVAL.3: NA obs on an NA-margin does NOT trigger OOV warning", {
