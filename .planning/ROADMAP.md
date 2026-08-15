@@ -179,13 +179,13 @@ on stepstone instead of kk1204; track kk1204 separately as algorithmic research)
 `leafblower-2ouc` epic owns the comparative-study infrastructure. Determinism protocol is
 mandatory: single-thread BLAS, interleaved before/after comparison in one `bench::mark()`
 call, never sequential measurement.
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 
 - [x] 03-01-PLAN.md — Tracer: end-to-end medium-scale measurement (`oris_soft` vs `survey::calibrate`, accuracy and bound-compliance alongside every wall time), the D-12 one-command wrapper, and the opt-in `LBW_BENCH_GATE` assertion reading it (US-003, KPI-04)
 - [x] 03-02-PLAN.md — Expansion: the 1.58M-row stepstone-fulldata large-scale class (SC1), the K=20 uniform-random known-limit class with `M_cell/n` measured (SC3), and the remaining doc-named competitors `icarus`/`ReGenesees` benchmark-scoped per D-09 (US-003, KPI-04)
-- [ ] 03-03-PLAN.md — Decide and publish: blocking `checkpoint:decision` on headline metric and gate ceiling (D-06/D-10), the completed hard gate, and `docs/performance.md` (US-003, KPI-04)
+- [x] 03-03-PLAN.md — Decide and publish: blocking `checkpoint:decision` on headline metric and gate ceiling (D-06/D-10), the completed hard gate, and `docs/performance.md` (US-003, KPI-04)
 - [ ] 03-04-PLAN.md — Close the loop: `README.md` one-line claim (D-13), the `< 1 s` / `< 2 s` contradiction retired in place at all three PRD sites (SC2), US-003 and KPI-04 rewritten to name live artefacts (SC4), and the kk1204 assertion re-gated onto `LBW_BENCH_GATE` (US-003, KPI-04)
 
 ### Phase 4: Truthful Surface
@@ -264,7 +264,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
-| 3. Honest Performance Gate | 2/4 | In Progress|  |
+| 3. Honest Performance Gate | 3/4 | In Progress|  |
 | 4. Truthful Surface | 0/TBD | Not started | - |
 | 5. CRAN + PyPI Release | 0/TBD | Not started | - |
 
