@@ -65,18 +65,26 @@ Status values: `Implemented` · `Partial` · `Superseded` · `Withdrawn`
 
 ### Engine contract
 
-- [ ] **US-004**: A stable C API (`leafblower.h`) lets any language with C FFI call the
+- [x] **US-004**: A stable C API (`leafblower.h`) lets any language with C FFI call the
       engine without duplicating algorithm code — **both the R `.Call()` bridge and the
-      Python pybind11 module call the same `rk_calibrate()` symbol.**
-      *Status: **Partial**.* FR-1…FR-10 shipped: C99-valid header, the full FR-4 validation
+      Python pybind11 module route through the same shared dispatch table.**
+      *Status: **Implemented** (leafblower-rywn, Phase 2 plans 01-07).* FR-1…FR-10 shipped: C99-valid header, the full FR-4 validation
       set checked before any weight is modified, `snprintf`-only messages, the `log_fn` /
       Python GIL trampoline contract, caller-owned memory, reentrancy, and the
       `max_error` reporting formula. Base status codes are EXTENDED (not replaced) by
       `RK_ERR_BUDGET=4` / `RK_ERR_STALL=5`.
-      **The one-symbol clause is violated:** `src/r_bridge.cpp:654-899` dispatches on a
-      method *string* straight into `lbw::<solver>_solve` and never calls `rk_calibrate`,
-      while `src/c_api.cpp:414+` dispatches on the `rk_algorithm_t` enum. Two hand-synced
-      tables that have already drifted and been re-synced repeatedly. → `leafblower-rywn` (P0).
+      **The one-symbol clause is satisfied via a shared dispatch table, not a literal shared
+      `rk_calibrate()` call** — a deliberate architectural decision recorded during Phase 2
+      research: `rk_result_t` (the C-ABI struct `rk_calibrate()` fills) is missing 4 fields
+      R's `harvest()` result exposes and existing tests assert on (`n_projected_dims`,
+      `lm_mu_final`, `sraa_demoted`, `convergence_stall_kind`), so a literal shared-symbol
+      call would silently drop them. `lbw::dispatch_solver()` and `lbw::route_auto()`
+      (`src/calib_dispatch.hpp`) are the single {enum → solver → result} table and single
+      AUTO-routing decision both `src/r_bridge.cpp`'s `C_rk_calibrate` and
+      `src/c_api.cpp`'s `rk_calibrate()` call — "same path" now means same dispatch table +
+      same neutral result-extraction helper, each caller marshaling it into its own output
+      shape (SEXP list vs. ABI-frozen `rk_result_t`). `r_bridge.cpp` has zero per-method
+      `strcmp` branching left (plan 02-07).
 
 - [ ] **US-008**: A Python survey analyst calls `leafblower.harvest(df, targets)` with a
       pandas DataFrame over the same compiled core as R.
@@ -201,7 +209,7 @@ Shipped requirements carry no phase — the work predates this planning layer.
 | US-001 | — (shipped pre-GSD) | Implemented |
 | US-002 | — (shipped pre-GSD) | Implemented |
 | US-003 | Phase 3 | Partial |
-| US-004 | Phase 2 (residual only) | Partial |
+| US-004 | Phase 2 (residual only) | Implemented |
 | US-005 | — (shipped pre-GSD) | Implemented |
 | US-005b | — (shipped pre-GSD) | Implemented |
 | US-008 | Phase 5 (residual only) | Partial |
