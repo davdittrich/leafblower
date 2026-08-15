@@ -658,6 +658,41 @@ struct DispatchResult {
     double          lm_mu_final                  = 0.0;
     /* SUPERSET-ONLY: oris/oris_soft/raking SRAA scheduler-demotion flag. */
     bool            sraa_demoted                 = false;
+    /* ORIS/ORIS_SOFT-only diagnostics (plan 02-05). rk_result_t (leafblower.h)
+     * already carries every one of these — pack_oris_result_c wrote them
+     * directly from ORISResult before this migration. pack_dispatch_result_c
+     * (c_api.cpp, shared by every OTHER migrated solver) deliberately does
+     * NOT copy them, so a non-oris solver correctly leaves rk_result_init's
+     * memset/1.0 defaults untouched; c_api.cpp's oris/oris_soft branches call
+     * a dedicated pack_dispatch_oris_extras_c after pack_dispatch_result_c.
+     * Defaults mirror r_bridge.cpp's res_* locals / ORISResult's own defaults. */
+    int             n_xcur_writes_per_iter_last  = 0;
+    double          min_alpha_seen               = 1.0;
+    double          final_alpha                  = 1.0;
+    int             homotopy_levels_used         = 0;
+    double          homotopy_final_factor        = 1.0;
+    int             greedy_sweeps_taken          = 0;
+    double          eta_final                    = 0.0;
+    double          sor_min_omega                = 1.0;
+    int             sor_n_damped                 = 0;
+    double          sor_omega_mean               = 1.0;
+    int             sor_any_latched              = 0;
+    int             sor_n_pinned_fb              = 0;
+    int             sor_n_warmup_fb              = 0;
+    int             sor_n_conv_fb                = 0;
+    int             sor_n_resid_grew             = 0;
+    int             sor_n_monotone_cd            = 0;
+    /* SUPERSET-ONLY: SRAA-m (Anderson Acceleration) diagnostic. No
+     * rk_result_t counterpart — aa_accepted_count is absent from
+     * leafblower.h and pack_oris_result_c never surfaced it either, a
+     * pre-existing gap flagged in plan 02-01 (bd comment on leafblower-rywn),
+     * not fixed by this migration. */
+    int             aa_accepted_count            = 0;
+    /* ALM diagnostics (oris_soft only; zero elsewhere). */
+    double          alm_capacity_mu_final        = 0.0;
+    int             alm_n_growth_events          = 0;
+    double          alm_max_dual_norm            = 0.0;
+    double          alm_sum_drift                = 0.0;
     /* SUPERSET-ONLY: obs-level snapshot, distinct from rk_calibrate's in-place
      * `weights` output param. Heap-backed — callers holding a function-scope
      * DispatchResult across an Rf_error() call site must swap-release this
@@ -670,8 +705,9 @@ struct DispatchResult {
 // single function instead of maintaining two independent
 // {enum/string -> solver -> result} chains (SC1, leafblower-rywn). Covers
 // RK_ALG_SINKHORN (plan 02-01, the tracer slice), RK_ALG_GREG,
-// RK_ALG_GREENKHORN, RK_ALG_LOGIT (plan 02-03), and RK_ALG_CHEBYSHEV,
-// RK_ALG_RAKING (plan 02-04) so far — every other enum value leaves `out`
+// RK_ALG_GREENKHORN, RK_ALG_LOGIT (plan 02-03), RK_ALG_CHEBYSHEV,
+// RK_ALG_RAKING (plan 02-04), and RK_ALG_ORIS (plan 02-05) so far — every
+// other enum value leaves `out`
 // untouched and returns without acting, so not-yet-migrated callers keep
 // running their existing branch unchanged. Solver-by-solver migration
 // (D-01, 02-CONTEXT.md) adds one case arm per plan.
@@ -878,6 +914,61 @@ inline void dispatch_solver(rk_algorithm_t alg, CalibState& st, DispatchResult& 
             // SUPERSET-ONLY: r_bridge's res_sraa_demoted local is R-only
             // (rk_result_t has no counterpart — see pack_dispatch_result_c).
             out.sraa_demoted                 = res.sraa_demoted;
+            out.best_weights                 = std::move(res.base.best_weights);
+            break;
+        }
+        case RK_ALG_ORIS: {
+            // Plan 02-05 Task 1: absorbs what r_bridge.cpp's pack_oris_result
+            // lambda + c_api.cpp's pack_oris_result_c did today (diffed
+            // field-by-field; no divergence found — see 02-05-SUMMARY.md).
+            // st.oris_auto_selected stays on the CALLER side (this arm takes
+            // st as already-configured state; routing policy is not this
+            // arm's job — keeps plan 07's AUTO consolidation a pure move).
+            auto res = lbw::oris_solve(st);
+            out.status                       = res.base.status;
+            out.iterations                   = res.base.iterations;
+            out.max_error                    = res.base.max_error;
+            out.mean_error                   = res.base.mean_error;
+            out.kl                           = res.base.kl;
+            out.chi2                         = res.base.chi2;
+            out.l1_weight_change             = res.base.l1_weight_change;
+            out.grake_norm                   = res.base.grake_norm;
+            out.convergence_metric           = res.base.convergence_metric;
+            out.convergence_rule             = res.base.convergence_rule;
+            out.convergence_tol              = res.base.convergence_tol;
+            out.convergence_iter             = res.base.convergence_iter;
+            out.convergence_solver_objective = res.base.convergence_solver_objective;
+            out.convergence_minimized_metric = res.base.convergence_minimized_metric;
+            out.best_error                   = res.base.best_error;
+            out.best_iter                    = res.base.best_iter;
+            out.metric_first_check           = res.base.metric_first_check;
+            out.metric_prev_check            = res.base.metric_prev_check;
+            out.prev_check_iter              = res.base.prev_check_iter;
+            out.stall_kind                   = res.base.stall_kind;
+            out.n_bounds_violated            = res.n_bounds_violated;
+            out.n_bounds_clamped             = res.n_bounds_clamped;
+            out.solver_message[0]            = '\0';  // ORISResult carries no message field
+            out.alg_used                     = RK_ALG_ORIS;
+            out.n_xcur_writes_per_iter_last  = res.n_xcur_writes_per_iter_last;
+            out.min_alpha_seen               = res.min_alpha_seen;
+            out.final_alpha                  = res.final_alpha;
+            out.homotopy_levels_used         = res.homotopy_levels_used;
+            out.homotopy_final_factor        = res.homotopy_final_factor;
+            out.greedy_sweeps_taken          = res.greedy_sweeps_taken;
+            out.eta_final                    = res.eta_final;
+            out.sor_min_omega                = res.sor_min_omega;
+            out.sor_n_damped                 = res.sor_n_damped;
+            out.sor_omega_mean               = res.sor_omega_mean;
+            out.sor_any_latched              = res.sor_any_latched;
+            out.sor_n_pinned_fb              = res.sor_n_pinned_fb;
+            out.sor_n_warmup_fb              = res.sor_n_warmup_fb;
+            out.sor_n_conv_fb                = res.sor_n_conv_fb;
+            out.sor_n_resid_grew             = res.sor_n_resid_grew;
+            out.sor_n_monotone_cd            = res.sor_n_monotone_cd;
+            out.aa_accepted_count            = res.aa_accepted_count;
+            out.sraa_demoted                 = res.sraa_demoted;
+            // ORIS never sets alm_* (ALM only runs under oris_soft's
+            // use_admm_capacity); leave DispatchResult's 0.0/0 defaults.
             out.best_weights                 = std::move(res.base.best_weights);
             break;
         }

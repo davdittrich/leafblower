@@ -1016,13 +1016,56 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
             res_alm_sum_drift         = res.alm_sum_drift;
         } else {
             // Default / oris
+            // SC1 (leafblower-rywn): routed through the shared dispatch table
+            // instead of calling lbw::oris_solve + pack_oris_result directly
+            // (mirrors c_api.cpp's default/RK_ALG_ORIS branch). st.oris_auto_selected
+            // stays on the caller side (dispatch_solver takes st as
+            // already-configured state, not a routing decision).
             st.oris_auto_selected = (strcmp(method_str, "oris") != 0);
-            auto res = lbw::oris_solve(st);
-            res_status     = res.base.status;
-            res_iterations = res.base.iterations;
-            res_max_error  = res.base.max_error;
-            res_alg_used   = (int)RK_ALG_ORIS;
-            pack_oris_result(res);
+            lbw::dispatch_solver(RK_ALG_ORIS, st, dres);
+            res_status             = dres.status;
+            res_iterations         = dres.iterations;
+            res_max_error          = dres.max_error;
+            res_alg_used           = static_cast<int>(dres.alg_used);
+            res_mean_error         = dres.mean_error;
+            res_kl                 = dres.kl;
+            res_chi2               = dres.chi2;
+            res_l1_weight_change   = dres.l1_weight_change;
+            res_grake_norm         = dres.grake_norm;
+            res_conv_metric        = dres.convergence_metric;
+            res_conv_rule          = dres.convergence_rule;
+            res_conv_tol           = dres.convergence_tol;
+            res_conv_iter          = dres.convergence_iter;
+            res_conv_objective     = dres.convergence_solver_objective;
+            res_conv_minimized_metric = dres.convergence_minimized_metric;
+            res_best_error         = dres.best_error;
+            res_best_iter          = dres.best_iter;
+            res_metric_first_check = dres.metric_first_check;
+            res_metric_prev_check  = dres.metric_prev_check;
+            res_prev_check_iter    = dres.prev_check_iter;
+            res_stall_kind         = dres.stall_kind;
+            res_n_bounds_violated  = dres.n_bounds_violated;
+            res_n_bounds_clamped   = dres.n_bounds_clamped;
+            res_solver_message[0]  = '\0';  // ORISResult carries no message field
+            res_n_xcur_writes         = dres.n_xcur_writes_per_iter_last;
+            res_min_alpha              = dres.min_alpha_seen;
+            res_final_alpha            = dres.final_alpha;
+            res_homotopy_levels_used   = dres.homotopy_levels_used;
+            res_homotopy_final_factor  = dres.homotopy_final_factor;
+            res_greedy_sweeps_taken    = dres.greedy_sweeps_taken;
+            res_eta_final              = dres.eta_final;
+            res_sor_min_omega      = dres.sor_min_omega;
+            res_sor_n_damped       = dres.sor_n_damped;
+            res_sor_omega_mean     = dres.sor_omega_mean;
+            res_sor_any_latched    = dres.sor_any_latched;
+            res_sor_n_pinned_fb    = dres.sor_n_pinned_fb;
+            res_sor_n_warmup_fb    = dres.sor_n_warmup_fb;
+            res_sor_n_conv_fb      = dres.sor_n_conv_fb;
+            res_sor_n_resid_grew   = dres.sor_n_resid_grew;
+            res_sor_n_monotone_cd  = dres.sor_n_monotone_cd;
+            res_aa_accepted_count  = dres.aa_accepted_count;
+            res_sraa_demoted       = dres.sraa_demoted ? 1 : 0;
+            res_best_weights       = std::move(dres.best_weights);
         }
     }
     } catch (const std::exception& e) {

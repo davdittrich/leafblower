@@ -206,6 +206,38 @@ static void pack_dispatch_result_c(rk_result_t* dst, const lbw::DispatchResult& 
     dst->message[sizeof(dst->message) - 1] = '\0';
 }
 
+// Plan 02-05 (leafblower-rywn SC1): oris/oris_soft-only diagnostic fields
+// (sor_*/alm_*/homotopy_*/n_xcur_writes_per_iter_last/min_alpha_seen/
+// final_alpha/greedy_sweeps_taken/eta_final). rk_result_t already carries all
+// of these (pack_oris_result_c wrote them before this migration); the shared
+// pack_dispatch_result_c deliberately does NOT touch them so every OTHER
+// migrated solver keeps rk_result_init's memset/1.0 defaults untouched.
+// Called only from the RK_ALG_ORIS / RK_ALG_ORIS_SOFT dispatch branches,
+// immediately after pack_dispatch_result_c.
+static void pack_dispatch_oris_extras_c(rk_result_t* dst, const lbw::DispatchResult& dres) noexcept {
+    if (!dst) return;
+    dst->n_xcur_writes_per_iter_last = dres.n_xcur_writes_per_iter_last;
+    dst->min_alpha_seen        = dres.min_alpha_seen;
+    dst->final_alpha           = dres.final_alpha;
+    dst->homotopy_levels_used  = dres.homotopy_levels_used;
+    dst->homotopy_final_factor = dres.homotopy_final_factor;
+    dst->greedy_sweeps_taken   = dres.greedy_sweeps_taken;
+    dst->eta_final             = dres.eta_final;
+    dst->sor_min_omega     = dres.sor_min_omega;
+    dst->sor_n_damped      = dres.sor_n_damped;
+    dst->sor_omega_mean    = dres.sor_omega_mean;
+    dst->sor_any_latched   = dres.sor_any_latched;
+    dst->sor_n_pinned_fb   = dres.sor_n_pinned_fb;
+    dst->sor_n_warmup_fb   = dres.sor_n_warmup_fb;
+    dst->sor_n_conv_fb     = dres.sor_n_conv_fb;
+    dst->sor_n_resid_grew  = dres.sor_n_resid_grew;
+    dst->sor_n_monotone_cd = dres.sor_n_monotone_cd;
+    dst->alm_capacity_mu_final = dres.alm_capacity_mu_final;
+    dst->alm_n_growth_events   = dres.alm_n_growth_events;
+    dst->alm_max_dual_norm     = dres.alm_max_dual_norm;
+    dst->alm_sum_drift         = dres.alm_sum_drift;
+}
+
 extern "C" {
 
 void rk_params_init(rk_params_t* p) {
@@ -565,12 +597,19 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             if (result) pack_oris_result_c(result, res);
         } else {
             // Default / ORIS: paper-faithful algBCD at C=0 (src/oris.cpp)
-            auto res = lbw::oris_solve(st);
-            status = res.base.status;
-            iterations = res.base.iterations;
-            max_error = res.base.max_error;
+            // SC1 (leafblower-rywn): routed through the shared dispatch table
+            // instead of calling lbw::oris_solve + pack_oris_result_c
+            // directly (mirrors r_bridge.cpp's default/oris branch).
+            lbw::DispatchResult dres_or;
+            lbw::dispatch_solver(RK_ALG_ORIS, st, dres_or);
+            status = dres_or.status;
+            iterations = dres_or.iterations;
+            max_error = dres_or.max_error;
             used = RK_ALG_ORIS;
-        if (result) pack_oris_result_c(result, res);
+            if (result) {
+                pack_dispatch_result_c(result, dres_or);
+                pack_dispatch_oris_extras_c(result, dres_or);
+            }
         }
     }
 
