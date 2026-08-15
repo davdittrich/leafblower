@@ -446,36 +446,18 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
     rk_algorithm_t used;
 
     if (alg == RK_ALG_RAKING) {
-        // Classical raking: IPF + Dykstra box + Dykstra hyperplane (renamed from ORIS)
-        auto res = lbw::raking_solve(st);
-        status = res.base.status;
-        iterations = res.base.iterations;
-        max_error = res.base.max_error;
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling the raking solver + a manual field copy
+        // directly. sraa_demoted is a superset-only DispatchResult field
+        // with no rk_result_t counterpart (pack_dispatch_result_c) — Python's
+        // result dict is unaffected, exactly as before this migration.
+        lbw::DispatchResult dres_rk;
+        lbw::dispatch_solver(alg, st, dres_rk);
+        pack_dispatch_result_c(result, dres_rk);
+        status = dres_rk.status;
+        iterations = dres_rk.iterations;
+        max_error = dres_rk.max_error;
         used = RK_ALG_RAKING;
-        if (result) {
-            result->mean_error          = res.base.mean_error;
-            result->kl                  = res.base.kl;
-            result->chi2                = res.base.chi2;
-            result->l1_weight_change    = res.base.l1_weight_change;
-            result->grake_norm          = res.base.grake_norm;
-            result->convergence_metric  = res.base.convergence_metric;
-            result->convergence_rule    = res.base.convergence_rule;
-            result->convergence_tol     = res.base.convergence_tol;
-            result->convergence_iter                = res.base.convergence_iter;
-            result->convergence_solver_objective           = res.base.convergence_solver_objective;
-            result->convergence_minimized_metric    = res.base.convergence_minimized_metric;
-            result->best_error          = res.base.best_error;
-            result->best_iter           = res.base.best_iter;
-            result->metric_first_check  = res.base.metric_first_check;
-            result->metric_prev_check   = res.base.metric_prev_check;
-            result->prev_check_iter     = res.base.prev_check_iter;
-            // CR-D11 (j7x8.11): raking uses a manual field copy (not the pack
-            // template), so surface the bound-violation diagnostic explicitly —
-            // parity with sinkhorn/greg (which go through pack_solver_result).
-            result->n_bounds_violated   = res.n_bounds_violated;
-            result->n_bounds_clamped    = res.n_bounds_clamped;
-            /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
-        }
     } else if (alg == RK_ALG_SINKHORN) {
         // SC1 (leafblower-rywn): routed through the shared dispatch table
         // instead of calling lbw::sinkhorn_solve + pack_solver_result directly.
