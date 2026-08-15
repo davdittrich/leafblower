@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 03
 current_phase_name: honest-performance-gate
-status: executing
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-08-15T13:46:28.761Z"
+status: verifying
+stopped_at: Completed 03-04-PLAN.md — Phase 3 (Honest Performance Gate) complete
+last_updated: "2026-08-15T13:59:28.348Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -30,7 +30,7 @@ identical from R and from Python.
 
 Phase: 03 (honest-performance-gate) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-15 — Phase 03 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [█████████░] 94% (phase 2)
+Progress: [██████████] 100% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -86,6 +86,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 03-honest-performance-gate P01 | ~55min | 3 tasks | 5 files |
 | Phase 03-honest-performance-gate P02 | ~35min | 3 tasks | 3 files |
 | Phase 03 P03 | 30min | 3 tasks | 2 files |
+| Phase 03-honest-performance-gate P04 | ~30min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,9 @@ Carried into planning:
 - [Phase ?]: 03-02: deff/n_eff measured for known_limit_k20_uniform (deff=2.44-2.74, n_eff~183k-205k) diverge ~3000-5700x from leafblower-ylsy's cited DEFF 8000-14000/n_eff 71-118 -- traced to that closure using a fifth, more-severe kk1204 skew variant (0.6/0.2/0.1/0.07/0.03 at n=1e6), confirming RESEARCH.md Pitfall 2's divergent-fixture-description finding.
 - [Phase ?]: 03-02: full D-07 competitor set (survey, icarus, ReGenesees) measured on the medium class, all agreeing with oris_soft to within 5e-4 max_error; icarus requires method='logit' (not 'raking') to honour bounds; ReGenesees totals filled manually via pop.template() column-name parsing (no sampling frame available for fill.template()).
 - [Phase ?]: D-06/D-10 paired framing: honest gate asserts wall_s<=0.5s AND n_eff>=60000 alongside existing bound/accuracy checks (03-03, developer-selected)
+- [Phase ?]: README.md's headline claim excludes any autumn mention (D-05, user-emphatic); orienting sentence rephrased around DESCRIPTION's own Title/Description instead
+- [Phase ?]: kk1204 block's fixture uses a uniform 1/5 target, not 03-02's skewed target -- does not exercise the documented degenerate case; this plan states the mismatch in-comment rather than changing the fixture (out of Task 3's scope)
+- [Phase ?]: US-003/KPI-04 stay Traceability status Partial after Phase 3 (requirements.mark-complete correctly no-oped, not_found, 0 bytes written) -- verbose=1 clause unexercised and no single measurement clears the PRD's literal 1M+ rows AND 20+ margins target together
 
 ### Pending Todos
 
@@ -142,7 +146,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T13:46:28.753Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-08-15T13:59:28.341Z
+Stopped at: Completed 03-04-PLAN.md — Phase 3 (Honest Performance Gate) complete
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
 Resume file: None
