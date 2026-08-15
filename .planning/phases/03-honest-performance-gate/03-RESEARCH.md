@@ -218,6 +218,17 @@ registry search or WebSearch discovery. All three competitor packages (`survey`,
 | `icarus` | CRAN | Established (Rebecq, 2017 CRAN release cited) | — | CRAN canonical | OK | Approved — add to benchmark scope, not package `Suggests:` per D-09 |
 | `ReGenesees` | CRAN | Established (Zardetto 2015, Italian national statistics office) | — | CRAN canonical | OK | Approved — add to benchmark scope, not package `Suggests:` per D-09 |
 
+**Extended 2026-08-15 (gap closure, G-03-1/G-03-4):** per-method competitor coverage
+(UAT gap closure) requires two more benchmark-only packages, each named explicitly in this
+repo's own `docs/methods/*.md` (not discovered via ad hoc search this session) and verified
+directly against the registry (CRAN PDF manual fetch / PyPI JSON), not by registry-listing
+alone:
+
+| Package | Registry | Age | Downloads | Source Repo | Verdict | Disposition |
+|---------|----------|-----|-----------|-------------|---------|-------------|
+| `optweight` | CRAN | Established (v2.0.1, published 2026-03-19; author Noah Greifer, ORCID 0000-0003-3067-7154 — also maintains `WeightIt`/`cobalt`, well-known R causal-inference ecosystem) | — | CRAN canonical (`cran.r-project.org/package=optweight`) | OK | Approved — add to benchmark scope only (chebyshev's minimax-flavored competitor per `docs/methods/chebyshev.md` §Practitioner implementations), not package `Suggests:`, per D-09. Verified via direct CRAN PDF manual fetch this session: `norm = "linf"` argument confirmed real (`f(w,b,s) = max_i|w_i-b_i|`); no `max.w` argument exists (only `min.w` floor) — bound-compliance is unverifiable on this competitor, documented as a caveat, not silently assumed compliant. |
+| `POT` (import `ot`) | PyPI | Established (v0.9.7.post1; JMLR-published, `requires_python >= 3.7`) | High (standard Python OT library) | PyPI canonical (`pypi.org/project/POT`) | OK | Approved — add to benchmark scope only (greenkhorn/sinkhorn's competitor per `docs/methods/greenkhorn.md` and `docs/methods/sinkhorn.md` §Practitioner implementations, both already citing `[flamary2021pot]` in-repo), not added to `pyproject.toml`, per D-09's Python analogue. Verified via direct PyPI JSON metadata fetch this session. `ot.bregman.greenkhorn(a, b, M, reg, ...)` confirmed to take a cost matrix `M` + scalar `reg`, no arbitrary-kernel or bounds argument — the K=2-margin fixture and `M = -log(prior)`, `reg = 1` construction (recovering kernel = prior exactly) is required to make this a faithful comparison; documented as scope, not silently generalized to K>2. |
+
 **Packages removed due to `[SLOP]` verdict:** none.
 **Packages flagged as suspicious `[SUS]`:** none.
 
