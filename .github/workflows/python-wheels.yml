@@ -1,0 +1,54 @@
+name: python-wheels
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python-wheels:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-13, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v4.2.0
+        with:
+          package-dir: python
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  wheel-check:
+    needs: python-wheels
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: wheelhouse
+          pattern: wheels-*
+          merge-multiple: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: twine check
+        run: |
+          python -m pip install twine
+          twine check wheelhouse/*
+
+      - name: Install matching wheel and import
+        run: |
+          python -m venv /tmp/wheel-check
+          /tmp/wheel-check/bin/pip install --only-binary=:all: --find-links wheelhouse leafblower
+          /tmp/wheel-check/bin/python -c "import leafblower; leafblower.harvest"

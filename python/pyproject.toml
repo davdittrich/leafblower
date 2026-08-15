@@ -32,3 +32,20 @@ wheel.packages    = ["leafblower"]
 # discovers them for pytest), but ship ~2500 LOC of tests in the distributed wheel.
 # Exclude them from the wheel artifact only; the editable/source tree keeps them.
 wheel.exclude     = ["leafblower/test_*.py"]
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux*"
+test-command = "python -c \"import leafblower; leafblower.harvest\""
+
+[tool.cibuildwheel.linux]
+before-all = """
+if command -v yum >/dev/null 2>&1; then
+    yum install -y lapack-devel openblas-devel
+else
+    dnf install -y lapack-devel openblas-devel
+fi
+"""
+
+[tool.cibuildwheel.macos]
+environment = { CMAKE_ARGS = "-DBLA_VENDOR=Apple" }
