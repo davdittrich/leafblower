@@ -10,3 +10,4 @@ leafblower: 0.1.0
 survey: 4.5
 icarus: 0.3.3
 ReGenesees: 2.4
+optweight: 2.0.1
