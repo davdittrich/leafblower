@@ -43,11 +43,10 @@ created: 2026-08-15
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|--------------------|-------------|--------|
-| 04-01-01 | 01 | 0 | SC3 | V5 | RVAL.4 test exists asserting `design_weights` error message | unit | `Rscript -e "testthat::test_dir('tests/testthat', filter='harvest-rval')"` | ❌ W0 | ⬜ pending |
-| 04-01-02 | 01 | 1 | SC1 | — | docs/raking.md §8.2/§12 attribute correctly | manual | `grep -o 'L-BFGS-B' docs/raking.md \| wc -l` = 0; `grep -ci Gurobi docs/raking.md` = 0 | ✅ | ⬜ pending |
-| 04-01-03 | 01 | 1 | SC2 | — | `rk_algorithm_t` slot 7 documented as removed grake slot | build | `git diff src/leafblower.h` comment-only; full suite 0 FAIL | ✅ | ⬜ pending |
-| 04-01-04 | 01 | 1 | SC3 | V5 | `harvest(weights=)` errors naming `design_weights=`; `eb79.18` renamed | unit | `Rscript -e "testthat::test_dir('tests/testthat', filter='harvest-rval')"` + `filter='logit'` | ✅ (edit) | ⬜ pending |
-| 04-01-05 | 01 | 1 | SC4 | — | README/NEWS/man/docs audit — zero true positives outside raking.md | manual | Re-run session's grake/lbfgsb/cp greps | N/A | ⬜ pending |
+| 04-01-1 | 04-01 | 1 | SC3 | — | `checkpoint:decision` — confirm breaking-change on bare `weights=` before implementing | manual (gate) | N/A — blocking checkpoint | N/A | ⬜ pending |
+| 04-01-2 | 04-01 | 1 | SC3 | T-04-01 (V5, high) | `harvest(weights=)` hard-errors naming `design_weights=`; RVAL.4 added; `eb79.18` renamed in same task | unit (tdd) | `Rscript -e "testthat::test_dir('tests/testthat', filter='harvest-rval')"` + `filter='logit'` | ✅ (edit) | ⬜ pending |
+| 04-02-1 | 04-02 | 2 | SC1 | T-04-03 (Spoofing, medium) | docs/raking.md §8.2/§12 misattribution deleted (scoped greps, not naive L-BFGS-B=0) | manual | `grep -c "renamed from iEPPA" docs/raking.md`; `grep -ci Gurobi`; `"definitive state-of-the-art"`; section-marker greps | ✅ | ⬜ pending |
+| 04-02-2 | 04-02 | 2 | SC2, SC4 | — | `rk_algorithm_t` slot 7 annotated; grake/lbfgsb/cp audit re-run, zero true positives outside raking.md | build + manual | `git diff src/leafblower.h` comment-only; full suite 0 FAIL; re-run session's grake/lbfgsb/cp greps | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -55,7 +54,7 @@ created: 2026-08-15
 
 ## Wave 0 Requirements
 
-- [ ] `tests/testthat/test-harvest-rval.R` — add `test_that("RVAL.4: bare weights= errors naming design_weights", ...)` per RVAL.1-3/META.2 numbering convention.
+- [x] `tests/testthat/test-harvest-rval.R` RVAL.4 addition — resolved inline as a `type="tracer" tdd="true"` task (04-01-2), not a separate Wave 0 file.
 
 ---
 
