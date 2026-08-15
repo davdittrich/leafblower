@@ -20,6 +20,7 @@
 #include "sinkhorn.hpp"
 #include "greg.hpp"
 #include "chebyshev.hpp"
+#include "calib_dispatch.hpp" // SC1: shared dispatch table (leafblower-rywn)
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
@@ -567,6 +568,14 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
        Populated by the solver at the RK_ERR_STALL emission site (leafblower-8eod). */
     int    res_stall_kind              = 0;
     std::vector<double> res_best_weights;  // obs-level, length n
+    // SC1 (leafblower-rywn): scratch struct for the shared dispatch table
+    // (calib_dispatch.hpp). Solvers not yet migrated (D-01) leave this
+    // default-constructed and unused; migrated branches populate it via
+    // lbw::dispatch_solver then copy into the res_* locals above.
+    // Function-scope (not branch-scope) so its heap-backed best_weights
+    // member is covered by both Rf_error swap-release blocks below, per the
+    // RAII convention (RESEARCH.md Pitfall 4).
+    lbw::DispatchResult dres;
 
     // DRY helper: pack the 8 convergence-diagnostic fields shared by all solvers.
     auto pack_solver_result = [&](const auto& res) {
@@ -786,14 +795,36 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
                 res_best_weights.assign(st.n, 0.0);
         }
     } else if (strcmp(method_str, "sinkhorn") == 0) {
-        auto res = lbw::sinkhorn_solve(st);
-        pack_solver_result(res);
-        res_status     = res.base.status;
-        res_iterations = res.base.iterations;
-        res_max_error  = res.base.max_error;
-        res_alg_used   = static_cast<int>(RK_ALG_SINKHORN);
-        if (!res.base.best_weights.empty())
-            res_best_weights = std::move(res.base.best_weights);
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling lbw::sinkhorn_solve + pack_solver_result
+        // directly (mirrors c_api.cpp's RK_ALG_SINKHORN branch).
+        lbw::dispatch_solver(RK_ALG_SINKHORN, st, dres);
+        res_status             = dres.status;
+        res_iterations         = dres.iterations;
+        res_max_error          = dres.max_error;
+        res_alg_used           = static_cast<int>(dres.alg_used);
+        res_mean_error         = dres.mean_error;
+        res_kl                 = dres.kl;
+        res_chi2               = dres.chi2;
+        res_l1_weight_change   = dres.l1_weight_change;
+        res_grake_norm         = dres.grake_norm;
+        res_conv_metric        = dres.convergence_metric;
+        res_conv_rule          = dres.convergence_rule;
+        res_conv_tol           = dres.convergence_tol;
+        res_conv_iter          = dres.convergence_iter;
+        res_conv_objective     = dres.convergence_solver_objective;
+        res_conv_minimized_metric = dres.convergence_minimized_metric;
+        res_best_error         = dres.best_error;
+        res_best_iter          = dres.best_iter;
+        res_metric_first_check = dres.metric_first_check;
+        res_metric_prev_check  = dres.metric_prev_check;
+        res_prev_check_iter    = dres.prev_check_iter;
+        res_stall_kind         = dres.stall_kind;
+        res_n_bounds_violated  = dres.n_bounds_violated;
+        res_n_bounds_clamped   = dres.n_bounds_clamped;
+        std::snprintf(res_solver_message, sizeof(res_solver_message), "%s", dres.solver_message);
+        if (!dres.best_weights.empty())
+            res_best_weights = std::move(dres.best_weights);
         else
             res_best_weights.assign(st.n, 0.0);
     } else if (strcmp(method_str, "greg") == 0) {
@@ -935,6 +966,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
         std::vector<const double*>().swap(targets);
         std::vector<double>().swap(weights);
         std::vector<double>().swap(res_best_weights);
+        std::vector<double>().swap(dres.best_weights);  // SC1: DispatchResult's heap member
         Rf_error("%s", msg);
     }
 
@@ -992,6 +1024,7 @@ SEXP C_rk_calibrate(SEXP group_ids_sexp, SEXP cat_counts_sexp,
     std::vector<int>().swap(cat_counts);
     std::vector<std::vector<double>>().swap(tgt_storage);
     std::vector<const double*>().swap(targets);
+    std::vector<double>().swap(dres.best_weights);  // SC1: DispatchResult is dead past this point
 
     // Build return list: list(weights=numeric[n], result=list(42 fields))
     // PROTECT out first so wts/res_list/res_names sit above it on the stack;

@@ -7,6 +7,7 @@
 #include "greg.hpp"       // Newton QP chi2 (GREG, Deville-Sarnal 1992)
 #include "chebyshev.hpp"  // Chebyshev LP-based solver
 #include "cell_table.hpp" // estimate_M_cell for AUTO routing
+#include "calib_dispatch.hpp" // SC1: shared dispatch table (leafblower-rywn)
 #include "greenkhorn.hpp"
 #include "logit_calib.hpp"
 #include "newton_calib.hpp"
@@ -170,6 +171,39 @@ static void pack_newton_result_c(rk_result_t* dst, const R& nkr, rk_algorithm_t 
     dst->alm_n_growth_events   = 0;
     dst->alm_max_dual_norm     = 0.0;
     dst->alm_sum_drift         = 0.0;
+}
+
+// SC1 (leafblower-rywn): narrow the shared, unconstrained lbw::DispatchResult
+// (calib_dispatch.hpp) into the ABI-frozen rk_result_t. The 4 superset-only
+// fields (n_projected_dims, lm_mu_final, sraa_demoted, plus the obs-level
+// best_weights vector) have no rk_result_t counterpart and are deliberately
+// NOT copied here (matches Python's existing, already-accepted behavior).
+static void pack_dispatch_result_c(rk_result_t* dst, const lbw::DispatchResult& dres) noexcept {
+    if (!dst) return;
+    dst->status                       = dres.status;
+    dst->iterations                   = dres.iterations;
+    dst->max_error                    = dres.max_error;
+    dst->algorithm_used               = dres.alg_used;
+    dst->mean_error                   = dres.mean_error;
+    dst->kl                           = dres.kl;
+    dst->chi2                         = dres.chi2;
+    dst->l1_weight_change             = dres.l1_weight_change;
+    dst->grake_norm                   = dres.grake_norm;
+    dst->convergence_metric           = dres.convergence_metric;
+    dst->convergence_rule             = dres.convergence_rule;
+    dst->convergence_tol              = dres.convergence_tol;
+    dst->convergence_iter             = dres.convergence_iter;
+    dst->convergence_solver_objective = dres.convergence_solver_objective;
+    dst->convergence_minimized_metric = dres.convergence_minimized_metric;
+    dst->best_error                   = dres.best_error;
+    dst->best_iter                    = dres.best_iter;
+    dst->metric_first_check           = dres.metric_first_check;
+    dst->metric_prev_check            = dres.metric_prev_check;
+    dst->prev_check_iter              = dres.prev_check_iter;
+    dst->n_bounds_violated            = dres.n_bounds_violated;
+    dst->n_bounds_clamped             = dres.n_bounds_clamped;
+    std::strncpy(dst->message, dres.solver_message, sizeof(dst->message) - 1);
+    dst->message[sizeof(dst->message) - 1] = '\0';
 }
 
 extern "C" {
@@ -443,9 +477,12 @@ LBW_NODISCARD int rk_calibrate(int n, int K,
             /* sor_min_omega, sor_n_damped remain at rk_result_init defaults (1.0, 0) */
         }
     } else if (alg == RK_ALG_SINKHORN) {
-        auto sres = lbw::sinkhorn_solve(st);
-        pack_solver_result(result, sres, alg);
-        return sres.base.status;
+        // SC1 (leafblower-rywn): routed through the shared dispatch table
+        // instead of calling lbw::sinkhorn_solve + pack_solver_result directly.
+        lbw::DispatchResult dres;
+        lbw::dispatch_solver(alg, st, dres);
+        pack_dispatch_result_c(result, dres);
+        return dres.status;
     } else if (alg == RK_ALG_GREG) {
         auto gres = lbw::greg_solve(st);
         pack_solver_result(result, gres, alg);
