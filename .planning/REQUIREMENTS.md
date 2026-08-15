@@ -68,7 +68,7 @@ Status values: `Implemented` · `Partial` · `Superseded` · `Withdrawn`
 - [x] **US-004**: A stable C API (`leafblower.h`) lets any language with C FFI call the
       engine without duplicating algorithm code — **both the R `.Call()` bridge and the
       Python pybind11 module route through the same shared dispatch table.**
-      *Status: **Implemented** (leafblower-rywn, Phase 2 plans 01-07).* FR-1…FR-10 shipped: C99-valid header, the full FR-4 validation
+      *Status: **Implemented** (leafblower-rywn, closed; Phase 2 plans 01-08 — SC1 now defended by `test_single_dispatch_site.py`).* FR-1…FR-10 shipped: C99-valid header, the full FR-4 validation
       set checked before any weight is modified, `snprintf`-only messages, the `log_fn` /
       Python GIL trampoline contract, caller-owned memory, reentrancy, and the
       `max_error` reporting formula. Base status codes are EXTENDED (not replaced) by

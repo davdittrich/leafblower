@@ -135,7 +135,7 @@ re-measured if any struct changes; enum slots 2 and 7 stay holes and any positio
 (`src/r_bridge.cpp:270, 642-648`) must be preserved. Run `LBW_BENCH_GATE=1` on every commit
 that touches a TU boundary. The mirrored line ranges are already annotated in the source
 (`src/c_api.cpp:458`, `:473`, `:505`) — use them.
-**Plans:** 7/8 plans executed
+**Plans:** 7/8 plans executed; 02-08 Tasks 1-2 done, Task 3 (human-verify checkpoint) pending
 
 Plans:
 
@@ -146,7 +146,7 @@ Plans:
 - [x] 02-05-PLAN.md — Migrate `oris` and `oris_soft` (SRAA / SOR / ALM diagnostics, capacity auto-resolution) (SC1)
 - [x] 02-06-PLAN.md — Migrate `newton_kl` (`n_projected_dims`, `lm_mu_final`) (SC1)
 - [x] 02-07-PLAN.md — Consolidate AUTO routing, unify the enum-to-name table, collapse the R bridge's method-string chain (SC1)
-- [ ] 02-08-PLAN.md — Phase gate: single-dispatch-site guard test, full DoD gate, stepstone no-regression, human verification (SC1, SC5)
+- [~] 02-08-PLAN.md — Phase gate: single-dispatch-site guard test, full DoD gate, stepstone no-regression, human verification (SC1, SC5). Tasks 1-2 done (SC1 guard test, DoD+benchmark proof); Task 3 human-verify checkpoint pending.
 
 ### Phase 3: Honest Performance Gate
 
