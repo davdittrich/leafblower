@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 05
 current_phase_name: cran-pypi-release
-status: executing
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-08-15T20:07:30.175Z"
+status: verifying
+stopped_at: Completed 05-05-PLAN.md — Phase 5 (CRAN + PyPI Release) complete, v1.0 roadmap complete
+last_updated: "2026-08-15T21:14:48.678Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 23
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # Project State
@@ -30,7 +30,7 @@ identical from R and from Python.
 
 Phase: 05 (cran-pypi-release) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-15 — Phase 05 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
 in Python with auto correctly R-only) after a first "approved" claim was rejected for
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [██████████] 96% (phase 2)
+Progress: [██████████] 100% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -94,6 +94,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 05 P02 | 4min | 1 tasks | 1 files |
 | Phase 05 P03 | 5min | 2 tasks | 1 files |
 | Phase 05 P04 | ~35min | 2 tasks | 3 files |
+| Phase 05 P05 | 65min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,7 @@ Carried into planning:
 - [Phase ?]: [Phase 05] Plan 02: added python/leafblower/test_version_sync.py, a regex-based regression guard asserting DESCRIPTION Version: == pyproject.toml version — no TOML dependency, mirrors test_core_sources_sync.py's structure exactly. Single test(...) commit; no RED/GREEN split since the guard has no production code to implement, same as its analog.
 - [Phase ?]: 05-03: pinned r-lib/actions to commit d3c5be51b12e724e68f33216ca3c148b66d5f0b6 (tag v2) after human verification via checkpoint:human-verify gate=blocking-human
 - [Phase ?]: 05-04: fixed a pre-existing sdist packaging bug (scikit-build-core's sdist walk cannot reach ../src) via force-include + CMake LBW_SRC_DIR layout detection -- uv build/python -m build was broken independent of this plan's cibuildwheel scope, would also have broken any future real PyPI publish
+- [Phase ?]: [Phase 5] Plan 05 (phase gate, complete): Task 3's checkpoint offered accept-local-CI-gap or defer; user instead set up a real GitHub remote (davdittrich/leafblower, public), untracked dev-tooling per CLAUDE.md's pre-push audit, and drove both r-check.yml and python-wheels.yml to real green GitHub Actions runs -- 0 errors/0 warnings/2 NOTEs (1744 tests) and wheels building/importing across ubuntu-latest+macos-14/Python 3.9-3.13. Six real CI-only defects found and fixed (autumn Suggests resolution, pandoc auto-detection, testthat extra-package, unguarded library(DiceKriging) in test-algo-selection.R, missing TinyTeX, unscheduling macos-13 runner dropped from matrix with user approval). US-008/US-010/KPI-05/KPI-06 moved Partial/Open -> Implemented in REQUIREMENTS.md; residual x86_64-macOS CI coverage gap recorded honestly, not silently closed. Phase 5 (CRAN + PyPI Release) is complete -- the v1.0 roadmap's final phase.
 
 ### Pending Todos
 
@@ -159,7 +161,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T20:07:30.168Z
-Stopped at: Completed 05-04-PLAN.md
+Last session: 2026-08-15T21:14:48.670Z
+Stopped at: Completed 05-05-PLAN.md — Phase 5 (CRAN + PyPI Release) complete, v1.0 roadmap complete
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
 Resume file: None

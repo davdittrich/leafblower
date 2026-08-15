@@ -42,7 +42,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: One Engine, Not Two** - R and Python reach the solvers through a single dispatch path, built the same way (completed 2026-08-15)
 - [x] **Phase 3: Honest Performance Gate** - The performance claim is measured against a live solver and restated as an achievable gate (completed 2026-08-15)
 - [x] **Phase 4: Truthful Surface** - Every documented claim matches shipped behaviour; every footgun errors instead of silently misleading (completed 2026-08-15)
-- [ ] **Phase 5: CRAN + PyPI Release** - A stranger installs leafblower with `install.packages()` and `pip install`
+- [x] **Phase 5: CRAN + PyPI Release** - A stranger installs leafblower with `install.packages()` and `pip install` (completed 2026-08-15)
 
 ## Phase Details
 
@@ -263,7 +263,22 @@ built without it, which constrains what "self-contained" can mean. `tests/testth
 is `.Rbuildignore`d, so fixture-backed tests must keep their `skip_if(!file.exists(...))`
 guards or the CRAN run errors. There is no CI in this repository, so the 3.9–3.13 matrix is
 either a new CI pipeline or a documented manual matrix — decide before planning.
-**Plans:** 4/5 plans executed
+
+Measured at plan-gate time (05-05, 2026-08-15), superseding this phase's original CI-only
+limitation: SC1 and SC3/SC4 were closed with **real, executed CI evidence**, not local
+structural verification. `.github/workflows/r-check.yml` ran on GitHub Actions
+(`https://github.com/davdittrich/leafblower/actions/runs/31908234869`): 0 errors, 0
+warnings, 2 NOTEs, both explained in `cran-comments.md` — SC1 met. `.github/workflows/
+python-wheels.yml` ran on GitHub Actions
+(`https://github.com/davdittrich/leafblower/actions/runs/31908234870`): wheels build, pass
+`twine check`, and import + calibrate cleanly on `ubuntu-latest` + `macos-14` (arm64) across
+Python 3.9–3.13 — SC3/SC4 met for those two platforms. `macos-13` (x86_64 macOS) was dropped
+from the matrix after the runner failed to schedule across 25+ minutes on every CI run on
+this account (a GitHub-side Intel-macOS-runner phase-out, not a package defect); x86_64
+macOS wheel coverage remains unproven by CI, a residual honestly recorded rather than
+silently folded into a blanket "macOS: done" claim. SC2 and SC5 were already closed locally
+in 05-01/05-02 and re-confirmed unchanged.
+**Plans:** 5/5 plans complete
 
 Plans:
 
@@ -271,7 +286,7 @@ Plans:
 - [x] 05-02-PLAN.md — Version-sync test guarding DESCRIPTION vs. pyproject.toml drift (SC5, D-03)
 - [x] 05-03-PLAN.md — R CI: .github/workflows/r-check.yml operationalizing the proven local check + hygiene guard (SC1, SC2, D-02)
 - [x] 05-04-PLAN.md — Python wheel CI: cibuildwheel matrix config + local build/repair/import proof across Python 3.9-3.13 (SC3, SC4, D-02)
-- [ ] 05-05-PLAN.md — Phase gate: full local DoD gate, combined re-verification, human sign-off on scope closure
+- [x] 05-05-PLAN.md — Phase gate: full local DoD gate, combined re-verification, human sign-off on scope closure
 
 ## Progress
 
@@ -284,7 +299,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
 | 3. Honest Performance Gate | 4/4 | In Progress|  |
 | 4. Truthful Surface | 2/2 | Complete    | 2026-08-15 |
-| 5. CRAN + PyPI Release | 4/5 | In Progress|  |
+| 5. CRAN + PyPI Release | 5/5 | Complete    | 2026-08-15 |
 
 ---
 *Roadmap created: 2026-08-15 from `.planning/intel/` + `.planning/codebase/`*
