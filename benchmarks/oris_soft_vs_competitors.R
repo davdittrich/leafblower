@@ -317,6 +317,116 @@ if (!file.exists(large_parquet_path) || !file.exists(large_targets_path)) {
   results <- rbind(results, row_lb_large, competitor_rows_large)
 }
 
+# --- Fixture: known_limit_k20_uniform ---
+# Fixture PARAMETERS (n, K, category count per margin, seed, max_weight,
+# column naming m1..m20) are byte-identical to
+# tests/testthat/test-bench-gate.R's kk1204 block: set.seed(1204),
+# n=500000, K=20 uniform-random categorical columns each drawn from 5
+# levels, max_weight=3. This class exists to make SC3's known limit a
+# MEASURED m_cell_over_n rather than a citation: at K=20 independent
+# 5-level columns and n=500,000, effectively every row is its own cell
+# (measured below), so ORIS-family cell-compression yields zero benefit.
+#
+# TARGET distribution deliberately does NOT reuse that test block's
+# uniform rep(1/cats, cats): measured on this exact data (see
+# 03-02-SUMMARY.md), uniform targets on uniformly-sampled data are
+# trivially fittable (max_error ~4e-15, <10 iterations) -- they demonstrate
+# zero-compression-benefit but NOT any accuracy ceiling, so they cannot
+# back D-01/SC3's "known limit is unachievable" claim, which is about
+# accuracy under bounds, not raw cell compression. This class instead
+# reuses the ORIGINAL kk1204 investigation's skewed target (0.3, 0.175,
+# 0.175, 0.175, 0.175 per margin -- docs/investigations/2026-04-23-kk1204-
+# convergence.md "Input" section), the actual parameterization that
+# produced the near-infeasible plateau D-01 cites. This is a discrepancy
+# from the in-repo test's literal target values, reported here per this
+# task's own read_first instruction ("the measured number this task
+# produces must be consistent with [the investigation] or the discrepancy
+# must be reported") rather than silently forced to match a fixture that
+# would not demonstrate the finding this class exists to measure.
+set.seed(1204)
+n_kk    <- 500000L
+K_kk    <- 20L
+cats_kk <- 5L
+margin_cols_kk <- paste0("m", seq_len(K_kk))
+df_kk <- as.data.frame(lapply(seq_len(K_kk), function(k)
+  factor(sample(seq_len(cats_kk), n_kk, replace = TRUE))))
+names(df_kk) <- margin_cols_kk
+skew_kk <- c(0.3, 0.175, 0.175, 0.175, 0.175)
+tgt_kk  <- setNames(lapply(margin_cols_kk, function(k)
+  setNames(skew_kk, as.character(seq_len(cats_kk)))), margin_cols_kk)
+
+m_cell_kk <- nrow(unique(df_kk[margin_cols_kk]))
+cat(sprintf("\n=== known_limit_k20_uniform n=%d K=%d m_cell=%d (m_cell/n=%.4f) ===\n",
+            n_kk, K_kk, m_cell_kk, m_cell_kk / n_kk))
+
+# Bounded cost: the investigation's extrapolation is ~1.76 million
+# iterations to reach the retired 1e-6 target -- roughly two weeks at this
+# host's measured per-iteration cost. A budget in the same order as the
+# existing kk1204 test block's 500 caps the run; the achieved max_error at
+# that budget IS the finding, not a target this class chases.
+kk_iter_budget <- 500L
+
+cat("  leafblower_oris_soft          solving...\n")
+kk_lb_call <- function() {
+  harvest(df_kk, tgt_kk, method = "oris_soft", max_weight = 3, bounds_mode = "unit",
+          attach_weights = FALSE, max_iterations = kk_iter_budget,
+          convergence = list(metric = "marginal_kl", rule = "improvement", tol = 0.001))
+}
+bm_kk_lb  <- bench::mark(run = kk_lb_call(), iterations = 2, check = FALSE,
+                          memory = FALSE, filter_gc = FALSE)
+w_kk_lb   <- kk_lb_call()
+res_kk_lb <- attr(w_kk_lb, "result")
+w_kk_lb_n <- as.numeric(w_kk_lb)
+max_error_kk_lb <- margin_max_error(w_kk_lb_n, df_kk, tgt_kk)
+ok_kk_lb <- isTRUE(res_kk_lb$status %in% c(0L, 5L))
+note_kk_lb <- sprintf(
+  "max_iterations=%d budget (kk1204-order-of-magnitude cap per docs/investigations/2026-04-23-kk1204-convergence.md); status=%d, iterations=%d; skewed target (0.3/0.175x4 per that investigation), NOT test-bench-gate.R's uniform 1/5 -- see 03-02-SUMMARY.md",
+  kk_iter_budget, res_kk_lb$status, res_kk_lb$iterations)
+row_kk_lb <- arm_row("known_limit_k20_uniform", n_kk, K_kk, cats_kk, m_cell_kk, 3,
+                      "leafblower_oris_soft", as.numeric(bm_kk_lb$median), max_error_kk_lb,
+                      max(w_kk_lb_n), min(w_kk_lb_n),
+                      leafblower::design_effect(w_kk_lb_n),
+                      leafblower::effective_sample_size(w_kk_lb_n),
+                      res_kk_lb$iterations, ok_kk_lb, note_kk_lb)
+cat(sprintf("  %-22s wall=%7.4fs status=%d max_err=%.3e max_w=%.3f n_eff=%.1f\n",
+            "leafblower_oris_soft", row_kk_lb$wall_s, res_kk_lb$status,
+            row_kk_lb$max_error, row_kk_lb$max_w, row_kk_lb$n_eff))
+
+# D-04 fallback: raking-with-acceleration is the documented path for
+# zero-compression-benefit inputs -- this arm is the measurement backing
+# that statement. Standing rule: raking's own canonical convergence
+# (metric="kl", rule="improvement") is used untouched, no override; only
+# `accelerate` and the shared iteration budget are set. Label by what the
+# code does (accelerate=TRUE), not by an algorithm name ("SQUAREM" /
+# "SRAA-m") the code does not itself assert -- resolving which acceleration
+# scheme the flag selects is out of this phase's scope.
+cat("  leafblower_raking_accelerated solving...\n")
+kk_raking_call <- function() {
+  harvest(df_kk, tgt_kk, method = "raking", accelerate = TRUE, bounds_mode = "unit",
+          max_weight = 3, attach_weights = FALSE, max_iterations = kk_iter_budget)
+}
+bm_kk_raking  <- bench::mark(run = kk_raking_call(), iterations = 2, check = FALSE,
+                              memory = FALSE, filter_gc = FALSE)
+w_kk_raking   <- kk_raking_call()
+res_kk_raking <- attr(w_kk_raking, "result")
+w_kk_raking_n <- as.numeric(w_kk_raking)
+max_error_kk_raking <- margin_max_error(w_kk_raking_n, df_kk, tgt_kk)
+ok_kk_raking <- isTRUE(res_kk_raking$status %in% c(0L, 5L))
+note_kk_raking <- sprintf(
+  "accelerate=TRUE (D-04 raking fallback path for zero-compression-benefit inputs); raking's own canonical metric='kl',rule='improvement' default, no convergence override (standing rule); max_iterations=%d budget; status=%d, iterations=%d",
+  kk_iter_budget, res_kk_raking$status, res_kk_raking$iterations)
+row_kk_raking <- arm_row("known_limit_k20_uniform", n_kk, K_kk, cats_kk, m_cell_kk, 3,
+                          "leafblower_raking_accelerated", as.numeric(bm_kk_raking$median),
+                          max_error_kk_raking, max(w_kk_raking_n), min(w_kk_raking_n),
+                          leafblower::design_effect(w_kk_raking_n),
+                          leafblower::effective_sample_size(w_kk_raking_n),
+                          res_kk_raking$iterations, ok_kk_raking, note_kk_raking)
+cat(sprintf("  %-22s wall=%7.4fs status=%d max_err=%.3e max_w=%.3f n_eff=%.1f\n",
+            "leafblower_raking_accelerated", row_kk_raking$wall_s, res_kk_raking$status,
+            row_kk_raking$max_error, row_kk_raking$max_w, row_kk_raking$n_eff))
+
+results <- rbind(results, row_kk_lb, row_kk_raking)
+
 dir.create("benchmarks/results", showWarnings = FALSE, recursive = TRUE)
 write.csv(results, "benchmarks/results/oris_soft_vs_competitors.csv", row.names = FALSE)
 cat("\nWrote benchmarks/results/oris_soft_vs_competitors.csv\n")
