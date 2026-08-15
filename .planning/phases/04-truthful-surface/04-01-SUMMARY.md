@@ -110,3 +110,9 @@ None - no external service configuration required.
 ---
 *Phase: 04-truthful-surface*
 *Completed: 2026-08-15*
+
+## Self-Check: PASSED
+- FOUND: R/harvest.R
+- FOUND: commit 5839b16
+- FOUND: commit 4421f39 (SUMMARY doc commit)
+- FOUND: .planning/phases/04-truthful-surface/04-01-SUMMARY.md
