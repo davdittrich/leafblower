@@ -25,6 +25,36 @@ test_that("stepstone-fulldata rate slope <= -0.75 (beats O(t^-0.5) baseline)", {
   expect_lte(res$slope, -0.75)
 })
 
+test_that("honest gate: leafblower_oris_soft medium_100k_5margins bound/accuracy", {
+  skip_on_cran()
+  skip_if(Sys.getenv("LBW_BENCH_GATE") == "")
+  # Bare-relative "benchmarks/..." (the sibling tests' idiom above) breaks
+  # under a filtered testthat::test_dir(filter="bench-gate") run: only
+  # test-algo-selection.R's own top-level setwd() resets cwd to the package
+  # root, and a filter excluding that file never executes it, leaving cwd at
+  # tests/testthat/ for the whole run. testthat::test_path() is cwd-agnostic
+  # by design (test-sinkhorn-invariants.R already anchors on it the same
+  # way) and resolves correctly under both devtools::test() and a filtered
+  # test_dir() call, so it is used here instead of a bare relative string.
+  pkg_root <- normalizePath(file.path(testthat::test_path(), "../.."))
+  csv_path <- file.path(pkg_root, "benchmarks", "results", "oris_soft_vs_competitors.csv")
+  skip_if(!file.exists(csv_path))
+  d <- read.csv(csv_path)
+  r <- d[d$arm == "leafblower_oris_soft" & d$input_class == "medium_100k_5margins", ]
+  expect_equal(nrow(r), 1L, label = "exactly one leafblower_oris_soft/medium_100k_5margins row")
+  # Wall-time ceiling deliberately NOT asserted here: the published headline
+  # number and this gate's threshold are a one-way decision (once in the
+  # README it cannot be quietly lowered) set in plan 03 after a human sees
+  # the measured values (D-06 read with D-10). Wired in plan 03, not
+  # forgotten here.
+  expect_lte(r$max_w, r$max_weight + 1e-10, label = "max_w: per-observation bound honoured")
+  expect_gte(r$min_w, -1e-10, label = "min_w: no negative weight produced")
+  expect_lte(r$max_error, 1e-3, label = "max_error: survey-adequate accuracy floor")
+  expect_true(is.finite(r$wall_s) && r$wall_s > 0, label = "wall_s: finite and positive")
+  cat(sprintf("honest gate: wall_s=%.4f max_error=%.3e max_w=%.4f n_eff=%.1f\n",
+              r$wall_s, r$max_error, r$max_w, r$n_eff))
+})
+
 test_that("kk1204 gate: n=500k K=20 converges in <30s with best_error<1e-3", {
   skip_on_cran()
   skip_if(Sys.getenv("CI") != "")
