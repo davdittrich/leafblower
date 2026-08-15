@@ -6,6 +6,12 @@
 *.dll
 .dolt/
 # Git worktrees
+# Local dev-tooling / agent artifacts (not part of the package)
+.wolf/
+.beads/
+.claude/
+.metaswarm/
+.tldr/
 # Graphify cache (large, auto-regenerated)
 graphify-out/cache/
 *.o
