@@ -119,3 +119,177 @@ if empty_rows or empty_cols:
 # benchmarks/oris_soft_vs_competitors.R).
 a = tgt_m1.to_numpy(dtype=np.float64) * N
 b = tgt_m2.to_numpy(dtype=np.float64) * N
+
+# ============================================================================
+# Task 2: run leafblower's greenkhorn/sinkhorn vs POT's greenkhorn/sinkhorn
+# ============================================================================
+import importlib.metadata  # noqa: E402
+import platform  # noqa: E402
+import time  # noqa: E402
+from leafblower import design_effect, effective_sample_size  # noqa: E402
+
+CAVEAT = (
+    "POT has no bounds mechanism; both sides run effectively unbounded "
+    "(max_weight set beyond what the fixture can reach) to isolate the pure "
+    "marginal-fit computation -- NOT a test of leafblower's normal bounded, "
+    "K>2 workload."
+)
+
+SCHEMA_COLUMNS = [
+    "input_class", "n", "n_margins", "n_categories", "m_cell", "m_cell_over_n",
+    "max_weight", "arm", "wall_s", "max_error", "max_w", "min_w", "deff", "n_eff",
+    "iterations", "ok", "note",
+]
+
+n_categories = len(LEVELS)
+K_prior_arr = K_prior.to_numpy(dtype=np.float64)
+m_cell = int((K_prior_arr > 0).sum())
+tgt_m1_arr = tgt_m1.to_numpy(dtype=np.float64)
+tgt_m2_arr = tgt_m2.to_numpy(dtype=np.float64)
+m1_codes = df["m1"].cat.codes.to_numpy()
+m2_codes = df["m2"].cat.codes.to_numpy()
+
+
+def timed_median(fn, iterations=2):
+    """Python analogue of bench::mark(iterations=2)'s median."""
+    times = []
+    result = None
+    for _ in range(iterations):
+        t0 = time.perf_counter()
+        result = fn()
+        times.append(time.perf_counter() - t0)
+    return result, float(np.median(times))
+
+
+def margin_max_error_2d(X_cell, tgt_m1_v, tgt_m2_v):
+    """Shared, arm-independent accuracy metric applied identically to both
+    engines' recovered 4x4 cell-mass table. Never reads a package's
+    self-reported convergence status (mirrors oris_soft_vs_competitors.R's
+    margin_max_error())."""
+    total = X_cell.sum()
+    row_props = X_cell.sum(axis=1) / total
+    col_props = X_cell.sum(axis=0) / total
+    return float(max(np.max(np.abs(row_props - tgt_m1_v)),
+                      np.max(np.abs(col_props - tgt_m2_v))))
+
+
+def cell_table_from_weights(w):
+    """leafblower side: aggregate the returned per-observation weight vector
+    into the same 4x4 cell shape via a weighted crosstab."""
+    ct = pd.crosstab(df["m1"], df["m2"], values=pd.Series(w, index=df.index),
+                      aggfunc="sum")
+    return ct.reindex(index=LEVELS, columns=LEVELS, fill_value=0.0).to_numpy(dtype=np.float64)
+
+
+def implied_weights_from_cell_table(T_cell):
+    """POT side has no per-observation identity, only a solved 4x4 cell-mass
+    table. Under the K=2 IPF equivalence this script exists to demonstrate,
+    observations sharing a cell are exchangeable for this margin-only
+    objective, so each observation in cell (i,j) is assigned the implied
+    weight T[i,j] / K_prior[i,j] -- the same cell-uniform-weight structure
+    leafblower's own (unbounded) unit-mode water-fill produces. K_prior[i,j]
+    is guaranteed > 0 for every (i,j) actually occupied by an observation
+    (the fixture's degeneracy guard above); POT's kernel is exactly 0 on any
+    K_prior[i,j] == 0 cell (exp(-M/reg) = 0 there), so T is 0 there too and
+    no such observation exists to index."""
+    ratio = np.where(K_prior_arr > 0, T_cell / np.where(K_prior_arr > 0, K_prior_arr, 1.0), 0.0)
+    return ratio[m1_codes, m2_codes]
+
+
+def lb_call(method):
+    return harvest(df, targets, method=method, max_weight=float(N),
+                   bounds_mode="unit", convergence=None, attach_weights=False)
+
+
+def pot_call(method):
+    if method == "greenkhorn":
+        return ot.bregman.greenkhorn(a, b, M, reg=1.0)
+    return ot.sinkhorn(a, b, M, reg=1.0, method="sinkhorn")
+
+
+rows = []
+
+print(f"\n=== k2_margin_pot_equiv n={N} K=2 nj={n_categories} m_cell={m_cell} "
+      f"(m_cell/n={m_cell / N:.4f}) ===")
+
+for method in ("greenkhorn", "sinkhorn"):
+    res, wall_s = timed_median(lambda m=method: lb_call(m))
+    w = res["weights"]
+    result_dict = res["result"]
+    status = result_dict["status"]
+    iterations = result_dict["iterations"]
+    X_cell = cell_table_from_weights(w)
+    max_error = margin_max_error_2d(X_cell, tgt_m1_arr, tgt_m2_arr)
+    ok = bool(status in (0, 5))
+    note = (
+        f"{CAVEAT} leafblower method='{method}', max_weight={N} (effectively "
+        f"unbounded); status={status}, iterations={iterations}"
+    )
+    rows.append({
+        "input_class": "k2_margin_pot_equiv", "n": N, "n_margins": 2,
+        "n_categories": n_categories, "m_cell": m_cell, "m_cell_over_n": m_cell / N,
+        "max_weight": float(N), "arm": f"leafblower_{method}", "wall_s": wall_s,
+        "max_error": max_error, "max_w": float(np.max(w)), "min_w": float(np.min(w)),
+        "deff": design_effect(w), "n_eff": effective_sample_size(w),
+        "iterations": iterations, "ok": ok, "note": note,
+    })
+    print(f"  {'leafblower_' + method:<22} wall={wall_s:7.4f}s status={status} "
+          f"max_err={max_error:.3e} max_w={np.max(w):.3f} n_eff={effective_sample_size(w):.1f}")
+
+for method in ("greenkhorn", "sinkhorn"):
+    T, wall_s = timed_median(lambda m=method: pot_call(m))
+    max_error = margin_max_error_2d(T, tgt_m1_arr, tgt_m2_arr)
+    w_implied = implied_weights_from_cell_table(T)
+    ok = bool(np.all(np.isfinite(T)))
+    pot_fn = "ot.bregman.greenkhorn(a,b,M,reg=1.0)" if method == "greenkhorn" \
+        else "ot.sinkhorn(a,b,M,reg=1.0,method='sinkhorn')"
+    note = (
+        f"{CAVEAT} {pot_fn}; max_w/min_w/deff/n_eff derived from the implied "
+        f"per-observation weight T[i,j]/K_prior[i,j] within each cell (K=2 IPF "
+        f"equivalence: observations sharing a cell are exchangeable under this "
+        f"margin-only objective)"
+    )
+    rows.append({
+        "input_class": "k2_margin_pot_equiv", "n": N, "n_margins": 2,
+        "n_categories": n_categories, "m_cell": m_cell, "m_cell_over_n": m_cell / N,
+        "max_weight": np.nan, "arm": f"pot_{method}", "wall_s": wall_s,
+        "max_error": max_error, "max_w": float(np.max(w_implied)),
+        "min_w": float(np.min(w_implied)), "deff": design_effect(w_implied),
+        "n_eff": effective_sample_size(w_implied), "iterations": np.nan, "ok": ok,
+        "note": note,
+    })
+    print(f"  {'pot_' + method:<22} wall={wall_s:7.4f}s max_err={max_error:.3e} "
+          f"max_w={np.max(w_implied):.3f} n_eff={effective_sample_size(w_implied):.1f}")
+
+results = pd.DataFrame(rows, columns=SCHEMA_COLUMNS)
+os.makedirs("benchmarks/results", exist_ok=True)
+results.to_csv("benchmarks/results/greenkhorn_sinkhorn_vs_pot.csv", index=False)
+print("\nWrote benchmarks/results/greenkhorn_sinkhorn_vs_pot.csv")
+
+# --- Machine and provenance capture (mirrors oris_soft_vs_competitors.R) ---
+def _cpu_model():
+    try:
+        if os.path.exists("/proc/cpuinfo"):
+            with open("/proc/cpuinfo") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        return line.split(":", 1)[1].strip()
+        return None
+    except OSError:
+        return None
+
+
+cpu_model = _cpu_model()
+env_lines = [
+    f"Python version: {platform.python_version()}",
+    f"Platform: {platform.platform()}",
+    f"POT: {ot.__version__}",
+    f"leafblower: {importlib.metadata.version('leafblower')}",
+    f"OMP_NUM_THREADS: {os.environ.get('OMP_NUM_THREADS', '')}",
+    f"OPENBLAS_NUM_THREADS: {os.environ.get('OPENBLAS_NUM_THREADS', '')}",
+    f"MKL_NUM_THREADS: {os.environ.get('MKL_NUM_THREADS', '')}",
+    f"CPU model: {cpu_model if cpu_model else 'NA (non-Linux host)'}",
+]
+with open("benchmarks/results/greenkhorn_sinkhorn_vs_pot_env.txt", "w") as f:
+    f.write("\n".join(env_lines) + "\n")
+print("Wrote benchmarks/results/greenkhorn_sinkhorn_vs_pot_env.txt")

@@ -1,0 +1,8 @@
+Python version: 3.13.15
+Platform: Linux-7.1.8-arch1-3-x86_64-with-glibc2.44
+POT: 0.9.7.post1
+leafblower: 0.1.0
+OMP_NUM_THREADS: 1
+OPENBLAS_NUM_THREADS: 1
+MKL_NUM_THREADS: 1
+CPU model: AMD Ryzen 9 9950X3D 16-Core Processor
