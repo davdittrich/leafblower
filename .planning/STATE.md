@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: honest-performance-gate
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-08-15T13:06:13.101Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-08-15T13:31:36.659Z"
 last_activity: 2026-08-15
 last_activity_desc: Plan 02-08 Task 3 resolved — user approved after independent re-verification; phase 2 closed
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -29,7 +29,7 @@ identical from R and from Python.
 ## Current Position
 
 Phase: 03 (honest-performance-gate) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-15 — Phase 03 execution started
 user-visible surface (harvest() field parity across all 9 solvers + AUTO in R, all 9
@@ -40,7 +40,7 @@ DoD gate (R 0 FAIL/1833 PASS, Python 160 passed/0 failed) and stepstone benchmar
 (byte-identical to the 02-07 baseline). leafblower-rywn (P0 dispatch-unification epic)
 closed with DoD evidence.
 
-Progress: [████████░░] 81% (phase 2)
+Progress: [█████████░] 88% (phase 2)
 
 **Brownfield.** The package is at v0.1.0 with eight shipped solvers and 1478 closed beads
 tickets. 0% here measures the *remaining* work in this roadmap, not the product.
@@ -84,6 +84,7 @@ tickets. 0% here measures the *remaining* work in this roadmap, not the product.
 | Phase 02 P07 | 50min | 3 tasks | 3 files |
 | Phase 02 P08 | ~30min | 3 tasks | 1 file |
 | Phase 03-honest-performance-gate P01 | ~55min | 3 tasks | 5 files |
+| Phase 03-honest-performance-gate P02 | ~35min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,9 @@ Carried into planning:
 - [Phase ?]: [Phase 02] Plan 02-08 (phase gate, complete): test_single_dispatch_site.py added -- SC1 now enforced by a pytest guard (RED/GREEN verified), not only satisfied by current source. Corrected the plan's stated "at most two dispatch_solver call sites" bound to the actual, architecturally-correct 3 (AUTO primary + AUTO fallback + the one unified explicit-method call), cross-checked against 02-07-SUMMARY.md's own D4 coverage entry. Full DoD gate proven green (R 0 FAIL/1833 PASS/141 WARN/13 SKIP; Python 160 passed/0 failed) and stepstone benchmark (kk1204) byte-identical to the 02-07 baseline (SC5 proven with numbers). leafblower-rywn closed with DoD evidence. Task 3's checkpoint:human-verify: a first "approved" message was rejected because it explicitly disclosed the orchestrator ran the verification itself, not the user -- no agent message substitutes for the user's own sign-off on a gate="blocking" checkpoint. The user then approved directly, after independent corroboration (test-newton-kl.R + test-cr-d5-auto-fallback-fields.R: 0 FAIL/29 PASS; test_solver_parity.py + test_parity_weights.py: 21 passed/0 failed). **Phase 2 (One Engine, Not Two) is complete: SC1-SC5 all have durable evidence.**
 - [Phase ?]: Task 1: oris_soft convergence must use its own canonical marginal_kl/improvement rule, never a competitor's absolute/max_err/threshold shorthand — reintroduces the stopped-early confound.
 - [Phase ?]: Task 2/3: testthat::test_dir(filter=...) requires NOT_CRAN=true (unlike devtools::test()) to actually run skip_on_cran()-gated assertions; new file paths inside such filtered runs must anchor on testthat::test_path(), not a bare relative string.
+- [Phase ?]: 03-02: known_limit_k20_uniform uses the original 2026-04-23 kk1204 investigation's skewed target (0.3/0.175x4), not test-bench-gate.R's literal uniform 1/5 -- uniform targets on this exact data converge trivially (max_error ~4e-15), which cannot back the 'known limit is unachievable' claim. Fixture n/K/seed/max_weight/naming stay byte-identical to the in-repo test.
+- [Phase ?]: 03-02: deff/n_eff measured for known_limit_k20_uniform (deff=2.44-2.74, n_eff~183k-205k) diverge ~3000-5700x from leafblower-ylsy's cited DEFF 8000-14000/n_eff 71-118 -- traced to that closure using a fifth, more-severe kk1204 skew variant (0.6/0.2/0.1/0.07/0.03 at n=1e6), confirming RESEARCH.md Pitfall 2's divergent-fixture-description finding.
+- [Phase ?]: 03-02: full D-07 competitor set (survey, icarus, ReGenesees) measured on the medium class, all agreeing with oris_soft to within 5e-4 max_error; icarus requires method='logit' (not 'raking') to honour bounds; ReGenesees totals filled manually via pop.template() column-name parsing (no sampling frame available for fill.template()).
 
 ### Pending Todos
 
@@ -136,7 +140,7 @@ None captured yet.
 
 ## Session Continuity
 
-Last session: 2026-08-15T13:06:13.093Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-08-15T13:31:36.652Z
+Stopped at: Completed 03-02-PLAN.md
 Next: Plan Phase 3 (Honest Performance Gate) — reuse leafblower-2ouc's benchmarks/ infrastructure per the carried-forward decision above; leafblower-kk1.20.4's REFRAME decision (30s/<1e-6 gate on kk1204) must be chosen before Phase 3 planning starts.
 Resume file: None
