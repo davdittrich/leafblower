@@ -179,7 +179,7 @@ on stepstone instead of kk1204; track kk1204 separately as algorithmic research)
 `leafblower-2ouc` epic owns the comparative-study infrastructure. Determinism protocol is
 mandatory: single-thread BLAS, interleaved before/after comparison in one `bench::mark()`
 call, never sequential measurement.
-**Plans:** 8/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 
@@ -302,7 +302,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
-| 3. Honest Performance Gate | 8/8 | In Progress|  |
+| 3. Honest Performance Gate | 8/8 | Complete    | 2026-08-16 |
 | 4. Truthful Surface | 2/2 | Complete    | 2026-08-15 |
 | 5. CRAN + PyPI Release | 5/5 | Complete    | 2026-08-15 |
 

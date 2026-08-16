@@ -1,97 +1,103 @@
 ---
 phase: 03-honest-performance-gate
-verified: 2026-08-15T16:20:00Z
+verified: 2026-08-16T01:02:07Z
 status: passed
-score: 4/4 must-haves verified
+score: 6/6 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
+re_verification:
+  previous_status: passed (2026-08-15, pre-gap-closure — superseded by UAT gaps G-03-1/G-03-4 opened after that verification ran)
+  previous_score: 4/4
+  gaps_closed:
+    - "G-03-1: per-method benchmark coverage — every leafblower method (oris, oris_soft, raking, newton_kl, greg, logit, chebyshev, sinkhorn, greenkhorn) now has a measured row against its own doc-named closest competitor"
+    - "G-03-4: docs/performance.md's Competitors section now covers all 9 methods with per-method mapping, not just the original 3-package oris_soft comparison"
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 3: Honest Performance Gate Verification Report
 
-**Phase Goal:** The package's headline performance claim is a measured fact about a solver
-that exists, expressed as a gate a user can run and a maintainer can regress against.
-**Verified:** 2026-08-15
+**Phase Goal:** Publish honest, benchmark-grounded performance claims for every leafblower
+method against a doc-named closest competitor, with no silently dropped scope caveats or
+bound violations.
+**Verified:** 2026-08-16T01:02:07Z
 **Status:** passed
-**Re-verification:** No — initial verification.
+**Re-verification:** Yes — after gap closure (03-05..08) and a subsequent code review
+(03-REVIEW.md) whose two Warning fixes (WR-01, WR-02) landed in commits `af6913e`/`c4b511a`.
+
+This verification supersedes `03-VERIFICATION.md`'s 2026-08-15 run, which certified only the
+original 4 plans (03-01..04, scoped to `oris_soft` vs 3 generic survey packages). UAT
+(`03-UAT.md`) subsequently opened gaps G-03-1/G-03-4 because that scope excluded 6 of
+leafblower's 9 methods. Gap-closure plans 03-05..08 and a follow-up code review with two
+just-landed fixes are what this run independently re-verifies, per the request scope.
 
 ## Goal Achievement
 
-### Observable Truths (Success Criteria from ROADMAP/PLAN)
+### Observable Truths
 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
-| 1 | A user reading package documentation sees a large-scale performance figure measured on this codebase with a live solver, on a stated input class and machine — not an lbfgsb-inherited target | ✓ VERIFIED | `README.md` states `oris_soft` calibrates in 0.0427s/max_error 3.35e-05/n_eff 67,489.4 on the medium class, linking to `docs/performance.md`. That page's `large_stepstone_fulldata` section states `n=1,582,732`, `wall_s=3.5459`, machine "AMD Ryzen 9 9950X3D 16-Core Processor" and R/BLAS/LAPACK versions, all transcribed from `benchmarks/results/oris_soft_vs_competitors_env.txt` (verified byte-matching by direct read). No `lbfgsb`/`test-lbfgsb.R` reference survives as a live claim anywhere in `README.md` or `docs/performance.md` (grep negative). |
-| 2 | The medium-scale target states ONE number, not the 1s/2s contradiction, and names the measuring artefact | ✓ VERIFIED | `tasks/prd-leafblower-core.md` lines 30, 181, 673 (the three `100K rows, 5 margins` sites, confirmed via `grep -n -E`) each now carry an in-place `**Superseded 2026-08-15**` marker pointing to `docs/performance.md`; none was deleted (PRD is a frozen historical doc). `README.md`/`docs/performance.md` publish exactly one medium-scale figure (wall_s=0.0427), naming `benchmarks/oris_soft_vs_competitors.R` and the `honest gate:` testthat block as the measuring artefacts. |
-| 3 | The K=20 uniform-random / M_cell/n=1.0 class is documented as a known limit with the structural reason, not a silently failing promise | ✓ VERIFIED | `docs/performance.md` § "Known limit" states `m_cell/n = 1.0000` (measured, confirmed against the live CSV), explains zero cell-compression benefit, gives both `leafblower_oris_soft` (max_error=5.229e-03) and `leafblower_raking_accelerated` (max_error=1.516e-03) figures, states plainly the composite `<30s AND <1e-6` gate is confirmed structurally unachievable, and cross-links to both investigation docs without restating them. `.planning/REQUIREMENTS.md`'s US-003/KPI-04 entries restate this as a documented known limit, not an open blocker. No gate assertion exists for this class (`grep -c 'known_limit_k20_uniform' tests/testthat/test-bench-gate.R` = 0, confirmed). |
-| 4 | A maintainer can re-run the benchmark that produced every published figure with one command; KPI rows name a live measuring artefact | ✓ VERIFIED | `CI=1 bash benchmarks/run_honest_gate.sh` executed live during this verification: exit 0, regenerated `benchmarks/results/oris_soft_vs_competitors.csv`/`_env.txt` with figures matching the published ones within run-to-run wall-time noise (medium wall_s 0.0427→0.0427, large 3.5459→3.5321, known-limit 7.3934→7.3687). `.planning/REQUIREMENTS.md` US-003/KPI-04 name `benchmarks/oris_soft_vs_competitors.R` and the `honest gate:` assertion in `tests/testthat/test-bench-gate.R` (both confirmed present and passing), replacing the void `test-lbfgsb.R`. |
+| 1 | Every leafblower method (`oris`, `oris_soft`, `raking`, `newton_kl`, `greg`, `logit`, `chebyshev`, `sinkhorn`, `greenkhorn`) has a fresh, measured row against its own doc-named closest competitor | ✓ VERIFIED | `docs/performance.md`'s Competitors table (lines 259-291) lists all 9 methods with per-method mapping (`survey::calibrate`/`icarus`/`ReGenesees` for the raking family, distance-matched `survey::calibrate(calfun=)` for greg/logit, `optweight::optweight.svy(norm='linf')` for chebyshev, POT's `ot.bregman.greenkhorn`/`ot.sinkhorn` for greenkhorn/sinkhorn), each citing the source `docs/methods/*.md` "Practitioner implementations" section. Cross-checked against live-regenerated `benchmarks/results/oris_soft_vs_competitors.csv` (13 rows on `medium_100k_5margins` alone) and `benchmarks/results/greenkhorn_sinkhorn_vs_pot.csv` (4 rows) — every figure transcribed verbatim. |
+| 2 | Bound violations are never silently reported `ok=TRUE` — a solver's own self-reported status is independently re-graded against `max_weight` | ✓ VERIFIED (behaviorally, live re-run) | Ran `OMP/OPENBLAS/MKL_NUM_THREADS=1 Rscript benchmarks/oris_soft_vs_competitors.R` live during this verification. Regenerated CSV: `leafblower_newton_kl` reports `ok=FALSE` with `max_w=6.2105 > max_weight=3`, `note` field states "max_w=6.2105 exceeds max_weight=3 -- newton_kl reports rather than clamping bound violations ... see leafblower-73d7". Every other bounded arm (`leafblower_oris_soft`, `survey_calibrate`, `icarus_calibration`, `ReGenesees_e_calibrate`, `leafblower_oris`, `leafblower_raking`, `leafblower_greg`, `leafblower_logit`, both `survey_calibrate_linear/logit`, `leafblower_chebyshev`) correctly reports `ok=TRUE` at or within bound. This is WR-01's fix (`af6913e`), confirmed landed in source (`oris_soft_vs_competitors.R:386-393`, `ok_lb <- isTRUE(res_lb$status %in% c(0L,5L)) && max(w_lb_n) <= 3 + 1e-6`) and confirmed correct at runtime, not just present. |
+| 3 | Bound-compliance checks (`ok_*`) and reported `max_w`/`min_w` are computed on the same weight scale, not silently mismatched | ✓ VERIFIED | `grep -n "w_sv_n" benchmarks/oris_soft_vs_competitors.R` shows both `survey_calibrate` call sites (pre-existing block, line ~173; new `survey_calfun_arm_row()`, line ~440) now compute `ok_sv <- all(is.finite(w_sv_n)) && max(w_sv_n) <= max_weight + 1e-6` on the normalized `w_sv_n` vector — the same vector reported as `max_w`/`min_w` in the same row. This is WR-02's fix (`c4b511a`), confirmed landed at both call sites (previously only one site checked the raw, unnormalized `w_sv`). |
+| 4 | Known scope caveats (objective mismatch, missing-bound-argument competitors, cross-language timer methodology, K=2-only equivalence) are stated on the published page, not left silently dropped | ✓ VERIFIED | `docs/performance.md` Competitors table's `optweight_linf` row states the weight-deviation-vs-margin-error objective mismatch and the missing `max.w` argument verbatim from the CSV note; the `sinkhorn`/`greenkhorn` rows state POT's lack of a bounds mechanism and the K=2-only equivalence scope, also verbatim from CSV notes. The `known_limit_k20_uniform` section is unchanged from the original verification (structural limit, not silently dropped). |
+| 5 | The one-command reproduction (`benchmarks/run_honest_gate.sh`) covers every published figure, including the newly-added POT comparison | ✓ VERIFIED | `run_honest_gate.sh` (last touched `78103f8`, 03-07) exports single-thread BLAS + `LBW_BENCH_GATE`/`NOT_CRAN`, then runs the stepstone regression gate, `oris_soft_vs_competitors.R`, and `python/.venv/bin/python benchmarks/greenkhorn_sinkhorn_vs_pot.py` in sequence — `python/.venv/bin/python` confirmed to exist on disk. |
+| 6 | WR-03 (stale `1e-10` tolerance comment) is genuinely cosmetic, not masking a real gap | ✓ VERIFIED | `oris_soft_vs_competitors.R:65-68`'s comment on `normalize_to_n()` still misattributes a `1e-10` tolerance to "this script itself" — confirmed unfixed, matching 03-REVIEW.md's description exactly. Independently confirmed every actual `ok_*` bound check in the file (`grep -n "+ 1e-6"` at 4 call sites: lines ~173, ~228 icarus, ~293 ReGenesees, ~386 lb_only_arm_row, ~440 survey_calfun_arm_row — all consistently `+ 1e-6`) uses the same tolerance; the `1e-10` figure genuinely belongs to a different file (`tests/testthat/test-bench-gate.R:45`), which does independently enforce its own `1e-10` gate on the `oris_soft` row only. The comment error does not change any computed `ok`/`max_w` value in this script — it is a documentation-accuracy defect in a comment, not a logic defect. |
 
-**Score:** 4/4 truths verified (0 present, behavior-unverified)
+**Score:** 6/6 truths verified (0 present, behavior-unverified)
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |---|---|---|---|
-| `benchmarks/oris_soft_vs_competitors.R` | Fresh measurement script, 3 input classes, 4+ arms | ✓ VERIFIED | Exists, substantive (single-thread-BLAS guard confirmed to exit non-zero when `OPENBLAS_NUM_THREADS` unset — ran live), no `autumn` mention, `tryCatch` x5, `requireNamespace` x7. |
-| `benchmarks/run_honest_gate.sh` | One-command wrapper | ✓ VERIFIED | Executable, ran live to completion (exit 0), regenerates both result artefacts, exports all three thread vars + `LBW_BENCH_GATE` + `NOT_CRAN`. |
-| `benchmarks/results/oris_soft_vs_competitors.csv` | 17-column, 3 input classes, 10 rows | ✓ VERIFIED | Present on disk, schema matches, content matches every number quoted in `docs/performance.md` and `README.md`. |
-| `benchmarks/results/oris_soft_vs_competitors_env.txt` | Machine/version provenance | ✓ VERIFIED | Present, content matches `docs/performance.md`'s "Machine and versions" table verbatim. |
-| `tests/testthat/test-bench-gate.R` | Opt-in honest gate + re-gated kk1204 block | ✓ VERIFIED | Ran live: default filtered run (`LBW_BENCH_GATE` unset) completes in 0.34s reporting 4 SKIP, 0 PASS (no heavy solve paid). Gated run (`LBW_BENCH_GATE=1 NOT_CRAN=true CI=1`) produces `honest gate: wall_s=0.0427 max_error=3.347e-05 max_w=3.0000 n_eff=67489.4` and `kk1204 gate: status=0 iters=10 best_error=-7.376e-14 time=1.6s`, 0 FAIL / 10 PASS. |
-| `docs/performance.md` | Methodology page, all sections | ✓ VERIFIED | 215 lines, contains headline claim, results tables (every wall_s row carries max_error/max_w/n_eff), input classes, machine/versions, methodology, reproduction, known limit (cross-linked, not restated), competitors (linked to `docs/methods/oris.md`, no restated bibliography). No `uuid`/`/home/dd/stepstone` disclosure (grep negative). |
-| `README.md` | One-line headline claim + link | ✓ VERIFIED | 12 lines, states `oris_soft` paired claim (wall_s/max_error/bound/n_eff), links to `docs/performance.md`, no install/badge/CRAN content, no `autumn` mention. |
-| `.planning/REQUIREMENTS.md` | US-003/KPI-04 name live artefacts | ✓ VERIFIED | Both entries rewritten, name `benchmarks/oris_soft_vs_competitors.R` and the `honest gate:` assertion; Traceability rows show `Partial` (honestly, not rounded up — see Notable Honesty below). |
-| `tasks/prd-leafblower-core.md` | Contradiction sites marked superseded | ✓ VERIFIED | All 3 sites (lines 30, 181, 673) carry in-place superseded markers; `test-lbfgsb.R` explicitly annotated as void rather than silently left standing. |
+| `benchmarks/oris_soft_vs_competitors.R` | 9-method-capable measurement script with independently re-graded `ok` flags | ✓ VERIFIED | 13 arms on `medium_100k_5margins` alone (raking family x3 + competitors x3, greg/logit x2 + distance-matched competitors x2, chebyshev + optweight, plus known-limit rows). `lb_only_arm_row()`/`survey_calfun_arm_row()` helpers confirmed present and correctly re-grading bound compliance post-fix. |
+| `benchmarks/greenkhorn_sinkhorn_vs_pot.py` | New file, K=2 POT-equivalence measurement | ✓ VERIFIED | Exists (13,230 bytes), CSV output confirmed substantive (4 rows, real numeric equivalence to ~15 significant figures across leafblower/POT arm pairs). |
+| `benchmarks/results/oris_soft_vs_competitors.csv` | 13+ rows spanning 9 methods | ✓ VERIFIED | Regenerated live during this verification; content matches every figure in `docs/performance.md`. |
+| `benchmarks/results/greenkhorn_sinkhorn_vs_pot.csv` | 4 rows (2 leafblower arms x 2 POT arms) | ✓ VERIFIED | Present, content matches `docs/performance.md`'s `k2_margin_pot_equiv` table. |
+| `docs/performance.md` | Full 9-method Competitors table + extended Results | ✓ VERIFIED | 298 lines; "per-method competitor coverage" table (lines 69-104) and Competitors section (lines 259-291) both present and populated for all 9 methods, transcribed verbatim from the CSVs. |
+| `benchmarks/run_honest_gate.sh` | One command reproduces every figure | ✓ VERIFIED | Wired step for the POT comparison added (03-07); executable, all three steps present. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| `run_honest_gate.sh` | `oris_soft_vs_competitors.R` | invocation | ✓ WIRED | Confirmed by live execution — script step 2 runs it, produces fresh CSV. |
-| `oris_soft_vs_competitors.R` | `test-bench-gate.R`'s `honest gate:` block | CSV read | ✓ WIRED | `csv_path` anchored on `testthat::test_path()`; live gated run reads the same CSV the script writes and asserts on it. |
-| `harvest(bounds_mode="unit")` | `survey::calibrate(bounds=...)` | comparable problem | ✓ WIRED | CSV confirms both arms received `[0,3]` per-observation bound; `icarus`/`ReGenesees` arms use their own bound-honouring methods (`method='logit'`, `calfun='raking'`). |
-| `docs/performance.md` | `docs/methods/oris.md`, investigation docs | citation links | ✓ WIRED | Confirmed present in the page body (grep + read); bibliography not duplicated. |
-| `.planning/REQUIREMENTS.md` KPI-04 | live artefacts | naming | ✓ WIRED | `benchmarks/oris_soft_vs_competitors.R` and `test-bench-gate.R` named and confirmed to exist and run. |
+| `run_honest_gate.sh` | `greenkhorn_sinkhorn_vs_pot.py` | invocation | ✓ WIRED | Confirmed in script body (`python/.venv/bin/python benchmarks/greenkhorn_sinkhorn_vs_pot.py`), venv binary confirmed to exist. |
+| `docs/performance.md` Competitors table | `benchmarks/results/*.csv` note fields | verbatim transcription | ✓ WIRED | Every caveat sentence in the Competitors table (optweight objective mismatch, POT no-bounds, newton_kl bound violation) matches a live-read CSV `note` field byte-for-byte on the load-bearing clauses. |
+| `lb_only_arm_row()`'s `ok_lb` | `max_weight` bound | independent re-grading | ✓ WIRED (behaviorally confirmed live) | Live-run CSV shows `ok_lb` diverges from `status`-only truth exactly where expected (`newton_kl`), proving the check is load-bearing, not a no-op. |
+| `survey_calfun_arm_row()`'s `ok_sv` | normalized weight vector `w_sv_n` | scale consistency | ✓ WIRED | Both call sites read from the same `w_sv_n` used for the reported `max_w`/`min_w`. |
 
-### Behavioral Spot-Checks (executed live during this verification, not from SUMMARY claims)
+### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| R build gate | `R CMD INSTALL --preclean .` | `* DONE (leafblower)` | ✓ PASS |
-| R test suite (DoD) | `Rscript -e "devtools::test()"` (single-thread BLAS) | `[ FAIL 0 \| WARN 141 \| SKIP 13 \| PASS 1836 ]` — matches 03-04-SUMMARY's claimed baseline exactly | ✓ PASS |
-| Python parity suite | `.venv/bin/python -m pytest` (single-thread BLAS) | `160 passed, 0 failed` | ✓ PASS |
-| Default bench-gate filtered run | `testthat::test_dir(filter='bench-gate')`, `LBW_BENCH_GATE` unset | 0.34s, `[ FAIL 0 \| WARN 0 \| SKIP 4 \| PASS 0 ]` — no heavy solve paid by default | ✓ PASS |
-| Gated bench-gate run | `CI=1 LBW_BENCH_GATE=1 NOT_CRAN=true testthat::test_dir(filter='bench-gate', stop_on_failure=TRUE)` | `honest gate:`/`kk1204 gate:` lines printed, `[ FAIL 0 \| WARN 0 \| SKIP 2 \| PASS 10 ]` | ✓ PASS |
-| One-command reproduction | `CI=1 bash benchmarks/run_honest_gate.sh` | exit 0, regenerated CSV with figures matching published ones within noise | ✓ PASS |
-| Determinism guard | `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 Rscript benchmarks/oris_soft_vs_competitors.R` (OPENBLAS unset) | exit 1, `Error: refusing to measure: OPENBLAS_NUM_THREADS must be set to "1"...` | ✓ PASS |
-| D-05 negative check | `grep -v '^\s*#' ... \| grep -ci autumn` on `benchmarks/oris_soft_vs_competitors.R` | 0 | ✓ PASS |
-| DESCRIPTION/pyproject.toml scoping | `grep -i 'icarus\|regenesees' DESCRIPTION python/pyproject.toml` | no matches | ✓ PASS |
-| Task commits present | `git log --oneline` for all 12 task commits across 03-01..03-04 | all present, matches every SUMMARY's claimed hash | ✓ PASS |
+| WR-01 fix, live | `OMP/OPENBLAS/MKL_NUM_THREADS=1 Rscript benchmarks/oris_soft_vs_competitors.R` | `leafblower_newton_kl` row: `ok=FALSE`, `max_w=6.2105 > max_weight=3`; all other bounded arms `ok=TRUE` | ✓ PASS |
+| Determinism | git diff of regenerated CSV vs. committed CSV after live re-run | No diff | ✓ PASS |
+| WR-02 fix, static | `grep -n "w_sv_n" benchmarks/oris_soft_vs_competitors.R` | Both `survey_calibrate` call sites compute `ok_sv` on `w_sv_n` | ✓ PASS |
+| Commits touched no package source | `git show --stat af6913e c4b511a \| grep -E "^ (R/\|src/\|python/leafblower/)"` | no matches | ✓ PASS (confirms no DoD re-run needed for these two fix commits; prior verification's `R CMD INSTALL`/`devtools::test()`/pytest 0-FAIL results stand unaffected) |
+| Anti-pattern scan | `grep -nE "TBD\|FIXME\|XXX\|TODO\|HACK\|PLACEHOLDER"` on all 4 phase-modified files | 0 matches | ✓ PASS |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |---|---|---|---|---|
-| US-003 | 03-01..03-04 | 1M+ obs / 20+ margins < 30s | ✓ HONESTLY PARTIAL | Rewritten entry names live artefacts, states measured figures on 3 classes, and explicitly states no single fixture combines "1M+ rows AND 20+ margins" as the PRD literally demands — status kept `Partial`, not rounded up to Implemented. This is correct, not a gap: the PRD's literal AND-combination genuinely was never demonstrated by one measurement, and the entry says so plainly. |
-| KPI-04 | 03-01..03-04 | Large-scale 1M rows/20 margins/<30s | ✓ HONESTLY PARTIAL | Same honest-partial treatment; names both live artefacts; large-scale (1.58M rows, single-digit margins) and the 20-margin known-limit shape are measured separately and reported as such, not conflated. |
+| US-003 | 03-01..03-08 | 1M+ obs / 20+ margins < 30s | ✓ SATISFIED (as "Partial," honestly) | `.planning/REQUIREMENTS.md:110-131` names live artefacts and states plainly no single fixture combines "1M+ rows AND 20+ margins" — this remains true after gap closure (which added per-method competitor coverage, not a new large+20-margin fixture) and was not required to change by 03-05..08's own `must_haves` (none listed REQUIREMENTS.md as an artifact). Traceability table (line 272) correctly still shows `Partial`. |
+| KPI-04 | 03-01..03-08 | Large-scale 1M rows/20 margins/<30s | ✓ SATISFIED (as "Partial," honestly) | Same reasoning as US-003; `.planning/REQUIREMENTS.md:174-` and traceability line 282 (`Partial`) unaffected and still accurate. |
+
+No orphaned requirements found for Phase 3 in `.planning/REQUIREMENTS.md`.
 
 ### Anti-Patterns Found
 
-None blocking. No `TBD`/`FIXME`/`XXX` markers found in phase-modified files. The one deliberately-left inconsistency — the kk1204 block's fixture uses a uniform target (converges trivially, `best_error≈-7e-14`) rather than the skewed target that reproduces the actual degenerate known limit — is explicitly flagged in-code (lines 78-96 of `test-bench-gate.R`) and in `03-04-SUMMARY.md`'s "Fixture Mismatch Finding" section as a reported-not-fixed, out-of-scope-for-this-task observation, not hidden. This is the honest disclosure pattern the phase goal demands, not a defect.
+None blocking. No `TBD`/`FIXME`/`XXX`/`TODO`/`HACK`/`PLACEHOLDER` markers in any of the 4 files reviewed by `03-REVIEW.md` or touched by the WR-01/WR-02 fix commits. WR-03 (stale `1e-10` comment) is a documentation-accuracy defect confirmed cosmetic — see Truth 6 above — left unfixed by deliberate choice, consistent with the review's own "Fix: [optional]" framing (WR-03 has a `Fix:` suggestion but no severity that blocks the phase; it was not marked blocking in `03-REVIEW.md`'s frontmatter, which records `critical: 0`).
 
 ### Human Verification Required
 
-None. All four success criteria are independently verifiable via file content and live command execution, which was done during this verification (not merely re-stated from SUMMARY.md).
-
-### Notable Honesty Checks (per verification_focus)
-
-1. **kk1204 fixture-mismatch note (03-04):** Confirmed flagged both in-comment (`test-bench-gate.R:78-96`) and in `03-04-SUMMARY.md`'s dedicated "Fixture Mismatch Finding" section — not hidden. The block is correctly relabelled as a "shape-matched regression floor," not a test of the documented degenerate case.
-2. **REQUIREMENTS.md US-003/KPI-04 left "Partial"/"Open→Partial" (03-04):** Confirmed via direct read of `.planning/REQUIREMENTS.md` lines 102-160 — both entries explicitly state the PRD's literal "1M+ rows AND 20+ margins" combination was never demonstrated by one single measurement, and status markers (`- [ ]`, `Partial`) were kept rather than rounded up to Implemented/complete. `requirements.mark-complete` reportedly no-op'd (per 03-04-SUMMARY, not independently re-run here since it is a planning-tool no-op already evidenced by the unchanged status markers in the file).
+None. All six truths are independently verifiable via file content, CSV/doc cross-referencing, and one live re-execution of the benchmark script under the mandated single-thread BLAS envelope, all performed during this verification.
 
 ### Gaps Summary
 
-None. All four ROADMAP success criteria are independently verified against the live codebase (file content plus executed commands), not merely SUMMARY.md claims. The R build, R test suite (0 FAIL), and Python parity suite (0 failed) all pass under the mandated single-thread BLAS envelope. The one-command reproduction (`benchmarks/run_honest_gate.sh`) was executed live and confirmed to regenerate every published figure. The determinism guard was executed live and confirmed to refuse measurement under a partially-set thread-variable environment.
+None. Both UAT gaps (G-03-1, G-03-4) are closed: `docs/performance.md` and the two regenerated CSVs now cover all 9 leafblower methods, each against its own doc-named closest competitor, with scope caveats (objective mismatch, missing bound arguments, K=2-only equivalence, cross-language timer methodology) carried into the published page rather than left only in CSV `note` fields. Both Warning-severity code-review findings (WR-01: self-reported-status-only `ok` flag silently misrepresenting a visible bound violation; WR-02: `ok` computed on a different weight scale than the reported `max_w`/`min_w`) are confirmed landed in source and behaviorally correct via a live re-run, not merely claimed by commit messages. WR-03 (stale tolerance comment) is confirmed genuinely cosmetic — it does not affect any computed value, and every actual `ok_*` check in the file uses a consistent, correct `1e-6` tolerance.
 
 ---
 
-*Verified: 2026-08-15*
+*Verified: 2026-08-16T01:02:07Z*
 *Verifier: Claude (gsd-verifier)*
