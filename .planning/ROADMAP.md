@@ -179,9 +179,14 @@ on stepstone instead of kk1204; track kk1204 separately as algorithmic research)
 `leafblower-2ouc` epic owns the comparative-study infrastructure. Determinism protocol is
 mandatory: single-thread BLAS, interleaved before/after comparison in one `bench::mark()`
 call, never sequential measurement.
-**Plans:** 4/4 plans executed
+**Plans:** 8/8 plans executed
 
 Plans:
+
+- [x] 03-05-PLAN.md
+- [x] 03-06-PLAN.md
+- [x] 03-07-PLAN.md
+- [x] 03-08-PLAN.md
 
 - [x] 03-01-PLAN.md — Tracer: end-to-end medium-scale measurement (`oris_soft` vs `survey::calibrate`, accuracy and bound-compliance alongside every wall time), the D-12 one-command wrapper, and the opt-in `LBW_BENCH_GATE` assertion reading it (US-003, KPI-04)
 - [x] 03-02-PLAN.md — Expansion: the 1.58M-row stepstone-fulldata large-scale class (SC1), the K=20 uniform-random known-limit class with `M_cell/n` measured (SC3), and the remaining doc-named competitors `icarus`/`ReGenesees` benchmark-scoped per D-09 (US-003, KPI-04)
@@ -297,7 +302,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Verification Coverage Closed | 4/4 | Complete    | 2026-08-15 |
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
-| 3. Honest Performance Gate | 4/4 | In Progress|  |
+| 3. Honest Performance Gate | 8/8 | In Progress|  |
 | 4. Truthful Surface | 2/2 | Complete    | 2026-08-15 |
 | 5. CRAN + PyPI Release | 5/5 | Complete    | 2026-08-15 |
 
