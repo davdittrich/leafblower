@@ -80,7 +80,7 @@ without its accuracy/bound/n_eff siblings on the same row.
 |---|---|---|---|---|---|
 | `leafblower_oris` | 0.0749 | 7.591e-11 | 3.0000 | 0.1298 | 67478.2 |
 | `leafblower_raking` | 0.0232 | 4.996e-16 | 3.0000 | 0.1289 | 67522.8 |
-| `leafblower_newton_kl` | 0.0492 | 4.220e-09 | 6.2105 | 0.1460 | 66188.7 |
+| `leafblower_newton_kl` | 0.0531 | 4.220e-09 | 6.2105 | 0.1460 | 66188.7 |
 | `leafblower_greg` | 0.0216 | 0.1089 | 1.0638 | 0.9105 | 99924.3 |
 | `survey_calibrate_linear` (greg competitor) | 0.2265 | 5.551e-17 | 3.0000 | 0.0000 | 69704.3 |
 | `leafblower_logit` | 0.0229 | 2.190e-08 | 2.8729 | 0.0551 | 69075.3 |
@@ -88,12 +88,19 @@ without its accuracy/bound/n_eff siblings on the same row.
 | `leafblower_chebyshev` | 0.0278 | 3.647e-10 | 3.0000 | 0.1298 | 67478.2 |
 | `optweight_linf` (chebyshev competitor) | 660.3880 | 2.006e-12 | 1.8113 | 0.1887 | 60307.8 |
 
-Notes carried verbatim from the CSV's `note` field: `leafblower_greg`'s
-`max_error=0.1089` reflects GREG's own linear-distance objective, not a
-failure to converge — GREG minimizes a chi-square distance, not margin error
-directly, so its `max_error` is expected to be larger than the raking-family
-arms above. `optweight_linf` has no `max.w` argument (`ok=NA`, confirmed
-against the CRAN manual fetched 2026-08-15) — see the *Competitors* table
+Notes carried verbatim from the CSV's `note` field: `leafblower_newton_kl`'s
+`max_w=6.2105` **exceeds this fixture's `max_weight=3` bound** (`ok=FALSE`
+in the CSV) — `newton_kl` reports rather than clamps bound violations
+(documented solver contract, not a benchmark-script bug; see
+`leafblower-73d7`). This row is not a compliant-bounds result; it is included
+for the accuracy/speed comparison with the explicit caveat that its `max_w`
+column reads outside the stated bound, unlike every other row in this table.
+`leafblower_greg`'s `max_error=0.1089` reflects GREG's own linear-distance
+objective, not a failure to converge — GREG minimizes a chi-square distance,
+not margin error directly, so its `max_error` is expected to be larger than
+the raking-family arms above. `optweight_linf` has no `max.w` argument
+(`ok=NA`, confirmed against the CRAN manual fetched 2026-08-15) — see the
+*Competitors* table
 below for the full objective-mismatch caveat.
 
 ### `k2_margin_pot_equiv` — greenkhorn/sinkhorn vs POT (K=2-margin special case)

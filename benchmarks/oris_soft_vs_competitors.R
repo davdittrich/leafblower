@@ -376,10 +376,21 @@ lb_only_arm_row <- function(method_name, arm_label) {
   # comment on normalize_to_n() above).
   w_lb_n <- as.numeric(w_lb)
   max_error_lb <- margin_max_error(w_lb_n, df, tgt)
-  ok_lb <- isTRUE(res_lb$status %in% c(0L, 5L))
+  # ok mirrors every competitor arm in this file (icarus_calibration's
+  # ok_ic, ReGenesees_e_calibrate's ok_rg, survey_calibrate's ok_sv): the
+  # solver's own self-reported status is NOT taken at face value -- the
+  # returned weights are independently re-graded against max_weight=3
+  # (03-REVIEW.md WR-01: newton_kl reports RK_ERR_NOCONV rather than
+  # clamping bound violations, so status alone would silently mark that
+  # arm ok=TRUE despite a visible bound violation).
+  ok_lb <- isTRUE(res_lb$status %in% c(0L, 5L)) && max(w_lb_n) <= 3 + 1e-6
   note_lb <- sprintf(
-    "convergence=list() (per-method natural default per R/harvest.R:424); status=%d, iterations=%d",
-    res_lb$status, res_lb$iterations)
+    "convergence=list() (per-method natural default per R/harvest.R:424); status=%d, iterations=%d%s",
+    res_lb$status, res_lb$iterations,
+    if (max(w_lb_n) > 3 + 1e-6)
+      sprintf("; max_w=%.4f exceeds max_weight=3 -- %s reports rather than clamping bound violations (documented solver contract, not a benchmark-script bug; see leafblower-73d7)",
+              max(w_lb_n), method_name)
+    else "")
   row <- arm_row("medium_100k_5margins", n, K, nj, m_cell_medium,
                   3, arm_label, as.numeric(bm_lb$median), max_error_lb,
                   max(w_lb_n), min(w_lb_n),
