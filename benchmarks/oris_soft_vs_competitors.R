@@ -170,7 +170,7 @@ run_input_class <- function(input_class, df, tgt, max_weight, n_categories) {
     w_sv   <- stats::weights(cal_sv)
     w_sv_n <- normalize_to_n(as.numeric(w_sv), n)
     max_error_sv <- margin_max_error(w_sv_n, df, tgt)
-    ok_sv <- all(is.finite(w_sv)) && max(w_sv) <= max_weight + 1e-6
+    ok_sv <- all(is.finite(w_sv_n)) && max(w_sv_n) <= max_weight + 1e-6
     note_sv <- "epsilon=1e-3 requested (survey::calibrate, calfun='raking', bounds=c(0,max_weight))"
     # iterations is not comparable across packages for this arm.
     arm_row(input_class, n, n_margins, n_categories, m_cell, max_weight,
@@ -426,7 +426,7 @@ survey_calfun_arm_row <- function(calfun_name, arm_label) {
     w_sv   <- stats::weights(cal_sv)
     w_sv_n <- normalize_to_n(as.numeric(w_sv), n)
     max_error_sv <- margin_max_error(w_sv_n, df, tgt)
-    ok_sv <- all(is.finite(w_sv)) && max(w_sv) <= 3 + 1e-6
+    ok_sv <- all(is.finite(w_sv_n)) && max(w_sv_n) <= 3 + 1e-6
     note_sv <- sprintf("calfun='%s' requested (survey::calibrate, bounds=c(0,3))", calfun_name)
     row <- arm_row("medium_100k_5margins", n, K, nj, m_cell_medium, 3,
                     arm_label, as.numeric(bm_sv$median), max_error_sv,
