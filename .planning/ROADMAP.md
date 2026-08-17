@@ -331,9 +331,16 @@ before trusting a new package.
   3. The comparison is reproducible with one documented command, consistent with the
      determinism protocol established in Phase 3 (single-thread BLAS, interleaved
      before/after measurement).
-**Beads**: TBD at planning time — reuse `leafblower-2ouc` epic children where applicable.
+  4. `docs/raking.md` makes no capability claim leafblower does not implement: no outer
+     entropic-proximal-point loop claim for ORIS, no Gurobi-outperformance claim, no
+     L-BFGS-B recommendation (removed solver, slot 2 reserved-hole).
+**Beads**: TBD at planning time — reuse `leafblower-2ouc` epic children where applicable;
+`leafblower-05ha` (P1, docs/raking.md purge, SC4).
 **Notes for planning**: This phase does not re-plan `leafblower-2ouc`; it consumes its
-`benchmarks/` infrastructure and existing stepstone fixtures the way Phase 3 did.
+`benchmarks/` infrastructure and existing stepstone fixtures the way Phase 3 did. `05ha`
+is doc-only prose editing (no headings, locate by quoted text not line number per the
+ticket's Reference Data) — carries no code risk, can be its own small plan or folded into
+the vignette-authoring plan.
 
 ### Phase 7: CRAN Submission
 
