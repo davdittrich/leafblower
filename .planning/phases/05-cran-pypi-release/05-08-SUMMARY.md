@@ -186,3 +186,7 @@ None - PracTools installed from CRAN into the local R library during Task 1 (alr
 ## Next Phase Readiness
 
 The r-universe `R CMD check` ERROR from build 32069801748 (commit 8920cf22) cannot recur: the assertion that produced it now passes against a mathematically correct statistic, verified locally with PracTools installed (not skipped). SC1/KPI-05's remaining blocker moves from "a real numeric defect" to "CI must actually install the Suggests" — 05-09's scope, per this plan's stated success criteria. Any consumer who recorded a 4-argument `deff_H` value from `design_effect()` under 0.1.0 or an earlier 0.1.1 build should treat it as superseded (NEWS.md entry filed).
+
+## Self-Check: PASSED
+
+All 7 modified files confirmed present on disk; all 4 commits (`60f2a57` test, `30842f4` fix, `aac45d6` docs, `e45b3bf` summary) confirmed present in `git log --oneline --all`.
