@@ -30,15 +30,14 @@ def test_design_effect_4arg_r_parity():
     """R-parity: same fixture as test-design.R analytic case -> same deff_H value."""
     np.random.seed(42)
     n = 30
-    # 3-level group; level A has code 0 (dropped in C), B=1, C=2.
+    # 3-level group; X = [1, ind_B, ind_C] (constant column + drop-first, leafblower-xfz4).
     groups = np.repeat(["A", "B", "C"], n // 3)
     w = np.ones(n)
     y = np.where(groups == "A", 10.0, np.where(groups == "B", 20.0, 30.0))
     data = pd.DataFrame({"g": groups})
     target = {"g": {"A": 1/3, "B": 1/3, "C": 1/3}}
     d = design_effect(w, outcome=y, data=data, target=target)
-    # Analytic: beta_hat = [20, 30] (slopes for B, C vs A); u = [0, 0, 0] (perfect fit).
-    # sigma2_u = 0 -> deff_H = 0 is NOT expected here because A group (code 0, dropped)
-    # has residual u_A = y_A - 0 = 10 (intercept not included in X).
-    # Expected: deff_H approximately 1/3 (analytically derived, same as R test).
-    assert d == pytest.approx(1.0/3.0, rel=1e-6)
+    # Analytic: beta_hat = [10, 10, 20] (intercept=10, B-slope=10, C-slope=20); with the
+    # constant in the column space the calibration model reproduces every group mean
+    # exactly, so u = [0, 0, 0] (perfect fit) and sigma2_u = 0 -> deff_H = 0.
+    assert abs(d) < 1e-12

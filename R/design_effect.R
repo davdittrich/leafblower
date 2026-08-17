@@ -9,7 +9,11 @@
 #' where \eqn{\hat{u}_i = y_i - x_i^T \hat{\beta}} are the GREG residuals from a survey-
 #' weighted least-squares fit of \code{outcome} on the calibration covariate matrix
 #' \eqn{X} (built from \code{data} + \code{target}), and \eqn{\hat{\sigma}^2_u, \hat{\sigma}^2_y}
-#' are survey-weighted population unit variances per Eq 2.7. Falls back to \code{deff_K(w)}
+#' are survey-weighted population unit variances per Eq 2.7. \eqn{X} is a constant column
+#' followed by reference-coded dummies (first level dropped per calibration margin): the
+#' constant is what makes \eqn{\hat{u}_i} a true GREG residual and bounds
+#' \eqn{deff_H \le deff_K(w)}, since the constant-only model is then nested in the
+#' calibration model. Falls back to \code{deff_K(w)}
 #' when \code{target} is empty, when \eqn{\hat{\sigma}^2_y} is zero, or when calibration
 #' margins are rank-deficient (with warning).
 #'

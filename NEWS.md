@@ -1,5 +1,15 @@
 # leafblower 0.1.1
 
+* fix(design_effect): the 4-argument `design_effect()`'s Henry & Valliant (2015) Eq 3.5
+  calibration design matrix omitted the constant/intercept column, so its "GREG
+  residuals" were not true GREG residuals (the reference cell's residual equaled its raw
+  outcome), and the returned `deff_H` could exceed `deff_K` — a mathematical
+  impossibility once the intercept is nested in the calibration model. On the documented
+  seed-2024, uniform-weight fixture the value moves from `8.2930209003` to
+  `0.1976715311`, matching an independent PracTools/glm oracle. Any `deff_H` value
+  recorded from a 4-argument `design_effect()` call under 0.1.0 or an earlier 0.1.1 build
+  is superseded by this fix. (leafblower-xfz4)
+
 * Wired `python/pyproject.toml`'s `readme` field (symlinked to the repo-root `README.md`)
   so the PyPI project page renders a long description — `0.1.0`'s PyPI upload shipped
   with no `readme` field and rendered an empty project page.
