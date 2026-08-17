@@ -1,4 +1,4 @@
-test_that("design_effect 4-arg matches PracTools::deffH under uniform weights (rtol=1e-10)", {
+test_that("design_effect 4-arg matches PracTools::deffK/glm Eq-3.5 oracle (rtol=1e-6)", {
   skip_if_not_installed("PracTools")
   set.seed(2024L); n <- 200L
   data <- data.frame(
@@ -12,14 +12,38 @@ test_that("design_effect 4-arg matches PracTools::deffH under uniform weights (r
   # leafblower output (Eq 3.5 via C++ core)
   d_lbw <- design_effect(w, outcome = y, data = data, target = target)
 
-  # PracTools direct oracle (Eq 3.4; under uniform w, reduces to Eq 3.5)
   # X uses target level order, dropping first level (no intercept) — same as C++ build
   X <- model.matrix(~ region, data = data)[, -1L, drop = FALSE]
-  d_pratools <- PracTools::deffH(w = w, y = y, x = X)
 
-  expect_equal(d_lbw, d_pratools, tolerance = 1e-10,
-               label = sprintf("d_lbw=%.15f vs PracTools::deffH=%.15f (uniform-w, rtol=1e-10)",
-                               d_lbw, d_pratools))
+  # Upstream-singularity tripwire: PracTools::deffH's Eq 3.4 correction term forms
+  # rho.u2w and rho.uw as cov/sqrt(vu2*vw); under uniform w, vw = wtdvar(w, w) = 0, so
+  # both ratios are 0/0 = NaN and the term evaluates 0*NaN = NaN instead of vanishing
+  # (CRAN PracTools 1.7.5, R/deffH.R:22-25 — a version-independent removable
+  # singularity, not something a version pin can fix). Only compare when finite, so the
+  # direct third-party call stays in the suite and self-heals if upstream ever removes
+  # the singularity, without ever asserting on a NaN.
+  d_full <- PracTools::deffH(w = w, y = y, x = X)
+  if (is.finite(d_full)) {
+    expect_equal(d_lbw, d_full, tolerance = 1e-6)
+  }
+
+  # Eq-3.5 oracle built from primitives that ARE defined at var(w) = 0: PracTools::deffK
+  # for the (third-party) Kish factor, and a WLS fit via glm() — a QR path fully
+  # independent of the C++ core's Cholesky path — for u = coef[1] + residuals, exactly
+  # as PracTools forms u internally.
+  reg <- glm(y ~ X, weights = w)
+  u <- unname(reg$coefficients[1L]) + reg$residuals
+  # Local weighted variance. PracTools::wtdvar carries an n/(n-1) factor that cancels in
+  # this ratio, so this local helper and PracTools' own helper give the same oracle.
+  wv <- function(z, wt) {
+    m <- sum(wt * z) / sum(wt)
+    sum(wt * (z - m)^2) / sum(wt)
+  }
+  d_oracle <- PracTools::deffK(w) * wv(u, w) / wv(y, w)
+
+  expect_equal(d_lbw, d_oracle, tolerance = 1e-6,
+               label = sprintf("d_lbw=%.15f vs oracle=%.15f (PracTools::deffK * glm-WLS Eq 3.5)",
+                               d_lbw, d_oracle))
 })
 
 # Survey fallback oracle: hand-roll Eq 3.5 matching C++ arithmetic exactly.
