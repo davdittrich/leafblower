@@ -8,15 +8,48 @@ as the honest quality bar regardless of publication channel (D-06); the
 result below is the real, observed output of that run against the cleaned
 package tree, not a placeholder.
 
+## Suggests availability correction
+
+An earlier CI configuration (`.github/workflows/r-check.yml` before commit
+`790341e`) set `_R_CHECK_FORCE_SUGGESTS_: false` and
+`setup-r-dependencies`'s `dependencies: '"hard"'`, together downgrading
+*every* unavailable Suggests package from a check ERROR to a silent skip --
+not just the one genuinely-unresolvable entry (`autumn (>= 0.2.0)`, a
+GitHub-only package at v0.1 this repository never actually calls -- only
+roxygen prose and `.Rbuildignore`d `benchmarks/` reference it) the override
+was added to route around. That configuration produced a green
+`R CMD check` result without PracTools, survey, arrow or DiceKriging ever
+being installed, so the ~25 tests those packages guard never ran in CI even
+though the run reported success.
+
+Commit `8e28df1` removed the unresolvable `autumn` Suggests entry (the
+actual root cause -- it is unsatisfiable from CRAN, r-universe, or any
+`Additional_repositories` feed). Commit `790341e` removed both masking
+settings, restoring `R CMD check`'s default Suggests-required behavior: an
+unavailable Suggests package now fails the check instead of silently
+widening the skip set. The results below are from that corrected
+configuration -- GitHub Actions run **32080650203** is the first CI run
+under it, and its log confirms PracTools 1.7.5, DiceKriging 1.6.1,
+arrow 25.0.0 and survey 4.5 installing, and the testthat run completing
+with 0 skips attributable to any missing Suggests package
+(`FAIL 0 | WARN 130 | SKIP 31 | PASS 1794`; all 31 skips are `On CRAN`
+gates or local-only benchmark-fixture guards, none reference an
+uninstalled package).
+
 ## Test environments
 
 * R 4.6.1, x86_64-pc-linux-gnu (Arch Linux), local build, `g++ (GCC) 16.2.1`,
-  compiled with `--as-cran`, `checkbashisms`/`tidy`/`pandoc` installed:
-  **0 errors, 0 warnings, 1 NOTE**.
+  compiled with `--as-cran`, full Suggests set installed (all 12 declared
+  Suggests packages, including PracTools, survey, arrow and DiceKriging --
+  no dependency-resolution override, `checkbashisms`/`pandoc` installed):
+  **0 errors, 0 warnings, 3 NOTEs**.
 * R 4.6.1, x86_64-pc-linux-gnu (Ubuntu 24.04, GitHub Actions `ubuntu-latest`),
-  real CI run of `.github/workflows/r-check.yml`
-  (https://github.com/davdittrich/leafblower/actions), `gcc 13.3.0`,
-  `--as-cran`, TinyTeX-built PDF manual: **0 errors, 0 warnings, 2 NOTEs**.
+  real CI run of `.github/workflows/r-check.yml`, run 32080650203
+  (https://github.com/davdittrich/leafblower/actions/runs/32080650203),
+  `gcc 13.3.0`, `--as-cran`, full Suggests set installed (the workflow's
+  `setup-r-dependencies` step now resolves and installs every declared
+  Suggests package -- see "Suggests availability correction" above),
+  TinyTeX-built PDF manual: **0 errors, 0 warnings, 2 NOTEs**.
 * Python 3.9-3.13 wheel matrix (GitHub Actions `ubuntu-latest` +
   `macos-14`/arm64, `.github/workflows/python-wheels.yml`): wheels build,
   pass `twine check`, and import + calibrate cleanly on all 5 versions on
@@ -29,61 +62,58 @@ package tree, not a placeholder.
 
 ## R CMD check results
 
-Real output from `R CMD build . && R CMD check --as-cran leafblower_0.1.0.tar.gz`
-against the hygiene-cleaned tree (git-tracked dev artifacts removed, 35
+Real output from `R CMD build . && R CMD check --as-cran leafblower_0.1.1.tar.gz`
+against the hygiene-cleaned tree (git-tracked dev artifacts removed,
 additional `.Rbuildignore` patterns added for tracked and untracked
 non-package files that `R CMD build` was otherwise sweeping into the
-tarball).
+tarball), with every declared Suggests package installed and the default
+missing-Suggests guard left in place (no `_R_CHECK_FORCE_SUGGESTS_`
+override).
 
-**Local (Arch Linux, `checkbashisms`/`tidy`/`pandoc` installed):**
+**Local (Arch Linux, full Suggests installed):**
 
 ```
-Status: 1 NOTE
+Status: 3 NOTEs
 ```
 
-**CI (GitHub Actions `ubuntu-latest`, real run):**
+**CI (GitHub Actions `ubuntu-latest`, run 32080650203, full Suggests
+installed):**
 
 ```
 Status: 2 NOTEs
 ```
 
-Both environments are clean of errors and warnings. The local run is now
-the stronger result: with `checkbashisms`/`tidy`/`pandoc` installed, the
-checkbashisms WARNING and the HTML-manual NOTE this cran-comments.md
-previously reported both close, leaving only the one package-controlled
-NOTE below. CI still carries a second NOTE (HTML manual) because
-`ubuntu-latest` doesn't ship HTML Tidy by default and the CI workflow
-doesn't install it (only TinyTeX, for the PDF manual, is installed there).
+Both environments are clean of errors and warnings under a
+Suggests-complete check (D-06) -- the check that CRAN's own machinery
+actually runs, not a weakened one.
 
-* NOTE (compilation flags used): `-mavx2` -- feature-tested by `configure`
-  and only substituted into `PKG_CXXFLAGS` on hosts where it compiles (see
-  "Notes on build configuration" below); load-bearing for the SIMD
-  intrinsics in `oris.cpp`/`sinkhorn.cpp`/`chebyshev.cpp`. Present on both
-  the local machine and CI's `ubuntu-latest`. (This developer's Arch Linux
-  system `Makeconf` previously added extra flags to the local run's NOTE
-  text -- `-Werror=format-security`, `-Wp,-D_FORTIFY_SOURCE=3`, etc. --
-  confirmed via `R_MAKEVARS_USER=/dev/null` to come from the system
-  `Makeconf`, not the package's own `Makevars.in`/`configure`; only
-  `-march=native` now shows locally, from this developer's personal
-  `~/.R/Makevars`, same non-package-controlled category.)
-* NOTE (HTML version of manual, CI only): `no command 'tidy' found` /
-  `package 'V8' unavailable` -- `ubuntu-latest` doesn't ship HTML Tidy by
-  default; used only for check-time HTML/MathJax validation of the manual,
-  not for building it (the PDF manual check passes `OK` on both
-  environments).
+* NOTE (CRAN incoming feasibility, local only): `New submission` --
+  standard for any package not yet on CRAN. `_R_CHECK_CRAN_INCOMING_` is on
+  locally under `--as-cran` and disabled by default in
+  `r-lib/actions/check-r-package`, which is why this NOTE does not appear
+  in the CI Status above. Expected and accepted on an actual CRAN
+  submission.
+* NOTE (compilation flags used): `-mavx2` (and, on this developer's
+  machine, `-march=native` from a personal `~/.R/Makevars`) -- feature-tested
+  by `configure` and only substituted into `PKG_CXXFLAGS` on hosts where it
+  compiles (see "Notes on build configuration" below); load-bearing for the
+  SIMD intrinsics in `oris.cpp`/`sinkhorn.cpp`/`chebyshev.cpp`. Present on
+  both the local machine and CI's `ubuntu-latest`.
+* NOTE (HTML version of manual): local: `package 'V8' unavailable`; CI:
+  `no command 'tidy' found` / `package 'V8' unavailable`. Both messages come
+  from `R CMD check`'s own check-time HTML/MathJax rendering validation
+  tooling (HTML Tidy CLI, the V8 R package) -- neither is a package
+  Suggests entry, neither affects package correctness, and neither is used
+  to *build* the manual, only to validate its rendered HTML. The PDF manual
+  check passes `OK` on both environments. `ubuntu-latest` doesn't ship HTML
+  Tidy by default and the CI workflow only installs TinyTeX (for the PDF
+  manual); this developer's local machine currently lacks the V8 R package.
 
-The CRAN-incoming-feasibility NOTE (`New submission`, `autumn` not on
-CRAN) that appeared locally does not appear in the CI output above because
-`r-lib/actions/check-r-package` disables `_R_CHECK_CRAN_INCOMING_` by
-default; it is still expected and accepted on an actual CRAN submission
-for the reason given locally: `autumn` is the upstream package
-`leafblower::harvest()` is a drop-in replacement for and is not itself on
-CRAN. `_R_CHECK_FORCE_SUGGESTS_=false` is set in both environments because
-`autumn`, `bench`, `lhs`, `DiceKriging`, `ggplot2`, `survey`, `PracTools`,
-and `arrow` are optional comparison/benchmark-only `Suggests` with no
-effect on package correctness; every test referencing them is
-`skip_if_not_installed()`-guarded (or lives only in the
-`.Rbuildignore`d `tests/testthat/fixtures/` directory).
+No dependency-resolution override is set in either environment: every
+declared Suggests package (`testthat`, `bench`, `lhs`, `DiceKriging`,
+`ggplot2`, `rprojroot`, `survey`, `PracTools`, `arrow`, `callr`, `jsonlite`,
+`withr`) is installed and its guarded tests execute for real in both
+environments -- see "Suggests availability correction" above.
 
 ## Notes on build configuration
 
