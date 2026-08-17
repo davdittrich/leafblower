@@ -15,7 +15,10 @@ configurations into one engine, which is what makes the R and Python results the
 result rather than two results that happen to agree (Phase 2). Then replace the package's
 one unverified headline claim — the performance target, written against a solver that no
 longer exists — with a measured, achievable gate (Phase 3). Then make every documented
-claim true (Phase 4). Then ship the CRAN tarball and the PyPI wheel (Phase 5).
+claim true (Phase 4). Then publish to r-universe and PyPI while keeping the CRAN tarball
+proven check-clean but unsubmitted (Phase 5). Then write the vignettes and performance
+comparisons a CRAN reviewer and a prospective user both expect (Phase 6). Then submit to
+CRAN (Phase 7).
 
 **Scope discipline.** Nothing here re-plans shipped work. Nothing here targets `grake`
 (slot 7), `lbfgsb` (slot 2) or Epic-K `cp` (slot 12) — all removed or withdrawn, slots
@@ -42,7 +45,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: One Engine, Not Two** - R and Python reach the solvers through a single dispatch path, built the same way (completed 2026-08-15)
 - [x] **Phase 3: Honest Performance Gate** - The performance claim is measured against a live solver and restated as an achievable gate (completed 2026-08-15)
 - [x] **Phase 4: Truthful Surface** - Every documented claim matches shipped behaviour; every footgun errors instead of silently misleading (completed 2026-08-15)
-- [x] **Phase 5: CRAN + PyPI Release** - A stranger installs leafblower with `install.packages()` and `pip install` (completed 2026-08-15)
+- [ ] **Phase 5: r-universe + PyPI Release** - A stranger installs leafblower with `install.packages(repos = r-universe)` and `pip install`; the CRAN tarball stays proven check-clean but unsubmitted (SC1-5 complete 2026-08-15; SC6-7 added, not yet done)
+- [ ] **Phase 6: Vignettes + Performance Comparisons** - Usage vignettes and a documented performance comparison against competing calibration software, the material a CRAN reviewer and a prospective user both expect
+- [ ] **Phase 7: CRAN Submission** - The proven-clean tarball from Phase 5 is actually submitted to CRAN and accepted
 
 ## Phase Details
 
@@ -234,16 +239,19 @@ Plans:
   `rk_algorithm_t` slot 7 in `src/leafblower.h`/`CLAUDE.md` (SC2), re-audit grake/lbfgsb/cp
   (SC4, `leafblower-05ha`, `leafblower-x2iq`)
 
-### Phase 5: CRAN + PyPI Release
+### Phase 5: r-universe + PyPI Release
 
-**Goal**: A survey analyst who has never seen this repository installs leafblower from CRAN
-in R and from PyPI in Python, and gets a working, self-contained package.
+**Goal**: A survey analyst who has never seen this repository installs leafblower from
+r-universe in R and from PyPI in Python, and gets a working, self-contained package. The
+CRAN tarball is proven check-clean so Phase 7 can submit it without redoing this work, but
+submission itself is out of scope here.
 **Depends on**: Phase 1, Phase 2, Phase 3, Phase 4
 **Requirements**: US-010, US-008 (residual), KPI-05, KPI-06
 **Success Criteria** (what must be TRUE):
 
   1. `R CMD check --as-cran` on the built tarball reports 0 errors and 0 warnings, with at
-     most the new-submission note, and `cran-comments.md` explains any remaining note.
+     most the new-submission note, and `cran-comments.md` explains any remaining note. This
+     proves CRAN-readiness for Phase 7; it does not submit anything.
 
   2. The source tarball contains no development artifact — no `.cpp` snapshot copies, no
      nested tarball, no patch scripts, no log, no findings documents — and `git ls-files`
@@ -256,6 +264,14 @@ in R and from PyPI in Python, and gets a working, self-contained package.
   4. The wheel imports and calibrates on Python 3.9 through 3.13.
   5. The R `DESCRIPTION` version and `python/pyproject.toml` version cannot silently drift —
      a mismatch is caught by a check, not by a reader.
+
+  6. The package is registered and building on r-universe (a live `<owner>.r-universe.dev`
+     feed), and `install.packages("leafblower", repos = "https://<owner>.r-universe.dev")`
+     succeeds in a clean R session with no local source checkout.
+
+  7. The sdist and wheels are actually uploaded to PyPI (a real `twine upload`, not just a
+     local `twine check`), and `pip install leafblower` succeeds from a clean environment
+     against the public PyPI index.
 **Beads**: `leafblower-l6h0` (P1), `leafblower-dns3` (P2), `leafblower-kk1.24` (epic),
 `leafblower-kk1.24.3` (T19 final gate).
 **Notes for planning**: `.Rbuildignore` already excludes `cran-comments.md` — the file must
@@ -283,7 +299,8 @@ this account (a GitHub-side Intel-macOS-runner phase-out, not a package defect);
 macOS wheel coverage remains unproven by CI, a residual honestly recorded rather than
 silently folded into a blanket "macOS: done" claim. SC2 and SC5 were already closed locally
 in 05-01/05-02 and re-confirmed unchanged.
-**Plans:** 5/5 plans complete
+**Plans:** 7 plans (SC1-5 closed by 05-01..05-05; SC6-7 planned in 05-06/05-07, not yet
+executed)
 
 Plans:
 
@@ -292,11 +309,55 @@ Plans:
 - [x] 05-03-PLAN.md — R CI: .github/workflows/r-check.yml operationalizing the proven local check + hygiene guard (SC1, SC2, D-02)
 - [x] 05-04-PLAN.md — Python wheel CI: cibuildwheel matrix config + local build/repair/import proof across Python 3.9-3.13 (SC3, SC4, D-02)
 - [x] 05-05-PLAN.md — Phase gate: full local DoD gate, combined re-verification, human sign-off on scope closure
+- [ ] 05-06-PLAN.md — r-universe registration (packages.json entry) + Rd2pdf pre-flight + clean-R-session install proof from the live feed (SC6, D-07/D-08, `leafblower-bl7g`)
+- [ ] 05-07-PLAN.md — PyPI Trusted Publishing: `pypi` environment + `build-sdist`/`publish-to-pypi` jobs, human pending-publisher checkpoint, `v0.1.0` tag-publish + clean-env install proof (SC7, D-09/D-10/D-11, `leafblower-ej1n`)
+
+### Phase 6: Vignettes + Performance Comparisons
+
+**Goal**: A user landing on the package's documentation site finds worked usage vignettes
+and a documented, reproducible performance comparison against competing R/Python
+calibration software — the material both a CRAN reviewer and a prospective adopter expect
+before trusting a new package.
+**Depends on**: Phase 5
+**Requirements**: TBD at planning time
+**Success Criteria** (what must be TRUE):
+
+  1. At least one R vignette (`vignettes/*.Rmd`) walks a realistic calibration workflow
+     end-to-end and builds cleanly under `R CMD build`/`R CMD check`.
+  2. A documented performance comparison against at least the competing packages already
+     named in `docs/performance.md` (`survey::calibrate`, `icarus`, `ReGenesees`) exists,
+     reusing the `leafblower-2ouc` benchmark infrastructure per this roadmap's scope
+     discipline rather than a parallel harness.
+  3. The comparison is reproducible with one documented command, consistent with the
+     determinism protocol established in Phase 3 (single-thread BLAS, interleaved
+     before/after measurement).
+**Beads**: TBD at planning time — reuse `leafblower-2ouc` epic children where applicable.
+**Notes for planning**: This phase does not re-plan `leafblower-2ouc`; it consumes its
+`benchmarks/` infrastructure and existing stepstone fixtures the way Phase 3 did.
+
+### Phase 7: CRAN Submission
+
+**Goal**: The tarball proven check-clean in Phase 5 is actually submitted to CRAN and
+accepted, with the vignettes and performance documentation from Phase 6 included.
+**Depends on**: Phase 5, Phase 6
+**Requirements**: TBD at planning time
+**Success Criteria** (what must be TRUE):
+
+  1. `R CMD check --as-cran` is re-run against the tarball including Phase 6's vignettes and
+     passes with 0 errors/0 warnings (re-verifies Phase 5 SC1 is still true after Phase 6's
+     additions).
+  2. The package is submitted via the CRAN submission form / `devtools::release()`, and
+     `cran-comments.md` reflects the actual submission (not just local-check readiness).
+  3. CRAN accepts the submission, or every reviewer-requested change is tracked to
+     resolution and re-submitted.
+**Beads**: TBD at planning time.
+**Notes for planning**: Do not re-run Phase 5's CI/tarball-hygiene work from scratch —
+re-verify it still holds after Phase 6 lands, then submit.
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -304,7 +365,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. One Engine, Not Two | 8/8 | Complete    | 2026-08-15 |
 | 3. Honest Performance Gate | 8/8 | Complete    | 2026-08-16 |
 | 4. Truthful Surface | 2/2 | Complete    | 2026-08-15 |
-| 5. CRAN + PyPI Release | 5/5 | Complete    | 2026-08-15 |
+| 5. r-universe + PyPI Release | 5/7 | SC1-5 done, SC6-7 pending | — |
+| 6. Vignettes + Performance Comparisons | 0/? | Not planned | — |
+| 7. CRAN Submission | 0/? | Not planned | — |
 
 ---
 *Roadmap created: 2026-08-15 from `.planning/intel/` + `.planning/codebase/`*
