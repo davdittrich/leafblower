@@ -99,7 +99,7 @@ int design_effect_compute(
     // K=1e5, n=1e5 → ~1e10). Signed int overflow is UB; a wrapped-negative p would skip
     // the p>0 guard and sign-extend into a huge alloc. Reject p > INT_MAX before the
     // int narrowing below (all downstream uses index/dim with int p).
-    std::size_t p_acc = 0;
+    std::size_t p_acc = 1;  // leafblower-xfz4: seed with the constant column (see below)
     for (int k = 0; k < K; ++k) {
         if (cat_counts[k] < 2) {
             std::snprintf(out->message, sizeof(out->message),
@@ -139,10 +139,19 @@ int design_effect_compute(
         }
     }
 
-    // ---- Build X (n × p, column-major): drop first level per margin ----
+    // ---- Build X (n × p, column-major): constant column + drop-first-level dummies ----
+    // Column 0 is the constant vector 1 (all n rows); margin k's dummy for category
+    // c >= 1 lands at column col_off + c - 1, with col_off starting at 1 and advancing by
+    // cat_counts[k] - 1 per margin. The calibration constraints always include the
+    // population total, so the constant belongs to the calibration column space: without
+    // it, u_i is not a true GREG residual (the reference cell's residual equals its raw
+    // outcome), which can push σ̂²_u above σ̂²_y and violate the deff_H <= deff_K
+    // invariant that Eq 3.5 guarantees once 1 ∈ col(X). Henry & Valliant (2015) Eq 3.5;
+    // leafblower-xfz4.
     std::vector<double> X(static_cast<std::size_t>(n) * p, 0.0);
     {
-        int col_off = 0;
+        for (int i = 0; i < n; ++i) X[i] = 1.0;  // column 0: constant
+        int col_off = 1;
         for (int k = 0; k < K; ++k) {
             for (int i = 0; i < n; ++i) {
                 const int c = data_codes[static_cast<std::size_t>(i) * K + k];

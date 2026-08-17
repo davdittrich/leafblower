@@ -78,3 +78,39 @@ test_that("design_effect 4-arg 3-level perfect-fit -> deff_H = 1/3", {
   d <- design_effect(rep(1.0, n), outcome = y, data = data, target = target)
   expect_equal(d, 1/3, tolerance = 1e-6)
 })
+
+test_that("H&V Eq 3.5 invariant: deff_H <= deff_K (leafblower-xfz4)", {
+  # With the constant vector in the calibration column space, the intercept-only model
+  # is nested in the calibration model, so weighted SSE(u) <= weighted SST(y), hence
+  # sigma^2_u <= sigma^2_y and deff_H = deff_K * sigma^2_u / sigma^2_y <= deff_K. This is
+  # the invariant that would have caught leafblower-xfz4 (deff_H=8.293 > deff_K=1) with
+  # no third-party package at all -- a permanent regression guard, not a one-off check.
+  check_invariant <- function(w, y, data, target) {
+    deff_K <- design_effect(w)
+    deff_H <- design_effect(w, outcome = y, data = data, target = target)
+    expect_lt(deff_H, deff_K * (1 + 1e-12))
+  }
+
+  # Parity fixture (same as tests/testthat/test-design-pratools-parity.R).
+  set.seed(2024L); n_p <- 200L
+  data_p <- data.frame(
+    region = sample(c("N", "S", "E", "W"), n_p, replace = TRUE),
+    stringsAsFactors = FALSE
+  )
+  target_p <- list(region = c(N = 0.25, S = 0.25, E = 0.25, W = 0.25))
+  w_p <- rep(1.0, n_p)
+  y_p <- 10 + 3 * (data_p$region == "N") - 2 * (data_p$region == "S") + rnorm(n_p)
+  check_invariant(w_p, y_p, data_p, target_p)
+
+  # RVAL.4 fixture (n=20, K=2, above).
+  set.seed(13)
+  n_r <- 20L
+  g1_r <- rep(c("A", "B"), each = 10L)
+  g2_r <- rep(c("X", "Y", "Z"), length.out = n_r)
+  y_r  <- rnorm(n_r, mean = 5)
+  w_r  <- runif(n_r, 0.5, 1.5)
+  data_r   <- data.frame(g1 = g1_r, g2 = g2_r, stringsAsFactors = FALSE)
+  target_r <- list(g1 = c(A = 0.5, B = 0.5),
+                    g2 = c(X = 1 / 3, Y = 1 / 3, Z = 1 / 3))
+  check_invariant(w_r, y_r, data_r, target_r)
+})
