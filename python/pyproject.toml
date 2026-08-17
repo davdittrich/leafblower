@@ -7,8 +7,13 @@ name = "leafblower"
 # Version is hardcoded here and in DESCRIPTION; keep in sync on releases.
 # The ../DESCRIPTION relative path is fragile in sdist builds where the
 # directory layout differs from a local source tree.
-version = "0.1.0"
+version = "0.1.1"
 description = "High-performance survey calibration (ORIS, raking, Sinkhorn, Chebyshev IPM, GREG)"
+# python/README.md is a symlink to ../README.md (single source of truth) --
+# a real file/symlink here, not a force-include target, because scikit-build-core
+# reads `readme` directly off disk at metadata-generation time (editable installs
+# included), unlike sdist file selection which force-include governs.
+readme = "README.md"
 requires-python = ">=3.9"
 dependencies = ["numpy>=1.21", "pandas>=1.3"]
 license = {text = "MIT"}

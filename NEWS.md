@@ -1,3 +1,9 @@
+# leafblower 0.1.1
+
+* Wired `python/pyproject.toml`'s `readme` field (symlinked to the repo-root `README.md`)
+  so the PyPI project page renders a long description — `0.1.0`'s PyPI upload shipped
+  with no `readme` field and rendered an empty project page.
+
 # leafblower 0.1.0
 
 * Removed dead over-relaxation knobs `gk_omega`, `sk_omega`, and `sk_omega_mode_id` (e65t.2/e65t.3/e65t.4 NO-GO experiments). ABI shrunk from 288B to 264B; `harvest()` arity reduced from 43 to 40 positional C args.

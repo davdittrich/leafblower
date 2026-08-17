@@ -1,6 +1,6 @@
 Package: leafblower
 Title: High-Performance Bounded Survey Weight Calibration
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: person("Dennis Alexis Valin", "Dittrich",
     email = "davdittrich@gmail.com", role = c("aut", "cre"))
 Author: Dennis Alexis Valin Dittrich [aut, cre]
