@@ -130,7 +130,7 @@ SC1/KPI-05's "0 errors, 0 warnings" claim is now durable: it comes from a check 
 
 ## Self-Check: PASSED
 
-All 3 modified files confirmed present on disk (`DESCRIPTION`, `.github/workflows/r-check.yml`, `cran-comments.md`); all 3 commits (`8e28df1`, `790341e`, `cbecdab`) confirmed present in `git log --oneline`.
+All 4 files confirmed present on disk (`DESCRIPTION`, `.github/workflows/r-check.yml`, `cran-comments.md`, `05-09-SUMMARY.md`); all 4 commits (`8e28df1` fix, `790341e` fix, `cbecdab` docs, `b5eed9a` docs summary) confirmed present in `git log --oneline --all`.
 
 ---
 *Phase: 05-cran-pypi-release*
