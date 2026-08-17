@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      _R_CHECK_FORCE_SUGGESTS_: false
     steps:
       - uses: actions/checkout@v4
 
@@ -21,7 +20,6 @@ jobs:
         with:
           extra-packages: any::rcmdcheck, any::testthat
           needs: check
-          dependencies: '"hard"'
           install-pandoc: false
 
       - name: Tarball hygiene guard
