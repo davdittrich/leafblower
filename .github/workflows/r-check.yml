@@ -6,7 +6,14 @@ on:
 
 jobs:
   r-check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
