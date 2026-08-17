@@ -299,8 +299,8 @@ this account (a GitHub-side Intel-macOS-runner phase-out, not a package defect);
 macOS wheel coverage remains unproven by CI, a residual honestly recorded rather than
 silently folded into a blanket "macOS: done" claim. SC2 and SC5 were already closed locally
 in 05-01/05-02 and re-confirmed unchanged.
-**Plans:** 7 plans (SC1-5 closed by 05-01..05-05; SC6-7 planned in 05-06/05-07, not yet
-executed)
+**Plans:** 10 plans (SC1-5 closed by 05-01..05-05; SC6-7 by 05-06/05-07; 05-VERIFICATION.md
+found SC1 FAILED and SC6 PARTIAL, closed by gap-closure plans 05-08..05-10)
 
 Plans:
 
@@ -309,8 +309,11 @@ Plans:
 - [x] 05-03-PLAN.md — R CI: .github/workflows/r-check.yml operationalizing the proven local check + hygiene guard (SC1, SC2, D-02)
 - [x] 05-04-PLAN.md — Python wheel CI: cibuildwheel matrix config + local build/repair/import proof across Python 3.9-3.13 (SC3, SC4, D-02)
 - [x] 05-05-PLAN.md — Phase gate: full local DoD gate, combined re-verification, human sign-off on scope closure
-- [ ] 05-06-PLAN.md — r-universe registration (packages.json entry) + Rd2pdf pre-flight + clean-R-session install proof from the live feed (SC6, D-07/D-08, `leafblower-bl7g`)
-- [ ] 05-07-PLAN.md — PyPI Trusted Publishing: `pypi` environment + `build-sdist`/`publish-to-pypi` jobs, human pending-publisher checkpoint, `v0.1.0` tag-publish + clean-env install proof (SC7, D-09/D-10/D-11, `leafblower-ej1n`)
+- [x] 05-06-PLAN.md — r-universe registration (packages.json entry) + Rd2pdf pre-flight + clean-R-session install proof from the live feed (SC6, D-07/D-08, `leafblower-bl7g`)
+- [x] 05-07-PLAN.md — PyPI Trusted Publishing: `pypi` environment + `build-sdist`/`publish-to-pypi` jobs, human pending-publisher checkpoint, `v0.1.0` tag-publish + clean-env install proof (SC7, D-09/D-10/D-11, `leafblower-ej1n`)
+- [ ] 05-08-PLAN.md — Gap closure (SC1/KPI-05 root cause): the Eq-3.5 calibration design matrix omits the constant column, so `design_effect()` returns an inflated deff_H (8.293 vs 0.198) — fix the C++ core, rebuild the PracTools oracle on primitives defined at var(w)=0, pin the deff_H <= deff_K invariant (`leafblower-xfz4`)
+- [ ] 05-09-PLAN.md — Gap closure (SC1/KPI-05 durability, D-06): drop the unresolvable `autumn` Suggests entry, delete the two r-check.yml lines that skipped all Suggests, prove on real CI that the previously-skipped tests execute, restate cran-comments.md (`leafblower-xfz4`)
+- [ ] 05-10-PLAN.md — Gap closure (SC6 Windows): add a windows-latest check job that first reproduces the missing-`lbw_config.h` compile failure, then a `configure.win` that generates the header + Makevars.win under Rtools; confirm on r-universe's Windows farm (`leafblower-sc9t`)
 
 ### Phase 6: Vignettes + Performance Comparisons
 
