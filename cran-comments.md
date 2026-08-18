@@ -50,6 +50,42 @@ uninstalled package).
   `setup-r-dependencies` step now resolves and installs every declared
   Suggests package -- see "Suggests availability correction" above),
   TinyTeX-built PDF manual: **0 errors, 0 warnings, 2 NOTEs**.
+* R 4.6.1, x86_64-w64-mingw32 (Windows Server, GitHub Actions
+  `windows-latest`, Rtools45), real CI run of
+  `.github/workflows/r-check.yml`, run 32082804108
+  (https://github.com/davdittrich/leafblower/actions/runs/32082804108),
+  full Suggests set installed, `configure.win` generating
+  `src/lbw_config.h`/`src/Makevars.win`: package compiles, links, and the
+  full testthat suite passes (previously this failed to compile at all --
+  `lbw_config.h: No such file or directory`, leafblower-sc9t, now closed).
+  **1 warning, 2 NOTEs** -- not a clean run: `checking PDF version of
+  manual ... WARNING` (the with-index LaTeX pass; the without-index retry
+  succeeds and produces a valid PDF). This warning is a TinyTeX-on-Windows
+  packaging gap unrelated to `configure.win` or the compile path, tracked
+  separately on leafblower-fxyj -- not resolved by this change and not
+  claimed as resolved here. arm64 Windows is not covered by this runner
+  (GitHub-hosted `windows-latest` is x86_64 only); see r-universe's own
+  build farm results below for arm64 coverage.
+* r-universe's own multi-platform build farm
+  (https://davdittrich.r-universe.dev/api/packages/leafblower), build
+  https://github.com/r-universe/davdittrich/actions/runs/32082532844,
+  commit `43894c8` (the `configure.win` fix plus both tlmgr-invocation
+  fixes; the tlmgr-lookup-path hardening in the final 05-10 commit
+  `6a312ce` only touches this repository's own `windows-latest` GitHub
+  Actions job, not anything r-universe's build farm runs, so this result
+  fully covers it). Every `_jobs` entry checked individually, not the
+  aggregate `_status` field (05-06's mistake, per 05-VERIFICATION.md):
+  **all 5 Windows configs are `OK`** -- `windows-devel-arm64`,
+  `windows-devel-x86_64`, `windows-oldrel-x86_64`, `windows-release-arm64`,
+  `windows-release-x86_64`. This is the only oracle available for arm64
+  Windows (GitHub-hosted `windows-latest` is x86_64 only). All 4 Linux and
+  4 macOS configs plus `source` are also `OK` on this build (the PracTools
+  `deffH` NaN mismatch 05-VERIFICATION.md found on r-universe's Linux/macOS
+  jobs is not reproduced here; that gap is tracked separately and is
+  outside 05-10's scope, unchanged by this plan). `wasm-release` is the
+  sole remaining `FAIL` -- a separate Emscripten toolchain this plan does
+  not touch, filed as leafblower-soci rather than implied fixed by the
+  green Windows result.
 * Python 3.9-3.13 wheel matrix (GitHub Actions `ubuntu-latest` +
   `macos-14`/arm64, `.github/workflows/python-wheels.yml`): wheels build,
   pass `twine check`, and import + calibrate cleanly on all 5 versions on
